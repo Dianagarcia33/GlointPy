@@ -1,27 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  /* Brand Colors - Premium Investment Gold */
-  --primary-color: #D4AF37; /* Classic Metallic Gold */
-  --secondary-color: #AA771C; /* Deep Gold */
-  --accent-color: #8C6216; /* Bronze Gold */
-  --primary-glow: rgba(212, 175, 55, 0.3);
+  /* Brand Colors */
+  --primary-color: #f97316; /* brand-500 */
+  --secondary-color: #fbbf24; /* brand-400 */
+  --accent-color: #ea580c; /* brand-600 */
+  --primary-glow: rgba(249, 115, 22, 0.4);
   
-  /* Background Colors - Mixed Theme */
-  --bg-base: #f1f5f9; /* Slate 100 */
-  --bg-surface: #ffffff; /* White */
-  --bg-surface-glass: rgba(255, 255, 255, 0.7);
-  --bg-dark: #0f172a; /* Slate 900 for dark sections */
-  --bg-dark-surface: #1e293b; /* Slate 800 */
+  /* Background Colors */
+  --bg-base: #f1f5f9; /* surface-bg slate-100 */
+  --bg-surface: #fff7ed; /* brand-50 */
+  --bg-surface-glass: rgba(255, 247, 237, 0.8);
+  --bg-dark: #0f172a; /* Para contrastes oscuros si se necesitan */
+  --bg-dark-surface: #1e293b;
   
   /* Text Colors */
   --text-primary: #0f172a; /* Slate 900 */
   --text-secondary: #475569; /* Slate 600 */
-  --text-inverse: #ffffff; /* Light text for dark sections */
+  --text-inverse: #ffffff;
   
   /* Utilities */
   --border-radius: 16px;
   --transition-speed: 0.3s;
+  --border-color: #e5e7eb; /* surface-border */
 }
 
 * {
