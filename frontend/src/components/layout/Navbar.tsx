@@ -191,22 +191,18 @@ export const Navbar: React.FC = () => {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                {!isLoginPage && (
                   <Link
                     to="/login"
                     className="px-4 py-2 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl border border-white/5 hover:border-brand-500/30 transition-all duration-300"
                   >
                     INICIAR SESIÓN
                   </Link>
-                )}
-                {!isRegisterPage && (
                   <Link
                     to="/register"
                     className="px-4 py-2 text-sm font-bold bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl shadow-sm hover:shadow-md hover:shadow-brand-500/20 transition-all duration-300 active:scale-[0.98]"
                   >
                     REGISTRARSE
                   </Link>
-                )}
               </div>
             )}
           </div>
@@ -288,16 +284,12 @@ export const Navbar: React.FC = () => {
                 </>
               ) : (
                 <div className="space-y-2">
-                  {!isLoginPage && (
-                    <Link to="/login" className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl font-bold text-sm shadow-sm" onClick={() => setMenuOpen(false)}>
-                      INICIAR SESIÓN
-                    </Link>
-                  )}
-                  {!isRegisterPage && (
-                    <Link to="/register" className="flex items-center justify-center px-4 py-3 border border-brand-500/50 text-brand-400 hover:bg-brand-500/10 rounded-xl font-bold text-sm transition-all" onClick={() => setMenuOpen(false)}>
-                      REGISTRARSE
-                    </Link>
-                  )}
+                  <Link to="/login" className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl font-bold text-sm shadow-sm" onClick={() => setMenuOpen(false)}>
+                    INICIAR SESIÓN
+                  </Link>
+                  <Link to="/register" className="flex items-center justify-center px-4 py-3 border border-brand-500/50 text-brand-400 hover:bg-brand-500/10 rounded-xl font-bold text-sm transition-all" onClick={() => setMenuOpen(false)}>
+                    REGISTRARSE
+                  </Link>
                 </div>
               )}
             </div>

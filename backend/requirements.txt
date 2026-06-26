@@ -10,3 +10,6 @@ python-multipart
 boto3
 pytest
 httpx
+aiomysql
+python-dotenv
+greenlet

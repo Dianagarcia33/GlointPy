@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Estado simulado temporal para que puedas ver el menú de usuario.
-  const [user, setUser] = useState<User | null>({ name: 'Diana Garcia', email: 'diana@gloint.com.co' });
+  const [user, setUser] = useState<User | null>(null);
 
   const logout = async () => {
     setUser(null);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { HeroBanner } from './HeroBanner';
-import { ServicesList } from './ServicesList';
-import { WhyChooseUs } from './WhyChooseUs';
+import { MainServices } from './MainServices';
+import { WhyGloint } from './WhyGloint';
 import { PromoModal } from './PromoModal';
 import './landing.css';
 import { Navbar } from '../../../components/layout/Navbar';
@@ -13,8 +13,8 @@ export function LandingPage() {
       <Navbar />
       <main>
         <HeroBanner />
-        <ServicesList />
-        <WhyChooseUs />
+        <MainServices />
+        <WhyGloint />
       </main>
       <Footer />
       <PromoModal />
