@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: 
+      context: ./frontend
+      args:
+        # Permitimos inyectar si estamos en mantenimiento o no
+        - VITE_MAINTENANCE_MODE=${MAINTENANCE_MODE:-false}
+    ports:
+      # Exponemos en el puerto que el servidor VPS decida (3000 prod, 3001 staging)
+      - "${FRONTEND_PORT:-3000}:80"
+    restart: unless-stopped
+    networks:
+      - gloint_network
+
+  backend:
+    build: 
+      context: ./backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./gloint.db
+      # Aquí inyectaremos después credenciales de MySQL
+    restart: unless-stopped
+    networks:
+      - gloint_network
+
+networks:
+  gloint_network:
+    driver: bridge
