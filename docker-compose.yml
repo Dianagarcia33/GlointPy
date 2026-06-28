@@ -1,8 +1,8 @@
-version: '3.8'
+version: "3.8"
 
 services:
   frontend:
-    build: 
+    build:
       context: ./frontend
       args:
         # Permitimos inyectar si estamos en mantenimiento o no
@@ -19,6 +19,8 @@ services:
       context: ./backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - ./backend/.env
     environment:
       - DATABASE_URL=sqlite:///./gloint.db
       # Aquí inyectaremos después credenciales de MySQL
