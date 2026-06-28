@@ -6,6 +6,7 @@ pydantic[email]
 pydantic-settings
 python-jose[cryptography]
 passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
 PyJWT==2.8.0
 python-multipart==0.0.9
 boto3
