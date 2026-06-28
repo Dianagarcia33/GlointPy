@@ -1,8 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
-// Rutas a las imágenes en la carpeta public/ (donde las pegaste)
 const creditcard = "/creditcard.png";
 const consultoriaAvanzada = "/consultoriaAvanzada.png";
 const cursosYAlianzas = "/cursosYAlianzas.png";
@@ -12,127 +11,138 @@ const services = [
   {
     image: creditcard,
     tag: "Fintech",
+    number: "01",
     title: "Liquidez Rápida para E-Commerce",
-    description:
-      "Recibe capital en minutos. Adelantamos tus fondos digitales a dinero real para que mantengas tu negocio en movimiento sin esperas.",
+    description: "Recibe capital en minutos. Adelantamos tus fondos digitales a dinero real para que mantengas tu negocio en movimiento sin esperas.",
     link: "/servicios/cashback-logistico",
-    iconBg: "bg-brand-50 border-brand-100",
+    highlight: true,
   },
   {
     image: consultoriaAvanzada,
     tag: "Estrategia",
+    number: "02",
     title: "Consultoría Avanzada",
-    description:
-      "Potencializamos tu negocio desde adentro: procesos, estrategia, rentabilidad y estructura para escalar de forma sólida.",
+    description: "Potencializamos tu negocio desde adentro: procesos, estrategia y rentabilidad para escalar de forma sólida.",
     link: "/servicios/factoring-logistico",
-    iconBg: "bg-brand-50 border-brand-100",
+    highlight: false,
   },
   {
     image: cursosYAlianzas,
     tag: "Educación",
+    number: "03",
     title: "Cursos y Alianzas",
-    description:
-      "Formación especializada, acceso a mentores, networking y convenios con aliados clave para tu crecimiento empresarial.",
+    description: "Formación especializada y acceso a mentores clave del mundo empresarial y financiero.",
     link: "/",
-    iconBg: "bg-brand-50 border-brand-100",
+    highlight: false,
   },
   {
     image: programaInvestment,
     tag: "Inversión",
+    number: "04",
     title: "Programa Investment",
-    description:
-      "Invierte desde $50.000 hasta $50 millones y participa en el crecimiento de programas con gran potencial. Adquiere paquetes de acciones comercializables.",
+    description: "Invierte y participa en el crecimiento de programas con gran potencial de rentabilidad.",
     link: "/",
-    iconBg: "bg-brand-50 border-brand-100",
+    highlight: false,
   },
 ];
 
 export const MainServices: React.FC = () => {
   return (
-    <section className="relative bg-white py-24 px-4 overflow-hidden">
-      {/* Subtle background accent */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-brand-50 rounded-full blur-[120px] opacity-60 -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-brand-50 rounded-full blur-[140px] opacity-50 translate-y-1/2 -translate-x-1/4" />
-      </div>
-
-      <div className="relative max-w-6xl mx-auto">
-        {/* Section Header */}
-        <div className="text-center mb-14">
-          <span className="inline-block px-4 py-1.5 bg-brand-50 border border-brand-200 rounded-full text-brand-600 text-xs font-bold uppercase tracking-widest mb-4">
-            Lo que ofrecemos
-          </span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 mb-4 leading-tight">
-            Nuestros Servicios{" "}
-            <span className="bg-gradient-to-r from-brand-500 to-brand-600 bg-clip-text text-transparent">
-              Principales
-            </span>
-          </h2>
-          <p className="text-slate-500 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-            Soluciones financieras y empresariales diseñadas para impulsar tu
-            crecimiento con rapidez y seguridad.
+    <section className="bg-slate-50 py-28 px-4 font-inter">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* Header - Clean & Structured */}
+        <div className="mb-16 md:flex justify-between items-end gap-8">
+          <div className="max-w-2xl">
+            <span className="text-brand-500 text-sm font-bold uppercase tracking-widest mb-4 block">Nuestras Soluciones</span>
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 font-montserrat tracking-tight leading-[1.1]">
+              Nuestros Servicios <span className="text-brand-500">Principales</span>
+            </h2>
+          </div>
+          <p className="text-slate-500 text-lg md:text-xl leading-relaxed max-w-sm mt-6 md:mt-0">
+            Soluciones financieras y empresariales diseñadas para impulsar tu crecimiento con rapidez y seguridad.
           </p>
         </div>
 
-        {/* Services Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {services.map((service, index) => (
-            <Link
-              key={index}
-              to={service.link}
-              className="group relative bg-white border border-slate-200 rounded-2xl p-6 md:p-8 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/10 transition-all duration-400 overflow-hidden flex gap-6 items-center"
-            >
-              {/* Subtle hover fill */}
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-50/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl pointer-events-none" />
+        {/* Bento Grid - Light Mode */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          
+          {/* Main Card (Left) */}
+          <Link
+            to={services[0].link}
+            className="group md:col-span-7 bg-white rounded-3xl border border-slate-200 p-10 flex flex-col justify-between min-h-[420px] hover:border-brand-500/50 hover:shadow-xl transition-all duration-300 relative overflow-hidden"
+          >
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex justify-between items-start mb-auto">
+                <span className="px-4 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-widest rounded-lg">
+                  {services[0].tag}
+                </span>
+                <span className="text-slate-200 font-black text-5xl font-montserrat">
+                  {services[0].number}
+                </span>
+              </div>
 
-              {/* Image container */}
-              <div className="relative flex-shrink-0">
-                <div className={`w-16 h-16 md:w-20 md:h-20 ${service.iconBg} border rounded-2xl flex items-center justify-center overflow-hidden p-3 transition-all duration-300 group-hover:shadow-sm group-hover:scale-105`}>
-                  <img
-                    src={service.image}
-                    alt={service.title}
-                    className="w-full h-full object-contain"
-                  />
+              <div className="mt-12">
+                <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center p-3 mb-8 group-hover:scale-105 transition-transform duration-300">
+                  <img src={services[0].image} alt="" className="w-full h-full object-contain" />
                 </div>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0 relative">
-                <span className="inline-block px-2.5 py-0.5 bg-brand-50 border border-brand-200 text-brand-600 text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
-                  {service.tag}
-                </span>
-                <h3 className="text-slate-900 font-bold text-lg md:text-xl mb-2 leading-tight group-hover:text-brand-600 transition-colors duration-300">
-                  {service.title}
+                <h3 className="text-slate-900 font-extrabold text-3xl md:text-4xl font-montserrat mb-4 tracking-tight group-hover:text-brand-600 transition-colors">
+                  {services[0].title}
                 </h3>
-                <p className="text-slate-500 text-sm leading-relaxed mb-4">
-                  {service.description}
+                <p className="text-slate-600 text-lg leading-relaxed max-w-lg">
+                  {services[0].description}
                 </p>
-                <span className="inline-flex items-center gap-1.5 text-brand-500 text-sm font-semibold opacity-0 group-hover:opacity-100 -translate-y-1 group-hover:translate-y-0 transition-all duration-300">
-                  Conoce más
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-                </span>
               </div>
+            </div>
+            
+            <div className="absolute right-8 bottom-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div className="w-10 h-10 rounded-full bg-brand-500 flex items-center justify-center text-white">
+                <ArrowUpRight className="w-5 h-5" />
+              </div>
+            </div>
+          </Link>
 
-              {/* Watermark number */}
-              <div className="absolute top-4 right-6 text-6xl font-black text-slate-100 select-none group-hover:text-brand-100 transition-colors duration-500">
-                {String(index + 1).padStart(2, '0')}
-              </div>
-            </Link>
-          ))}
+          {/* Side Cards (Right Stack) */}
+          <div className="md:col-span-5 flex flex-col gap-6">
+            {services.slice(1).map((s) => (
+              <Link
+                key={s.number}
+                to={s.link}
+                className="group bg-white rounded-2xl border border-slate-200 p-6 flex gap-5 items-start hover:border-brand-300 hover:shadow-lg transition-all duration-300"
+              >
+                <div className="w-14 h-14 flex-shrink-0 bg-slate-50 rounded-xl flex items-center justify-center p-3 group-hover:bg-brand-50 transition-colors">
+                  <img src={s.image} alt={s.title} className="w-full h-full object-contain" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-500 text-[11px] font-bold uppercase tracking-widest">{s.tag}</span>
+                    <span className="text-slate-200 font-black text-xl font-montserrat">{s.number}</span>
+                  </div>
+                  <h3 className="text-slate-900 font-bold text-xl font-montserrat mb-2 group-hover:text-brand-600 transition-colors tracking-tight">
+                    {s.title}
+                  </h3>
+                  <p className="text-slate-600 text-sm leading-relaxed">
+                    {s.description}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+
         </div>
 
-        {/* Bottom CTA */}
-        <div className="mt-14 text-center">
-          <p className="text-slate-400 text-sm mb-4">¿Listo para dar el siguiente paso?</p>
+        {/* Action Footer */}
+        <div className="mt-16 flex flex-col md:flex-row items-center justify-between pt-8 border-t border-slate-200 gap-6">
+          <p className="text-slate-600 font-medium">¿Tu empresa ya está lista para el siguiente nivel?</p>
           <Link
             to="/contact"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white font-bold rounded-xl shadow-sm hover:shadow-md hover:shadow-brand-500/20 transition-all duration-300 active:scale-[0.98]"
+            className="inline-flex items-center gap-2 px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl transition-colors shadow-sm"
           >
             Habla con un asesor
-            <ChevronRight className="w-4 h-4" />
+            <ArrowUpRight className="w-4 h-4" />
           </Link>
         </div>
+
       </div>
     </section>
   );
