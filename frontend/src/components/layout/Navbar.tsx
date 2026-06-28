@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useAuthStore } from "../../store/authStore";
 import { ChevronDown, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 
 // TODO: Asegúrate de tener un logo en la carpeta public
@@ -13,7 +13,8 @@ export const Navbar: React.FC = () => {
   const [serviciosMobileOpen, setServiciosMobileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
   
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
