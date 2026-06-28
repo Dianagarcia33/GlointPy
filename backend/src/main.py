@@ -13,7 +13,12 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173",
+        "https://pruebas.gloint.com.co",
+        "https://gloint.com.co"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
