@@ -8,7 +8,7 @@ export const useInactivityTimer = () => {
     const logout = useAuthStore((state) => state.logout);
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const navigate = useNavigate();
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const resetTimer = () => {
         if (timeoutRef.current) {
