@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # Entorno
     ENVIRONMENT: str = "development"
+    SECRET_KEY: str = "super_secret_key_change_me_in_production"
+    ALGORITHM: str = "HS256"
     
     # Base de Datos
     DB_HOST: str

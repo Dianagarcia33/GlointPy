@@ -4,7 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from src.core.database import get_db
 
+from src.api.v1.endpoints import auth
+
 app = FastAPI(title="Gloint V2 API")
+
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
 app.add_middleware(

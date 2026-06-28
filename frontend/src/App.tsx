@@ -1,13 +1,43 @@
 import React from 'react';
-import { LandingPage } from "./features/landing/components/LandingPage"
-import { MaintenancePage } from "./features/maintenance/components/MaintenancePage"
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { LandingPage } from "./features/landing/components/LandingPage";
+import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
+import { LoginPage } from "./features/auth/pages/LoginPage";
+import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
+import { useInactivityTimer } from "./hooks/useInactivityTimer";
+import { useAuthStore } from "./store/authStore";
+
+// Componente para proteger rutas (si no está logueado, lo manda al login)
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+};
 
 function App() {
+  // Inicializamos el "Perro Guardián" de inactividad
+  useInactivityTimer();
+
+  // Lógica de mantenimiento
+  const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
+  if (isMaintenanceMode) return <MaintenancePage />;
+
   return (
-    <>
-      <LandingPage />
-    </>
-  )
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      {/* Redirección por defecto si la ruta no existe */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default App;
