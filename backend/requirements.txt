@@ -2,7 +2,7 @@ fastapi
 uvicorn[standard]
 sqlalchemy==2.0.29
 alembic
-pydantic
+pydantic[email]
 pydantic-settings
 python-jose[cryptography]
 passlib[bcrypt]==1.7.4
