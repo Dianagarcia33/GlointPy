@@ -20,7 +20,12 @@ export const Navbar: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      walletService.getMyBalance().then((res) => setBalance(res.balance)).catch(console.error);
+      walletService.getMyBalance()
+        .then((res) => setBalance(res.balance))
+        .catch((e) => {
+          console.error(e);
+          setBalance(0); // Mostrar 0 por defecto como pidió el usuario
+        });
     }
   }, [isAuthenticated]);
 
