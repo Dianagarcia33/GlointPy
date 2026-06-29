@@ -105,18 +105,22 @@ async def login(
         samesite="lax",
         max_age=7200,    # 2 horas
     )
-    
+    from src.schemas.auth_schema import UserResponse
+    user_response = None
+    if user:
+        user_response = UserResponse(
+            id=user.id,
+            name=user.name,
+            email=user.email,
+            is_active=user.is_active,
+            roles_list=getattr(user, "roles_list", []),
+            permissions=getattr(user, "permissions", [])
+        )
+        
     return {
         "access_token": access_token, 
         "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "is_active": user.is_active,
-            "roles_list": getattr(user, 'roles_list', []),
-            "permissions": getattr(user, 'permissions', [])
-        }
+        "user": user_response
     }
 
 @router.post("/logout")
