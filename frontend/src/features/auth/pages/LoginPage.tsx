@@ -49,7 +49,7 @@ export const LoginPage = () => {
         >
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">Correo Electrónico</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
                     <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                             <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
@@ -58,7 +58,7 @@ export const LoginPage = () => {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="block w-full pl-12 pr-4 py-3.5 bg-white/50 hover:bg-white/80 border border-slate-200/60 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
+                            className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
                             placeholder="nombre@empresa.com"
                             required
                         />
@@ -67,8 +67,8 @@ export const LoginPage = () => {
 
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-semibold text-slate-700">Contraseña</label>
-                        <a href="#" className="text-xs font-medium text-brand-500 hover:text-brand-600 transition-colors">
+                        <label className="block text-sm font-bold text-slate-700">Contraseña</label>
+                        <a href="#" className="text-xs font-semibold text-brand-500 hover:text-brand-600 transition-colors">
                             ¿Olvidaste tu contraseña?
                         </a>
                     </div>
@@ -80,7 +80,7 @@ export const LoginPage = () => {
                             type={showPassword ? "text" : "password"}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="block w-full pl-12 pr-12 py-3.5 bg-white/50 hover:bg-white/80 border border-slate-200/60 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm"
+                            className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
                             placeholder="••••••••"
                             required
                         />
@@ -104,7 +104,7 @@ export const LoginPage = () => {
                 <button
                     type="submit"
                     disabled={loginMutation.isPending}
-                    className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-glass hover:shadow-glow-brand text-base font-semibold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-6 active:scale-[0.98]"
+                    className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
                 >
                     {loginMutation.isPending ? (
                         <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />

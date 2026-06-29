@@ -26,59 +26,54 @@ export const HeroBanner: React.FC = () => {
   }, []);
 
   return (
-    <div className="banner-section relative w-full min-h-screen max-w-full overflow-hidden flex flex-col justify-center bg-slate-50">
+    <div className="banner-section relative w-full min-h-screen max-w-full overflow-hidden flex flex-col justify-center bg-slate-950">
       
-      {/* Background with abstract elegant shapes instead of heavy video, or super light video */}
+      {/* Video background */}
       <video
         src="/banner.mp4"
         autoPlay
         loop
         muted
         playsInline
-        className="absolute top-0 left-0 w-full h-full object-cover block opacity-10 mix-blend-luminosity grayscale"
+        className="absolute top-0 left-0 w-full h-full object-cover block opacity-40 mix-blend-luminosity"
       />
 
-      {/* Clean Light Overlay for readability */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-50/90 to-white/95 z-10" />
-
-      {/* Elegant blurs */}
-      <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] rounded-full bg-brand-500/5 blur-[120px] z-10" />
+      {/* Clean Solid Overlay for readability */}
+      <div className="absolute inset-0 bg-slate-900/60 z-10" />
 
       {/* Main content - Minimal & Structured */}
       <div className="relative z-20 w-full max-w-5xl mx-auto px-4 md:px-8 mt-16 text-center">
         
-        {/* Massive Typography - Light Theme */}
-        <h1 className="text-5xl md:text-7xl lg:text-[5rem] font-extrabold font-montserrat text-slate-900 leading-[1.1] tracking-tight mb-8 animate-fadeInScale">
+        {/* Massive Typography */}
+        <h1 className="text-5xl md:text-7xl lg:text-[5rem] font-extrabold font-montserrat text-white leading-[1.1] tracking-tight mb-8">
           {displayText}
           <span className="text-brand-500 animate-pulse font-light ml-1">|</span>
         </h1>
 
         {/* Clean Subtitle */}
-        <p className="text-slate-600 text-lg md:text-2xl font-light font-inter mb-12 max-w-3xl mx-auto leading-relaxed animate-slideUp" style={{ animationDelay: '0.2s' }}>
+        <p className="text-slate-300 text-lg md:text-2xl font-light font-inter mb-12 max-w-3xl mx-auto leading-relaxed">
           Convierte tus ventas en dinero real sin ciclos de desembolso, optimiza el flujo de caja de tu emprendimiento al 100%.
         </p>
 
         {/* Solid Functional CTA */}
-        <div className="flex justify-center mb-16 animate-slideUp" style={{ animationDelay: '0.4s' }}>
+        <div className="flex justify-center mb-16">
           <Link
             to="/register"
-            className="group inline-flex items-center gap-3 px-10 py-4 bg-brand-500 hover:bg-brand-600 text-white font-bold text-lg rounded-xl shadow-glass hover:shadow-glow-brand transition-all duration-300 active:scale-[0.98]"
+            className="group inline-flex items-center gap-3 px-10 py-4 bg-brand-500 hover:bg-brand-600 text-white font-bold text-lg rounded-xl shadow-sm transition-all duration-200 active:scale-[0.98]"
           >
             Regístrate hoy
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
           </Link>
         </div>
 
-        {/* Structured Trust Strip (Light Glassmorphism) */}
-        <div className="inline-flex flex-col sm:flex-row items-center bg-white/70 backdrop-blur-xl border border-slate-200 shadow-sm rounded-2xl overflow-hidden animate-slideUp" style={{ animationDelay: '0.6s' }}>
+        {/* Structured Trust Strip (No glows, just clean borders) */}
+        <div className="inline-flex flex-col sm:flex-row items-center bg-white/10 backdrop-blur-md border border-white/20 rounded-xl overflow-hidden">
           {trustItems.map((item, i) => {
             const Icon = item.icon;
             return (
-              <div key={i} className={`flex items-center gap-3 px-6 py-4 ${i < trustItems.length - 1 ? 'border-b sm:border-b-0 sm:border-r border-slate-200' : ''}`}>
-                <div className="p-2 bg-brand-50 rounded-lg">
-                  <Icon className="w-5 h-5 text-brand-500" />
-                </div>
-                <span className="text-slate-700 text-sm font-semibold tracking-wide font-inter">{item.label}</span>
+              <div key={i} className={`flex items-center gap-3 px-6 py-4 ${i < trustItems.length - 1 ? 'border-b sm:border-b-0 sm:border-r border-white/20' : ''}`}>
+                <Icon className="w-5 h-5 text-brand-400" />
+                <span className="text-white text-sm font-semibold tracking-wide font-inter">{item.label}</span>
               </div>
             );
           })}
@@ -87,7 +82,7 @@ export const HeroBanner: React.FC = () => {
 
       {/* Minimal Scroll Indicator */}
       <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center">
-        <div className="flex flex-col items-center gap-2 text-slate-400">
+        <div className="flex flex-col items-center gap-2 text-white/50">
           <span className="text-xs font-bold tracking-[0.2em] uppercase">Explorar</span>
           <ChevronDown className="w-5 h-5 animate-bounce" />
         </div>
