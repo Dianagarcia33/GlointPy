@@ -5,7 +5,7 @@ import { Sidebar } from './Sidebar';
 
 export const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-
+    return (
         <div className="min-h-screen bg-slate-950 flex flex-col relative font-inter text-white">
             {/* Full Screen Dark Video Background (Matches Home Page) */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 fixed">
