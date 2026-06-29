@@ -5,18 +5,13 @@ export const MaintenanceModal = () => {
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
-        // Mostrar el modal solo si no se ha cerrado en esta sesión
-        const hasSeenModal = sessionStorage.getItem('hasSeenMaintenanceModal');
-        if (!hasSeenModal) {
-            // Pequeño delay para que aparezca suavemente después de cargar
-            const timer = setTimeout(() => setIsOpen(true), 500);
-            return () => clearTimeout(timer);
-        }
+        // Mostrar siempre el modal al cargar el componente
+        const timer = setTimeout(() => setIsOpen(true), 500);
+        return () => clearTimeout(timer);
     }, []);
 
     const handleClose = () => {
         setIsOpen(false);
-        sessionStorage.setItem('hasSeenMaintenanceModal', 'true');
     };
 
     if (!isOpen) return null;
