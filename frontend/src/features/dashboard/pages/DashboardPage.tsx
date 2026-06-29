@@ -10,6 +10,7 @@ export const DashboardPage = () => {
     useEffect(() => {
         console.log("=== DATOS DE LA SESIÓN ACTUAL ===");
         console.log("Usuario:", user);
+        console.log("Roles:", user?.roles_list);
         console.log("Permisos:", user?.permissions);
         console.log("=================================");
     }, [user]);

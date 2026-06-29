@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     is_active: bool
+    roles_list: List[str] = []
     permissions: List[str] = []
 
     class Config:
