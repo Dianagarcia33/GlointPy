@@ -7,18 +7,8 @@ export const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     return (
         <div className="min-h-screen bg-slate-950 flex flex-col relative font-inter text-white">
-            {/* Full Screen Dark Video Background (Matches Home Page) */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 fixed">
-                <video
-                  src="/banner.mp4"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="absolute top-0 left-0 w-full h-full object-cover block opacity-40 mix-blend-luminosity"
-                />
-                <div className="absolute inset-0 bg-slate-900/80" />
-            </div>
+            {/* Clean Solid Background Canvas */}
+            <div className="absolute inset-0 bg-slate-950 z-0 fixed" />
 
             {/* Top Navigation */}
             <div className="relative z-50">
