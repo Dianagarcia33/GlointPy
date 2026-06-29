@@ -22,18 +22,8 @@ async def get_my_investments(
         
         # 1. Buscar si el usuario tiene perfiles de inversionista en la tabla investors
         investor_ids = []
-        
-        # Intentar buscar por user_id independientemente
-        try:
-            inv_res = await db.execute(text("SELECT id FROM investors WHERE user_id = :uid"), {"uid": current_user.id})
-            rows = inv_res.fetchall()
-            for row in rows:
-                if row[0] not in investor_ids:
-                    investor_ids.append(row[0])
-        except Exception:
-            pass
             
-        # Intentar buscar por id_user independientemente (SON DIFERENTES)
+        # Buscar por id_user (esta es la columna real del dueño del perfil, user_id es quien lo creó)
         try:
             inv_res = await db.execute(text("SELECT id FROM investors WHERE id_user = :uid"), {"uid": current_user.id})
             rows = inv_res.fetchall()
@@ -43,7 +33,7 @@ async def get_my_investments(
         except Exception:
             pass
                 
-        # Intentar buscar por correo independientemente
+        # Intentar buscar por correo como respaldo
         try:
             inv_res = await db.execute(text("SELECT id FROM investors WHERE email = :email"), {"email": current_user.email})
             rows = inv_res.fetchall()
@@ -53,10 +43,14 @@ async def get_my_investments(
         except Exception:
             pass
 
-        # 2. Buscar las inversiones donde sea el creador directo (user_id) O sea el beneficiario en sus perfiles (investor_id)
-        filters = [InvestmentRequest.user_id == current_user.id]
+        # 2. Buscar las inversiones donde sea el beneficiario (investor_id) o el creador directo si no tiene perfil
+        filters = []
         if investor_ids:
             filters.append(InvestmentRequest.investor_id.in_(investor_ids))
+            # También incluimos user_id por si alguna inversión vieja no tiene investor_id
+            filters.append(InvestmentRequest.user_id == current_user.id)
+        else:
+            filters.append(InvestmentRequest.user_id == current_user.id)
 
         result = await db.execute(
             select(InvestmentRequest)
