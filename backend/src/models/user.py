@@ -1,4 +1,5 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, Boolean, Text, JSON
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.core.database import Base
 
@@ -37,3 +38,6 @@ class User(Base):
     remember_token = Column(String(100), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
+
+    # Relaciones
+    roles = relationship("Role", secondary="user_roles", lazy="joined")
