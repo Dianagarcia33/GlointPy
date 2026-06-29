@@ -40,30 +40,27 @@ export const DashboardPage = () => {
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
-            {/* HEROCARD */}
-            <HeroCard 
-                userName={user?.name?.split(' ')[0] || ''}
-                totalPortfolio={totalPortafolio}
-                investedCapital={totalInvertido}
-                accumulatedProfit={totalRendimiento}
-                profitabilityPercent={rentabilidadGlobal}
-                dailyProfit={gananciaDiaria}
-            />
-
-            {/* KPIS Y ACCIONES */}
-            <DashboardKPIs 
-                investedCapital={totalInvertido}
-                currentValue={totalPortafolio}
-                accumulatedProfit={totalRendimiento}
-                acquiredShares={totalAcciones}
-            />
-
-            <QuickActions />
-
-            {/* GRÁFICO (Protegido por PBAC) */}
+            {/* TODO EL DASHBOARD ESTÁ PROTEGIDO POR PBAC */}
             <Can permission="ver_mis_inversiones">
+                {/* HEROCARD */}
+                <HeroCard 
+                    userName={user?.name?.split(' ')[0] || ''}
+                    totalPortfolio={totalPortafolio}
+                    investedCapital={totalInvertido}
+                    accumulatedProfit={totalRendimiento}
+                    profitabilityPercent={rentabilidadGlobal}
+                    dailyProfit={gananciaDiaria}
+                />
 
+                {/* KPIS Y ACCIONES */}
+                <DashboardKPIs 
+                    investedCapital={totalInvertido}
+                    currentValue={totalPortafolio}
+                    accumulatedProfit={totalRendimiento}
+                    acquiredShares={totalAcciones}
+                />
 
+                <QuickActions />
                 <div className="mb-10">
                     <h3 className="text-xl font-bold text-slate-900 tracking-tight font-montserrat mb-1">Tus Inversiones Activas</h3>
                     <p className="text-sm font-medium text-slate-500 mb-6">Gestiona y haz seguimiento detallado a tus contratos</p>
