@@ -1,10 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuthStore } from '../../../store/authStore';
 import { LogOut, TrendingUp } from 'lucide-react';
 import { Can } from '../../../components/security/Can';
 
 export const DashboardPage = () => {
     const { user, logout } = useAuthStore();
+    
+    // Log para depuración en la consola del navegador
+    useEffect(() => {
+        console.log("=== DATOS DE LA SESIÓN ACTUAL ===");
+        console.log("Usuario:", user);
+        console.log("Permisos:", user?.permissions);
+        console.log("=================================");
+    }, [user]);
     
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
