@@ -27,6 +27,10 @@ export const DashboardPage = () => {
             maximumFractionDigits: 0
         }).format(amount);
     };
+
+    const totalInvertido = investments.reduce((acc, inv) => acc + (inv.total_contrato || inv.monto || 0), 0);
+    const totalAcciones = investments.reduce((acc, inv) => acc + (inv.paquete?.acciones_otorgadas || 0), 0);
+    const totalRendimiento = investments.reduce((acc, inv) => acc + (inv.rendimiento_total_contrato || 0), 0);
     
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -47,8 +51,25 @@ export const DashboardPage = () => {
                             <div className="p-2 bg-indigo-100 rounded-lg">
                                 <TrendingUp className="w-6 h-6" />
                             </div>
-                            <h3 className="font-bold text-xl">Mis Inversiones Activas</h3>
+                            <h3 className="font-bold text-xl">Panel de Inversiones</h3>
                         </div>
+
+                        {!loading && investments.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm">
+                                    <p className="text-sm font-medium text-gray-500 mb-1">Capital Total Invertido</p>
+                                    <p className="text-2xl font-bold text-gray-800">{formatCurrency(totalInvertido)}</p>
+                                </div>
+                                <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm">
+                                    <p className="text-sm font-medium text-gray-500 mb-1">Total Acciones</p>
+                                    <p className="text-2xl font-bold text-gray-800">{totalAcciones} <span className="text-base font-normal text-gray-500">unds</span></p>
+                                </div>
+                                <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm">
+                                    <p className="text-sm font-medium text-gray-500 mb-1">Rendimiento Esperado</p>
+                                    <p className="text-2xl font-bold text-emerald-600">+{formatCurrency(totalRendimiento)}</p>
+                                </div>
+                            </div>
+                        )}
 
                         {loading ? (
                             <p className="text-indigo-600 animate-pulse">Cargando portafolio...</p>
@@ -69,14 +90,32 @@ export const DashboardPage = () => {
                                                 {inv.status === 'approved' ? 'Aprobado' : inv.status === 'pending' ? 'En Revisión' : 'Rechazado'}
                                             </span>
                                         </div>
-                                        <div className="space-y-2 mt-auto">
-                                            <div className="flex items-center text-sm text-gray-600">
-                                                <DollarSign className="w-4 h-4 mr-2 text-indigo-400" />
-                                                <span>Inversión: <span className="font-medium text-gray-800">{formatCurrency(inv.monto)}</span></span>
+                                        <div className="space-y-3 mt-auto pt-4 border-t border-gray-100">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-500 flex items-center"><DollarSign className="w-4 h-4 mr-1 text-indigo-400" /> Capital Invertido</span>
+                                                <span className="font-medium text-gray-800">{formatCurrency(inv.total_contrato || inv.monto)}</span>
                                             </div>
-                                            <div className="flex items-center text-sm text-gray-600">
-                                                <Activity className="w-4 h-4 mr-2 text-indigo-400" />
-                                                <span>Acciones: <span className="font-medium text-gray-800">{inv.paquete.acciones_otorgadas} unds</span></span>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-500 flex items-center"><Activity className="w-4 h-4 mr-1 text-indigo-400" /> Acciones Otorgadas</span>
+                                                <span className="font-medium text-gray-800">{inv.paquete?.acciones_otorgadas || 0} unds</span>
+                                            </div>
+                                            {inv.dias_contrato !== undefined && (
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-gray-500">Días de Contrato</span>
+                                                    <span className="font-medium text-gray-800">{inv.dias_contrato} días</span>
+                                                </div>
+                                            )}
+                                            {inv.liquidacion_diaria_rendimiento !== undefined && (
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-gray-500">Rendimiento Diario</span>
+                                                    <span className="font-medium text-emerald-600">+{formatCurrency(inv.liquidacion_diaria_rendimiento)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="mt-4 pt-4 border-t border-indigo-50">
+                                            <div className="flex justify-between items-center bg-indigo-50/50 p-3 rounded-lg">
+                                                <span className="text-sm font-semibold text-indigo-900">Rendimiento Total</span>
+                                                <span className="font-bold text-indigo-700">{formatCurrency(inv.rendimiento_total_contrato || 0)}</span>
                                             </div>
                                         </div>
                                     </div>

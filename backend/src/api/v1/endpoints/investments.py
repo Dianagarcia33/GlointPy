@@ -8,6 +8,7 @@ from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
 from src.models.investment import InvestmentRequest, PaqueteInversion
+from src.models.investor import Investor
 from src.schemas.investment_schema import InvestmentRequestResponse
 
 router = APIRouter()
@@ -18,40 +19,40 @@ async def get_my_investments(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        from sqlalchemy import text
+        # Usar ORM para traer inversiones activas (investors) asociadas al usuario actual
+        stmt = (
+            select(Investor)
+            .options(selectinload(Investor.paquete))
+            .where(Investor.user_id == current_user.id)
+            .order_by(Investor.created_at.desc())
+        )
         
-        # Buscar las inversiones del usuario directamente en la tabla investors (user_id = user.id)
-        investor_rows = (await db.execute(
-            text("""
-                SELECT i.id, i.user_id, i.total_contrato, i.rendimiento_total_contrato, 
-                       i.paquete_inversion_adquirido, i.acciones_otorgadas, i.created_at,
-                       p.paquete_accion_adquirido, p.acciones_otorgadas as pkg_acciones
-                FROM investors i
-                LEFT JOIN paquetes_inversion p ON i.paquete_inversion_adquirido = p.id
-                WHERE i.user_id = :uid
-                ORDER BY i.created_at DESC
-            """),
-            {"uid": current_user.id}
-        )).fetchall()
+        result = await db.execute(stmt)
+        investor_records = result.scalars().all()
 
         investments = []
-        for r in investor_rows:
-            total = float(r[2]) if r[2] else 0.0
-            rendimiento = float(r[3]) if r[3] else 0.0
+        for inv in investor_records:
+            total = float(inv.total_contrato) if inv.total_contrato else 0.0
+            rendimiento = float(inv.rendimiento_total_contrato) if inv.rendimiento_total_contrato else 0.0
             monto = total - rendimiento
             if monto <= 0:
                 monto = total
 
+            # Configurar los campos para el schema de respuesta
             investments.append({
-                "id": r[0],
-                "user_id": r[1],
+                "id": inv.id,
+                "user_id": inv.user_id,
                 "monto": monto,
-                "status": "approved",
-                "created_at": r[6],
+                "status": "approved", # Las inversiones de la tabla investors ya están aprobadas
+                "created_at": inv.created_at,
+                "total_contrato": inv.total_contrato,
+                "rendimiento_total_contrato": inv.rendimiento_total_contrato,
+                "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento,
+                "dias_contrato": inv.dias_contrato,
                 "paquete": {
-                    "id": r[4] if r[4] else 0,
-                    "paquete_accion_adquirido": r[7] if r[7] else f"Paquete {r[4]}",
-                    "acciones_otorgadas": r[5] if r[5] is not None else (r[8] if r[8] else 0)
+                    "id": inv.paquete_inversion_adquirido if inv.paquete_inversion_adquirido else 0,
+                    "paquete_accion_adquirido": inv.paquete.paquete_accion_adquirido if inv.paquete else f"Paquete {inv.paquete_inversion_adquirido}",
+                    "acciones_otorgadas": inv.acciones_otorgadas if inv.acciones_otorgadas is not None else (inv.paquete.acciones_otorgadas if inv.paquete else 0)
                 }
             })
 

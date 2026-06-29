@@ -19,5 +19,11 @@ class InvestmentRequestResponse(BaseModel):
     status: str
     created_at: datetime
     paquete: Optional[PaqueteInversionBase] = None
+    
+    # Rendimientos y Totales (para el Dashboard Avanzado)
+    total_contrato: Optional[Decimal] = None
+    rendimiento_total_contrato: Optional[Decimal] = None
+    liquidacion_diaria_rendimiento: Optional[Decimal] = None
+    dias_contrato: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)

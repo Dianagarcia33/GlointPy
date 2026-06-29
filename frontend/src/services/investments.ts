@@ -12,6 +12,13 @@ export interface Investment {
   monto: number;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+  
+  // Rendimientos y Totales (para el Dashboard Avanzado)
+  total_contrato?: number;
+  rendimiento_total_contrato?: number;
+  liquidacion_diaria_rendimiento?: number;
+  dias_contrato?: number;
+
   paquete: PaqueteInversion;
 }
 

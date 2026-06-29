@@ -44,4 +44,4 @@ class InvestmentRequest(Base):
     user = relationship("User", foreign_keys=[user_id], backref="investments")
     reviewer = relationship("User", foreign_keys=[reviewed_by])
     paquete = relationship("PaqueteInversion", backref="requests")
-    # investor = relationship("Investor") # Lo dejaremos comentado hasta que necesitemos el modelo Investor complejo
+    investor = relationship("Investor", foreign_keys=[investor_id], backref="requests")
