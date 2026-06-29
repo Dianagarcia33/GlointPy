@@ -1,15 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, Activity, ChevronRight } from 'lucide-react';
+import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
+import { walletService } from '../../features/dashboard/api/walletService';
 
 const logo = "/logo.png";
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [serviciosMenuOpen, setServiciosMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
   const location = useLocation();
   const serviciosMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const { isAuthenticated, user, logout } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      walletService.getMyBalance().then((res) => setBalance(res.balance)).catch(console.error);
+    }
+  }, [isAuthenticated]);
 
   // Es sólido si el usuario hizo scroll, o si la página NO tiene un encabezado oscuro
   const isDarkTopPage = ['/', '/login', '/register'].includes(location.pathname);
@@ -28,6 +41,9 @@ export const Navbar: React.FC = () => {
       if (serviciosMenuRef.current && !serviciosMenuRef.current.contains(event.target as Node)) {
         setServiciosMenuOpen(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -36,6 +52,7 @@ export const Navbar: React.FC = () => {
   useEffect(() => {
     setIsOpen(false);
     setServiciosMenuOpen(false);
+    setUserMenuOpen(false);
     window.scrollTo(0, 0);
   }, [location]);
 
@@ -107,18 +124,81 @@ export const Navbar: React.FC = () => {
 
           {/* Actions */}
           <div className="hidden md:flex items-center space-x-4 z-20">
-            <Link
-              to="/login"
-              className={`text-sm font-semibold transition-colors duration-200 ${isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
-            >
-              Iniciar sesión
-            </Link>
-            <Link
-              to="/register"
-              className="text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 px-6 py-2.5 rounded-lg shadow-sm hover:shadow transition-all duration-200 active:scale-[0.98]"
-            >
-              Crear Cuenta
-            </Link>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-4">
+                {/* Balance */}
+                {balance !== null && (
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors duration-200 ${
+                    isSolid 
+                      ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100' 
+                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                  }`}>
+                    <Wallet className="w-4 h-4" />
+                    <span className="font-bold text-sm">
+                      {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(balance)}
+                    </span>
+                  </div>
+                )}
+                
+                {/* User Dropdown */}
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-200 ${
+                      isSolid ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/10 text-white'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                      isSolid ? 'bg-brand-500 text-white' : 'bg-white text-brand-600'
+                    }`}>
+                      {user?.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-semibold text-sm max-w-[120px] truncate">{user?.name}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {userMenuOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+                      <div className="p-2">
+                        <Link
+                          to="/dashboard"
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-slate-50 text-slate-700 font-medium text-sm transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Activity className="w-4 h-4" />
+                          Dashboard
+                        </Link>
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            logout();
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg hover:bg-red-50 text-red-600 font-medium text-sm transition-colors text-left"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Cerrar sesión
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className={`text-sm font-semibold transition-colors duration-200 ${isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+                >
+                  Iniciar sesión
+                </Link>
+                <Link
+                  to="/register"
+                  className="text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 px-6 py-2.5 rounded-lg shadow-sm hover:shadow transition-all duration-200 active:scale-[0.98]"
+                >
+                  Crear Cuenta
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
