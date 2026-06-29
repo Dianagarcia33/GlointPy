@@ -28,9 +28,19 @@ async def login(
         user = result.scalars().first()
     except Exception as e:
         await db.rollback()
-        # Fallback de seguridad en caso de error de relaciones
-        result = await db.execute(select(User).where(User.email == request.email))
-        user = result.scalars().first()
+        # Fallback 1: Intentar cargar SOLO los roles (por si la tabla role_permissions no existe)
+        try:
+            result = await db.execute(
+                select(User)
+                .options(selectinload(User.roles))
+                .where(User.email == request.email)
+            )
+            user = result.scalars().first()
+        except Exception:
+            await db.rollback()
+            # Fallback 2: Cargar solo el usuario básico
+            result = await db.execute(select(User).where(User.email == request.email))
+            user = result.scalars().first()
     
     if user:
         from src.core.pbac import PBACEngine
