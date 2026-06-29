@@ -40,7 +40,7 @@ export const HeroCard: React.FC<HeroCardProps> = ({
                         </div>
                     </div>
                     
-                    <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-2">Valor Actual del Portafolio</p>
+                    <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-2">Valor Proyectado del Portafolio</p>
                     <div className="flex items-baseline gap-4 mb-8">
                         <h2 className="text-5xl md:text-6xl font-black font-montserrat tracking-tighter text-white drop-shadow-md">
                             {formatCurrency(totalPortfolio)}

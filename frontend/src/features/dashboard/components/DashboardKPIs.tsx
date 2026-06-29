@@ -59,7 +59,7 @@ export const DashboardKPIs = ({
                 icon={<Briefcase className="w-5 h-5" />} 
             />
             <KPICard 
-                title="Valor Actual" 
+                title="Valor Proyectado" 
                 value={formatCurrency(currentValue)} 
                 variationStr={variations?.current || "+12.4%"} 
                 isPositive={true} 
