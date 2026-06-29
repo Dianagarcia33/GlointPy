@@ -6,6 +6,7 @@ import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
+import { MaintenanceModal } from '../components/MaintenanceModal';
 
 export const DashboardPage = () => {
     const { user } = useAuthStore();
@@ -42,6 +43,7 @@ export const DashboardPage = () => {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
             {/* TODO EL DASHBOARD ESTÁ PROTEGIDO POR PBAC */}
             <Can permission="ver_mis_inversiones">
+                <MaintenanceModal />
                 {/* HEROCARD */}
                 <HeroCard 
                     userName={user?.name?.split(' ')[0] || ''}
