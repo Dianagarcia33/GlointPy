@@ -18,8 +18,19 @@ class PBACEngine:
             for role in user.roles:
                 try:
                     if hasattr(role, 'permissions') and role.permissions:
-                        for perm in role.permissions:
-                            permissions.add(perm.name)
+                        # role.permissions es ahora un JSON (lista de strings)
+                        if isinstance(role.permissions, list):
+                            for perm in role.permissions:
+                                permissions.add(perm)
+                        elif isinstance(role.permissions, str):
+                            import json
+                            try:
+                                parsed = json.loads(role.permissions)
+                                if isinstance(parsed, list):
+                                    for perm in parsed:
+                                        permissions.add(perm)
+                            except Exception:
+                                pass
                 except Exception:
                     pass
                         

@@ -22,7 +22,7 @@ async def login(
         from sqlalchemy.orm import selectinload
         result = await db.execute(
             select(User)
-            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .options(selectinload(User.roles))
             .where(User.email == request.email)
         )
         user = result.scalars().first()
