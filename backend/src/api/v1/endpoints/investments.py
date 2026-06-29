@@ -20,39 +20,42 @@ async def get_my_investments(
     try:
         from sqlalchemy import or_, text
         
-        # 1. Buscar si el usuario tiene un perfil de inversionista en la tabla investors
-        investor_id = None
+        # 1. Buscar si el usuario tiene uno (o varios) perfiles de inversionista en la tabla investors
+        investor_ids = []
         
         # Intentar buscar por user_id
         try:
-            inv_res = await db.execute(text("SELECT id FROM investors WHERE user_id = :uid LIMIT 1"), {"uid": current_user.id})
-            row = inv_res.fetchone()
-            investor_id = row[0] if row else None
+            inv_res = await db.execute(text("SELECT id FROM investors WHERE user_id = :uid"), {"uid": current_user.id})
+            rows = inv_res.fetchall()
+            if rows:
+                investor_ids.extend([row[0] for row in rows])
         except Exception:
             pass
             
         # Intentar buscar por id_user
-        if not investor_id:
+        if not investor_ids:
             try:
-                inv_res = await db.execute(text("SELECT id FROM investors WHERE id_user = :uid LIMIT 1"), {"uid": current_user.id})
-                row = inv_res.fetchone()
-                investor_id = row[0] if row else None
+                inv_res = await db.execute(text("SELECT id FROM investors WHERE id_user = :uid"), {"uid": current_user.id})
+                rows = inv_res.fetchall()
+                if rows:
+                    investor_ids.extend([row[0] for row in rows])
             except Exception:
                 pass
                 
         # Intentar buscar por correo
-        if not investor_id:
+        if not investor_ids:
             try:
-                inv_res = await db.execute(text("SELECT id FROM investors WHERE email = :email LIMIT 1"), {"email": current_user.email})
-                row = inv_res.fetchone()
-                investor_id = row[0] if row else None
+                inv_res = await db.execute(text("SELECT id FROM investors WHERE email = :email"), {"email": current_user.email})
+                rows = inv_res.fetchall()
+                if rows:
+                    investor_ids.extend([row[0] for row in rows])
             except Exception:
                 pass
 
-        # 2. Buscar las inversiones donde sea el creador directo (user_id) O sea el beneficiario (investor_id)
+        # 2. Buscar las inversiones donde sea el creador directo (user_id) O sea el beneficiario en sus perfiles (investor_id)
         filters = [InvestmentRequest.user_id == current_user.id]
-        if investor_id:
-            filters.append(InvestmentRequest.investor_id == investor_id)
+        if investor_ids:
+            filters.append(InvestmentRequest.investor_id.in_(investor_ids))
 
         result = await db.execute(
             select(InvestmentRequest)
