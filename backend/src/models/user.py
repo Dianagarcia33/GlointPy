@@ -3,9 +3,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.core.database import Base
 
-# Importar los modelos de seguridad para que SQLAlchemy encuentre a 'Role' y 'user_roles'
-import src.models.security
-
 class User(Base):
     __tablename__ = "users"
 

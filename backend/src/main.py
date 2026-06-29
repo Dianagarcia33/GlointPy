@@ -2,8 +2,16 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from src.core.database import get_db
+from sqlalchemy.future import select
+from sqlalchemy.sql import func
+from sqlalchemy.orm import selectinload
 
+# Pre-cargar modelos para que SQLAlchemy registre las relaciones
+import src.models.user
+import src.models.wallet
+import src.models.security
+
+from src.core.database import get_db
 from src.api.v1.endpoints import auth, wallets
 
 app = FastAPI(title="Gloint V2 API")
