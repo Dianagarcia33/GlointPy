@@ -4,25 +4,29 @@ import { Home } from 'lucide-react';
 
 export const Sidebar = () => {
     return (
-        <aside className="w-64 flex flex-col h-full overflow-y-auto z-10 transition-all duration-300">
-            <div className="flex flex-col py-6 px-4 gap-2">
-                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                    Menú Principal
-                </p>
+        <aside className="w-64 flex flex-col h-full overflow-y-auto z-10 transition-all duration-300 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-brand-300">
+            <div className="flex flex-col py-6 px-4 gap-1.5">
+                <div className="px-3 mt-2 mb-2">
+                    <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-[0.2em]">
+                        INICIO
+                    </p>
+                </div>
                 
                 <NavLink
                     to="/dashboard"
                     end
                     className={({ isActive }) => `
-                        flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-semibold text-sm
+                        group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
                         ${isActive 
-                            ? 'bg-brand-50 text-brand-600' 
+                            ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30 pointer-events-none' 
                             : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }
                     `}
                 >
-                    <Home className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
-                    <span className="font-medium">Inicio</span>
+                    <span className={`flex-shrink-0 transition-colors duration-200 group-hover:scale-110`}>
+                        <Home className="w-[18px] h-[18px]" />
+                    </span>
+                    <span className="flex-1 text-[13px] font-medium">Dashboard</span>
                 </NavLink>
             </div>
         </aside>
