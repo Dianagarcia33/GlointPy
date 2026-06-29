@@ -30,8 +30,9 @@ export const Navbar: React.FC = () => {
   }, [isAuthenticated]);
 
   // Es sólido si el usuario hizo scroll, o si la página NO tiene un encabezado oscuro
-  const isDarkTopPage = ['/', '/login', '/register', '/dashboard'].includes(location.pathname);
-  const isSolid = scrolled || !isDarkTopPage;
+  const isDarkTopPage = ['/', '/login', '/register'].includes(location.pathname);
+  const isDashboard = location.pathname.startsWith('/dashboard');
+  const isSolid = scrolled || !isDarkTopPage || isDashboard;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -61,15 +62,13 @@ export const Navbar: React.FC = () => {
     window.scrollTo(0, 0);
   }, [location]);
 
-  const isDashboard = location.pathname.startsWith('/dashboard');
-
   return (
     <nav className={`fixed top-0 left-0 right-0 w-full z-50 transition-all duration-300 ${
-      isSolid 
-        ? isDashboard 
-            ? 'py-3 bg-slate-950/95 backdrop-blur-md border-b border-slate-800 shadow-sm' 
-            : 'py-3 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm' 
-        : 'py-5 bg-transparent'
+      isDashboard
+        ? 'py-3 bg-slate-950 border-b border-slate-800 shadow-sm'
+        : isSolid 
+            ? 'py-3 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm' 
+            : 'py-5 bg-transparent'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 font-inter">
         <div className="relative flex items-center justify-between h-12">
@@ -87,10 +86,10 @@ export const Navbar: React.FC = () => {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center justify-center space-x-8 z-20 absolute left-1/2 transform -translate-x-1/2">
-            <Link to="/" className={`text-sm font-semibold transition-colors duration-200 ${isSolid && !isDashboard ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
+            <Link to="/" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
               INICIO
             </Link>
-            <Link to="/about" className={`text-sm font-semibold transition-colors duration-200 ${isSolid && !isDashboard ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
+            <Link to="/about" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
               NOSOTROS
             </Link>
 
@@ -98,7 +97,7 @@ export const Navbar: React.FC = () => {
             <div className="relative" ref={serviciosMenuRef}>
               <button
                 onClick={() => setServiciosMenuOpen(!serviciosMenuOpen)}
-                className={`flex items-center gap-1.5 text-sm font-semibold transition-colors duration-200 ${isSolid && !isDashboard ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+                className={`flex items-center gap-1.5 text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
               >
                 SERVICIOS
                 <ChevronDown className={`w-4 h-4 transition-transform ${serviciosMenuOpen ? 'rotate-180' : ''}`} />
@@ -128,7 +127,7 @@ export const Navbar: React.FC = () => {
               )}
             </div>
 
-            <Link to="/contact" className={`text-sm font-semibold transition-colors duration-200 ${isSolid && !isDashboard ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
+            <Link to="/contact" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
               CONTACTO
             </Link>
           </div>
@@ -140,7 +139,7 @@ export const Navbar: React.FC = () => {
                 {/* Balance */}
                 {balance !== null && (
                   <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors duration-200 ${
-                    isSolid && !isDashboard
+                    !isDashboard && isSolid
                       ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100' 
                       : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
                   }`}>
@@ -156,11 +155,11 @@ export const Navbar: React.FC = () => {
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-200 ${
-                      isSolid && !isDashboard ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/10 text-white'
+                      !isDashboard && isSolid ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/10 text-white'
                     }`}
                   >
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      isSolid && !isDashboard ? 'bg-brand-500 text-white' : 'bg-brand-500 text-white'
+                      !isDashboard && isSolid ? 'bg-brand-500 text-white' : 'bg-brand-500 text-white'
                     }`}>
                       {user?.name.charAt(0).toUpperCase()}
                     </div>
@@ -198,7 +197,7 @@ export const Navbar: React.FC = () => {
               <>
                 <Link
                   to="/login"
-                  className={`text-sm font-semibold transition-colors duration-200 ${isSolid && !isDashboard ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+                  className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
                 >
                   Iniciar sesión
                 </Link>

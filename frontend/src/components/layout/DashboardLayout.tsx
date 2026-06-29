@@ -6,10 +6,7 @@ import { Sidebar } from './Sidebar';
 export const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     return (
-        <div className="min-h-screen bg-slate-950 flex flex-col relative font-inter text-white">
-            {/* Clean Solid Background Canvas */}
-            <div className="absolute inset-0 bg-slate-950 z-0 fixed" />
-
+        <div className="min-h-screen bg-slate-50 flex flex-col relative font-inter text-slate-900 overflow-hidden">
             {/* Top Navigation */}
             <div className="relative z-50">
                 <Navbar />
