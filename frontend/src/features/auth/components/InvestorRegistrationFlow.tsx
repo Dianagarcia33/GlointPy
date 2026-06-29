@@ -5,16 +5,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { Eye, EyeOff, LockKeyhole, Mail, User } from 'lucide-react';
 
-const DOCUMENT_TYPES = [
-    { id: 'cc_old', name: 'Cédula de Ciudadanía (Amarilla)', icon: '🪪' },
-    { id: 'cc_new', name: 'Cédula de Ciudadanía (Digital)', icon: '📱' },
-    { id: 'ce', name: 'Cédula de Extranjería', icon: '🌍' },
-    { id: 'ppt', name: 'Permiso de Protección Temporal', icon: '📜' },
-];
+// Removed DOCUMENT_TYPES as it's no longer needed for auto-detect
 
 export const InvestorRegistrationFlow = () => {
-    const [step, setStep] = useState(1);
-    const [documentType, setDocumentType] = useState<string | null>(null);
+    const [step, setStep] = useState(1); // 1: Upload, 2: Loading, 3: Form
     const [frontImage, setFrontImage] = useState<File | null>(null);
     const [backImage, setBackImage] = useState<File | null>(null);
     
@@ -41,7 +35,7 @@ export const InvestorRegistrationFlow = () => {
         onSuccess: (data: any) => {
             setName(data.name);
             setDocumentNumber(data.documentNumber);
-            setStep(4);
+            setStep(3); // Go to verification form
         }
     });
 
@@ -73,7 +67,6 @@ export const InvestorRegistrationFlow = () => {
             email, 
             password, 
             documentNumber,
-            documentType,
             role: 'investor' 
         });
     };
@@ -102,34 +95,8 @@ export const InvestorRegistrationFlow = () => {
 
     return (
         <div className="w-full">
-            {/* Step 1: Document Type Selection */}
+            {/* Step 1: Image Upload */}
             {step === 1 && (
-                <div className="space-y-6 animate-fadeIn">
-                    <div className="text-center mb-6">
-                        <h3 className="text-lg font-bold text-slate-900">¿Qué documento vas a registrar?</h3>
-                        <p className="text-sm text-slate-500">Selecciona el tipo de documento para habilitar la validación inteligente.</p>
-                    </div>
-                    <div className="grid gap-3">
-                        {DOCUMENT_TYPES.map((doc) => (
-                            <button
-                                key={doc.id}
-                                onClick={() => {
-                                    setDocumentType(doc.id);
-                                    setStep(2);
-                                }}
-                                className="flex items-center gap-4 p-4 rounded-2xl border-2 border-slate-200 hover:border-brand-500 bg-white hover:shadow-lg transition-all text-left group"
-                            >
-                                <span className="text-2xl">{doc.icon}</span>
-                                <span className="font-semibold text-slate-700 group-hover:text-brand-600">{doc.name}</span>
-                                <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 ml-auto" />
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Step 2: Image Upload */}
-            {step === 2 && (
                 <div className="space-y-6 animate-fadeIn">
                     <div className="text-center mb-6">
                         <h3 className="text-lg font-bold text-slate-900">Carga tu Documento</h3>
@@ -142,13 +109,10 @@ export const InvestorRegistrationFlow = () => {
                     </div>
 
                     <div className="flex gap-3">
-                        <button onClick={() => setStep(1)} className="px-6 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
-                            Atrás
-                        </button>
                         <button 
                             onClick={handleProcessImages}
                             disabled={!frontImage || !backImage}
-                            className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4"
                         >
                             Procesar Imágenes
                         </button>
@@ -156,8 +120,8 @@ export const InvestorRegistrationFlow = () => {
                 </div>
             )}
 
-            {/* Step 3: Loading OCR */}
-            {step === 3 && (
+            {/* Step 2: Loading OCR */}
+            {step === 2 && (
                 <div className="flex flex-col items-center justify-center py-12 space-y-6 animate-fadeIn">
                     <div className="relative">
                         <div className="absolute inset-0 bg-brand-500/20 blur-xl rounded-full animate-pulse"></div>
@@ -165,13 +129,13 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                     <div className="text-center">
                         <h3 className="text-xl font-bold text-slate-900 mb-2">Validando Documento</h3>
-                        <p className="text-sm text-slate-500">Extrayendo datos de forma segura...</p>
+                        <p className="text-sm text-slate-500">Analizando el tipo de documento y extrayendo datos...</p>
                     </div>
                 </div>
             )}
 
-            {/* Step 4: Verification & Password */}
-            {step === 4 && (
+            {/* Step 3: Verification & Password */}
+            {step === 3 && (
                 <form onSubmit={handleFinalSubmit} className="space-y-5 animate-fadeIn">
                     <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3 mb-6">
                         <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
