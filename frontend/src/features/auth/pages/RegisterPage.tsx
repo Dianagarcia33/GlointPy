@@ -5,6 +5,7 @@ import { fetchApi } from '../../../services/api';
 import { useAuthStore } from '../../../store/authStore';
 import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole, User } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
+import { InvestorRegistrationFlow } from '../components/InvestorRegistrationFlow';
 
 export const RegisterPage = () => {
     const [name, setName] = useState('');
@@ -67,111 +68,116 @@ export const RegisterPage = () => {
                     </span>
                 </div>
             )}
-            <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Nombre Completo</label>
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <User className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+            
+            {role === 'investor' ? (
+                <InvestorRegistrationFlow />
+            ) : (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Nombre Completo</label>
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <User className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                            </div>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                                placeholder="Ana Pérez"
+                                required
+                            />
                         </div>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-                            placeholder="Ana Pérez"
-                            required
-                        />
                     </div>
-                </div>
 
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                            </div>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                                placeholder="nombre@empresa.com"
+                                required
+                            />
                         </div>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-                            placeholder="nombre@empresa.com"
-                            required
-                        />
                     </div>
-                </div>
 
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Contraseña</label>
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <LockKeyhole className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Contraseña</label>
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <LockKeyhole className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                            </div>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                                placeholder="Mínimo 8 caracteres"
+                                required
+                                minLength={8}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
                         </div>
-                        <input
-                            type={showPassword ? "text" : "password"}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-                            placeholder="Mínimo 8 caracteres"
-                            required
-                            minLength={8}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
+                        {password.length > 0 && password.length < 8 && (
+                            <p className="text-xs text-brand-500 mt-2 font-semibold">
+                                La contraseña debe tener al menos 8 caracteres.
+                            </p>
+                        )}
                     </div>
-                    {password.length > 0 && password.length < 8 && (
-                        <p className="text-xs text-brand-500 mt-2 font-semibold">
-                            La contraseña debe tener al menos 8 caracteres.
-                        </p>
+
+                    {registerMutation.isError && (
+                        <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
+                            <span>⚠️</span>
+                            <span>{registerMutation.error instanceof Error ? registerMutation.error.message : 'Error al registrar la cuenta'}</span>
+                        </div>
                     )}
-                </div>
 
-                {registerMutation.isError && (
-                    <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
-                        <span>⚠️</span>
-                        <span>{registerMutation.error instanceof Error ? registerMutation.error.message : 'Error al registrar la cuenta'}</span>
+                    <button
+                        type="submit"
+                        disabled={registerMutation.isPending || (password.length > 0 && password.length < 8)}
+                        className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
+                    >
+                        {registerMutation.isPending ? (
+                            <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
+                        ) : null}
+                        {registerMutation.isPending ? 'Creando cuenta...' : 'Crear mi cuenta'}
+                        {!registerMutation.isPending && (
+                            <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                        )}
+                    </button>
+                    <div className="flex items-start gap-3 mt-2">
+                        <div className="flex items-center h-5 mt-0.5">
+                            <input
+                                id="terms"
+                                type="checkbox"
+                                checked={acceptedTerms}
+                                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 bg-white"
+                                required
+                            />
+                        </div>
+                        <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
+                            Acepto los{' '}
+                            <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
+                                Términos y Condiciones
+                            </Link>
+                            {' '}y Política de Privacidad.
+                        </label>
                     </div>
-                )}
-
-                <button
-                    type="submit"
-                    disabled={registerMutation.isPending || (password.length > 0 && password.length < 8)}
-                    className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
-                >
-                    {registerMutation.isPending ? (
-                        <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
-                    ) : null}
-                    {registerMutation.isPending ? 'Creando cuenta...' : 'Crear mi cuenta'}
-                    {!registerMutation.isPending && (
-                        <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                    )}
-                </button>
-                <div className="flex items-start gap-3 mt-2">
-                    <div className="flex items-center h-5 mt-0.5">
-                        <input
-                            id="terms"
-                            type="checkbox"
-                            checked={acceptedTerms}
-                            onChange={(e) => setAcceptedTerms(e.target.checked)}
-                            className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 bg-white"
-                            required
-                        />
-                    </div>
-                    <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
-                        Acepto los{' '}
-                        <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
-                            Términos y Condiciones
-                        </Link>
-                        {' '}y Política de Privacidad.
-                    </label>
-                </div>
-            </form>
+                </form>
+            )}
 
 
 
