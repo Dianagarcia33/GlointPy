@@ -6,7 +6,7 @@ import { Sidebar } from './Sidebar';
 export const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     return (
-        <div className="h-screen bg-slate-50 flex flex-col relative font-inter text-slate-900 overflow-hidden">
+        <div className="h-screen bg-slate-100 flex flex-col relative font-inter text-slate-900 overflow-hidden">
             {/* Top Navigation */}
             <div className="relative z-50">
                 <Navbar />

@@ -59,21 +59,21 @@ export const DashboardPage = () => {
 
                         {!loading && investments.length > 0 && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm shadow-slate-200/50 hover:shadow-md transition-shadow">
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md shadow-slate-200/40 hover:shadow-lg transition-shadow">
                                     <div className="flex justify-between items-start mb-4">
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Capital Invertido</p>
-                                        <div className="p-2 bg-slate-50 rounded-lg"><DollarSign className="w-4 h-4 text-slate-400" /></div>
+                                        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Capital Invertido</p>
+                                        <div className="p-2 bg-slate-100 rounded-lg"><DollarSign className="w-4 h-4 text-slate-500" /></div>
                                     </div>
                                     <p className="text-2xl font-bold text-slate-900 font-montserrat">{formatCurrency(totalInvertido)}</p>
                                 </div>
-                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm shadow-slate-200/50 hover:shadow-md transition-shadow">
+                                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md shadow-slate-200/40 hover:shadow-lg transition-shadow">
                                     <div className="flex justify-between items-start mb-4">
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Acciones</p>
-                                        <div className="p-2 bg-slate-50 rounded-lg"><Activity className="w-4 h-4 text-slate-400" /></div>
+                                        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Total Acciones</p>
+                                        <div className="p-2 bg-slate-100 rounded-lg"><Activity className="w-4 h-4 text-slate-500" /></div>
                                     </div>
-                                    <p className="text-2xl font-bold text-slate-900 font-montserrat">{totalAcciones} <span className="text-sm font-semibold text-slate-400">unds</span></p>
+                                    <p className="text-2xl font-bold text-slate-900 font-montserrat">{totalAcciones} <span className="text-sm font-semibold text-slate-500">unds</span></p>
                                 </div>
-                                <div className="bg-gradient-to-br from-brand-50 to-white p-6 rounded-2xl border border-brand-100/50 shadow-sm shadow-brand-500/10 relative overflow-hidden hover:shadow-md hover:shadow-brand-500/20 transition-all">
+                                <div className="bg-gradient-to-br from-brand-100/60 to-white p-6 rounded-2xl border border-brand-200/60 shadow-md shadow-brand-500/10 relative overflow-hidden hover:shadow-lg hover:shadow-brand-500/20 transition-all">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
                                     <div className="flex justify-between items-start mb-4 relative z-10">
                                         <p className="text-[10px] font-bold text-brand-700 uppercase tracking-widest">Rendimiento Esperado</p>
@@ -89,48 +89,48 @@ export const DashboardPage = () => {
                         ) : investments.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                 {investments.map(inv => (
-                                    <div key={inv.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col hover:-translate-y-1 hover:border-brand-300 hover:shadow-lg hover:shadow-brand-500/5 transition-all duration-300 group cursor-default">
+                                    <div key={inv.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md shadow-slate-200/40 flex flex-col hover:-translate-y-1 hover:border-brand-300 hover:shadow-xl hover:shadow-brand-500/10 transition-all duration-300 group cursor-default">
                                         <div className="flex justify-between items-start mb-6">
                                             <div className="flex items-center gap-3">
-                                                <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg group-hover:border-brand-200 transition-colors">
-                                                    <DollarSign className="w-5 h-5 text-slate-400 group-hover:text-brand-500 transition-colors" />
+                                                <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-lg group-hover:border-brand-300 transition-colors">
+                                                    <DollarSign className="w-5 h-5 text-slate-500 group-hover:text-brand-600 transition-colors" />
                                                 </div>
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Paquete Adquirido</p>
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Paquete Adquirido</p>
                                                     <h4 className="text-lg font-bold text-slate-900">{formatCurrency(parseInt(inv.paquete.paquete_accion_adquirido))}</h4>
                                                 </div>
                                             </div>
                                             <span className={`text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-md font-bold ${
-                                                inv.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
-                                                inv.status === 'pending' ? 'bg-brand-50 text-brand-600 border border-brand-100' : 
-                                                'bg-red-50 text-red-600 border border-red-100'
+                                                inv.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 
+                                                inv.status === 'pending' ? 'bg-brand-100 text-brand-700 border border-brand-200' : 
+                                                'bg-red-100 text-red-700 border border-red-200'
                                             }`}>
                                                 {inv.status === 'approved' ? 'Aprobado' : inv.status === 'pending' ? 'En Revisión' : 'Rechazado'}
                                             </span>
                                         </div>
-                                        <div className="space-y-3.5 mt-auto pt-5 border-t border-slate-100/80">
+                                        <div className="space-y-3.5 mt-auto pt-5 border-t border-slate-200/80">
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-slate-500 font-medium">Capital Invertido</span>
+                                                <span className="text-slate-600 font-medium">Capital Invertido</span>
                                                 <span className="font-semibold text-slate-900">{formatCurrency(inv.monto)}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-slate-500 font-medium">Rendimiento Total</span>
-                                                <span className="font-bold text-brand-600">+{formatCurrency(inv.rendimiento_total_contrato || 0)}</span>
+                                                <span className="text-slate-600 font-medium">Rendimiento Total</span>
+                                                <span className="font-bold text-brand-700">+{formatCurrency(inv.rendimiento_total_contrato || 0)}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-slate-500 font-medium">Acciones Otorgadas</span>
+                                                <span className="text-slate-600 font-medium">Acciones Otorgadas</span>
                                                 <span className="font-semibold text-slate-900">{inv.paquete?.acciones_otorgadas || 0} unds</span>
                                             </div>
                                             {inv.dias_contrato !== undefined && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-400 text-xs font-semibold">Días de Contrato</span>
-                                                    <span className="font-medium text-slate-700">{inv.dias_contrato} días</span>
+                                                    <span className="text-slate-500 text-xs font-semibold">Días de Contrato</span>
+                                                    <span className="font-semibold text-slate-800">{inv.dias_contrato} días</span>
                                                 </div>
                                             )}
                                             {inv.liquidacion_diaria_rendimiento !== undefined && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-400 text-xs font-semibold">Rendimiento Diario</span>
-                                                    <span className="font-semibold text-brand-600">+{formatCurrency(inv.liquidacion_diaria_rendimiento)}</span>
+                                                    <span className="text-slate-500 text-xs font-semibold">Rendimiento Diario</span>
+                                                    <span className="font-bold text-brand-700">+{formatCurrency(inv.liquidacion_diaria_rendimiento)}</span>
                                                 </div>
                                             )}
                                         </div>
