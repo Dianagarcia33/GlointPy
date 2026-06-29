@@ -78,7 +78,7 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                     <span className="font-semibold text-slate-900">{formatCurrency(monto)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600 font-medium">Ganancia Estimada</span>
+                    <span className="text-slate-600 font-medium">Rendimiento Estimado</span>
                     <div className="text-right">
                         <span className="font-bold text-brand-600 block">+{formatCurrency(rendimiento)}</span>
                         <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">+{rentabilidadPct}%</span>

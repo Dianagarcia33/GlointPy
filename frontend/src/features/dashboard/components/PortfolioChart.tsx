@@ -88,11 +88,11 @@ export const PortfolioChart = () => {
                 {/* Side Stats */}
                 <div className="flex flex-col justify-center gap-6 p-6 bg-slate-50 rounded-2xl border border-slate-100">
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Ganancia Diaria Promedio</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Rendimiento Diario Promedio</p>
                         <p className="text-xl font-bold text-slate-900 font-montserrat">+{formatCurrency(3500)}</p>
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Ganancia Mensual</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Rendimiento Mensual</p>
                         <p className="text-xl font-bold text-brand-600 font-montserrat">+{formatCurrency(105000)}</p>
                     </div>
                     <div className="h-px w-full bg-slate-200/80"></div>
