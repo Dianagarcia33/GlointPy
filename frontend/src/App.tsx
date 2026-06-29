@@ -4,6 +4,7 @@ import { LandingPage } from "./features/landing/components/LandingPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
+import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
@@ -28,14 +29,20 @@ function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      
+      {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
       <Route 
         path="/dashboard" 
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            <DashboardLayout />
           </ProtectedRoute>
         } 
-      />
+      >
+        <Route index element={<DashboardPage />} />
+        {/* Aquí agregaremos más rutas en el futuro, ej. <Route path="retiros" element={<RetirosPage />} /> */}
+      </Route>
+
       {/* Redirección por defecto si la ruta no existe */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
