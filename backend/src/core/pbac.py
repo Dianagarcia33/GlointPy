@@ -16,9 +16,12 @@ class PBACEngine:
         # 1. Obtener permisos de los roles del usuario
         if hasattr(user, 'roles') and user.roles:
             for role in user.roles:
-                if hasattr(role, 'permissions') and role.permissions:
-                    for perm in role.permissions:
-                        permissions.add(perm.name)
+                try:
+                    if hasattr(role, 'permissions') and role.permissions:
+                        for perm in role.permissions:
+                            permissions.add(perm.name)
+                except Exception:
+                    pass
                         
         # 2. Añadir/Quitar permisos sobreescritos individuales
         if user.permissions_override:

@@ -44,23 +44,22 @@ async def login(
     
     if user:
         from src.core.pbac import PBACEngine
+        
+        # 1. Extraer nombres de roles PRIMERO (seguro de MissingGreenlet)
         try:
-            # Extraer permisos dinámicos y asignarlos al objeto
-            user.permissions = PBACEngine.get_user_permissions(user)
-            # Extraer nombres de roles si existen
             if hasattr(user, 'roles') and user.roles:
                 user_roles_list = [r.name for r in user.roles]
             else:
                 user_roles_list = []
-            
-            # Asignamos la lista de nombres para que Pydantic la lea correctamente
-            # Usamos setattr para no interferir con la relación de SQLAlchemy si es que se cargó
             setattr(user, 'roles_list', user_roles_list)
-        except Exception as e:
-            import traceback
-            print(f"Error procesando roles/permisos en login: {e}")
-            user.permissions = []
+        except Exception:
             setattr(user, 'roles_list', [])
+
+        # 2. Extraer permisos 
+        try:
+            user.permissions = PBACEngine.get_user_permissions(user)
+        except Exception:
+            user.permissions = []
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
