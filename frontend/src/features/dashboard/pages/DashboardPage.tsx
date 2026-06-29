@@ -28,9 +28,14 @@ export const DashboardPage = () => {
         }).format(amount);
     };
 
-    const totalInvertido = investments.reduce((acc, inv) => acc + (inv.total_contrato || inv.monto || 0), 0);
-    const totalAcciones = investments.reduce((acc, inv) => acc + (inv.paquete?.acciones_otorgadas || 0), 0);
-    const totalRendimiento = investments.reduce((acc, inv) => acc + (inv.rendimiento_total_contrato || 0), 0);
+    const parseNumber = (val: any) => {
+        const parsed = Number(val);
+        return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const totalInvertido = investments.reduce((acc, inv) => acc + parseNumber(inv.total_contrato ?? inv.monto ?? 0), 0);
+    const totalAcciones = investments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
+    const totalRendimiento = investments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
     
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
