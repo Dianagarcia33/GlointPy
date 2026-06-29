@@ -29,20 +29,7 @@ async def migrate_permissions():
         'ver_acciones', 'etiquetas_crear', 'plataformas_eliminar', 'acciones_emitir', 'ver_registros_reunion', 'ver_roles', 
         'periodos_contrato_crear', 'seguimiento_usuarios_editar', 'roles_crear', 'inversionistas_editar', 'crear_reservas_salas', 
         'inversiones_v2_eliminar', 'plataformas_editar', 'gestionar_envios', 'inversiones_v2_ver_solicitudes', 'gestionar_salas', 
-        'ver_contactos_dropshipper', 'etiquetas_editar',
-        
-        # LOS DEMAS PERMISOS COMUNES PARA QUE ESTÉN COMPLETOS (De tu JSON original)
-        'ver_historia_desembolsos', 'ver_estadisticas_desembolsos', 'ver_configuracion', 'ver_configuracion_bancos',
-        'ver_configuracion_acciones', 'acciones_actualizar_precio', 'ver_configuracion_fechas', 'gestionar_retiros',
-        'ver_dashboard_actividad', 'ver_crm_seguimiento_usuarios', 'seguimiento_usuarios_eliminar', 'ver_comunicacion',
-        'ver_mensajes_contacto', 'mensajes_contacto_responder', 'ciudades_crear', 'ciudades_editar', 'ciudades_eliminar',
-        'rendimientos_editar', 'account_types_crear', 'account_types_editar', 'paquetes_inversion_editar',
-        'periodos_contrato_editar', 'periodos_contrato_eliminar', 'ver_bonificaciones', 'bonificaciones_ver',
-        'bonificaciones_crear', 'bonificaciones_editar', 'referidos_recepcion_contactar', 'referidos_recepcion_actualizar_estado',
-        'ver_inversionistas', 'inversionistas_eliminar', 'acciones_editar', 'gestionar_solicitudes_inversion',
-        'weekly_credit.view_all', 'gestionar_categorias', 'pqr.view', 'pqr.create', 'pqr.manage', 'gestionar_billetera_admin',
-        'registrar_retiros_delegados', 'inversiones_v2_regenerar_documentos', 'ventas_eliminar', 'inversiones_v2_editar',
-        'inversiones_v2_finalizar_contrato', 'users.assign_roles', 'ver_gestion_usuarios'
+        'ver_contactos_dropshipper', 'etiquetas_editar'
     ]
     
     # Limpiar duplicados
