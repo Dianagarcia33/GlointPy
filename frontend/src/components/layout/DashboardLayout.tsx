@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
-import { Footer } from './Footer';
+import { DashboardFooter } from './DashboardFooter';
 
 export const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -31,7 +31,7 @@ export const DashboardLayout = () => {
                         </div>
                     </div>
                     
-                    <Footer />
+                    <DashboardFooter />
                 </main>
             </div>
         </div>
