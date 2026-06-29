@@ -25,12 +25,12 @@ async def get_my_investments(
         # 1. Buscar las inversiones activas directamente en la tabla investors
         investor_rows = (await db.execute(
             text("""
-                SELECT i.id, i.id_usuario, i.total_contrato, i.rendimiento_total_contrato, 
+                SELECT i.id, i.user_id, i.total_contrato, i.rendimiento_total_contrato, 
                        i.paquete_inversion_adquirido, i.acciones_otorgadas, i.created_at,
                        p.paquete_accion_adquirido, p.acciones_otorgadas as pkg_acciones
                 FROM investors i
                 LEFT JOIN paquetes_inversion p ON i.paquete_inversion_adquirido = p.id
-                WHERE i.id_usuario = :uid
+                WHERE i.user_id = :uid
                 ORDER BY i.created_at DESC
             """),
             {"uid": current_user.id}
