@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { fetchApi } from '../../../services/api';
 import { useAuthStore } from '../../../store/authStore';
 import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole, User } from 'lucide-react';
@@ -14,6 +14,10 @@ export const RegisterPage = () => {
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const role = searchParams.get('role');
+    const roleName = role === 'investor' ? 'Inversionista' : role === 'client' ? 'Cliente' : '';
+    
     const loginAction = useAuthStore((state) => state.login);
 
     useEffect(() => {
@@ -46,7 +50,7 @@ export const RegisterPage = () => {
         e.preventDefault();
         if (!acceptedTerms) return;
         if (name && email && password) {
-            registerMutation.mutate({ name, email, password });
+            registerMutation.mutate({ name, email, password, role });
         }
     };
 
@@ -56,6 +60,13 @@ export const RegisterPage = () => {
             subtitle="Únete a la plataforma financiera que impulsa a cientos de negocios a escalar más rápido."
             icon={<User className="w-7 h-7" />}
         >
+            {roleName && (
+                <div className="mb-6 flex justify-center">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-brand-50 text-brand-600 border border-brand-100">
+                        Registro de {roleName}
+                    </span>
+                </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Nombre Completo</label>

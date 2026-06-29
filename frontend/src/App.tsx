@@ -4,6 +4,7 @@ import { LandingPage } from "./features/landing/components/LandingPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
+import { WelcomeOnboardingPage } from "./features/auth/pages/WelcomeOnboardingPage";
 import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditionsPage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
@@ -29,6 +30,7 @@ function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
+      <Route path="/onboarding" element={<WelcomeOnboardingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       

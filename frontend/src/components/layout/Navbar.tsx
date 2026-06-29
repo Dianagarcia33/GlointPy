@@ -212,7 +212,7 @@ export const Navbar: React.FC = () => {
                   Iniciar sesión
                 </Link>
                 <Link
-                  to="/register"
+                  to="/onboarding"
                   className="text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 px-6 py-2.5 rounded-lg shadow-sm hover:shadow transition-all duration-200 active:scale-[0.98]"
                 >
                   Crear Cuenta
@@ -254,7 +254,7 @@ export const Navbar: React.FC = () => {
               <Link to="/login" className="w-full py-3 text-center text-slate-900 font-bold bg-slate-50 rounded-lg border border-slate-200">
                 Iniciar sesión
               </Link>
-              <Link to="/register" className="w-full py-3 text-center text-white font-bold bg-brand-500 rounded-lg shadow-md">
+              <Link to="/onboarding" className="w-full py-3 text-center text-white font-bold bg-brand-500 rounded-lg shadow-md">
                 Crear Cuenta
               </Link>
             </div>
