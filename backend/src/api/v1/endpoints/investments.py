@@ -18,47 +18,66 @@ async def get_my_investments(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        from sqlalchemy import or_, text
+        from sqlalchemy import text
         
-        # 1. Buscar si el usuario tiene perfiles de inversionista en la tabla investors
-        investor_ids = []
-            
-        # Buscar por id_user (esta es la columna real del dueño del perfil, user_id es quien lo creó)
-        try:
-            inv_res = await db.execute(text("SELECT id FROM investors WHERE id_user = :uid"), {"uid": current_user.id})
-            rows = inv_res.fetchall()
-            for row in rows:
-                if row[0] not in investor_ids:
-                    investor_ids.append(row[0])
-        except Exception:
-            pass
-                
-        # Intentar buscar por correo como respaldo
-        try:
-            inv_res = await db.execute(text("SELECT id FROM investors WHERE email = :email"), {"email": current_user.email})
-            rows = inv_res.fetchall()
-            for row in rows:
-                if row[0] not in investor_ids:
-                    investor_ids.append(row[0])
-        except Exception:
-            pass
+        investments = []
 
-        # 2. Buscar las inversiones donde sea el beneficiario (investor_id) o el creador directo si no tiene perfil
-        filters = []
-        if investor_ids:
-            filters.append(InvestmentRequest.investor_id.in_(investor_ids))
-            # También incluimos user_id por si alguna inversión vieja no tiene investor_id
-            filters.append(InvestmentRequest.user_id == current_user.id)
-        else:
-            filters.append(InvestmentRequest.user_id == current_user.id)
+        # 1. Buscar las inversiones activas directamente en la tabla investors
+        investor_rows = (await db.execute(
+            text("""
+                SELECT i.id, i.id_usuario, i.total_contrato, i.rendimiento_total_contrato, 
+                       i.paquete_inversion_adquirido, i.acciones_otorgadas, i.created_at,
+                       p.paquete_accion_adquirido, p.acciones_otorgadas as pkg_acciones
+                FROM investors i
+                LEFT JOIN paquetes_inversion p ON i.paquete_inversion_adquirido = p.id
+                WHERE i.id_usuario = :uid
+                ORDER BY i.created_at DESC
+            """),
+            {"uid": current_user.id}
+        )).fetchall()
 
-        result = await db.execute(
+        for r in investor_rows:
+            total = float(r[2]) if r[2] else 0.0
+            rendimiento = float(r[3]) if r[3] else 0.0
+            monto = total - rendimiento
+            if monto <= 0:
+                monto = total
+
+            investments.append({
+                "id": r[0],
+                "user_id": r[1],
+                "monto": monto,
+                "status": "approved",
+                "created_at": r[6],
+                "paquete": {
+                    "id": r[4] if r[4] else 0,
+                    "paquete_accion_adquirido": r[7] if r[7] else f"Paquete {r[4]}",
+                    "acciones_otorgadas": r[5] if r[5] is not None else (r[8] if r[8] else 0)
+                }
+            })
+
+        # 2. Buscar las solicitudes que estén pendientes o rechazadas en investment_requests
+        pending_result = await db.execute(
             select(InvestmentRequest)
             .options(selectinload(InvestmentRequest.paquete))
-            .where(or_(*filters))
+            .where(InvestmentRequest.user_id == current_user.id)
+            .where(InvestmentRequest.status != "approved")
             .order_by(InvestmentRequest.created_at.desc())
         )
-        investments = result.scalars().all()
+        for req in pending_result.scalars().all():
+            investments.append({
+                "id": req.id,
+                "user_id": req.user_id,
+                "monto": float(req.monto),
+                "status": req.status.value if hasattr(req.status, "value") else str(req.status),
+                "created_at": req.created_at,
+                "paquete": {
+                    "id": req.paquete.id if req.paquete else 0,
+                    "paquete_accion_adquirido": req.paquete.paquete_accion_adquirido if req.paquete else "Desconocido",
+                    "acciones_otorgadas": req.paquete.acciones_otorgadas if req.paquete else 0
+                }
+            })
+
         return investments
     except Exception as e:
         print(f"Error fetching investments: {e}")
