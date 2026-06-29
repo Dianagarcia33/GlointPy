@@ -42,8 +42,10 @@ async def get_current_user(
             .where(User.id == int(user_id))
         )
         user = result.scalars().first()
-    except (OperationalError, ProgrammingError):
-        # Fallback: Si la base de datos no tiene las tablas de roles/permisos creadas aún,
+    except Exception as e:
+        import traceback
+        print(f"Error al cargar roles/permisos del usuario: {e}")
+        # Fallback: Si falla la carga de roles/permisos por cualquier razón (ej. tablas faltantes, error de relación),
         # cargamos solo el usuario básico para no tumbar toda la API (ej. Login y Dashboard).
         result = await db.execute(
             select(User).where(User.id == int(user_id))
