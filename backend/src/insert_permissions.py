@@ -2,12 +2,12 @@ import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from src.core.database import SessionLocal
+from src.core.database import async_session_maker
 from src.models.user import User
 from src.models.security import Permission
 
 async def seed_permissions():
-    async with SessionLocal() as db:
+    async with async_session_maker() as db:
         # 1. Crear el permiso en la base de datos si no existe
         perm_name = "dashboard.investments.read"
         result = await db.execute(select(Permission).where(Permission.name == perm_name))
