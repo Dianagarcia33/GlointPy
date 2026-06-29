@@ -6,6 +6,9 @@ from src.core.database import engine, Base
 import src.models.user
 import src.models.wallet
 import src.models.security
+import src.models.contract_period
+import src.models.investor
+import src.models.investment
 
 async def main():
     print("Creando tablas faltantes en la base de datos...")

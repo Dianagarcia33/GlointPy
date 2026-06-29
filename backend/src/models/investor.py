@@ -47,7 +47,8 @@ class Investor(Base):
     numero_cuenta = Column(String(255), nullable=True)
     
     # Contrato y Paquete
-    periodo_contrato = Column(BigInteger, nullable=True)
+    periodo_contrato = Column(BigInteger, nullable=True) # Old reference, will keep for backwards compatibility initially
+    contract_period_id = Column(BigInteger, ForeignKey("contract_periods.id", ondelete="SET NULL"), nullable=True)
     dias_contrato = Column(Integer, nullable=True)
     paquete_inversion_adquirido = Column(BigInteger, ForeignKey("paquetes_inversion.id", ondelete="SET NULL"), nullable=True)
     acciones_otorgadas = Column(Integer, nullable=True)
@@ -76,3 +77,4 @@ class Investor(Base):
     user = relationship("User", foreign_keys=[user_id], backref="investor_records")
     old_user = relationship("User", foreign_keys=[id_usuario])
     paquete = relationship("PaqueteInversion", backref="investors_history")
+    contract_period = relationship("ContractPeriod", backref="investors")
