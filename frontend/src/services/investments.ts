@@ -1,4 +1,4 @@
-import api from './api';
+import { fetchApi } from './api';
 
 export interface PaqueteInversion {
   id: number;
@@ -17,7 +17,6 @@ export interface Investment {
 
 export const investmentsService = {
   getMyInvestments: async (): Promise<Investment[]> => {
-    const response = await api.get('/investments/me');
-    return response.data;
+    return await fetchApi('/investments/me');
   },
 };
