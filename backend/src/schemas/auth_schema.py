@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 
-from typing import Optional
+from typing import Optional, List
 
 class Token(BaseModel):
     access_token: str
@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     is_active: bool
+    permissions: List[str] = []
 
     class Config:
         from_attributes = True

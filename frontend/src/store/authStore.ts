@@ -6,6 +6,7 @@ export interface User {
   name: string;
   email: string;
   is_active: boolean;
+  permissions?: string[];
 }
 
 interface AuthState {

@@ -16,10 +16,29 @@ async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    # Buscar al usuario por correo
-    result = await db.execute(select(User).where(User.email == request.email))
-    user = result.scalars().first()
+    # Buscar al usuario por correo intentando cargar sus roles y permisos
+    try:
+        from src.models.security import Role
+        from sqlalchemy.orm import selectinload
+        result = await db.execute(
+            select(User)
+            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .where(User.email == request.email)
+        )
+        user = result.scalars().first()
+    except Exception as e:
+        await db.rollback()
+        # Fallback de seguridad en caso de error de relaciones
+        result = await db.execute(select(User).where(User.email == request.email))
+        user = result.scalars().first()
     
+    if user:
+        from src.core.pbac import PBACEngine
+        try:
+            # Extraer permisos dinámicos y asignarlos al objeto
+            user.permissions = PBACEngine.get_user_permissions(user)
+        except Exception:
+            user.permissions = []
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
