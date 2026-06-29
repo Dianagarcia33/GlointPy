@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Building2, TrendingUp, ShieldCheck, ArrowRight, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Navbar } from '../../../components/layout/Navbar';
 
 type Role = 'client' | 'investor' | null;
 
@@ -25,18 +26,9 @@ export const WelcomeOnboardingPage = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 font-inter text-slate-900 flex flex-col selection:bg-brand-500/20">
-            {/* Header / Logo (Simplificado para mantener al usuario enfocado) */}
-            <header className="absolute top-0 w-full p-6 flex justify-center md:justify-start">
-                <Link to="/" className="flex items-center gap-2 group">
-                    <img
-                        className="h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
-                        src="/logo.png"
-                        alt="Gloint Logo"
-                    />
-                </Link>
-            </header>
+            <Navbar />
 
-            <main className="flex-1 flex flex-col items-center justify-center p-6 mt-16 md:mt-0 relative z-10">
+            <main className="flex-1 flex flex-col items-center justify-center p-6 mt-24 md:mt-16 relative z-10">
                 <div className="text-center max-w-2xl mx-auto mb-12">
                     <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-4">
                         Bienvenido a <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-500 to-orange-400">GLOINT</span>
