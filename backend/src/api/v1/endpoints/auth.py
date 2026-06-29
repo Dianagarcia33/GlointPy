@@ -16,36 +16,22 @@ async def login(
     request: LoginRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    # Buscar al usuario por correo intentando cargar sus roles y permisos
+    # Buscar al usuario por correo intentando cargar sus roles
     try:
-        from src.models.security import Role
         from sqlalchemy.orm import selectinload
         result = await db.execute(
             select(User)
-            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .options(selectinload(User.roles))
             .where(User.email == request.email)
         )
         user = result.scalars().first()
     except Exception as e:
         await db.rollback()
-        # Fallback 1: Intentar cargar SOLO los roles (por si la tabla role_permissions no existe)
-        try:
-            result = await db.execute(
-                select(User)
-                .options(selectinload(User.roles))
-                .where(User.email == request.email)
-            )
-            user = result.scalars().first()
-        except Exception as e1:
-            print(f"Fallback 1 falló: {e1}")
-            await db.rollback()
-            # Fallback 2: Cargar solo el usuario básico
-            result = await db.execute(select(User).where(User.email == request.email))
-            user = result.scalars().first()
+        # Fallback 2: Cargar solo el usuario básico
+        result = await db.execute(select(User).where(User.email == request.email))
+        user = result.scalars().first()
     
     if user:
-        from src.core.pbac import PBACEngine
-        
         # 1. Extraer nombres de roles PRIMERO (seguro de MissingGreenlet)
         try:
             if hasattr(user, 'roles') and user.roles:
@@ -56,11 +42,34 @@ async def login(
         except Exception:
             setattr(user, 'roles_list', [])
 
-        # 2. Extraer permisos 
+        # 2. Extraer permisos usando una consulta SQL directa 100% a prueba de balas
+        from sqlalchemy import text
         try:
-            user.permissions = PBACEngine.get_user_permissions(user)
-        except Exception:
+            perms_result = await db.execute(
+                text("""
+                    SELECT p.name 
+                    FROM permissions p
+                    JOIN role_permissions rp ON p.id = rp.permission_id
+                    JOIN user_roles ur ON rp.role_id = ur.role_id
+                    WHERE ur.user_id = :user_id
+                """),
+                {"user_id": user.id}
+            )
+            raw_permissions = set([row[0] for row in perms_result.fetchall()])
+            
+            # Mezclar con overrides individuales si existen
+            if user.permissions_override:
+                for perm_name, is_granted in user.permissions_override.items():
+                    if is_granted:
+                        raw_permissions.add(perm_name)
+                    elif perm_name in raw_permissions:
+                        raw_permissions.remove(perm_name)
+                        
+            user.permissions = list(raw_permissions)
+        except Exception as perm_error:
+            print(f"Error cargando permisos: {perm_error}")
             user.permissions = []
+            
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
