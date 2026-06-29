@@ -101,27 +101,25 @@ export const DashboardPage = () => {
                                                 <span className="font-medium text-gray-800">{formatCurrency(inv.monto)}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-500 flex items-center"><TrendingUp className="w-4 h-4 mr-1 text-emerald-500" /> Rendimiento Total</span>
+                                                <span className="font-bold text-emerald-600">+{formatCurrency(inv.rendimiento_total_contrato || 0)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
                                                 <span className="text-gray-500 flex items-center"><Activity className="w-4 h-4 mr-1 text-indigo-400" /> Acciones Otorgadas</span>
                                                 <span className="font-medium text-gray-800">{inv.paquete?.acciones_otorgadas || 0} unds</span>
                                             </div>
                                             {inv.dias_contrato !== undefined && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-gray-500">Días de Contrato</span>
+                                                    <span className="text-gray-500 pl-5">Días de Contrato</span>
                                                     <span className="font-medium text-gray-800">{inv.dias_contrato} días</span>
                                                 </div>
                                             )}
                                             {inv.liquidacion_diaria_rendimiento !== undefined && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-gray-500">Rendimiento Diario</span>
+                                                    <span className="text-gray-500 pl-5">Rendimiento Diario</span>
                                                     <span className="font-medium text-emerald-600">+{formatCurrency(inv.liquidacion_diaria_rendimiento)}</span>
                                                 </div>
                                             )}
-                                        </div>
-                                        <div className="mt-4 pt-4 border-t border-indigo-50">
-                                            <div className="flex justify-between items-center bg-indigo-50/50 p-3 rounded-lg">
-                                                <span className="text-sm font-semibold text-indigo-900">Rendimiento Total</span>
-                                                <span className="font-bold text-indigo-700">{formatCurrency(inv.rendimiento_total_contrato || 0)}</span>
-                                            </div>
                                         </div>
                                     </div>
                                 ))}
