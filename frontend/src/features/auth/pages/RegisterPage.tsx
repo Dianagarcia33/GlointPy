@@ -11,6 +11,7 @@ export const RegisterPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     
     const navigate = useNavigate();
     const loginAction = useAuthStore((state) => state.login);
@@ -43,6 +44,7 @@ export const RegisterPage = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!acceptedTerms) return;
         if (name && email && password) {
             registerMutation.mutate({ name, email, password });
         }
@@ -139,10 +141,25 @@ export const RegisterPage = () => {
                         <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                     )}
                 </button>
-                
-                <p className="text-xs text-slate-500 text-center mt-4">
-                    Al crear una cuenta, aceptas nuestros <a href="#" className="font-semibold text-brand-500 hover:underline">Términos de Servicio</a> y <a href="#" className="font-semibold text-brand-500 hover:underline">Política de Privacidad</a>.
-                </p>
+                <div className="flex items-start gap-3 mt-2">
+                    <div className="flex items-center h-5 mt-0.5">
+                        <input
+                            id="terms"
+                            type="checkbox"
+                            checked={acceptedTerms}
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 bg-white"
+                            required
+                        />
+                    </div>
+                    <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
+                        Declaro conocer y aceptar expresamente los{' '}
+                        <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
+                            Términos y Condiciones
+                        </Link>
+                        {' '}y la Política de Privacidad de GLOINT.
+                    </label>
+                </div>
             </form>
 
 
