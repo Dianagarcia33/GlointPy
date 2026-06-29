@@ -9,9 +9,15 @@ from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
 from src.models.investment import InvestmentRequest, PaqueteInversion
 from src.models.investor import Investor
-from src.schemas.investment_schema import InvestmentRequestResponse
+from src.schemas.investment_schema import InvestmentRequestResponse, PaqueteInversionBase
 
 router = APIRouter()
+
+@router.get("/packages", response_model=List[PaqueteInversionBase])
+async def get_investment_packages(db: AsyncSession = Depends(get_db)):
+    """Retrieve all available investment packages."""
+    result = await db.execute(select(PaqueteInversion).order_by(PaqueteInversion.acciones_otorgadas.asc()))
+    return result.scalars().all()
 
 @router.get("/me", response_model=List[InvestmentRequestResponse])
 async def get_my_investments(
