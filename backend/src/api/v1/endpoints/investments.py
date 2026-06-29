@@ -20,9 +20,7 @@ async def get_my_investments(
     try:
         from sqlalchemy import text
         
-        investments = []
-
-        # 1. Buscar las inversiones activas directamente en la tabla investors
+        # Buscar las inversiones del usuario directamente en la tabla investors (user_id = user.id)
         investor_rows = (await db.execute(
             text("""
                 SELECT i.id, i.user_id, i.total_contrato, i.rendimiento_total_contrato, 
@@ -36,6 +34,7 @@ async def get_my_investments(
             {"uid": current_user.id}
         )).fetchall()
 
+        investments = []
         for r in investor_rows:
             total = float(r[2]) if r[2] else 0.0
             rendimiento = float(r[3]) if r[3] else 0.0
@@ -53,28 +52,6 @@ async def get_my_investments(
                     "id": r[4] if r[4] else 0,
                     "paquete_accion_adquirido": r[7] if r[7] else f"Paquete {r[4]}",
                     "acciones_otorgadas": r[5] if r[5] is not None else (r[8] if r[8] else 0)
-                }
-            })
-
-        # 2. Buscar las solicitudes que estén pendientes o rechazadas en investment_requests
-        pending_result = await db.execute(
-            select(InvestmentRequest)
-            .options(selectinload(InvestmentRequest.paquete))
-            .where(InvestmentRequest.user_id == current_user.id)
-            .where(InvestmentRequest.status != "approved")
-            .order_by(InvestmentRequest.created_at.desc())
-        )
-        for req in pending_result.scalars().all():
-            investments.append({
-                "id": req.id,
-                "user_id": req.user_id,
-                "monto": float(req.monto),
-                "status": req.status.value if hasattr(req.status, "value") else str(req.status),
-                "created_at": req.created_at,
-                "paquete": {
-                    "id": req.paquete.id if req.paquete else 0,
-                    "paquete_accion_adquirido": req.paquete.paquete_accion_adquirido if req.paquete else "Desconocido",
-                    "acciones_otorgadas": req.paquete.acciones_otorgadas if req.paquete else 0
                 }
             })
 
