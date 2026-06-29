@@ -40,4 +40,4 @@ class User(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
     # Relaciones
-    roles = relationship("Role", secondary="user_roles", lazy="joined")
+    roles = relationship("Role", secondary="user_roles")
