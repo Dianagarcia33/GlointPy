@@ -30,6 +30,7 @@ export const DashboardPage = () => {
                     Cerrar Sesión Segura
                 </button>
             </div>
+            </div>
         </div>
     );
 };
