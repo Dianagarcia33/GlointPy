@@ -66,7 +66,7 @@ export const DashboardKPIs = ({
                 icon={<DollarSign className="w-5 h-5" />} 
             />
             <KPICard 
-                title="Rendimiento Acumulado" 
+                title="Rendimiento Proyectado" 
                 value={"+" + formatCurrency(accumulatedProfit)} 
                 variationStr={variations?.profit || "+5.2%"} 
                 isPositive={true} 

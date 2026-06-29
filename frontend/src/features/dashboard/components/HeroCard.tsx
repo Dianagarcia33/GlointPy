@@ -57,7 +57,7 @@ export const HeroCard: React.FC<HeroCardProps> = ({
                             <p className="text-xl font-bold font-montserrat text-slate-200">{formatCurrency(investedCapital)}</p>
                         </div>
                         <div>
-                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Rendimiento Acumulado</p>
+                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Rendimiento Proyectado</p>
                             <p className="text-xl font-bold font-montserrat text-emerald-400">+{formatCurrency(accumulatedProfit)}</p>
                         </div>
                         <div>
