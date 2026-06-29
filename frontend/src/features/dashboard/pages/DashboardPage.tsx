@@ -33,7 +33,7 @@ export const DashboardPage = () => {
         return isNaN(parsed) ? 0 : parsed;
     };
 
-    const totalInvertido = investments.reduce((acc, inv) => acc + parseNumber(inv.total_contrato ?? inv.monto ?? 0), 0);
+    const totalInvertido = investments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
     const totalAcciones = investments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
     const totalRendimiento = investments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
     
@@ -98,7 +98,7 @@ export const DashboardPage = () => {
                                         <div className="space-y-3 mt-auto pt-4 border-t border-gray-100">
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-gray-500 flex items-center"><DollarSign className="w-4 h-4 mr-1 text-indigo-400" /> Capital Invertido</span>
-                                                <span className="font-medium text-gray-800">{formatCurrency(inv.total_contrato || inv.monto)}</span>
+                                                <span className="font-medium text-gray-800">{formatCurrency(inv.monto)}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
                                                 <span className="text-gray-500 flex items-center"><Activity className="w-4 h-4 mr-1 text-indigo-400" /> Acciones Otorgadas</span>
