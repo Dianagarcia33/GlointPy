@@ -36,6 +36,12 @@ export const DashboardPage = () => {
                     <p className="text-gray-500">
                         Este es tu panel de control principal.
                     </p>
+                    {/* DEBUG BLOCK TO SHOW PERMISSIONS */}
+                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="font-bold text-red-700 text-sm mb-1">🔍 MODO DEBUG ACTIVADO</p>
+                        <p className="text-xs text-red-600 font-mono">Roles: {JSON.stringify(user?.roles_list)}</p>
+                        <p className="text-xs text-red-600 font-mono">Permisos: {JSON.stringify(user?.permissions)}</p>
+                    </div>
                 </div>
             </div>
 
