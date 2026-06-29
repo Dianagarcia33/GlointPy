@@ -5,9 +5,7 @@ import { investmentsService, Investment } from '../../../services/investments';
 import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
-import { PortfolioChart } from '../components/PortfolioChart';
 import { InvestmentCard } from '../components/InvestmentCard';
-import { MovementsTable } from '../components/MovementsTable';
 
 export const DashboardPage = () => {
     const { user } = useAuthStore();
@@ -64,7 +62,7 @@ export const DashboardPage = () => {
 
             {/* GRÁFICO (Protegido por PBAC) */}
             <Can permission="ver_mis_inversiones">
-                <PortfolioChart />
+
 
                 <div className="mb-10">
                     <h3 className="text-xl font-bold text-slate-900 tracking-tight font-montserrat mb-1">Tus Inversiones Activas</h3>
@@ -90,8 +88,7 @@ export const DashboardPage = () => {
                     )}
                 </div>
 
-                {/* MOVIMIENTOS */}
-                <MovementsTable />
+
             </Can>
         </div>
     );
