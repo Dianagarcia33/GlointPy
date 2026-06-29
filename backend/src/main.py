@@ -46,3 +46,25 @@ async def test_db_connection(db: AsyncSession = Depends(get_db)):
         }
     except Exception as e:
         return {"status": "error", "message": f"Error conectando a la base de datos: {str(e)}"}
+
+@app.get("/api/v1/test-wallet")
+async def test_wallet(db: AsyncSession = Depends(get_db)):
+    from src.models.wallet import Wallet
+    from src.models.user import User
+    from sqlalchemy.future import select
+    from sqlalchemy.sql import func
+    from sqlalchemy.orm import selectinload
+    try:
+        # Test 1: User fetch
+        res = await db.execute(select(User).options(selectinload(User.roles)).limit(1))
+        u = res.scalars().first()
+        if not u: return {"error": "No users found"}
+        
+        # Test 2: Wallet fetch
+        res2 = await db.execute(select(func.sum(Wallet.balance)).where(Wallet.user_id == u.id))
+        total = res2.scalar()
+        
+        return {"user_id": u.id, "balance": float(total) if total is not None else 0.0}
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}

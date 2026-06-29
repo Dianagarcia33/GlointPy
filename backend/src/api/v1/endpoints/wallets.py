@@ -17,17 +17,25 @@ async def get_my_balance(
     db: AsyncSession = Depends(get_db)
 ):
     """Obtiene la sumatoria del balance de todas las wallets activas del usuario."""
-    result = await db.execute(
-        select(func.sum(Wallet.balance))
-        .where(Wallet.user_id == current_user.id)
-        .where(Wallet.status == 'active')
-    )
-    total_balance = result.scalar()
-    
-    # Si no tiene wallets o la suma es None, retornamos 0
-    balance = float(total_balance) if total_balance is not None else 0.0
-    
-    return {
-        "balance": balance,
-        "currency": "COP"
-    }
+    try:
+        result = await db.execute(
+            select(func.sum(Wallet.balance))
+            .where(Wallet.user_id == current_user.id)
+            .where(Wallet.status == 'active')
+        )
+        total_balance = result.scalar()
+        
+        # Si no tiene wallets o la suma es None, retornamos 0
+        balance = float(total_balance) if total_balance is not None else 0.0
+        
+        return {
+            "balance": balance,
+            "currency": "COP"
+        }
+    except Exception as e:
+        import traceback
+        print("ERROR EN WALLETS:", traceback.format_exc())
+        return {
+            "balance": 0.0,
+            "currency": str(e)
+        }
