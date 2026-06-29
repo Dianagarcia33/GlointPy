@@ -10,14 +10,16 @@ from sqlalchemy.orm import selectinload
 import src.models.user
 import src.models.wallet
 import src.models.security
+import src.models.investment
 
 from src.core.database import get_db
-from src.api.v1.endpoints import auth, wallets
+from src.api.v1.endpoints import auth, wallets, investments
 
 app = FastAPI(title="Gloint V2 API")
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(wallets.router, prefix="/api/v1/wallets", tags=["wallets"])
+app.include_router(investments.router, prefix="/api/v1/investments", tags=["investments"])
 
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
 app.add_middleware(
