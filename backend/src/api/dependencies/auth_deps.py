@@ -31,10 +31,11 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
         
+    from src.models.security import Role
     # Buscar el usuario y cargar sus roles e información de permisos
     result = await db.execute(
         select(User)
-        .options(selectinload(User.roles).selectinload(User.roles.property.mapper.class_.permissions))
+        .options(selectinload(User.roles).selectinload(Role.permissions))
         .where(User.id == int(user_id))
     )
     user = result.scalars().first()

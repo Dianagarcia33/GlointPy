@@ -27,7 +27,7 @@ export const LoginPage = () => {
         },
         onSuccess: (data) => {
             loginAction(
-                { id: 1, name: 'Usuario', email, is_active: true }, 
+                data.user || { id: 1, name: email.split('@')[0], email, is_active: true }, 
                 data.access_token
             );
             navigate('/dashboard');

@@ -56,7 +56,16 @@ async def login(
         max_age=7200,    # 2 horas
     )
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "is_active": user.is_active
+        }
+    }
 
 @router.post("/logout")
 async def logout(response: Response):
