@@ -108,11 +108,11 @@ export const LoginPage = () => {
                         />
                     </div>
                     <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
-                        Declaro conocer y aceptar expresamente los{' '}
+                        Acepto los{' '}
                         <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
                             Términos y Condiciones
                         </Link>
-                        {' '}y la Política de Privacidad de GLOINT.
+                        {' '}y Política de Privacidad.
                     </label>
                 </div>
 
