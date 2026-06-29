@@ -45,8 +45,9 @@ async def get_current_user(
     except Exception as e:
         import traceback
         print(f"Error al cargar roles/permisos del usuario: {e}")
-        # Fallback: Si falla la carga de roles/permisos por cualquier razón (ej. tablas faltantes, error de relación),
-        # cargamos solo el usuario básico para no tumbar toda la API (ej. Login y Dashboard).
+        # Hacemos rollback por si la consulta anterior dejó la transacción en estado de error
+        await db.rollback()
+        # Fallback: Cargamos solo el usuario básico
         result = await db.execute(
             select(User).where(User.id == int(user_id))
         )
