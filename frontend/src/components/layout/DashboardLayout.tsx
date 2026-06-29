@@ -8,12 +8,27 @@ export const DashboardLayout = () => {
 
     // TODO: Pasaremos el state a la Navbar para el botón hamburguesa en móviles
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen bg-slate-50 flex flex-col relative font-inter">
+            {/* Top Header - Dark Video Background (Matches Home Page/Auth) */}
+            <div className="absolute top-0 left-0 w-full h-[40vh] bg-slate-950 overflow-hidden z-0">
+                <video
+                  src="/banner.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="absolute top-0 left-0 w-full h-full object-cover block opacity-30 mix-blend-luminosity"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 to-slate-950/100" />
+            </div>
+
             {/* Top Navigation */}
-            <Navbar />
+            <div className="relative z-50">
+                <Navbar />
+            </div>
             
-            {/* Contenedor principal debajo de la Navbar (Navbar mide h-16 = 4rem = 64px) */}
-            <div className="flex-1 flex pt-16">
+            {/* Contenedor principal debajo de la Navbar */}
+            <div className="flex-1 flex pt-24 relative z-10">
                 
                 {/* Menú Lateral para pantallas medianas o grandes */}
                 <div className="hidden md:block">

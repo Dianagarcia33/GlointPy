@@ -38,20 +38,18 @@ export const DashboardPage = () => {
     const totalRendimiento = investments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
     
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-800 mb-1">Bienvenido de nuevo, {user?.name?.split(' ')[0]} 👋</h1>
-                    <p className="text-gray-500">
-                        Este es tu panel de control principal.
-                    </p>
-                </div>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+            <div className="mb-10 pt-4 px-2">
+                <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-2 font-montserrat tracking-tight">Bienvenido de nuevo, {user?.name?.split(' ')[0]} 👋</h1>
+                <p className="text-slate-300 font-medium font-inter">
+                    Este es tu panel de control principal.
+                </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 relative z-10">
                 {/* ESTE BLOQUE ESTÁ PROTEGIDO POR PBAC */}
                 <Can permission="ver_mis_inversiones">
-                    <div className="p-6 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl shadow-sm flex flex-col col-span-1 md:col-span-2 lg:col-span-3">
+                    <div className="p-6 bg-white/95 backdrop-blur-xl border border-white rounded-[2rem] shadow-2xl flex flex-col col-span-1 md:col-span-2 lg:col-span-3">
                         <div className="flex items-center gap-3 mb-6 text-indigo-700">
                             <div className="p-2 bg-indigo-100 rounded-lg">
                                 <TrendingUp className="w-6 h-6" />

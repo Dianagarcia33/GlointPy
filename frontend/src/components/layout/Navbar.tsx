@@ -30,7 +30,7 @@ export const Navbar: React.FC = () => {
   }, [isAuthenticated]);
 
   // Es sólido si el usuario hizo scroll, o si la página NO tiene un encabezado oscuro
-  const isDarkTopPage = ['/', '/login', '/register'].includes(location.pathname);
+  const isDarkTopPage = ['/', '/login', '/register', '/dashboard'].includes(location.pathname);
   const isSolid = scrolled || !isDarkTopPage;
 
   useEffect(() => {
