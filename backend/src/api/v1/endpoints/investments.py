@@ -22,15 +22,28 @@ async def get_my_investments(
         
         # 1. Buscar si el usuario tiene un perfil de inversionista en la tabla investors
         investor_id = None
+        
+        # Intentar buscar por user_id
         try:
-            # Primero intentamos con user_id
             inv_res = await db.execute(text("SELECT id FROM investors WHERE user_id = :uid LIMIT 1"), {"uid": current_user.id})
             row = inv_res.fetchone()
             investor_id = row[0] if row else None
         except Exception:
+            pass
+            
+        # Intentar buscar por id_user
+        if not investor_id:
             try:
-                # Si falla, intentamos con id_user (por si vienen de Laravel con ese nombre)
                 inv_res = await db.execute(text("SELECT id FROM investors WHERE id_user = :uid LIMIT 1"), {"uid": current_user.id})
+                row = inv_res.fetchone()
+                investor_id = row[0] if row else None
+            except Exception:
+                pass
+                
+        # Intentar buscar por correo
+        if not investor_id:
+            try:
+                inv_res = await db.execute(text("SELECT id FROM investors WHERE email = :email LIMIT 1"), {"email": current_user.email})
                 row = inv_res.fetchone()
                 investor_id = row[0] if row else None
             except Exception:
