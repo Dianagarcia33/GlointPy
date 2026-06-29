@@ -1,0 +1,35 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { Home, Briefcase, Wallet, ArrowRightLeft, History, ArrowDownToLine, FileText, User, Settings, HelpCircle } from 'lucide-react';
+
+export const Sidebar = () => {
+    return (
+        <aside className="w-64 flex flex-col h-full overflow-y-auto z-10 transition-all duration-300 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-brand-300">
+            <div className="flex flex-col py-6 px-4 gap-1.5">
+                <div className="px-3 mt-2 mb-2">
+                    <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-[0.2em]">
+                        INICIO
+                    </p>
+                </div>
+                
+                <NavLink
+                    to="/dashboard"
+                    end
+                    className={({ isActive }) => `
+                        group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
+                        ${isActive 
+                            ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30 pointer-events-none' 
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                        }
+                    `}
+                >
+                    <span className={`flex-shrink-0 transition-colors duration-200 group-hover:scale-110`}>
+                        <Home className="w-[18px] h-[18px]" />
+                    </span>
+                    <span className="flex-1 text-[13px] font-medium">Dashboard</span>
+                </NavLink>
+
+            </div>
+        </aside>
+    );
+};
