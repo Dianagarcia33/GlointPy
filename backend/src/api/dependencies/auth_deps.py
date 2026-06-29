@@ -32,14 +32,24 @@ async def get_current_user(
         raise credentials_exception
         
     from src.models.security import Role
-    # Buscar el usuario y cargar sus roles e información de permisos
-    result = await db.execute(
-        select(User)
-        .options(selectinload(User.roles).selectinload(Role.permissions))
-        .where(User.id == int(user_id))
-    )
-    user = result.scalars().first()
+    from sqlalchemy.exc import OperationalError, ProgrammingError
     
+    try:
+        # Buscar el usuario e intentar cargar sus roles e información de permisos
+        result = await db.execute(
+            select(User)
+            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .where(User.id == int(user_id))
+        )
+        user = result.scalars().first()
+    except (OperationalError, ProgrammingError):
+        # Fallback: Si la base de datos no tiene las tablas de roles/permisos creadas aún,
+        # cargamos solo el usuario básico para no tumbar toda la API (ej. Login y Dashboard).
+        result = await db.execute(
+            select(User).where(User.id == int(user_id))
+        )
+        user = result.scalars().first()
+        
     if user is None or not user.is_active:
         raise credentials_exception
         
