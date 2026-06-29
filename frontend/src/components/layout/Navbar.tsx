@@ -143,15 +143,20 @@ export const Navbar: React.FC = () => {
               <div className="flex items-center gap-4">
                 {/* Balance */}
                 {balance !== null && (
-                  <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors duration-200 ${
+                  <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all duration-300 ${
                     !isDashboard && isSolid
-                      ? 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100' 
-                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                      ? 'bg-slate-800 border-slate-700 text-white shadow-sm hover:bg-slate-900' 
+                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md'
                   }`}>
-                    <Wallet className="w-4 h-4" />
-                    <span className="font-bold text-sm">
-                      {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(balance)}
-                    </span>
+                    <div className={`p-1.5 rounded-full ${!isDashboard && isSolid ? 'bg-brand-500/20 text-brand-400' : 'bg-brand-500/30 text-brand-300'}`}>
+                      <Wallet className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] uppercase tracking-wider font-bold text-slate-400/80 leading-none -mb-0.5">Saldo Disponible</span>
+                      <span className="font-bold text-[13px] tracking-tight">
+                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(balance)}
+                      </span>
+                    </div>
                   </div>
                 )}
                 
