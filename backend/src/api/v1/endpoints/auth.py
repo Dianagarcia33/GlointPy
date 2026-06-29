@@ -36,7 +36,8 @@ async def login(
                 .where(User.email == request.email)
             )
             user = result.scalars().first()
-        except Exception:
+        except Exception as e1:
+            print(f"Fallback 1 falló: {e1}")
             await db.rollback()
             # Fallback 2: Cargar solo el usuario básico
             result = await db.execute(select(User).where(User.email == request.email))
