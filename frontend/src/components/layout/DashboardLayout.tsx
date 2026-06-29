@@ -6,20 +6,18 @@ import { Sidebar } from './Sidebar';
 export const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    // TODO: Pasaremos el state a la Navbar para el botón hamburguesa en móviles
-    return (
-        <div className="min-h-screen bg-slate-50 flex flex-col relative font-inter">
-            {/* Top Header - Dark Video Background (Matches Home Page/Auth) */}
-            <div className="absolute top-0 left-0 w-full h-[40vh] bg-slate-950 overflow-hidden z-0">
+        <div className="min-h-screen bg-slate-950 flex flex-col relative font-inter text-white">
+            {/* Full Screen Dark Video Background (Matches Home Page) */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 fixed">
                 <video
                   src="/banner.mp4"
                   autoPlay
                   loop
                   muted
                   playsInline
-                  className="absolute top-0 left-0 w-full h-full object-cover block opacity-30 mix-blend-luminosity"
+                  className="absolute top-0 left-0 w-full h-full object-cover block opacity-40 mix-blend-luminosity"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 to-slate-950/100" />
+                <div className="absolute inset-0 bg-slate-900/80" />
             </div>
 
             {/* Top Navigation */}

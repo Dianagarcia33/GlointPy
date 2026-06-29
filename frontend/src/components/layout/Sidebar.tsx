@@ -4,9 +4,9 @@ import { Home } from 'lucide-react';
 
 export const Sidebar = () => {
     return (
-        <aside className="w-64 bg-white/95 backdrop-blur-md border-r border-gray-100 flex flex-col h-[calc(100vh-4rem)] sticky top-16 shadow-sm overflow-y-auto z-10 transition-all duration-300">
+        <aside className="w-64 bg-white/5 backdrop-blur-2xl border-r border-white/10 flex flex-col h-[calc(100vh-4rem)] sticky top-16 shadow-2xl overflow-y-auto z-10 transition-all duration-300">
             <div className="flex flex-col py-6 px-4 gap-2">
-                <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                     Menú Principal
                 </p>
                 
@@ -16,8 +16,8 @@ export const Sidebar = () => {
                     className={({ isActive }) => `
                         flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
                         ${isActive 
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
-                            : 'text-gray-600 hover:bg-blue-50 hover:text-blue-700'
+                            ? 'bg-brand-500/20 text-brand-400 shadow-md border border-brand-500/30' 
+                            : 'text-slate-300 hover:bg-white/10 hover:text-white'
                         }
                     `}
                 >

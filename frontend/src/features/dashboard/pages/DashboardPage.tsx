@@ -49,27 +49,27 @@ export const DashboardPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 relative z-10">
                 {/* ESTE BLOQUE ESTÁ PROTEGIDO POR PBAC */}
                 <Can permission="ver_mis_inversiones">
-                    <div className="p-6 bg-white/95 backdrop-blur-xl border border-white rounded-[2rem] shadow-2xl flex flex-col col-span-1 md:col-span-2 lg:col-span-3">
-                        <div className="flex items-center gap-3 mb-6 text-indigo-700">
-                            <div className="p-2 bg-indigo-100 rounded-lg">
+                    <div className="p-6 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-2xl flex flex-col col-span-1 md:col-span-2 lg:col-span-3">
+                        <div className="flex items-center gap-3 mb-6 text-brand-400">
+                            <div className="p-2 bg-brand-500/20 rounded-lg">
                                 <TrendingUp className="w-6 h-6" />
                             </div>
-                            <h3 className="font-bold text-xl">Panel de Inversiones</h3>
+                            <h3 className="font-bold text-xl text-white">Panel de Inversiones</h3>
                         </div>
 
                         {!loading && investments.length > 0 && (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                                <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm">
-                                    <p className="text-sm font-medium text-gray-500 mb-1">Capital Total Invertido</p>
-                                    <p className="text-2xl font-bold text-gray-800">{formatCurrency(totalInvertido)}</p>
+                                <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 shadow-sm">
+                                    <p className="text-sm font-medium text-slate-300 mb-1">Capital Total Invertido</p>
+                                    <p className="text-2xl font-bold text-white">{formatCurrency(totalInvertido)}</p>
                                 </div>
-                                <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm">
-                                    <p className="text-sm font-medium text-gray-500 mb-1">Total Acciones</p>
-                                    <p className="text-2xl font-bold text-gray-800">{totalAcciones} <span className="text-base font-normal text-gray-500">unds</span></p>
+                                <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 shadow-sm">
+                                    <p className="text-sm font-medium text-slate-300 mb-1">Total Acciones</p>
+                                    <p className="text-2xl font-bold text-white">{totalAcciones} <span className="text-base font-normal text-slate-400">unds</span></p>
                                 </div>
-                                <div className="bg-white p-5 rounded-xl border border-indigo-100 shadow-sm">
-                                    <p className="text-sm font-medium text-gray-500 mb-1">Rendimiento Esperado</p>
-                                    <p className="text-2xl font-bold text-emerald-600">+{formatCurrency(totalRendimiento)}</p>
+                                <div className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 shadow-sm">
+                                    <p className="text-sm font-medium text-slate-300 mb-1">Rendimiento Esperado</p>
+                                    <p className="text-2xl font-bold text-brand-400">+{formatCurrency(totalRendimiento)}</p>
                                 </div>
                             </div>
                         )}
@@ -79,43 +79,43 @@ export const DashboardPage = () => {
                         ) : investments.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {investments.map(inv => (
-                                    <div key={inv.id} className="bg-white p-5 rounded-xl border border-indigo-50 shadow-sm flex flex-col">
+                                    <div key={inv.id} className="bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 shadow-sm flex flex-col hover:bg-white/20 transition-all">
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
-                                                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider mb-1">Paquete Adquirido</p>
-                                                <h4 className="text-lg font-bold text-gray-800">{formatCurrency(parseInt(inv.paquete.paquete_accion_adquirido))}</h4>
+                                                <p className="text-xs font-semibold text-brand-400 uppercase tracking-wider mb-1">Paquete Adquirido</p>
+                                                <h4 className="text-lg font-bold text-white">{formatCurrency(parseInt(inv.paquete.paquete_accion_adquirido))}</h4>
                                             </div>
                                             <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                                                inv.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 
-                                                inv.status === 'pending' ? 'bg-amber-100 text-amber-700' : 
-                                                'bg-red-100 text-red-700'
+                                                inv.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 
+                                                inv.status === 'pending' ? 'bg-brand-500/20 text-brand-400 border border-brand-500/30' : 
+                                                'bg-red-500/20 text-red-400 border border-red-500/30'
                                             }`}>
                                                 {inv.status === 'approved' ? 'Aprobado' : inv.status === 'pending' ? 'En Revisión' : 'Rechazado'}
                                             </span>
                                         </div>
-                                        <div className="space-y-3 mt-auto pt-4 border-t border-gray-100">
+                                        <div className="space-y-3 mt-auto pt-4 border-t border-white/10">
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-gray-500 flex items-center"><DollarSign className="w-4 h-4 mr-1 text-indigo-400" /> Capital Invertido</span>
-                                                <span className="font-medium text-gray-800">{formatCurrency(inv.monto)}</span>
+                                                <span className="text-slate-300 flex items-center"><DollarSign className="w-4 h-4 mr-1 text-slate-400" /> Capital Invertido</span>
+                                                <span className="font-medium text-white">{formatCurrency(inv.monto)}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-gray-500 flex items-center"><TrendingUp className="w-4 h-4 mr-1 text-emerald-500" /> Rendimiento Total</span>
-                                                <span className="font-bold text-emerald-600">+{formatCurrency(inv.rendimiento_total_contrato || 0)}</span>
+                                                <span className="text-slate-300 flex items-center"><TrendingUp className="w-4 h-4 mr-1 text-brand-400" /> Rendimiento Total</span>
+                                                <span className="font-bold text-brand-400">+{formatCurrency(inv.rendimiento_total_contrato || 0)}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-gray-500 flex items-center"><Activity className="w-4 h-4 mr-1 text-indigo-400" /> Acciones Otorgadas</span>
-                                                <span className="font-medium text-gray-800">{inv.paquete?.acciones_otorgadas || 0} unds</span>
+                                                <span className="text-slate-300 flex items-center"><Activity className="w-4 h-4 mr-1 text-slate-400" /> Acciones Otorgadas</span>
+                                                <span className="font-medium text-white">{inv.paquete?.acciones_otorgadas || 0} unds</span>
                                             </div>
                                             {inv.dias_contrato !== undefined && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-gray-500 pl-5">Días de Contrato</span>
-                                                    <span className="font-medium text-gray-800">{inv.dias_contrato} días</span>
+                                                    <span className="text-slate-400 pl-5">Días de Contrato</span>
+                                                    <span className="font-medium text-white">{inv.dias_contrato} días</span>
                                                 </div>
                                             )}
                                             {inv.liquidacion_diaria_rendimiento !== undefined && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-gray-500 pl-5">Rendimiento Diario</span>
-                                                    <span className="font-medium text-emerald-600">+{formatCurrency(inv.liquidacion_diaria_rendimiento)}</span>
+                                                    <span className="text-slate-400 pl-5">Rendimiento Diario</span>
+                                                    <span className="font-medium text-brand-400">+{formatCurrency(inv.liquidacion_diaria_rendimiento)}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -123,9 +123,9 @@ export const DashboardPage = () => {
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center py-8 bg-white/50 rounded-xl border border-indigo-100/50 border-dashed">
-                                <p className="text-indigo-900/60 font-medium">Aún no tienes inversiones activas.</p>
-                                <button className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium shadow-sm">
+                            <div className="text-center py-8 bg-white/5 backdrop-blur-md rounded-xl border border-white/20 border-dashed">
+                                <p className="text-slate-300 font-medium">Aún no tienes inversiones activas.</p>
+                                <button className="mt-4 px-6 py-2 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm">
                                     Explorar Paquetes
                                 </button>
                             </div>
@@ -134,23 +134,6 @@ export const DashboardPage = () => {
                 </Can>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="p-6 bg-gray-50 text-gray-600 rounded-2xl border border-gray-100 flex flex-col justify-center items-center text-center">
-                    <h3 className="font-bold text-lg mb-2 text-gray-800">Módulos Dinámicos</h3>
-                    <p className="text-sm">Si tuvieras otros permisos asignados, verías más tarjetas aquí.</p>
-                </div>
-
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center items-center">
-                    <p className="text-gray-500 mb-4 text-center">¿Terminaste por hoy?</p>
-                    <button 
-                        onClick={logout}
-                        className="w-full max-w-xs flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 font-medium rounded-xl hover:bg-red-100 transition-colors"
-                    >
-                        <LogOut className="w-5 h-5" />
-                        Cerrar Sesión
-                    </button>
-                </div>
-            </div>
         </div>
     );
 };
