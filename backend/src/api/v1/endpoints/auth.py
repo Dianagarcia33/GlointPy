@@ -104,7 +104,9 @@ async def login(
             "id": user.id,
             "name": user.name,
             "email": user.email,
-            "is_active": user.is_active
+            "is_active": user.is_active,
+            "roles_list": getattr(user, 'roles_list', []),
+            "permissions": getattr(user, 'permissions', [])
         }
     }
 
