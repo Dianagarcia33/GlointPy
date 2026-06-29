@@ -6,17 +6,17 @@ import { Sidebar } from './Sidebar';
 export const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col relative font-inter text-slate-900 overflow-hidden">
+        <div className="h-screen bg-slate-50 flex flex-col relative font-inter text-slate-900 overflow-hidden">
             {/* Top Navigation */}
             <div className="relative z-50">
                 <Navbar />
             </div>
             
             {/* Contenedor principal debajo de la Navbar */}
-            <div className="flex-1 flex pt-24 relative z-10">
+            <div className="flex-1 flex pt-16 mt-2 relative z-10 overflow-hidden">
                 
                 {/* Menú Lateral para pantallas medianas o grandes */}
-                <div className="hidden md:block">
+                <div className="hidden md:block border-r border-slate-200 bg-white">
                     <Sidebar />
                 </div>
 

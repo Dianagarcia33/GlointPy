@@ -4,7 +4,7 @@ import { Home } from 'lucide-react';
 
 export const Sidebar = () => {
     return (
-        <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto z-10 transition-all duration-300">
+        <aside className="w-64 flex flex-col h-full overflow-y-auto z-10 transition-all duration-300">
             <div className="flex flex-col py-6 px-4 gap-2">
                 <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
                     Menú Principal
@@ -14,10 +14,10 @@ export const Sidebar = () => {
                     to="/dashboard"
                     end
                     className={({ isActive }) => `
-                        flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group font-medium
+                        flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-semibold text-sm
                         ${isActive 
-                            ? 'bg-brand-500 text-slate-950 shadow-sm' 
-                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                            ? 'bg-brand-50 text-brand-600' 
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                         }
                     `}
                 >
