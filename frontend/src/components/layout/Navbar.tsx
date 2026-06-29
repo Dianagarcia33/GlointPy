@@ -11,7 +11,7 @@ export const Navbar: React.FC = () => {
   const [serviciosMenuOpen, setServiciosMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [balance, setBalance] = useState<number | null>(null);
+  const [balance, setBalance] = useState<number | null>(0); // Forzado a 0 desde el inicio
   const location = useLocation();
   const serviciosMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -19,14 +19,15 @@ export const Navbar: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuthStore();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      walletService.getMyBalance()
-        .then((res) => setBalance(res.balance))
-        .catch((e) => {
-          console.error(e);
-          setBalance(0); // Mostrar 0 por defecto como pidió el usuario
-        });
-    }
+    // COMENTAMOS LA LLAMADA A LA API TEMPORALMENTE
+    // if (isAuthenticated) {
+    //   walletService.getMyBalance()
+    //     .then((res) => setBalance(res.balance))
+    //     .catch((e) => {
+    //       console.error(e);
+    //       setBalance(0); 
+    //     });
+    // }
   }, [isAuthenticated]);
 
   // Es sólido si el usuario hizo scroll, o si la página NO tiene un encabezado oscuro
