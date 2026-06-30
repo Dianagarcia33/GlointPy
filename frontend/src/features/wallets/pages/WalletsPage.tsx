@@ -4,6 +4,8 @@ import { Can } from '../../../components/security/Can';
 import { fetchApi } from '../../../services/api';
 import { WithdrawalModal } from '../components/WithdrawalModal';
 import { MovementDetailModal } from '../components/MovementDetailModal';
+import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
+import { TrendingUp } from 'lucide-react';
 
 export interface Movement {
     id: number;
@@ -39,6 +41,7 @@ export const WalletsPage = () => {
     
     // Modals state
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+    const [isNewInvestmentModalOpen, setIsNewInvestmentModalOpen] = useState(false);
     const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
 
     const fetchData = async () => {
@@ -108,6 +111,11 @@ export const WalletsPage = () => {
                 movement={selectedMovement}
             />
 
+            <NewInvestmentModal 
+                isOpen={isNewInvestmentModalOpen}
+                onClose={() => setIsNewInvestmentModalOpen(false)}
+            />
+
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight font-montserrat">Mi Billetera</h1>
@@ -143,10 +151,18 @@ export const WalletsPage = () => {
                     <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-4">
                         <button 
                             onClick={() => setIsWithdrawalModalOpen(true)}
-                            className="flex items-center justify-center gap-2 w-full py-4 px-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-2xl transition-all shadow-md shadow-brand-500/20 active:scale-95"
+                            className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all shadow-md shadow-brand-500/20 active:scale-95"
                         >
                             <ArrowUpToLine className="w-5 h-5" />
                             Retirar Fondos
+                        </button>
+                        
+                        <button 
+                            onClick={() => setIsNewInvestmentModalOpen(true)}
+                            className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold rounded-xl transition-all active:scale-95"
+                        >
+                            <TrendingUp className="w-5 h-5" />
+                            Nueva Inversión
                         </button>
                     </div>
                 </div>
