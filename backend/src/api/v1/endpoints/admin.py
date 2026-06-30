@@ -37,3 +37,23 @@ async def run_auto_transfer_yields(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
+@router.post("/revert-auto-transfer")
+async def run_revert_auto_transfer(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if current_user.email != 'superadmin@gloint.com':
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado para ejecutar esta acción.")
+        
+    try:
+        result = await revert_auto_transfer_yields(db)
+        return result
+    except Exception as e:
+        import traceback
+        trace = traceback.format_exc()
+        print(f"Error in revert_auto_transfer endpoint:\n{trace}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
