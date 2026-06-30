@@ -9,7 +9,7 @@ from src.schemas.contract_period import ContractPeriodResponse
 
 router = APIRouter()
 
-@router.get("/", response_model=List[ContractPeriodResponse])
+@router.get("", response_model=List[ContractPeriodResponse])
 async def read_contract_periods(db: AsyncSession = Depends(get_db)):
     """
     Retrieve all contract periods.
