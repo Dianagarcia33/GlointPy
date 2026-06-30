@@ -1,7 +1,6 @@
 import logging
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, timezone
 from decimal import Decimal
-from zoneinfo import ZoneInfo
 from typing import Tuple
 
 from sqlalchemy import Column, BigInteger, String, Numeric, DateTime, Date, Boolean, Integer, select, and_, update
@@ -67,7 +66,7 @@ class WalletTransaction(Base):
 # --- Lógica de Transferencia ---
 
 async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: bool = False) -> dict:
-    bogota_tz = ZoneInfo('America/Bogota')
+    bogota_tz = timezone(timedelta(hours=-5))
     now_bogota = datetime.now(bogota_tz)
     
     # 1. Validación de fecha
@@ -132,7 +131,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
             accel_stmt = select(ContractAcceleration).where(
                 and_(
                     ContractAcceleration.investor_id == inv.id,
-                    ContractAcceleration.created_at >= fecha_inicio_periodo.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+                    ContractAcceleration.created_at >= fecha_inicio_periodo.astimezone(timezone.utc).replace(tzinfo=None)
                 )
             )
             accel_res = await db.execute(accel_stmt)
@@ -163,7 +162,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
             
             bonos_ciclo = sum([float(a.bonus_amount) for a in accelerations 
                               if a.created_at and 
-                              start_cycle_date.astimezone(ZoneInfo('UTC')).replace(tzinfo=None) <= a.created_at <= end_cycle_date.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)])
+                              start_cycle_date.astimezone(timezone.utc).replace(tzinfo=None) <= a.created_at <= end_cycle_date.astimezone(timezone.utc).replace(tzinfo=None)])
             
             # Como no tenemos el servicio PHP, usamos lo generado localmente como 'Truth'
             amount_yield_transferred = generado_ciclo
@@ -179,7 +178,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                 discrepancies += 1
                 
             if execute:
-                utc_start_cycle = start_cycle_date.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+                utc_start_cycle = start_cycle_date.astimezone(timezone.utc).replace(tzinfo=None)
                 now_utc = datetime.utcnow()
                 
                 # Obtener wallet o crearla
