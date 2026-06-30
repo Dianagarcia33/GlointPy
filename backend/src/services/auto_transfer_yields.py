@@ -220,7 +220,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                         await db.flush()
                         
                         # Wallet Transaction
-                        wallet.balance = float(wallet.balance) + amount_yield_transferred
+                        wallet.balance = float(wallet.balance) + float(amount_yield_transferred)
                         wt = WalletTransaction(
                             wallet_id=wallet.id,
                             amount=amount_yield_transferred,
@@ -235,6 +235,10 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                         msg = f"Rendimiento de {amount_yield_transferred} acreditado al inversor {inv.id}"
                         logger.info(msg)
                         logs.append(msg)
+                    else:
+                        logs.append(f"Inversor {inv.id}: Omitido (Ya existe retiro de rendimiento en este ciclo)")
+                else:
+                    logs.append(f"Inversor {inv.id}: Rendimiento generado es 0")
                         
                 # Transferir Bono
                 if amount_bonus_transferred > 0:
@@ -266,7 +270,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                         await db.flush()
                         
                         # Wallet Transaction
-                        wallet.balance = float(wallet.balance) + amount_bonus_transferred
+                        wallet.balance = float(wallet.balance) + float(amount_bonus_transferred)
                         wt_bono = WalletTransaction(
                             wallet_id=wallet.id,
                             amount=amount_bonus_transferred,
@@ -281,6 +285,8 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                         msg = f"Bono de {amount_bonus_transferred} acreditado al inversor {inv.id}"
                         logger.info(msg)
                         logs.append(msg)
+                    else:
+                        logs.append(f"Inversor {inv.id}: Omitido (Ya existe retiro de bono en este ciclo)")
                         
         except Exception as e:
             logger.error(f"Error procesando inversor {inv.id}: {e}")
