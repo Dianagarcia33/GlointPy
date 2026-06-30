@@ -147,7 +147,8 @@ export const WalletsPage = () => {
                                 <tbody>
                                     {movements.map((mov) => {
                                         const status = getStatusConfig(mov.estado);
-                                        const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'].includes(mov.origen);
+                                        const originNormalized = mov.origen.toLowerCase();
+                                        const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer', 'inversion'].includes(originNormalized);
 
                                         return (
                                             <tr key={mov.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors group">
