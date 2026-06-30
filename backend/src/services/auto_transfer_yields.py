@@ -360,8 +360,9 @@ async def revert_auto_transfer_yields(db: AsyncSession) -> dict:
             wallet = wallet_res.scalars().first()
             
             if wallet:
-                wallet.balance = float(wallet.balance) - float(r.monto_neto)
-                
+                from decimal import Decimal
+                wallet.balance = Decimal(str(wallet.balance)) - Decimal(str(r.monto_neto))
+                db.add(wallet)
             # Delete Wallet Transaction
             wt_stmt = select(WalletTransaction).where(
                 and_(
