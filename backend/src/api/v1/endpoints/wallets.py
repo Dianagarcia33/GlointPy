@@ -39,3 +39,35 @@ async def get_my_balance(
             "balance": 0.0,
             "currency": str(e)
         }
+
+@router.get("/me/movements")
+async def get_my_movements(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene el historial de movimientos de la billetera desde la tabla retiros."""
+    from src.models.retiros import Retiro
+    try:
+        result = await db.execute(
+            select(Retiro)
+            .where(Retiro.user_id == current_user.id)
+            .order_by(Retiro.created_at.desc())
+        )
+        movements = result.scalars().all()
+        
+        return [
+            {
+                "id": m.id,
+                "origen": m.origen,
+                "tipo": m.tipo,
+                "monto_neto": float(m.monto_neto) if m.monto_neto else 0,
+                "estado": m.estado,
+                "fecha_solicitud": m.fecha_solicitud.isoformat() if m.fecha_solicitud else None,
+                "created_at": m.created_at.isoformat() if m.created_at else None
+            }
+            for m in movements
+        ]
+    except Exception as e:
+        import traceback
+        print("ERROR EN MOVIMIENTOS:", traceback.format_exc())
+        return []
