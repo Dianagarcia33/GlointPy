@@ -17,7 +17,7 @@ class InvestmentRequest(Base):
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     investor_id = Column(BigInteger, ForeignKey("investors.id", ondelete="SET NULL"), nullable=True)
     paquete_inversion_id = Column(BigInteger, ForeignKey("paquetes_inversion.id"), nullable=False)
-    prospecto_id = Column(BigInteger, ForeignKey("leads.id", ondelete="SET NULL"), nullable=True)
+    prospecto_id = Column(BigInteger, nullable=True)
     
     monto = Column(Numeric(15, 2), nullable=False)
     comprobante_path = Column(String(255), nullable=True)
