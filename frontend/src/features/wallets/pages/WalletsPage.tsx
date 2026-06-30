@@ -196,6 +196,11 @@ export const WalletsPage = () => {
                                                         {status.text}
                                                     </span>
                                                 </div>
+                                                {(mov.observaciones || mov.motivo_rechazo) && (
+                                                    <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
+                                                        {mov.motivo_rechazo || mov.observaciones}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                         
