@@ -337,12 +337,10 @@ async def revert_auto_transfer_yields(db: AsyncSession) -> dict:
         
     utc_start_cycle = start_cycle_date.astimezone(timezone.utc).replace(tzinfo=None)
     
-    # 1. Find all retiros of type auto_yield_transfer or auto_bonus_transfer in the current cycle
+    # 1. Find all retiros of type auto_yield_transfer or auto_bonus_transfer
+    # (Removido el filtro de fecha temporalmente para permitir reversar pruebas hechas antes del día 30)
     stmt = select(Retiro).where(
-        and_(
-            Retiro.origen.in_(['auto_yield_transfer', 'auto_bonus_transfer']),
-            Retiro.created_at >= utc_start_cycle
-        )
+        Retiro.origen.in_(['auto_yield_transfer', 'auto_bonus_transfer'])
     )
     res = await db.execute(stmt)
     retiros_to_revert = res.scalars().all()
