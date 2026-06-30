@@ -29,11 +29,31 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
     const rendimiento = parseInt(inv.rendimiento_total_contrato as any) || 0;
     const rentabilidadPct = monto > 0 ? ((rendimiento / monto) * 100).toFixed(1) : "0.0";
     
-    // Progress calculation (mock if data not available)
+    // Progress calculation
     const totalDays = inv.dias_contrato || 547;
-    const daysElapsed = 120; // Example mock data for progress
-    const daysLeft = totalDays - daysElapsed;
+    let daysElapsed = 0;
+    
+    if (inv.fecha_ingreso) {
+        const startDate = new Date(inv.fecha_ingreso);
+        const today = new Date();
+        const diffTime = today.getTime() - startDate.getTime();
+        daysElapsed = diffTime > 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
+    } else if (inv.status === 'pending' || inv.status === 'rejected') {
+        daysElapsed = 0;
+    } else if (inv.created_at) {
+        const startDate = new Date(inv.created_at);
+        const today = new Date();
+        const diffTime = today.getTime() - startDate.getTime();
+        daysElapsed = diffTime > 0 ? Math.floor(diffTime / (1000 * 60 * 60 * 24)) : 0;
+    }
+    
+    const daysLeft = Math.max(0, totalDays - daysElapsed);
     const progressPct = Math.min(100, Math.max(0, (daysElapsed / totalDays) * 100));
+
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return 'Pendiente';
+        return new Date(dateStr).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+    };
 
     return (
         <>
@@ -104,11 +124,11 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center mt-auto">
                 <div>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Inicio</p>
-                    <p className="text-xs font-semibold text-slate-700">10 Ene 2026</p>
+                    <p className="text-xs font-semibold text-slate-700">{formatDate(inv.fecha_ingreso || inv.created_at)}</p>
                 </div>
                 <div className="text-right">
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Finalización</p>
-                    <p className="text-xs font-semibold text-slate-700">10 Jul 2027</p>
+                    <p className="text-xs font-semibold text-slate-700">{formatDate(inv.fecha_finalizacion)}</p>
                 </div>
             </div>
 

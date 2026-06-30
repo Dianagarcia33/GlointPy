@@ -26,5 +26,7 @@ class InvestmentRequestResponse(BaseModel):
     liquidacion_diaria_rendimiento: Optional[Decimal] = None
     dias_contrato: Optional[int] = None
     codigo_asignado: Optional[str] = None
+    fecha_ingreso: Optional[datetime] = None
+    fecha_finalizacion: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

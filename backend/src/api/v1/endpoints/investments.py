@@ -61,6 +61,8 @@ async def get_my_investments(
                 "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento,
                 "dias_contrato": inv.dias_contrato,
                 "codigo_asignado": inv.codigo_asignado,
+                "fecha_ingreso": inv.fecha_ingreso,
+                "fecha_finalizacion": inv.fecha_finalizacion,
                 "paquete": {
                     "id": inv.paquete_inversion_adquirido if inv.paquete_inversion_adquirido else 0,
                     "paquete_accion_adquirido": inv.paquete.paquete_accion_adquirido if inv.paquete else f"Paquete {inv.paquete_inversion_adquirido}",
@@ -99,6 +101,8 @@ async def get_my_investments(
                 "liquidacion_diaria_rendimiento": None,
                 "dias_contrato": dias,
                 "codigo_asignado": None,
+                "fecha_ingreso": None,
+                "fecha_finalizacion": None,
                 "paquete": {
                     "id": req.paquete_inversion_id,
                     "paquete_accion_adquirido": req.paquete.paquete_accion_adquirido if req.paquete else f"Paquete {req.paquete_inversion_id}",

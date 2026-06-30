@@ -18,6 +18,8 @@ export interface Investment {
   rendimiento_total_contrato?: number;
   liquidacion_diaria_rendimiento?: number;
   dias_contrato?: number;
+  fecha_ingreso?: string;
+  fecha_finalizacion?: string;
 
   paquete: PaqueteInversion;
 }
