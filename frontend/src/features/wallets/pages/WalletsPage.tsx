@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Wallet, ArrowDownToLine, ArrowRightLeft } from 'lucide-react';
 import { Can } from '../../../components/security/Can';
-import { api } from '../../../services/api';
+import { fetchApi } from '../../../services/api';
 
 export const WalletsPage = () => {
     const [balance, setBalance] = useState<number>(0);
@@ -10,8 +10,8 @@ export const WalletsPage = () => {
     useEffect(() => {
         const fetchBalance = async () => {
             try {
-                const response = await api.get('/wallets/me/balance');
-                setBalance(response.data.balance || 0);
+                const response = await fetchApi('/wallets/me/balance');
+                setBalance(response.balance || 0);
             } catch (error) {
                 console.error('Error fetching balance:', error);
             } finally {
