@@ -148,25 +148,25 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                             <div className="flex justify-between text-sm pt-2 border-t border-slate-50">
                                                 <span className="text-emerald-600 font-medium">Rendimiento Diario Estimado</span>
                                                 <span className="font-bold text-emerald-600">
-                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(dailyYield)}
+                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(dailyYield)}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-emerald-600 font-medium">Rendimiento Mensual Estimado</span>
                                                 <span className="font-bold text-emerald-600">
-                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(monthlyYield)}
+                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(monthlyYield)}
                                                 </span>
                                             </div>
                                             <div className="flex justify-between text-sm pt-2">
                                                 <span className="text-emerald-600 font-bold">Rendimiento Total ({selectedPeriod?.months} Meses)</span>
                                                 <span className="font-black text-emerald-600">
-                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(estimatedYield)}
+                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(estimatedYield)}
                                                 </span>
                                             </div>
                                             <div className="bg-slate-800 text-white p-4 rounded-xl flex justify-between items-center mt-4 shadow-inner">
                                                 <span className="text-sm font-semibold uppercase tracking-wider text-slate-300">Total Esperado</span>
                                                 <span className="text-xl font-black">
-                                                    {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(totalReturn)}
+                                                    {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalReturn)}
                                                 </span>
                                             </div>
                                         </div>
