@@ -11,7 +11,6 @@ interface NewInvestmentModalProps {
 export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps) => {
     const [selectedPackage, setSelectedPackage] = useState<any>(null);
     const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
-    const [amount, setAmount] = useState<string>('');
     const [step, setStep] = useState(1);
 
     const { data: packages, isLoading: loadingPackages } = useQuery({
@@ -28,12 +27,8 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
 
     if (!isOpen) return null;
 
-    const numAmount = parseFloat(amount.replace(/[^0-9.-]+/g,"")) || 0;
-    const estimatedYield = selectedPeriod ? numAmount * (selectedPeriod.percentage / 100) : 0;
-    const totalReturn = numAmount + estimatedYield;
-
     const handleNext = () => {
-        if (step === 1 && selectedPackage && selectedPeriod && numAmount > 0) {
+        if (step === 1 && selectedPackage && selectedPeriod) {
             setStep(2);
         }
     };
@@ -115,31 +110,6 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                         ))}
                                     </select>
                                 </div>
-
-                                    {/* Amount */}
-                                    <div>
-                                        <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-3 block">3. Monto a Invertir</label>
-                                        <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-slate-400">$</span>
-                                            <input 
-                                                type="text" 
-                                                value={amount}
-                                                onChange={(e) => {
-                                                    // Format as currency while typing
-                                                    const val = e.target.value.replace(/[^0-9]/g, "");
-                                                    if(val) {
-                                                        const num = parseInt(val, 10);
-                                                        setAmount(new Intl.NumberFormat('es-CO').format(num));
-                                                    } else {
-                                                        setAmount('');
-                                                    }
-                                                }}
-                                                placeholder="0"
-                                                className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-4 pl-10 pr-4 text-2xl font-black text-slate-800 focus:outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all"
-                                            />
-                                        </div>
-                                    </div>
-
                                 </div>
                             )}
 
@@ -156,18 +126,6 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-500">Periodo</span>
                                                 <span className="font-bold text-slate-800">{selectedPeriod?.months} Meses ({selectedPeriod?.percentage}%)</span>
-                                            </div>
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-slate-500">Capital Inicial</span>
-                                                <span className="font-bold text-slate-800">${new Intl.NumberFormat('es-CO').format(numAmount)}</span>
-                                            </div>
-                                            <div className="border-t border-slate-200 my-2 pt-2 flex justify-between text-sm">
-                                                <span className="text-emerald-600 font-bold">Rendimiento Proyectado</span>
-                                                <span className="font-bold text-emerald-600">+${new Intl.NumberFormat('es-CO').format(estimatedYield)}</span>
-                                            </div>
-                                            <div className="bg-slate-800 text-white p-4 rounded-xl flex justify-between items-center mt-4 shadow-inner">
-                                                <span className="text-sm font-semibold uppercase tracking-wider text-slate-300">Total Esperado</span>
-                                                <span className="text-2xl font-black">${new Intl.NumberFormat('es-CO').format(totalReturn)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -187,17 +145,8 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
 
                 {/* Footer */}
                 <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center">
-                    {/* Live Calculator Preview (Only in step 1) */}
                     {step === 1 ? (
-                        <div className="flex items-center gap-2">
-                            <TrendingUp className={`w-5 h-5 ${numAmount > 0 && selectedPeriod ? 'text-emerald-500' : 'text-slate-300'}`} />
-                            <div>
-                                <p className="text-[10px] uppercase font-bold text-slate-400">Total Esperado</p>
-                                <p className={`font-black ${numAmount > 0 && selectedPeriod ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                    ${new Intl.NumberFormat('es-CO').format(totalReturn)}
-                                </p>
-                            </div>
-                        </div>
+                        <div className="flex-1"></div>
                     ) : (
                         <button 
                             onClick={() => setStep(1)}
@@ -209,7 +158,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
 
                     <button 
                         onClick={step === 1 ? handleNext : () => console.log("Submit!")}
-                        disabled={step === 1 && (!selectedPackage || !selectedPeriod || numAmount <= 0)}
+                        disabled={step === 1 && (!selectedPackage || !selectedPeriod)}
                         className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all ml-auto"
                     >
                         {step === 1 ? 'Continuar' : 'Confirmar Inversión'}
