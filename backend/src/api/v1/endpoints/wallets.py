@@ -53,10 +53,37 @@ async def get_my_balance(
                 "numero_cuenta": investor.numero_cuenta
             }
         
+        # Fechas de retiro
+        from src.models.system_events import SystemEvent
+        from datetime import datetime
+        
+        current_date = datetime.utcnow().date()
+        current_day = current_date.day
+        
+        event_stmt = select(SystemEvent).where(
+            SystemEvent.type == 'retiro',
+            SystemEvent.is_active == 1
+        )
+        event_res = await db.execute(event_stmt)
+        withdrawal_event = event_res.scalars().first()
+        
+        can_withdraw = True
+        if withdrawal_event:
+            can_withdraw = False
+            if withdrawal_event.is_recurring == 1:
+                if withdrawal_event.recurrence_start_day and withdrawal_event.recurrence_end_day:
+                    if withdrawal_event.recurrence_start_day <= current_day <= withdrawal_event.recurrence_end_day:
+                        can_withdraw = True
+            else:
+                if withdrawal_event.start_date and withdrawal_event.end_date:
+                    if withdrawal_event.start_date.date() <= current_date <= withdrawal_event.end_date.date():
+                        can_withdraw = True
+        
         return {
             "balance": balance,
             "currency": "COP",
-            "bank_details": bank_details
+            "bank_details": bank_details,
+            "can_withdraw": can_withdraw
         }
     except Exception as e:
         import traceback
@@ -174,6 +201,41 @@ async def request_withdrawal(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Saldo insuficiente para realizar el retiro."
             )
+            
+        if monto_solicitado < Decimal('5000'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El monto mínimo de retiro es de $5,000 COP."
+            )
+            
+        # 2.5 Verificar Fechas de Retiro
+        from src.models.system_events import SystemEvent
+        current_date = datetime.utcnow().date()
+        current_day = current_date.day
+        
+        event_stmt = select(SystemEvent).where(
+            SystemEvent.type == 'retiro',
+            SystemEvent.is_active == 1
+        )
+        event_res = await db.execute(event_stmt)
+        withdrawal_event = event_res.scalars().first()
+        
+        if withdrawal_event:
+            can_withdraw = False
+            if withdrawal_event.is_recurring == 1:
+                if withdrawal_event.recurrence_start_day and withdrawal_event.recurrence_end_day:
+                    if withdrawal_event.recurrence_start_day <= current_day <= withdrawal_event.recurrence_end_day:
+                        can_withdraw = True
+            else:
+                if withdrawal_event.start_date and withdrawal_event.end_date:
+                    if withdrawal_event.start_date.date() <= current_date <= withdrawal_event.end_date.date():
+                        can_withdraw = True
+                        
+            if not can_withdraw:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Actualmente no nos encontramos en fechas de retiro habilitadas."
+                )
             
         # 3. Obtener datos bancarios
         from src.models.investor import Investor

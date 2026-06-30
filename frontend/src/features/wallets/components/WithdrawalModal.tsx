@@ -17,6 +17,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
     const [error, setError] = useState<string | null>(null);
     const [balance, setBalance] = useState<number>(0);
     const [bankDetails, setBankDetails] = useState<any>(null);
+    const [canWithdraw, setCanWithdraw] = useState<boolean>(true);
     const [isLoadingData, setIsLoadingData] = useState(false);
 
     useEffect(() => {
@@ -30,6 +31,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                     .then(res => {
                         setBalance(res.balance || 0);
                         setBankDetails(res.bank_details || null);
+                        setCanWithdraw(res.can_withdraw !== false); // Default true if undefined
                     })
                     .catch(err => console.error("Error fetching balance:", err))
                     .finally(() => setIsLoadingData(false));
@@ -80,8 +82,8 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
             setError("No tienes información bancaria registrada. Contacta a soporte.");
             return;
         }
-        if (montoNumber <= 0) {
-            setError("El monto debe ser mayor a 0.");
+        if (montoNumber < 5000) {
+            setError("El monto mínimo de retiro es de $5,000 COP.");
             return;
         }
         if (montoNumber > balance) {
@@ -127,7 +129,14 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                         </div>
                     )}
 
-                    {!bankDetails && (
+                    {!canWithdraw && !isLoadingData && (
+                        <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
+                            <p>Actualmente no nos encontramos en fechas de retiro habilitadas. Por favor consulta el cronograma oficial.</p>
+                        </div>
+                    )}
+
+                    {!bankDetails && canWithdraw && (
                         <div className="p-4 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium border border-amber-200 flex items-start gap-3">
                             <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500" />
                             <p>No hemos encontrado datos bancarios asociados a tu perfil. Por favor contacta a soporte para registrar tu cuenta antes de retirar.</p>
@@ -159,8 +168,8 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                                 type="number" 
                                 value={monto}
                                 onChange={(e) => setMonto(e.target.value)}
-                                placeholder="Ej. 1000000"
-                                disabled={!bankDetails}
+                                placeholder="Mínimo $5,000"
+                                disabled={!bankDetails || !canWithdraw}
                                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none disabled:bg-slate-50 disabled:text-slate-500"
                                 required
                             />
@@ -211,7 +220,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                     </button>
                     <button 
                         onClick={handleSubmit}
-                        disabled={withdrawalMutation.isPending || montoNumber <= 0 || montoNumber > balance || !bankDetails || isLoadingData}
+                        disabled={withdrawalMutation.isPending || montoNumber < 5000 || montoNumber > balance || !bankDetails || !canWithdraw || isLoadingData}
                         className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:active:scale-100 shadow-brand-500/20"
                     >
                         {withdrawalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
