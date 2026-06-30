@@ -27,6 +27,7 @@ class Retiro(Base):
     fecha_solicitud = Column(Date, nullable=False)
     estado = Column(String(255), default='procesado')
     metodo_pago = Column(String(255), default='wallet')
+    observaciones = Column(String(255), nullable=True)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 
@@ -213,6 +214,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                             fecha_solicitud=now_bogota.date(),
                             estado='procesado',
                             metodo_pago='wallet',
+                            observaciones=f"Rendimientos de inversión: {inv.codigo_asignado if inv.codigo_asignado else 'N/A'}",
                             created_at=now_utc,
                             updated_at=now_utc
                         )
@@ -231,6 +233,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                             type='yield_payout',
                             reference_type='retiros',
                             reference_id=nuevo_retiro.id,
+                            description=f"Rendimientos de inversión: {inv.codigo_asignado if inv.codigo_asignado else 'N/A'}",
                             balance_after=wallet.balance,
                             created_at=now_utc
                         )
@@ -267,6 +270,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                             fecha_solicitud=now_bogota.date(),
                             estado='procesado',
                             metodo_pago='wallet',
+                            observaciones=f"Bono de inversión: {inv.codigo_asignado if inv.codigo_asignado else 'N/A'}",
                             created_at=now_utc,
                             updated_at=now_utc
                         )
@@ -285,6 +289,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                             type='bonus_payout',
                             reference_type='retiros',
                             reference_id=nuevo_retiro_bono.id,
+                            description=f"Bono de inversión: {inv.codigo_asignado if inv.codigo_asignado else 'N/A'}",
                             balance_after=wallet.balance,
                             created_at=now_utc
                         )
