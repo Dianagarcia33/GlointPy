@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql import func
+from sqlalchemy import and_
 from pydantic import BaseModel, Field
 from decimal import Decimal
 from datetime import datetime
