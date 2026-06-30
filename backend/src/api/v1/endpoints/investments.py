@@ -7,7 +7,7 @@ from typing import List
 from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
-from src.models.investment_request import InvestmentRequest
+from src.models.investment_request import InvestmentRequest, InvestmentStatus
 from src.models.paquete_inversion import PaqueteInversion
 from src.models.investor import Investor
 from src.schemas.investment_schema import InvestmentRequestResponse, PaqueteInversionBase
@@ -72,23 +72,28 @@ async def get_my_investments(
             select(InvestmentRequest)
             .options(selectinload(InvestmentRequest.paquete))
             .where(InvestmentRequest.user_id == current_user.id)
-            .where(InvestmentRequest.status == 'pending')
+            .where(InvestmentRequest.status == InvestmentStatus.pending)
             .order_by(InvestmentRequest.created_at.desc())
         )
         req_res = await db.execute(req_stmt)
         requests = req_res.scalars().all()
 
         for req in requests:
+            
+            dias = 547
+            if req.extra_data and isinstance(req.extra_data, dict):
+                dias = req.extra_data.get("periodo_contrato", 547)
+
             investments.append({
                 "id": req.id,
                 "user_id": req.user_id,
                 "monto": req.monto,
-                "status": req.status,
+                "status": req.status.value if hasattr(req.status, 'value') else req.status,
                 "created_at": req.created_at,
                 "total_contrato": None,
                 "rendimiento_total_contrato": None,
                 "liquidacion_diaria_rendimiento": None,
-                "dias_contrato": req.extra_data.get("periodo_contrato", 547) if req.extra_data else 547,
+                "dias_contrato": dias,
                 "codigo_asignado": None,
                 "paquete": {
                     "id": req.paquete_inversion_id,
