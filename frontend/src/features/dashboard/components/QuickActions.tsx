@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlusCircle, ArrowDownToLine, FileText, History, HelpCircle, Terminal } from 'lucide-react';
 import { NewInvestmentModal } from './NewInvestmentModal';
+import { WithdrawalModal } from '../../wallets/components/WithdrawalModal';
 import { AutoTransferModal } from './AutoTransferModal';
 import { useAuthStore } from '../../../store/authStore';
 
@@ -27,7 +28,7 @@ const ActionButton = ({ icon, label, primary, isAdmin, onClick }: ActionProps & 
 
 export const QuickActions = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+    const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
     const { user } = useAuthStore();
 
     return (
@@ -40,7 +41,11 @@ export const QuickActions = () => {
                     label="Nueva Inversión" 
                     onClick={() => setIsModalOpen(true)}
                 />
-                <ActionButton icon={<ArrowDownToLine className="w-4 h-4" />} label="Solicitar Retiro" />
+                <ActionButton 
+                    icon={<ArrowDownToLine className="w-4 h-4" />} 
+                    label="Solicitar Retiro" 
+                    onClick={() => setIsWithdrawalModalOpen(true)}
+                />
                 <ActionButton icon={<FileText className="w-4 h-4" />} label="Certificados" />
                 <ActionButton icon={<History className="w-4 h-4" />} label="Historial" />
                 <ActionButton icon={<HelpCircle className="w-4 h-4" />} label="Soporte" />
@@ -50,6 +55,11 @@ export const QuickActions = () => {
             <NewInvestmentModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
+            />
+
+            <WithdrawalModal 
+                isOpen={isWithdrawalModalOpen} 
+                onClose={() => setIsWithdrawalModalOpen(false)} 
             />
         </div>
     );

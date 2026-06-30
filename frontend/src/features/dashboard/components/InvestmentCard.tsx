@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DollarSign, TrendingUp, Activity, Calendar, Clock, ChevronRight, FileText, ArrowDownToLine } from 'lucide-react';
 import { formatCurrency } from '../../../utils/format';
 import { Investment } from '../../../services/investments';
+import { WithdrawalModal } from '../../wallets/components/WithdrawalModal';
 
 interface InvestmentCardProps {
     investment: Investment;
 }
 
 export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) => {
+    const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
     const inv = investment;
     
     // Status Logic
@@ -33,6 +35,7 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
     const progressPct = Math.min(100, Math.max(0, (daysElapsed / totalDays) * 100));
 
     return (
+        <>
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all duration-300 overflow-hidden flex flex-col group">
             {/* Header */}
             <div className="p-6 border-b border-slate-100 bg-slate-50/50">
@@ -114,7 +117,11 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                     <button className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Descargar Certificado">
                         <FileText className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Solicitar Retiro">
+                    <button 
+                        onClick={() => setIsWithdrawalModalOpen(true)}
+                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" 
+                        title="Solicitar Retiro"
+                    >
                         <ArrowDownToLine className="w-4 h-4" />
                     </button>
                 </div>
@@ -123,5 +130,11 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                 </button>
             </div>
         </div>
+
+        <WithdrawalModal 
+            isOpen={isWithdrawalModalOpen} 
+            onClose={() => setIsWithdrawalModalOpen(false)} 
+        />
+        </>
     );
 };

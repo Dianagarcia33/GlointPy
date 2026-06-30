@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Loader2, Landmark, HelpCircle, AlertTriangle } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
@@ -7,14 +7,35 @@ import { fetchApi } from '../../../services/api';
 interface WithdrawalModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: () => void;
-    availableBalance: number;
-    bankDetails: any;
+    onSuccess?: () => void;
+    availableBalance?: number;
+    bankDetails?: any;
 }
 
-export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance, bankDetails }: WithdrawalModalProps) => {
+export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: propBalance, bankDetails: propBankDetails }: WithdrawalModalProps) => {
     const [monto, setMonto] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
+    const [balance, setBalance] = useState<number>(0);
+    const [bankDetails, setBankDetails] = useState<any>(null);
+    const [isLoadingData, setIsLoadingData] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            if (propBalance !== undefined && propBankDetails !== undefined) {
+                setBalance(propBalance);
+                setBankDetails(propBankDetails);
+            } else {
+                setIsLoadingData(true);
+                fetchApi('/wallets/me/balance')
+                    .then(res => {
+                        setBalance(res.balance || 0);
+                        setBankDetails(res.bank_details || null);
+                    })
+                    .catch(err => console.error("Error fetching balance:", err))
+                    .finally(() => setIsLoadingData(false));
+            }
+        }
+    }, [isOpen, propBalance, propBankDetails]);
 
     const withdrawalMutation = useMutation({
         mutationFn: async (data: any) => {
@@ -24,7 +45,9 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance, 
             });
         },
         onSuccess: () => {
-            onSuccess();
+            if (onSuccess) {
+                onSuccess();
+            }
             onClose();
             // Reset form
             setMonto('');
@@ -61,7 +84,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance, 
             setError("El monto debe ser mayor a 0.");
             return;
         }
-        if (montoNumber > availableBalance) {
+        if (montoNumber > balance) {
             setError("Saldo insuficiente.");
             return;
         }
@@ -72,7 +95,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance, 
     };
 
     const handleMaxBalance = () => {
-        setMonto(availableBalance.toString());
+        setMonto(balance.toString());
     };
 
     return createPortal(
@@ -118,14 +141,14 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance, 
                             <button 
                                 type="button" 
                                 onClick={handleMaxBalance}
-                                disabled={!bankDetails}
+                                disabled={!bankDetails || isLoadingData}
                                 className="text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
                             >
                                 USAR MAX
                             </button>
                         </div>
                         <p className="text-2xl font-bold text-slate-900 font-montserrat tracking-tight">
-                            {formatCurrency(availableBalance)}
+                            {isLoadingData ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : formatCurrency(balance)}
                         </p>
                     </div>
 
@@ -188,7 +211,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance, 
                     </button>
                     <button 
                         onClick={handleSubmit}
-                        disabled={withdrawalMutation.isPending || montoNumber <= 0 || montoNumber > availableBalance || !bankDetails}
+                        disabled={withdrawalMutation.isPending || montoNumber <= 0 || montoNumber > balance || !bankDetails || isLoadingData}
                         className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:active:scale-100 shadow-brand-500/20"
                     >
                         {withdrawalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
