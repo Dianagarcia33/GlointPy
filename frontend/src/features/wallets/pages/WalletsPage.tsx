@@ -147,8 +147,8 @@ export const WalletsPage = () => {
                                 <tbody>
                                     {movements.map((mov) => {
                                         const status = getStatusConfig(mov.estado);
-                                        const isIngreso = mov.origen === 'generacion_rendimiento' || mov.origen === 'bono' || mov.origen === 'cash';
-                                        
+                                        const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'].includes(mov.origen);
+
                                         return (
                                             <tr key={mov.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors group">
                                                 <td className="py-4 px-4 text-sm text-slate-600">
