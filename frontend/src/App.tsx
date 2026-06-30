@@ -8,6 +8,7 @@ import { WelcomeOnboardingPage } from "./features/auth/pages/WelcomeOnboardingPa
 import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditionsPage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
+import { WalletsPage } from "./features/wallets/pages/WalletsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 
@@ -44,7 +45,8 @@ function App() {
         } 
       >
         <Route index element={<DashboardPage />} />
-        {/* Aquí agregaremos más rutas en el futuro, ej. <Route path="retiros" element={<RetirosPage />} /> */}
+        <Route path="wallet" element={<WalletsPage />} />
+        {/* Aquí agregaremos más rutas en el futuro */}
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}

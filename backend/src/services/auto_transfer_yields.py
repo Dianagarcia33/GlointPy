@@ -126,11 +126,8 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                     
             # B. Cálculo de Días
             fecha_inicio_periodo = start_cycle_date
-            current_start_date = start_cycle_date
-            if fecha_inicio_periodo > current_start_date:
-                current_start_date = fecha_inicio_periodo
-                
-            # Aceleraciones de red
+            
+            # Aceleraciones
             accel_stmt = select(ContractAcceleration).where(
                 and_(
                     ContractAcceleration.investor_id == inv.id,
@@ -143,7 +140,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
             total_days_reduce_unapplied = sum([float(a.days_to_reduce) for a in accelerations if not a.applied])
             
             dias_contrato_base = float(inv.dias_contrato) if inv.dias_contrato else 365.0
-            fecha_fin_teorica = current_start_date + timedelta(days=dias_contrato_base - total_days_reduce_unapplied)
+            fecha_fin_teorica = fecha_inicio_periodo + timedelta(days=dias_contrato_base - total_days_reduce_unapplied)
             
             end_cursor = end_cycle_date
             incluir_dia_adicional = True
@@ -152,7 +149,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                 end_cursor = fecha_fin_teorica
                 incluir_dia_adicional = False
                 
-            dias_ciclo = (end_cursor - current_start_date).days
+            dias_ciclo = (end_cursor - start_cycle_date).days
             if incluir_dia_adicional:
                 dias_ciclo += 1
                 
@@ -165,7 +162,7 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
             
             bonos_ciclo = sum([float(a.bonus_amount) for a in accelerations 
                               if a.created_at and 
-                              current_start_date.astimezone(timezone.utc).replace(tzinfo=None) <= a.created_at <= end_cycle_date.astimezone(timezone.utc).replace(tzinfo=None)])
+                              start_cycle_date.astimezone(timezone.utc).replace(tzinfo=None) <= a.created_at <= end_cycle_date.astimezone(timezone.utc).replace(tzinfo=None)])
             
             # Como no tenemos el servicio PHP, usamos lo generado localmente como 'Truth'
             amount_yield_transferred = generado_ciclo
@@ -223,7 +220,11 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                         await db.flush()
                         
                         # Wallet Transaction
-                        wallet.balance = float(wallet.balance) + float(amount_yield_transferred)
+                        from decimal import Decimal
+                        nuevo_balance = Decimal(str(wallet.balance)) + Decimal(str(amount_yield_transferred))
+                        wallet.balance = nuevo_balance
+                        db.add(wallet) # Force explicit add to ensure SQLAlchemy tracks the update
+                        
                         wt = WalletTransaction(
                             wallet_id=wallet.id,
                             amount=amount_yield_transferred,
@@ -234,9 +235,6 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                             created_at=now_utc
                         )
                         db.add(wt)
-                        
-                        # Update Investor Dashboard Total
-                        inv.rendimiento_total_contrato = float(inv.rendimiento_total_contrato or 0.0) + float(amount_yield_transferred)
                         
                         msg = f"Rendimiento de {amount_yield_transferred} acreditado al inversor {inv.id}"
                         logger.info(msg)
@@ -276,7 +274,11 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
                         await db.flush()
                         
                         # Wallet Transaction
-                        wallet.balance = float(wallet.balance) + float(amount_bonus_transferred)
+                        from decimal import Decimal
+                        nuevo_balance = Decimal(str(wallet.balance)) + Decimal(str(amount_bonus_transferred))
+                        wallet.balance = nuevo_balance
+                        db.add(wallet)
+                        
                         wt_bono = WalletTransaction(
                             wallet_id=wallet.id,
                             amount=amount_bonus_transferred,
@@ -359,16 +361,6 @@ async def revert_auto_transfer_yields(db: AsyncSession) -> dict:
             
             if wallet:
                 wallet.balance = float(wallet.balance) - float(r.monto_neto)
-                
-            # Revert Investor Dashboard Total if it's a yield
-            if r.tipo == 'rendimiento':
-                inv_stmt = select(Investor).where(Investor.id == r.investor_id)
-                inv_res = await db.execute(inv_stmt)
-                inv = inv_res.scalars().first()
-                if inv and inv.rendimiento_total_contrato is not None:
-                    inv.rendimiento_total_contrato = float(inv.rendimiento_total_contrato) - float(r.monto_neto)
-                    if inv.rendimiento_total_contrato < 0:
-                        inv.rendimiento_total_contrato = 0.0
                 
             # Delete Wallet Transaction
             wt_stmt = select(WalletTransaction).where(
