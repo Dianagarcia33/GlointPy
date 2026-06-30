@@ -46,9 +46,11 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
     };
 
     const packageAmount = getPackageAmount(selectedPackage);
-    const estimatedYield = selectedPeriod 
-        ? packageAmount * (selectedPeriod.percentage / 100) * selectedPeriod.months 
-        : 0;
+    const monthlyYield = selectedPeriod ? packageAmount * (selectedPeriod.percentage / 100) : 0;
+    const estimatedYield = selectedPeriod ? monthlyYield * selectedPeriod.months : 0;
+    const dailyYield = selectedPeriod && selectedPeriod.days > 0 
+        ? estimatedYield / selectedPeriod.days 
+        : monthlyYield / 30; // Fallback
     const totalReturn = packageAmount + estimatedYield;
 
     return (
@@ -152,9 +154,21 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                                     {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(packageAmount)}
                                                 </span>
                                             </div>
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-emerald-600 font-bold">Rendimiento Estimado</span>
+                                            <div className="flex justify-between text-sm pt-2 border-t border-slate-50">
+                                                <span className="text-emerald-600 font-medium">Rendimiento Diario Estimado</span>
                                                 <span className="font-bold text-emerald-600">
+                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(dailyYield)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-emerald-600 font-medium">Rendimiento Mensual Estimado</span>
+                                                <span className="font-bold text-emerald-600">
+                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(monthlyYield)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-sm pt-2">
+                                                <span className="text-emerald-600 font-bold">Rendimiento Total ({selectedPeriod?.months} Meses)</span>
+                                                <span className="font-black text-emerald-600">
                                                     +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(estimatedYield)}
                                                 </span>
                                             </div>
