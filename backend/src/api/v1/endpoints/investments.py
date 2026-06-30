@@ -56,6 +56,7 @@ async def get_my_investments(
                 "rendimiento_total_contrato": inv.rendimiento_total_contrato,
                 "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento,
                 "dias_contrato": inv.dias_contrato,
+                "codigo_asignado": inv.codigo_asignado,
                 "paquete": {
                     "id": inv.paquete_inversion_adquirido if inv.paquete_inversion_adquirido else 0,
                     "paquete_accion_adquirido": inv.paquete.paquete_accion_adquirido if inv.paquete else f"Paquete {inv.paquete_inversion_adquirido}",

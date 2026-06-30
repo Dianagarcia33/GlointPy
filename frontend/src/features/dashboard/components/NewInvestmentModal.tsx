@@ -41,6 +41,17 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
         queryFn: () => fetchApi('/wallets/me/balance'),
         enabled: isOpen && step === 2,
     });
+    
+    // Fetch user investments for referral code suggestions
+    const { data: myInvestments } = useQuery({
+        queryKey: ['my_investments'],
+        queryFn: () => fetchApi('/investments/me'),
+        enabled: isOpen && step === 2,
+    });
+    
+    const myReferralCodes = myInvestments
+        ? Array.from(new Set(myInvestments.map((inv: any) => inv.codigo_asignado).filter(Boolean)))
+        : [];
 
     const createRequestMutation = useMutation({
         mutationFn: async (formData: FormData) => {
@@ -359,9 +370,31 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                     type="text" 
                                     value={referralCode}
                                     onChange={(e) => setReferralCode(e.target.value)}
+                                    list="referral-suggestions"
                                     className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500"
                                     placeholder="Ej. GLOINT2024"
                                 />
+                                {myReferralCodes.length > 0 && (
+                                    <datalist id="referral-suggestions">
+                                        {myReferralCodes.map((code: any) => (
+                                            <option key={code} value={code} />
+                                        ))}
+                                    </datalist>
+                                )}
+                                {myReferralCodes.length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        <span className="text-xs text-slate-500 my-auto">Tus códigos:</span>
+                                        {myReferralCodes.map((code: any) => (
+                                            <button 
+                                                key={code}
+                                                onClick={() => setReferralCode(code)}
+                                                className="text-xs bg-brand-50 text-brand-600 px-2 py-1 rounded-md border border-brand-100 hover:bg-brand-100 transition-colors font-bold"
+                                            >
+                                                {code}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
