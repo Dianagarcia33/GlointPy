@@ -12,6 +12,7 @@ interface Movement {
     estado: string;
     fecha_solicitud: string;
     created_at: string;
+    metodo_pago: string | null;
 }
 
 export const WalletsPage = () => {
@@ -148,7 +149,9 @@ export const WalletsPage = () => {
                                     {movements.map((mov) => {
                                         const status = getStatusConfig(mov.estado);
                                         const originNormalized = mov.origen.toLowerCase();
-                                        const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer', 'inversion'].includes(originNormalized);
+                                        const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase() : '';
+                                        // Es ingreso si el origen es de generacion/bono directo O si el metodo_pago fue a la 'wallet'
+                                        const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'].includes(originNormalized) || metodoPagoNormalized === 'wallet';
 
                                         return (
                                             <tr key={mov.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors group">

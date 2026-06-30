@@ -88,7 +88,8 @@ async def get_my_movements(
                 "monto_neto": float(m.monto_neto) if m.monto_neto else 0,
                 "estado": m.estado,
                 "fecha_solicitud": m.fecha_solicitud.isoformat() if m.fecha_solicitud else None,
-                "created_at": m.created_at.isoformat() if m.created_at else None
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+                "metodo_pago": m.metodo_pago
             }
             for m in movements
         ]
