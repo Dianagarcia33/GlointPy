@@ -30,41 +30,65 @@ export const AutoTransferModal = ({ isOpen, onClose }: AutoTransferModalProps) =
         }
     });
 
+    const revertMutation = useMutation({
+        mutationFn: async () => {
+            return await fetchApi('/admin/revert-auto-transfer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+        },
+        onSuccess: (data) => {
+            setResult(data);
+        },
+        onError: (error: any) => {
+            alert('Error: ' + error.message);
+        }
+    });
+
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-900 text-white">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                            Auto Transfer Yields <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold">SUPERADMIN</span>
-                        </h2>
+                        <h2 className="text-2xl font-bold font-montserrat">Auditoría y Transferencia (Ciclo)</h2>
+                        <p className="text-slate-400 text-sm mt-1">Calcula y deposita rendimientos en las wallets</p>
                     </div>
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
-                        <X className="w-5 h-5" />
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                        <X className="w-6 h-6" />
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                <div className="p-6 flex-1 overflow-y-auto">
                     {!result ? (
                         <div className="space-y-6">
-                            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
-                                <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                                <p className="text-sm text-blue-700 leading-relaxed">
-                                    Este módulo migra los rendimientos y bonos del ciclo mensual. 
-                                    En modo Simulación (Auditoría), sólo se compararán los datos. 
-                                    En modo Ejecución, se registrarán en base de datos.
-                                </p>
+                            <div className="bg-blue-50 text-blue-800 p-4 rounded-xl flex gap-3 items-start">
+                                <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <p className="font-semibold mb-1">Información del Proceso Automático</p>
+                                    <ul className="list-disc pl-5 space-y-1 text-sm text-blue-700">
+                                        <li>Se auditarán todos los inversores activos en la base de datos.</li>
+                                        <li>Se calcula el rendimiento proporcional basado en la fecha de corte (día 30).</li>
+                                        <li>Se tienen en cuenta los bonos por aceleración (Networkers).</li>
+                                    </ul>
+                                </div>
                             </div>
 
                             <div className="space-y-4">
                                 <div className="p-4 border border-brand-200 bg-brand-50 rounded-xl">
                                     <p className="font-bold text-brand-700">Modo de Ejecución Directo</p>
                                     <p className="text-sm text-brand-600 mt-1">Al dar clic en "Iniciar Proceso", el sistema calculará inmediatamente los rendimientos y los <b>insertará en la base de datos</b> creando los Retiros y las Transacciones de Wallet para todos los inversionistas activos.</p>
+                                </div>
+                                
+                                <div className="p-4 border border-red-200 bg-red-50 rounded-xl mt-4">
+                                    <p className="font-bold text-red-700">Modo Reversión de Emergencia</p>
+                                    <p className="text-sm text-red-600 mt-1">Si hubo un error, puedes revertir las transferencias hechas <b>en este ciclo</b>. Esto borrará los Retiros y restará el saldo a las Wallets.</p>
                                 </div>
                             </div>
                         </div>
@@ -103,18 +127,34 @@ export const AutoTransferModal = ({ isOpen, onClose }: AutoTransferModalProps) =
                 </div>
 
                 {/* Footer */}
-                {!result && (
-                    <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-end">
-                        <button 
-                            onClick={() => mutation.mutate()}
-                            disabled={mutation.isPending}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-50"
-                        >
-                            {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                            {mutation.isPending ? 'Procesando...' : 'Iniciar Proceso'}
-                        </button>
-                    </div>
-                )}
+                <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-3xl">
+                    <button 
+                        onClick={onClose}
+                        className="px-5 py-2.5 text-slate-600 hover:text-slate-800 font-semibold transition-colors"
+                    >
+                        Cerrar
+                    </button>
+                    {!result && (
+                        <>
+                            <button 
+                                onClick={() => revertMutation.mutate()}
+                                disabled={revertMutation.isPending || mutation.isPending}
+                                className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {revertMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                Revertir Transferencias
+                            </button>
+                            <button 
+                                onClick={() => mutation.mutate()}
+                                disabled={mutation.isPending || revertMutation.isPending}
+                                className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-50 shadow-brand-500/20"
+                            >
+                                {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+                                Iniciar Proceso
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
         </div>,
         document.body

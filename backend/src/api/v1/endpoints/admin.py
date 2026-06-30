@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
-from src.services.auto_transfer_yields import handle_auto_transfer
+from src.services.auto_transfer_yields import handle_auto_transfer, revert_auto_transfer_yields
 
 router = APIRouter()
 

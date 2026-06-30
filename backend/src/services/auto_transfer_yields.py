@@ -302,11 +302,83 @@ async def handle_auto_transfer(db: AsyncSession, execute: bool = False, force: b
             
     summary = f"Total procesados: {total_processed}, Discrepancias: {discrepancies}"
     logs.append(summary)
-    
+
     return {
         "status": "success",
         "execute_mode": execute,
         "total_processed": total_processed,
         "discrepancies": discrepancies,
+        "logs": logs
+    }
+
+async def revert_auto_transfer_yields(db: AsyncSession) -> dict:
+    """Reverts all auto_transfer_yields and auto_bonus_transfers for the current cycle."""
+    logs = []
+    
+    # Same cycle calculation
+    now_bogota = datetime.now(timezone(timedelta(hours=-5)))
+    if now_bogota.day >= 30:
+        start_cycle_date = now_bogota.replace(day=30, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        mes_anterior = now_bogota.month - 1
+        ano_anterior = now_bogota.year
+        if mes_anterior == 0:
+            mes_anterior = 12
+            ano_anterior -= 1
+        start_cycle_date = now_bogota.replace(year=ano_anterior, month=mes_anterior, day=30, hour=0, minute=0, second=0, microsecond=0)
+        
+    utc_start_cycle = start_cycle_date.astimezone(timezone.utc).replace(tzinfo=None)
+    
+    # 1. Find all retiros of type auto_yield_transfer or auto_bonus_transfer in the current cycle
+    stmt = select(Retiro).where(
+        and_(
+            Retiro.origen.in_(['auto_yield_transfer', 'auto_bonus_transfer']),
+            Retiro.created_at >= utc_start_cycle
+        )
+    )
+    res = await db.execute(stmt)
+    retiros_to_revert = res.scalars().all()
+    
+    if not retiros_to_revert:
+        logs.append(f"No se encontraron transferencias automáticas para el ciclo desde {utc_start_cycle}")
+        return {"status": "success", "reverted": 0, "logs": logs}
+        
+    reverted_count = 0
+    try:
+        for r in retiros_to_revert:
+            # Revert Wallet Balance
+            wallet_stmt = select(Wallet).where(Wallet.user_id == r.user_id)
+            wallet_res = await db.execute(wallet_stmt)
+            wallet = wallet_res.scalars().first()
+            
+            if wallet:
+                wallet.balance = float(wallet.balance) - float(r.monto_neto)
+                
+            # Delete Wallet Transaction
+            wt_stmt = select(WalletTransaction).where(
+                and_(
+                    WalletTransaction.reference_type == 'retiros',
+                    WalletTransaction.reference_id == r.id
+                )
+            )
+            wt_res = await db.execute(wt_stmt)
+            wt = wt_res.scalars().first()
+            if wt:
+                await db.delete(wt)
+                
+            # Delete Retiro
+            await db.delete(r)
+            reverted_count += 1
+            logs.append(f"Retiro {r.id} ({r.tipo}) del usuario {r.user_id} revertido.")
+            
+        await db.commit()
+        logs.append(f"Se revirtieron exitosamente {reverted_count} operaciones.")
+    except Exception as e:
+        await db.rollback()
+        logs.append(f"Error al revertir operaciones: {str(e)}")
+        
+    return {
+        "status": "success",
+        "reverted": reverted_count,
         "logs": logs
     }
