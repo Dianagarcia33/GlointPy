@@ -97,7 +97,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                         <option value="">-- Selecciona un paquete --</option>
                                         {packages?.map((pkg: any) => (
                                             <option key={pkg.id} value={pkg.id}>
-                                                {pkg.paquete_accion_adquirido} ({pkg.acciones_otorgadas} Acciones)
+                                                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.acciones_otorgadas} Acciones)
                                             </option>
                                         ))}
                                     </select>
@@ -159,7 +159,9 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                         <div className="space-y-3">
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-500">Paquete</span>
-                                                <span className="font-bold text-slate-800">{selectedPackage?.paquete_accion_adquirido}</span>
+                                                <span className="font-bold text-slate-800">
+                                                    {selectedPackage ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(selectedPackage)) : ''}
+                                                </span>
                                             </div>
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-500">Periodo</span>
