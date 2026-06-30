@@ -10,7 +10,7 @@ export interface Investment {
   id: number;
   user_id: number;
   monto: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'finished';
   created_at: string;
   
   // Rendimientos y Totales (para el Dashboard Avanzado)

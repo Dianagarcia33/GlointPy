@@ -45,12 +45,16 @@ async def get_my_investments(
             if monto <= 0:
                 monto = total
 
+            status_val = "approved"
+            if inv.estado and inv.estado.lower() != 'activo':
+                status_val = "finished"
+
             # Configurar los campos para el schema de respuesta
             investments.append({
                 "id": inv.id,
                 "user_id": inv.user_id,
                 "monto": monto,
-                "status": "approved", # Las inversiones de la tabla investors ya están aprobadas
+                "status": status_val,
                 "created_at": inv.created_at,
                 "total_contrato": inv.total_contrato,
                 "rendimiento_total_contrato": inv.rendimiento_total_contrato,
@@ -61,6 +65,35 @@ async def get_my_investments(
                     "id": inv.paquete_inversion_adquirido if inv.paquete_inversion_adquirido else 0,
                     "paquete_accion_adquirido": inv.paquete.paquete_accion_adquirido if inv.paquete else f"Paquete {inv.paquete_inversion_adquirido}",
                     "acciones_otorgadas": inv.acciones_otorgadas if inv.acciones_otorgadas is not None else (inv.paquete.acciones_otorgadas if inv.paquete else 0)
+                }
+            })
+
+        req_stmt = (
+            select(InvestmentRequest)
+            .options(selectinload(InvestmentRequest.paquete))
+            .where(InvestmentRequest.user_id == current_user.id)
+            .where(InvestmentRequest.status == 'pending')
+            .order_by(InvestmentRequest.created_at.desc())
+        )
+        req_res = await db.execute(req_stmt)
+        requests = req_res.scalars().all()
+
+        for req in requests:
+            investments.append({
+                "id": req.id,
+                "user_id": req.user_id,
+                "monto": req.monto,
+                "status": req.status,
+                "created_at": req.created_at,
+                "total_contrato": None,
+                "rendimiento_total_contrato": None,
+                "liquidacion_diaria_rendimiento": None,
+                "dias_contrato": req.extra_data.get("periodo_contrato", 547) if req.extra_data else 547,
+                "codigo_asignado": None,
+                "paquete": {
+                    "id": req.paquete_inversion_id,
+                    "paquete_accion_adquirido": req.paquete.paquete_accion_adquirido if req.paquete else f"Paquete {req.paquete_inversion_id}",
+                    "acciones_otorgadas": req.paquete.acciones_otorgadas if req.paquete else 0
                 }
             })
 
