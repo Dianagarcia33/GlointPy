@@ -9,7 +9,8 @@ import traceback
 
 from src.core.database import get_db
 from src.models.user import User
-from src.models.wallet import Wallet, WalletTransaction
+from src.models.wallet import Wallet
+from src.models.wallet_transactions import WalletTransaction
 from src.api.dependencies.auth_deps import get_current_user
 
 router = APIRouter()
