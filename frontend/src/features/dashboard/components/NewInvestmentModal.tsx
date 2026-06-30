@@ -91,7 +91,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                 {/* Periods Selector */}
                                 <div>
                                     <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        2. Elige el Plazo
+                                        2. Elige el Periodo
                                         {loadingPeriods && <Loader2 className="w-3 h-3 text-emerald-500 animate-spin" />}
                                     </label>
                                     <select 
@@ -107,7 +107,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                         }}
                                         disabled={loadingPeriods}
                                     >
-                                        <option value="">-- Selecciona un plazo --</option>
+                                        <option value="">-- Selecciona un periodo --</option>
                                         {periods?.map((period: any) => (
                                             <option key={period.id} value={period.id}>
                                                 {period.months} Meses ({period.percentage}% Rendimiento)
@@ -154,7 +154,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                                 <span className="font-bold text-slate-800">{selectedPackage?.paquete_accion_adquirido}</span>
                                             </div>
                                             <div className="flex justify-between text-sm">
-                                                <span className="text-slate-500">Plazo</span>
+                                                <span className="text-slate-500">Periodo</span>
                                                 <span className="font-bold text-slate-800">{selectedPeriod?.months} Meses ({selectedPeriod?.percentage}%)</span>
                                             </div>
                                             <div className="flex justify-between text-sm">
