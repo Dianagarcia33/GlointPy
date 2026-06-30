@@ -6,7 +6,8 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const token = useAuthStore.getState().accessToken;
   
   const headers = new Headers(options.headers || {});
-  if (!headers.has('Content-Type')) {
+  
+  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.append('Content-Type', 'application/json');
   }
   
