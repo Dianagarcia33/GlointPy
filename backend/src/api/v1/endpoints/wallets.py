@@ -1,15 +1,24 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql import func
+from pydantic import BaseModel, Field
 from decimal import Decimal
+from datetime import datetime
+import traceback
 
 from src.core.database import get_db
 from src.models.user import User
-from src.models.wallet import Wallet
+from src.models.wallet import Wallet, WalletTransaction
 from src.api.dependencies.auth_deps import get_current_user
 
 router = APIRouter()
+
+class WithdrawalRequest(BaseModel):
+    monto: float = Field(..., gt=0)
+    banco: str
+    tipo_cuenta: str
+    numero_cuenta: str
 
 @router.get("/me/balance")
 async def get_my_balance(
@@ -68,6 +77,103 @@ async def get_my_movements(
             for m in movements
         ]
     except Exception as e:
-        import traceback
         print("ERROR EN MOVIMIENTOS:", traceback.format_exc())
         return []
+
+@router.post("/me/withdraw")
+async def request_withdrawal(
+    request: WithdrawalRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Crea una solicitud de retiro, calcula impuestos y descuenta de la billetera."""
+    from src.models.retiros import Retiro
+    
+    try:
+        # 1. Obtener la billetera activa del usuario
+        wallet_stmt = select(Wallet).where(
+            Wallet.user_id == current_user.id,
+            Wallet.status == 'active'
+        )
+        wallet_res = await db.execute(wallet_stmt)
+        wallet = wallet_res.scalars().first()
+        
+        if not wallet:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Billetera no encontrada o inactiva."
+            )
+            
+        # 2. Validar saldo
+        monto_solicitado = Decimal(str(request.monto))
+        saldo_actual = Decimal(str(wallet.balance))
+        
+        if saldo_actual < monto_solicitado:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Saldo insuficiente para realizar el retiro."
+            )
+            
+        # 3. Calcular impuesto (3.2%) y monto neto
+        impuesto = monto_solicitado * Decimal('0.032')
+        monto_neto = monto_solicitado - impuesto
+        
+        now_utc = datetime.utcnow()
+        
+        # 4. Crear el Retiro (pendiente)
+        nuevo_retiro = Retiro(
+            user_id=current_user.id,
+            origen='retiro_wallet',
+            tipo='rendimiento', # O genérico
+            monto=monto_solicitado,
+            impuesto=impuesto,
+            monto_neto=monto_neto,
+            fecha_solicitud=now_utc.date(),
+            estado='pendiente',
+            metodo_pago='transferencia_bancaria',
+            banco=request.banco,
+            tipo_cuenta=request.tipo_cuenta,
+            numero_cuenta=request.numero_cuenta,
+            created_at=now_utc,
+            updated_at=now_utc
+        )
+        db.add(nuevo_retiro)
+        await db.flush() # Para obtener el ID
+        
+        # 5. Descontar saldo de la billetera
+        wallet.balance = saldo_actual - monto_solicitado
+        db.add(wallet)
+        
+        # 6. Registrar en WalletTransaction
+        wt = WalletTransaction(
+            wallet_id=wallet.id,
+            amount=monto_solicitado,
+            type='withdrawal_request',
+            reference_type='retiros',
+            reference_id=nuevo_retiro.id,
+            balance_after=wallet.balance,
+            created_at=now_utc
+        )
+        db.add(wt)
+        
+        await db.commit()
+        
+        return {
+            "status": "success",
+            "message": "Retiro solicitado correctamente",
+            "retiro_id": nuevo_retiro.id,
+            "monto": float(monto_solicitado),
+            "impuesto": float(impuesto),
+            "monto_neto": float(monto_neto)
+        }
+        
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        print("ERROR EN RETIRO:", traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al procesar el retiro."
+        )

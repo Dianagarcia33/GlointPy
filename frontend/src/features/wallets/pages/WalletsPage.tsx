@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Wallet, ArrowDownToLine, ArrowRightLeft, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Can } from '../../../components/security/Can';
 import { fetchApi } from '../../../services/api';
+import { WithdrawalModal } from '../components/WithdrawalModal';
 
 interface Movement {
     id: number;
@@ -17,23 +18,25 @@ export const WalletsPage = () => {
     const [balance, setBalance] = useState<number>(0);
     const [movements, setMovements] = useState<Movement[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [balanceRes, movementsRes] = await Promise.all([
+                fetchApi('/wallets/me/balance'),
+                fetchApi('/wallets/me/movements')
+            ]);
+            setBalance(balanceRes.balance || 0);
+            setMovements(movementsRes || []);
+        } catch (error) {
+            console.error('Error fetching wallet data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [balanceRes, movementsRes] = await Promise.all([
-                    fetchApi('/wallets/me/balance'),
-                    fetchApi('/wallets/me/movements')
-                ]);
-                setBalance(balanceRes.balance || 0);
-                setMovements(movementsRes || []);
-            } catch (error) {
-                console.error('Error fetching wallet data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchData();
     }, []);
 
@@ -62,6 +65,16 @@ export const WalletsPage = () => {
 
     return (
         <Can permission="wallets:view">
+            <WithdrawalModal 
+                isOpen={isWithdrawalModalOpen} 
+                onClose={() => setIsWithdrawalModalOpen(false)} 
+                onSuccess={() => {
+                    fetchData();
+                    // Opcionalmente mostrar un toast de éxito aquí
+                }} 
+                availableBalance={balance}
+            />
+
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight font-montserrat">Mi Billetera</h1>
@@ -92,7 +105,10 @@ export const WalletsPage = () => {
 
                     {/* Actions Card */}
                     <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-4">
-                        <button className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-xl transition-colors">
+                        <button 
+                            onClick={() => setIsWithdrawalModalOpen(true)}
+                            className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-xl transition-colors"
+                        >
                             <ArrowDownToLine className="w-5 h-5" />
                             Retirar Fondos
                         </button>
