@@ -132,8 +132,10 @@ async def create_investment_request(
         return {"message": "Solicitud de inversión creada exitosamente", "id": new_request.id}
     except Exception as e:
         await db.rollback()
-        print(f"Error creating investment request: {e}")
+        import traceback
+        trace = traceback.format_exc()
+        print(f"Error creating investment request:\n{trace}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al procesar la solicitud de inversión"
+            detail=f"Error al procesar la solicitud de inversión: {str(e)}"
         )
