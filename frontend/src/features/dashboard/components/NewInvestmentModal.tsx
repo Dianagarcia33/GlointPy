@@ -146,60 +146,62 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                 <div className="p-6 overflow-y-auto custom-scrollbar">
                     {step === 1 && (
                         <div className="space-y-6 animate-fadeIn">
-                            {/* Packages Selector */}
-                            <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    1. Selecciona tu Paquete
-                                    {loadingPackages && <Loader2 className="w-3 h-3 text-brand-500 animate-spin" />}
-                                </label>
-                                <select 
-                                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 transition-all appearance-none"
-                                    value={selectedPackage?.id || ""}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (!val) setSelectedPackage(null);
-                                        else {
-                                            const pkg = packages?.find((p: any) => p.id.toString() === val);
-                                            setSelectedPackage(pkg);
-                                        }
-                                    }}
-                                    disabled={loadingPackages}
-                                >
-                                    <option value="">-- Selecciona un paquete --</option>
-                                    {packages?.map((pkg: any) => (
-                                        <option key={pkg.id} value={pkg.id}>
-                                            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.acciones_otorgadas} Acciones)
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Packages Selector */}
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        1. Selecciona tu Paquete
+                                        {loadingPackages && <Loader2 className="w-3 h-3 text-brand-500 animate-spin" />}
+                                    </label>
+                                    <select 
+                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 transition-all appearance-none"
+                                        value={selectedPackage?.id || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (!val) setSelectedPackage(null);
+                                            else {
+                                                const pkg = packages?.find((p: any) => p.id.toString() === val);
+                                                setSelectedPackage(pkg);
+                                            }
+                                        }}
+                                        disabled={loadingPackages}
+                                    >
+                                        <option value="">-- Selecciona un paquete --</option>
+                                        {packages?.map((pkg: any) => (
+                                            <option key={pkg.id} value={pkg.id}>
+                                                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.acciones_otorgadas} Acciones)
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            {/* Periods Selector */}
-                            <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    2. Elige el Periodo
-                                    {loadingPeriods && <Loader2 className="w-3 h-3 text-emerald-500 animate-spin" />}
-                                </label>
-                                <select 
-                                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-emerald-500 transition-all appearance-none"
-                                    value={selectedPeriod?.id || ""}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (!val) setSelectedPeriod(null);
-                                        else {
-                                            const period = periods?.find((p: any) => p.id.toString() === val);
-                                            setSelectedPeriod(period);
-                                        }
-                                    }}
-                                    disabled={loadingPeriods}
-                                >
-                                    <option value="">-- Selecciona un periodo --</option>
-                                    {periods?.map((period: any) => (
-                                        <option key={period.id} value={period.id}>
-                                            {period.months} Meses ({period.percentage}% Rendimiento)
-                                        </option>
-                                    ))}
-                                </select>
+                                {/* Periods Selector */}
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        2. Elige el Periodo
+                                        {loadingPeriods && <Loader2 className="w-3 h-3 text-emerald-500 animate-spin" />}
+                                    </label>
+                                    <select 
+                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-emerald-500 transition-all appearance-none"
+                                        value={selectedPeriod?.id || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (!val) setSelectedPeriod(null);
+                                            else {
+                                                const period = periods?.find((p: any) => p.id.toString() === val);
+                                                setSelectedPeriod(period);
+                                            }
+                                        }}
+                                        disabled={loadingPeriods}
+                                    >
+                                        <option value="">-- Selecciona un periodo --</option>
+                                        {periods?.map((period: any) => (
+                                            <option key={period.id} value={period.id}>
+                                                {period.months} Meses ({period.percentage}% Rendimiento)
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             
                             {/* Summary Block */}
