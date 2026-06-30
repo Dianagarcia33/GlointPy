@@ -6,13 +6,26 @@ import { WithdrawalModal } from '../components/WithdrawalModal';
 
 interface Movement {
     id: number;
+    investor_id: number | null;
+    user_id: number;
     origen: string;
     tipo: string;
+    monto: number;
+    impuesto: number;
     monto_neto: number;
+    fecha_solicitud: string | null;
+    fecha_retiro: string | null;
     estado: string;
-    fecha_solicitud: string;
-    created_at: string;
     metodo_pago: string | null;
+    banco: string | null;
+    tipo_cuenta: string | null;
+    numero_cuenta: string | null;
+    observaciones: string | null;
+    motivo_rechazo: string | null;
+    fecha_aprobacion: string | null;
+    fecha_procesamiento: string | null;
+    created_at: string | null;
+    updated_at: string | null;
 }
 
 export const WalletsPage = () => {
@@ -49,6 +62,11 @@ export const WalletsPage = () => {
             currency: 'COP',
             minimumFractionDigits: 0
         }).format(value);
+    };
+
+    const formatDate = (dateString: string | null) => {
+        if (!dateString) return '-';
+        return new Date(dateString).toLocaleDateString('es-CO');
     };
 
     const getStatusConfig = (estado: string) => {
@@ -135,14 +153,21 @@ export const WalletsPage = () => {
                             ))}
                         </div>
                     ) : movements.length > 0 ? (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                        <div className="overflow-x-auto pb-4">
+                            <table className="w-full text-left border-collapse whitespace-nowrap min-w-max">
                                 <thead>
-                                    <tr className="border-b border-slate-200 text-slate-500 text-sm">
-                                        <th className="pb-4 font-medium px-4">Fecha</th>
-                                        <th className="pb-4 font-medium px-4">Detalle</th>
-                                        <th className="pb-4 font-medium px-4">Estado</th>
-                                        <th className="pb-4 font-medium px-4 text-right">Monto</th>
+                                    <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
+                                        <th className="pb-4 font-bold px-4">ID</th>
+                                        <th className="pb-4 font-bold px-4">F. Solicitud</th>
+                                        <th className="pb-4 font-bold px-4">Detalle</th>
+                                        <th className="pb-4 font-bold px-4">Método</th>
+                                        <th className="pb-4 font-bold px-4">Datos Banco</th>
+                                        <th className="pb-4 font-bold px-4 text-right">Monto Bruto</th>
+                                        <th className="pb-4 font-bold px-4 text-right">Impuesto</th>
+                                        <th className="pb-4 font-bold px-4 text-right">Monto Neto</th>
+                                        <th className="pb-4 font-bold px-4">Estado</th>
+                                        <th className="pb-4 font-bold px-4">F. Procesamiento</th>
+                                        <th className="pb-4 font-bold px-4">Observaciones / Rechazo</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -155,12 +180,25 @@ export const WalletsPage = () => {
 
                                         return (
                                             <tr key={mov.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors group">
-                                                <td className="py-4 px-4 text-sm text-slate-600">
-                                                    {new Date(mov.fecha_solicitud).toLocaleDateString('es-CO')}
-                                                </td>
+                                                <td className="py-4 px-4 text-sm text-slate-500 font-medium">#{mov.id}</td>
+                                                <td className="py-4 px-4 text-sm text-slate-600">{formatDate(mov.fecha_solicitud)}</td>
                                                 <td className="py-4 px-4">
                                                     <p className="text-sm font-medium text-slate-900 capitalize">{mov.origen.replace(/_/g, ' ')}</p>
                                                     <p className="text-xs text-slate-500 capitalize">{mov.tipo}</p>
+                                                </td>
+                                                <td className="py-4 px-4 text-sm text-slate-600 capitalize">{mov.metodo_pago || '-'}</td>
+                                                <td className="py-4 px-4">
+                                                    {mov.banco ? (
+                                                        <div className="text-xs text-slate-600">
+                                                            <p className="font-semibold text-slate-800">{mov.banco}</p>
+                                                            <p>{mov.tipo_cuenta} • {mov.numero_cuenta}</p>
+                                                        </div>
+                                                    ) : '-'}
+                                                </td>
+                                                <td className="py-4 px-4 text-right text-sm text-slate-600">{formatCurrency(mov.monto)}</td>
+                                                <td className="py-4 px-4 text-right text-sm text-red-500">{formatCurrency(mov.impuesto)}</td>
+                                                <td className={`py-4 px-4 text-right font-bold font-montserrat ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
+                                                    {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
                                                 </td>
                                                 <td className="py-4 px-4">
                                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${status.bg} ${status.color}`}>
@@ -168,8 +206,9 @@ export const WalletsPage = () => {
                                                         {status.text}
                                                     </span>
                                                 </td>
-                                                <td className={`py-4 px-4 text-right font-bold font-montserrat ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                                    {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
+                                                <td className="py-4 px-4 text-sm text-slate-600">{formatDate(mov.fecha_procesamiento || mov.fecha_aprobacion)}</td>
+                                                <td className="py-4 px-4 text-xs text-slate-500 max-w-[200px] truncate" title={mov.motivo_rechazo || mov.observaciones || ''}>
+                                                    {mov.motivo_rechazo || mov.observaciones || '-'}
                                                 </td>
                                             </tr>
                                         );

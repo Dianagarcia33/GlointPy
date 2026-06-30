@@ -83,13 +83,26 @@ async def get_my_movements(
         return [
             {
                 "id": m.id,
+                "investor_id": m.investor_id,
+                "user_id": m.user_id,
                 "origen": m.origen,
                 "tipo": m.tipo,
+                "monto": float(m.monto) if m.monto else 0,
+                "impuesto": float(m.impuesto) if m.impuesto else 0,
                 "monto_neto": float(m.monto_neto) if m.monto_neto else 0,
-                "estado": m.estado,
                 "fecha_solicitud": m.fecha_solicitud.isoformat() if m.fecha_solicitud else None,
+                "fecha_retiro": m.fecha_retiro.isoformat() if m.fecha_retiro else None,
+                "estado": m.estado,
+                "metodo_pago": m.metodo_pago,
+                "banco": m.banco,
+                "tipo_cuenta": m.tipo_cuenta,
+                "numero_cuenta": m.numero_cuenta,
+                "observaciones": m.observaciones,
+                "motivo_rechazo": m.motivo_rechazo,
+                "fecha_aprobacion": m.fecha_aprobacion.isoformat() if m.fecha_aprobacion else None,
+                "fecha_procesamiento": m.fecha_procesamiento.isoformat() if m.fecha_procesamiento else None,
                 "created_at": m.created_at.isoformat() if m.created_at else None,
-                "metodo_pago": m.metodo_pago
+                "updated_at": m.updated_at.isoformat() if m.updated_at else None
             }
             for m in movements
         ]
