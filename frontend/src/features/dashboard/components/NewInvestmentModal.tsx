@@ -130,6 +130,24 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                         ))}
                                     </select>
                                 </div>
+                                
+                                {/* Live breakdown preview in Step 1 */}
+                                {selectedPackage && selectedPeriod && (
+                                    <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 mt-4 space-y-2 animate-fadeIn">
+                                        <div className="flex justify-between text-xs text-emerald-800">
+                                            <span>Rendimiento Diario:</span>
+                                            <span className="font-bold">+{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(dailyYield)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-xs text-emerald-800">
+                                            <span>Rendimiento Mensual:</span>
+                                            <span className="font-bold">+{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(monthlyYield)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm text-emerald-900 border-t border-emerald-100 pt-2 mt-1">
+                                            <span className="font-semibold">Rendimiento Total:</span>
+                                            <span className="font-bold">+{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(estimatedYield)}</span>
+                                        </div>
+                                    </div>
+                                )}
                                 </div>
                             )}
 
