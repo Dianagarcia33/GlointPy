@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
@@ -46,7 +47,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
         : monthlyYield / 30; // Fallback
     const totalReturn = packageAmount + estimatedYield;
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
@@ -196,6 +197,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
