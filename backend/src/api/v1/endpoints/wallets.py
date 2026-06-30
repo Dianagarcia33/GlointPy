@@ -73,15 +73,43 @@ async def get_my_movements(
     """Obtiene el historial de movimientos de la billetera desde la tabla retiros."""
     from src.models.retiros import Retiro
     try:
-        result = await db.execute(
-            select(Retiro)
+        from src.models.wallet_transactions import WalletTransaction
+        
+        stmt = (
+            select(Retiro, WalletTransaction)
+            .outerjoin(
+                WalletTransaction,
+                and_(
+                    WalletTransaction.reference_id == Retiro.id,
+                    WalletTransaction.reference_type.in_(['retiros', 'App\\Models\\Retiro'])
+                )
+            )
             .where(Retiro.user_id == current_user.id)
             .order_by(Retiro.created_at.desc())
         )
-        movements = result.scalars().all()
+        result = await db.execute(stmt)
         
-        return [
-            {
+        movements = []
+        for m, wt in result.all():
+            saldo_nuevo = float(wt.balance_after) if wt and wt.balance_after else None
+            saldo_anterior = None
+            if wt and wt.amount is not None and wt.balance_after is not None:
+                # Determinar si fue ingreso o egreso basado en type o método de pago
+                metodo_pago_norm = m.metodo_pago.lower() if m.metodo_pago else ""
+                origen_norm = m.origen.lower() if m.origen else ""
+                
+                is_ingreso = False
+                if wt.type in ['yield_payout', 'bonus_payout', 'deposit']:
+                    is_ingreso = True
+                elif origen_norm in ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'] or metodo_pago_norm == 'wallet':
+                    is_ingreso = True
+                
+                if is_ingreso:
+                    saldo_anterior = float(wt.balance_after) - float(wt.amount)
+                else:
+                    saldo_anterior = float(wt.balance_after) + float(wt.amount)
+            
+            movements.append({
                 "id": m.id,
                 "investor_id": m.investor_id,
                 "user_id": m.user_id,
@@ -102,10 +130,12 @@ async def get_my_movements(
                 "fecha_aprobacion": m.fecha_aprobacion.isoformat() if m.fecha_aprobacion else None,
                 "fecha_procesamiento": m.fecha_procesamiento.isoformat() if m.fecha_procesamiento else None,
                 "created_at": m.created_at.isoformat() if m.created_at else None,
-                "updated_at": m.updated_at.isoformat() if m.updated_at else None
-            }
-            for m in movements
-        ]
+                "updated_at": m.updated_at.isoformat() if m.updated_at else None,
+                "saldo_anterior": saldo_anterior,
+                "saldo_nuevo": saldo_nuevo
+            })
+            
+        return movements
     except Exception as e:
         print("ERROR EN MOVIMIENTOS:", traceback.format_exc())
         return []

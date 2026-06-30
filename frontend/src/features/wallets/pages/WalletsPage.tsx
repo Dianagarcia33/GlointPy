@@ -27,6 +27,8 @@ export interface Movement {
     fecha_procesamiento: string | null;
     created_at: string | null;
     updated_at: string | null;
+    saldo_anterior: number | null;
+    saldo_nuevo: number | null;
 }
 
 export const WalletsPage = () => {
