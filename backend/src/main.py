@@ -14,7 +14,7 @@ import src.models.investment_request
 import src.models.paquete_inversion
 
 from src.core.database import get_db
-from src.api.v1.endpoints import users, auth, dashboard, files, investors, investments, contract_periods, wallets, admin
+from src.api.v1.endpoints import auth, wallets, investments, contract_periods, admin
 
 app = FastAPI(title="Gloint V2 API")
 
