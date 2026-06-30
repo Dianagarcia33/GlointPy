@@ -70,48 +70,73 @@ export const DashboardPage = () => {
             {/* TODO EL DASHBOARD ESTÁ PROTEGIDO POR PBAC */}
             <Can permission="ver_mis_inversiones">
                 <MaintenanceModal />
-                {/* HEROCARD */}
-                <HeroCard 
-                    userName={user?.name?.split(' ')[0] || ''}
-                    totalPortfolio={totalPortafolio}
-                    investedCapital={totalInvertido}
-                    accumulatedProfit={totalRendimiento}
-                    profitabilityPercent={rentabilidadGlobal}
-                    dailyProfit={gananciaDiaria}
-                />
+                {loading ? (
+                    <div className="space-y-8 animate-pulse">
+                        {/* HeroCard Skeleton */}
+                        <div className="bg-slate-900 rounded-3xl p-8 md:p-10 h-64 shadow-xl"></div>
+                        
+                        {/* KPIs Skeleton */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-200/50 rounded-3xl"></div>)}
+                        </div>
+                        
+                        {/* QuickActions Skeleton */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[1, 2, 3, 4].map(i => <div key={i} className="h-40 bg-slate-200/50 rounded-3xl"></div>)}
+                        </div>
+                        
+                        {/* Active Investments Skeleton */}
+                        <div>
+                            <div className="h-6 w-48 bg-slate-200/50 rounded mb-2"></div>
+                            <div className="h-4 w-64 bg-slate-200/50 rounded mb-6"></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[1, 2, 3].map(i => <div key={i} className="h-80 bg-slate-200/50 rounded-3xl"></div>)}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {/* HEROCARD */}
+                        <HeroCard 
+                            userName={user?.name?.split(' ')[0] || ''}
+                            totalPortfolio={totalPortafolio}
+                            investedCapital={totalInvertido}
+                            accumulatedProfit={totalRendimiento}
+                            profitabilityPercent={rentabilidadGlobal}
+                            dailyProfit={gananciaDiaria}
+                        />
 
-                {/* KPIS Y ACCIONES */}
-                <DashboardKPIs 
-                    investedCapital={totalInvertido}
-                    currentValue={totalPortafolio}
-                    accumulatedProfit={totalRendimiento}
-                    acquiredShares={totalAcciones}
-                />
+                        {/* KPIS Y ACCIONES */}
+                        <DashboardKPIs 
+                            investedCapital={totalInvertido}
+                            currentValue={totalPortafolio}
+                            accumulatedProfit={totalRendimiento}
+                            acquiredShares={totalAcciones}
+                        />
 
-                <QuickActions />
-                <div className="mb-10">
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight font-montserrat mb-1">Tus Inversiones Activas</h3>
-                    <p className="text-sm font-medium text-slate-500 mb-6">Gestiona y haz seguimiento detallado a tus contratos</p>
-                    
-                    {loading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
-                            {[1,2,3].map(i => <div key={i} className="h-80 bg-slate-200/50 rounded-3xl"></div>)}
+                        <QuickActions />
+                        
+                        <div className="mb-10">
+                            <h3 className="text-xl font-bold text-slate-900 tracking-tight font-montserrat mb-1">Tus Inversiones Activas</h3>
+                            <p className="text-sm font-medium text-slate-500 mb-6">Gestiona y haz seguimiento detallado a tus contratos</p>
+                            
+                            {investments.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {investments.map(inv => (
+                                        <InvestmentCard key={inv.id} investment={inv} />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 border-dashed">
+                                    <p className="text-slate-500 font-medium">Aún no tienes inversiones activas.</p>
+                                    <button className="mt-6 px-8 py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-bold shadow-sm active:scale-95">
+                                        Explorar Paquetes
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    ) : investments.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {investments.map(inv => (
-                                <InvestmentCard key={inv.id} investment={inv} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 border-dashed">
-                            <p className="text-slate-500 font-medium">Aún no tienes inversiones activas.</p>
-                            <button className="mt-6 px-8 py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-bold shadow-sm active:scale-95">
-                                Explorar Paquetes
-                            </button>
-                        </div>
-                    )}
-                </div>
+                    </>
+                )}
 
 
             </Can>
