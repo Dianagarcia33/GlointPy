@@ -7,7 +7,8 @@ from typing import List
 from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
-from src.models.investment import InvestmentRequest, PaqueteInversion
+from src.models.investment_request import InvestmentRequest
+from src.models.paquete_inversion import PaqueteInversion
 from src.models.investor import Investor
 from src.schemas.investment_schema import InvestmentRequestResponse, PaqueteInversionBase
 

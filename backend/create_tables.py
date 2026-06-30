@@ -8,7 +8,8 @@ import src.models.wallet
 import src.models.security
 import src.models.contract_period
 import src.models.investor
-import src.models.investment
+import src.models.investment_request
+import src.models.paquete_inversion
 
 async def main():
     print("Creando tablas faltantes en la base de datos...")

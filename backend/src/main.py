@@ -10,7 +10,8 @@ from sqlalchemy.orm import selectinload
 import src.models.user
 import src.models.wallet
 import src.models.security
-import src.models.investment
+import src.models.investment_request
+import src.models.paquete_inversion
 
 from src.core.database import get_db
 from src.api.v1.endpoints import auth, wallets, investments, contract_periods
