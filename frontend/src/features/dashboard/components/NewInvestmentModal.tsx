@@ -55,68 +55,66 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto custom-scrollbar">
-                    {loadingPackages || loadingPeriods ? (
-                        <div className="flex flex-col items-center justify-center py-12">
-                            <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-4" />
-                            <p className="text-sm font-semibold text-slate-500">Cargando opciones...</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-8">
-                            
-                            {/* Step 1: Configuration */}
-                            {step === 1 && (
-                                <div className="space-y-8 animate-fadeIn">
-                                    {/* Packages */}
-                                    <div>
-                                        <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-3 block">1. Selecciona tu Paquete</label>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            {packages?.map((pkg: any) => (
-                                                <div 
-                                                    key={pkg.id}
-                                                    onClick={() => setSelectedPackage(pkg)}
-                                                    className={`cursor-pointer border-2 rounded-2xl p-4 transition-all duration-200 ${
-                                                        selectedPackage?.id === pkg.id 
-                                                            ? 'border-brand-500 bg-brand-50 shadow-md shadow-brand-500/10' 
-                                                            : 'border-slate-200 hover:border-brand-300 bg-white'
-                                                    }`}
-                                                >
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <h3 className={`font-bold ${selectedPackage?.id === pkg.id ? 'text-brand-700' : 'text-slate-700'}`}>
-                                                            {pkg.paquete_accion_adquirido}
-                                                        </h3>
-                                                        <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-1 rounded uppercase">
-                                                            {pkg.acciones_otorgadas} Acciones
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                    <div className="space-y-8">
+                        
+                        {/* Step 1: Configuration */}
+                        {step === 1 && (
+                            <div className="space-y-6 animate-fadeIn">
+                                {/* Packages Selector */}
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        1. Selecciona tu Paquete
+                                        {loadingPackages && <Loader2 className="w-3 h-3 text-brand-500 animate-spin" />}
+                                    </label>
+                                    <select 
+                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 transition-all appearance-none"
+                                        value={selectedPackage?.id || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (!val) setSelectedPackage(null);
+                                            else {
+                                                const pkg = packages?.find((p: any) => p.id.toString() === val);
+                                                setSelectedPackage(pkg);
+                                            }
+                                        }}
+                                        disabled={loadingPackages}
+                                    >
+                                        <option value="">-- Selecciona un paquete --</option>
+                                        {packages?.map((pkg: any) => (
+                                            <option key={pkg.id} value={pkg.id}>
+                                                {pkg.paquete_accion_adquirido} ({pkg.acciones_otorgadas} Acciones)
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                                    {/* Periods */}
-                                    <div>
-                                        <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-3 block">2. Elige el Plazo</label>
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                            {periods?.map((period: any) => (
-                                                <div 
-                                                    key={period.id}
-                                                    onClick={() => setSelectedPeriod(period)}
-                                                    className={`cursor-pointer border-2 rounded-2xl p-3 text-center transition-all duration-200 ${
-                                                        selectedPeriod?.id === period.id 
-                                                            ? 'border-emerald-500 bg-emerald-50 shadow-md shadow-emerald-500/10' 
-                                                            : 'border-slate-200 hover:border-emerald-300 bg-white'
-                                                    }`}
-                                                >
-                                                    <div className={`text-xl font-black mb-1 ${selectedPeriod?.id === period.id ? 'text-emerald-700' : 'text-slate-700'}`}>
-                                                        {period.months} <span className="text-xs font-semibold">Meses</span>
-                                                    </div>
-                                                    <div className={`text-xs font-bold ${selectedPeriod?.id === period.id ? 'text-emerald-600' : 'text-slate-500'}`}>
-                                                        {period.percentage}% Rendimiento
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                                {/* Periods Selector */}
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        2. Elige el Plazo
+                                        {loadingPeriods && <Loader2 className="w-3 h-3 text-emerald-500 animate-spin" />}
+                                    </label>
+                                    <select 
+                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-emerald-500 transition-all appearance-none"
+                                        value={selectedPeriod?.id || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (!val) setSelectedPeriod(null);
+                                            else {
+                                                const period = periods?.find((p: any) => p.id.toString() === val);
+                                                setSelectedPeriod(period);
+                                            }
+                                        }}
+                                        disabled={loadingPeriods}
+                                    >
+                                        <option value="">-- Selecciona un plazo --</option>
+                                        {periods?.map((period: any) => (
+                                            <option key={period.id} value={period.id}>
+                                                {period.months} Meses ({period.percentage}% Rendimiento)
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
                                     {/* Amount */}
                                     <div>
@@ -185,7 +183,6 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                             )}
 
                         </div>
-                    )}
                 </div>
 
                 {/* Footer */}
