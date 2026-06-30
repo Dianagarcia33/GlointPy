@@ -26,7 +26,6 @@ class InvestmentRequest(Base):
     
     reviewed_at = Column(DateTime, nullable=True)
     reviewed_by = Column(BigInteger, ForeignKey("users.id"), nullable=True)
-    
     extra_data = Column(JSON, nullable=True)
     
     created_at = Column(DateTime, server_default=func.now())

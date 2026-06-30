@@ -71,3 +71,69 @@ async def get_my_investments(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener las inversiones del usuario"
         )
+
+@router.post("/requests")
+async def create_investment_request(
+    paquete_inversion_id: int = Form(...),
+    monto: float = Form(...),
+    periodo_contrato: int = Form(...),
+    monto_billetera_usado: float = Form(0),
+    codigo_referido: str = Form(""),
+    comprobantes: List[UploadFile] = File(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    import os
+    import uuid
+    import json
+    
+    # Save files if provided
+    comprobantes_paths = []
+    if comprobantes:
+        upload_dir = "uploads/comprobantes_solicitudes"
+        os.makedirs(upload_dir, exist_ok=True)
+        for file in comprobantes:
+            file_extension = os.path.splitext(file.filename)[1]
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            file_path = os.path.join(upload_dir, unique_filename)
+            
+            with open(file_path, "wb") as f:
+                content = await file.read()
+                f.write(content)
+            comprobantes_paths.append(file_path)
+
+    extra_data = {
+        "periodo_contrato": periodo_contrato,
+    }
+    
+    if monto_billetera_usado > 0:
+        extra_data["monto_billetera_usado"] = monto_billetera_usado
+        
+    if codigo_referido.strip():
+        extra_data["codigo_referido"] = codigo_referido.strip()
+        
+    # Guardar paths de múltiples comprobantes (si solo hay uno se guarda como string directo)
+    comprobante_path_main = comprobantes_paths[0] if comprobantes_paths else None
+    if len(comprobantes_paths) > 1:
+        extra_data["comprobantes_extra"] = comprobantes_paths[1:]
+
+    new_request = InvestmentRequest(
+        user_id=current_user.id,
+        paquete_inversion_id=paquete_inversion_id,
+        monto=monto,
+        comprobante_path=comprobante_path_main,
+        extra_data=extra_data
+    )
+
+    db.add(new_request)
+    try:
+        await db.commit()
+        await db.refresh(new_request)
+        return {"message": "Solicitud de inversión creada exitosamente", "id": new_request.id}
+    except Exception as e:
+        await db.rollback()
+        print(f"Error creating investment request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al procesar la solicitud de inversión"
+        )
