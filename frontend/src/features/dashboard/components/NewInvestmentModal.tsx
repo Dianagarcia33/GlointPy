@@ -48,6 +48,17 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
         enabled: isOpen && step === 2,
     });
 
+    const handleFinalClose = () => {
+        setStep(1);
+        setSelectedPackage(null);
+        setSelectedPeriod(null);
+        setReferralCode('');
+        setUseWallet(false);
+        setWalletAmount(0);
+        setFiles(null);
+        onClose();
+    };
+
     const createRequestMutation = useMutation({
         mutationFn: async (formData: FormData) => {
             return await fetchApi('/investments/requests', {
@@ -57,15 +68,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my_investments'] });
-            // reset and close
-            setStep(1);
-            setSelectedPackage(null);
-            setSelectedPeriod(null);
-            setReferralCode('');
-            setUseWallet(false);
-            setWalletAmount(0);
-            setFiles(null);
-            onClose();
+            setStep(3);
         },
         onError: (error) => {
             console.error("Error creating request", error);
@@ -128,13 +131,13 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                 <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <div>
                         <h2 className="text-xl font-bold text-slate-800">
-                            {step === 1 ? 'Nueva Inversión' : 'Detalles de Pago'}
+                            {step === 1 ? 'Nueva Inversión' : step === 2 ? 'Detalles de Pago' : '¡Inversión Registrada!'}
                         </h2>
                         <p className="text-xs text-slate-500 mt-1">
-                            {step === 1 ? 'Configura tu plan y descubre tu rentabilidad' : 'Adjunta tus soportes y código de referido'}
+                            {step === 1 ? 'Configura tu plan y descubre tu rentabilidad' : step === 2 ? 'Adjunta tus soportes y código de referido' : 'Tu solicitud ha sido procesada con éxito'}
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
+                    <button onClick={step === 3 ? handleFinalClose : onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -389,43 +392,62 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                             </div>
                         </div>
                     )}
-                </div>
-
-                {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center">
-                    {step === 1 ? (
-                        <div className="w-full flex justify-end">
+                    
+                    {step === 3 && (
+                        <div className="flex flex-col items-center justify-center p-8 text-center animate-fadeIn space-y-4">
+                            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4 border-4 border-emerald-50">
+                                <TrendingUp className="w-10 h-10 text-emerald-500" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-800">¡Solicitud Registrada!</h3>
+                            <p className="text-slate-600 text-sm max-w-sm mx-auto">
+                                Hemos recibido tu solicitud de inversión. Nuestro equipo administrativo la validará en breve y te notificaremos cuando esté aprobada.
+                            </p>
                             <button 
-                                onClick={() => setStep(2)}
-                                disabled={!selectedPackage || !selectedPeriod}
-                                className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                onClick={handleFinalClose}
+                                className="mt-6 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md transition-all"
                             >
-                                Continuar
-                                <ChevronRight className="w-4 h-4" />
+                                Entendido
                             </button>
                         </div>
-                    ) : (
-                        <>
-                            <button 
-                                onClick={() => setStep(1)}
-                                disabled={createRequestMutation.isPending}
-                                className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-slate-700 font-semibold transition-colors"
-                            >
-                                <ChevronLeft className="w-4 h-4" />
-                                Atrás
-                            </button>
-                            <button 
-                                onClick={handleSubmit}
-                                disabled={createRequestMutation.isPending || (amountToPay > 0 && (!files || files.length === 0))}
-                                className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                {createRequestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                Confirmar Inversión
-                            </button>
-                        </>
                     )}
                 </div>
 
+                {/* Footer */}
+                {step !== 3 && (
+                    <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center">
+                        {step === 1 ? (
+                            <div className="w-full flex justify-end">
+                                <button 
+                                    onClick={() => setStep(2)}
+                                    disabled={!selectedPackage || !selectedPeriod}
+                                    className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    Continuar
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <button 
+                                    onClick={() => setStep(1)}
+                                    disabled={createRequestMutation.isPending}
+                                    className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:text-slate-700 font-semibold transition-colors"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    Atrás
+                                </button>
+                                <button 
+                                    onClick={handleSubmit}
+                                    disabled={createRequestMutation.isPending || (amountToPay > 0 && (!files || files.length === 0))}
+                                    className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {createRequestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                    Confirmar Inversión
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
             </div>
         </div>,
         document.body
