@@ -45,24 +45,11 @@ export const QuickActions = () => {
                 <ActionButton icon={<History className="w-4 h-4" />} label="Historial" />
                 <ActionButton icon={<HelpCircle className="w-4 h-4" />} label="Soporte" />
                 
-                {user?.email === 'superadmin@gloint.com' && (
-                    <ActionButton 
-                        isAdmin
-                        icon={<Terminal className="w-4 h-4" />} 
-                        label="[ADMIN] Transferencias" 
-                        onClick={() => setIsAdminModalOpen(true)}
-                    />
-                )}
             </div>
 
             <NewInvestmentModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
-            />
-            
-            <AutoTransferModal 
-                isOpen={isAdminModalOpen}
-                onClose={() => setIsAdminModalOpen(false)}
             />
         </div>
     );
