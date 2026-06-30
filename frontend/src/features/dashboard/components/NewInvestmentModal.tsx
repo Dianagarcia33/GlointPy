@@ -150,30 +150,33 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                         <div className="space-y-6 animate-fadeIn">
                             {/* Packages Selector */}
                             <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-3 flex items-center gap-2">
                                     1. Selecciona tu Paquete
                                     {loadingPackages && <Loader2 className="w-3 h-3 text-brand-500 animate-spin" />}
                                 </label>
-                                <select 
-                                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 transition-all appearance-none"
-                                    value={selectedPackage?.id || ""}
-                                    onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (!val) setSelectedPackage(null);
-                                        else {
-                                            const pkg = packages?.find((p: any) => p.id.toString() === val);
-                                            setSelectedPackage(pkg);
-                                        }
-                                    }}
-                                    disabled={loadingPackages}
-                                >
-                                    <option value="">-- Selecciona un paquete --</option>
-                                    {packages?.map((pkg: any) => (
-                                        <option key={pkg.id} value={pkg.id}>
-                                            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.acciones_otorgadas} Acciones)
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 custom-scrollbar">
+                                    {packages?.map((pkg: any) => {
+                                        const amount = getPackageAmount(pkg);
+                                        const isSelected = selectedPackage?.id === pkg.id;
+                                        return (
+                                            <div 
+                                                key={pkg.id} 
+                                                onClick={() => setSelectedPackage(pkg)}
+                                                className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${isSelected ? 'border-brand-500 bg-brand-50 shadow-md' : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50'}`}
+                                            >
+                                                <div className={`font-black text-lg ${isSelected ? 'text-brand-700' : 'text-slate-800'}`}>
+                                                    {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amount)}
+                                                </div>
+                                                <div className={`text-sm font-semibold mt-1 ${isSelected ? 'text-brand-600' : 'text-slate-600'}`}>
+                                                    {pkg.acciones_otorgadas} {pkg.acciones_otorgadas === 1 ? 'Acción' : 'Acciones'}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-2 bg-white/50 rounded inline-block px-2 py-0.5 border border-slate-100">
+                                                    {pkg.paquete_accion_adquirido}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             {/* Periods Selector */}
@@ -366,33 +369,20 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                     <Link className="w-4 h-4 text-slate-400" />
                                     Código de Referido (Opcional)
                                 </label>
-                                <input 
-                                    type="text" 
-                                    value={referralCode}
-                                    onChange={(e) => setReferralCode(e.target.value)}
-                                    list="referral-suggestions"
-                                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500"
-                                    placeholder="Ej. GLOINT2024"
-                                />
-                                {myReferralCodes.length > 0 && (
-                                    <datalist id="referral-suggestions">
+                                {myReferralCodes.length > 0 ? (
+                                    <select 
+                                        value={referralCode}
+                                        onChange={(e) => setReferralCode(e.target.value)}
+                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 appearance-none"
+                                    >
+                                        <option value="">-- Sin código de referido --</option>
                                         {myReferralCodes.map((code: any) => (
-                                            <option key={code} value={code} />
+                                            <option key={code} value={code}>{code}</option>
                                         ))}
-                                    </datalist>
-                                )}
-                                {myReferralCodes.length > 0 && (
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                        <span className="text-xs text-slate-500 my-auto">Tus códigos:</span>
-                                        {myReferralCodes.map((code: any) => (
-                                            <button 
-                                                key={code}
-                                                onClick={() => setReferralCode(code)}
-                                                className="text-xs bg-brand-50 text-brand-600 px-2 py-1 rounded-md border border-brand-100 hover:bg-brand-100 transition-colors font-bold"
-                                            >
-                                                {code}
-                                            </button>
-                                        ))}
+                                    </select>
+                                ) : (
+                                    <div className="bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-400 font-medium italic">
+                                        No tienes códigos de referido disponibles.
                                     </div>
                                 )}
                             </div>
