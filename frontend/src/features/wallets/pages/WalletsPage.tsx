@@ -122,30 +122,51 @@ export const WalletsPage = () => {
                     <p className="text-slate-500 mt-1">Gestiona tu saldo y movimientos recientes</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    {/* Balance Card (Rediseñada para coherencia con HeroCard del Dashboard) */}
-                    <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-                        {/* Círculos decorativos tipo Glassmorphism */}
-                        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-brand-500/20 rounded-full blur-3xl"></div>
-                        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl"></div>
-                        
-                        <div className="relative z-10">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
-                                    <Wallet className="w-6 h-6 text-brand-400" />
-                                </div>
-                                <h2 className="text-lg font-medium text-slate-300">Saldo Disponible</h2>
-                            </div>
+                {loading ? (
+                    <div className="space-y-8 animate-pulse">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Balance Card Skeleton */}
+                            <div className="col-span-1 md:col-span-2 h-48 bg-slate-900 rounded-3xl p-8"></div>
                             
-                            {loading ? (
-                                <div className="h-14 w-48 bg-white/10 rounded-xl animate-pulse"></div>
-                            ) : (
-                                <p className="text-5xl md:text-6xl font-bold font-montserrat tracking-tight text-white drop-shadow-sm">
-                                    {formatCurrency(balance)}
-                                </p>
-                            )}
+                            {/* Actions Card Skeleton */}
+                            <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col gap-4">
+                                <div className="h-14 w-full bg-slate-100 rounded-xl"></div>
+                                <div className="h-14 w-full bg-slate-100 rounded-xl"></div>
+                            </div>
+                        </div>
+
+                        {/* History Skeleton */}
+                        <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm">
+                            <div className="h-8 w-64 bg-slate-100 rounded-xl mb-6"></div>
+                            <div className="space-y-4 mt-4">
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="h-20 bg-slate-100 rounded-2xl w-full"></div>
+                                ))}
+                            </div>
                         </div>
                     </div>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                            {/* Balance Card (Rediseñada para coherencia con HeroCard del Dashboard) */}
+                            <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+                                {/* Círculos decorativos tipo Glassmorphism */}
+                                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-brand-500/20 rounded-full blur-3xl"></div>
+                                <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl"></div>
+                                
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+                                            <Wallet className="w-6 h-6 text-brand-400" />
+                                        </div>
+                                        <h2 className="text-lg font-medium text-slate-300">Saldo Disponible</h2>
+                                    </div>
+                                    
+                                    <p className="text-5xl md:text-6xl font-bold font-montserrat tracking-tight text-white drop-shadow-sm">
+                                        {formatCurrency(balance)}
+                                    </p>
+                                </div>
+                            </div>
 
                     {/* Actions Card */}
                     <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-4">
@@ -178,13 +199,7 @@ export const WalletsPage = () => {
                         </div>
                     </div>
 
-                    {loading ? (
-                        <div className="space-y-4">
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="h-20 bg-slate-50 rounded-2xl animate-pulse border border-slate-100"></div>
-                            ))}
-                        </div>
-                    ) : movements.length > 0 ? (
+                    {movements.length > 0 ? (
                         <div className="space-y-3">
                             {movements.map((mov) => {
                                 const status = getStatusConfig(mov.estado);
@@ -240,6 +255,8 @@ export const WalletsPage = () => {
                         </div>
                     )}
                 </div>
+                    </>
+                )}
             </div>
         </Can>
     );
