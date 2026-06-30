@@ -17,30 +17,45 @@ router = APIRouter()
 
 class WithdrawalRequest(BaseModel):
     monto: float = Field(..., gt=0)
-    banco: str
-    tipo_cuenta: str
-    numero_cuenta: str
 
 @router.get("/me/balance")
 async def get_my_balance(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Obtiene la sumatoria del balance de todas las wallets activas del usuario."""
+    """Obtiene el balance y la información bancaria del usuario."""
+    from src.models.investor import Investor
     try:
+        # Balance
         result = await db.execute(
             select(func.sum(Wallet.balance))
             .where(Wallet.user_id == current_user.id)
             .where(Wallet.status == 'active')
         )
         total_balance = result.scalar()
-        
-        # Si no tiene wallets o la suma es None, retornamos 0
         balance = float(total_balance) if total_balance is not None else 0.0
+        
+        # Datos bancarios
+        inv_stmt = select(Investor).where(
+            Investor.user_id == current_user.id,
+            Investor.banco != None,
+            Investor.numero_cuenta != None
+        ).order_by(Investor.id.desc())
+        inv_res = await db.execute(inv_stmt)
+        investor = inv_res.scalars().first()
+        
+        bank_details = None
+        if investor:
+            bank_details = {
+                "banco": investor.banco,
+                "tipo_cuenta": investor.tipo_cuenta,
+                "numero_cuenta": investor.numero_cuenta
+            }
         
         return {
             "balance": balance,
-            "currency": "COP"
+            "currency": "COP",
+            "bank_details": bank_details
         }
     except Exception as e:
         import traceback
@@ -115,14 +130,31 @@ async def request_withdrawal(
                 detail="Saldo insuficiente para realizar el retiro."
             )
             
-        # 3. Calcular impuesto (3.2%) y monto neto
+        # 3. Obtener datos bancarios
+        from src.models.investor import Investor
+        inv_stmt = select(Investor).where(
+            Investor.user_id == current_user.id,
+            Investor.banco != None,
+            Investor.numero_cuenta != None
+        ).order_by(Investor.id.desc())
+        inv_res = await db.execute(inv_stmt)
+        investor = inv_res.scalars().first()
+        
+        if not investor:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No tienes información bancaria registrada. Por favor contacta a soporte."
+            )
+            
+        # 4. Calcular impuesto (3.2%) y monto neto
         impuesto = monto_solicitado * Decimal('0.032')
         monto_neto = monto_solicitado - impuesto
         
         now_utc = datetime.utcnow()
         
-        # 4. Crear el Retiro (pendiente)
+        # 5. Crear el Retiro (pendiente)
         nuevo_retiro = Retiro(
+            investor_id=investor.id,
             user_id=current_user.id,
             origen='retiro_wallet',
             tipo='rendimiento', # O genérico
@@ -132,20 +164,20 @@ async def request_withdrawal(
             fecha_solicitud=now_utc.date(),
             estado='pendiente',
             metodo_pago='transferencia_bancaria',
-            banco=request.banco,
-            tipo_cuenta=request.tipo_cuenta,
-            numero_cuenta=request.numero_cuenta,
+            banco=investor.banco,
+            tipo_cuenta=investor.tipo_cuenta,
+            numero_cuenta=investor.numero_cuenta,
             created_at=now_utc,
             updated_at=now_utc
         )
         db.add(nuevo_retiro)
         await db.flush() # Para obtener el ID
         
-        # 5. Descontar saldo de la billetera
+        # 6. Descontar saldo de la billetera
         wallet.balance = saldo_actual - monto_solicitado
         db.add(wallet)
         
-        # 6. Registrar en WalletTransaction
+        # 7. Registrar en WalletTransaction
         wt = WalletTransaction(
             wallet_id=wallet.id,
             amount=monto_solicitado,

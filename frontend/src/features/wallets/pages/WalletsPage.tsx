@@ -16,6 +16,7 @@ interface Movement {
 
 export const WalletsPage = () => {
     const [balance, setBalance] = useState<number>(0);
+    const [bankDetails, setBankDetails] = useState<any>(null);
     const [movements, setMovements] = useState<Movement[]>([]);
     const [loading, setLoading] = useState(true);
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
@@ -28,6 +29,7 @@ export const WalletsPage = () => {
                 fetchApi('/wallets/me/movements')
             ]);
             setBalance(balanceRes.balance || 0);
+            setBankDetails(balanceRes.bank_details || null);
             setMovements(movementsRes || []);
         } catch (error) {
             console.error('Error fetching wallet data:', error);
@@ -73,6 +75,7 @@ export const WalletsPage = () => {
                     // Opcionalmente mostrar un toast de éxito aquí
                 }} 
                 availableBalance={balance}
+                bankDetails={bankDetails}
             />
 
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">

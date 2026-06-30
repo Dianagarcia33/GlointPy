@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, Landmark, HelpCircle } from 'lucide-react';
+import { X, Loader2, Landmark, HelpCircle, AlertTriangle } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
 
@@ -9,13 +9,11 @@ interface WithdrawalModalProps {
     onClose: () => void;
     onSuccess: () => void;
     availableBalance: number;
+    bankDetails: any;
 }
 
-export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }: WithdrawalModalProps) => {
+export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance, bankDetails }: WithdrawalModalProps) => {
     const [monto, setMonto] = useState<string>('');
-    const [banco, setBanco] = useState<string>('');
-    const [tipoCuenta, setTipoCuenta] = useState<string>('ahorros');
-    const [numeroCuenta, setNumeroCuenta] = useState<string>('');
     const [error, setError] = useState<string | null>(null);
 
     const withdrawalMutation = useMutation({
@@ -30,8 +28,6 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }
             onClose();
             // Reset form
             setMonto('');
-            setBanco('');
-            setNumeroCuenta('');
             setError(null);
         },
         onError: (err: any) => {
@@ -57,6 +53,10 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }
         e.preventDefault();
         setError(null);
 
+        if (!bankDetails) {
+            setError("No tienes información bancaria registrada. Contacta a soporte.");
+            return;
+        }
         if (montoNumber <= 0) {
             setError("El monto debe ser mayor a 0.");
             return;
@@ -65,16 +65,9 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }
             setError("Saldo insuficiente.");
             return;
         }
-        if (!banco.trim() || !numeroCuenta.trim()) {
-            setError("Por favor completa los datos de tu cuenta bancaria.");
-            return;
-        }
 
         withdrawalMutation.mutate({
-            monto: montoNumber,
-            banco,
-            tipo_cuenta: tipoCuenta,
-            numero_cuenta: numeroCuenta
+            monto: montoNumber
         });
     };
 
@@ -84,7 +77,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }
 
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 {/* Header */}
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between relative bg-brand-50/50">
                     <div>
@@ -111,6 +104,13 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }
                         </div>
                     )}
 
+                    {!bankDetails && (
+                        <div className="p-4 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium border border-amber-200 flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500" />
+                            <p>No hemos encontrado datos bancarios asociados a tu perfil. Por favor contacta a soporte para registrar tu cuenta antes de retirar.</p>
+                        </div>
+                    )}
+
                     {/* Balance Info */}
                     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                         <div className="flex justify-between items-end mb-2">
@@ -118,7 +118,8 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }
                             <button 
                                 type="button" 
                                 onClick={handleMaxBalance}
-                                className="text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg transition-colors"
+                                disabled={!bankDetails}
+                                className="text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
                             >
                                 USAR MAX
                             </button>
@@ -136,51 +137,26 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }
                                 value={monto}
                                 onChange={(e) => setMonto(e.target.value)}
                                 placeholder="Ej. 1000000"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none"
+                                disabled={!bankDetails}
+                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none disabled:bg-slate-50 disabled:text-slate-500"
                                 required
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Banco</label>
-                                <input 
-                                    type="text" 
-                                    value={banco}
-                                    onChange={(e) => setBanco(e.target.value)}
-                                    placeholder="Ej. Bancolombia"
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none"
-                                    required
-                                />
+                        {bankDetails && (
+                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Cuenta de Destino</label>
+                                <div className="space-y-1">
+                                    <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Banco:</span> {bankDetails.banco}</p>
+                                    <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Tipo:</span> {bankDetails.tipo_cuenta}</p>
+                                    <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Número:</span> {bankDetails.numero_cuenta}</p>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tipo de Cuenta</label>
-                                <select
-                                    value={tipoCuenta}
-                                    onChange={(e) => setTipoCuenta(e.target.value)}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none"
-                                >
-                                    <option value="ahorros">Ahorros</option>
-                                    <option value="corriente">Corriente</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Número de Cuenta</label>
-                            <input 
-                                type="text" 
-                                value={numeroCuenta}
-                                onChange={(e) => setNumeroCuenta(e.target.value)}
-                                placeholder="Ingresa el número"
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none"
-                                required
-                            />
-                        </div>
+                        )}
                     </div>
 
                     {/* Resumen */}
-                    {montoNumber > 0 && (
+                    {montoNumber > 0 && bankDetails && (
                         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2">
                             <div className="flex justify-between text-sm">
                                 <span className="text-amber-700">Subtotal solicitado:</span>
@@ -212,7 +188,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance }
                     </button>
                     <button 
                         onClick={handleSubmit}
-                        disabled={withdrawalMutation.isPending || montoNumber <= 0 || montoNumber > availableBalance}
+                        disabled={withdrawalMutation.isPending || montoNumber <= 0 || montoNumber > availableBalance || !bankDetails}
                         className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:active:scale-100 shadow-brand-500/20"
                     >
                         {withdrawalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
