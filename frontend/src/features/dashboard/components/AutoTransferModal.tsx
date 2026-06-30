@@ -10,15 +10,13 @@ interface AutoTransferModalProps {
 }
 
 export const AutoTransferModal = ({ isOpen, onClose }: AutoTransferModalProps) => {
-    const [execute, setExecute] = useState(false);
-    const [force, setForce] = useState(false);
     const [result, setResult] = useState<any>(null);
 
     const mutation = useMutation({
         mutationFn: async () => {
             return await fetchApi('/admin/auto-transfer-yields', {
                 method: 'POST',
-                body: JSON.stringify({ execute, force }),
+                body: JSON.stringify({ execute: true, force: true }),
                 headers: {
                     'Content-Type': 'application/json'
                 }
@@ -64,31 +62,10 @@ export const AutoTransferModal = ({ isOpen, onClose }: AutoTransferModalProps) =
                             </div>
 
                             <div className="space-y-4">
-                                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={execute} 
-                                        onChange={(e) => setExecute(e.target.checked)}
-                                        className="w-5 h-5 accent-brand-500"
-                                    />
-                                    <div>
-                                        <p className="font-bold text-slate-700">Modo Ejecución (--execute)</p>
-                                        <p className="text-sm text-slate-500">Guarda los retiros en la base de datos de manera atómica.</p>
-                                    </div>
-                                </label>
-
-                                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={force} 
-                                        onChange={(e) => setForce(e.target.checked)}
-                                        className="w-5 h-5 accent-red-500"
-                                    />
-                                    <div>
-                                        <p className="font-bold text-slate-700 text-red-600">Forzar Día Diferente (--force)</p>
-                                        <p className="text-sm text-slate-500">Permite saltarse la restricción de que sólo corre el día 30 del mes.</p>
-                                    </div>
-                                </label>
+                                <div className="p-4 border border-brand-200 bg-brand-50 rounded-xl">
+                                    <p className="font-bold text-brand-700">Modo de Ejecución Directo</p>
+                                    <p className="text-sm text-brand-600 mt-1">Al dar clic en "Iniciar Proceso", el sistema calculará inmediatamente los rendimientos y los <b>insertará en la base de datos</b> creando los Retiros y las Transacciones de Wallet para todos los inversionistas activos.</p>
+                                </div>
                             </div>
                         </div>
                     ) : (
