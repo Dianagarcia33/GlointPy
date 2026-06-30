@@ -104,10 +104,12 @@ async def get_my_investments(
 
         return investments
     except Exception as e:
-        print(f"Error fetching investments: {e}")
+        import traceback
+        trace = traceback.format_exc()
+        print(f"Error fetching investments:\n{trace}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al obtener las inversiones del usuario"
+            detail=f"Error al obtener inversiones: {str(e)}\n\n{trace}"
         )
 
 @router.post("/requests")

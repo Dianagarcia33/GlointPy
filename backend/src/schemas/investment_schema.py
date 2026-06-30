@@ -14,10 +14,10 @@ class PaqueteInversionBase(BaseModel):
 # Schema para la Inversion (Request)
 class InvestmentRequestResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: Optional[int] = None
     monto: Decimal
     status: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
     paquete: Optional[PaqueteInversionBase] = None
     
     # Rendimientos y Totales (para el Dashboard Avanzado)
