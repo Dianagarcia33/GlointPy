@@ -68,11 +68,15 @@ async def get_my_investments(
                 }
             })
 
+        from sqlalchemy import or_
         req_stmt = (
             select(InvestmentRequest)
             .options(selectinload(InvestmentRequest.paquete))
             .where(InvestmentRequest.user_id == current_user.id)
-            .where(InvestmentRequest.status == InvestmentStatus.pending)
+            .where(or_(
+                InvestmentRequest.status == InvestmentStatus.pending,
+                InvestmentRequest.status == InvestmentStatus.rejected
+            ))
             .order_by(InvestmentRequest.created_at.desc())
         )
         req_res = await db.execute(req_stmt)

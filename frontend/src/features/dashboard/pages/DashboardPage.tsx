@@ -33,7 +33,10 @@ export const DashboardPage = () => {
     };
 
     const activeInvestments = investments.filter(inv => inv.status === 'approved');
-    const filteredInvestments = investments.filter(inv => inv.status === activeTab);
+    const filteredInvestments = investments.filter(inv => {
+        if (activeTab === 'pending') return inv.status === 'pending' || inv.status === 'rejected';
+        return inv.status === activeTab;
+    });
 
     const totalInvertido = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
     const totalAcciones = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
