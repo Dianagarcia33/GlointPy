@@ -33,6 +33,24 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
         }
     };
 
+    // Calculate amounts dynamically based on Package name and Period
+    const getPackageAmount = (pkg: any) => {
+        if (!pkg || !pkg.paquete_accion_adquirido) return 0;
+        // Extracts the first continuous number from the string (e.g. "Plan 1000" -> 1000, "$ 50.5" -> 50.5)
+        const match = pkg.paquete_accion_adquirido.match(/[\d,.]+/);
+        if (!match) return 0;
+        // Parse the number, handling commas/dots properly if needed.
+        // Assuming standard format like "1000", "5000", etc.
+        const numStr = match[0].replace(/,/g, '');
+        return parseFloat(numStr) || 0;
+    };
+
+    const packageAmount = getPackageAmount(selectedPackage);
+    const estimatedYield = selectedPeriod 
+        ? packageAmount * (selectedPeriod.percentage / 100) * selectedPeriod.months 
+        : 0;
+    const totalReturn = packageAmount + estimatedYield;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -127,6 +145,25 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                                 <span className="text-slate-500">Periodo</span>
                                                 <span className="font-bold text-slate-800">{selectedPeriod?.months} Meses ({selectedPeriod?.percentage}%)</span>
                                             </div>
+                                            
+                                            <div className="flex justify-between text-sm border-t border-slate-100 pt-3 mt-3">
+                                                <span className="text-slate-500">Capital (Base Inversión)</span>
+                                                <span className="font-bold text-slate-800">
+                                                    {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(packageAmount)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-emerald-600 font-bold">Rendimiento Estimado</span>
+                                                <span className="font-bold text-emerald-600">
+                                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(estimatedYield)}
+                                                </span>
+                                            </div>
+                                            <div className="bg-slate-800 text-white p-4 rounded-xl flex justify-between items-center mt-4 shadow-inner">
+                                                <span className="text-sm font-semibold uppercase tracking-wider text-slate-300">Total Esperado</span>
+                                                <span className="text-xl font-black">
+                                                    {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(totalReturn)}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -146,7 +183,15 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                 {/* Footer */}
                 <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center">
                     {step === 1 ? (
-                        <div className="flex-1"></div>
+                        <div className="flex items-center gap-2">
+                            <TrendingUp className={`w-5 h-5 ${packageAmount > 0 && selectedPeriod ? 'text-emerald-500' : 'text-slate-300'}`} />
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-400">Rendimiento Proyectado</p>
+                                <p className={`font-black ${packageAmount > 0 && selectedPeriod ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                    +{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(estimatedYield)}
+                                </p>
+                            </div>
+                        </div>
                     ) : (
                         <button 
                             onClick={() => setStep(1)}
