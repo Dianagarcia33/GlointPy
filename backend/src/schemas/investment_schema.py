@@ -28,5 +28,6 @@ class InvestmentRequestResponse(BaseModel):
     codigo_asignado: Optional[str] = None
     fecha_ingreso: Optional[datetime] = None
     fecha_finalizacion: Optional[datetime] = None
+    aceleracion_dias: Optional[float] = 0.0
 
     model_config = ConfigDict(from_attributes=True)

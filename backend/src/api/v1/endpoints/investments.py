@@ -37,6 +37,19 @@ async def get_my_investments(
         result = await db.execute(stmt)
         investor_records = result.scalars().all()
 
+        from src.models.contract_accelerations import ContractAcceleration
+        from sqlalchemy import func
+        investor_ids = [inv.id for inv in investor_records]
+        accelerations = {}
+        if investor_ids:
+            acc_stmt = select(
+                ContractAcceleration.investor_id,
+                func.sum(ContractAcceleration.days_to_reduce).label("total_reduction")
+            ).where(ContractAcceleration.investor_id.in_(investor_ids)).group_by(ContractAcceleration.investor_id)
+            acc_res = await db.execute(acc_stmt)
+            for row in acc_res.all():
+                accelerations[row.investor_id] = float(row.total_reduction)
+
         investments = []
         for inv in investor_records:
             total = float(inv.total_contrato) if inv.total_contrato else 0.0
@@ -63,6 +76,7 @@ async def get_my_investments(
                 "codigo_asignado": inv.codigo_asignado,
                 "fecha_ingreso": inv.fecha_ingreso,
                 "fecha_finalizacion": inv.fecha_finalizacion,
+                "aceleracion_dias": accelerations.get(inv.id, 0.0),
                 "paquete": {
                     "id": inv.paquete_inversion_adquirido if inv.paquete_inversion_adquirido else 0,
                     "paquete_accion_adquirido": inv.paquete.paquete_accion_adquirido if inv.paquete else f"Paquete {inv.paquete_inversion_adquirido}",
@@ -103,6 +117,7 @@ async def get_my_investments(
                 "codigo_asignado": None,
                 "fecha_ingreso": None,
                 "fecha_finalizacion": None,
+                "aceleracion_dias": 0.0,
                 "paquete": {
                     "id": req.paquete_inversion_id,
                     "paquete_accion_adquirido": req.paquete.paquete_accion_adquirido if req.paquete else f"Paquete {req.paquete_inversion_id}",

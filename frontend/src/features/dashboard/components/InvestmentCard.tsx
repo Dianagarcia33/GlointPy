@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DollarSign, TrendingUp, Activity, Calendar, Clock, ChevronRight, FileText, ArrowDownToLine } from 'lucide-react';
+import { DollarSign, TrendingUp, Activity, Calendar, Clock, ChevronRight, FileText, ArrowDownToLine, Zap } from 'lucide-react';
 import { formatCurrency } from '../../../utils/format';
 import { Investment } from '../../../services/investments';
 import { WithdrawalModal } from '../../wallets/components/WithdrawalModal';
@@ -30,7 +30,8 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
     const rentabilidadPct = monto > 0 ? ((rendimiento / monto) * 100).toFixed(1) : "0.0";
     
     // Progress calculation
-    const totalDays = inv.dias_contrato || 547;
+    const aceleracionDias = inv.aceleracion_dias || 0;
+    const totalDays = Math.max(1, (inv.dias_contrato || 547) - aceleracionDias);
     let daysElapsed = 0;
     
     if (inv.fecha_ingreso) {
@@ -72,9 +73,17 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                             </h4>
                         </div>
                     </div>
-                    <span className={`text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-md font-bold border ${statusConfig.classes}`}>
-                        {statusConfig.label}
-                    </span>
+                    <div className="flex gap-2">
+                        {aceleracionDias > 0 && (
+                            <span className="text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-md font-bold border bg-purple-100 text-purple-700 border-purple-200 flex items-center gap-1">
+                                <Zap className="w-3 h-3 fill-current" />
+                                -{Math.floor(aceleracionDias)}d
+                            </span>
+                        )}
+                        <span className={`text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-md font-bold border ${statusConfig.classes}`}>
+                            {statusConfig.label}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Progress Bar */}

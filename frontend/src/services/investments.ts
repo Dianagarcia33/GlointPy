@@ -20,6 +20,7 @@ export interface Investment {
   dias_contrato?: number;
   fecha_ingreso?: string;
   fecha_finalizacion?: string;
+  aceleracion_dias?: number;
 
   paquete: PaqueteInversion;
 }
