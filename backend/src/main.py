@@ -14,7 +14,7 @@ import src.models.investment_request
 import src.models.paquete_inversion
 
 from src.core.database import get_db
-from src.api.v1.endpoints import auth, wallets, investments, contract_periods, admin, admin_investments
+from src.api.v1.endpoints import auth, wallets, investments, contract_periods, admin, admin_investments, admin_system_events
 
 app = FastAPI(title="Gloint V2 API")
 
@@ -24,6 +24,7 @@ app.include_router(investments.router, prefix="/api/v1/investments", tags=["inve
 app.include_router(admin_investments.router, prefix="/api/v1/investments/admin", tags=["admin_investments"])
 app.include_router(contract_periods.router, prefix="/api/v1/contract-periods", tags=["contract_periods"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(admin_system_events.router, prefix="/api/v1/admin-system-events", tags=["admin_system_events"])
 
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
 app.add_middleware(
@@ -32,7 +33,9 @@ app.add_middleware(
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
         "https://pruebas.gloint.com.co",
-        "https://gloint.com.co"
+        "https://gloint.com.co",
+        "https://www.gloint.com.co",
+        "https://www.pruebas.gloint.com.co"
     ],
     allow_credentials=True,
     allow_methods=["*"],
