@@ -30,6 +30,11 @@ export interface AdminInvestment {
   user_id: number;
   nombre_completo?: string;
   correo_electronico?: string;
+  tipo_documento?: string;
+  documento?: string;
+  banco?: string;
+  tipo_cuenta?: string;
+  numero_cuenta?: string;
   codigo_asignado?: string;
   paquete_nombre?: string;
   fecha_ingreso?: string;

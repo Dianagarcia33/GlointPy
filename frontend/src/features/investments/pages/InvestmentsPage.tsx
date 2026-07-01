@@ -283,16 +283,30 @@ export const InvestmentsPage = () => {
 
                 return (
                     <div key={userId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-                        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-wrap gap-4">
-                            <div>
+                        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-start flex-wrap gap-4">
+                            <div className="space-y-2">
                                 <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                                     <User className="w-5 h-5 text-brand-500" />
                                     {userName}
                                 </h2>
-                                <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
-                                    <Mail className="w-4 h-4" />
-                                    {userEmail}
-                                </p>
+                                <div className="text-sm text-slate-600 space-y-1">
+                                    <p className="flex items-center gap-2">
+                                        <Mail className="w-4 h-4 text-slate-400" />
+                                        {userEmail}
+                                    </p>
+                                    {(userFirstInv.tipo_documento || userFirstInv.documento) && (
+                                        <p className="flex items-center gap-2">
+                                            <span className="font-semibold text-slate-500 text-xs uppercase w-4 text-center">ID</span>
+                                            {userFirstInv.tipo_documento} {userFirstInv.documento}
+                                        </p>
+                                    )}
+                                    {userFirstInv.banco && (
+                                        <p className="flex items-center gap-2">
+                                            <span className="font-semibold text-slate-500 text-xs uppercase w-4 text-center">🏦</span>
+                                            {userFirstInv.banco} - {userFirstInv.tipo_cuenta} - {userFirstInv.numero_cuenta}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex flex-wrap gap-4 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
                                 <div className="flex flex-col">
