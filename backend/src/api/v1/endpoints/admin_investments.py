@@ -272,7 +272,12 @@ async def get_all_investments(
                     "monto": monto
                 })
                 
-        saldo_a_migrar = rendimiento_producido_hasta_ayer - total_retiros_rendimiento
+        # Capital Devuelto (si el contrato ya finalizó)
+        capital_devuelto = 0.0
+        if inv.fecha_finalizacion and inv.fecha_finalizacion <= FECHA_MIGRACION:
+            capital_devuelto = float(capital_actual)
+
+        saldo_a_migrar = rendimiento_producido_hasta_ayer + capital_devuelto - total_retiros_rendimiento
 
         response_list.append({
             "id": inv.id,
@@ -299,6 +304,7 @@ async def get_all_investments(
             "detalles_retiros_rendimiento": detalles_retiros_rendimiento,
             "saldo_a_migrar": saldo_a_migrar,
             "wallet_balance_actual": wallets_by_user.get(inv.user_id, 0.0),
+            "capital_devuelto": capital_devuelto,
             "tramos_desglose": tramos_desglose
         })
     

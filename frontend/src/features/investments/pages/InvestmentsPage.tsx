@@ -195,10 +195,12 @@ export const InvestmentsPage = () => {
                 const totalProducidoUsuario = userInvestments.reduce((acc, inv) => acc + (inv.rendimiento_producido_hasta_ayer || 0), 0);
                 const totalBonosUsuario = userInvestments.reduce((acc, inv) => acc + (inv.total_bonos || 0), 0);
                 const totalBaseUsuario = totalProducidoUsuario - totalBonosUsuario;
+                const totalCapitalDevueltoUsuario = userInvestments.reduce((acc, inv) => acc + (inv.capital_devuelto || 0), 0);
                 const totalRetiradoUsuario = userInvestments.reduce((acc, inv) => acc + (inv.total_retiros_rendimiento || 0), 0);
                 const saldoTotalUsuario = userInvestments.reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
                 const saldoWalletActual = userFirstInv.wallet_balance_actual || 0;
                 const faltanteUsuario = saldoTotalUsuario - saldoWalletActual;
+                const totalBrutoCalculado = totalProducidoUsuario + totalCapitalDevueltoUsuario;
 
                 return (
                     <div key={userId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
@@ -227,10 +229,19 @@ export const InvestmentsPage = () => {
                                         </div>
                                     </>
                                 )}
+                                {totalCapitalDevueltoUsuario > 0 && (
+                                    <>
+                                        <div className="w-px bg-slate-200 hidden sm:block"></div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] uppercase font-bold text-blue-600">Cap. Devuelto</span>
+                                            <span className="text-blue-600 font-bold text-base">+{formatCOP(totalCapitalDevueltoUsuario)}</span>
+                                        </div>
+                                    </>
+                                )}
                                 <div className="w-px bg-slate-200 hidden sm:block"></div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase font-bold text-slate-400">Total Producido</span>
-                                    <span className="text-green-600 font-bold text-base">+{formatCOP(totalProducidoUsuario)}</span>
+                                    <span className="text-[10px] uppercase font-bold text-slate-500">Total Bruto</span>
+                                    <span className="text-green-600 font-bold text-base">+{formatCOP(totalBrutoCalculado)}</span>
                                 </div>
                                 <div className="w-px bg-slate-200 hidden sm:block"></div>
                                 <div className="flex flex-col">
@@ -368,9 +379,15 @@ export const InvestmentsPage = () => {
                                                                 <span>+{formatCOP(inv.total_bonos)}</span>
                                                             </div>
                                                         ) : null}
+                                                        {inv.capital_devuelto && inv.capital_devuelto > 0 ? (
+                                                            <div className="flex justify-between items-center text-[10px] text-blue-600">
+                                                                <span>Capital Devuelto (Finalizado):</span>
+                                                                <span>+{formatCOP(inv.capital_devuelto)}</span>
+                                                            </div>
+                                                        ) : null}
                                                         <div className="flex justify-between items-center text-xs mt-1">
-                                                            <span className="text-slate-500">Total Producido:</span>
-                                                            <span className="text-green-600 font-bold">+{formatCOP(inv.rendimiento_producido_hasta_ayer)}</span>
+                                                            <span className="text-slate-500">Total Bruto del Contrato:</span>
+                                                            <span className="text-green-600 font-bold">+{formatCOP((inv.rendimiento_producido_hasta_ayer || 0) + (inv.capital_devuelto || 0))}</span>
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col border-b border-slate-200 pb-1.5 space-y-1">

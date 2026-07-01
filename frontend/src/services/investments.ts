@@ -46,6 +46,7 @@ export interface AdminInvestment {
   capital_actual?: number;
   total_bonos?: number;
   wallet_balance_actual?: number;
+  capital_devuelto?: number;
   detalles_bonos?: {
     id: number;
     monto: number;
