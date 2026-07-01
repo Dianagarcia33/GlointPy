@@ -8,6 +8,7 @@ export const InvestmentsPage = () => {
     const [error, setError] = useState<string | null>(null);
     const [showOnlyWithCapitalWithdrawals, setShowOnlyWithCapitalWithdrawals] = useState(false);
     const [showOnlyNegativeBalances, setShowOnlyNegativeBalances] = useState(false);
+    const [showOnlyWithBonuses, setShowOnlyWithBonuses] = useState(false);
 
     useEffect(() => {
         const fetchInvestments = async () => {
@@ -29,6 +30,10 @@ export const InvestmentsPage = () => {
     const filteredInvestments = investments.filter(inv => {
         if (showOnlyNegativeBalances) {
             if (inv.saldo_a_migrar === undefined || inv.saldo_a_migrar >= 0) return false;
+        }
+
+        if (showOnlyWithBonuses) {
+            if (!inv.total_bonos || inv.total_bonos <= 0) return false;
         }
 
         if (showOnlyWithCapitalWithdrawals) {
@@ -103,6 +108,15 @@ export const InvestmentsPage = () => {
                             onChange={(e) => setShowOnlyWithCapitalWithdrawals(e.target.checked)}
                         />
                         <span className="text-sm font-medium text-slate-700">Retiros de capital</span>
+                    </label>
+                    <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-yellow-200 shadow-sm cursor-pointer hover:bg-yellow-50 transition-colors">
+                        <input 
+                            type="checkbox" 
+                            className="rounded border-yellow-300 text-yellow-600 focus:ring-yellow-500 w-4 h-4"
+                            checked={showOnlyWithBonuses}
+                            onChange={(e) => setShowOnlyWithBonuses(e.target.checked)}
+                        />
+                        <span className="text-sm font-medium text-yellow-700">Con bonos</span>
                     </label>
                     <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-red-200 shadow-sm cursor-pointer hover:bg-red-50 transition-colors">
                         <input 
