@@ -138,6 +138,7 @@ export const InvestmentsPage = () => {
                 // Calcular totales del usuario
                 const totalProducidoUsuario = userInvestments.reduce((acc, inv) => acc + (inv.rendimiento_producido_hasta_ayer || 0), 0);
                 const totalBonosUsuario = userInvestments.reduce((acc, inv) => acc + (inv.total_bonos || 0), 0);
+                const totalBaseUsuario = totalProducidoUsuario - totalBonosUsuario;
                 const totalRetiradoUsuario = userInvestments.reduce((acc, inv) => acc + (inv.total_retiros_rendimiento || 0), 0);
                 const saldoTotalUsuario = userInvestments.reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
 
@@ -155,27 +156,32 @@ export const InvestmentsPage = () => {
                                 </p>
                             </div>
                             <div className="flex flex-wrap gap-4 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Total Base</span>
+                                    <span className="text-slate-700 font-bold text-base">+{formatCOP(totalBaseUsuario)}</span>
+                                </div>
                                 {totalBonosUsuario > 0 && (
                                     <>
+                                        <div className="w-px bg-slate-200 hidden sm:block"></div>
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] uppercase font-bold text-yellow-600">Total Bonos General</span>
+                                            <span className="text-[10px] uppercase font-bold text-yellow-600">Total Bonos</span>
                                             <span className="text-yellow-600 font-bold text-base">+{formatCOP(totalBonosUsuario)}</span>
                                         </div>
-                                        <div className="w-px bg-slate-200 hidden sm:block"></div>
                                     </>
                                 )}
+                                <div className="w-px bg-slate-200 hidden sm:block"></div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase font-bold text-slate-400">Total Producido General</span>
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Total Producido</span>
                                     <span className="text-green-600 font-bold text-base">+{formatCOP(totalProducidoUsuario)}</span>
                                 </div>
                                 <div className="w-px bg-slate-200 hidden sm:block"></div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase font-bold text-slate-400">Total Retirado General</span>
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Total Retirado</span>
                                     <span className="text-red-500 font-bold text-base">-{formatCOP(totalRetiradoUsuario)}</span>
                                 </div>
                                 <div className="w-px bg-slate-200 hidden sm:block"></div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase font-bold text-slate-400">Saldo Final General</span>
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Saldo Final</span>
                                     <span className={`font-bold text-base ${saldoTotalUsuario < 0 ? 'text-red-600 bg-red-50 px-1 rounded' : 'text-slate-900'}`}>
                                         {formatCOP(saldoTotalUsuario)}
                                     </span>
