@@ -210,6 +210,7 @@ async def get_all_investments(
         # Calcular los retiros de rendimiento hasta la fecha tope
         retiros_rendimiento = retiros_rendimiento_by_inv.get(inv.id, [])
         total_retiros_rendimiento = 0.0
+        detalles_retiros_rendimiento = []
         for retiro in retiros_rendimiento:
             fecha_retiro = retiro.fecha_retiro or retiro.fecha_solicitud
             # Ignorar si el retiro es post fecha de migración o es un cargue positivo (monto < 0)
@@ -219,6 +220,11 @@ async def get_all_investments(
             monto = float(retiro.monto or 0.0)
             if monto > 0:
                 total_retiros_rendimiento += monto
+                detalles_retiros_rendimiento.append({
+                    "id": retiro.id,
+                    "fecha": fecha_retiro,
+                    "monto": monto
+                })
                 
         saldo_a_migrar = rendimiento_producido_hasta_ayer - total_retiros_rendimiento
 
@@ -242,6 +248,7 @@ async def get_all_investments(
             "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer,
             "capital_actual": capital_actual,
             "total_retiros_rendimiento": total_retiros_rendimiento,
+            "detalles_retiros_rendimiento": detalles_retiros_rendimiento,
             "saldo_a_migrar": saldo_a_migrar,
             "tramos_desglose": tramos_desglose
         })

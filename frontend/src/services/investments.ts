@@ -45,6 +45,11 @@ export interface AdminInvestment {
   rendimiento_producido_hasta_ayer?: number;
   capital_actual?: number;
   total_retiros_rendimiento?: number;
+  detalles_retiros_rendimiento?: {
+    id: number;
+    fecha: string;
+    monto: number;
+  }[];
   saldo_a_migrar?: number;
   tramos_desglose?: {
     fecha_inicio: string;

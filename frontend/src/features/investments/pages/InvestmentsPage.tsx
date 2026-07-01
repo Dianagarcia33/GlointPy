@@ -210,9 +210,21 @@ export const InvestmentsPage = () => {
                                                         <span className="text-slate-500">Total Producido:</span>
                                                         <span className="text-green-600 font-medium">+{formatCOP(inv.rendimiento_producido_hasta_ayer)}</span>
                                                     </div>
-                                                    <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1.5">
-                                                        <span className="text-slate-500">Retirado:</span>
-                                                        <span className="text-red-500 font-medium">-{formatCOP(inv.total_retiros_rendimiento)}</span>
+                                                    <div className="flex flex-col border-b border-slate-200 pb-1.5 space-y-1">
+                                                        <div className="flex justify-between items-center text-xs">
+                                                            <span className="text-slate-500">Retirado:</span>
+                                                            <span className="text-red-500 font-medium">-{formatCOP(inv.total_retiros_rendimiento)}</span>
+                                                        </div>
+                                                        {inv.detalles_retiros_rendimiento && inv.detalles_retiros_rendimiento.length > 0 && (
+                                                            <div className="pl-2 space-y-0.5 border-l-2 border-slate-100 mt-1">
+                                                                {inv.detalles_retiros_rendimiento.map((ret, i) => (
+                                                                    <div key={i} className="flex justify-between items-center text-[10px] text-slate-400">
+                                                                        <span>{String(ret.fecha).split('T')[0]} <span className="opacity-50">(#{ret.id})</span></span>
+                                                                        <span className="font-medium text-red-400">-{formatCOP(ret.monto)}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="flex justify-between items-center pt-1">
                                                         <span className="text-slate-700 font-medium text-sm">Saldo Real:</span>

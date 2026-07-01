@@ -28,6 +28,7 @@ class AdminInvestorResponse(BaseModel):
     rendimiento_producido_hasta_ayer: Optional[float] = None
     capital_actual: Optional[float] = None
     total_retiros_rendimiento: Optional[float] = 0.0
+    detalles_retiros_rendimiento: List[dict] = []
     saldo_a_migrar: Optional[float] = 0.0
     tramos_desglose: List[dict] = []
     
