@@ -163,7 +163,7 @@ export const InvestmentsPage = () => {
                                                                 <div key={idx} className="text-[10px] text-slate-500 bg-slate-50 p-1.5 rounded border border-slate-100 shadow-sm">
                                                                     <div className="flex justify-between items-center mb-1 border-b border-slate-200 pb-1">
                                                                         <span className="font-medium text-slate-700">Tramo {idx + 1} <span className="text-slate-400 font-normal">({tramo.dias}d)</span></span>
-                                                                        <span className="text-brand-600 font-medium">{new Date(tramo.fecha_inicio).toLocaleDateString()} - {new Date(tramo.fecha_fin).toLocaleDateString()}</span>
+                                                                        <span className="text-brand-600 font-medium">{String(tramo.fecha_inicio).split('T')[0]} - {String(tramo.fecha_fin).split('T')[0]}</span>
                                                                     </div>
                                                                     <div className="space-y-0.5">
                                                                         <div className="flex justify-between items-center">
@@ -188,9 +188,9 @@ export const InvestmentsPage = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2 text-xs text-slate-500">
                                                     <Calendar className="w-3 h-3" />
-                                                    {inv.fecha_ingreso ? new Date(inv.fecha_ingreso).toLocaleDateString() : 'N/A'} 
+                                                    {inv.fecha_ingreso ? String(inv.fecha_ingreso).split('T')[0] : 'N/A'} 
                                                     {' - '} 
-                                                    {inv.fecha_finalizacion ? new Date(inv.fecha_finalizacion).toLocaleDateString() : 'N/A'}
+                                                    {inv.fecha_finalizacion ? String(inv.fecha_finalizacion).split('T')[0] : 'N/A'}
                                                 </div>
                                             </td>
                                         </tr>
