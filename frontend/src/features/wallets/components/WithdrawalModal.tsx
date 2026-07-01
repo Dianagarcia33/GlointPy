@@ -19,6 +19,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
     const [bankDetails, setBankDetails] = useState<any>(null);
     const [canWithdraw, setCanWithdraw] = useState<boolean>(true);
     const [isLoadingData, setIsLoadingData] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -36,6 +37,10 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                     .catch(err => console.error("Error fetching balance:", err))
                     .finally(() => setIsLoadingData(false));
             }
+        } else {
+            setIsSuccess(false);
+            setMonto('');
+            setError(null);
         }
     }, [isOpen, propBalance, propBankDetails]);
 
@@ -50,10 +55,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
             if (onSuccess) {
                 onSuccess();
             }
-            onClose();
-            // Reset form
-            setMonto('');
-            setError(null);
+            setIsSuccess(true);
         },
         onError: (err: any) => {
             setError(err.message || 'Error al procesar la solicitud.');
@@ -61,6 +63,31 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
     });
 
     if (!isOpen) return null;
+
+    if (isSuccess) {
+        return createPortal(
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col p-8 text-center items-center">
+                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-6">
+                        <svg className="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <h2 className="text-2xl font-bold font-montserrat text-slate-900 mb-2">¡Solicitud Exitosa!</h2>
+                    <p className="text-slate-500 mb-8 text-sm">
+                        Tu retiro está siendo procesado. Te notificaremos cuando los fondos hayan sido transferidos a tu cuenta.
+                    </p>
+                    <button 
+                        onClick={onClose}
+                        className="w-full px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all active:scale-95 shadow-md shadow-brand-500/20"
+                    >
+                        Entendido
+                    </button>
+                </div>
+            </div>,
+            document.body
+        );
+    }
 
     const montoNumber = parseFloat(monto) || 0;
     const impuesto = montoNumber * 0.032;
