@@ -26,6 +26,7 @@ async def get_all_investments(
     from sqlalchemy.orm import selectinload
     from src.models.contract_period import ContractPeriod
     from src.models.retiros import Retiro
+    from src.models.contract_accelerations import ContractAcceleration
     from datetime import datetime, timedelta
     
     ayer = datetime.now().date() - timedelta(days=1)
@@ -65,6 +66,19 @@ async def get_all_investments(
                 if r.investor_id not in retiros_rendimiento_by_inv:
                     retiros_rendimiento_by_inv[r.investor_id] = []
                 retiros_rendimiento_by_inv[r.investor_id].append(r)
+                
+    # Obtener aceleraciones (bonos)
+    accelerations_by_inv = {}
+    if investor_ids:
+        acc_stmt = select(ContractAcceleration).where(
+            ContractAcceleration.investor_id.in_(investor_ids)
+        )
+        acc_result = await db.execute(acc_stmt)
+        all_accelerations = acc_result.scalars().all()
+        for a in all_accelerations:
+            if a.investor_id not in accelerations_by_inv:
+                accelerations_by_inv[a.investor_id] = []
+            accelerations_by_inv[a.investor_id].append(a)
     
     response_list = []
     for inv in investors:
@@ -205,7 +219,24 @@ async def get_all_investments(
             
             capital_actual = current_capital
             rendimiento_diario_calculado = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
-            rendimiento_producido_hasta_ayer = total_producido
+            
+        # Calcular los bonos de aceleración
+        accelerations = accelerations_by_inv.get(inv.id, [])
+        total_bonos = 0.0
+        detalles_bonos = []
+        for acc in accelerations:
+            bono = float(acc.bonus_amount or 0.0)
+            if bono > 0:
+                total_bonos += bono
+                detalles_bonos.append({
+                    "id": acc.id,
+                    "monto": bono,
+                    "dias_reducidos": float(acc.days_to_reduce or 0.0),
+                    "fecha": acc.created_at
+                })
+        
+        # El producido final es lo generado por el tiempo + los bonos
+        rendimiento_producido_hasta_ayer = total_producido + total_bonos
             
         # Calcular los retiros de rendimiento hasta la fecha tope
         retiros_rendimiento = retiros_rendimiento_by_inv.get(inv.id, [])
@@ -251,6 +282,8 @@ async def get_all_investments(
             "dias_generando": dias_generando,
             "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer,
             "capital_actual": capital_actual,
+            "total_bonos": total_bonos,
+            "detalles_bonos": detalles_bonos,
             "total_retiros_rendimiento": total_retiros_rendimiento,
             "detalles_retiros_rendimiento": detalles_retiros_rendimiento,
             "saldo_a_migrar": saldo_a_migrar,

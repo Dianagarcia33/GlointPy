@@ -27,6 +27,8 @@ class AdminInvestorResponse(BaseModel):
     dias_generando: Optional[int] = None
     rendimiento_producido_hasta_ayer: Optional[float] = None
     capital_actual: Optional[float] = None
+    total_bonos: Optional[float] = 0.0
+    detalles_bonos: List[dict] = []
     total_retiros_rendimiento: Optional[float] = 0.0
     detalles_retiros_rendimiento: List[dict] = []
     saldo_a_migrar: Optional[float] = 0.0

@@ -44,6 +44,13 @@ export interface AdminInvestment {
   dias_generando?: number;
   rendimiento_producido_hasta_ayer?: number;
   capital_actual?: number;
+  total_bonos?: number;
+  detalles_bonos?: {
+    id: number;
+    monto: number;
+    dias_reducidos: number;
+    fecha: string;
+  }[];
   total_retiros_rendimiento?: number;
   detalles_retiros_rendimiento?: {
     id: number;

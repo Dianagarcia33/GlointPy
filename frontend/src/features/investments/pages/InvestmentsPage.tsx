@@ -231,13 +231,45 @@ export const InvestmentsPage = () => {
                                                             ))}
                                                         </div>
                                                     )}
+                                                    
+                                                    {/* Mostrar Bonos de Aceleración si existen */}
+                                                    {inv.detalles_bonos && inv.detalles_bonos.length > 0 && (
+                                                        <div className="mt-2 space-y-1.5 min-w-[180px]">
+                                                            <div className="text-[10px] text-slate-500 bg-yellow-50 p-1.5 rounded border border-yellow-100 shadow-sm">
+                                                                <div className="flex justify-between items-center mb-1 border-b border-yellow-200 pb-1">
+                                                                    <span className="font-medium text-yellow-800">Bonos Aceleración</span>
+                                                                    <span className="text-yellow-600 font-bold">+{formatCOP(inv.total_bonos)}</span>
+                                                                </div>
+                                                                <div className="space-y-0.5">
+                                                                    {inv.detalles_bonos.map((bono, idx) => (
+                                                                        <div key={idx} className="flex justify-between items-center border-b border-yellow-100 last:border-0 pb-0.5 last:pb-0">
+                                                                            <span>{String(bono.fecha).split('T')[0]} <span className="opacity-50 text-yellow-700">(-{bono.dias_reducidos}d)</span></span>
+                                                                            <span className="text-yellow-700 font-medium">+{formatCOP(bono.monto)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col space-y-1">
-                                                    <div className="flex justify-between items-center text-xs min-w-[140px]">
-                                                        <span className="text-slate-500">Total Producido:</span>
-                                                        <span className="text-green-600 font-medium">+{formatCOP(inv.rendimiento_producido_hasta_ayer)}</span>
+                                                    <div className="flex flex-col border-b border-slate-200 pb-1.5 mb-1">
+                                                        <div className="flex justify-between items-center text-[10px] text-slate-400">
+                                                            <span>Rendimiento Base:</span>
+                                                            <span>+{formatCOP((inv.rendimiento_producido_hasta_ayer || 0) - (inv.total_bonos || 0))}</span>
+                                                        </div>
+                                                        {inv.total_bonos ? (
+                                                            <div className="flex justify-between items-center text-[10px] text-yellow-600">
+                                                                <span>Total Bonos:</span>
+                                                                <span>+{formatCOP(inv.total_bonos)}</span>
+                                                            </div>
+                                                        ) : null}
+                                                        <div className="flex justify-between items-center text-xs mt-1">
+                                                            <span className="text-slate-500">Total Producido:</span>
+                                                            <span className="text-green-600 font-bold">+{formatCOP(inv.rendimiento_producido_hasta_ayer)}</span>
+                                                        </div>
                                                     </div>
                                                     <div className="flex flex-col border-b border-slate-200 pb-1.5 space-y-1">
                                                         <div className="flex justify-between items-center text-xs">
