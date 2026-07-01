@@ -25,10 +25,11 @@ async def get_all_investments(
     # Por ahora confiaremos en que el frontend protege la vista, pero lo ideal es validar `current_user.has_permission("investments:view")`
     
     from sqlalchemy.orm import selectinload
-    # Obtener todos los inversores con su usuario y paquete
+    # Obtener todos los inversores con su usuario, paquete y periodo de contrato
     stmt = select(Investor).options(
         selectinload(Investor.user),
-        selectinload(Investor.paquete)
+        selectinload(Investor.paquete),
+        selectinload(Investor.contract_period)
     ).order_by(Investor.user_id, Investor.fecha_ingreso.desc())
     result = await db.execute(stmt)
     investors = result.scalars().all()
@@ -48,9 +49,18 @@ async def get_all_investments(
                 correo = inv.user.email
                 
         # Nombre del paquete
-        paquete_nombre = "Desconocido"
+        paquete_nombre = "0"
         if inv.paquete and inv.paquete.paquete_accion_adquirido:
             paquete_nombre = inv.paquete.paquete_accion_adquirido
+
+        # Datos del periodo
+        periodo_porcentaje = None
+        periodo_meses = None
+        periodo_dias = None
+        if inv.contract_period:
+            periodo_porcentaje = inv.contract_period.percentage
+            periodo_meses = inv.contract_period.months
+            periodo_dias = inv.contract_period.days
 
         response_list.append({
             "id": inv.id,
@@ -63,7 +73,10 @@ async def get_all_investments(
             "fecha_finalizacion": inv.fecha_finalizacion,
             "total_contrato": inv.total_contrato,
             "rendimiento_total_contrato": inv.rendimiento_total_contrato,
-            "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento
+            "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento,
+            "periodo_porcentaje": periodo_porcentaje,
+            "periodo_meses": periodo_meses,
+            "periodo_dias": periodo_dias
         })
     
     return response_list

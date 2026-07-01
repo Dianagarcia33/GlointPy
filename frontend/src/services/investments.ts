@@ -37,6 +37,9 @@ export interface AdminInvestment {
   total_contrato?: number;
   rendimiento_total_contrato?: number;
   liquidacion_diaria_rendimiento?: number;
+  periodo_porcentaje?: number;
+  periodo_meses?: number;
+  periodo_dias?: number;
 }
 
 export const investmentsService = {

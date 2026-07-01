@@ -105,7 +105,12 @@ export const InvestmentsPage = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="font-medium text-slate-800">
-                                                    {inv.paquete_nombre || 'Paquete Desconocido'}
+                                                    {isNaN(parseFloat(inv.paquete_nombre || '')) ? (inv.paquete_nombre || 'Desconocido') : formatCOP(parseFloat(inv.paquete_nombre!))}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-0.5">
+                                                    {inv.periodo_porcentaje !== undefined && inv.periodo_porcentaje !== null 
+                                                        ? `${inv.periodo_porcentaje}% - ${inv.periodo_meses} Meses (${inv.periodo_dias} Días)` 
+                                                        : 'Periodo Desconocido'}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

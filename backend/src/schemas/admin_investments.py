@@ -18,6 +18,10 @@ class AdminInvestorResponse(BaseModel):
     rendimiento_total_contrato: Optional[Decimal] = None
     liquidacion_diaria_rendimiento: Optional[Decimal] = None
     
+    periodo_porcentaje: Optional[float] = None
+    periodo_meses: Optional[int] = None
+    periodo_dias: Optional[int] = None
+    
     # Podremos agregar los campos del calculo aqui despues
     
     model_config = ConfigDict(from_attributes=True)
