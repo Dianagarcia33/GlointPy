@@ -31,6 +31,7 @@ export interface AdminInvestment {
   nombre_completo?: string;
   correo_electronico?: string;
   codigo_asignado?: string;
+  paquete_nombre?: string;
   fecha_ingreso?: string;
   fecha_finalizacion?: string;
   total_contrato?: number;

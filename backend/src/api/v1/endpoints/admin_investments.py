@@ -24,9 +24,46 @@ async def get_all_investments(
     # pero podemos hacer una verificación sencilla del rol o permiso si tenemos el método)
     # Por ahora confiaremos en que el frontend protege la vista, pero lo ideal es validar `current_user.has_permission("investments:view")`
     
-    # Obtener todos los inversores/contratos
-    stmt = select(Investor).order_by(Investor.user_id, Investor.fecha_ingreso.desc())
+    from sqlalchemy.orm import selectinload
+    # Obtener todos los inversores con su usuario y paquete
+    stmt = select(Investor).options(
+        selectinload(Investor.user),
+        selectinload(Investor.paquete)
+    ).order_by(Investor.user_id, Investor.fecha_ingreso.desc())
     result = await db.execute(stmt)
-    investments = result.scalars().all()
+    investors = result.scalars().all()
     
-    return investments
+    response_list = []
+    for inv in investors:
+        nombre = inv.nombre_completo
+        correo = inv.correo_electronico
+        
+        if inv.user:
+            # Construir nombre desde la tabla users si está disponible
+            if hasattr(inv.user, 'name') and inv.user.name:
+                nombre = inv.user.name
+            elif hasattr(inv.user, 'first_name') and inv.user.first_name:
+                nombre = f"{inv.user.first_name} {getattr(inv.user, 'last_name', '')}".strip()
+            if inv.user.email:
+                correo = inv.user.email
+                
+        # Nombre del paquete
+        paquete_nombre = "Desconocido"
+        if inv.paquete and inv.paquete.paquete_accion_adquirido:
+            paquete_nombre = inv.paquete.paquete_accion_adquirido
+
+        response_list.append({
+            "id": inv.id,
+            "user_id": inv.user_id,
+            "nombre_completo": nombre,
+            "correo_electronico": correo,
+            "codigo_asignado": inv.codigo_asignado,
+            "paquete_nombre": paquete_nombre,
+            "fecha_ingreso": inv.fecha_ingreso,
+            "fecha_finalizacion": inv.fecha_finalizacion,
+            "total_contrato": inv.total_contrato,
+            "rendimiento_total_contrato": inv.rendimiento_total_contrato,
+            "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento
+        })
+    
+    return response_list

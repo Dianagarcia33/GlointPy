@@ -9,6 +9,7 @@ class AdminInvestorResponse(BaseModel):
     nombre_completo: Optional[str] = None
     correo_electronico: Optional[str] = None
     codigo_asignado: Optional[str] = None
+    paquete_nombre: Optional[str] = None
     
     fecha_ingreso: Optional[date] = None
     fecha_finalizacion: Optional[date] = None
