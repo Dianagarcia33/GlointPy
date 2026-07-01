@@ -33,7 +33,9 @@ app.add_middleware(
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
         "https://pruebas.gloint.com.co",
-        "https://gloint.com.co"
+        "https://gloint.com.co",
+        "https://www.gloint.com.co",
+        "https://www.pruebas.gloint.com.co"
     ],
     allow_credentials=True,
     allow_methods=["*"],
