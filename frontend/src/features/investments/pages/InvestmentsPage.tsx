@@ -162,12 +162,22 @@ export const InvestmentsPage = () => {
                                                             {inv.tramos_desglose.map((tramo, idx) => (
                                                                 <div key={idx} className="text-[10px] text-slate-500 bg-slate-50 p-1.5 rounded border border-slate-100 shadow-sm">
                                                                     <div className="flex justify-between items-center mb-1 border-b border-slate-200 pb-1">
-                                                                        <span className="font-medium text-slate-700">Tramo {idx + 1}</span>
+                                                                        <span className="font-medium text-slate-700">Tramo {idx + 1} <span className="text-slate-400 font-normal">({tramo.dias}d)</span></span>
                                                                         <span className="text-brand-600 font-medium">{new Date(tramo.fecha_inicio).toLocaleDateString()} - {new Date(tramo.fecha_fin).toLocaleDateString()}</span>
                                                                     </div>
-                                                                    <div className="flex justify-between items-center">
-                                                                        <span className="text-slate-500">Base: <span className="text-slate-700 font-medium">{formatCOP(tramo.capital_base)}</span></span>
-                                                                        <span className="text-green-600 font-bold">+{formatCOP(tramo.producido)} ({tramo.dias}d)</span>
+                                                                    <div className="space-y-0.5">
+                                                                        <div className="flex justify-between items-center">
+                                                                            <span className="text-slate-500">Capital Base:</span>
+                                                                            <span className="text-slate-700 font-medium">{formatCOP(tramo.capital_base)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center">
+                                                                            <span className="text-slate-500">Rend. Diario:</span>
+                                                                            <span className="text-slate-700 font-medium">{formatCOP(tramo.rendimiento_diario)}/día</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center border-t border-slate-100 pt-0.5 mt-0.5">
+                                                                            <span className="text-slate-500 font-medium">Producido:</span>
+                                                                            <span className="text-green-600 font-bold">+{formatCOP(tramo.producido)}</span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             ))}
