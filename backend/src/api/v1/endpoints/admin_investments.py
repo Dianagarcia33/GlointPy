@@ -43,21 +43,28 @@ async def get_all_investments(
     result = await db.execute(stmt)
     investors = result.scalars().all()
     
-    # Obtener retiros de capital aprobados/procesados para calcular tramos de rendimiento
+    # Obtener retiros de capital y rendimiento aprobados/procesados para calcular tramos y saldos
     investor_ids = [inv.id for inv in investors]
-    retiros_by_inv = {}
+    retiros_capital_by_inv = {}
+    retiros_rendimiento_by_inv = {}
+    
     if investor_ids:
         retiros_stmt = select(Retiro).where(
             Retiro.investor_id.in_(investor_ids),
-            Retiro.tipo == 'capital',
+            Retiro.tipo.in_(['capital', 'rendimiento']),
             Retiro.estado.in_(['aprobado', 'procesado'])
         ).order_by(Retiro.fecha_retiro.asc())
         retiros_result = await db.execute(retiros_stmt)
         all_retiros = retiros_result.scalars().all()
         for r in all_retiros:
-            if r.investor_id not in retiros_by_inv:
-                retiros_by_inv[r.investor_id] = []
-            retiros_by_inv[r.investor_id].append(r)
+            if r.tipo == 'capital':
+                if r.investor_id not in retiros_capital_by_inv:
+                    retiros_capital_by_inv[r.investor_id] = []
+                retiros_capital_by_inv[r.investor_id].append(r)
+            elif r.tipo == 'rendimiento':
+                if r.investor_id not in retiros_rendimiento_by_inv:
+                    retiros_rendimiento_by_inv[r.investor_id] = []
+                retiros_rendimiento_by_inv[r.investor_id].append(r)
     
     response_list = []
     for inv in investors:
@@ -140,7 +147,7 @@ async def get_all_investments(
             total_producido = 0.0
             
             # Traer retiros del inversor
-            retiros_capital = retiros_by_inv.get(inv.id, [])
+            retiros_capital = retiros_capital_by_inv.get(inv.id, [])
             
             for retiro in retiros_capital:
                 fecha_retiro = retiro.fecha_retiro or retiro.fecha_solicitud
@@ -199,6 +206,21 @@ async def get_all_investments(
             capital_actual = current_capital
             rendimiento_diario_calculado = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
             rendimiento_producido_hasta_ayer = total_producido
+            
+        # Calcular los retiros de rendimiento hasta la fecha tope
+        retiros_rendimiento = retiros_rendimiento_by_inv.get(inv.id, [])
+        total_retiros_rendimiento = 0.0
+        for retiro in retiros_rendimiento:
+            fecha_retiro = retiro.fecha_retiro or retiro.fecha_solicitud
+            # Ignorar si el retiro es post fecha de migración o es un cargue positivo (monto < 0)
+            if not fecha_retiro or fecha_retiro > FECHA_MIGRACION:
+                continue
+            
+            monto = float(retiro.monto or 0.0)
+            if monto > 0:
+                total_retiros_rendimiento += monto
+                
+        saldo_a_migrar = rendimiento_producido_hasta_ayer - total_retiros_rendimiento
 
         response_list.append({
             "id": inv.id,
@@ -219,6 +241,8 @@ async def get_all_investments(
             "dias_generando": dias_generando,
             "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer,
             "capital_actual": capital_actual,
+            "total_retiros_rendimiento": total_retiros_rendimiento,
+            "saldo_a_migrar": saldo_a_migrar,
             "tramos_desglose": tramos_desglose
         })
     

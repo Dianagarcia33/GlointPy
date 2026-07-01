@@ -7,6 +7,7 @@ export const InvestmentsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [showOnlyWithCapitalWithdrawals, setShowOnlyWithCapitalWithdrawals] = useState(false);
+    const [showOnlyNegativeBalances, setShowOnlyNegativeBalances] = useState(false);
 
     useEffect(() => {
         const fetchInvestments = async () => {
@@ -26,15 +27,21 @@ export const InvestmentsPage = () => {
 
     // Filter logic
     const filteredInvestments = investments.filter(inv => {
-        if (!showOnlyWithCapitalWithdrawals) return true;
+        if (showOnlyNegativeBalances) {
+            if (inv.saldo_a_migrar === undefined || inv.saldo_a_migrar >= 0) return false;
+        }
+
+        if (showOnlyWithCapitalWithdrawals) {
+            const initialCapitalStr = inv.paquete_nombre;
+            if (!initialCapitalStr) return false;
+            
+            const initialCapital = parseFloat(initialCapitalStr);
+            if (isNaN(initialCapital)) return false;
+            
+            if (inv.capital_actual === undefined || inv.capital_actual >= initialCapital) return false;
+        }
         
-        const initialCapitalStr = inv.paquete_nombre;
-        if (!initialCapitalStr) return false;
-        
-        const initialCapital = parseFloat(initialCapitalStr);
-        if (isNaN(initialCapital)) return false;
-        
-        return inv.capital_actual !== undefined && inv.capital_actual < initialCapital;
+        return true;
     });
 
     // Agrupar por user_id
@@ -87,15 +94,26 @@ export const InvestmentsPage = () => {
                     </div>
                 </div>
                 
-                <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
-                    <input 
-                        type="checkbox" 
-                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4"
-                        checked={showOnlyWithCapitalWithdrawals}
-                        onChange={(e) => setShowOnlyWithCapitalWithdrawals(e.target.checked)}
-                    />
-                    <span className="text-sm font-medium text-slate-700">Solo retiros de capital</span>
-                </label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+                        <input 
+                            type="checkbox" 
+                            className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4"
+                            checked={showOnlyWithCapitalWithdrawals}
+                            onChange={(e) => setShowOnlyWithCapitalWithdrawals(e.target.checked)}
+                        />
+                        <span className="text-sm font-medium text-slate-700">Retiros de capital</span>
+                    </label>
+                    <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-red-200 shadow-sm cursor-pointer hover:bg-red-50 transition-colors">
+                        <input 
+                            type="checkbox" 
+                            className="rounded border-red-300 text-red-600 focus:ring-red-500 w-4 h-4"
+                            checked={showOnlyNegativeBalances}
+                            onChange={(e) => setShowOnlyNegativeBalances(e.target.checked)}
+                        />
+                        <span className="text-sm font-medium text-red-700">Saldo negativo</span>
+                    </label>
+                </div>
             </div>
 
             {Object.entries(groupedInvestments).map(([userId, userInvestments]) => {
@@ -120,6 +138,7 @@ export const InvestmentsPage = () => {
                                         <th className="px-6 py-3 font-medium">Capital</th>
                                         <th className="px-6 py-3 font-medium">Rend. Diario (Calc)</th>
                                         <th className="px-6 py-3 font-medium">Producido (Hasta Ayer)</th>
+                                        <th className="px-6 py-3 font-medium">Balance / Saldo a Migrar</th>
                                         <th className="px-6 py-3 font-medium">Fechas</th>
                                     </tr>
                                 </thead>
@@ -183,6 +202,24 @@ export const InvestmentsPage = () => {
                                                             ))}
                                                         </div>
                                                     )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col space-y-1">
+                                                    <div className="flex justify-between items-center text-xs min-w-[140px]">
+                                                        <span className="text-slate-500">Total Producido:</span>
+                                                        <span className="text-green-600 font-medium">+{formatCOP(inv.rendimiento_producido_hasta_ayer)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1.5">
+                                                        <span className="text-slate-500">Retirado:</span>
+                                                        <span className="text-red-500 font-medium">-{formatCOP(inv.total_retiros_rendimiento)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center pt-1">
+                                                        <span className="text-slate-700 font-medium text-sm">Saldo Real:</span>
+                                                        <span className={`font-bold text-sm ${inv.saldo_a_migrar !== undefined && inv.saldo_a_migrar < 0 ? 'text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100' : 'text-slate-900'}`}>
+                                                            {formatCOP(inv.saldo_a_migrar)}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
