@@ -348,12 +348,37 @@ async def nivelar_wallet(
     # Crear transacción
     transaction_type = "deposit" if faltante > 0 else "withdrawal"
     
+    from src.models.retiros import Retiro
+    
+    # Crear un registro en retiros para que aparezca en el historial
+    retiro = Retiro(
+        user_id=wallet.user_id,
+        origen='nivelacion',
+        tipo='rendimiento',
+        monto=abs(faltante),
+        impuesto=0,
+        monto_neto=abs(faltante),
+        fecha_solicitud=datetime.now().date(),
+        fecha_retiro=datetime.now().date(),
+        estado='procesado',
+        metodo_pago='wallet',
+        observaciones="nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        aprobado_por=current_user.id,
+        procesado_por=current_user.id
+    )
+    db.add(retiro)
+    await db.flush()
+
     tx = WalletTransaction(
         wallet_id=wallet.id,
         type=transaction_type,
         amount=abs(faltante),
+        reference_type='retiros',
+        reference_id=retiro.id,
         description="nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
-        status="completed",
+        balance_after=request.saldo_auditado,
         created_at=datetime.now(),
         updated_at=datetime.now()
     )
@@ -408,11 +433,35 @@ async def nivelar_wallets_masivo(
         wallet.balance = item.saldo_auditado
         wallet.updated_at = datetime.now()
         
+        from src.models.retiros import Retiro
+        
+        retiro = Retiro(
+            user_id=wallet.user_id,
+            origen='nivelacion',
+            tipo='rendimiento',
+            monto=abs(faltante),
+            impuesto=0,
+            monto_neto=abs(faltante),
+            fecha_solicitud=datetime.now().date(),
+            fecha_retiro=datetime.now().date(),
+            estado='procesado',
+            metodo_pago='wallet',
+            observaciones="nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            aprobado_por=current_user.id,
+            procesado_por=current_user.id
+        )
+        db.add(retiro)
+        await db.flush()
+
         transaction_type = "deposit" if faltante > 0 else "withdrawal"
         tx = WalletTransaction(
             wallet_id=wallet.id,
             type=transaction_type,
             amount=abs(faltante),
+            reference_type='retiros',
+            reference_id=retiro.id,
             description="nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
             balance_after=item.saldo_auditado,
             created_at=datetime.now(),
