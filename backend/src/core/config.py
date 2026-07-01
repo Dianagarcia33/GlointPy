@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     DB_NAME: str
+    
+    # Encryption
+    BANK_ENCRYPTION_KEY: str = "oI0T7pW5j2X2qQ5G2HwX6mH8uW7lI0_gK2U7gO8yMvw="
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),

@@ -2,6 +2,7 @@ from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.core.database import Base
+from src.core.encryption import EncryptedString
 
 class UserBankAccount(Base):
     __tablename__ = "user_bank_accounts"
@@ -12,7 +13,7 @@ class UserBankAccount(Base):
     
     banco = Column(String(255), nullable=False)
     tipo_cuenta = Column(String(255), nullable=False)
-    numero_cuenta = Column(String(255), nullable=False)
+    numero_cuenta = Column(EncryptedString(255), nullable=False)
     
     # El usuario puede tener varias cuentas, pero marcar una como principal
     is_primary = Column(Boolean, default=False)
