@@ -486,12 +486,25 @@ export const InvestmentsPage = () => {
                                                             <span className="text-slate-500">Retirado:</span>
                                                             <span className="text-red-500 font-medium">-{formatCOP(inv.total_retiros_rendimiento)}</span>
                                                         </div>
+                                                        {(() => {
+                                                            const reinversiones = (inv.detalles_retiros_rendimiento || []).filter(r => r.is_reinversion);
+                                                            const totalReinversiones = reinversiones.reduce((acc, r) => acc + r.monto, 0);
+                                                            if (totalReinversiones > 0) {
+                                                                return (
+                                                                    <div className="flex justify-between items-center text-xs text-purple-600">
+                                                                        <span>(Incluye Reinversiones):</span>
+                                                                        <span className="font-medium">{formatCOP(totalReinversiones)}</span>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
                                                         {inv.detalles_retiros_rendimiento && inv.detalles_retiros_rendimiento.length > 0 && (
                                                             <div className="pl-2 space-y-0.5 border-l-2 border-slate-100 mt-1">
                                                                 {inv.detalles_retiros_rendimiento.map((ret, i) => (
-                                                                    <div key={i} className="flex justify-between items-center text-[10px] text-slate-400">
-                                                                        <span>{String(ret.fecha).split('T')[0]} <span className="opacity-50">(#{ret.id})</span></span>
-                                                                        <span className="font-medium text-red-400">-{formatCOP(ret.monto)}</span>
+                                                                    <div key={i} className={`flex justify-between items-center text-[10px] ${ret.is_reinversion ? 'text-purple-500' : 'text-slate-400'}`}>
+                                                                        <span>{String(ret.fecha).split('T')[0]} <span className="opacity-50">(#{ret.id}) {ret.is_reinversion ? '♻️ Reinversión' : ''}</span></span>
+                                                                        <span className={`font-medium ${ret.is_reinversion ? 'text-purple-600' : 'text-red-400'}`}>-{formatCOP(ret.monto)}</span>
                                                                     </div>
                                                                 ))}
                                                             </div>

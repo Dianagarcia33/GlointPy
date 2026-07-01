@@ -58,6 +58,7 @@ export interface AdminInvestment {
     id: number;
     fecha: string;
     monto: number;
+    is_reinversion?: boolean;
   }[];
   saldo_a_migrar?: number;
   tramos_desglose?: {
