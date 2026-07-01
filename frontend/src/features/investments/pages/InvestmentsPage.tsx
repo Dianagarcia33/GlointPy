@@ -6,6 +6,7 @@ export const InvestmentsPage = () => {
     const [investments, setInvestments] = useState<AdminInvestment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showOnlyWithCapitalWithdrawals, setShowOnlyWithCapitalWithdrawals] = useState(false);
 
     useEffect(() => {
         const fetchInvestments = async () => {
@@ -23,8 +24,21 @@ export const InvestmentsPage = () => {
         fetchInvestments();
     }, []);
 
+    // Filter logic
+    const filteredInvestments = investments.filter(inv => {
+        if (!showOnlyWithCapitalWithdrawals) return true;
+        
+        const initialCapitalStr = inv.paquete_nombre;
+        if (!initialCapitalStr) return false;
+        
+        const initialCapital = parseFloat(initialCapitalStr);
+        if (isNaN(initialCapital)) return false;
+        
+        return inv.capital_actual !== undefined && inv.capital_actual < initialCapital;
+    });
+
     // Agrupar por user_id
-    const groupedInvestments = investments.reduce((acc, inv) => {
+    const groupedInvestments = filteredInvestments.reduce((acc, inv) => {
         const userId = inv.user_id || 0;
         if (!acc[userId]) acc[userId] = [];
         acc[userId].push(inv);
@@ -62,14 +76,26 @@ export const InvestmentsPage = () => {
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-brand-100 rounded-lg">
-                    <Briefcase className="w-6 h-6 text-brand-600" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-brand-100 rounded-lg">
+                        <Briefcase className="w-6 h-6 text-brand-600" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-800">Auditoría de Inversiones</h1>
+                        <p className="text-slate-500 text-sm">Listado global agrupado por usuario (Fase 1)</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Auditoría de Inversiones</h1>
-                    <p className="text-slate-500 text-sm">Listado global agrupado por usuario (Fase 1)</p>
-                </div>
+                
+                <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input 
+                        type="checkbox" 
+                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 w-4 h-4"
+                        checked={showOnlyWithCapitalWithdrawals}
+                        onChange={(e) => setShowOnlyWithCapitalWithdrawals(e.target.checked)}
+                    />
+                    <span className="text-sm font-medium text-slate-700">Solo retiros de capital</span>
+                </label>
             </div>
 
             {Object.entries(groupedInvestments).map(([userId, userInvestments]) => {
