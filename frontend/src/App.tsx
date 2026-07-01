@@ -46,7 +46,7 @@ function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="wallet" element={<WalletsPage />} />
-        {/* Aquí agregaremos más rutas en el futuro */}
+        <Route path="investments" element={<div className="p-8"><h1 className="text-2xl font-bold text-slate-800">Módulo de Inversiones</h1><p className="text-slate-500 mt-2">En construcción...</p></div>} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}
