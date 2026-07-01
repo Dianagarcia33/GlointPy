@@ -10,7 +10,6 @@ from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
 from src.models.investor import Investor
 from src.models.wallet import Wallet
-from src.models.transaction import Transaction
 from src.schemas.admin_investments import AdminInvestorResponse
 
 router = APIRouter()
