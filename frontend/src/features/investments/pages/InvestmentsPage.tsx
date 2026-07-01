@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { investmentsService, AdminInvestment } from '../../../services/investments';
-import { Briefcase, Loader2, AlertCircle, User, Calendar, DollarSign, Mail } from 'lucide-react';
+import { Briefcase, Loader2, AlertCircle, User, Calendar, DollarSign, Mail, Search } from 'lucide-react';
 
 export const InvestmentsPage = () => {
     const [investments, setInvestments] = useState<AdminInvestment[]>([]);
@@ -9,6 +9,7 @@ export const InvestmentsPage = () => {
     const [showOnlyWithCapitalWithdrawals, setShowOnlyWithCapitalWithdrawals] = useState(false);
     const [showOnlyNegativeBalances, setShowOnlyNegativeBalances] = useState(false);
     const [showOnlyWithBonuses, setShowOnlyWithBonuses] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
 
     useEffect(() => {
@@ -39,6 +40,16 @@ export const InvestmentsPage = () => {
 
     // 2. Filtrar a nivel de usuario
     const filteredGroupedInvestments = Object.entries(groupedInvestments).filter(([userId, userInvs]) => {
+        if (searchQuery.trim() !== '') {
+            const query = searchQuery.toLowerCase();
+            const matchesSearch = userInvs.some(inv => 
+                (inv.nombre_completo && inv.nombre_completo.toLowerCase().includes(query)) ||
+                (inv.codigo_asignado && inv.codigo_asignado.toLowerCase().includes(query)) ||
+                (inv.correo_electronico && inv.correo_electronico.toLowerCase().includes(query))
+            );
+            if (!matchesSearch) return false;
+        }
+
         if (showOnlyNegativeBalances) {
             const saldoTotalUsuario = userInvs.reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
             if (saldoTotalUsuario >= 0) return false;
@@ -119,8 +130,23 @@ export const InvestmentsPage = () => {
                         <p className="text-slate-500 text-sm">Listado global agrupado por usuario (Fase 1)</p>
                     </div>
                 </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div className="relative w-full sm:max-w-md">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-slate-400" />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Buscar por nombre, correo o código..."
+                        className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 sm:text-sm shadow-sm transition-all"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
                 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                     <label className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:bg-slate-50 transition-colors">
                         <input 
                             type="checkbox" 
