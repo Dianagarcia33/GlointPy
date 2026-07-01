@@ -322,7 +322,7 @@ async def nivelar_wallet(
     user_id: int,
     request: NivelacionRequest,
     db: AsyncSession = Depends(get_db),
-    current_admin = Depends(get_current_admin)
+    current_user: User = Depends(get_current_user)
 ):
     from src.models.wallet import Wallet
     from src.models.wallet_transactions import WalletTransaction
