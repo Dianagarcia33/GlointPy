@@ -262,8 +262,17 @@ async def get_all_investments(
             if not fecha_retiro or fecha_retiro > FECHA_MIGRACION:
                 continue
                 
+            # Determinar si es una reinversión
+            is_reinversion = False
+            obs = (retiro.observaciones or "").upper()
+            if "REINVERSIÓN" in obs or "REINVERSION" in obs:
+                is_reinversion = True
+            elif retiro.origen == 'billetera' and retiro.metodo_pago == 'wallet':
+                is_reinversion = True
+                
             # Ignorar las transferencias automáticas a la wallet (no tienen aprobación de administrador)
-            if retiro.aprobado_por is None and retiro.procesado_por is None:
+            # EXCEPTO si son reinversiones, las cuales SÍ deben descontarse del saldo final.
+            if retiro.aprobado_por is None and retiro.procesado_por is None and not is_reinversion:
                 continue
             
             monto = float(retiro.monto or 0.0)
@@ -272,7 +281,8 @@ async def get_all_investments(
                 detalles_retiros_rendimiento.append({
                     "id": retiro.id,
                     "fecha": fecha_retiro,
-                    "monto": monto
+                    "monto": monto,
+                    "is_reinversion": is_reinversion
                 })
                 
         # Capital Devuelto (si el contrato ya finalizó)
