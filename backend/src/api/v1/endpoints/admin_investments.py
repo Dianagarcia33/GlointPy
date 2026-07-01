@@ -414,7 +414,7 @@ async def nivelar_wallets_masivo(
             type=transaction_type,
             amount=abs(faltante),
             description="nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
-            status="completed",
+            balance_after=item.saldo_auditado,
             created_at=datetime.now(),
             updated_at=datetime.now()
         )
