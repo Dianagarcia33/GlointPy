@@ -22,6 +22,9 @@ class AdminInvestorResponse(BaseModel):
     periodo_meses: Optional[int] = None
     periodo_dias: Optional[int] = None
     
-    # Podremos agregar los campos del calculo aqui despues
+    # Nuevos campos calculados
+    rendimiento_diario_calculado: Optional[float] = None
+    dias_generando: Optional[int] = None
+    rendimiento_producido_hasta_ayer: Optional[float] = None
     
     model_config = ConfigDict(from_attributes=True)

@@ -23,9 +23,11 @@ async def get_all_investments(
     # Verificar permisos (asumimos que si llegó aquí, el middleware o ruta debe protegerlo,
     # pero podemos hacer una verificación sencilla del rol o permiso si tenemos el método)
     # Por ahora confiaremos en que el frontend protege la vista, pero lo ideal es validar `current_user.has_permission("investments:view")`
-    
     from sqlalchemy.orm import selectinload
     from src.models.contract_period import ContractPeriod
+    from datetime import datetime, timedelta
+    
+    ayer = datetime.now().date() - timedelta(days=1)
     
     # Obtener todos los periodos en un diccionario para mapeo manual (por si usan la columna vieja periodo_contrato)
     periods_result = await db.execute(select(ContractPeriod))
@@ -87,6 +89,29 @@ async def get_all_investments(
             periodo_porcentaje = period_obj.percentage
             periodo_meses = period_obj.months
             periodo_dias = period_obj.days
+            
+        # Cálculos de Fase 2: Rendimientos
+        rendimiento_diario_calculado = 0.0
+        dias_generando = 0
+        rendimiento_producido_hasta_ayer = 0.0
+        
+        capital = float(inv.total_contrato or 0.0)
+        
+        if capital > 0 and periodo_porcentaje and periodo_meses and periodo_dias:
+            # Fórmula pedida por el usuario: (capital * (porcentaje/100) * meses) / dias
+            rendimiento_diario_calculado = (capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
+            
+            if inv.fecha_ingreso:
+                # Determinar fecha tope (no sobrepasar fecha fin del contrato ni el día de ayer)
+                fecha_fin_calculo = ayer
+                if inv.fecha_finalizacion and inv.fecha_finalizacion < ayer:
+                    fecha_fin_calculo = inv.fecha_finalizacion
+                
+                delta_dias = (fecha_fin_calculo - inv.fecha_ingreso).days
+                if delta_dias > 0:
+                    dias_generando = delta_dias
+                
+                rendimiento_producido_hasta_ayer = dias_generando * rendimiento_diario_calculado
 
         response_list.append({
             "id": inv.id,
@@ -102,7 +127,10 @@ async def get_all_investments(
             "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento,
             "periodo_porcentaje": periodo_porcentaje,
             "periodo_meses": periodo_meses,
-            "periodo_dias": periodo_dias
+            "periodo_dias": periodo_dias,
+            "rendimiento_diario_calculado": rendimiento_diario_calculado,
+            "dias_generando": dias_generando,
+            "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer
         })
     
     return response_list

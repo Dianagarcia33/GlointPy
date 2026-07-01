@@ -92,8 +92,8 @@ export const InvestmentsPage = () => {
                                     <tr>
                                         <th className="px-6 py-3 font-medium">Código</th>
                                         <th className="px-6 py-3 font-medium">Capital</th>
-                                        <th className="px-6 py-3 font-medium">Rendimiento Total</th>
-                                        <th className="px-6 py-3 font-medium">Rend. Diario</th>
+                                        <th className="px-6 py-3 font-medium">Rend. Diario (Calc)</th>
+                                        <th className="px-6 py-3 font-medium">Producido (Hasta Ayer)</th>
                                         <th className="px-6 py-3 font-medium">Fechas</th>
                                     </tr>
                                 </thead>
@@ -114,12 +114,19 @@ export const InvestmentsPage = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-1 text-green-600 font-medium">
-                                                    {formatCOP(inv.rendimiento_total_contrato)}
+                                                <div className="text-slate-700 font-medium">
+                                                    {formatCOP(inv.rendimiento_diario_calculado)}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-slate-600 font-medium">
-                                                {formatCOP(inv.liquidacion_diaria_rendimiento)}
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-green-600 font-bold">
+                                                        {formatCOP(inv.rendimiento_producido_hasta_ayer)}
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 mt-0.5">
+                                                        {inv.dias_generando || 0} días transcurridos
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2 text-xs text-slate-500">

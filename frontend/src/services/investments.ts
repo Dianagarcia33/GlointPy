@@ -40,6 +40,9 @@ export interface AdminInvestment {
   periodo_porcentaje?: number;
   periodo_meses?: number;
   periodo_dias?: number;
+  rendimiento_diario_calculado?: number;
+  dias_generando?: number;
+  rendimiento_producido_hasta_ayer?: number;
 }
 
 export const investmentsService = {
