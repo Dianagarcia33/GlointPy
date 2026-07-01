@@ -9,6 +9,7 @@ import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditi
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { WalletsPage } from "./features/wallets/pages/WalletsPage";
+import { InvestmentsPage } from "./features/investments/pages/InvestmentsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 
@@ -46,7 +47,7 @@ function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="wallet" element={<WalletsPage />} />
-        <Route path="investments" element={<div className="p-8"><h1 className="text-2xl font-bold text-slate-800">Módulo de Inversiones</h1><p className="text-slate-500 mt-2">En construcción...</p></div>} />
+        <Route path="investments" element={<InvestmentsPage />} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}

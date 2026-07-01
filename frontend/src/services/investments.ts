@@ -25,8 +25,24 @@ export interface Investment {
   paquete: PaqueteInversion;
 }
 
+export interface AdminInvestment {
+  id: number;
+  user_id: number;
+  nombre_completo?: string;
+  correo_electronico?: string;
+  codigo_asignado?: string;
+  fecha_ingreso?: string;
+  fecha_finalizacion?: string;
+  total_contrato?: number;
+  rendimiento_total_contrato?: number;
+  liquidacion_diaria_rendimiento?: number;
+}
+
 export const investmentsService = {
   getMyInvestments: async (): Promise<Investment[]> => {
     return await fetchApi('/investments/me');
   },
+  getAllInvestments: async (): Promise<AdminInvestment[]> => {
+    return await fetchApi('/investments/admin/all');
+  }
 };
