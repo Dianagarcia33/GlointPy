@@ -53,7 +53,7 @@ CREATE TABLE `investor_respaldo` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `investors_tusdatos_corregido_por_foreign` (`tusdatos_corregido_por`),
+  KEY `investors_tusdatos_corregido_por_foreign` (`tusdatos_corregido_por`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1411 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

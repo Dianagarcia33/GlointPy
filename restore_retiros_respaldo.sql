@@ -31,7 +31,7 @@ CREATE TABLE `retiros_respaldo` (
   KEY `retiros_user_id_foreign` (`user_id`),
   KEY `retiros_aprobado_por_foreign` (`aprobado_por`),
   KEY `retiros_procesado_por_foreign` (`procesado_por`),
-  KEY `retiros_origen_index` (`origen`),
+  KEY `retiros_origen_index` (`origen`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7031 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

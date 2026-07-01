@@ -4,6 +4,7 @@ def extract_tables_data():
     input_file = "backup_gloint_db.sql"
     
     tables_to_backup = {
+        'investors': 'investor_respaldo',
         'investment_requests': 'investment_requests_respaldo',
         'retiros': 'retiros_respaldo'
     }
@@ -51,6 +52,16 @@ def extract_tables_data():
     
             f_out.write("SET FOREIGN_KEY_CHECKS=1;\n")
             print(f"Archivo {output_file} generado exitosamente.")
+            
+        # Post-process the file to fix trailing commas left by removing constraints
+        with open(output_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Replace trailing comma before closing parenthesis of CREATE TABLE
+        content = re.sub(r',\n\) ENGINE', '\n) ENGINE', content)
+        
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(content)
 
 if __name__ == "__main__":
     extract_tables_data()
