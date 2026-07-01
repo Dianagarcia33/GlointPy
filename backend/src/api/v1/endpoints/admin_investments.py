@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import List
+from sqlalchemy import select, and_, func
+from typing import List, Optional
+from datetime import datetime, date, timedelta
+from pydantic import BaseModel
 
 from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
 from src.models.investor import Investor
+from src.models.wallet import Wallet
+from src.models.transaction import Transaction
 from src.schemas.admin_investments import AdminInvestorResponse
 
 router = APIRouter()
@@ -309,3 +313,57 @@ async def get_all_investments(
         })
     
     return response_list
+
+class NivelacionRequest(BaseModel):
+    saldo_auditado: float
+
+@router.post("/nivelar-wallet/{user_id}")
+async def nivelar_wallet(
+    user_id: int,
+    request: NivelacionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_admin = Depends(get_current_admin)
+):
+    from src.models.wallet import Wallet
+    from src.models.wallet_transactions import WalletTransaction
+    from datetime import datetime
+    
+    # Buscar wallet del usuario
+    stmt = select(Wallet).where(Wallet.user_id == user_id)
+    result = await db.execute(stmt)
+    wallet = result.scalar_one_or_none()
+    
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Wallet no encontrada para este usuario")
+        
+    saldo_actual = float(wallet.balance or 0.0)
+    faltante = request.saldo_auditado - saldo_actual
+    
+    if abs(faltante) < 0.01:
+        return {"message": "La wallet ya está nivelada"}
+        
+    # Actualizar balance
+    wallet.balance = request.saldo_auditado
+    wallet.updated_at = datetime.now()
+    
+    # Crear transacción
+    transaction_type = "deposit" if faltante > 0 else "withdrawal"
+    
+    tx = WalletTransaction(
+        wallet_id=wallet.id,
+        type=transaction_type,
+        amount=abs(faltante),
+        description="nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
+        status="completed",
+        created_at=datetime.now(),
+        updated_at=datetime.now()
+    )
+    
+    db.add(tx)
+    await db.commit()
+    
+    return {
+        "message": "Wallet nivelada correctamente", 
+        "faltante": faltante, 
+        "nuevo_saldo": request.saldo_auditado
+    }

@@ -76,5 +76,12 @@ export const investmentsService = {
   },
   getAllInvestments: async (): Promise<AdminInvestment[]> => {
     return await fetchApi('/investments/admin/all');
+  },
+
+  nivelarWallet: async (userId: number, saldoAuditado: number) => {
+    return await fetchApi(`/admin-investments/nivelar-wallet/${userId}`, {
+      method: 'POST',
+      body: JSON.stringify({ saldo_auditado: saldoAuditado })
+    });
   }
 };

@@ -11,6 +11,7 @@ export const InvestmentsPage = () => {
     const [showOnlyWithBonuses, setShowOnlyWithBonuses] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
+    const [isLeveling, setIsLeveling] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchInvestments = async () => {
@@ -88,6 +89,23 @@ export const InvestmentsPage = () => {
         if (sortOrder === 'desc') return saldoB - saldoA;
         return 0;
     });
+
+    const handleNivelar = async (userId: number, saldoAuditado: number) => {
+        if (!window.confirm(`¿Seguro que deseas nivelar la wallet de este usuario insertando un ajuste oficial para que quede en ${formatCOP(saldoAuditado)}?`)) return;
+        
+        setIsLeveling(userId);
+        try {
+            await investmentsService.nivelarWallet(userId, saldoAuditado);
+            // Refetch to update the UI
+            const data = await investmentsService.getAllInvestments();
+            setInvestments(data);
+            alert('Wallet nivelada correctamente y registrada en el historial.');
+        } catch (err: any) {
+            alert('Error al nivelar: ' + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsLeveling(null);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -269,6 +287,18 @@ export const InvestmentsPage = () => {
                                         {faltanteUsuario > 0 ? '+' : ''}{formatCOP(faltanteUsuario)}
                                     </span>
                                 </div>
+                                {Math.abs(faltanteUsuario) > 0.01 && (
+                                    <div className="flex items-center ml-2">
+                                        <button 
+                                            onClick={() => handleNivelar(Number(userId), saldoTotalUsuario)}
+                                            disabled={isLeveling === Number(userId)}
+                                            className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 text-white text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center gap-1"
+                                        >
+                                            {isLeveling === Number(userId) ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                            Ajustar Wallet
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         
