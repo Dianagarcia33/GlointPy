@@ -100,17 +100,15 @@ export const InvestmentsPage = () => {
                                 <tbody>
                                     {userInvestments.map((inv) => (
                                         <tr key={inv.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-slate-700">
-                                                    {inv.codigo_asignado || `INV-${inv.id}`}
-                                                </div>
-                                                <div className="text-xs text-slate-400 mt-0.5">
-                                                    {inv.paquete_nombre || 'Paquete Desconocido'}
-                                                </div>
+                                            <td className="px-6 py-4 font-medium text-slate-700">
+                                                {inv.codigo_asignado || `INV-${inv.id}`}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-1 font-medium text-slate-800">
                                                     {formatCOP(inv.total_contrato)}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-0.5">
+                                                    {inv.paquete_nombre || 'Paquete Desconocido'}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
