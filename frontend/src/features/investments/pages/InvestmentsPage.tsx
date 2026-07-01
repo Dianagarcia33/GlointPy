@@ -26,34 +26,42 @@ export const InvestmentsPage = () => {
         fetchInvestments();
     }, []);
 
-    // Filter logic
-    const filteredInvestments = investments.filter(inv => {
+    // 1. Agrupar por user_id
+    const groupedInvestments = investments.reduce((acc, inv) => {
+        const userId = inv.user_id;
+        if (!acc[userId]) {
+            acc[userId] = [];
+        }
+        acc[userId].push(inv);
+        return acc;
+    }, {} as Record<number, AdminInvestment[]>);
+
+    // 2. Filtrar a nivel de usuario
+    const filteredGroupedInvestments = Object.entries(groupedInvestments).filter(([userId, userInvs]) => {
         if (showOnlyNegativeBalances) {
-            if (inv.saldo_a_migrar === undefined || inv.saldo_a_migrar >= 0) return false;
+            const saldoTotalUsuario = userInvs.reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
+            if (saldoTotalUsuario >= 0) return false;
         }
 
         if (showOnlyWithBonuses) {
-            if (!inv.total_bonos || inv.total_bonos <= 0) return false;
+            const hasBonuses = userInvs.some(inv => inv.total_bonos && inv.total_bonos > 0);
+            if (!hasBonuses) return false;
         }
 
         if (showOnlyWithCapitalWithdrawals) {
-            const initialCapitalStr = inv.paquete_nombre;
-            if (!initialCapitalStr) return false;
-            
-            const initialCapital = parseFloat(initialCapitalStr);
-            if (isNaN(initialCapital)) return false;
-            
-            if (inv.capital_actual === undefined || inv.capital_actual >= initialCapital) return false;
+            const hasCapitalWithdrawals = userInvs.some(inv => {
+                const initialCapitalStr = inv.paquete_nombre;
+                if (!initialCapitalStr) return false;
+                const initialCapital = parseFloat(initialCapitalStr);
+                if (isNaN(initialCapital)) return false;
+                return inv.capital_actual !== undefined && inv.capital_actual < initialCapital;
+            });
+            if (!hasCapitalWithdrawals) return false;
         }
         
         return true;
-    });
-
-    // Agrupar por user_id
-    const groupedInvestments = filteredInvestments.reduce((acc, inv) => {
-        const userId = inv.user_id || 0;
-        if (!acc[userId]) acc[userId] = [];
-        acc[userId].push(inv);
+    }).reduce((acc, [userId, userInvs]) => {
+        acc[Number(userId)] = userInvs;
         return acc;
     }, {} as Record<number, AdminInvestment[]>);
 
@@ -130,7 +138,7 @@ export const InvestmentsPage = () => {
                 </div>
             </div>
 
-            {Object.entries(groupedInvestments).map(([userId, userInvestments]) => {
+            {Object.entries(filteredGroupedInvestments).map(([userId, userInvestments]) => {
                 const userFirstInv = userInvestments[0];
                 const userName = userFirstInv.nombre_completo || 'Usuario Desconocido';
                 const userEmail = userFirstInv.correo_electronico || 'Sin correo';
