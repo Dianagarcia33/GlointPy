@@ -216,6 +216,10 @@ async def get_all_investments(
             # Ignorar si el retiro es post fecha de migración o es un cargue positivo (monto < 0)
             if not fecha_retiro or fecha_retiro > FECHA_MIGRACION:
                 continue
+                
+            # Ignorar las transferencias automáticas a la wallet (no tienen aprobación de administrador)
+            if retiro.aprobado_por is None and retiro.procesado_por is None:
+                continue
             
             monto = float(retiro.monto or 0.0)
             if monto > 0:
