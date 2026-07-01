@@ -83,5 +83,12 @@ export const investmentsService = {
       method: 'POST',
       body: JSON.stringify({ saldo_auditado: saldoAuditado })
     });
+  },
+
+  nivelarWalletsMasivo: async (usuarios: { user_id: number, saldo_auditado: number }[]) => {
+    return await fetchApi(`/admin-investments/nivelar-wallets-masivo`, {
+      method: 'POST',
+      body: JSON.stringify({ usuarios })
+    });
   }
 };

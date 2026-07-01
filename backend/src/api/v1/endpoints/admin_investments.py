@@ -366,3 +366,60 @@ async def nivelar_wallet(
         "faltante": faltante, 
         "nuevo_saldo": request.saldo_auditado
     }
+
+class NivelacionMasivaItem(BaseModel):
+    user_id: int
+    saldo_auditado: float
+
+class NivelacionMasivaRequest(BaseModel):
+    usuarios: List[NivelacionMasivaItem]
+
+@router.post("/nivelar-wallets-masivo")
+async def nivelar_wallets_masivo(
+    request: NivelacionMasivaRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from src.models.wallet import Wallet
+    from src.models.wallet_transactions import WalletTransaction
+    from datetime import datetime
+    
+    user_ids = [item.user_id for item in request.usuarios]
+    if not user_ids:
+        return {"message": "No hay usuarios para nivelar"}
+        
+    stmt = select(Wallet).where(Wallet.user_id.in_(user_ids))
+    result = await db.execute(stmt)
+    wallets = result.scalars().all()
+    wallets_by_user = {w.user_id: w for w in wallets}
+    
+    count_updated = 0
+    for item in request.usuarios:
+        wallet = wallets_by_user.get(item.user_id)
+        if not wallet:
+            continue
+            
+        saldo_actual = float(wallet.balance or 0.0)
+        faltante = item.saldo_auditado - saldo_actual
+        
+        if abs(faltante) < 0.01:
+            continue
+            
+        wallet.balance = item.saldo_auditado
+        wallet.updated_at = datetime.now()
+        
+        transaction_type = "deposit" if faltante > 0 else "withdrawal"
+        tx = WalletTransaction(
+            wallet_id=wallet.id,
+            type=transaction_type,
+            amount=abs(faltante),
+            description="nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
+            status="completed",
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        db.add(tx)
+        count_updated += 1
+        
+    await db.commit()
+    return {"message": f"Se nivelaron {count_updated} wallets exitosamente."}

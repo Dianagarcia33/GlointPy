@@ -12,6 +12,7 @@ export const InvestmentsPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
     const [isLeveling, setIsLeveling] = useState<number | null>(null);
+    const [isLevelingMassive, setIsLevelingMassive] = useState(false);
 
     useEffect(() => {
         const fetchInvestments = async () => {
@@ -107,6 +108,35 @@ export const InvestmentsPage = () => {
         }
     };
 
+    const handleNivelarMasivo = async () => {
+        const usersToLevel = sortedGroupedInvestments.map(([userId, userInvs]) => {
+            const userFirstInv = userInvs[0];
+            const saldoTotalUsuario = userInvs.reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
+            const saldoWalletActual = userFirstInv.wallet_balance_actual || 0;
+            const faltante = saldoTotalUsuario - saldoWalletActual;
+            return { user_id: Number(userId), saldo_auditado: saldoTotalUsuario, faltante };
+        }).filter(u => Math.abs(u.faltante) > 0.01);
+
+        if (usersToLevel.length === 0) {
+            alert('No hay usuarios con faltantes en esta vista filtrada.');
+            return;
+        }
+
+        if (!window.confirm(`¿Estás completamente seguro de nivelar a ${usersToLevel.length} usuarios de un solo golpe?\nSe inyectará un registro automático a cada uno ajustando su saldo al Auditado.`)) return;
+
+        setIsLevelingMassive(true);
+        try {
+            await investmentsService.nivelarWalletsMasivo(usersToLevel.map(u => ({ user_id: u.user_id, saldo_auditado: u.saldo_auditado })));
+            const data = await investmentsService.getAllInvestments();
+            setInvestments(data);
+            alert(`¡Se nivelaron ${usersToLevel.length} wallets exitosamente y quedó el historial guardado!`);
+        } catch (err: any) {
+            alert('Error en nivelación masiva: ' + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsLevelingMassive(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="p-8 flex justify-center items-center h-64">
@@ -148,6 +178,14 @@ export const InvestmentsPage = () => {
                         <p className="text-slate-500 text-sm">Listado global agrupado por usuario (Fase 1)</p>
                     </div>
                 </div>
+                <button
+                    onClick={handleNivelarMasivo}
+                    disabled={isLevelingMassive}
+                    className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 text-white text-sm font-bold rounded-xl shadow-sm transition-all flex items-center gap-2"
+                >
+                    {isLevelingMassive ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Nivelar Faltantes Masivamente
+                </button>
             </div>
             
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
