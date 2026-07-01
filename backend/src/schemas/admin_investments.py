@@ -26,5 +26,6 @@ class AdminInvestorResponse(BaseModel):
     rendimiento_diario_calculado: Optional[float] = None
     dias_generando: Optional[int] = None
     rendimiento_producido_hasta_ayer: Optional[float] = None
+    capital_actual: Optional[float] = None
     
     model_config = ConfigDict(from_attributes=True)

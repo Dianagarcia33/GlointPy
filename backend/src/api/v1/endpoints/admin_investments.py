@@ -25,6 +25,7 @@ async def get_all_investments(
     # Por ahora confiaremos en que el frontend protege la vista, pero lo ideal es validar `current_user.has_permission("investments:view")`
     from sqlalchemy.orm import selectinload
     from src.models.contract_period import ContractPeriod
+    from src.models.retiros import Retiro
     from datetime import datetime, timedelta
     
     ayer = datetime.now().date() - timedelta(days=1)
@@ -41,6 +42,22 @@ async def get_all_investments(
     ).order_by(Investor.user_id, Investor.fecha_ingreso.desc())
     result = await db.execute(stmt)
     investors = result.scalars().all()
+    
+    # Obtener retiros de capital aprobados/procesados para calcular tramos de rendimiento
+    investor_ids = [inv.id for inv in investors]
+    retiros_by_inv = {}
+    if investor_ids:
+        retiros_stmt = select(Retiro).where(
+            Retiro.investor_id.in_(investor_ids),
+            Retiro.tipo == 'capital',
+            Retiro.estado.in_(['aprobado', 'procesado'])
+        ).order_by(Retiro.fecha_retiro.asc())
+        retiros_result = await db.execute(retiros_stmt)
+        all_retiros = retiros_result.scalars().all()
+        for r in all_retiros:
+            if r.investor_id not in retiros_by_inv:
+                retiros_by_inv[r.investor_id] = []
+            retiros_by_inv[r.investor_id].append(r)
     
     response_list = []
     for inv in investors:
@@ -110,21 +127,56 @@ async def get_all_investments(
         # Fecha tope estricta indicada por el usuario: 29 de junio de 2026
         FECHA_MIGRACION = datetime(2026, 6, 29).date()
         
-        if capital > 0 and periodo_porcentaje and periodo_meses and periodo_dias:
-            # Fórmula pedida por el usuario: (capital * (porcentaje/100) * meses) / dias
-            rendimiento_diario_calculado = (capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
+        capital_actual = capital
+        if capital > 0 and periodo_porcentaje and periodo_meses and periodo_dias and inv.fecha_ingreso:
+            fecha_fin_calculo = FECHA_MIGRACION
+            if inv.fecha_finalizacion and inv.fecha_finalizacion < FECHA_MIGRACION:
+                fecha_fin_calculo = inv.fecha_finalizacion
+                
+            current_capital = capital
+            current_start_date = inv.fecha_ingreso
+            total_producido = 0.0
             
-            if inv.fecha_ingreso:
-                # Determinar fecha tope (no sobrepasar fecha fin del contrato ni el 29 de junio de 2026)
-                fecha_fin_calculo = FECHA_MIGRACION
-                if inv.fecha_finalizacion and inv.fecha_finalizacion < FECHA_MIGRACION:
-                    fecha_fin_calculo = inv.fecha_finalizacion
+            # Traer retiros del inversor
+            retiros_capital = retiros_by_inv.get(inv.id, [])
+            
+            for retiro in retiros_capital:
+                fecha_retiro = retiro.fecha_retiro or retiro.fecha_solicitud
                 
-                delta_dias = (fecha_fin_calculo - inv.fecha_ingreso).days
-                if delta_dias > 0:
-                    dias_generando = delta_dias
+                # Ignoramos si el retiro es post fecha fin
+                if not fecha_retiro or fecha_retiro > fecha_fin_calculo:
+                    continue
                 
-                rendimiento_producido_hasta_ayer = dias_generando * rendimiento_diario_calculado
+                # Ajustar si el retiro es pre fecha inicio (error de datos)
+                if fecha_retiro < current_start_date:
+                    fecha_retiro = current_start_date
+                
+                # Tramo antes del retiro
+                dias_tramo = (fecha_retiro - current_start_date).days
+                if dias_tramo > 0:
+                    rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
+                    total_producido += dias_tramo * rendimiento_tramo
+                    dias_generando += dias_tramo
+                
+                # Aplicar retiro al capital
+                monto_retiro = float(retiro.monto or 0.0)
+                current_capital -= monto_retiro
+                if current_capital < 0:
+                    current_capital = 0.0
+                    
+                current_start_date = fecha_retiro
+
+            # Tramo final
+            if current_start_date < fecha_fin_calculo:
+                dias_tramo = (fecha_fin_calculo - current_start_date).days
+                if dias_tramo > 0:
+                    rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
+                    total_producido += dias_tramo * rendimiento_tramo
+                    dias_generando += dias_tramo
+            
+            capital_actual = current_capital
+            rendimiento_diario_calculado = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
+            rendimiento_producido_hasta_ayer = total_producido
 
         response_list.append({
             "id": inv.id,
@@ -143,7 +195,8 @@ async def get_all_investments(
             "periodo_dias": periodo_dias,
             "rendimiento_diario_calculado": rendimiento_diario_calculado,
             "dias_generando": dias_generando,
-            "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer
+            "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer,
+            "capital_actual": capital_actual
         })
     
     return response_list

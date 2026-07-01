@@ -43,6 +43,7 @@ export interface AdminInvestment {
   rendimiento_diario_calculado?: number;
   dias_generando?: number;
   rendimiento_producido_hasta_ayer?: number;
+  capital_actual?: number;
 }
 
 export const investmentsService = {
