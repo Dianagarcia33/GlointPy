@@ -25,11 +25,17 @@ async def get_all_investments(
     # Por ahora confiaremos en que el frontend protege la vista, pero lo ideal es validar `current_user.has_permission("investments:view")`
     
     from sqlalchemy.orm import selectinload
-    # Obtener todos los inversores con su usuario, paquete y periodo de contrato
+    from src.models.contract_period import ContractPeriod
+    
+    # Obtener todos los periodos en un diccionario para mapeo manual (por si usan la columna vieja periodo_contrato)
+    periods_result = await db.execute(select(ContractPeriod))
+    all_periods = periods_result.scalars().all()
+    periods_dict = {p.id: p for p in all_periods}
+
+    # Obtener todos los inversores con su usuario y paquete
     stmt = select(Investor).options(
         selectinload(Investor.user),
-        selectinload(Investor.paquete),
-        selectinload(Investor.contract_period)
+        selectinload(Investor.paquete)
     ).order_by(Investor.user_id, Investor.fecha_ingreso.desc())
     result = await db.execute(stmt)
     investors = result.scalars().all()
@@ -48,19 +54,39 @@ async def get_all_investments(
             if inv.user.email:
                 correo = inv.user.email
                 
-        # Nombre del paquete
+        # Nombre del paquete (Valor del paquete)
         paquete_nombre = "0"
         if inv.paquete and inv.paquete.paquete_accion_adquirido:
             paquete_nombre = inv.paquete.paquete_accion_adquirido
 
-        # Datos del periodo
+        # Datos del periodo (revisando ambas columnas para compatibilidad)
         periodo_porcentaje = None
         periodo_meses = None
         periodo_dias = None
-        if inv.contract_period:
-            periodo_porcentaje = inv.contract_period.percentage
-            periodo_meses = inv.contract_period.months
-            periodo_dias = inv.contract_period.days
+        
+        period_obj = None
+        if inv.contract_period_id:
+            period_obj = periods_dict.get(inv.contract_period_id)
+            
+        if not period_obj and inv.periodo_contrato:
+            period_obj = periods_dict.get(inv.periodo_contrato)
+            if not period_obj:
+                # Fallback: periodo_contrato might store days or months instead of ID
+                for p in all_periods:
+                    if p.days == inv.periodo_contrato or p.months == inv.periodo_contrato:
+                        period_obj = p
+                        break
+                        
+        if not period_obj and inv.dias_contrato:
+            for p in all_periods:
+                if p.days == inv.dias_contrato:
+                    period_obj = p
+                    break
+        
+        if period_obj:
+            periodo_porcentaje = period_obj.percentage
+            periodo_meses = period_obj.months
+            periodo_dias = period_obj.days
 
         response_list.append({
             "id": inv.id,
