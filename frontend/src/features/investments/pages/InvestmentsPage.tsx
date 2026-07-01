@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { investmentsService, AdminInvestment } from '../../../services/investments';
-import { Briefcase, Loader2, AlertCircle, User, Calendar, DollarSign } from 'lucide-react';
+import { Briefcase, Loader2, AlertCircle, User, Calendar, DollarSign, Mail } from 'lucide-react';
 
 export const InvestmentsPage = () => {
     const [investments, setInvestments] = useState<AdminInvestment[]>([]);
@@ -117,16 +117,45 @@ export const InvestmentsPage = () => {
             </div>
 
             {Object.entries(groupedInvestments).map(([userId, userInvestments]) => {
-                const primerInv = userInvestments[0];
+                const userFirstInv = userInvestments[0];
+                const userName = userFirstInv.nombre_completo || 'Usuario Desconocido';
+                const userEmail = userFirstInv.correo_electronico || 'Sin correo';
+                
+                // Calcular totales del usuario
+                const totalProducidoUsuario = userInvestments.reduce((acc, inv) => acc + (inv.rendimiento_producido_hasta_ayer || 0), 0);
+                const totalRetiradoUsuario = userInvestments.reduce((acc, inv) => acc + (inv.total_retiros_rendimiento || 0), 0);
+                const saldoTotalUsuario = userInvestments.reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
+
                 return (
-                    <div key={userId} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-bold">
-                                <User className="w-5 h-5" />
-                            </div>
+                    <div key={userId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+                        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-wrap gap-4">
                             <div>
-                                <h3 className="font-semibold text-slate-800">{primerInv.nombre_completo || 'Usuario sin nombre'}</h3>
-                                <p className="text-sm text-slate-500">{primerInv.correo_electronico || `ID: ${userId}`}</p>
+                                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                    <User className="w-5 h-5 text-brand-500" />
+                                    {userName}
+                                </h2>
+                                <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+                                    <Mail className="w-4 h-4" />
+                                    {userEmail}
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap gap-4 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Total Producido General</span>
+                                    <span className="text-green-600 font-bold text-base">+{formatCOP(totalProducidoUsuario)}</span>
+                                </div>
+                                <div className="w-px bg-slate-200 hidden sm:block"></div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Total Retirado General</span>
+                                    <span className="text-red-500 font-bold text-base">-{formatCOP(totalRetiradoUsuario)}</span>
+                                </div>
+                                <div className="w-px bg-slate-200 hidden sm:block"></div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Saldo Final General</span>
+                                    <span className={`font-bold text-base ${saldoTotalUsuario < 0 ? 'text-red-600 bg-red-50 px-1 rounded' : 'text-slate-900'}`}>
+                                        {formatCOP(saldoTotalUsuario)}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         
