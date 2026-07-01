@@ -79,14 +79,14 @@ export const investmentsService = {
   },
 
   nivelarWallet: async (userId: number, saldoAuditado: number) => {
-    return await fetchApi(`/admin-investments/nivelar-wallet/${userId}`, {
+    return await fetchApi(`/investments/admin/nivelar-wallet/${userId}`, {
       method: 'POST',
       body: JSON.stringify({ saldo_auditado: saldoAuditado })
     });
   },
 
   nivelarWalletsMasivo: async (usuarios: { user_id: number, saldo_auditado: number }[]) => {
-    return await fetchApi(`/admin-investments/nivelar-wallets-masivo`, {
+    return await fetchApi(`/investments/admin/nivelar-wallets-masivo`, {
       method: 'POST',
       body: JSON.stringify({ usuarios })
     });
