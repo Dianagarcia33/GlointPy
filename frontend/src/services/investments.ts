@@ -45,6 +45,7 @@ export interface AdminInvestment {
   rendimiento_producido_hasta_ayer?: number;
   capital_actual?: number;
   total_bonos?: number;
+  wallet_balance_actual?: number;
   detalles_bonos?: {
     id: number;
     monto: number;

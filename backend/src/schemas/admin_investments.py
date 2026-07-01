@@ -32,6 +32,7 @@ class AdminInvestorResponse(BaseModel):
     total_retiros_rendimiento: Optional[float] = 0.0
     detalles_retiros_rendimiento: List[dict] = []
     saldo_a_migrar: Optional[float] = 0.0
+    wallet_balance_actual: Optional[float] = 0.0
     tramos_desglose: List[dict] = []
     
     model_config = ConfigDict(from_attributes=True)

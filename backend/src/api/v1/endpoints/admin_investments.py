@@ -27,6 +27,7 @@ async def get_all_investments(
     from src.models.contract_period import ContractPeriod
     from src.models.retiros import Retiro
     from src.models.contract_accelerations import ContractAcceleration
+    from src.models.wallet import Wallet
     from datetime import datetime, timedelta
     
     ayer = datetime.now().date() - timedelta(days=1)
@@ -79,6 +80,16 @@ async def get_all_investments(
             if a.investor_id not in accelerations_by_inv:
                 accelerations_by_inv[a.investor_id] = []
             accelerations_by_inv[a.investor_id].append(a)
+            
+    # Obtener balances actuales de wallet
+    user_ids = list(set([inv.user_id for inv in investors if inv.user_id]))
+    wallets_by_user = {}
+    if user_ids:
+        wallet_stmt = select(Wallet).where(Wallet.user_id.in_(user_ids))
+        wallet_result = await db.execute(wallet_stmt)
+        all_wallets = wallet_result.scalars().all()
+        for w in all_wallets:
+            wallets_by_user[w.user_id] = float(w.balance or 0.0)
     
     response_list = []
     for inv in investors:
@@ -287,6 +298,7 @@ async def get_all_investments(
             "total_retiros_rendimiento": total_retiros_rendimiento,
             "detalles_retiros_rendimiento": detalles_retiros_rendimiento,
             "saldo_a_migrar": saldo_a_migrar,
+            "wallet_balance_actual": wallets_by_user.get(inv.user_id, 0.0),
             "tramos_desglose": tramos_desglose
         })
     

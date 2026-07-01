@@ -197,6 +197,8 @@ export const InvestmentsPage = () => {
                 const totalBaseUsuario = totalProducidoUsuario - totalBonosUsuario;
                 const totalRetiradoUsuario = userInvestments.reduce((acc, inv) => acc + (inv.total_retiros_rendimiento || 0), 0);
                 const saldoTotalUsuario = userInvestments.reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
+                const saldoWalletActual = userFirstInv.wallet_balance_actual || 0;
+                const faltanteUsuario = saldoTotalUsuario - saldoWalletActual;
 
                 return (
                     <div key={userId} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
@@ -237,9 +239,23 @@ export const InvestmentsPage = () => {
                                 </div>
                                 <div className="w-px bg-slate-200 hidden sm:block"></div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] uppercase font-bold text-slate-400">Saldo Final</span>
-                                    <span className={`font-bold text-base ${saldoTotalUsuario < 0 ? 'text-red-600 bg-red-50 px-1 rounded' : 'text-slate-900'}`}>
+                                    <span className="text-[10px] uppercase font-bold text-slate-400">Saldo Final Auditado</span>
+                                    <span className="font-bold text-base text-slate-900">
                                         {formatCOP(saldoTotalUsuario)}
+                                    </span>
+                                </div>
+                                <div className="w-px bg-slate-200 hidden sm:block"></div>
+                                <div className="flex flex-col bg-slate-100 px-2 py-1 rounded">
+                                    <span className="text-[10px] uppercase font-bold text-slate-500">Saldo Wallet Viejo</span>
+                                    <span className="font-bold text-base text-slate-600">
+                                        {formatCOP(saldoWalletActual)}
+                                    </span>
+                                </div>
+                                <div className="w-px bg-slate-200 hidden sm:block"></div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] uppercase font-bold text-brand-600">Faltante a Nivelar</span>
+                                    <span className={`font-bold text-base ${faltanteUsuario > 0 ? 'text-green-600' : faltanteUsuario < 0 ? 'text-red-600' : 'text-slate-500'}`}>
+                                        {faltanteUsuario > 0 ? '+' : ''}{formatCOP(faltanteUsuario)}
                                     </span>
                                 </div>
                             </div>
