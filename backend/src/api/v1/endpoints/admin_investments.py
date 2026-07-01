@@ -95,16 +95,29 @@ async def get_all_investments(
         dias_generando = 0
         rendimiento_producido_hasta_ayer = 0.0
         
-        capital = float(inv.total_contrato or 0.0)
+        # El capital real inicial es el nombre del paquete si es numérico (total_contrato tiene el total final esperado)
+        capital = 0.0
+        if paquete_nombre:
+            try:
+                capital = float(paquete_nombre)
+            except ValueError:
+                # Si no es numérico, intentamos derivarlo del total_contrato si es que existía una fórmula (no muy seguro)
+                # pero para este caso el usuario dice que usemos el valor del paquete.
+                capital = float(inv.total_contrato or 0.0)
+        else:
+            capital = float(inv.total_contrato or 0.0)
+            
+        # Fecha tope estricta indicada por el usuario: 29 de junio de 2026
+        FECHA_MIGRACION = datetime(2026, 6, 29).date()
         
         if capital > 0 and periodo_porcentaje and periodo_meses and periodo_dias:
             # Fórmula pedida por el usuario: (capital * (porcentaje/100) * meses) / dias
             rendimiento_diario_calculado = (capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
             
             if inv.fecha_ingreso:
-                # Determinar fecha tope (no sobrepasar fecha fin del contrato ni el día de ayer)
-                fecha_fin_calculo = ayer
-                if inv.fecha_finalizacion and inv.fecha_finalizacion < ayer:
+                # Determinar fecha tope (no sobrepasar fecha fin del contrato ni el 29 de junio de 2026)
+                fecha_fin_calculo = FECHA_MIGRACION
+                if inv.fecha_finalizacion and inv.fecha_finalizacion < FECHA_MIGRACION:
                     fecha_fin_calculo = inv.fecha_finalizacion
                 
                 delta_dias = (fecha_fin_calculo - inv.fecha_ingreso).days
