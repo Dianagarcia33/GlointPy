@@ -9,6 +9,7 @@ export const InvestmentsPage = () => {
     const [showOnlyWithCapitalWithdrawals, setShowOnlyWithCapitalWithdrawals] = useState(false);
     const [showOnlyNegativeBalances, setShowOnlyNegativeBalances] = useState(false);
     const [showOnlyWithBonuses, setShowOnlyWithBonuses] = useState(false);
+    const [sortOrder, setSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
 
     useEffect(() => {
         const fetchInvestments = async () => {
@@ -64,6 +65,18 @@ export const InvestmentsPage = () => {
         acc[Number(userId)] = userInvs;
         return acc;
     }, {} as Record<number, AdminInvestment[]>);
+
+    // 3. Ordenar a nivel de usuario
+    const sortedGroupedInvestments = Object.entries(filteredGroupedInvestments).sort((a, b) => {
+        if (sortOrder === 'default') return 0;
+        
+        const saldoA = a[1].reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
+        const saldoB = b[1].reduce((acc, inv) => acc + (inv.saldo_a_migrar || 0), 0);
+        
+        if (sortOrder === 'asc') return saldoA - saldoB;
+        if (sortOrder === 'desc') return saldoB - saldoA;
+        return 0;
+    });
 
     if (isLoading) {
         return (
@@ -135,10 +148,19 @@ export const InvestmentsPage = () => {
                         />
                         <span className="text-sm font-medium text-red-700">Saldo negativo</span>
                     </label>
+                    <select 
+                        className="bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm text-sm font-medium text-slate-700 outline-none focus:border-brand-500 cursor-pointer"
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(e.target.value as any)}
+                    >
+                        <option value="default">Orden por defecto</option>
+                        <option value="desc">Saldo: Mayor a Menor</option>
+                        <option value="asc">Saldo: Menor a Mayor</option>
+                    </select>
                 </div>
             </div>
 
-            {Object.entries(filteredGroupedInvestments).map(([userId, userInvestments]) => {
+            {sortedGroupedInvestments.map(([userId, userInvestments]) => {
                 const userFirstInv = userInvestments[0];
                 const userName = userFirstInv.nombre_completo || 'Usuario Desconocido';
                 const userEmail = userFirstInv.correo_electronico || 'Sin correo';
