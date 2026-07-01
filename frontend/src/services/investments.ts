@@ -44,6 +44,14 @@ export interface AdminInvestment {
   dias_generando?: number;
   rendimiento_producido_hasta_ayer?: number;
   capital_actual?: number;
+  tramos_desglose?: {
+    fecha_inicio: string;
+    fecha_fin: string;
+    dias: number;
+    capital_base: number;
+    rendimiento_diario: number;
+    producido: number;
+  }[];
 }
 
 export const investmentsService = {

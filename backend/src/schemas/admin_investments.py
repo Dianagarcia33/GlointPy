@@ -27,5 +27,6 @@ class AdminInvestorResponse(BaseModel):
     dias_generando: Optional[int] = None
     rendimiento_producido_hasta_ayer: Optional[float] = None
     capital_actual: Optional[float] = None
+    tramos_desglose: List[dict] = []
     
     model_config = ConfigDict(from_attributes=True)

@@ -157,6 +157,22 @@ export const InvestmentsPage = () => {
                                                     <span className="text-xs text-slate-500 mt-0.5">
                                                         {inv.dias_generando || 0} días transcurridos
                                                     </span>
+                                                    {inv.tramos_desglose && inv.tramos_desglose.length > 0 && (
+                                                        <div className="mt-2 space-y-1.5 min-w-[180px]">
+                                                            {inv.tramos_desglose.map((tramo, idx) => (
+                                                                <div key={idx} className="text-[10px] text-slate-500 bg-slate-50 p-1.5 rounded border border-slate-100 shadow-sm">
+                                                                    <div className="flex justify-between items-center mb-1">
+                                                                        <span className="font-medium text-slate-600">Tramo {idx + 1}</span>
+                                                                        <span className="text-slate-400">{tramo.dias} días</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span className="text-slate-400">Base: <span className="text-slate-600">{formatCOP(tramo.capital_base)}</span></span>
+                                                                        <span className="text-green-600 font-medium">+{formatCOP(tramo.producido)}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">

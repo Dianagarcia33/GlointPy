@@ -128,6 +128,8 @@ async def get_all_investments(
         FECHA_MIGRACION = datetime(2026, 6, 29).date()
         
         capital_actual = capital
+        tramos_desglose = []
+        
         if capital > 0 and periodo_porcentaje and periodo_meses and periodo_dias and inv.fecha_ingreso:
             fecha_fin_calculo = FECHA_MIGRACION
             if inv.fecha_finalizacion and inv.fecha_finalizacion < FECHA_MIGRACION:
@@ -155,8 +157,18 @@ async def get_all_investments(
                 dias_tramo = (fecha_retiro - current_start_date).days
                 if dias_tramo > 0:
                     rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
-                    total_producido += dias_tramo * rendimiento_tramo
+                    producido_tramo = dias_tramo * rendimiento_tramo
+                    total_producido += producido_tramo
                     dias_generando += dias_tramo
+                    
+                    tramos_desglose.append({
+                        "fecha_inicio": current_start_date,
+                        "fecha_fin": fecha_retiro,
+                        "dias": dias_tramo,
+                        "capital_base": current_capital,
+                        "rendimiento_diario": rendimiento_tramo,
+                        "producido": producido_tramo
+                    })
                 
                 # Aplicar retiro al capital
                 monto_retiro = float(retiro.monto or 0.0)
@@ -171,8 +183,18 @@ async def get_all_investments(
                 dias_tramo = (fecha_fin_calculo - current_start_date).days
                 if dias_tramo > 0:
                     rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
-                    total_producido += dias_tramo * rendimiento_tramo
+                    producido_tramo = dias_tramo * rendimiento_tramo
+                    total_producido += producido_tramo
                     dias_generando += dias_tramo
+                    
+                    tramos_desglose.append({
+                        "fecha_inicio": current_start_date,
+                        "fecha_fin": fecha_fin_calculo,
+                        "dias": dias_tramo,
+                        "capital_base": current_capital,
+                        "rendimiento_diario": rendimiento_tramo,
+                        "producido": producido_tramo
+                    })
             
             capital_actual = current_capital
             rendimiento_diario_calculado = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
@@ -196,7 +218,8 @@ async def get_all_investments(
             "rendimiento_diario_calculado": rendimiento_diario_calculado,
             "dias_generando": dias_generando,
             "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer,
-            "capital_actual": capital_actual
+            "capital_actual": capital_actual,
+            "tramos_desglose": tramos_desglose
         })
     
     return response_list
