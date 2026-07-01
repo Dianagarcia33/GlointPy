@@ -23,6 +23,12 @@ async def import_respaldo():
             print(f"📖 Leyendo archivo SQL desde {file_path}...")
             with open(file_path, 'r', encoding='utf-8') as f:
                 sql_content = f.read()
+                
+            # Replace constraint names to avoid collisions with existing tables
+            sql_content = sql_content.replace('CONSTRAINT `investment_requests_chk_1`', 'CONSTRAINT `inv_req_respaldo_chk_1`')
+            
+            # Remove character set variables that are not defined
+            sql_content = sql_content.replace('/*!40101 SET character_set_client = @saved_cs_client */;', '')
         
             statements = sql_content.split(';')
             
