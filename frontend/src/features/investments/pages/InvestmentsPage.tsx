@@ -133,6 +133,11 @@ export const InvestmentsPage = () => {
                                                 <div className="font-medium text-slate-800">
                                                     {isNaN(parseFloat(inv.paquete_nombre || '')) ? (inv.paquete_nombre || 'Desconocido') : formatCOP(parseFloat(inv.paquete_nombre!))}
                                                 </div>
+                                                {(inv.capital_actual !== undefined && !isNaN(parseFloat(inv.paquete_nombre || '')) && inv.capital_actual < parseFloat(inv.paquete_nombre!)) && (
+                                                    <div className="text-xs text-red-600 font-bold mt-1">
+                                                        Capital Actual: {formatCOP(inv.capital_actual)}
+                                                    </div>
+                                                )}
                                                 <div className="text-xs text-slate-400 mt-0.5">
                                                     {inv.periodo_porcentaje !== undefined && inv.periodo_porcentaje !== null 
                                                         ? `${inv.periodo_porcentaje}% - ${inv.periodo_meses} Meses (${inv.periodo_dias} Días)` 
