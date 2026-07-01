@@ -10,6 +10,7 @@ import src.models.contract_period
 import src.models.investor
 import src.models.investment_request
 import src.models.paquete_inversion
+import src.models.user_bank_account
 
 async def main():
     print("Creando tablas faltantes en la base de datos...")

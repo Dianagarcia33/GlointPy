@@ -42,9 +42,6 @@ class Investor(Base):
     numero_celular = Column(String(255), nullable=True)
     ciudad = Column(String(255), nullable=True)
     estado = Column(String(255), nullable=True)
-    banco = Column(String(255), nullable=True)
-    tipo_cuenta = Column(String(255), nullable=True)
-    numero_cuenta = Column(String(255), nullable=True)
     
     # Contrato y Paquete
     periodo_contrato = Column(BigInteger, nullable=True) # Old reference, will keep for backwards compatibility initially

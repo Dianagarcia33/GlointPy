@@ -42,7 +42,7 @@ async def get_all_investments(
 
     # Obtener todos los inversores con su usuario y paquete
     stmt = select(Investor).options(
-        selectinload(Investor.user),
+        selectinload(Investor.user).selectinload(User.bank_accounts),
         selectinload(Investor.paquete)
     ).order_by(Investor.user_id, Investor.fecha_ingreso.desc())
     result = await db.execute(stmt)
@@ -292,6 +292,17 @@ async def get_all_investments(
 
         saldo_a_migrar = rendimiento_producido_hasta_ayer + capital_devuelto - total_retiros_rendimiento
 
+        banco = None
+        tipo_cuenta = None
+        numero_cuenta = None
+        
+        if inv.user and hasattr(inv.user, 'bank_accounts') and inv.user.bank_accounts:
+            # Intentar obtener la principal, si no la primera
+            primary_acc = next((acc for acc in inv.user.bank_accounts if acc.is_primary), inv.user.bank_accounts[0])
+            banco = primary_acc.banco
+            tipo_cuenta = primary_acc.tipo_cuenta
+            numero_cuenta = primary_acc.numero_cuenta
+
         response_list.append({
             "id": inv.id,
             "user_id": inv.user_id,
@@ -299,9 +310,9 @@ async def get_all_investments(
             "correo_electronico": correo,
             "tipo_documento": inv.tipo_documento,
             "documento": inv.documento,
-            "banco": inv.banco,
-            "tipo_cuenta": inv.tipo_cuenta,
-            "numero_cuenta": inv.numero_cuenta,
+            "banco": banco,
+            "tipo_cuenta": tipo_cuenta,
+            "numero_cuenta": numero_cuenta,
             "codigo_asignado": inv.codigo_asignado,
             "paquete_nombre": paquete_nombre,
             "fecha_ingreso": inv.fecha_ingreso,
