@@ -50,6 +50,16 @@ export const InvestmentsPage = () => {
         );
     }
 
+    const formatCOP = (value: number | undefined) => {
+        if (value === undefined || value === null) return '$0';
+        return new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(value);
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-6">
             <div className="flex items-center gap-3 mb-6">
@@ -95,18 +105,16 @@ export const InvestmentsPage = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-1 font-medium text-slate-800">
-                                                    <DollarSign className="w-4 h-4 text-slate-400" />
-                                                    {inv.total_contrato?.toLocaleString() || '0'}
+                                                    {formatCOP(inv.total_contrato)}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-1 text-green-600 font-medium">
-                                                    <DollarSign className="w-4 h-4" />
-                                                    {inv.rendimiento_total_contrato?.toLocaleString() || '0'}
+                                                    {formatCOP(inv.rendimiento_total_contrato)}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-slate-600">
-                                                ${inv.liquidacion_diaria_rendimiento?.toLocaleString() || '0'}
+                                            <td className="px-6 py-4 text-slate-600 font-medium">
+                                                {formatCOP(inv.liquidacion_diaria_rendimiento)}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2 text-xs text-slate-500">
