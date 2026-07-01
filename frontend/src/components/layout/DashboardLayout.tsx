@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
+import { DashboardFooter } from './DashboardFooter';
 
 export const DashboardLayout = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -23,12 +24,15 @@ export const DashboardLayout = () => {
                 {/* Si quisiéramos Sidebar móvil iría aquí con absolute y z-50 */}
 
                 {/* Área de contenido dinámico */}
-                <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-                    <div className="max-w-7xl mx-auto w-full">
-                        <Outlet />
+                <main className="flex-1 flex flex-col overflow-y-auto relative">
+                    <div className="p-6 lg:p-8 flex-1">
+                        <div className="max-w-7xl mx-auto w-full pb-8">
+                            <Outlet />
+                        </div>
                     </div>
+                    
+                    <DashboardFooter />
                 </main>
-                
             </div>
         </div>
     );

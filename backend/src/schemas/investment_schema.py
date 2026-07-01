@@ -14,10 +14,10 @@ class PaqueteInversionBase(BaseModel):
 # Schema para la Inversion (Request)
 class InvestmentRequestResponse(BaseModel):
     id: int
-    user_id: int
+    user_id: Optional[int] = None
     monto: Decimal
     status: str
-    created_at: datetime
+    created_at: Optional[datetime] = None
     paquete: Optional[PaqueteInversionBase] = None
     
     # Rendimientos y Totales (para el Dashboard Avanzado)
@@ -25,5 +25,9 @@ class InvestmentRequestResponse(BaseModel):
     rendimiento_total_contrato: Optional[Decimal] = None
     liquidacion_diaria_rendimiento: Optional[Decimal] = None
     dias_contrato: Optional[int] = None
+    codigo_asignado: Optional[str] = None
+    fecha_ingreso: Optional[datetime] = None
+    fecha_finalizacion: Optional[datetime] = None
+    aceleracion_dias: Optional[float] = 0.0
 
     model_config = ConfigDict(from_attributes=True)

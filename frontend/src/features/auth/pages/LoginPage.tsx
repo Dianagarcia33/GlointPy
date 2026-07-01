@@ -10,6 +10,7 @@ export const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     
     const navigate = useNavigate();
     const loginAction = useAuthStore((state) => state.login);
@@ -36,6 +37,7 @@ export const LoginPage = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!acceptedTerms) return;
         if (email && password) {
             loginMutation.mutate({ email, password });
         }
@@ -94,6 +96,26 @@ export const LoginPage = () => {
                     </div>
                 </div>
 
+                <div className="flex items-start gap-3">
+                    <div className="flex items-center h-5 mt-0.5">
+                        <input
+                            id="terms"
+                            type="checkbox"
+                            checked={acceptedTerms}
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 bg-white"
+                            required
+                        />
+                    </div>
+                    <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
+                        Acepto los{' '}
+                        <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
+                            Términos y Condiciones
+                        </Link>
+                        {' '}y Política de Privacidad.
+                    </label>
+                </div>
+
                 {loginMutation.isError && (
                     <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
                         <span>⚠️</span>
@@ -121,7 +143,7 @@ export const LoginPage = () => {
             <div className="mt-10 text-center">
                 <p className="text-sm text-slate-500">
                     ¿No tienes una cuenta?{' '}
-                    <Link to="/register" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
+                    <Link to="/onboarding" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
                         Regístrate aquí
                     </Link>
                 </p>

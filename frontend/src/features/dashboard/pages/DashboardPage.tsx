@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Terminal } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { Can } from '../../../components/security/Can';
 import { investmentsService, Investment } from '../../../services/investments';
@@ -7,11 +8,14 @@ import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { MaintenanceModal } from '../components/MaintenanceModal';
+import { AutoTransferModal } from '../components/AutoTransferModal';
 
 export const DashboardPage = () => {
     const { user } = useAuthStore();
     const [investments, setInvestments] = useState<Investment[]>([]);
     const [loading, setLoading] = useState(false);
+    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
 
     useEffect(() => {
         if (user?.permissions?.includes('ver_mis_inversiones')) {
@@ -28,64 +32,144 @@ export const DashboardPage = () => {
         return isNaN(parsed) ? 0 : parsed;
     };
 
-    const totalInvertido = investments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
-    const totalAcciones = investments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
-    const totalRendimiento = investments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
+    const activeInvestments = investments.filter(inv => inv.status === 'approved');
+    const filteredInvestments = investments.filter(inv => {
+        if (activeTab === 'pending') return inv.status === 'pending' || inv.status === 'rejected';
+        return inv.status === activeTab;
+    });
+
+    const totalInvertido = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
+    const totalAcciones = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
+    const totalRendimiento = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
     const totalPortafolio = totalInvertido + totalRendimiento; // Valor total esperado
     
     // Calcular rentabilidad porcentual global
     const rentabilidadGlobal = totalInvertido > 0 ? (totalRendimiento / totalInvertido) * 100 : 0;
 
     // Calcular ganancia diaria consolidada (ejemplo usando la suma de liquidaciones diarias)
-    const gananciaDiaria = investments.reduce((acc, inv) => acc + parseNumber(inv.liquidacion_diaria_rendimiento ?? 0), 0);
+    const gananciaDiaria = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.liquidacion_diaria_rendimiento ?? 0), 0);
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
+            {/* PANEL EXCLUSIVO SUPERADMIN */}
+            <Can permission="superadmin_tools">
+                <div className="mb-8 p-6 bg-slate-900 rounded-3xl text-white shadow-xl">
+                    <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
+                        <Terminal className="w-5 h-5 text-brand-400" /> Panel de Administración
+                    </h2>
+                    <p className="text-slate-400 text-sm mb-6">Herramientas exclusivas para superadmin@gloint.com</p>
+                    <div className="flex gap-4">
+                        <button 
+                            onClick={() => setIsAdminModalOpen(true)}
+                            className="flex items-center gap-2 px-5 py-3 bg-brand-500 hover:bg-brand-600 rounded-xl font-bold transition-all shadow-md active:scale-95"
+                        >
+                            <Terminal className="w-4 h-4" />
+                            Auditoría y Transferencias
+                        </button>
+                    </div>
+                </div>
+                <AutoTransferModal 
+                    isOpen={isAdminModalOpen}
+                    onClose={() => setIsAdminModalOpen(false)}
+                />
+            </Can>
+
             {/* TODO EL DASHBOARD ESTÁ PROTEGIDO POR PBAC */}
             <Can permission="ver_mis_inversiones">
                 <MaintenanceModal />
-                {/* HEROCARD */}
-                <HeroCard 
-                    userName={user?.name?.split(' ')[0] || ''}
-                    totalPortfolio={totalPortafolio}
-                    investedCapital={totalInvertido}
-                    accumulatedProfit={totalRendimiento}
-                    profitabilityPercent={rentabilidadGlobal}
-                    dailyProfit={gananciaDiaria}
-                />
+                {loading ? (
+                    <div className="space-y-8 animate-pulse">
+                        {/* HeroCard Skeleton */}
+                        <div className="bg-slate-900 rounded-3xl p-8 md:p-10 h-64 shadow-xl"></div>
+                        
+                        {/* KPIs Skeleton */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-200/50 rounded-3xl"></div>)}
+                        </div>
+                        
+                        {/* QuickActions Skeleton */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[1, 2, 3, 4].map(i => <div key={i} className="h-40 bg-slate-200/50 rounded-3xl"></div>)}
+                        </div>
+                        
+                        {/* Active Investments Skeleton */}
+                        <div>
+                            <div className="h-6 w-48 bg-slate-200/50 rounded mb-2"></div>
+                            <div className="h-4 w-64 bg-slate-200/50 rounded mb-6"></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[1, 2, 3].map(i => <div key={i} className="h-80 bg-slate-200/50 rounded-3xl"></div>)}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {/* HEROCARD */}
+                        <HeroCard 
+                            userName={user?.name?.split(' ')[0] || ''}
+                            totalPortfolio={totalPortafolio}
+                            investedCapital={totalInvertido}
+                            accumulatedProfit={totalRendimiento}
+                            profitabilityPercent={rentabilidadGlobal}
+                            dailyProfit={gananciaDiaria}
+                        />
 
-                {/* KPIS Y ACCIONES */}
-                <DashboardKPIs 
-                    investedCapital={totalInvertido}
-                    currentValue={totalPortafolio}
-                    accumulatedProfit={totalRendimiento}
-                    acquiredShares={totalAcciones}
-                />
+                        {/* KPIS Y ACCIONES */}
+                        <DashboardKPIs 
+                            investedCapital={totalInvertido}
+                            currentValue={totalPortafolio}
+                            accumulatedProfit={totalRendimiento}
+                            acquiredShares={totalAcciones}
+                        />
 
-                <QuickActions />
-                <div className="mb-10">
-                    <h3 className="text-xl font-bold text-slate-900 tracking-tight font-montserrat mb-1">Tus Inversiones Activas</h3>
-                    <p className="text-sm font-medium text-slate-500 mb-6">Gestiona y haz seguimiento detallado a tus contratos</p>
-                    
-                    {loading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
-                            {[1,2,3].map(i => <div key={i} className="h-80 bg-slate-200/50 rounded-3xl"></div>)}
+                        <QuickActions />
+                        
+                        <div className="mb-10">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-900 tracking-tight font-montserrat mb-1">Mis Inversiones</h3>
+                                    <p className="text-sm font-medium text-slate-500">Gestiona y haz seguimiento detallado a tus contratos</p>
+                                </div>
+                                <div className="flex bg-slate-100 p-1 rounded-xl">
+                                    <button 
+                                        onClick={() => setActiveTab('approved')}
+                                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'approved' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        Activas
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('pending')}
+                                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'pending' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        Solicitudes
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('finished')}
+                                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'finished' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        Finalizadas
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {filteredInvestments.length > 0 ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {filteredInvestments.map(inv => (
+                                        <InvestmentCard key={inv.id} investment={inv} />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 border-dashed">
+                                    <p className="text-slate-500 font-medium">No hay inversiones en esta categoría.</p>
+                                    {activeTab === 'approved' && (
+                                        <button className="mt-6 px-8 py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-bold shadow-sm active:scale-95">
+                                            Explorar Paquetes
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                    ) : investments.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {investments.map(inv => (
-                                <InvestmentCard key={inv.id} investment={inv} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 border-dashed">
-                            <p className="text-slate-500 font-medium">Aún no tienes inversiones activas.</p>
-                            <button className="mt-6 px-8 py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-bold shadow-sm active:scale-95">
-                                Explorar Paquetes
-                            </button>
-                        </div>
-                    )}
-                </div>
+                    </>
+                )}
 
 
             </Can>

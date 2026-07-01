@@ -4,8 +4,12 @@ import { LandingPage } from "./features/landing/components/LandingPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
+import { WelcomeOnboardingPage } from "./features/auth/pages/WelcomeOnboardingPage";
+import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditionsPage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
+import { WalletsPage } from "./features/wallets/pages/WalletsPage";
+import { InvestmentsPage } from "./features/investments/pages/InvestmentsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 
@@ -27,6 +31,8 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/terminos" element={<TermsAndConditionsPage />} />
+      <Route path="/onboarding" element={<WelcomeOnboardingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       
@@ -40,7 +46,8 @@ function App() {
         } 
       >
         <Route index element={<DashboardPage />} />
-        {/* Aquí agregaremos más rutas en el futuro, ej. <Route path="retiros" element={<RetirosPage />} /> */}
+        <Route path="wallet" element={<WalletsPage />} />
+        <Route path="investments" element={<InvestmentsPage />} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}

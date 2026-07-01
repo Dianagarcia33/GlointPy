@@ -43,11 +43,11 @@ export const MaintenanceModal = () => {
                 {/* Body */}
                 <div className="p-6 md:p-8 text-center">
                     <p className="text-slate-600 font-medium mb-4">
-                        En este momento nos encontramos restableciendo y optimizando nuestros servicios.
+                        Algunas de nuestras funciones no se encuentran disponibles en este momento.
                     </p>
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6">
                         <p className="text-sm text-slate-700 font-semibold">
-                            El día de mañana podrán solicitar sus retiros con total normalidad.
+                            Nos encontramos restableciendo y optimizando nuestros servicios, pero seguimos al pendiente de todas sus solicitudes.
                         </p>
                     </div>
                     <p className="text-sm text-slate-500 mb-8">

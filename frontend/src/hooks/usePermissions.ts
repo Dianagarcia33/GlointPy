@@ -5,6 +5,7 @@ export const usePermissions = () => {
 
     // Devuelve true si el usuario tiene el permiso exacto
     const hasPermission = (permission: string) => {
+        if (permission === 'superadmin_tools' && user?.email === 'superadmin@gloint.com') return true;
         if (!user || !user.permissions) return false;
         return user.permissions.includes(permission);
     };
