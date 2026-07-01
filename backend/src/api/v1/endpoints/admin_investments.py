@@ -392,6 +392,61 @@ async def nivelar_wallet(
         "nuevo_saldo": request.saldo_auditado
     }
 
+@router.post("/fix-missing-retiros")
+async def fix_missing_retiros(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from src.models.wallet_transactions import WalletTransaction
+    from src.models.retiros import Retiro
+    from datetime import datetime
+    
+    # Buscar transacciones de nivelación sin retiro asociado
+    stmt = select(WalletTransaction).where(
+        WalletTransaction.description == "nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
+        WalletTransaction.reference_id.is_(None)
+    )
+    result = await db.execute(stmt)
+    txs = result.scalars().all()
+    
+    count = 0
+    for tx in txs:
+        # Obtener el user_id a partir del wallet_id
+        from src.models.wallet import Wallet
+        w_stmt = select(Wallet).where(Wallet.id == tx.wallet_id)
+        w_res = await db.execute(w_stmt)
+        wallet = w_res.scalars().first()
+        
+        if not wallet:
+            continue
+            
+        retiro = Retiro(
+            user_id=wallet.user_id,
+            origen='nivelacion',
+            tipo='rendimiento',
+            monto=tx.amount,
+            impuesto=0,
+            monto_neto=tx.amount,
+            fecha_solicitud=tx.created_at.date() if tx.created_at else datetime.now().date(),
+            fecha_retiro=tx.created_at.date() if tx.created_at else datetime.now().date(),
+            estado='procesado',
+            metodo_pago='wallet',
+            observaciones="nivelacion por problemas del sistema, transferencia automatica revisada por el equipo de desarrollo",
+            created_at=tx.created_at or datetime.now(),
+            updated_at=tx.updated_at or datetime.now(),
+            aprobado_por=current_user.id,
+            procesado_por=current_user.id
+        )
+        db.add(retiro)
+        await db.flush()
+        
+        tx.reference_type = 'retiros'
+        tx.reference_id = retiro.id
+        count += 1
+        
+    await db.commit()
+    return {"message": f"Se repararon {count} transacciones huérfanas."}
+
 class NivelacionMasivaItem(BaseModel):
     user_id: int
     saldo_auditado: float

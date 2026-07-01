@@ -90,5 +90,9 @@ export const investmentsService = {
       method: 'POST',
       body: JSON.stringify({ usuarios })
     });
+  },
+
+  fixMissingRetiros: async () => {
+    return await fetchApi('/investments/admin/fix-missing-retiros', { method: 'POST' });
   }
 };

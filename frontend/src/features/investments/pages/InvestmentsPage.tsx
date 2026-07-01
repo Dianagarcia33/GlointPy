@@ -13,6 +13,7 @@ export const InvestmentsPage = () => {
     const [sortOrder, setSortOrder] = useState<'default' | 'asc' | 'desc'>('default');
     const [isLeveling, setIsLeveling] = useState<number | null>(null);
     const [isLevelingMassive, setIsLevelingMassive] = useState(false);
+    const [isFixing, setIsFixing] = useState(false);
 
     useEffect(() => {
         const fetchInvestments = async () => {
@@ -137,6 +138,18 @@ export const InvestmentsPage = () => {
         }
     };
 
+    const handleFixRetiros = async () => {
+        setIsFixing(true);
+        try {
+            const res = await investmentsService.fixMissingRetiros();
+            alert(res.message);
+        } catch (err: any) {
+            alert('Error: ' + (err.response?.data?.detail || err.message));
+        } finally {
+            setIsFixing(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="p-8 flex justify-center items-center h-64">
@@ -178,14 +191,24 @@ export const InvestmentsPage = () => {
                         <p className="text-slate-500 text-sm">Listado global agrupado por usuario (Fase 1)</p>
                     </div>
                 </div>
-                <button
-                    onClick={handleNivelarMasivo}
-                    disabled={isLevelingMassive}
-                    className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 text-white text-sm font-bold rounded-xl shadow-sm transition-all flex items-center gap-2"
-                >
-                    {isLevelingMassive ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    Nivelar Faltantes Masivamente
-                </button>
+                <div className="flex gap-2 flex-wrap">
+                    <button
+                        onClick={handleFixRetiros}
+                        disabled={isFixing}
+                        className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-slate-400 text-white text-sm font-bold rounded-xl shadow-sm transition-all flex items-center gap-2"
+                    >
+                        {isFixing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        Reparar Historial (Solo 1 vez)
+                    </button>
+                    <button
+                        onClick={handleNivelarMasivo}
+                        disabled={isLevelingMassive}
+                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 text-white text-sm font-bold rounded-xl shadow-sm transition-all flex items-center gap-2"
+                    >
+                        {isLevelingMassive ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        Nivelar Faltantes Masivamente
+                    </button>
+                </div>
             </div>
             
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
