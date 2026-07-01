@@ -29,6 +29,10 @@ async def import_respaldo():
             
             # Remove character set variables that are not defined
             sql_content = sql_content.replace('/*!40101 SET character_set_client = @saved_cs_client */;', '')
+            
+            # Fix any trailing commas before the closing parenthesis of CREATE TABLE
+            import re
+            sql_content = re.sub(r',\s*\n\)\s*ENGINE', '\n) ENGINE', sql_content)
         
             statements = sql_content.split(';')
             
