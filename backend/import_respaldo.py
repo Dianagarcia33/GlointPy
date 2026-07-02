@@ -1,53 +1,63 @@
 import asyncio
-from sqlalchemy import text
-from src.core.database import async_session_maker
+import os
+import pymysql
+from pymysql.constants import CLIENT
+from dotenv import load_dotenv
 
-async def import_respaldo():
-    import os
-    
+load_dotenv()
+
+def import_sql_files():
     files = [
         "restore_investor_respaldo.sql",
         "restore_investment_requests_respaldo.sql",
         "restore_retiros_respaldo.sql"
     ]
     
-    async with async_session_maker() as db:
-        for fname in files:
-            file_path = f"../{fname}"
-            if not os.path.exists(file_path):
-                file_path = fname
+    print("Conectando a la base de datos de forma nativa para ejecutar multi-statements...")
+    
+    try:
+        connection = pymysql.connect(
+            host=os.getenv('DB_HOST', 'db'),
+            user=os.getenv('DB_USER', 'root'),
+            password=os.getenv('DB_PASSWORD', 'root'),
+            database=os.getenv('DB_NAME', 'gloint_db'),
+            client_flag=CLIENT.MULTI_STATEMENTS
+        )
+    except Exception as e:
+        print(f"❌ Error conectando a la base de datos: {e}")
+        return
+
+    try:
+        with connection.cursor() as cursor:
+            for fname in files:
+                file_path = f"../{fname}"
                 if not os.path.exists(file_path):
-                    print(f"❌ No se encontró el archivo {fname}")
-                    continue
+                    file_path = fname
+                    if not os.path.exists(file_path):
+                        print(f"❌ No se encontró el archivo {fname}")
+                        continue
+                        
+                print(f"📖 Leyendo archivo SQL desde {file_path}...")
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    sql_content = f.read()
                     
-            print(f"📖 Leyendo archivo SQL desde {file_path}...")
-            with open(file_path, 'r', encoding='utf-8') as f:
-                sql_content = f.read()
+                # Limpiar cualquier coma suelta y reemplazar el nombre del constraint
+                sql_content = sql_content.replace('CONSTRAINT `investment_requests_chk_1`', 'CONSTRAINT `inv_req_respaldo_chk_1`')
+                sql_content = sql_content.replace('/*!40101 SET character_set_client = @saved_cs_client */;', '')
+                import re
+                sql_content = re.sub(r',\s*\n\)\s*ENGINE', '\n) ENGINE', sql_content)
                 
-            # Replace constraint names to avoid collisions with existing tables
-            sql_content = sql_content.replace('CONSTRAINT `investment_requests_chk_1`', 'CONSTRAINT `inv_req_respaldo_chk_1`')
-            
-            # Remove character set variables that are not defined
-            sql_content = sql_content.replace('/*!40101 SET character_set_client = @saved_cs_client */;', '')
-            
-            # Fix any trailing commas before the closing parenthesis of CREATE TABLE
-            import re
-            sql_content = re.sub(r',\s*\n\)\s*ENGINE', '\n) ENGINE', sql_content)
-        
-            statements = sql_content.split(';')
-            
-            print(f"🚀 Iniciando restauración para {fname}...")
-            for stmt in statements:
-                stmt = stmt.strip()
-                if not stmt:
-                    continue
+                print(f"🚀 Iniciando restauración nativa para {fname}...")
                 try:
-                    await db.execute(text(stmt))
+                    cursor.execute(sql_content)
+                    connection.commit()
+                    print(f"✅ ¡Restauración completa para {fname}!")
                 except Exception as e:
-                    print(f"⚠️ Error ejecutando bloque SQL en {fname} (puede ser ignorado si es de sintaxis menor): {e}")
+                    print(f"⚠️ Error en {fname}: {e}")
                     
-        await db.commit()
-        print("✅ ¡Todas las tablas de respaldo creadas y pobladas exitosamente!")
+    finally:
+        connection.close()
+        print("✅ Proceso finalizado.")
 
 if __name__ == "__main__":
-    asyncio.run(import_respaldo())
+    import_sql_files()
