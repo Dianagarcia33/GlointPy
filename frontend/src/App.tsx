@@ -26,7 +26,7 @@ function App() {
   useInactivityTimer();
 
   // Lógica de mantenimiento
-  const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
+  const isMaintenanceMode = true; // import.meta.env.VITE_MAINTENANCE_MODE === 'true';
   if (isMaintenanceMode) return <MaintenancePage />;
 
   return (
