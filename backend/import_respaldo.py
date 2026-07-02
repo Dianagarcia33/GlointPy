@@ -47,6 +47,10 @@ def import_sql_files():
                 import re
                 sql_content = re.sub(r',\s*\n\)\s*ENGINE', '\n) ENGINE', sql_content)
                 
+                # IMPORTANT: El volcado de MySQL hace LOCK TABLES, pero el script de parseo omitió el UNLOCK TABLES
+                # al final del archivo. Añadimos explícitamente UNLOCK TABLES para liberar la sesión.
+                sql_content += "\nUNLOCK TABLES;\n"
+                
                 print(f"🚀 Iniciando restauración nativa para {fname}...")
                 try:
                     cursor.execute(sql_content)
