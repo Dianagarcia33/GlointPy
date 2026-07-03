@@ -7,6 +7,7 @@ export interface InversionDetail {
     nombre_paquete: string;
     nombre_periodo: string;
     meses_periodo: number;
+    dias_periodo: number;
     estado: string;
     created_at: string;
     fecha_ingreso?: string;

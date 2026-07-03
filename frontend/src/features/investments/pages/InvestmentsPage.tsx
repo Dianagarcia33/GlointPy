@@ -113,8 +113,12 @@ export const InvestmentsPage = () => {
                                                     {inv.codigo_asignado}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <div className="font-medium text-slate-900">{inv.nombre_paquete}</div>
-                                                    <div className="text-xs text-slate-500">{inv.nombre_periodo && inv.nombre_periodo !== 'N/A' ? `${inv.nombre_periodo} (${inv.meses_periodo} meses)` : 'N/A'}</div>
+                                                    <div className="font-medium text-slate-900">
+                                                        {inv.nombre_paquete !== 'N/A' ? formatCOP(parseInt(inv.nombre_paquete, 10)) : 'N/A'}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">
+                                                        {inv.nombre_periodo && inv.nombre_periodo !== 'N/A' ? `${inv.nombre_periodo} (${inv.meses_periodo} meses, ${inv.dias_periodo} días)` : 'N/A'}
+                                                    </div>
                                                 </td>
                                                 <td className="px-6 py-4 font-medium text-slate-900">
                                                     {inv.fecha_ingreso || 'N/A'}

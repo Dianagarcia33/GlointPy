@@ -35,7 +35,8 @@ async def get_inversiones_respaldo(
                 u.email as user_email,
                 p.paquete_accion_adquirido as nombre_paquete,
                 cp.name as nombre_periodo,
-                cp.months as meses_periodo
+                cp.months as meses_periodo,
+                cp.days as dias_periodo
             FROM investor_respaldo ir
             LEFT JOIN users u ON ir.user_id = u.id
             LEFT JOIN paquetes_inversion p ON ir.paquete_inversion_adquirido = p.id
@@ -65,6 +66,7 @@ async def get_inversiones_respaldo(
                 "nombre_paquete": row.nombre_paquete or 'N/A',
                 "nombre_periodo": row.nombre_periodo or 'N/A',
                 "meses_periodo": row.meses_periodo,
+                "dias_periodo": row.dias_periodo,
                 "estado": row.estado,
                 "created_at": row.created_at,
                 "fecha_ingreso": row.fecha_ingreso,
