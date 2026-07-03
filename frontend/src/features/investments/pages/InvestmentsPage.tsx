@@ -95,7 +95,6 @@ export const InvestmentsPage = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="font-medium text-slate-900">{item.nombre_paquete || 'N/A'}</div>
-                                            <div className="text-xs text-slate-500">{item.nombre_periodo ? `${item.nombre_periodo} (${item.meses_periodo} meses)` : 'N/A'}</div>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-slate-900">
                                             {formatCOP(item.total_contrato)}
