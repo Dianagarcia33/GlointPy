@@ -16,11 +16,27 @@ export interface InversionDetail {
 
 export interface RetiroDetail {
     id: number;
-    monto: number;
-    monto_neto: number;
-    estado: string;
-    fecha_solicitud: string;
+    investor_id?: number;
+    user_id: number;
+    origen: string;
     tipo: string;
+    monto: number;
+    impuesto: number;
+    monto_neto: number;
+    fecha_solicitud: string;
+    fecha_retiro?: string;
+    estado: string;
+    metodo_pago?: string;
+    banco?: string;
+    tipo_cuenta?: string;
+    numero_cuenta?: string;
+    observaciones?: string;
+    motivo_rechazo?: string;
+    aprobado_por?: number;
+    fecha_aprobacion?: string;
+    procesado_por?: number;
+    fecha_procesamiento?: string;
+    comprobante_pago?: string;
 }
 
 export interface RequestDetail {

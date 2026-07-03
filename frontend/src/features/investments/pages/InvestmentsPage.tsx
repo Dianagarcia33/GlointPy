@@ -152,31 +152,72 @@ export const InvestmentsPage = () => {
                                                         <div>
                                                             <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Retiros</h4>
                                                             <div className="border border-slate-200 rounded-lg overflow-hidden">
-                                                                <table className="w-full text-sm text-left">
-                                                                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
-                                                                        <tr>
-                                                                            <th className="px-4 py-2 font-medium">ID</th>
-                                                                            <th className="px-4 py-2 font-medium">Tipo</th>
-                                                                            <th className="px-4 py-2 font-medium">Monto / Neto</th>
-                                                                            <th className="px-4 py-2 font-medium">Estado</th>
-                                                                            <th className="px-4 py-2 font-medium">Fecha Solicitud</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody className="divide-y divide-slate-100">
-                                                                        {user.retiros.map(ret => (
-                                                                            <tr key={ret.id} className="hover:bg-slate-50">
-                                                                                <td className="px-4 py-2 font-mono text-xs text-slate-500">#{ret.id}</td>
-                                                                                <td className="px-4 py-2 capitalize font-medium">{ret.tipo}</td>
-                                                                                <td className="px-4 py-2">
-                                                                                    <div className="text-slate-500 text-xs line-through">{formatCOP(ret.monto)}</div>
-                                                                                    <div className="font-medium text-emerald-600">{formatCOP(ret.monto_neto)}</div>
-                                                                                </td>
-                                                                                <td className="px-4 py-2 capitalize"><span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{ret.estado}</span></td>
-                                                                                <td className="px-4 py-2 text-xs text-slate-500">{new Date(ret.fecha_solicitud).toLocaleDateString()}</td>
+                                                                <div className="overflow-x-auto">
+                                                                    <table className="w-full text-sm text-left whitespace-nowrap">
+                                                                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                                                                            <tr>
+                                                                                <th className="px-4 py-2 font-medium">ID</th>
+                                                                                <th className="px-4 py-2 font-medium">Inv. ID / User ID</th>
+                                                                                <th className="px-4 py-2 font-medium">Origen</th>
+                                                                                <th className="px-4 py-2 font-medium">Tipo</th>
+                                                                                <th className="px-4 py-2 font-medium">Monto</th>
+                                                                                <th className="px-4 py-2 font-medium">Impuesto</th>
+                                                                                <th className="px-4 py-2 font-medium">Neto</th>
+                                                                                <th className="px-4 py-2 font-medium">Estado</th>
+                                                                                <th className="px-4 py-2 font-medium">Fechas (Sol. / Retiro)</th>
+                                                                                <th className="px-4 py-2 font-medium">Método Pago</th>
+                                                                                <th className="px-4 py-2 font-medium">Banco / Cuenta</th>
+                                                                                <th className="px-4 py-2 font-medium">Observaciones</th>
+                                                                                <th className="px-4 py-2 font-medium">Motivo Rechazo</th>
+                                                                                <th className="px-4 py-2 font-medium">Aprobación (Por / Fecha)</th>
+                                                                                <th className="px-4 py-2 font-medium">Procesamiento (Por / Fecha)</th>
+                                                                                <th className="px-4 py-2 font-medium">Comprobante</th>
                                                                             </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                </table>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-slate-100">
+                                                                            {user.retiros.map(ret => (
+                                                                                <tr key={ret.id} className="hover:bg-slate-50">
+                                                                                    <td className="px-4 py-2 font-mono text-xs text-slate-500">#{ret.id}</td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500">{ret.investor_id || '-'} / {ret.user_id}</td>
+                                                                                    <td className="px-4 py-2 capitalize">{ret.origen}</td>
+                                                                                    <td className="px-4 py-2 capitalize font-medium">{ret.tipo}</td>
+                                                                                    <td className="px-4 py-2 font-medium text-slate-900">{formatCOP(ret.monto)}</td>
+                                                                                    <td className="px-4 py-2 font-medium text-red-500">{formatCOP(ret.impuesto)}</td>
+                                                                                    <td className="px-4 py-2 font-medium text-emerald-600">{formatCOP(ret.monto_neto)}</td>
+                                                                                    <td className="px-4 py-2 capitalize"><span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{ret.estado}</span></td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500">
+                                                                                        <div><span className="font-medium text-slate-700">Sol:</span> {new Date(ret.fecha_solicitud).toLocaleDateString()}</div>
+                                                                                        {ret.fecha_retiro && <div><span className="font-medium text-slate-700">Ret:</span> {new Date(ret.fecha_retiro).toLocaleDateString()}</div>}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2">{ret.metodo_pago || '-'}</td>
+                                                                                    <td className="px-4 py-2 text-xs">
+                                                                                        {ret.banco ? <div><span className="font-medium text-slate-700">{ret.banco}</span></div> : '-'}
+                                                                                        {ret.tipo_cuenta && ret.numero_cuenta ? <div>{ret.tipo_cuenta}: {ret.numero_cuenta}</div> : null}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500 max-w-[200px] truncate" title={ret.observaciones}>{ret.observaciones || '-'}</td>
+                                                                                    <td className="px-4 py-2 text-xs text-red-500 max-w-[200px] truncate" title={ret.motivo_rechazo}>{ret.motivo_rechazo || '-'}</td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500">
+                                                                                        {ret.fecha_aprobacion ? (
+                                                                                            <><div><span className="font-medium text-slate-700">Por:</span> ID {ret.aprobado_por}</div>
+                                                                                            <div><span className="font-medium text-slate-700">Fecha:</span> {new Date(ret.fecha_aprobacion).toLocaleString()}</div></>
+                                                                                        ) : '-'}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500">
+                                                                                        {ret.fecha_procesamiento ? (
+                                                                                            <><div><span className="font-medium text-slate-700">Por:</span> ID {ret.procesado_por}</div>
+                                                                                            <div><span className="font-medium text-slate-700">Fecha:</span> {new Date(ret.fecha_procesamiento).toLocaleString()}</div></>
+                                                                                        ) : '-'}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 text-xs">
+                                                                                        {ret.comprobante_pago ? (
+                                                                                            <a href={ret.comprobante_pago} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">Ver</a>
+                                                                                        ) : '-'}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )}

@@ -124,11 +124,27 @@ async def get_inversiones_respaldo(
             ensure_user(uid, row)
             grouped_data[uid]["retiros"].append({
                 "id": row.id,
+                "investor_id": row.investor_id,
+                "user_id": row.user_id,
+                "origen": row.origen,
+                "tipo": row.tipo,
                 "monto": row.monto,
+                "impuesto": row.impuesto,
                 "monto_neto": row.monto_neto,
-                "estado": row.estado,
                 "fecha_solicitud": row.fecha_solicitud,
-                "tipo": row.tipo
+                "fecha_retiro": row.fecha_retiro,
+                "estado": row.estado,
+                "metodo_pago": row.metodo_pago,
+                "banco": row.banco,
+                "tipo_cuenta": row.tipo_cuenta,
+                "numero_cuenta": row.numero_cuenta,
+                "observaciones": row.observaciones,
+                "motivo_rechazo": row.motivo_rechazo,
+                "aprobado_por": row.aprobado_por,
+                "fecha_aprobacion": row.fecha_aprobacion,
+                "procesado_por": row.procesado_por,
+                "fecha_procesamiento": row.fecha_procesamiento,
+                "comprobante_pago": row.comprobante_pago
             })
             
         for row in res_req.fetchall():
