@@ -73,13 +73,14 @@ def migrate_tables():
                         create_lines.append(line)
                         continue
                     
-                    # Capture INSERT INTO
+                    # Capture INSERT INTO (comentado a petición para solo limpiar la tabla)
                     if line.startswith(f"INSERT INTO `{src_table}`"):
-                        insert_stmt = line.replace(f"INSERT INTO `{src_table}`", f"INSERT INTO `{dest_table}`")
-                        try:
-                            cursor.execute(insert_stmt)
-                        except Exception as e:
-                            print(f"⚠️ Error insertando datos en {dest_table}: {e}")
+                        # insert_stmt = line.replace(f"INSERT INTO `{src_table}`", f"INSERT INTO `{dest_table}`")
+                        # try:
+                        #     cursor.execute(insert_stmt)
+                        # except Exception as e:
+                        #     print(f"⚠️ Error insertando datos en {dest_table}: {e}")
+                        pass
                             
             connection.commit()
             print(f"✅ ¡Restauración completa para {dest_table}!")
