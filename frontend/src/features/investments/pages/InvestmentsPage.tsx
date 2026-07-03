@@ -72,15 +72,15 @@ export const InvestmentsPage = () => {
                 </div>
                 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                    <table className="w-full text-left border-collapse whitespace-nowrap min-w-[1000px]">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                             <tr>
-                                <th className="px-6 py-3 font-medium">ID Respaldo</th>
-                                <th className="px-6 py-3 font-medium">Código</th>
-                                <th className="px-6 py-3 font-medium">Paquete & Periodo</th>
-                                <th className="px-6 py-3 font-medium">Fecha Ingreso</th>
-                                <th className="px-6 py-3 font-medium">Fecha Finalización</th>
-                                <th className="px-6 py-3 font-medium">Fecha de Creación</th>
+                                <th className="px-6 py-4">ID Respaldo</th>
+                                <th className="px-6 py-4">Código</th>
+                                <th className="px-6 py-4">Paquete & Periodo</th>
+                                <th className="px-6 py-4">Fecha Ingreso</th>
+                                <th className="px-6 py-4">Fecha Finalización</th>
+                                <th className="px-6 py-4">Fecha de Creación</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
