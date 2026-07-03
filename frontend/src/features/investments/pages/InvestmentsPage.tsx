@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { auditoriaService, RespaldoInvestment } from '../../../services/auditoria';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Search } from 'lucide-react';
 
 export const InvestmentsPage = () => {
     const [respaldoData, setRespaldoData] = useState<RespaldoInvestment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -56,8 +57,18 @@ export const InvestmentsPage = () => {
             <h1 className="text-2xl font-bold text-slate-800 mb-6">Módulo de Auditoría</h1>
             
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                     <h2 className="font-semibold text-slate-800">Inversiones de Respaldo (Migración)</h2>
+                    <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Buscar usuario..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent w-64"
+                        />
+                    </div>
                 </div>
                 
                 <div className="overflow-x-auto">
@@ -80,7 +91,12 @@ export const InvestmentsPage = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                respaldoData.map((user) => (
+                                respaldoData
+                                    .filter(user => 
+                                        user.user_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                        user.user_email.toLowerCase().includes(searchQuery.toLowerCase())
+                                    )
+                                    .map((user) => (
                                     <React.Fragment key={user.user_id}>
                                         <tr className="bg-slate-200 border-b border-slate-300">
                                             <td colSpan={6} className="px-6 py-3">
