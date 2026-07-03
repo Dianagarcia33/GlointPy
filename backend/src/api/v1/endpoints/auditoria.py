@@ -66,7 +66,9 @@ async def get_inversiones_respaldo(
                 "nombre_periodo": row.nombre_periodo or 'N/A',
                 "meses_periodo": row.meses_periodo,
                 "estado": row.estado,
-                "created_at": row.created_at
+                "created_at": row.created_at,
+                "fecha_ingreso": row.fecha_ingreso,
+                "fecha_finalizacion": row.fecha_finalizacion
             }
             grouped_data[uid]["inversiones"].append(inversion_detail)
             

@@ -9,6 +9,8 @@ export interface InversionDetail {
     meses_periodo: number;
     estado: string;
     created_at: string;
+    fecha_ingreso?: string;
+    fecha_finalizacion?: string;
 }
 
 export interface RespaldoInvestment {
