@@ -41,9 +41,20 @@ export interface RetiroDetail {
 
 export interface RequestDetail {
     id: number;
+    user_id: number;
+    investor_id?: number;
+    paquete_inversion_id: number;
+    prospecto_id?: number;
     monto: number;
+    comprobante_path?: string;
     status: string;
-    created_at: string;
+    rejection_reason?: string;
+    reviewed_at?: string;
+    reviewed_by?: number;
+    extra_data?: any;
+    created_at?: string;
+    updated_at?: string;
+    deleted_at?: string;
 }
 
 export interface AccelerationDetail {

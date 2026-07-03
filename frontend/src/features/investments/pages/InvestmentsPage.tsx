@@ -227,26 +227,50 @@ export const InvestmentsPage = () => {
                                                         <div>
                                                             <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Solicitudes de Inversión</h4>
                                                             <div className="border border-slate-200 rounded-lg overflow-hidden">
-                                                                <table className="w-full text-sm text-left">
-                                                                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
-                                                                        <tr>
-                                                                            <th className="px-4 py-2 font-medium">ID</th>
-                                                                            <th className="px-4 py-2 font-medium">Monto</th>
-                                                                            <th className="px-4 py-2 font-medium">Estado</th>
-                                                                            <th className="px-4 py-2 font-medium">Fecha Creación</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody className="divide-y divide-slate-100">
-                                                                        {user.requests.map(req => (
-                                                                            <tr key={req.id} className="hover:bg-slate-50">
-                                                                                <td className="px-4 py-2 font-mono text-xs text-slate-500">#{req.id}</td>
-                                                                                <td className="px-4 py-2 font-medium text-slate-900">{formatCOP(req.monto)}</td>
-                                                                                <td className="px-4 py-2 capitalize"><span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{req.status}</span></td>
-                                                                                <td className="px-4 py-2 text-xs text-slate-500">{new Date(req.created_at).toLocaleString()}</td>
+                                                                <div className="overflow-x-auto">
+                                                                    <table className="w-full text-sm text-left whitespace-nowrap">
+                                                                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                                                                            <tr>
+                                                                                <th className="px-4 py-2 font-medium">ID</th>
+                                                                                <th className="px-4 py-2 font-medium">User ID / Inv. ID</th>
+                                                                                <th className="px-4 py-2 font-medium">Paquete / Prospecto</th>
+                                                                                <th className="px-4 py-2 font-medium">Monto</th>
+                                                                                <th className="px-4 py-2 font-medium">Estado</th>
+                                                                                <th className="px-4 py-2 font-medium">Motivo Rechazo</th>
+                                                                                <th className="px-4 py-2 font-medium">Revisión (Por / Fecha)</th>
+                                                                                <th className="px-4 py-2 font-medium">Fechas (Creación / Act.)</th>
+                                                                                <th className="px-4 py-2 font-medium">Comprobante</th>
                                                                             </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                </table>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-slate-100">
+                                                                            {user.requests.map(req => (
+                                                                                <tr key={req.id} className="hover:bg-slate-50">
+                                                                                    <td className="px-4 py-2 font-mono text-xs text-slate-500">#{req.id}</td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500">{req.user_id} / {req.investor_id || '-'}</td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500">Paq: {req.paquete_inversion_id} {req.prospecto_id ? `/ Prosp: ${req.prospecto_id}` : ''}</td>
+                                                                                    <td className="px-4 py-2 font-medium text-slate-900">{formatCOP(req.monto)}</td>
+                                                                                    <td className="px-4 py-2 capitalize"><span className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{req.status}</span></td>
+                                                                                    <td className="px-4 py-2 text-xs text-red-500 max-w-[200px] truncate" title={req.rejection_reason}>{req.rejection_reason || '-'}</td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500">
+                                                                                        {req.reviewed_at ? (
+                                                                                            <><div><span className="font-medium text-slate-700">Por:</span> ID {req.reviewed_by}</div>
+                                                                                            <div><span className="font-medium text-slate-700">Fecha:</span> {new Date(req.reviewed_at).toLocaleString()}</div></>
+                                                                                        ) : '-'}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 text-xs text-slate-500">
+                                                                                        <div><span className="font-medium text-slate-700">Cre:</span> {req.created_at ? new Date(req.created_at).toLocaleString() : '-'}</div>
+                                                                                        {req.updated_at && <div><span className="font-medium text-slate-700">Act:</span> {new Date(req.updated_at).toLocaleString()}</div>}
+                                                                                    </td>
+                                                                                    <td className="px-4 py-2 text-xs">
+                                                                                        {req.comprobante_path ? (
+                                                                                            <a href={req.comprobante_path} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">Ver</a>
+                                                                                        ) : '-'}
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )}

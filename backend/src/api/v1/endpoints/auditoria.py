@@ -152,9 +152,20 @@ async def get_inversiones_respaldo(
             ensure_user(uid, row)
             grouped_data[uid]["requests"].append({
                 "id": row.id,
+                "user_id": row.user_id,
+                "investor_id": row.investor_id,
+                "paquete_inversion_id": row.paquete_inversion_id,
+                "prospecto_id": row.prospecto_id,
                 "monto": row.monto,
+                "comprobante_path": row.comprobante_path,
                 "status": row.status,
-                "created_at": row.created_at
+                "rejection_reason": row.rejection_reason,
+                "reviewed_at": row.reviewed_at,
+                "reviewed_by": row.reviewed_by,
+                "extra_data": row.extra_data,
+                "created_at": row.created_at,
+                "updated_at": row.updated_at,
+                "deleted_at": row.deleted_at
             })
             
         for row in res_acc.fetchall():
