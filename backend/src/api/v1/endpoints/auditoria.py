@@ -27,11 +27,20 @@ async def get_inversiones_respaldo(
         raise HTTPException(status_code=403, detail="Not enough privileges")
         
     try:
-        # Consultamos la tabla investor_respaldo
+        # Consultamos la tabla investor_respaldo con los JOINs solicitados
         query = text("""
-            SELECT *
-            FROM investor_respaldo
-            ORDER BY id DESC
+            SELECT 
+                ir.*,
+                u.name as user_name,
+                u.email as user_email,
+                p.paquete_accion_adquirido as nombre_paquete,
+                cp.name as nombre_periodo,
+                cp.months as meses_periodo
+            FROM investor_respaldo ir
+            LEFT JOIN users u ON ir.user_id = u.id
+            LEFT JOIN paquetes_inversion p ON ir.paquete_inversion_adquirido = p.id
+            LEFT JOIN contract_periods cp ON ir.periodo_contrato = cp.id
+            ORDER BY ir.user_id DESC, ir.id DESC
         """)
         result = await db.execute(query)
         rows = result.fetchall()
