@@ -232,7 +232,7 @@ export const InvestmentsPage = () => {
                                                                                 <td className="px-4 py-2 font-medium text-brand-600">{acc.acceleration_percentage}%</td>
                                                                                 <td className="px-4 py-2 font-medium text-red-500">-{acc.days_to_reduce}</td>
                                                                                 <td className="px-4 py-2 text-xs">
-                                                                                    <span className="text-slate-500 line-through">{acc.original_days}</span> -> <span className="font-medium text-slate-900">{acc.new_duration}</span>
+                                                                                    <span className="text-slate-500 line-through">{acc.original_days}</span> &rarr; <span className="font-medium text-slate-900">{acc.new_duration}</span>
                                                                                 </td>
                                                                                 <td className="px-4 py-2">
                                                                                     {acc.applied ? <span className="text-emerald-600 font-medium text-xs">Sí</span> : <span className="text-amber-500 font-medium text-xs">No</span>}
