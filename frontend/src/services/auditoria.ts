@@ -1,4 +1,4 @@
-import api from './api';
+import { fetchApi } from './api';
 
 export interface RespaldoInvestment {
     id: number;
@@ -15,7 +15,6 @@ export interface RespaldoInvestment {
 
 export const auditoriaService = {
     getRespaldoInvestments: async (): Promise<RespaldoInvestment[]> => {
-        const response = await api.get('/auditoria/respaldo');
-        return response.data;
+        return fetchApi('/auditoria/respaldo');
     }
 };
