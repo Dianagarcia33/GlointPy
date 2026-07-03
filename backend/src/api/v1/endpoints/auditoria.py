@@ -23,7 +23,7 @@ async def get_inversiones_respaldo(
         # Consultamos la tabla investment_requests_respaldo (y cruzamos con usuario si es necesario, 
         # pero primero veamos qué hay)
         query = text("""
-            SELECT i.*, u.nombre as user_nombre, u.apellido as user_apellido, u.correo_electronico
+            SELECT i.*, u.name as user_nombre, u.email as correo_electronico
             FROM investment_requests_respaldo i
             LEFT JOIN users u ON i.user_id = u.id
             ORDER BY i.id DESC
