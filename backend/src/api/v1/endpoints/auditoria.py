@@ -32,7 +32,6 @@ async def get_inversiones_respaldo(
             SELECT *
             FROM investor_respaldo
             ORDER BY id DESC
-            LIMIT 100
         """)
         result = await db.execute(query)
         rows = result.fetchall()
