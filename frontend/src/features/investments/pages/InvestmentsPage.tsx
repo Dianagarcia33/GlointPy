@@ -65,7 +65,9 @@ export const InvestmentsPage = () => {
                         <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                             <tr>
                                 <th className="px-6 py-3 font-medium">ID Respaldo</th>
+                                <th className="px-6 py-3 font-medium">Código</th>
                                 <th className="px-6 py-3 font-medium">Usuario</th>
+                                <th className="px-6 py-3 font-medium">Paquete & Periodo</th>
                                 <th className="px-6 py-3 font-medium">Monto</th>
                                 <th className="px-6 py-3 font-medium">Estado</th>
                                 <th className="px-6 py-3 font-medium">Fecha de Creación</th>
@@ -74,7 +76,7 @@ export const InvestmentsPage = () => {
                         <tbody className="divide-y divide-slate-100">
                             {respaldoData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                         No hay datos de respaldo disponibles.
                                     </td>
                                 </tr>
@@ -82,11 +84,18 @@ export const InvestmentsPage = () => {
                                 respaldoData.map((item) => (
                                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4 font-mono text-xs text-slate-500">#{item.id}</td>
+                                        <td className="px-6 py-4 font-medium text-slate-900">
+                                            {item.codigo_asignado || 'N/A'}
+                                        </td>
                                         <td className="px-6 py-4">
                                             <div className="font-medium text-slate-900">
-                                                {item.nombre} {item.apellido}
+                                                {item.user_name || `${item.nombre || ''} ${item.apellido || ''}`}
                                             </div>
-                                            <div className="text-xs text-slate-500">{item.correo_electronico}</div>
+                                            <div className="text-xs text-slate-500">{item.user_email || item.correo_electronico}</div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-slate-900">{item.nombre_paquete || 'N/A'}</div>
+                                            <div className="text-xs text-slate-500">{item.nombre_periodo ? `${item.nombre_periodo} (${item.meses_periodo} meses)` : 'N/A'}</div>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-slate-900">
                                             {formatCOP(item.total_contrato)}
