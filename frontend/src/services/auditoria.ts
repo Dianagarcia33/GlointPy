@@ -1,14 +1,21 @@
 import { fetchApi } from './api';
 
-export interface RespaldoInvestment {
+export interface InversionDetail {
     id: number;
-    nombre?: string;
-    apellido?: string;
-    correo_electronico?: string;
-    total_contrato?: number;
-    estado?: string;
-    created_at?: string;
-    [key: string]: any;
+    codigo_asignado: string;
+    monto: number;
+    nombre_paquete: string;
+    nombre_periodo: string;
+    meses_periodo: number;
+    estado: string;
+    created_at: string;
+}
+
+export interface RespaldoInvestment {
+    user_id: string | number;
+    user_name: string;
+    user_email: string;
+    inversiones: InversionDetail[];
 }
 
 export const auditoriaService = {

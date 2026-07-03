@@ -66,7 +66,6 @@ export const InvestmentsPage = () => {
                             <tr>
                                 <th className="px-6 py-3 font-medium">ID Respaldo</th>
                                 <th className="px-6 py-3 font-medium">Código</th>
-                                <th className="px-6 py-3 font-medium">Usuario</th>
                                 <th className="px-6 py-3 font-medium">Paquete & Periodo</th>
                                 <th className="px-6 py-3 font-medium">Monto</th>
                                 <th className="px-6 py-3 font-medium">Estado</th>
@@ -76,42 +75,45 @@ export const InvestmentsPage = () => {
                         <tbody className="divide-y divide-slate-100">
                             {respaldoData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
                                         No hay datos de respaldo disponibles.
                                     </td>
                                 </tr>
                             ) : (
-                                respaldoData.map((item) => (
-                                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 font-mono text-xs text-slate-500">#{item.id}</td>
-                                        <td className="px-6 py-4 font-medium text-slate-900">
-                                            {item.codigo_asignado || 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-slate-900">
-                                                {item.user_name || `${item.nombre || ''} ${item.apellido || ''}`}
-                                            </div>
-                                            <div className="text-xs text-slate-500">{item.user_email || item.correo_electronico}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-slate-900">{item.nombre_paquete || 'N/A'}</div>
-                                        </td>
-                                        <td className="px-6 py-4 font-medium text-slate-900">
-                                            {formatCOP(item.total_contrato)}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${
-                                                item.estado === 'activa' ? 'bg-emerald-100 text-emerald-700' :
-                                                item.estado === 'finalizada' ? 'bg-blue-100 text-blue-700' :
-                                                'bg-slate-100 text-slate-700'
-                                            }`}>
-                                                {item.estado || 'N/A'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-500 text-xs">
-                                            {item.created_at ? new Date(item.created_at).toLocaleString() : 'N/A'}
-                                        </td>
-                                    </tr>
+                                respaldoData.map((user) => (
+                                    <React.Fragment key={user.user_id}>
+                                        <tr className="bg-slate-200 border-b border-slate-300">
+                                            <td colSpan={6} className="px-6 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-slate-800">{user.user_name}</span>
+                                                    <span className="text-sm text-slate-500">({user.user_email})</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {user.inversiones.map((inv) => (
+                                            <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-6 py-4 font-mono text-xs text-slate-500">#{inv.id}</td>
+                                                <td className="px-6 py-4 font-medium text-slate-900">
+                                                    {inv.codigo_asignado}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-medium text-slate-900">{inv.nombre_paquete}</div>
+                                                    <div className="text-xs text-slate-500">{inv.nombre_periodo && inv.nombre_periodo !== 'N/A' ? `${inv.nombre_periodo} (${inv.meses_periodo} meses)` : 'N/A'}</div>
+                                                </td>
+                                                <td className="px-6 py-4 font-medium text-slate-900">
+                                                    {formatCOP(inv.monto)}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize bg-slate-100 text-slate-700`}>
+                                                        {inv.estado || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-500 text-xs">
+                                                    {inv.created_at ? new Date(inv.created_at).toLocaleString() : 'N/A'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </React.Fragment>
                                 ))
                             )}
                         </tbody>
