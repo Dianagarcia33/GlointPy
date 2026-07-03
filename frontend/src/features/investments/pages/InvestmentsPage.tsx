@@ -84,20 +84,20 @@ export const InvestmentsPage = () => {
                                         <td className="px-6 py-4 font-mono text-xs text-slate-500">#{item.id}</td>
                                         <td className="px-6 py-4">
                                             <div className="font-medium text-slate-900">
-                                                {item.user_nombre} {item.user_apellido}
+                                                {item.nombre} {item.apellido}
                                             </div>
                                             <div className="text-xs text-slate-500">{item.correo_electronico}</div>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-slate-900">
-                                            {formatCOP(item.monto)}
+                                            {formatCOP(item.total_contrato)}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${
-                                                item.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                                                item.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                'bg-red-100 text-red-700'
+                                                item.estado === 'activa' ? 'bg-emerald-100 text-emerald-700' :
+                                                item.estado === 'finalizada' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-slate-100 text-slate-700'
                                             }`}>
-                                                {item.status}
+                                                {item.estado || 'N/A'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-slate-500 text-xs">
