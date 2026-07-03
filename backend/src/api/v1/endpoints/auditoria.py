@@ -27,8 +27,8 @@ async def get_inversiones_respaldo(
         raise HTTPException(status_code=403, detail="Not enough privileges")
         
     try:
-        # Consultamos la tabla investor_respaldo con los JOINs solicitados
-        query = text("""
+        # 1. Inversiones
+        query_inv = text("""
             SELECT 
                 ir.*,
                 u.name as user_name,
@@ -43,23 +43,69 @@ async def get_inversiones_respaldo(
             LEFT JOIN contract_periods cp ON ir.periodo_contrato = cp.id
             ORDER BY ir.user_id DESC, ir.id DESC
         """)
-        result = await db.execute(query)
-        rows = result.fetchall()
+        res_inv = await db.execute(query_inv)
         
-        # Agrupamos por usuario pero manteniendo las inversiones independientes
+        # 2. Retiros
+        query_ret = text("""
+            SELECT rr.*, u.name as user_name, u.email as user_email 
+            FROM retiros_respaldo rr 
+            LEFT JOIN users u ON rr.user_id = u.id 
+            ORDER BY rr.user_id DESC, rr.id DESC
+        """)
+        res_ret = await db.execute(query_ret)
+        
+        # 3. Requests
+        query_req = text("""
+            SELECT rq.*, u.name as user_name, u.email as user_email 
+            FROM investment_requests_respaldo rq 
+            LEFT JOIN users u ON rq.user_id = u.id 
+            ORDER BY rq.user_id DESC, rq.id DESC
+        """)
+        res_req = await db.execute(query_req)
+        
+        # 4. Accelerations
+        query_acc = text("""
+            SELECT ca.*, ir.user_id, u.name as user_name, u.email as user_email 
+            FROM contract_accelerations_respaldo ca 
+            LEFT JOIN investor_respaldo ir ON ca.investor_id = ir.id 
+            LEFT JOIN users u ON ir.user_id = u.id 
+            ORDER BY ir.user_id DESC, ca.id DESC
+        """)
+        res_acc = await db.execute(query_acc)
+        
+        # 5. Histories
+        query_hist = text("""
+            SELECT ch.*, ir.user_id, u.name as user_name, u.email as user_email 
+            FROM contract_histories_respaldo ch 
+            LEFT JOIN investor_respaldo ir ON ch.investor_id = ir.id 
+            LEFT JOIN users u ON ir.user_id = u.id 
+            ORDER BY ir.user_id DESC, ch.id DESC
+        """)
+        res_hist = await db.execute(query_hist)
+        
         grouped_data = {}
-        for row in rows:
-            uid = row.user_id or f"temp_{row.id}"
-            
+        
+        def ensure_user(uid, row):
             if uid not in grouped_data:
+                u_name = getattr(row, 'user_name', None) or getattr(row, 'nombre', None) or ""
+                if getattr(row, 'apellido', None):
+                    u_name += f" {row.apellido}"
+                
                 grouped_data[uid] = {
                     "user_id": uid,
-                    "user_name": row.user_name or f"{row.nombre or ''} {row.apellido or ''}".strip(),
-                    "user_email": row.user_email or row.correo_electronico,
-                    "inversiones": []
+                    "user_name": str(u_name).strip(),
+                    "user_email": getattr(row, 'user_email', None) or getattr(row, 'correo_electronico', None) or "",
+                    "inversiones": [],
+                    "retiros": [],
+                    "requests": [],
+                    "accelerations": [],
+                    "histories": []
                 }
                 
-            inversion_detail = {
+        for row in res_inv.fetchall():
+            uid = row.user_id or f"temp_inv_{row.id}"
+            ensure_user(uid, row)
+            grouped_data[uid]["inversiones"].append({
                 "id": row.id,
                 "codigo_asignado": row.codigo_asignado or 'N/A',
                 "monto": row.total_contrato or 0,
@@ -71,8 +117,57 @@ async def get_inversiones_respaldo(
                 "created_at": row.created_at,
                 "fecha_ingreso": row.fecha_ingreso,
                 "fecha_finalizacion": row.fecha_finalizacion
-            }
-            grouped_data[uid]["inversiones"].append(inversion_detail)
+            })
+            
+        for row in res_ret.fetchall():
+            uid = row.user_id or f"temp_ret_{row.id}"
+            ensure_user(uid, row)
+            grouped_data[uid]["retiros"].append({
+                "id": row.id,
+                "monto": row.monto,
+                "monto_neto": row.monto_neto,
+                "estado": row.estado,
+                "fecha_solicitud": row.fecha_solicitud,
+                "tipo": row.tipo
+            })
+            
+        for row in res_req.fetchall():
+            uid = row.user_id or f"temp_req_{row.id}"
+            ensure_user(uid, row)
+            grouped_data[uid]["requests"].append({
+                "id": row.id,
+                "monto": row.monto,
+                "status": row.status,
+                "created_at": row.created_at
+            })
+            
+        for row in res_acc.fetchall():
+            uid = getattr(row, 'user_id', None) or f"temp_acc_{row.id}"
+            ensure_user(uid, row)
+            grouped_data[uid]["accelerations"].append({
+                "id": row.id,
+                "original_days": row.original_days,
+                "acceleration_percentage": row.acceleration_percentage,
+                "days_to_reduce": row.days_to_reduce,
+                "new_duration": row.new_duration,
+                "applied": row.applied,
+                "created_at": row.created_at
+            })
+            
+        for row in res_hist.fetchall():
+            uid = getattr(row, 'user_id', None) or f"temp_hist_{row.id}"
+            ensure_user(uid, row)
+            grouped_data[uid]["histories"].append({
+                "id": row.id,
+                "fecha_inicio": row.fecha_inicio,
+                "fecha_fin": row.fecha_fin,
+                "dias_contrato": row.dias_contrato,
+                "total_contrato": row.total_contrato,
+                "tasa_interes": row.tasa_interes,
+                "acciones_otorgadas": row.acciones_otorgadas,
+                "rentabilidad_contrato": row.rentabilidad_contrato,
+                "rendimiento_total_generado": row.rendimiento_total_generado
+            })
             
         return list(grouped_data.values())
         
