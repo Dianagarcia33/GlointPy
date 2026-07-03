@@ -13,7 +13,9 @@ def migrate_tables():
     tables_to_backup = {
         'investors': 'investor_respaldo',
         'investment_requests': 'investment_requests_respaldo',
-        'retiros': 'retiros_respaldo'
+        'retiros': 'retiros_respaldo',
+        'contract_accelerations': 'contract_accelerations_respaldo',
+        'contract_histories': 'contract_histories_respaldo'
     }
 
     try:
