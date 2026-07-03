@@ -16,7 +16,14 @@ async def get_inversiones_respaldo(
     Obtiene los registros de la tabla de respaldo de inversiones (investor_respaldo o investment_requests_respaldo)
     """
     # Verificamos que sea admin
-    if current_user.rol != "admin" and current_user.rol != "superadmin":
+    is_admin = current_user.email == "superadmin@gloint.com"
+    if hasattr(current_user, 'roles') and current_user.roles:
+        for r in current_user.roles:
+            if getattr(r, 'name', '') in ["admin", "superadmin"]:
+                is_admin = True
+                break
+                
+    if not is_admin:
         raise HTTPException(status_code=403, detail="Not enough privileges")
         
     try:
