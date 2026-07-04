@@ -48,10 +48,11 @@ export const Sidebar = () => {
                     </NavLink>
                 </Can>
 
-                {/* MODULO DE INVERSIONES - Solo admin por ahora */}
+                {/* MODULO DE AUDITORIA */}
                 <Can permission="investments:view">
                     <NavLink
                         to="/dashboard/investments"
+                        end
                         className={({ isActive }) => `
                             group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
                             ${isActive 
@@ -62,6 +63,25 @@ export const Sidebar = () => {
                     >
                         <span className={`flex-shrink-0 transition-colors duration-200 group-hover:scale-110`}>
                             <Briefcase className="w-[18px] h-[18px]" />
+                        </span>
+                        <span className="flex-1 text-[13px] font-medium">Auditoría</span>
+                    </NavLink>
+                </Can>
+
+                {/* MODULO DE INVERSIONES - Tablas Reales */}
+                <Can permission="investments:view">
+                    <NavLink
+                        to="/dashboard/investments/reales"
+                        className={({ isActive }) => `
+                            group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
+                            ${isActive 
+                                ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30 pointer-events-none' 
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                            }
+                        `}
+                    >
+                        <span className={`flex-shrink-0 transition-colors duration-200 group-hover:scale-110`}>
+                            <History className="w-[18px] h-[18px]" />
                         </span>
                         <span className="flex-1 text-[13px] font-medium">Inversiones (Admin)</span>
                     </NavLink>
