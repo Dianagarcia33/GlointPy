@@ -12,6 +12,31 @@ export interface InversionDetail {
     created_at: string;
     fecha_ingreso?: string;
     fecha_finalizacion?: string;
+    referido_por?: string;
+    nombre_completo?: string;
+    documento?: string;
+    tipo_documento?: string;
+    correo_electronico?: string;
+    numero_celular?: string;
+    ciudad?: string;
+    tusdatos_status?: string;
+    acciones_otorgadas?: number;
+    rendimiento_aprobado_mensual?: number;
+    rentabilidad_contrato?: number;
+    rendimiento_total_contrato?: number;
+    total_contrato?: number;
+    liquidacion_diaria_capital?: number;
+    liquidacion_diaria_rendimiento?: number;
+    valor_total_acciones?: number;
+    porcentaje_participacion_accionista?: number;
+}
+
+export interface BankAccountDetail {
+    id: number;
+    banco: string;
+    tipo_cuenta: string;
+    numero_cuenta: string;
+    is_primary: boolean;
 }
 
 export interface RetiroDetail {
@@ -88,6 +113,7 @@ export interface RespaldoInvestment {
     requests: RequestDetail[];
     accelerations: AccelerationDetail[];
     histories: HistoryDetail[];
+    bank_accounts: BankAccountDetail[];
 }
 
 export const auditoriaService = {

@@ -283,6 +283,11 @@ async def get_inversiones_reales(
         """)
         res_hist = await db.execute(query_hist)
         
+        # 6. Bank Accounts (using ORM to automatically decrypt)
+        from sqlalchemy.future import select
+        res_bank = await db.execute(select(UserBankAccount))
+        bank_accounts_data = res_bank.scalars().all()
+        
         grouped_data = {}
         
         def ensure_user(uid, row):
@@ -299,7 +304,8 @@ async def get_inversiones_reales(
                     "retiros": [],
                     "requests": [],
                     "accelerations": [],
-                    "histories": []
+                    "histories": [],
+                    "bank_accounts": []
                 }
                 
         for row in res_inv.fetchall():
@@ -316,8 +322,35 @@ async def get_inversiones_reales(
                 "estado": row.estado,
                 "created_at": row.created_at,
                 "fecha_ingreso": row.fecha_ingreso,
-                "fecha_finalizacion": row.fecha_finalizacion
+                "fecha_finalizacion": row.fecha_finalizacion,
+                "referido_por": getattr(row, 'referido_por', None),
+                "nombre_completo": getattr(row, 'nombre_completo', None),
+                "documento": getattr(row, 'documento', None),
+                "tipo_documento": getattr(row, 'tipo_documento', None),
+                "correo_electronico": getattr(row, 'correo_electronico', None),
+                "numero_celular": getattr(row, 'numero_celular', None),
+                "ciudad": getattr(row, 'ciudad', None),
+                "tusdatos_status": getattr(row, 'tusdatos_status', None),
+                "acciones_otorgadas": getattr(row, 'acciones_otorgadas', None),
+                "rendimiento_aprobado_mensual": getattr(row, 'rendimiento_aprobado_mensual', None),
+                "rentabilidad_contrato": getattr(row, 'rentabilidad_contrato', None),
+                "rendimiento_total_contrato": getattr(row, 'rendimiento_total_contrato', None),
+                "total_contrato": getattr(row, 'total_contrato', None),
+                "liquidacion_diaria_capital": getattr(row, 'liquidacion_diaria_capital', None),
+                "liquidacion_diaria_rendimiento": getattr(row, 'liquidacion_diaria_rendimiento', None),
+                "valor_total_acciones": getattr(row, 'valor_total_acciones', None),
+                "porcentaje_participacion_accionista": getattr(row, 'porcentaje_participacion_accionista', None),
             })
+            
+        for ba in bank_accounts_data:
+            if ba.user_id in grouped_data:
+                grouped_data[ba.user_id]["bank_accounts"].append({
+                    "id": ba.id,
+                    "banco": ba.banco,
+                    "tipo_cuenta": ba.tipo_cuenta,
+                    "numero_cuenta": ba.numero_cuenta,
+                    "is_primary": ba.is_primary
+                })
             
         for row in res_ret.fetchall():
             uid = row.user_id or f"temp_ret_{row.id}"
