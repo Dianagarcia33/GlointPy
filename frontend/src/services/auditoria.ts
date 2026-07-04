@@ -91,7 +91,13 @@ export interface RespaldoInvestment {
 }
 
 export const auditoriaService = {
-    getRespaldoInvestments: async (): Promise<RespaldoInvestment[]> => {
+    getRespaldoInversiones: async (): Promise<RespaldoInvestment[]> => {
         return fetchApi('/auditoria/respaldo');
+    },
+    migrateBatch: async (userIds: number[]): Promise<{migrated: number, status: string}> => {
+        return fetchApi('/auditoria/migrar-batch', { 
+            method: 'POST', 
+            body: JSON.stringify({ user_ids: userIds }) 
+        });
     }
 };

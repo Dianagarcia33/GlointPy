@@ -2,10 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from typing import List, Dict, Any
+from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
 
 router = APIRouter()
+
+class MigrateBatchRequest(BaseModel):
+    user_ids: List[int]
 
 @router.get("/respaldo", response_model=List[Dict[str, Any]])
 async def get_inversiones_respaldo(
@@ -201,3 +205,54 @@ async def get_inversiones_respaldo(
     except Exception as e:
         print(f"Error fetching from respaldo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/migrar-batch")
+async def migrar_batch(
+    req: MigrateBatchRequest, 
+    db: AsyncSession = Depends(get_db), 
+    current_user: Any = Depends(get_current_user)
+):
+    """
+    Migra los usuarios seleccionados de las tablas de respaldo a las tablas reales.
+    """
+    is_admin = current_user.email == "superadmin@gloint.com"
+    if hasattr(current_user, 'roles') and current_user.roles:
+        for r in current_user.roles:
+            if getattr(r, 'name', '') in ["admin", "superadmin"]:
+                is_admin = True
+                break
+                
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Not enough privileges")
+        
+    if not req.user_ids:
+        return {"migrated": 0, "status": "success"}
+        
+    try:
+        user_ids_str = ",".join(str(uid) for uid in req.user_ids)
+        
+        queries = [
+            f"INSERT INTO investors SELECT * FROM investor_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO retiros SELECT * FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO investment_requests SELECT * FROM investment_requests_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO contract_accelerations SELECT ca.* FROM contract_accelerations_respaldo ca WHERE ca.investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"INSERT INTO contract_histories SELECT ch.* FROM contract_histories_respaldo ch WHERE ch.investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            
+            f"DELETE FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"DELETE FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"DELETE FROM investment_requests_respaldo WHERE user_id IN ({user_ids_str})",
+            f"DELETE FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
+            f"DELETE FROM investor_respaldo WHERE user_id IN ({user_ids_str})"
+        ]
+        
+        for q in queries:
+            await db.execute(text(q))
+            
+        await db.commit()
+        return {"migrated": len(req.user_ids), "status": "success"}
+        
+    except Exception as e:
+        await db.rollback()
+        print(f"Error migrating batch: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
