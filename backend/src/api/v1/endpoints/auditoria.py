@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
+from src.models.user_bank_account import UserBankAccount
 
 router = APIRouter()
 
@@ -456,6 +457,23 @@ async def migrar_batch(
             f"DELETE FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
             f"DELETE FROM investor_respaldo WHERE user_id IN ({user_ids_str})"
         ]
+        
+        # Migrar cuentas bancarias antes de borrar de investor_respaldo
+        res_bancos = await db.execute(text(f"SELECT DISTINCT user_id, banco, tipo_cuenta, numero_cuenta FROM investor_respaldo WHERE user_id IN ({user_ids_str}) AND banco IS NOT NULL AND numero_cuenta IS NOT NULL"))
+        bancos_a_crear = []
+        for row in res_bancos:
+            # Check if this exact account already exists for the user to avoid duplicates
+            check_exist = await db.execute(text(f"SELECT id FROM user_bank_accounts WHERE user_id = {row.user_id} AND banco = '{row.banco}'"))
+            if not check_exist.first():
+                bancos_a_crear.append(UserBankAccount(
+                    user_id=row.user_id,
+                    banco=row.banco,
+                    tipo_cuenta=row.tipo_cuenta,
+                    numero_cuenta=row.numero_cuenta,
+                    is_primary=True
+                ))
+        if bancos_a_crear:
+            db.add_all(bancos_a_crear)
         
         for q in queries:
             await db.execute(text(q))
