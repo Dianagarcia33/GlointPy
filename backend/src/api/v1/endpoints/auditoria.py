@@ -427,12 +427,28 @@ async def migrar_batch(
     try:
         user_ids_str = ",".join(str(uid) for uid in req.user_ids)
         
+        async def get_intersecting_columns(src_table: str, dest_table: str) -> str:
+            src_res = await db.execute(text(f"SHOW COLUMNS FROM {src_table}"))
+            src_cols = {row[0] for row in src_res.fetchall()}
+            
+            dest_res = await db.execute(text(f"SHOW COLUMNS FROM {dest_table}"))
+            dest_cols = {row[0] for row in dest_res.fetchall()}
+            
+            intersect = src_cols.intersection(dest_cols)
+            return ", ".join(f"`{c}`" for c in intersect)
+            
+        cols_inv = await get_intersecting_columns("investor_respaldo", "investors")
+        cols_ret = await get_intersecting_columns("retiros_respaldo", "retiros")
+        cols_req = await get_intersecting_columns("investment_requests_respaldo", "investment_requests")
+        cols_acc = await get_intersecting_columns("contract_accelerations_respaldo", "contract_accelerations")
+        cols_hist = await get_intersecting_columns("contract_histories_respaldo", "contract_histories")
+        
         queries = [
-            f"INSERT INTO investors SELECT * FROM investor_respaldo WHERE user_id IN ({user_ids_str})",
-            f"INSERT INTO retiros SELECT * FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
-            f"INSERT INTO investment_requests SELECT * FROM investment_requests_respaldo WHERE user_id IN ({user_ids_str})",
-            f"INSERT INTO contract_accelerations SELECT ca.* FROM contract_accelerations_respaldo ca WHERE ca.investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
-            f"INSERT INTO contract_histories SELECT ch.* FROM contract_histories_respaldo ch WHERE ch.investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"INSERT INTO investors ({cols_inv}) SELECT {cols_inv} FROM investor_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO retiros ({cols_ret}) SELECT {cols_ret} FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO investment_requests ({cols_req}) SELECT {cols_req} FROM investment_requests_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO contract_accelerations ({cols_acc}) SELECT {cols_acc} FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"INSERT INTO contract_histories ({cols_hist}) SELECT {cols_hist} FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
             
             f"DELETE FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
             f"DELETE FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
