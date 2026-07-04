@@ -94,6 +94,9 @@ export const auditoriaService = {
     getRespaldoInversiones: async (): Promise<RespaldoInvestment[]> => {
         return fetchApi('/auditoria/respaldo');
     },
+    getRealInversiones: async (): Promise<RespaldoInvestment[]> => {
+        return fetchApi('/auditoria/reales');
+    },
     migrateBatch: async (userIds: number[]): Promise<{migrated: number, status: string}> => {
         return fetchApi('/auditoria/migrar-batch', { 
             method: 'POST', 
