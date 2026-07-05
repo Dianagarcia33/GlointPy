@@ -287,7 +287,8 @@ async def get_all_investments(
                         "id": retiro.id,
                         "fecha": fecha_retiro,
                         "monto": monto,
-                        "is_reinversion": is_reinversion
+                        "is_reinversion": is_reinversion,
+                        "observaciones": retiro.observaciones
                     })
                     
             capital_devuelto = 0.0

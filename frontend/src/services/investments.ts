@@ -119,6 +119,7 @@ export interface AdminInvestment {
     fecha: string;
     monto: number;
     is_reinversion?: boolean;
+    observaciones?: string;
   }[];
   tramos_desglose?: {
     fecha_inicio: string;

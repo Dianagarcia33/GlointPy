@@ -120,7 +120,7 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
                                         <tr>
                                             <th className="px-3 py-2">Fecha</th>
                                             <th className="px-3 py-2">Monto</th>
-                                            <th className="px-3 py-2 text-center">Tipo</th>
+                                            <th className="px-3 py-2 text-center">Observaciones</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -128,10 +128,10 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
                                             <tr key={idx} className="hover:bg-slate-50">
                                                 <td className="px-3 py-2 text-slate-600">{formatDate(retiro.fecha)}</td>
                                                 <td className="px-3 py-2 font-medium text-rose-600">-{formatCOP(retiro.monto)}</td>
-                                                <td className="px-3 py-2 text-center">
-                                                    {retiro.is_reinversion ? 
-                                                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">Reinversión</span> : 
-                                                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">Retiro Normal</span>
+                                                <td className="px-3 py-2 text-center text-xs">
+                                                    {retiro.observaciones ? 
+                                                        <span className="text-slate-600">{retiro.observaciones}</span> : 
+                                                        <span className="text-slate-400 italic">Sin observaciones</span>
                                                     }
                                                 </td>
                                             </tr>
