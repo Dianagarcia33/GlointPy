@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { auditoriaService, RespaldoInvestment, InversionDetail } from '../../../services/auditoria';
-import { Loader2, AlertCircle, Search } from 'lucide-react';
+import { Loader2, AlertCircle, Search, ChevronDown, ChevronUp, User, Building, Briefcase, FileText, Calendar, ShieldCheck, DollarSign } from 'lucide-react';
 
 interface FlatInvestment extends InversionDetail {
     user_name: string;
@@ -16,6 +16,7 @@ export const RealInvestmentsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
     const fetchData = async () => {
         try {
@@ -75,6 +76,18 @@ export const RealInvestmentsPage = () => {
         }).format(value);
     };
 
+    const toggleRow = (id: number) => {
+        setExpandedRows(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
     if (isLoading) {
         return (
             <div className="p-8 flex justify-center items-center h-64">
@@ -95,141 +108,196 @@ export const RealInvestmentsPage = () => {
     }
 
     return (
-        <div className="p-8 max-w-full mx-auto">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
             <h1 className="text-2xl font-bold text-slate-800 mb-6">Módulo de Inversiones (Admin)</h1>
             
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <h2 className="font-semibold text-slate-800">Inversiones Activas (Tabla 'investors')</h2>
-                        <div className="relative">
+                        <h2 className="font-semibold text-slate-800">Inversiones Activas</h2>
+                        <div className="relative w-full md:w-72">
                             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input
                                 type="text"
                                 placeholder="Buscar usuario, email, código, doc..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent w-72"
+                                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                             />
                         </div>
                     </div>
                 </div>
                 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse whitespace-nowrap min-w-[1500px]">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
                         <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                             <tr>
-                                <th className="px-4 py-3 border-r border-slate-200">ID / Código</th>
-                                <th className="px-4 py-3 border-r border-slate-200">Info Usuario</th>
-                                <th className="px-4 py-3 border-r border-slate-200">Cuenta Bancaria</th>
-                                <th className="px-4 py-3 border-r border-slate-200">Paquete & Periodo</th>
-                                <th className="px-4 py-3 border-r border-slate-200">Inversión Base</th>
-                                <th className="px-4 py-3 border-r border-slate-200">Rendimientos</th>
-                                <th className="px-4 py-3 border-r border-slate-200">Acciones / T. Datos</th>
-                                <th className="px-4 py-3">Estado & Fechas</th>
+                                <th className="px-6 py-4">ID / Código</th>
+                                <th className="px-6 py-4">Usuario</th>
+                                <th className="px-6 py-4">Paquete & Periodo</th>
+                                <th className="px-6 py-4">Estado</th>
+                                <th className="px-6 py-4 text-center">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-200">
+                        <tbody className="divide-y divide-slate-100">
                             {flatInvestments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
                                         No se encontraron inversiones.
                                     </td>
                                 </tr>
                             ) : (
-                                flatInvestments.map((inv) => (
-                                    <tr key={inv.id} className="hover:bg-slate-50 transition-colors text-sm">
-                                        <td className="px-4 py-3 border-r border-slate-100 align-top">
-                                            <div className="font-mono text-xs text-slate-500 mb-1">#{inv.id}</div>
-                                            <span className="font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded-md text-xs">{inv.codigo_asignado}</span>
-                                        </td>
-                                        <td className="px-4 py-3 border-r border-slate-100 align-top max-w-[250px] truncate">
-                                            <div className="font-medium text-slate-900">{inv.nombre_completo || inv.user_name}</div>
-                                            <div className="text-xs text-slate-500">{inv.user_email} (ID: {inv.user_id})</div>
-                                            {(inv.documento || inv.numero_celular) && (
-                                                <div className="text-xs text-slate-500 mt-1">
-                                                    {inv.tipo_documento} {inv.documento} • {inv.numero_celular}
-                                                </div>
+                                flatInvestments.map((inv) => {
+                                    const isExpanded = expandedRows.has(inv.id);
+                                    
+                                    return (
+                                        <React.Fragment key={inv.id}>
+                                            <tr 
+                                                className={`hover:bg-slate-50 transition-colors cursor-pointer ${isExpanded ? 'bg-slate-50' : ''}`}
+                                                onClick={() => toggleRow(inv.id)}
+                                            >
+                                                <td className="px-6 py-4 align-middle">
+                                                    <div className="font-mono text-xs text-slate-500 mb-1">#{inv.id}</div>
+                                                    <span className="font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded-md text-xs">{inv.codigo_asignado}</span>
+                                                </td>
+                                                <td className="px-6 py-4 align-middle">
+                                                    <div className="font-medium text-slate-900 truncate max-w-[200px]">{inv.nombre_completo || inv.user_name}</div>
+                                                    <div className="text-xs text-slate-500 truncate max-w-[200px]">{inv.user_email}</div>
+                                                </td>
+                                                <td className="px-6 py-4 align-middle">
+                                                    <div className="font-medium text-slate-800">
+                                                        {inv.nombre_paquete !== 'N/A' && !isNaN(parseInt(inv.nombre_paquete)) 
+                                                            ? formatCOP(parseInt(inv.nombre_paquete, 10)) 
+                                                            : inv.nombre_paquete}
+                                                    </div>
+                                                    <div className="text-xs text-emerald-600 font-medium">Inv. Base: {formatCOP(inv.monto)}</div>
+                                                </td>
+                                                <td className="px-6 py-4 align-middle capitalize">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                        inv.estado === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                                                        inv.estado === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-slate-100 text-slate-700'
+                                                    }`}>
+                                                        {inv.estado || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 align-middle text-center">
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); toggleRow(inv.id); }}
+                                                        className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500"
+                                                    >
+                                                        {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {/* EXPANDED AREA */}
+                                            {isExpanded && (
+                                                <tr className="bg-slate-50 border-b border-slate-200 shadow-inner">
+                                                    <td colSpan={5} className="px-6 py-6">
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                                            
+                                                            {/* Columna 1: Info Personal y Bancaria */}
+                                                            <div className="space-y-4">
+                                                                <div>
+                                                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3 border-b border-slate-200 pb-1">
+                                                                        <User className="w-4 h-4 text-brand-500" />
+                                                                        Información Personal
+                                                                    </h4>
+                                                                    <div className="space-y-2 text-sm">
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Documento:</span> <span className="font-medium text-slate-800">{inv.tipo_documento} {inv.documento || 'N/A'}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Celular:</span> <span className="font-medium text-slate-800">{inv.numero_celular || 'N/A'}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Ciudad:</span> <span className="font-medium text-slate-800">{inv.ciudad || 'N/A'}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Referido por:</span> <span className="font-medium text-slate-800">{inv.referido_por || 'N/A'}</span></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3 border-b border-slate-200 pb-1">
+                                                                        <Building className="w-4 h-4 text-brand-500" />
+                                                                        Cuenta Bancaria
+                                                                    </h4>
+                                                                    {inv.banco ? (
+                                                                        <div className="space-y-2 text-sm bg-white p-3 rounded-lg border border-slate-200">
+                                                                            <div className="flex justify-between"><span className="text-slate-500">Banco:</span> <span className="font-medium text-slate-800">{inv.banco}</span></div>
+                                                                            <div className="flex justify-between"><span className="text-slate-500">Tipo:</span> <span className="font-medium text-slate-800">{inv.tipo_cuenta}</span></div>
+                                                                            <div className="flex justify-between"><span className="text-slate-500">Número:</span> <span className="font-medium text-slate-800">{inv.numero_cuenta}</span></div>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                                                                            El usuario no tiene una cuenta bancaria registrada.
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Columna 2: Finanzas del Contrato */}
+                                                            <div className="space-y-4">
+                                                                <div>
+                                                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3 border-b border-slate-200 pb-1">
+                                                                        <DollarSign className="w-4 h-4 text-emerald-500" />
+                                                                        Finanzas del Contrato
+                                                                    </h4>
+                                                                    <div className="space-y-2 text-sm">
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Inversión Base:</span> <span className="font-medium text-emerald-600">{formatCOP(inv.monto)}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Total Contrato:</span> <span className="font-medium text-slate-800">{formatCOP(inv.total_contrato)}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Aprobado Mensual:</span> <span className="font-medium text-slate-800">{inv.rendimiento_aprobado_mensual ? `${inv.rendimiento_aprobado_mensual}%` : '-'}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Rentabilidad Contrato:</span> <span className="font-medium text-slate-800">{inv.rentabilidad_contrato ? `${inv.rentabilidad_contrato}%` : '-'}</span></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3 border-b border-slate-200 pb-1">
+                                                                        <Briefcase className="w-4 h-4 text-emerald-500" />
+                                                                        Liquidación Diaria
+                                                                    </h4>
+                                                                    <div className="space-y-2 text-sm bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                                                                        <div className="flex justify-between"><span className="text-emerald-700">A Capital:</span> <span className="font-medium text-emerald-800">{formatCOP(inv.liquidacion_diaria_capital)}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-emerald-700">A Rendimiento:</span> <span className="font-medium text-emerald-800">{formatCOP(inv.liquidacion_diaria_rendimiento)}</span></div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Columna 3: Detalles Legales y Fechas */}
+                                                            <div className="space-y-4">
+                                                                <div>
+                                                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3 border-b border-slate-200 pb-1">
+                                                                        <Calendar className="w-4 h-4 text-blue-500" />
+                                                                        Periodo de Contrato
+                                                                    </h4>
+                                                                    <div className="space-y-2 text-sm">
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Nombre:</span> <span className="font-medium text-slate-800">{inv.nombre_periodo}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Duración:</span> <span className="font-medium text-slate-800">{inv.meses_periodo} meses, {inv.dias_periodo} días</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Fecha Inicio:</span> <span className="font-medium text-slate-800">{inv.fecha_ingreso || 'N/A'}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Fecha Fin:</span> <span className="font-medium text-slate-800">{inv.fecha_finalizacion || 'N/A'}</span></div>
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3 border-b border-slate-200 pb-1">
+                                                                        <ShieldCheck className="w-4 h-4 text-blue-500" />
+                                                                        Seguridad y Acciones
+                                                                    </h4>
+                                                                    <div className="space-y-2 text-sm">
+                                                                        <div className="flex justify-between items-center">
+                                                                            <span className="text-slate-500">Validación TusDatos:</span> 
+                                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                                                inv.tusdatos_status === 'APROBADO' ? 'bg-emerald-100 text-emerald-700' : 
+                                                                                inv.tusdatos_status === 'RECHAZADO' ? 'bg-red-100 text-red-700' : 
+                                                                                'bg-slate-200 text-slate-700'
+                                                                            }`}>
+                                                                                {inv.tusdatos_status || 'PENDIENTE'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">Acciones Otorgadas:</span> <span className="font-medium text-brand-600">{inv.acciones_otorgadas || 0}</span></div>
+                                                                        <div className="flex justify-between"><span className="text-slate-500">% Participación:</span> <span className="font-medium text-brand-600">{inv.porcentaje_participacion_accionista ? `${inv.porcentaje_participacion_accionista}%` : '0%'}</span></div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             )}
-                                        </td>
-                                        <td className="px-4 py-3 border-r border-slate-100 align-top">
-                                            {inv.banco ? (
-                                                <>
-                                                    <div className="font-medium text-slate-800">{inv.banco}</div>
-                                                    <div className="text-xs text-slate-500">{inv.tipo_cuenta}: {inv.numero_cuenta}</div>
-                                                </>
-                                            ) : (
-                                                <span className="text-xs text-amber-500 font-medium">Sin cuenta</span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 border-r border-slate-100 align-top">
-                                            <div className="font-medium text-slate-800">
-                                                {inv.nombre_paquete !== 'N/A' && !isNaN(parseInt(inv.nombre_paquete)) 
-                                                    ? formatCOP(parseInt(inv.nombre_paquete, 10)) 
-                                                    : inv.nombre_paquete}
-                                            </div>
-                                            <div className="text-xs text-slate-500">
-                                                {inv.nombre_periodo !== 'N/A' 
-                                                    ? `${inv.nombre_periodo} (${inv.meses_periodo}m, ${inv.dias_periodo}d)` 
-                                                    : 'N/A'}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 border-r border-slate-100 align-top">
-                                            <div className="text-xs text-slate-500">Monto Invertido</div>
-                                            <div className="font-medium text-emerald-600 mb-1">{formatCOP(inv.monto)}</div>
-                                            <div className="text-xs text-slate-500">Total Contrato</div>
-                                            <div className="font-medium text-slate-800">{formatCOP(inv.total_contrato)}</div>
-                                        </td>
-                                        <td className="px-4 py-3 border-r border-slate-100 align-top">
-                                            <div className="text-xs text-slate-500 flex justify-between gap-4">
-                                                <span>Aprobado Mensual:</span>
-                                                <span className="font-medium text-slate-700">{inv.rendimiento_aprobado_mensual ? `${inv.rendimiento_aprobado_mensual}%` : '-'}</span>
-                                            </div>
-                                            <div className="text-xs text-slate-500 flex justify-between gap-4">
-                                                <span>Rentabilidad Cont.:</span>
-                                                <span className="font-medium text-slate-700">{inv.rentabilidad_contrato ? `${inv.rentabilidad_contrato}%` : '-'}</span>
-                                            </div>
-                                            <div className="text-xs text-slate-500 flex justify-between gap-4 mt-1 border-t border-slate-100 pt-1">
-                                                <span>Liq. Capital:</span>
-                                                <span className="font-medium text-blue-600">{formatCOP(inv.liquidacion_diaria_capital)}</span>
-                                            </div>
-                                            <div className="text-xs text-slate-500 flex justify-between gap-4">
-                                                <span>Liq. Rendimiento:</span>
-                                                <span className="font-medium text-emerald-600">{formatCOP(inv.liquidacion_diaria_rendimiento)}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 border-r border-slate-100 align-top">
-                                            <div className="text-xs text-slate-500 flex justify-between gap-4">
-                                                <span>Acciones Otor.:</span>
-                                                <span className="font-medium text-brand-600">{inv.acciones_otorgadas || 0}</span>
-                                            </div>
-                                            <div className="text-xs text-slate-500 flex justify-between gap-4">
-                                                <span>% Partic.:</span>
-                                                <span className="font-medium text-brand-600">{inv.porcentaje_participacion_accionista ? `${inv.porcentaje_participacion_accionista}%` : '0%'}</span>
-                                            </div>
-                                            <div className="text-xs text-slate-500 flex justify-between gap-4 mt-1 border-t border-slate-100 pt-1">
-                                                <span>TusDatos:</span>
-                                                <span className={`font-medium ${inv.tusdatos_status === 'APROBADO' ? 'text-emerald-500' : inv.tusdatos_status === 'RECHAZADO' ? 'text-red-500' : 'text-slate-500'}`}>
-                                                    {inv.tusdatos_status || 'Pendiente'}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 align-top">
-                                            <span className={`inline-block mb-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                inv.estado === 'active' ? 'bg-emerald-100 text-emerald-700' :
-                                                inv.estado === 'completed' ? 'bg-blue-100 text-blue-700' :
-                                                'bg-slate-100 text-slate-700'
-                                            }`}>
-                                                {inv.estado || 'N/A'}
-                                            </span>
-                                            <div className="text-xs text-slate-500">
-                                                <div><span className="font-medium text-slate-700">Inicio:</span> {inv.fecha_ingreso || 'N/A'}</div>
-                                                <div><span className="font-medium text-slate-700">Fin:</span> {inv.fecha_finalizacion || 'N/A'}</div>
-                                                <div><span className="font-medium text-slate-700">Ref:</span> {inv.referido_por || 'N/A'}</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                        </React.Fragment>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
