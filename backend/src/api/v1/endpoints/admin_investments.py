@@ -291,6 +291,10 @@ async def get_all_investments(
                         "is_reinversion": is_reinversion,
                         "observaciones": retiro.observaciones
                     })
+            
+            # Ordenar por fecha descendente (más recientes primero)
+            detalles_retiros_rendimiento.sort(key=lambda x: x['fecha'], reverse=True)
+            detalles_bonos.sort(key=lambda x: x['fecha'], reverse=True)
                     
             capital_devuelto = 0.0
             if inv.fecha_finalizacion and inv.fecha_finalizacion <= FECHA_MIGRACION:
