@@ -48,32 +48,54 @@ async def get_all_investments(
     result = await db.execute(stmt)
     investors = result.scalars().all()
     
-    # Obtener retiros de capital y rendimiento aprobados/procesados para calcular tramos y saldos
+    # Obtener balances actuales de wallet y todos los user_ids primero
+    user_ids = list(set([inv.user_id for inv in investors if inv.user_id]))
+    wallets_by_user = {}
+    if user_ids:
+        wallet_stmt = select(Wallet).where(Wallet.user_id.in_(user_ids))
+        wallet_result = await db.execute(wallet_stmt)
+        all_wallets = wallet_result.scalars().all()
+        for w in all_wallets:
+            wallets_by_user[w.user_id] = float(w.balance or 0.0)
+            
+    # Obtener retiros filtrando por user_id en lugar de investor_id, para atrapar los huérfanos
     investor_ids = [inv.id for inv in investors]
     retiros_capital_by_inv = {}
     retiros_rendimiento_by_inv = {}
     
-    if investor_ids:
+    if user_ids:
+        from sqlalchemy import or_
         retiros_stmt = select(Retiro).where(
-            Retiro.investor_id.in_(investor_ids),
+            or_(Retiro.investor_id.in_(investor_ids), Retiro.user_id.in_(user_ids)),
             Retiro.tipo.in_(['capital', 'rendimiento']),
             Retiro.estado.in_(['aprobado', 'procesado'])
         ).order_by(Retiro.fecha_retiro.asc())
+        
         retiros_result = await db.execute(retiros_stmt)
         all_retiros = retiros_result.scalars().all()
+        
         for r in all_retiros:
-            if r.tipo == 'capital':
-                if r.investor_id not in retiros_capital_by_inv:
-                    retiros_capital_by_inv[r.investor_id] = []
-                retiros_capital_by_inv[r.investor_id].append(r)
-            elif r.tipo == 'rendimiento':
-                if r.investor_id not in retiros_rendimiento_by_inv:
-                    retiros_rendimiento_by_inv[r.investor_id] = []
-                retiros_rendimiento_by_inv[r.investor_id].append(r)
+            # Si no tiene investor_id pero sí user_id, buscamos el primer contrato activo del usuario
+            target_inv_id = r.investor_id
+            if not target_inv_id and r.user_id:
+                user_contracts = [i for i in investors if i.user_id == r.user_id]
+                if user_contracts:
+                    target_inv_id = user_contracts[0].id
+                    
+            if target_inv_id:
+                if r.tipo == 'capital':
+                    if target_inv_id not in retiros_capital_by_inv:
+                        retiros_capital_by_inv[target_inv_id] = []
+                    retiros_capital_by_inv[target_inv_id].append(r)
+                elif r.tipo == 'rendimiento':
+                    if target_inv_id not in retiros_rendimiento_by_inv:
+                        retiros_rendimiento_by_inv[target_inv_id] = []
+                    retiros_rendimiento_by_inv[target_inv_id].append(r)
                 
     # Obtener aceleraciones (bonos)
     accelerations_by_inv = {}
     if investor_ids:
+        # Aceleraciones siempre deberían estar atadas al contrato (investor_id), pero por si acaso
         acc_stmt = select(ContractAcceleration).where(
             ContractAcceleration.investor_id.in_(investor_ids)
         )
@@ -258,9 +280,6 @@ async def get_all_investments(
                 elif retiro.origen == 'billetera' and retiro.metodo_pago == 'wallet':
                     is_reinversion = True
                     
-                if retiro.aprobado_por is None and retiro.procesado_por is None and not is_reinversion:
-                    continue
-                
                 monto = float(retiro.monto or 0.0)
                 if monto > 0:
                     total_retiros_rendimiento += monto
