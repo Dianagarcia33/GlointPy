@@ -25,33 +25,88 @@ export interface Investment {
   paquete: PaqueteInversion;
 }
 
-export interface AdminInvestment {
-  id: number;
-  user_id: number;
+export interface PersonalInfo {
   nombre_completo?: string;
   correo_electronico?: string;
   tipo_documento?: string;
   documento?: string;
+  numero_celular?: string;
+  ciudad?: string;
+  fecha_nacimiento?: string;
+  referido_por?: string;
+  observaciones?: string;
+}
+
+export interface BankAccountInfo {
   banco?: string;
   tipo_cuenta?: string;
   numero_cuenta?: string;
-  codigo_asignado?: string;
+}
+
+export interface LegalRepInfo {
+  nombre?: string;
+  documento?: string;
+  email?: string;
+  telefono?: string;
+}
+
+export interface FinancialInfo {
   paquete_nombre?: string;
-  fecha_ingreso?: string;
-  fecha_finalizacion?: string;
+  paquete_inversion_adquirido?: number;
   total_contrato?: number;
   rendimiento_total_contrato?: number;
+  liquidacion_diaria_capital?: number;
   liquidacion_diaria_rendimiento?: number;
+  rendimiento_aprobado_mensual?: number;
+  rentabilidad_contrato?: number;
+  acciones_otorgadas?: number;
+  valor_total_acciones?: number;
+  porcentaje_participacion_accionista?: number;
   periodo_porcentaje?: number;
   periodo_meses?: number;
   periodo_dias?: number;
-  rendimiento_diario_calculado?: number;
+  dias_contrato?: number;
   dias_generando?: number;
+  rendimiento_diario_calculado?: number;
   rendimiento_producido_hasta_ayer?: number;
   capital_actual?: number;
-  total_bonos?: number;
-  wallet_balance_actual?: number;
   capital_devuelto?: number;
+  saldo_a_migrar?: number;
+  wallet_balance_actual?: number;
+}
+
+export interface KycInfo {
+  status?: string;
+  job_id?: string;
+  report_id?: string;
+  hallazgos?: string;
+  msg?: string;
+  sources?: string;
+  justificacion?: string;
+  evidencia_paths?: string;
+  hallazgos_corregidos?: boolean | number;
+  fecha_correccion?: string;
+  corregido_por?: number;
+  last_check?: string;
+}
+
+export interface AdminInvestment {
+  id: number;
+  user_id: number;
+  codigo_asignado?: string;
+  estado?: string;
+  fecha_ingreso?: string;
+  fecha_finalizacion?: string;
+  created_at?: string;
+  updated_at?: string;
+
+  personal_info: PersonalInfo;
+  bank_account: BankAccountInfo;
+  legal_rep: LegalRepInfo;
+  financial_info: FinancialInfo;
+  kyc_info: KycInfo;
+
+  total_bonos?: number;
   detalles_bonos?: {
     id: number;
     monto: number;
@@ -65,8 +120,7 @@ export interface AdminInvestment {
     monto: number;
     is_reinversion?: boolean;
   }[];
-  saldo_a_migrar?: number;
-    tramos_desglose?: {
+  tramos_desglose?: {
     fecha_inicio: string;
     fecha_fin: string;
     dias: number;
@@ -74,38 +128,6 @@ export interface AdminInvestment {
     rendimiento_diario: number;
     producido: number;
   }[];
-  referido_por?: string;
-  numero_celular?: string;
-  ciudad?: string;
-  estado?: string;
-  acciones_otorgadas?: number;
-  rendimiento_aprobado_mensual?: number;
-  rentabilidad_contrato?: number;
-  liquidacion_diaria_capital?: number;
-  valor_total_acciones?: number;
-  porcentaje_participacion_accionista?: number;
-  tusdatos_job_id?: string;
-  tusdatos_status?: string;
-  tusdatos_report_id?: string;
-  tusdatos_hallazgos?: string;
-  tusdatos_msg?: string;
-  tusdatos_sources?: string;
-  tusdatos_justificacion?: string;
-  tusdatos_evidencia_paths?: string;
-  tusdatos_hallazgos_corregidos?: boolean | number;
-  tusdatos_fecha_correccion?: string;
-  tusdatos_corregido_por?: number;
-  tusdatos_last_check?: string;
-  fecha_nacimiento?: string;
-  dias_contrato?: number;
-  paquete_inversion_adquirido?: number | string;
-  observaciones?: string;
-  representante_legal_nombre?: string;
-  representante_legal_documento?: string;
-  representante_legal_email?: string;
-  representante_legal_telefono?: string;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export const investmentsService = {

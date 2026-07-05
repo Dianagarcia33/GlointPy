@@ -10,7 +10,7 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { WalletsPage } from "./features/wallets/pages/WalletsPage";
 import { InvestmentsPage } from "./features/investments/pages/InvestmentsPage";
-import { RealInvestmentsPage } from "./features/investments/pages/RealInvestmentsPage";
+import { AdminInvestmentsPage } from "./features/admin/investments/pages/AdminInvestmentsPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
@@ -50,7 +50,7 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="wallet" element={<WalletsPage />} />
         <Route path="investments" element={<InvestmentsPage />} />
-        <Route path="investments/reales" element={<RealInvestmentsPage />} />
+        <Route path="investments/reales" element={<AdminInvestmentsPage />} />
         <Route path="system-events" element={<SystemEventsPage />} />
       </Route>
 
