@@ -1,6 +1,7 @@
 import asyncio
 from sqlalchemy import text
 from src.core.database import async_session_maker, engine, Base
+import src.models.user  # Add this to register users table
 import src.models.user_bank_account  # Import to register with Base
 
 async def migrate_bank_accounts():
