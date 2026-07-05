@@ -22,11 +22,13 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 
   const response = await fetch(`${API_URL}${endpoint}`, config);
 
-  // Interceptar error 401 (No Autorizado)
-  // En el futuro, aquí llamaremos a /refresh silenciosamente con la Cookie HttpOnly
   if (response.status === 401) {
-      useAuthStore.getState().logout();
-      throw new Error("Sesión expirada o credenciales inválidas");
+      if (endpoint.includes('/login')) {
+          throw new Error("Credenciales inválidas. Verifica tu correo y contraseña.");
+      } else {
+          useAuthStore.getState().logout();
+          throw new Error("Tu sesión ha expirado. Por favor, inicia sesión nuevamente.");
+      }
   }
 
   if (!response.ok) {
