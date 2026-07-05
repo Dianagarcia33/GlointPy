@@ -66,7 +66,7 @@ export interface AdminInvestment {
     is_reinversion?: boolean;
   }[];
   saldo_a_migrar?: number;
-  tramos_desglose?: {
+    tramos_desglose?: {
     fecha_inicio: string;
     fecha_fin: string;
     dias: number;
@@ -74,6 +74,38 @@ export interface AdminInvestment {
     rendimiento_diario: number;
     producido: number;
   }[];
+  referido_por?: string;
+  numero_celular?: string;
+  ciudad?: string;
+  estado?: string;
+  acciones_otorgadas?: number;
+  rendimiento_aprobado_mensual?: number;
+  rentabilidad_contrato?: number;
+  liquidacion_diaria_capital?: number;
+  valor_total_acciones?: number;
+  porcentaje_participacion_accionista?: number;
+  tusdatos_job_id?: string;
+  tusdatos_status?: string;
+  tusdatos_report_id?: string;
+  tusdatos_hallazgos?: string;
+  tusdatos_msg?: string;
+  tusdatos_sources?: string;
+  tusdatos_justificacion?: string;
+  tusdatos_evidencia_paths?: string;
+  tusdatos_hallazgos_corregidos?: boolean | number;
+  tusdatos_fecha_correccion?: string;
+  tusdatos_corregido_por?: number;
+  tusdatos_last_check?: string;
+  fecha_nacimiento?: string;
+  dias_contrato?: number;
+  paquete_inversion_adquirido?: number | string;
+  observaciones?: string;
+  representante_legal_nombre?: string;
+  representante_legal_documento?: string;
+  representante_legal_email?: string;
+  representante_legal_telefono?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export const investmentsService = {
