@@ -120,6 +120,7 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
                                         <tr>
                                             <th className="px-3 py-2">Fecha</th>
                                             <th className="px-3 py-2">Monto</th>
+                                            <th className="px-3 py-2 text-center">Origen</th>
                                             <th className="px-3 py-2 text-center">Observaciones</th>
                                         </tr>
                                     </thead>
@@ -128,6 +129,11 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
                                             <tr key={idx} className="hover:bg-slate-50">
                                                 <td className="px-3 py-2 text-slate-600">{formatDate(retiro.fecha)}</td>
                                                 <td className="px-3 py-2 font-medium text-rose-600">-{formatCOP(retiro.monto)}</td>
+                                                <td className="px-3 py-2 text-center text-xs">
+                                                    <span className={`inline-flex px-2 py-0.5 rounded capitalize ${retiro.origen?.toLowerCase() === 'billetera' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                        {retiro.origen || 'N/A'}
+                                                    </span>
+                                                </td>
                                                 <td className="px-3 py-2 text-center text-xs">
                                                     {retiro.observaciones ? 
                                                         <span className="text-slate-600">{retiro.observaciones}</span> : 

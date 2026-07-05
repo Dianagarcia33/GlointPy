@@ -287,6 +287,7 @@ async def get_all_investments(
                         "id": retiro.id,
                         "fecha": fecha_retiro,
                         "monto": monto,
+                        "origen": retiro.origen,
                         "is_reinversion": is_reinversion,
                         "observaciones": retiro.observaciones
                     })

@@ -118,6 +118,7 @@ export interface AdminInvestment {
     id: number;
     fecha: string;
     monto: number;
+    origen: string;
     is_reinversion?: boolean;
     observaciones?: string;
   }[];
