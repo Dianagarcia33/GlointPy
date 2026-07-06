@@ -121,7 +121,7 @@ def process_kyc_documents(front_bytes: bytes, back_bytes: bytes, selfie_bytes: b
         extracted_data = parse_colombian_id_coordinates(response.get('Blocks', []))
     except Exception as e:
         print(f"Error OCR: {e}")
-        raise ValueError("Hubo un problema procesando el documento. Asegúrese de que la imagen sea clara.")
+        raise ValueError(f"Error procesando documento (Textract): {str(e)}")
 
     # 2. Biometría (Rekognition)
     try:
@@ -144,6 +144,6 @@ def process_kyc_documents(front_bytes: bytes, back_bytes: bytes, selfie_bytes: b
         if "No se detectó el mismo rostro" in str(e) or "Similitud facial" in str(e):
             raise
         print(f"Error Rekognition: {e}")
-        raise ValueError("Error al comparar los rostros. Asegúrese de subir fotos claras donde el rostro sea visible.")
+        raise ValueError(f"Error de biometría (Rekognition): {str(e)}")
         
     return extracted_data
