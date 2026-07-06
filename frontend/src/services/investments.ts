@@ -177,6 +177,14 @@ export const investmentsService = {
     return await fetchApi(`/investments/admin/search-user?query=${encodeURIComponent(query)}`);
   },
 
+  getPaquetes: async (): Promise<any[]> => {
+    return await fetchApi('/investments/admin/paquetes');
+  },
+
+  getContractPeriods: async (): Promise<any[]> => {
+    return await fetchApi('/contract-periods');
+  },
+
   createInvestmentForClient: async (data: any) => {
     return await fetchApi('/investments/admin/create-for-client', {
       method: 'POST',

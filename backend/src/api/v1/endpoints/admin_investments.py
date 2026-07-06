@@ -16,6 +16,18 @@ from src.models.paquete_inversion import PaqueteInversion
 
 router = APIRouter()
 
+@router.get("/paquetes")
+async def get_all_paquetes(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obtiene todos los paquetes de inversión"""
+    stmt = select(PaqueteInversion).order_by(PaqueteInversion.id)
+    result = await db.execute(stmt)
+    paquetes = result.scalars().all()
+    return [{"id": p.id, "nombre": p.paquete_accion_adquirido, "acciones": p.acciones_otorgadas} for p in paquetes]
+
+
 @router.get("/all", response_model=List[AdminInvestorResponse])
 async def get_all_investments(
     db: AsyncSession = Depends(get_db),
@@ -811,13 +823,25 @@ async def create_investment_for_client(
             investor.fecha_nacimiento = data.fecha_nacimiento
             
     # Create Investment Request
+    
+    # Manejar paquete personalizado
+    paquete_id = data.paquete_id
+    if not paquete_id:
+        # Si no hay paquete_id, asignamos el primero temporalmente o uno dummy
+        # Idealmente paquete_inversion_id debería ser nullable, pero si no lo es:
+        stmt_pkg = select(PaqueteInversion).limit(1)
+        pkg_res = await db.execute(stmt_pkg)
+        first_pkg = pkg_res.scalar_one_or_none()
+        paquete_id = first_pkg.id if first_pkg else 1
+
     new_request = InvestmentRequest(
         user_id=user_id,
         investor_id=investor.id,
-        paquete_inversion_id=data.paquete_id,
+        paquete_inversion_id=paquete_id,
         monto=data.monto,
         comprobante_path=data.comprobante_path,
-        status="pending"
+        status="pending",
+        extra_data={"contract_period_id": data.contract_period_id, "is_custom_monto": data.paquete_id is None}
     )
     db.add(new_request)
     
@@ -844,7 +868,7 @@ async def update_investment(
     investor_fields = [
         "nombre_completo", "correo_electronico", "tipo_documento", "documento",
         "numero_celular", "ciudad", "fecha_nacimiento", "referido_por", "observaciones",
-        "paquete_inversion_adquirido", "total_contrato", "fecha_ingreso", "fecha_finalizacion"
+        "paquete_inversion_adquirido", "total_contrato", "fecha_ingreso", "fecha_finalizacion", "contract_period_id"
     ]
     
     for field in investor_fields:

@@ -135,6 +135,7 @@ class AdminInvestmentUpdate(BaseModel):
     total_contrato: Optional[Decimal] = None
     fecha_ingreso: Optional[date] = None
     fecha_finalizacion: Optional[date] = None
+    contract_period_id: Optional[int] = None
 
 class AgentInvestmentCreate(BaseModel):
     # Search / New User
@@ -152,7 +153,8 @@ class AgentInvestmentCreate(BaseModel):
     tipo_cuenta: str
     numero_cuenta: str
     # Investment
-    paquete_id: int
+    paquete_id: Optional[int] = None
+    contract_period_id: Optional[int] = None
     monto: Decimal
     comprobante_path: Optional[str] = None
 
