@@ -1,51 +1,101 @@
 import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { UploadCloud, CheckCircle2, AlertCircle, FileText, Loader2, ArrowRight, Camera } from 'lucide-react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
-import { Eye, EyeOff, LockKeyhole, Mail, User } from 'lucide-react';
+import { fetchApi, API_URL } from '../../../services/api';
 
-// Removed DOCUMENT_TYPES as it's no longer needed for auto-detect
+const CITIES = [
+    "Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", 
+    "Bucaramanga", "Manizales", "Pereira", "Cúcuta", "Ibagué", 
+    "Villavicencio", "Santa Marta", "Valledupar", "Montería", "Pasto", "Otra"
+];
 
 export const InvestorRegistrationFlow = () => {
-    const [step, setStep] = useState(1); // 1: Upload, 2: Loading, 3: Form
+    const [step, setStep] = useState(1);
+    
+    // Step 1: KYC Images
     const [frontImage, setFrontImage] = useState<File | null>(null);
     const [backImage, setBackImage] = useState<File | null>(null);
     
-    // Extracted Data Form State
-    const [name, setName] = useState('');
-    const [documentNumber, setDocumentNumber] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    // Extracted / Form Data State
+    const [formData, setFormData] = useState({
+        name: '',
+        documento: '',
+        tipo_documento: 'CC',
+        email: '',
+        password: '',
+        numero_celular: '',
+        ciudad: '',
+        custom_ciudad: '',
+        fecha_nacimiento: '',
+        banco: '',
+        tipo_cuenta: 'Ahorros',
+        numero_cuenta: '',
+        paquete_id: '',
+        monto: '',
+        periodo_id: '',
+        comprobante_path: ''
+    });
+
+    const [kycPaths, setKycPaths] = useState<string[]>([]);
+
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [isCustomMonto, setIsCustomMonto] = useState(false);
+    const [showCustomCity, setShowCustomCity] = useState(false);
+    const [uploadingComprobante, setUploadingComprobante] = useState(false);
 
     const navigate = useNavigate();
     const loginAction = useAuthStore((state) => state.login);
 
-    // Mock OCR Mutation
+    // Fetch Public Config (Paquetes and Periodos)
+    const { data: config } = useQuery({
+        queryKey: ['public-investments-config'],
+        queryFn: () => fetchApi('/auth/public/config')
+    });
+
+    const paquetes = config?.paquetes || [];
+    const periodos = config?.periodos || [];
+
+    // Mock OCR + Real Upload Mutation
     const processOcrMutation = useMutation({
         mutationFn: async () => {
-            // Simulate OCR delay (AWS/Barcode)
-            return new Promise((resolve) => setTimeout(() => resolve({
-                name: 'DIANA PATRICIA PEREZ',
-                documentNumber: '1020304050'
-            }), 3000));
+            // Sube los archivos KYC públicamente
+            const paths = [];
+            if (frontImage) {
+                const fd = new FormData(); fd.append('file', frontImage);
+                const res = await fetchApi('/auth/public/upload-file', { method: 'POST', body: fd });
+                paths.push(res.path);
+            }
+            if (backImage) {
+                const fd = new FormData(); fd.append('file', backImage);
+                const res = await fetchApi('/auth/public/upload-file', { method: 'POST', body: fd });
+                paths.push(res.path);
+            }
+            
+            // Simular OCR local por ahora
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            return {
+                paths,
+                name: '', // Podría venir del OCR
+                documentNumber: ''
+            };
         },
         onSuccess: (data: any) => {
-            setName(data.name);
-            setDocumentNumber(data.documentNumber);
-            setStep(3); // Go to verification form
+            setKycPaths(data.paths);
+            setFormData(prev => ({ ...prev, name: data.name || prev.name, documento: data.documentNumber || prev.documento }));
+            setStep(3); // Pasar a Formulario de Datos Personales
         }
     });
 
-    // Mock Final Registration Mutation
+    // Final Registration Mutation
     const registerMutation = useMutation({
-        mutationFn: async (userData: any) => {
-            return new Promise((resolve) => setTimeout(() => resolve({
-                access_token: 'mock_token',
-                user: { id: 1, name: userData.name, email: userData.email, is_active: true }
-            }), 1500));
+        mutationFn: async (payload: any) => {
+            return await fetchApi('/auth/register-investor', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
         },
         onSuccess: (data: any) => {
             loginAction(data.user, data.access_token);
@@ -55,21 +105,108 @@ export const InvestorRegistrationFlow = () => {
 
     const handleProcessImages = () => {
         if (!frontImage || !backImage) return;
-        setStep(3); // Loading step
+        setStep(2); // Loading step
         processOcrMutation.mutate();
+    };
+
+    const handleComprobanteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        try {
+            setUploadingComprobante(true);
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await fetchApi('/auth/public/upload-file', {
+                method: 'POST',
+                body: fd
+            });
+            setFormData(prev => ({ ...prev, comprobante_path: res.path }));
+        } catch (error) {
+            console.error("Error al subir archivo", error);
+            alert("Error al subir comprobante");
+        } finally {
+            setUploadingComprobante(false);
+        }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        
+        if (name === 'ciudad') {
+            setShowCustomCity(value === 'Otra');
+        }
+
+        if (name === 'paquete_id') {
+            if (value === 'custom') {
+                setIsCustomMonto(true);
+                setFormData(prev => ({ ...prev, paquete_id: value, monto: '' }));
+            } else {
+                setIsCustomMonto(false);
+                const pkg = paquetes.find((p: any) => p.id.toString() === value);
+                const montoVal = pkg ? pkg.nombre.replace(/[^0-9]/g, '') : '';
+                setFormData(prev => ({ ...prev, paquete_id: value, monto: montoVal }));
+            }
+            return;
+        }
+
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleFinalSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!acceptedTerms) return;
-        registerMutation.mutate({ 
-            name, 
-            email, 
-            password, 
-            documentNumber,
-            role: 'investor' 
-        });
+
+        const finalCity = formData.ciudad === 'Otra' ? formData.custom_ciudad : formData.ciudad;
+
+        const payload = {
+            ...formData,
+            ciudad: finalCity,
+            monto: parseFloat(formData.monto),
+            paquete_id: isCustomMonto ? null : parseInt(formData.paquete_id),
+            contract_period_id: parseInt(formData.periodo_id),
+            kyc_docs: kycPaths,
+            fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null
+        };
+
+        registerMutation.mutate(payload);
     };
+
+    // Cálculos
+    const getCalculations = () => {
+        const monto = parseFloat(formData.monto) || 0;
+        const periodo = periodos.find((p: any) => p.id.toString() === formData.periodo_id);
+        
+        if (!monto || !periodo) return null;
+
+        const percentage = periodo.percentage;
+        const months = periodo.months;
+        const days = periodo.days;
+        
+        const rendimientoMensual = monto * (percentage / 100);
+        const rendimientoTotal = rendimientoMensual * months;
+        const rendimientoDiario = days > 0 ? rendimientoTotal / days : 0;
+        const totalContrato = monto + rendimientoTotal;
+
+        return {
+            porcentaje: percentage,
+            meses: months,
+            rendimientoMensual,
+            rendimientoTotal,
+            rendimientoDiario,
+            totalContrato
+        };
+    };
+
+    const formatCOP = (value: number) => {
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: 0
+        }).format(value);
+    };
+
+    const calc = getCalculations();
 
     const FileUploadZone = ({ label, file, onChange }: { label: string, file: File | null, onChange: (f: File) => void }) => (
         <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-slate-300 border-dashed rounded-2xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors group">
@@ -95,17 +232,18 @@ export const InvestorRegistrationFlow = () => {
 
     return (
         <div className="w-full">
+            
             {/* Step 1: Image Upload */}
             {step === 1 && (
                 <div className="space-y-6 animate-fadeIn">
                     <div className="text-center mb-6">
                         <h3 className="text-lg font-bold text-slate-900">Carga tu Documento</h3>
-                        <p className="text-sm text-slate-500">Asegúrate de que haya buena luz y no tenga reflejos.</p>
+                        <p className="text-sm text-slate-500">Para cumplir con la regulación, necesitamos verificar tu identidad.</p>
                     </div>
                     
                     <div className="space-y-4">
-                        <FileUploadZone label="Foto Frontal" file={frontImage} onChange={setFrontImage} />
-                        <FileUploadZone label="Foto Trasera" file={backImage} onChange={setBackImage} />
+                        <FileUploadZone label="Foto Frontal de tu Documento" file={frontImage} onChange={setFrontImage} />
+                        <FileUploadZone label="Foto Trasera de tu Documento" file={backImage} onChange={setBackImage} />
                     </div>
 
                     <div className="flex gap-3">
@@ -114,7 +252,7 @@ export const InvestorRegistrationFlow = () => {
                             disabled={!frontImage || !backImage}
                             className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4"
                         >
-                            Procesar Imágenes
+                            Continuar
                         </button>
                     </div>
                 </div>
@@ -128,126 +266,191 @@ export const InvestorRegistrationFlow = () => {
                         <Loader2 className="w-16 h-16 text-brand-500 animate-spin relative z-10" />
                     </div>
                     <div className="text-center">
-                        <h3 className="text-xl font-bold text-slate-900 mb-2">Validando Documento</h3>
-                        <p className="text-sm text-slate-500">Analizando el tipo de documento y extrayendo datos...</p>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">Procesando Documentos</h3>
+                        <p className="text-sm text-slate-500">Asegurando la calidad de las imágenes...</p>
                     </div>
                 </div>
             )}
 
-            {/* Step 3: Verification & Password */}
+            {/* Steps 3-5: Mega Form */}
             {step === 3 && (
-                <form onSubmit={handleFinalSubmit} className="space-y-5 animate-fadeIn">
-                    <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3 mb-6">
-                        <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                            <h4 className="text-sm font-bold text-green-800">Lectura Exitosa</h4>
-                            <p className="text-xs text-green-700 mt-1">Por favor verifica que tus datos sean correctos.</p>
-                        </div>
-                    </div>
-
+                <form onSubmit={handleFinalSubmit} className="space-y-8 animate-fadeIn max-w-xl mx-auto text-left">
+                    
+                    {/* Section: Personal Info */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Nombre Completo</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <User className="h-5 w-5 text-slate-400" />
+                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                            <User className="w-5 h-5 text-brand-600" /> Datos Personales
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Completo *</label>
+                                <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
                             </div>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="block w-full pl-12 pr-4 py-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-brand-500"
-                                required
-                            />
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Doc.</label>
+                                <select name="tipo_documento" value={formData.tipo_documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                    <option value="CC">Cédula</option>
+                                    <option value="CE">Cédula Extranjería</option>
+                                    <option value="PAS">Pasaporte</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Documento *</label>
+                                <input required type="text" name="documento" value={formData.documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Celular *</label>
+                                <input required type="text" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Ciudad *</label>
+                                <select required name="ciudad" value={formData.ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                    <option value="">Selecciona...</option>
+                                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            {showCustomCity && (
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué ciudad? *</label>
+                                    <input required type="text" name="custom_ciudad" value={formData.custom_ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
+                                </div>
+                            )}
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Nacimiento</label>
+                                <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico *</label>
+                                <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" placeholder="tu@correo.com" />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña *</label>
+                                <div className="relative">
+                                    <input required minLength={8} type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 pr-10" placeholder="Mínimo 8 caracteres" />
+                                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
+                                        {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
+                    {/* Section: Bank Info */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Número de Documento</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <FileText className="h-5 w-5 text-slate-400" />
+                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                            <Landmark className="w-5 h-5 text-brand-600" /> Datos Bancarios para Desembolsos
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Banco *</label>
+                                <input required type="text" name="banco" value={formData.banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
                             </div>
-                            <input
-                                type="text"
-                                value={documentNumber}
-                                onChange={(e) => setDocumentNumber(e.target.value)}
-                                className="block w-full pl-12 pr-4 py-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 focus:ring-2 focus:ring-brand-500"
-                                required
-                            />
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta</label>
+                                <select name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                    <option value="Ahorros">Ahorros</option>
+                                    <option value="Corriente">Corriente</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Número de Cuenta *</label>
+                                <input required type="text" name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
+                            </div>
                         </div>
                     </div>
 
-                    <div className="border-t border-slate-200 my-6 pt-6"></div>
-
+                    {/* Section: Investment Info */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <Mail className="h-5 w-5 text-slate-400 focus-within:text-brand-500" />
+                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                            <CreditCard className="w-5 h-5 text-brand-600" /> Detalles de tu Inversión
+                        </h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Paquete de Inversión *</label>
+                                <select required name="paquete_id" value={formData.paquete_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                    <option value="">Selecciona un paquete...</option>
+                                    {paquetes.map((p: any) => (
+                                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                                    ))}
+                                    <option value="custom">Personalizado (Ingresar Monto)</option>
+                                </select>
                             </div>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-brand-500"
-                                placeholder="tu@correo.com"
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Contraseña</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <LockKeyhole className="h-5 w-5 text-slate-400" />
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Monto a Invertir (COP) *</label>
+                                <input required type="number" min="0" step="1000" name="monto" value={formData.monto} onChange={handleChange} readOnly={!isCustomMonto} className={`w-full px-4 py-2.5 border rounded-lg outline-none ${isCustomMonto ? 'bg-white border-slate-300 focus:ring-2 focus:ring-brand-500' : 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'}`} placeholder="Ej: 5000000" />
                             </div>
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-brand-500"
-                                placeholder="Mínimo 8 caracteres"
-                                required minLength={8}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600"
-                            >
-                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </button>
+
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Plazo del Contrato *</label>
+                                <select required name="periodo_id" value={formData.periodo_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                    <option value="">Selecciona el plazo...</option>
+                                    {periodos.map((p: any) => (
+                                        <option key={p.id} value={p.id}>{p.name} ({p.months} meses al {p.percentage}%)</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {calc && (
+                                <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-brand-900 mt-4 shadow-sm">
+                                    <h4 className="font-bold mb-3 flex items-center gap-2 text-sm">
+                                        <Calculator className="w-4 h-4" /> Proyección de Rendimiento
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p className="text-brand-600/80 text-xs font-semibold uppercase">Rendimiento Mensual</p>
+                                            <p className="font-bold">{formatCOP(calc.rendimientoMensual)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-brand-600/80 text-xs font-semibold uppercase">Rendimiento Total ({calc.meses}m)</p>
+                                            <p className="font-bold">{formatCOP(calc.rendimientoTotal)}</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-3 pt-3 border-t border-brand-200/50 flex justify-between items-center">
+                                        <span className="font-bold text-sm">Capital + Rendimiento:</span>
+                                        <span className="font-black text-lg text-brand-700">{formatCOP(calc.totalContrato)}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="pt-2">
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Comprobante de Pago *</label>
+                                <p className="text-xs text-slate-500 mb-2">Por favor sube la foto o el PDF de tu consignación.</p>
+                                <input required={!formData.comprobante_path} type="file" accept="image/*,.pdf" onChange={handleComprobanteUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer" />
+                                {formData.comprobante_path && <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Comprobante adjunto correctamente.</p>}
+                                {uploadingComprobante && <p className="text-xs text-brand-500 mt-2 flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin"/> Subiendo...</p>}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex items-start gap-3 mt-4">
-                        <div className="flex items-center h-5 mt-0.5">
-                            <input
-                                id="terms"
-                                type="checkbox"
-                                checked={acceptedTerms}
-                                onChange={(e) => setAcceptedTerms(e.target.checked)}
-                                className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 bg-white"
-                                required
-                            />
+                    {registerMutation.isError && (
+                        <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
+                            <span className="mt-0.5">⚠️</span>
+                            <span>{registerMutation.error instanceof Error ? registerMutation.error.message : 'Error al registrar tu inversión'}</span>
                         </div>
-                        <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
-                            Acepto los{' '}
-                            <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600">
-                                Términos y Condiciones
-                            </Link>
-                            {' '}y Política de Privacidad.
-                        </label>
-                    </div>
+                    )}
 
-                    <button
-                        type="submit"
-                        disabled={registerMutation.isPending || !acceptedTerms}
-                        className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all mt-6"
-                    >
-                        {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
-                        Crear Cuenta de Inversionista
-                    </button>
+                    <div className="border-t border-slate-200 pt-6">
+                        <div className="flex items-start gap-3 mb-6">
+                            <div className="flex items-center h-5 mt-0.5">
+                                <input id="terms" type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500" required />
+                            </div>
+                            <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
+                                Declaro que la información proporcionada es verdadera y acepto los{' '}
+                                <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600">Términos y Condiciones</Link>
+                                {' '}de inversión.
+                            </label>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={registerMutation.isPending || !acceptedTerms || uploadingComprobante || !formData.comprobante_path}
+                            className="w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98]"
+                        >
+                            {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
+                            {registerMutation.isPending ? 'Enviando Solicitud...' : 'Confirmar y Enviar Solicitud'}
+                        </button>
+                    </div>
                 </form>
             )}
         </div>

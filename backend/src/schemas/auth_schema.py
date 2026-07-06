@@ -21,3 +21,23 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+from datetime import date
+
+class InvestorRegisterRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    tipo_documento: str
+    documento: str
+    numero_celular: str
+    ciudad: str
+    fecha_nacimiento: Optional[date] = None
+    banco: str
+    tipo_cuenta: str
+    numero_cuenta: str
+    paquete_id: Optional[int] = None
+    monto: float
+    comprobante_path: Optional[str] = None
+    contract_period_id: Optional[int] = None
+    kyc_docs: Optional[List[str]] = None

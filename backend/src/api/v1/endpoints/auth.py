@@ -161,3 +161,166 @@ async def logout(response: Response):
         samesite="lax",
     )
     return {"message": "Sesión cerrada correctamente"}
+
+from src.schemas.auth_schema import InvestorRegisterRequest
+from src.core.security import get_password_hash
+from src.models.investment_request import InvestmentRequest
+from src.models.role import Role
+
+@router.post("/register-investor", response_model=Token)
+async def register_investor(
+    response: Response,
+    request: InvestorRegisterRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. Validate if user exists
+    existing_user_stmt = select(User).where(User.email == request.email)
+    existing_user_res = await db.execute(existing_user_stmt)
+    if existing_user_res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ya existe un usuario con ese correo electrónico"
+        )
+    
+    # 2. Create User
+    hashed_password = get_password_hash(request.password)
+    new_user = User(
+        name=request.name,
+        email=request.email,
+        password=hashed_password,
+        is_active=True
+    )
+    db.add(new_user)
+    await db.flush()
+
+    # 3. Assign role
+    role_stmt = select(Role).where(Role.name == "investor")
+    role_res = await db.execute(role_stmt)
+    inv_role = role_res.scalar_one_or_none()
+    if inv_role:
+        new_user.roles.append(inv_role)
+        await db.flush()
+
+    # 4. Construct extra_data
+    extra_data = {
+        "periodo_contrato": request.contract_period_id,
+        "is_custom_monto": request.paquete_id is None,
+        "kyc_docs": request.kyc_docs,
+        "personal_info": {
+            "nombre_completo": request.name,
+            "correo_electronico": request.email,
+            "tipo_documento": request.tipo_documento,
+            "documento": request.documento,
+            "numero_celular": request.numero_celular,
+            "ciudad": request.ciudad,
+            "fecha_nacimiento": request.fecha_nacimiento.isoformat() if request.fecha_nacimiento else None
+        },
+        "bank_info": {
+            "banco": request.banco,
+            "tipo_cuenta": request.tipo_cuenta,
+            "numero_cuenta": request.numero_cuenta
+        }
+    }
+
+    # 5. Handle package ID (if none, assign dummy 1 to satisfy constraint temporarily)
+    paquete_id = request.paquete_id
+    if not paquete_id:
+        # Import PaqueteInversion here to avoid circular imports if needed
+        from src.models.paquete_inversion import PaqueteInversion
+        stmt_pkg = select(PaqueteInversion).limit(1)
+        pkg_res = await db.execute(stmt_pkg)
+        first_pkg = pkg_res.scalar_one_or_none()
+        paquete_id = first_pkg.id if first_pkg else 1
+
+    # 6. Create InvestmentRequest
+    new_request = InvestmentRequest(
+        user_id=new_user.id,
+        paquete_inversion_id=paquete_id,
+        monto=request.monto,
+        comprobante_path=request.comprobante_path,
+        status="pending",
+        extra_data=extra_data
+    )
+    db.add(new_request)
+    
+    await db.commit()
+    await db.refresh(new_user)
+
+    # 7. Generate tokens and login
+    access_token = create_access_token(subject=new_user.id)
+    refresh_token = create_refresh_token(subject=new_user.id)
+    
+    is_secure = settings.ENVIRONMENT != "development"
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        max_age=7200,
+    )
+
+    # Re-fetch user with roles to format response correctly
+    from sqlalchemy.orm import selectinload
+    stmt = select(User).options(selectinload(User.roles)).where(User.id == new_user.id)
+    res = await db.execute(stmt)
+    full_user = res.scalars().first()
+    
+    roles_list = [r.name for r in full_user.roles] if hasattr(full_user, 'roles') and full_user.roles else []
+    
+    from src.schemas.auth_schema import UserResponse
+    user_response = UserResponse(
+        id=full_user.id,
+        name=full_user.name,
+        email=full_user.email,
+        is_active=full_user.is_active,
+        roles_list=roles_list,
+        permissions=[]
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user_response
+    }
+
+from src.models.paquete_inversion import PaqueteInversion
+from src.models.contract_period import ContractPeriod
+from fastapi import UploadFile, File
+import shutil
+import os
+from pathlib import Path
+
+@router.get("/public/config")
+async def get_public_config(db: AsyncSession = Depends(get_db)):
+    """Retorna los paquetes y periodos de inversión públicamente para el formulario de registro"""
+    # Paquetes
+    stmt_pkgs = select(PaqueteInversion).order_by(PaqueteInversion.id)
+    res_pkgs = await db.execute(stmt_pkgs)
+    paquetes = res_pkgs.scalars().all()
+    
+    # Periodos
+    stmt_periods = select(ContractPeriod).order_by(ContractPeriod.id)
+    res_periods = await db.execute(stmt_periods)
+    periodos = res_periods.scalars().all()
+    
+    return {
+        "paquetes": paquetes,
+        "periodos": periodos
+    }
+
+@router.post("/public/upload-file")
+async def public_upload_file(file: UploadFile = File(...)):
+    """Sube un archivo de forma pública (para el proceso de registro)"""
+    upload_dir = Path("uploads/temp")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_extension = os.path.splitext(file.filename)[1]
+    safe_filename = f"temp_{os.urandom(8).hex()}{file_extension}"
+    file_path = upload_dir / safe_filename
+    
+    with file_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    return {"path": str(file_path)}
+
