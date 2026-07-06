@@ -1,10 +1,10 @@
 import asyncio
 from sqlalchemy import text
-from src.core.database import async_session
+from src.core.database import async_session_maker
 
 async def prepare_database():
     print("Iniciando la preparación de la base de datos para migración...")
-    async with async_session() as session:
+    async with async_session_maker() as session:
         try:
             # 1. Crear tablas de respaldo para wallets (clonando la estructura real)
             print("Creando tablas wallet_respaldo y wallet_transactions_respaldo...")
