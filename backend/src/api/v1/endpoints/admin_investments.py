@@ -777,103 +777,115 @@ async def create_investment_for_client(
     current_user: User = Depends(get_current_user)
 ):
     from src.models.security import Role
+    from sqlalchemy.exc import IntegrityError
     
-    user_id = data.user_id
-    if not user_id:
-        # Create new user
-        # Hash password (using documento)
-        hashed_pw = pwd_context.hash(data.documento)
-        new_user = User(
-            name=data.name,
-            email=data.email,
-            password=hashed_pw,
-            is_active=True
-        )
-        db.add(new_user)
-        await db.flush()
-        user_id = new_user.id
-        
-        # Assign investor role
-        role_stmt = select(Role).where(Role.name == "investor")
-        role_res = await db.execute(role_stmt)
-        inv_role = role_res.scalar_one_or_none()
-        if inv_role:
-            new_user.roles.append(inv_role)
+    try:
+        user_id = data.user_id
+        if not user_id:
+            # Create new user
+            # Hash password (using documento)
+            hashed_pw = pwd_context.hash(data.documento)
+            new_user = User(
+                name=data.name,
+                email=data.email,
+                password=hashed_pw,
+                is_active=True
+            )
+            db.add(new_user)
             await db.flush()
+            user_id = new_user.id
             
-    # Check or create bank account
-    bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == user_id)
-    bank_res = await db.execute(bank_stmt)
-    bank_acc = bank_res.scalar_one_or_none()
-    
-    if not bank_acc:
-        bank_acc = UserBankAccount(
-            user_id=user_id,
-            banco=data.banco,
-            tipo_cuenta=data.tipo_cuenta,
-            numero_cuenta=data.numero_cuenta,
-            is_primary=True
-        )
-        db.add(bank_acc)
-    else:
-        bank_acc.banco = data.banco
-        bank_acc.tipo_cuenta = data.tipo_cuenta
-        bank_acc.numero_cuenta = data.numero_cuenta
+            # Assign investor role
+            role_stmt = select(Role).where(Role.name == "investor")
+            role_res = await db.execute(role_stmt)
+            inv_role = role_res.scalar_one_or_none()
+            if inv_role:
+                new_user.roles.append(inv_role)
+                await db.flush()
+                
+        # Check or create bank account
+        bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == user_id)
+        bank_res = await db.execute(bank_stmt)
+        bank_acc = bank_res.scalar_one_or_none()
         
-    # Check or create investor
-    inv_stmt = select(Investor).where(Investor.user_id == user_id)
-    inv_res = await db.execute(inv_stmt)
-    investor = inv_res.scalar_one_or_none()
+        if not bank_acc:
+            bank_acc = UserBankAccount(
+                user_id=user_id,
+                banco=data.banco,
+                tipo_cuenta=data.tipo_cuenta,
+                numero_cuenta=data.numero_cuenta,
+                is_primary=True
+            )
+            db.add(bank_acc)
+        else:
+            bank_acc.banco = data.banco
+            bank_acc.tipo_cuenta = data.tipo_cuenta
+            bank_acc.numero_cuenta = data.numero_cuenta
+            
+        # Check or create investor
+        inv_stmt = select(Investor).where(Investor.user_id == user_id)
+        inv_res = await db.execute(inv_stmt)
+        investor = inv_res.scalar_one_or_none()
+        
+        if not investor:
+            investor = Investor(
+                user_id=user_id,
+                nombre_completo=data.name,
+                correo_electronico=data.email,
+                tipo_documento=data.tipo_documento,
+                documento=data.documento,
+                numero_celular=data.numero_celular,
+                ciudad=data.ciudad,
+                fecha_nacimiento=data.fecha_nacimiento
+            )
+            db.add(investor)
+            await db.flush()
+        else:
+            investor.tipo_documento = data.tipo_documento
+            investor.documento = data.documento
+            investor.numero_celular = data.numero_celular
+            investor.ciudad = data.ciudad
+            if data.fecha_nacimiento:
+                investor.fecha_nacimiento = data.fecha_nacimiento
+                
+        if data.kyc_docs:
+            investor.tusdatos_evidencia_paths = data.kyc_docs
+                
+        # Create Investment Request
+        
+        # Manejar paquete personalizado
+        paquete_id = data.paquete_id
+        if not paquete_id:
+            # Si no hay paquete_id, asignamos el primero temporalmente o uno dummy
+            stmt_pkg = select(PaqueteInversion).limit(1)
+            pkg_res = await db.execute(stmt_pkg)
+            first_pkg = pkg_res.scalar_one_or_none()
+            paquete_id = first_pkg.id if first_pkg else 1
     
-    if not investor:
-        investor = Investor(
+        new_request = InvestmentRequest(
             user_id=user_id,
-            nombre_completo=data.name,
-            correo_electronico=data.email,
-            tipo_documento=data.tipo_documento,
-            documento=data.documento,
-            numero_celular=data.numero_celular,
-            ciudad=data.ciudad,
-            fecha_nacimiento=data.fecha_nacimiento
+            investor_id=investor.id,
+            paquete_inversion_id=paquete_id,
+            monto=data.monto,
+            comprobante_path=data.comprobante_path,
+            status="pending",
+            extra_data={"contract_period_id": data.contract_period_id, "is_custom_monto": data.paquete_id is None, "kyc_docs": data.kyc_docs}
         )
-        db.add(investor)
-        await db.flush()
-    else:
-        investor.tipo_documento = data.tipo_documento
-        investor.documento = data.documento
-        investor.numero_celular = data.numero_celular
-        investor.ciudad = data.ciudad
-        if data.fecha_nacimiento:
-            investor.fecha_nacimiento = data.fecha_nacimiento
-            
-    if data.kyc_docs:
-        investor.tusdatos_evidencia_paths = data.kyc_docs
-            
-    # Create Investment Request
-    
-    # Manejar paquete personalizado
-    paquete_id = data.paquete_id
-    if not paquete_id:
-        # Si no hay paquete_id, asignamos el primero temporalmente o uno dummy
-        # Idealmente paquete_inversion_id debería ser nullable, pero si no lo es:
-        stmt_pkg = select(PaqueteInversion).limit(1)
-        pkg_res = await db.execute(stmt_pkg)
-        first_pkg = pkg_res.scalar_one_or_none()
-        paquete_id = first_pkg.id if first_pkg else 1
-
-    new_request = InvestmentRequest(
-        user_id=user_id,
-        investor_id=investor.id,
-        paquete_inversion_id=paquete_id,
-        monto=data.monto,
-        comprobante_path=data.comprobante_path,
-        status="pending",
-        extra_data={"contract_period_id": data.contract_period_id, "is_custom_monto": data.paquete_id is None, "kyc_docs": data.kyc_docs}
-    )
-    db.add(new_request)
-    
-    await db.commit()
-    return {"message": "Solicitud de inversión creada exitosamente"}
+        db.add(new_request)
+        
+        await db.commit()
+        return {"message": "Solicitud de inversión creada exitosamente"}
+        
+    except IntegrityError as e:
+        await db.rollback()
+        error_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
+        if "Duplicate entry" in error_msg:
+            raise HTTPException(status_code=400, detail="El correo electrónico o documento ya se encuentra registrado.")
+        raise HTTPException(status_code=400, detail="Error de integridad de datos.")
+    except Exception as e:
+        await db.rollback()
+        print(f"Error in create_investment_for_client: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error inesperado: {str(e)}")
 
 @router.put("/{investment_id}")
 async def update_investment(

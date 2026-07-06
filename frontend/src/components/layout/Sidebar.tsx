@@ -49,7 +49,7 @@ export const Sidebar = () => {
                 </Can>
 
                 {/* MODULO DE AUDITORIA */}
-                <Can permission="investments:view">
+                <Can permission="admin.investments.requests">
                     <NavLink
                         to="/dashboard/investments"
                         end
@@ -69,7 +69,7 @@ export const Sidebar = () => {
                 </Can>
 
                 {/* MODULO DE INVERSIONES - Tablas Reales */}
-                <Can permission="investments:view">
+                <Can permission="admin.investments.reales">
                     <NavLink
                         to="/dashboard/investments/reales"
                         className={({ isActive }) => `
