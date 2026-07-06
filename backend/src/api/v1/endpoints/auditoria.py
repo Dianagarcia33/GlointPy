@@ -526,7 +526,7 @@ async def migrate_simple_users(
                 bancos_a_crear.append(UserBankAccount(
                     user_id=row.user_id,
                     banco=row.banco,
-                    tipo_cuenta=row.tipo_cuenta,
+                    tipo_cuenta=row.tipo_cuenta if row.tipo_cuenta else 'Ahorros',
                     numero_cuenta=row.numero_cuenta,
                     is_primary=True
                 ))
@@ -840,7 +840,7 @@ async def migrar_batch(
                 bancos_a_crear.append(UserBankAccount(
                     user_id=row.user_id,
                     banco=row.banco,
-                    tipo_cuenta=row.tipo_cuenta,
+                    tipo_cuenta=row.tipo_cuenta if row.tipo_cuenta else 'Ahorros',
                     numero_cuenta=row.numero_cuenta,
                     is_primary=True
                 ))
