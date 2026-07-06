@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Role, RoleCreate, RoleUpdate, Permission } from '../../../../../services/roles';
+import { Role, RoleCreate, RoleUpdate, Permission } from '../../../../services/roles';
 import { X, Check, Shield } from 'lucide-react';
 
 interface RoleModalProps {
@@ -30,7 +30,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         setName(role.name);
         setDisplayName(role.display_name);
         setDescription(role.description || '');
-        setSelectedPermissions(role.permissions.map(p => p.id));
+        setSelectedPermissions(role.permissions.map((p: Permission) => p.id));
       } else {
         setName('');
         setDisplayName('');
@@ -154,11 +154,11 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                     </h4>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-96 overflow-y-auto pr-2">
-                      {Object.entries(groupedPermissions).map(([module, perms]) => (
+                      {(Object.entries(groupedPermissions) as [string, Permission[]][]).map(([module, perms]) => (
                         <div key={module} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                           <h5 className="font-semibold text-brand-700 mb-3 capitalize text-sm">{module}</h5>
                           <div className="space-y-3">
-                            {perms.map(perm => (
+                            {perms.map((perm: Permission) => (
                               <label key={perm.id} className="flex items-start gap-3 cursor-pointer group">
                                 <div className="relative flex items-center justify-center mt-0.5">
                                   <input

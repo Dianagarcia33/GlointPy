@@ -1,4 +1,4 @@
-import { fetchApi } from '../utils/api';
+import { fetchApi } from './api';
 
 export interface Permission {
   id: number;

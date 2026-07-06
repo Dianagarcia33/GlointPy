@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { rolesService, Role, Permission } from '../../../../services/roles';
 import { Loader2, Plus, Edit2, Shield, AlertCircle } from 'lucide-react';
 import { RoleModal } from '../components/RoleModal';
-import { Can } from '../../../../components/Can';
+import { Can } from '../../../../components/security/Can';
 
 export const AdminRolesPage: React.FC = () => {
     const [roles, setRoles] = useState<Role[]>([]);
