@@ -239,7 +239,7 @@ async def get_simple_users(
                 ir.id as investment_id,
                 u.name as user_name,
                 u.email as user_email,
-                u.document as user_document,
+                ir.documento as user_document,
                 ir.fecha_ingreso,
                 ir.fecha_finalizacion as original_fecha_finalizacion,
                 ir.liquidacion_diaria_rendimiento,
