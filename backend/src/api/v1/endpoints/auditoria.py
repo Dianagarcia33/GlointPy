@@ -395,11 +395,11 @@ async def migrate_simple_users(
                 ir.fecha_ingreso,
                 ir.fecha_finalizacion as original_fecha_finalizacion,
                 ir.liquidacion_diaria_rendimiento,
-                ir.contract_period_id,
-                ir.periodo_contrato,
-                ir.dias_contrato,
-                ir.total_contrato,
-                p.paquete_accion_adquirido as paquete_nombre
+                p.paquete_accion_adquirido as paquete_nombre,
+                p.porcentaje_mensual_rendimiento,
+                p.periodo_contrato_meses,
+                p.periodo_contrato_dias,
+                p.contract_period_id
             FROM investor_respaldo ir
             LEFT JOIN paquetes_inversion p ON ir.paquete_inversion_adquirido = p.id
             WHERE ir.user_id IN ({user_ids_str})
@@ -522,29 +522,25 @@ async def migrate_simple_users(
                 try:
                     capital = float(row.paquete_nombre)
                 except:
-                    capital = float(row.total_contrato or 0.0)
+                    capital = 0.0
             else:
-                capital = float(row.total_contrato or 0.0)
+                capital = 0.0
                 
             period_obj = None
             if row.contract_period_id:
                 period_obj = periods_dict.get(row.contract_period_id)
-            if not period_obj and row.periodo_contrato:
-                period_obj = periods_dict.get(row.periodo_contrato)
-                if not period_obj:
-                    for p in all_periods:
-                        if p.days == row.periodo_contrato or p.months == row.periodo_contrato:
-                            period_obj = p
-                            break
-            if not period_obj and row.dias_contrato:
+            if not period_obj and row.periodo_contrato_dias:
                 for p in all_periods:
-                    if p.days == row.dias_contrato:
+                    if p.days == row.periodo_contrato_dias or p.months == row.periodo_contrato_meses:
                         period_obj = p
                         break
                         
             base_yield = float(row.liquidacion_diaria_rendimiento or 0)
-            if base_yield == 0 and period_obj and capital > 0:
-                base_yield = (capital * (float(period_obj.percentage) / 100) * int(period_obj.months)) / int(period_obj.days)
+            if base_yield == 0 and capital > 0:
+                if period_obj:
+                    base_yield = (capital * (float(period_obj.percentage) / 100) * int(period_obj.months)) / int(period_obj.days)
+                elif row.porcentaje_mensual_rendimiento and row.periodo_contrato_meses and row.periodo_contrato_dias:
+                    base_yield = (capital * (float(row.porcentaje_mensual_rendimiento) / 100) * int(row.periodo_contrato_meses)) / int(row.periodo_contrato_dias)
             
             fecha_ingreso = row.fecha_ingreso
             original_fin = row.original_fecha_finalizacion
