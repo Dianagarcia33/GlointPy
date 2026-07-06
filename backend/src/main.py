@@ -14,17 +14,26 @@ import src.models.investment_request
 import src.models.paquete_inversion
 
 from src.core.database import get_db
-from src.api.v1.endpoints import auth, wallets, investments, contract_periods, admin, admin_investments, admin_system_events
+from src.api.v1.endpoints import auth, wallets, investments, contract_periods, admin, admin_investments, admin_system_events, bank_accounts, auditoria, roles
 
-app = FastAPI(title="Gloint V2 API")
+app = FastAPI(
+    title="GlointPy API",
+    description="API para el sistema de inversiones GlointPy",
+    version="1.0.0"
+)
 
+# Rutas de la API
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(wallets.router, prefix="/api/v1/wallets", tags=["wallets"])
+app.include_router(bank_accounts.router, prefix="/api/v1/bank-accounts", tags=["bank_accounts"])
 app.include_router(investments.router, prefix="/api/v1/investments", tags=["investments"])
 app.include_router(admin_investments.router, prefix="/api/v1/investments/admin", tags=["admin_investments"])
 app.include_router(contract_periods.router, prefix="/api/v1/contract-periods", tags=["contract_periods"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(admin_system_events.router, prefix="/api/v1/admin-system-events", tags=["admin_system_events"])
+app.include_router(auditoria.router, prefix="/api/v1/auditoria", tags=["auditoria"])
+app.include_router(roles.router, prefix="/api/v1/roles", tags=["roles"])
+
 
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
 app.add_middleware(

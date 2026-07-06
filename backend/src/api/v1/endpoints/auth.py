@@ -42,33 +42,59 @@ async def login(
         except Exception:
             setattr(user, 'roles_list', [])
 
-        # 2. Extraer permisos usando una consulta SQL directa 100% a prueba de balas
+        # 2. Extraer permisos desde la columna JSON de la tabla roles
         from sqlalchemy import text
         try:
             perms_result = await db.execute(
                 text("""
-                    SELECT p.name 
-                    FROM permissions p
-                    JOIN role_permissions rp ON p.id = rp.permission_id
-                    JOIN user_roles ur ON rp.role_id = ur.role_id
+                    SELECT r.permissions 
+                    FROM roles r
+                    JOIN user_roles ur ON r.id = ur.role_id
                     WHERE ur.user_id = :user_id
                 """),
                 {"user_id": user.id}
             )
-            raw_permissions = set([row[0] for row in perms_result.fetchall()])
+            raw_permissions = set()
+            for row in perms_result.fetchall():
+                import json
+                perms_data = row[0]
+                if isinstance(perms_data, str):
+                    try:
+                        perms_list = json.loads(perms_data)
+                    except:
+                        perms_list = []
+                elif isinstance(perms_data, list):
+                    perms_list = perms_data
+                else:
+                    perms_list = []
+                    
+                for p in perms_list:
+                    raw_permissions.add(p)
             
             # Mezclar con overrides individuales si existen
-            if user.permissions_override:
-                for perm_name, is_granted in user.permissions_override.items():
-                    if is_granted:
-                        raw_permissions.add(perm_name)
-                    elif perm_name in raw_permissions:
-                        raw_permissions.remove(perm_name)
-                        
+            try:
+                if hasattr(user, 'permissions_override') and user.permissions_override:
+                    import json
+                    overrides = user.permissions_override
+                    if isinstance(overrides, str):
+                        try:
+                            overrides = json.loads(overrides)
+                        except:
+                            overrides = {}
+                            
+                    if isinstance(overrides, dict):
+                        for perm_name, is_granted in overrides.items():
+                            if is_granted:
+                                raw_permissions.add(perm_name)
+                            elif perm_name in raw_permissions:
+                                raw_permissions.remove(perm_name)
+            except Exception as override_err:
+                print(f"Ignorando error en permissions_override: {override_err}")
+                
             user.permissions = list(raw_permissions)
         except Exception as perm_error:
             print(f"Error cargando permisos: {perm_error}")
-            user.permissions = []
+            user.permissions = list(raw_permissions) if 'raw_permissions' in locals() else []
             
     if not user:
         raise HTTPException(

@@ -4,6 +4,7 @@ sqlalchemy==2.0.29
 alembic
 pydantic[email]
 pydantic-settings
+cryptography
 python-jose[cryptography]
 passlib[bcrypt]==1.7.4
 bcrypt==3.2.2

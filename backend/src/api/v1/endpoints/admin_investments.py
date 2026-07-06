@@ -10,7 +10,9 @@ from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
 from src.models.investor import Investor
 from src.models.wallet import Wallet
-from src.schemas.admin_investments import AdminInvestorResponse
+from src.schemas.admin_investments import AdminInvestorResponse, AdminInvestmentRequestResponse
+from src.models.investment_request import InvestmentRequest
+from src.models.paquete_inversion import PaqueteInversion
 
 router = APIRouter()
 
@@ -42,38 +44,60 @@ async def get_all_investments(
 
     # Obtener todos los inversores con su usuario y paquete
     stmt = select(Investor).options(
-        selectinload(Investor.user),
+        selectinload(Investor.user).selectinload(User.bank_accounts),
         selectinload(Investor.paquete)
-    ).order_by(Investor.user_id, Investor.fecha_ingreso.desc())
+    ).order_by(func.length(Investor.codigo_asignado).desc(), Investor.codigo_asignado.desc())
     result = await db.execute(stmt)
     investors = result.scalars().all()
     
-    # Obtener retiros de capital y rendimiento aprobados/procesados para calcular tramos y saldos
+    # Obtener balances actuales de wallet y todos los user_ids primero
+    user_ids = list(set([inv.user_id for inv in investors if inv.user_id]))
+    wallets_by_user = {}
+    if user_ids:
+        wallet_stmt = select(Wallet).where(Wallet.user_id.in_(user_ids))
+        wallet_result = await db.execute(wallet_stmt)
+        all_wallets = wallet_result.scalars().all()
+        for w in all_wallets:
+            wallets_by_user[w.user_id] = float(w.balance or 0.0)
+            
+    # Obtener retiros filtrando por user_id en lugar de investor_id, para atrapar los huérfanos
     investor_ids = [inv.id for inv in investors]
     retiros_capital_by_inv = {}
     retiros_rendimiento_by_inv = {}
     
-    if investor_ids:
+    if user_ids:
+        from sqlalchemy import or_
         retiros_stmt = select(Retiro).where(
-            Retiro.investor_id.in_(investor_ids),
+            or_(Retiro.investor_id.in_(investor_ids), Retiro.user_id.in_(user_ids)),
             Retiro.tipo.in_(['capital', 'rendimiento']),
             Retiro.estado.in_(['aprobado', 'procesado'])
         ).order_by(Retiro.fecha_retiro.asc())
+        
         retiros_result = await db.execute(retiros_stmt)
         all_retiros = retiros_result.scalars().all()
+        
         for r in all_retiros:
-            if r.tipo == 'capital':
-                if r.investor_id not in retiros_capital_by_inv:
-                    retiros_capital_by_inv[r.investor_id] = []
-                retiros_capital_by_inv[r.investor_id].append(r)
-            elif r.tipo == 'rendimiento':
-                if r.investor_id not in retiros_rendimiento_by_inv:
-                    retiros_rendimiento_by_inv[r.investor_id] = []
-                retiros_rendimiento_by_inv[r.investor_id].append(r)
+            # Si no tiene investor_id pero sí user_id, buscamos el primer contrato activo del usuario
+            target_inv_id = r.investor_id
+            if not target_inv_id and r.user_id:
+                user_contracts = [i for i in investors if i.user_id == r.user_id]
+                if user_contracts:
+                    target_inv_id = user_contracts[0].id
+                    
+            if target_inv_id:
+                if r.tipo == 'capital':
+                    if target_inv_id not in retiros_capital_by_inv:
+                        retiros_capital_by_inv[target_inv_id] = []
+                    retiros_capital_by_inv[target_inv_id].append(r)
+                elif r.tipo == 'rendimiento':
+                    if target_inv_id not in retiros_rendimiento_by_inv:
+                        retiros_rendimiento_by_inv[target_inv_id] = []
+                    retiros_rendimiento_by_inv[target_inv_id].append(r)
                 
     # Obtener aceleraciones (bonos)
     accelerations_by_inv = {}
     if investor_ids:
+        # Aceleraciones siempre deberían estar atadas al contrato (investor_id), pero por si acaso
         acc_stmt = select(ContractAcceleration).where(
             ContractAcceleration.investor_id.in_(investor_ids)
         )
@@ -94,233 +118,357 @@ async def get_all_investments(
         for w in all_wallets:
             wallets_by_user[w.user_id] = float(w.balance or 0.0)
     
+    from src.schemas.admin_investments import AdminInvestorResponse
+    import traceback
+    
     response_list = []
     for inv in investors:
-        nombre = inv.nombre_completo
-        correo = inv.correo_electronico
-        
-        if inv.user:
-            # Construir nombre desde la tabla users si está disponible
-            if hasattr(inv.user, 'name') and inv.user.name:
-                nombre = inv.user.name
-            elif hasattr(inv.user, 'first_name') and inv.user.first_name:
-                nombre = f"{inv.user.first_name} {getattr(inv.user, 'last_name', '')}".strip()
-            if inv.user.email:
-                correo = inv.user.email
-                
-        # Nombre del paquete (Valor del paquete)
-        paquete_nombre = "0"
-        if inv.paquete and inv.paquete.paquete_accion_adquirido:
-            paquete_nombre = inv.paquete.paquete_accion_adquirido
-
-        # Datos del periodo (revisando ambas columnas para compatibilidad)
-        periodo_porcentaje = None
-        periodo_meses = None
-        periodo_dias = None
-        
-        period_obj = None
-        if inv.contract_period_id:
-            period_obj = periods_dict.get(inv.contract_period_id)
+        try:
+            nombre = inv.nombre_completo
+            correo = inv.correo_electronico
             
-        if not period_obj and inv.periodo_contrato:
-            period_obj = periods_dict.get(inv.periodo_contrato)
-            if not period_obj:
-                # Fallback: periodo_contrato might store days or months instead of ID
+            if inv.user:
+                # Construir nombre desde la tabla users si está disponible
+                if hasattr(inv.user, 'name') and inv.user.name:
+                    nombre = inv.user.name
+                elif hasattr(inv.user, 'first_name') and inv.user.first_name:
+                    nombre = f"{inv.user.first_name} {getattr(inv.user, 'last_name', '')}".strip()
+                if inv.user.email:
+                    correo = inv.user.email
+                    
+            # Nombre del paquete (Valor del paquete)
+            paquete_nombre = "0"
+            if inv.paquete and inv.paquete.paquete_accion_adquirido:
+                paquete_nombre = str(inv.paquete.paquete_accion_adquirido)
+    
+            # Datos del periodo (revisando ambas columnas para compatibilidad)
+            periodo_porcentaje = None
+            periodo_meses = None
+            periodo_dias = None
+            
+            period_obj = None
+            if inv.contract_period_id:
+                period_obj = periods_dict.get(inv.contract_period_id)
+                
+            if not period_obj and inv.periodo_contrato:
+                period_obj = periods_dict.get(inv.periodo_contrato)
+                if not period_obj:
+                    for p in all_periods:
+                        if p.days == inv.periodo_contrato or p.months == inv.periodo_contrato:
+                            period_obj = p
+                            break
+                            
+            if not period_obj and inv.dias_contrato:
                 for p in all_periods:
-                    if p.days == inv.periodo_contrato or p.months == inv.periodo_contrato:
+                    if p.days == inv.dias_contrato:
                         period_obj = p
                         break
-                        
-        if not period_obj and inv.dias_contrato:
-            for p in all_periods:
-                if p.days == inv.dias_contrato:
-                    period_obj = p
-                    break
-        
-        if period_obj:
-            periodo_porcentaje = period_obj.percentage
-            periodo_meses = period_obj.months
-            periodo_dias = period_obj.days
             
-        # Cálculos de Fase 2: Rendimientos
-        rendimiento_diario_calculado = 0.0
-        dias_generando = 0
-        rendimiento_producido_hasta_ayer = 0.0
-        
-        # El capital real inicial es el nombre del paquete si es numérico (total_contrato tiene el total final esperado)
-        capital = 0.0
-        if paquete_nombre:
-            try:
-                capital = float(paquete_nombre)
-            except ValueError:
-                # Si no es numérico, intentamos derivarlo del total_contrato si es que existía una fórmula (no muy seguro)
-                # pero para este caso el usuario dice que usemos el valor del paquete.
+            if period_obj:
+                periodo_porcentaje = period_obj.percentage
+                periodo_meses = period_obj.months
+                periodo_dias = period_obj.days
+                
+            # Cálculos de Fase 2: Rendimientos
+            rendimiento_diario_calculado = 0.0
+            dias_generando = 0
+            rendimiento_producido_hasta_ayer = 0.0
+            
+            capital = 0.0
+            if paquete_nombre:
+                try:
+                    capital = float(paquete_nombre)
+                except ValueError:
+                    capital = float(inv.total_contrato or 0.0)
+            else:
                 capital = float(inv.total_contrato or 0.0)
-        else:
-            capital = float(inv.total_contrato or 0.0)
+                
+            FECHA_MIGRACION = datetime(2026, 6, 29).date()
             
-        # Fecha tope estricta indicada por el usuario: 29 de junio de 2026
-        FECHA_MIGRACION = datetime(2026, 6, 29).date()
-        
-        capital_actual = capital
-        tramos_desglose = []
-        
-        if capital > 0 and periodo_porcentaje and periodo_meses and periodo_dias and inv.fecha_ingreso:
-            fecha_fin_calculo = FECHA_MIGRACION
-            if inv.fecha_finalizacion and inv.fecha_finalizacion < FECHA_MIGRACION:
-                fecha_fin_calculo = inv.fecha_finalizacion
-                
-            current_capital = capital
-            current_start_date = inv.fecha_ingreso
-            total_producido = 0.0
+            capital_actual = capital
+            tramos_desglose = []
             
-            # Traer retiros del inversor
-            retiros_capital = retiros_capital_by_inv.get(inv.id, [])
-            
-            for retiro in retiros_capital:
-                fecha_retiro = retiro.fecha_retiro or retiro.fecha_solicitud
-                
-                # Ignoramos si el retiro es post fecha fin
-                if not fecha_retiro or fecha_retiro > fecha_fin_calculo:
-                    continue
-                
-                # Ajustar si el retiro es pre fecha inicio (error de datos)
-                if fecha_retiro < current_start_date:
-                    fecha_retiro = current_start_date
-                
-                # Tramo antes del retiro
-                dias_tramo = (fecha_retiro - current_start_date).days
-                if dias_tramo > 0:
-                    rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
-                    producido_tramo = dias_tramo * rendimiento_tramo
-                    total_producido += producido_tramo
-                    dias_generando += dias_tramo
+            if capital > 0 and periodo_porcentaje and periodo_meses and periodo_dias and inv.fecha_ingreso:
+                fecha_fin_calculo = FECHA_MIGRACION
+                if inv.fecha_finalizacion and inv.fecha_finalizacion < FECHA_MIGRACION:
+                    fecha_fin_calculo = inv.fecha_finalizacion
                     
-                    tramos_desglose.append({
-                        "fecha_inicio": current_start_date,
-                        "fecha_fin": fecha_retiro,
-                        "dias": dias_tramo,
-                        "capital_base": current_capital,
-                        "rendimiento_diario": rendimiento_tramo,
-                        "producido": producido_tramo
-                    })
+                current_capital = capital
+                current_start_date = inv.fecha_ingreso
+                total_producido = 0.0
                 
-                # Aplicar retiro al capital
-                monto_retiro = float(retiro.monto or 0.0)
-                current_capital -= monto_retiro
-                if current_capital < 0:
-                    current_capital = 0.0
+                retiros_capital = retiros_capital_by_inv.get(inv.id, [])
+                
+                for retiro in retiros_capital:
+                    fecha_retiro = retiro.fecha_retiro or retiro.fecha_solicitud
                     
-                current_start_date = fecha_retiro
-
-            # Tramo final
-            if current_start_date < fecha_fin_calculo:
-                dias_tramo = (fecha_fin_calculo - current_start_date).days
-                if dias_tramo > 0:
-                    rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
-                    producido_tramo = dias_tramo * rendimiento_tramo
-                    total_producido += producido_tramo
-                    dias_generando += dias_tramo
+                    if not fecha_retiro or fecha_retiro > fecha_fin_calculo:
+                        continue
                     
-                    tramos_desglose.append({
-                        "fecha_inicio": current_start_date,
-                        "fecha_fin": fecha_fin_calculo,
-                        "dias": dias_tramo,
-                        "capital_base": current_capital,
-                        "rendimiento_diario": rendimiento_tramo,
-                        "producido": producido_tramo
-                    })
-            
-            capital_actual = current_capital
-            rendimiento_diario_calculado = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
-            
-        # Calcular los bonos de aceleración
-        accelerations = accelerations_by_inv.get(inv.id, [])
-        total_bonos = 0.0
-        detalles_bonos = []
-        for acc in accelerations:
-            bono = float(acc.bonus_amount or 0.0)
-            if bono > 0:
-                total_bonos += bono
-                detalles_bonos.append({
-                    "id": acc.id,
-                    "monto": bono,
-                    "dias_reducidos": float(acc.days_to_reduce or 0.0),
-                    "fecha": acc.created_at
-                })
-        
-        # El producido final es lo generado por el tiempo + los bonos
-        rendimiento_producido_hasta_ayer = total_producido + total_bonos
-            
-        # Calcular los retiros de rendimiento hasta la fecha tope
-        retiros_rendimiento = retiros_rendimiento_by_inv.get(inv.id, [])
-        total_retiros_rendimiento = 0.0
-        detalles_retiros_rendimiento = []
-        for retiro in retiros_rendimiento:
-            fecha_retiro = retiro.fecha_retiro or retiro.fecha_solicitud
-            # Ignorar si el retiro es post fecha de migración o es un cargue positivo (monto < 0)
-            if not fecha_retiro or fecha_retiro > FECHA_MIGRACION:
-                continue
-                
-            # Determinar si es una reinversión
-            is_reinversion = False
-            obs = (retiro.observaciones or "").upper()
-            if "REINVERSIÓN" in obs or "REINVERSION" in obs:
-                is_reinversion = True
-            elif retiro.origen == 'billetera' and retiro.metodo_pago == 'wallet':
-                is_reinversion = True
-                
-            # Ignorar las transferencias automáticas a la wallet (no tienen aprobación de administrador)
-            # EXCEPTO si son reinversiones, las cuales SÍ deben descontarse del saldo final.
-            if retiro.aprobado_por is None and retiro.procesado_por is None and not is_reinversion:
-                continue
-            
-            monto = float(retiro.monto or 0.0)
-            if monto > 0:
-                total_retiros_rendimiento += monto
-                detalles_retiros_rendimiento.append({
-                    "id": retiro.id,
-                    "fecha": fecha_retiro,
-                    "monto": monto,
-                    "is_reinversion": is_reinversion
-                })
-                
-        # Capital Devuelto (si el contrato ya finalizó)
-        capital_devuelto = 0.0
-        if inv.fecha_finalizacion and inv.fecha_finalizacion <= FECHA_MIGRACION:
-            capital_devuelto = float(capital_actual)
-
-        saldo_a_migrar = rendimiento_producido_hasta_ayer + capital_devuelto - total_retiros_rendimiento
-
-        response_list.append({
-            "id": inv.id,
-            "user_id": inv.user_id,
-            "nombre_completo": nombre,
-            "correo_electronico": correo,
-            "codigo_asignado": inv.codigo_asignado,
-            "paquete_nombre": paquete_nombre,
-            "fecha_ingreso": inv.fecha_ingreso,
-            "fecha_finalizacion": inv.fecha_finalizacion,
-            "total_contrato": inv.total_contrato,
-            "rendimiento_total_contrato": inv.rendimiento_total_contrato,
-            "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento,
-            "periodo_porcentaje": periodo_porcentaje,
-            "periodo_meses": periodo_meses,
-            "periodo_dias": periodo_dias,
-            "rendimiento_diario_calculado": rendimiento_diario_calculado,
-            "dias_generando": dias_generando,
-            "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer,
-            "capital_actual": capital_actual,
-            "total_bonos": total_bonos,
-            "detalles_bonos": detalles_bonos,
-            "total_retiros_rendimiento": total_retiros_rendimiento,
-            "detalles_retiros_rendimiento": detalles_retiros_rendimiento,
-            "saldo_a_migrar": saldo_a_migrar,
-            "wallet_balance_actual": wallets_by_user.get(inv.user_id, 0.0),
-            "capital_devuelto": capital_devuelto,
-            "tramos_desglose": tramos_desglose
-        })
+                    if fecha_retiro < current_start_date:
+                        fecha_retiro = current_start_date
+                    
+                    dias_tramo = (fecha_retiro - current_start_date).days + 1
+                    if dias_tramo > 0:
+                        rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
+                        producido_tramo = dias_tramo * rendimiento_tramo
+                        total_producido += producido_tramo
+                        dias_generando += dias_tramo
+                        
+                        tramos_desglose.append({
+                            "fecha_inicio": current_start_date,
+                            "fecha_fin": fecha_retiro,
+                            "dias": dias_tramo,
+                            "capital_base": current_capital,
+                            "rendimiento_diario": rendimiento_tramo,
+                            "producido": producido_tramo
+                        })
+                    
+                    monto_retiro = float(retiro.monto or 0.0)
+                    current_capital -= monto_retiro
+                    if current_capital < 0:
+                        current_capital = 0.0
+                        
+                    current_start_date = fecha_retiro + timedelta(days=1)
     
+                if current_start_date <= fecha_fin_calculo:
+                    dias_tramo = (fecha_fin_calculo - current_start_date).days + 1
+                    if dias_tramo > 0:
+                        rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
+                        producido_tramo = dias_tramo * rendimiento_tramo
+                        total_producido += producido_tramo
+                        dias_generando += dias_tramo
+                        
+                        tramos_desglose.append({
+                            "fecha_inicio": current_start_date,
+                            "fecha_fin": fecha_fin_calculo,
+                            "dias": dias_tramo,
+                            "capital_base": current_capital,
+                            "rendimiento_diario": rendimiento_tramo,
+                            "producido": producido_tramo
+                        })
+                
+                capital_actual = current_capital
+                rendimiento_diario_calculado = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
+                
+            accelerations = accelerations_by_inv.get(inv.id, [])
+            total_bonos = 0.0
+            detalles_bonos = []
+            for acc in accelerations:
+                bono = float(acc.bonus_amount or 0.0)
+                if bono > 0:
+                    total_bonos += bono
+                    detalles_bonos.append({
+                        "id": acc.id,
+                        "monto": bono,
+                        "dias_reducidos": float(acc.days_to_reduce or 0.0),
+                        "fecha": acc.created_at
+                    })
+            
+            rendimiento_producido_hasta_ayer = total_producido + total_bonos
+                
+            retiros_rendimiento = retiros_rendimiento_by_inv.get(inv.id, [])
+            total_retiros_rendimiento = 0.0
+            detalles_retiros_rendimiento = []
+            for retiro in retiros_rendimiento:
+                fecha_retiro = retiro.fecha_retiro or retiro.fecha_solicitud
+                if not fecha_retiro or fecha_retiro > FECHA_MIGRACION:
+                    continue
+                    
+                is_reinversion = False
+                obs = (retiro.observaciones or "").upper()
+                if "REINVERSIÓN" in obs or "REINVERSION" in obs:
+                    is_reinversion = True
+                elif retiro.origen == 'billetera' and retiro.metodo_pago == 'wallet':
+                    is_reinversion = True
+                    
+                monto = float(retiro.monto or 0.0)
+                if monto > 0:
+                    total_retiros_rendimiento += monto
+                    detalles_retiros_rendimiento.append({
+                        "id": retiro.id,
+                        "fecha": fecha_retiro,
+                        "monto": monto,
+                        "origen": retiro.origen,
+                        "is_reinversion": is_reinversion,
+                        "observaciones": retiro.observaciones
+                    })
+            
+            # Ordenar por fecha descendente (más recientes primero)
+            detalles_retiros_rendimiento.sort(key=lambda x: x['fecha'], reverse=True)
+            detalles_bonos.sort(key=lambda x: x['fecha'], reverse=True)
+                    
+            capital_devuelto = 0.0
+            if inv.fecha_finalizacion and inv.fecha_finalizacion <= FECHA_MIGRACION:
+                capital_devuelto = float(capital_actual)
+    
+            saldo_a_migrar = rendimiento_producido_hasta_ayer + capital_devuelto - total_retiros_rendimiento
+    
+            banco = None
+            tipo_cuenta = None
+            numero_cuenta = None
+            
+            try:
+                if inv.user and hasattr(inv.user, 'bank_accounts') and inv.user.bank_accounts:
+                    primary_acc = next((acc for acc in inv.user.bank_accounts if acc.is_primary), inv.user.bank_accounts[0])
+                    banco = primary_acc.banco
+                    tipo_cuenta = primary_acc.tipo_cuenta
+                    numero_cuenta = primary_acc.numero_cuenta
+            except Exception as sql_err:
+                print(f"Error SQL al cargar bancos de usuario {inv.user_id}: {sql_err}")
+                db.rollback()
+    
+            data_dict = {
+                "id": inv.id,
+                "user_id": inv.user_id,
+                "codigo_asignado": inv.codigo_asignado,
+                "estado": getattr(inv, 'estado', None),
+                "fecha_ingreso": inv.fecha_ingreso,
+                "fecha_finalizacion": inv.fecha_finalizacion,
+                "created_at": getattr(inv, 'created_at', None),
+                "updated_at": getattr(inv, 'updated_at', None),
+                
+                "personal_info": {
+                    "nombre_completo": nombre,
+                    "correo_electronico": correo,
+                    "tipo_documento": getattr(inv, 'tipo_documento', None),
+                    "documento": getattr(inv, 'documento', None),
+                    "numero_celular": getattr(inv, 'numero_celular', None),
+                    "ciudad": getattr(inv, 'ciudad', None),
+                    "fecha_nacimiento": getattr(inv, 'fecha_nacimiento', None),
+                    "referido_por": getattr(inv, 'referido_por', None),
+                    "observaciones": getattr(inv, 'observaciones', None),
+                },
+                "bank_account": {
+                    "banco": banco,
+                    "tipo_cuenta": tipo_cuenta,
+                    "numero_cuenta": numero_cuenta,
+                },
+                "legal_rep": {
+                    "nombre": getattr(inv, 'representante_legal_nombre', None),
+                    "documento": getattr(inv, 'representante_legal_documento', None),
+                    "email": getattr(inv, 'representante_legal_email', None),
+                    "telefono": getattr(inv, 'representante_legal_telefono', None),
+                },
+                "financial_info": {
+                    "paquete_nombre": paquete_nombre,
+                    "paquete_inversion_adquirido": getattr(inv, 'paquete_inversion_adquirido', None),
+                    "total_contrato": inv.total_contrato,
+                    "rendimiento_total_contrato": inv.rendimiento_total_contrato,
+                    "liquidacion_diaria_capital": getattr(inv, 'liquidacion_diaria_capital', None),
+                    "liquidacion_diaria_rendimiento": inv.liquidacion_diaria_rendimiento,
+                    "rendimiento_aprobado_mensual": getattr(inv, 'rendimiento_aprobado_mensual', None),
+                    "rentabilidad_contrato": getattr(inv, 'rentabilidad_contrato', None),
+                    "acciones_otorgadas": getattr(inv, 'acciones_otorgadas', None),
+                    "valor_total_acciones": getattr(inv, 'valor_total_acciones', None),
+                    "porcentaje_participacion_accionista": getattr(inv, 'porcentaje_participacion_accionista', None),
+                    "periodo_porcentaje": periodo_porcentaje,
+                    "periodo_meses": periodo_meses,
+                    "periodo_dias": periodo_dias,
+                    "dias_contrato": getattr(inv, 'dias_contrato', None),
+                    "dias_generando": dias_generando,
+                    "rendimiento_diario_calculado": rendimiento_diario_calculado,
+                    "rendimiento_producido_hasta_ayer": rendimiento_producido_hasta_ayer,
+                    "capital_actual": capital_actual,
+                    "capital_devuelto": capital_devuelto,
+                    "saldo_a_migrar": saldo_a_migrar,
+                    "wallet_balance_actual": wallets_by_user.get(inv.user_id, 0.0),
+                },
+                "kyc_info": {
+                    "status": getattr(inv, 'tusdatos_status', None),
+                    "job_id": getattr(inv, 'tusdatos_job_id', None),
+                    "report_id": getattr(inv, 'tusdatos_report_id', None),
+                    "hallazgos": getattr(inv, 'tusdatos_hallazgos', None),
+                    "msg": getattr(inv, 'tusdatos_msg', None),
+                    "sources": getattr(inv, 'tusdatos_sources', None),
+                    "justificacion": getattr(inv, 'tusdatos_justificacion', None),
+                    "evidencia_paths": getattr(inv, 'tusdatos_evidencia_paths', None),
+                    "hallazgos_corregidos": getattr(inv, 'tusdatos_hallazgos_corregidos', None),
+                    "fecha_correccion": getattr(inv, 'tusdatos_fecha_correccion', None),
+                    "corregido_por": getattr(inv, 'tusdatos_corregido_por', None),
+                    "last_check": getattr(inv, 'tusdatos_last_check', None),
+                },
+                
+                "total_bonos": total_bonos,
+                "detalles_bonos": detalles_bonos,
+                "total_retiros_rendimiento": total_retiros_rendimiento,
+                "detalles_retiros_rendimiento": detalles_retiros_rendimiento,
+                "tramos_desglose": tramos_desglose,
+            }
+            
+            # Validación manual para prevenir Error 500
+            parsed_item = AdminInvestorResponse(**data_dict)
+            response_list.append(parsed_item)
+            
+        except Exception as e:
+            print(f"Error procesando inversion ID {getattr(inv, 'id', 'Desconocido')}: {e}")
+            traceback.print_exc()
+            db.rollback()
+    
+    return response_list
+
+@router.get("/requests", response_model=List[AdminInvestmentRequestResponse])
+async def get_all_investment_requests(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene todas las solicitudes de inversión para el módulo de administración.
+    Requiere permiso de administrador (admin.investments.requests).
+    """
+    from sqlalchemy.orm import selectinload
+    
+    # Hacer JOIN con users y paquetes para tener la información completa
+    stmt = (
+        select(InvestmentRequest)
+        .options(
+            selectinload(InvestmentRequest.user),
+            selectinload(InvestmentRequest.paquete)
+        )
+        .order_by(InvestmentRequest.id.desc())
+    )
+    
+    result = await db.execute(stmt)
+    requests = result.scalars().all()
+    
+    response_list = []
+    import traceback
+    
+    for req in requests:
+        try:
+            usuario_nombre = None
+            usuario_correo = None
+            paquete_nombre = None
+            
+            if req.user:
+                if hasattr(req.user, 'name') and req.user.name:
+                    usuario_nombre = req.user.name
+                elif hasattr(req.user, 'first_name') and req.user.first_name:
+                    usuario_nombre = f"{req.user.first_name} {getattr(req.user, 'last_name', '')}".strip()
+                
+                if req.user.email:
+                    usuario_correo = req.user.email
+                    
+            if req.paquete and req.paquete.paquete_accion_adquirido:
+                paquete_nombre = str(req.paquete.paquete_accion_adquirido)
+                
+            status_str = req.status.value if hasattr(req.status, 'value') else str(req.status)
+                
+            response_list.append(AdminInvestmentRequestResponse(
+                id=req.id,
+                user_id=req.user_id,
+                monto=req.monto,
+                status=status_str,
+                comprobante_path=req.comprobante_path,
+                created_at=req.created_at,
+                usuario_nombre=usuario_nombre,
+                usuario_correo=usuario_correo,
+                paquete_nombre=paquete_nombre
+            ))
+        except Exception as e:
+            print(f"Error procesando solicitud ID {getattr(req, 'id', 'Desconocido')}: {e}")
+            traceback.print_exc()
+        
     return response_list
 
 class NivelacionRequest(BaseModel):

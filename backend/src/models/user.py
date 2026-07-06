@@ -41,3 +41,4 @@ class User(Base):
 
     # Relaciones
     roles = relationship("Role", secondary="user_roles")
+    bank_accounts = relationship("UserBankAccount", back_populates="user", cascade="all, delete-orphan")

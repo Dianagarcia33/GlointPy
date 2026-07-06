@@ -7,7 +7,7 @@ services:
       args:
         # Permitimos inyectar si estamos en mantenimiento o no
         - VITE_MAINTENANCE_MODE=${MAINTENANCE_MODE:-false}
-        - VITE_API_URL=${VITE_API_URL:-https://gloint.com.co/api/v1}
+        - VITE_API_URL=${VITE_API_URL:-https://pruebas.gloint.com.co/api/v1}
     ports:
       # Exponemos en el puerto que el servidor VPS decida (3000 prod, 3001 staging)
       - "${FRONTEND_PORT:-3000}:80"
