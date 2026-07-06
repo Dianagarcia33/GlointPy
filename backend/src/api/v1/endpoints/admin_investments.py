@@ -687,7 +687,7 @@ async def nivelar_wallets_masivo(
     return {"message": f"Se nivelaron {count_updated} wallets exitosamente."}
 
 from src.schemas.admin_investments import UserSearchResponse, AdminInvestmentUpdate, AgentInvestmentCreate
-from src.models.user_bank_accounts import UserBankAccount
+from src.models.user_bank_account import UserBankAccount
 from passlib.context import CryptContext
 import traceback
 
