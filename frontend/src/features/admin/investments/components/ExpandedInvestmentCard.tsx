@@ -23,7 +23,7 @@ const formatDate = (dateString: string | undefined) => {
     return new Date(safeDate).toLocaleDateString('es-CO');
 };
 
-export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ inv, onEdit }) => {
+export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ inv }) => {
     const { 
         personal_info, 
         bank_account, 
