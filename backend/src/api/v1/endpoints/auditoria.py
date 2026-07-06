@@ -497,11 +497,13 @@ async def migrate_simple_users(
         cols_hist = await get_intersecting_columns("contract_histories_respaldo", "contract_histories")
         
         queries = [
+            f"SET FOREIGN_KEY_CHECKS=0",
             f"INSERT INTO investors ({cols_inv}) SELECT {cols_inv} FROM investor_respaldo WHERE user_id IN ({user_ids_str})",
-            f"INSERT INTO retiros ({cols_ret}) SELECT {cols_ret} FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO retiros ({cols_ret}) SELECT {cols_ret} FROM retiros_respaldo WHERE user_id IN ({user_ids_str}) AND investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
             f"INSERT INTO investment_requests ({cols_req}) SELECT {cols_req} FROM investment_requests_respaldo WHERE user_id IN ({user_ids_str})",
             f"INSERT INTO contract_accelerations ({cols_acc}) SELECT {cols_acc} FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
             f"INSERT INTO contract_histories ({cols_hist}) SELECT {cols_hist} FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"SET FOREIGN_KEY_CHECKS=1",
             
             f"DELETE FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
             f"DELETE FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
@@ -813,11 +815,13 @@ async def migrar_batch(
         cols_hist = await get_intersecting_columns("contract_histories_respaldo", "contract_histories")
         
         queries = [
+            f"SET FOREIGN_KEY_CHECKS=0",
             f"INSERT INTO investors ({cols_inv}) SELECT {cols_inv} FROM investor_respaldo WHERE user_id IN ({user_ids_str})",
-            f"INSERT INTO retiros ({cols_ret}) SELECT {cols_ret} FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO retiros ({cols_ret}) SELECT {cols_ret} FROM retiros_respaldo WHERE user_id IN ({user_ids_str}) AND investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
             f"INSERT INTO investment_requests ({cols_req}) SELECT {cols_req} FROM investment_requests_respaldo WHERE user_id IN ({user_ids_str})",
             f"INSERT INTO contract_accelerations ({cols_acc}) SELECT {cols_acc} FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
             f"INSERT INTO contract_histories ({cols_hist}) SELECT {cols_hist} FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"SET FOREIGN_KEY_CHECKS=1",
             
             f"DELETE FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
             f"DELETE FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
