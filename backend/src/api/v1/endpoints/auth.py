@@ -164,7 +164,7 @@ async def logout(response: Response):
 
 from src.schemas.auth_schema import InvestorRegisterRequest
 from src.core.security import get_password_hash
-from src.models.investment_request import InvestmentRequest
+from src.models.investment_request import InvestmentRequest, InvestmentStatus
 from src.models.security import Role
 
 @router.post("/register-investor", response_model=Token)
@@ -232,19 +232,25 @@ async def register_investor(
         first_pkg = pkg_res.scalar_one_or_none()
         paquete_id = first_pkg.id if first_pkg else 1
 
-    # 6. Create InvestmentRequest
-    new_request = InvestmentRequest(
-        user_id=new_user.id,
-        paquete_inversion_id=paquete_id,
-        monto=request.monto,
-        comprobante_path=request.comprobante_path,
-        status="pending",
-        extra_data=extra_data
-    )
-    db.add(new_request)
-    
-    await db.commit()
-    await db.refresh(new_user)
+    try:
+        # 6. Create InvestmentRequest
+        new_request = InvestmentRequest(
+            user_id=new_user.id,
+            paquete_inversion_id=paquete_id,
+            monto=request.monto,
+            comprobante_path=request.comprobante_path,
+            status=InvestmentStatus.pending,
+            extra_data=extra_data
+        )
+        db.add(new_request)
+        
+        await db.commit()
+        await db.refresh(new_user)
+    except Exception as e:
+        await db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error creando solicitud de inversion: {str(e)}")
 
     # 7. Generate tokens and login
     access_token = create_access_token(subject=new_user.id)
