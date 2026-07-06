@@ -25,10 +25,13 @@ def crop_document(image_bytes: bytes) -> bytes:
     Usa OpenCV para encontrar el contorno más grande (el documento)
     y recortar la imagen a sus bordes exactos.
     """
+    if not image_bytes:
+        raise ValueError("El archivo de imagen está vacío.")
+
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
-        return image_bytes
+        raise ValueError("Formato de imagen no soportado o archivo corrupto. Sube una foto en formato JPG o PNG.")
         
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -36,7 +39,8 @@ def crop_document(image_bytes: bytes) -> bytes:
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     if not contours:
-        return image_bytes
+        is_success, buffer = cv2.imencode(".jpg", img)
+        return buffer.tobytes() if is_success else image_bytes
         
     largest_contour = max(contours, key=cv2.contourArea)
     x, y, w, h = cv2.boundingRect(largest_contour)
@@ -49,10 +53,14 @@ def crop_document(image_bytes: bytes) -> bytes:
     
     cropped = img[y1:y2, x1:x2]
     
-    is_success, buffer = cv2.imencode(".jpg", cropped)
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 85]
+    is_success, buffer = cv2.imencode(".jpg", cropped, encode_param)
     if is_success:
         return buffer.tobytes()
-    return image_bytes
+        
+    # Si falla el crop encodear, devuelve la original en jpg
+    is_success, buffer = cv2.imencode(".jpg", img, encode_param)
+    return buffer.tobytes() if is_success else image_bytes
 
 def parse_colombian_id_coordinates(blocks) -> dict:
     """
