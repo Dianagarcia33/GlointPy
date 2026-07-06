@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, User, CreditCard, Landmark, Loader2, Calculator, UploadCloud, CheckCircle2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { investmentsService, AdminInvestment } from '../../../../services/investments';
@@ -230,8 +231,8 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
 
     if (!isOpen || !investment) return null;
 
-    return (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/50 backdrop-blur-sm overflow-hidden">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/50 backdrop-blur-sm overflow-hidden" style={{ margin: 0 }}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl flex flex-col" style={{ maxHeight: 'calc(100vh - 1rem)' }}>
                 <div className="flex-none flex items-center justify-between p-4 md:p-5 border-b border-slate-100 bg-white">
                     <div>
@@ -483,6 +484,7 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
