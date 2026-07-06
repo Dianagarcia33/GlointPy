@@ -630,6 +630,10 @@ async def migrate_simple_users(
         ]
         
         await db.execute(text("SET FOREIGN_KEY_CHECKS=0;"))
+        
+        for q in queries:
+            await db.execute(text(q))
+            
         for wq in wallets_to_insert:
             await db.execute(text(wq))
             
@@ -650,9 +654,6 @@ async def migrate_simple_users(
                 ))
         if bancos_a_crear:
             db.add_all(bancos_a_crear)
-            
-        for q in queries:
-            await db.execute(text(q))
             
         await db.commit()
         return {"migrated": len(req.user_ids), "status": "success"}
