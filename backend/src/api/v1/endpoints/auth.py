@@ -194,9 +194,9 @@ async def register_investor(
     await db.flush()
 
     # 3. Assign role
-    role_stmt = select(Role).where(Role.name == "investor")
+    role_stmt = select(Role).where(Role.name.in_(["investor", "inversionista"]))
     role_res = await db.execute(role_stmt)
-    inv_role = role_res.scalar_one_or_none()
+    inv_role = role_res.scalars().first()
     if inv_role:
         new_user.roles.append(inv_role)
         await db.flush()
