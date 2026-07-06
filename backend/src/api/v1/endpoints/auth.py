@@ -42,20 +42,34 @@ async def login(
         except Exception:
             setattr(user, 'roles_list', [])
 
-        # 2. Extraer permisos usando una consulta SQL directa 100% a prueba de balas
+        # 2. Extraer permisos desde la columna JSON de la tabla roles
         from sqlalchemy import text
         try:
             perms_result = await db.execute(
                 text("""
-                    SELECT p.name 
-                    FROM permissions p
-                    JOIN role_permissions rp ON p.id = rp.permission_id
-                    JOIN user_roles ur ON rp.role_id = ur.role_id
+                    SELECT r.permissions 
+                    FROM roles r
+                    JOIN user_roles ur ON r.id = ur.role_id
                     WHERE ur.user_id = :user_id
                 """),
                 {"user_id": user.id}
             )
-            raw_permissions = set([row[0] for row in perms_result.fetchall()])
+            raw_permissions = set()
+            for row in perms_result.fetchall():
+                import json
+                perms_data = row[0]
+                if isinstance(perms_data, str):
+                    try:
+                        perms_list = json.loads(perms_data)
+                    except:
+                        perms_list = []
+                elif isinstance(perms_data, list):
+                    perms_list = perms_data
+                else:
+                    perms_list = []
+                    
+                for p in perms_list:
+                    raw_permissions.add(p)
             
             # Mezclar con overrides individuales si existen
             if user.permissions_override:
