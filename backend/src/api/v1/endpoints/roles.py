@@ -31,9 +31,35 @@ async def get_all_roles(
     """
     Lista todos los roles con sus permisos asociados.
     """
-    stmt = select(Role).options(selectinload(Role.permissions)).order_by(Role.id)
+    stmt = select(Role).order_by(Role.id)
     result = await db.execute(stmt)
-    return result.scalars().all()
+    roles = result.scalars().all()
+    
+    # Obtener todos los permisos para mapearlos
+    perms_result = await db.execute(select(Permission))
+    all_perms = {p.slug: p for p in perms_result.scalars().all()}
+    
+    response = []
+    for role in roles:
+        role_dict = {
+            "id": role.id,
+            "name": role.name,
+            "display_name": role.display_name,
+            "description": role.description,
+            "is_active": role.is_active,
+            "created_at": role.created_at,
+            "updated_at": role.updated_at,
+            "permissions": []
+        }
+        
+        if isinstance(role.permissions, list):
+            for slug in role.permissions:
+                if slug in all_perms:
+                    role_dict["permissions"].append(all_perms[slug])
+        
+        response.append(role_dict)
+        
+    return response
 
 @router.post("/", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
 async def create_role(
@@ -49,26 +75,37 @@ async def create_role(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Ya existe un rol con este nombre.")
         
+    # Asignar permisos (convertir IDs a slugs)
+    permissions_list = []
+    if role_data.permissions:
+        perms_result = await db.execute(select(Permission).where(Permission.id.in_(role_data.permissions)))
+        permissions_list = [p.slug for p in perms_result.scalars().all()]
+        
     new_role = Role(
         name=role_data.name,
         display_name=role_data.display_name,
         description=role_data.description,
-        is_active=role_data.is_active
+        is_active=role_data.is_active,
+        permissions=permissions_list
     )
-    
-    # Asignar permisos si vienen en la petición
-    if role_data.permissions:
-        perms_result = await db.execute(select(Permission).where(Permission.id.in_(role_data.permissions)))
-        new_role.permissions = perms_result.scalars().all()
         
     db.add(new_role)
     await db.commit()
     await db.refresh(new_role)
     
-    # Cargar relaciones para la respuesta
-    stmt = select(Role).options(selectinload(Role.permissions)).where(Role.id == new_role.id)
-    result = await db.execute(stmt)
-    return result.scalar_one()
+    # Construir respuesta
+    perms_result = await db.execute(select(Permission).where(Permission.slug.in_(permissions_list)))
+    
+    return {
+        "id": new_role.id,
+        "name": new_role.name,
+        "display_name": new_role.display_name,
+        "description": new_role.description,
+        "is_active": new_role.is_active,
+        "created_at": new_role.created_at,
+        "updated_at": new_role.updated_at,
+        "permissions": perms_result.scalars().all()
+    }
 
 @router.put("/{role_id}", response_model=RoleResponse)
 async def update_role(
@@ -80,7 +117,7 @@ async def update_role(
     """
     Actualiza la información de un rol y sus permisos.
     """
-    stmt = select(Role).options(selectinload(Role.permissions)).where(Role.id == role_id)
+    stmt = select(Role).where(Role.id == role_id)
     result = await db.execute(stmt)
     role = result.scalar_one_or_none()
     
@@ -99,7 +136,7 @@ async def update_role(
         perm_ids = update_data.pop('permissions')
         if perm_ids is not None:
             perms_result = await db.execute(select(Permission).where(Permission.id.in_(perm_ids)))
-            role.permissions = perms_result.scalars().all()
+            role.permissions = [p.slug for p in perms_result.scalars().all()]
             
     for key, value in update_data.items():
         setattr(role, key, value)
@@ -107,9 +144,19 @@ async def update_role(
     await db.commit()
     await db.refresh(role)
     
-    # Volver a cargar para la respuesta final
-    result = await db.execute(select(Role).options(selectinload(Role.permissions)).where(Role.id == role_id))
-    return result.scalar_one()
+    # Construir respuesta
+    perms_result = await db.execute(select(Permission).where(Permission.slug.in_(role.permissions if isinstance(role.permissions, list) else [])))
+    
+    return {
+        "id": role.id,
+        "name": role.name,
+        "display_name": role.display_name,
+        "description": role.description,
+        "is_active": role.is_active,
+        "created_at": role.created_at,
+        "updated_at": role.updated_at,
+        "permissions": perms_result.scalars().all()
+    }
 
 @router.delete("/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_role(
