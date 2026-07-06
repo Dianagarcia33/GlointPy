@@ -244,7 +244,7 @@ export const InvestorRegistrationFlow = () => {
                         <p className="text-sm text-slate-500">Para cumplir con la regulación y validar tu identidad.</p>
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                         <FileUploadZone label="Foto Frontal del Documento" file={frontImage} onChange={setFrontImage} />
                         <FileUploadZone label="Foto Trasera del Documento" file={backImage} onChange={setBackImage} />
                         <FileUploadZone label="Selfie (Foto de tu Rostro)" file={selfieImage} onChange={setSelfieImage} />
