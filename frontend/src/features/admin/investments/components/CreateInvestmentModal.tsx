@@ -124,9 +124,6 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
             setShowCustomCity(false);
             setIsCustomMonto(false);
             setKycDocs({ frontal: '', lateral: '', selfie: '' });
-        },
-        onError: (error: any) => {
-            alert(error?.response?.data?.detail || error?.message || "Ocurrió un error al crear la inversión.");
         }
     });
 

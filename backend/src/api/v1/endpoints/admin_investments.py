@@ -777,107 +777,80 @@ async def create_investment_for_client(
     current_user: User = Depends(get_current_user)
 ):
     from src.models.security import Role
-    from sqlalchemy.exc import IntegrityError
     
-    try:
-        user_id = data.user_id
-        if not user_id:
-            # Check if user already exists by email or document
-            existing_user_stmt = select(User).outerjoin(Investor, User.id == Investor.user_id).where(
-                (User.email == data.email) | 
-                (Investor.documento == data.documento)
+    user_id = data.user_id
+    if not user_id:
+        # Check if user already exists to avoid duplicate email errors
+        stmt = select(User).where(User.email == data.email)
+        res = await db.execute(stmt)
+        existing_user = res.scalar_one_or_none()
+        
+        if existing_user:
+            user_id = existing_user.id
+        else:
+            # Create new user
+            hashed_pw = pwd_context.hash(data.documento)
+            new_user = User(
+                name=data.name,
+                email=data.email,
+                password=hashed_pw,
+                is_active=True
             )
-            existing_user_res = await db.execute(existing_user_stmt)
-            existing_user = existing_user_res.scalar_one_or_none()
+            db.add(new_user)
+            await db.flush()
+            user_id = new_user.id
             
-            if existing_user:
-                user_id = existing_user.id
-            else:
-                # Create new user
-                # Hash password (using documento)
-                hashed_pw = pwd_context.hash(data.documento)
-                new_user = User(
-                    name=data.name,
-                    email=data.email,
-                    password=hashed_pw,
-                    is_active=True
-                )
-                db.add(new_user)
+            # Assign investor role
+            role_stmt = select(Role).where(Role.name == "investor")
+            role_res = await db.execute(role_stmt)
+            inv_role = role_res.scalar_one_or_none()
+            if inv_role:
+                new_user.roles.append(inv_role)
                 await db.flush()
-                user_id = new_user.id
                 
-                # Assign investor role
-                role_stmt = select(Role).where(Role.name == "investor")
-                role_res = await db.execute(role_stmt)
-                inv_role = role_res.scalar_one_or_none()
-                if inv_role:
-                    new_user.roles.append(inv_role)
-                    await db.flush()
-                
-        # Manage existing investor if any
-        existing_investor = None
-        if user_id:
-            inv_stmt = select(Investor).where(Investor.user_id == user_id)
-            inv_res = await db.execute(inv_stmt)
-            existing_investor = inv_res.scalar_one_or_none()
-            
-        investor_id = existing_investor.id if existing_investor else None
-                
-        # Create Investment Request
-        
-        # Manejar paquete personalizado
-        paquete_id = data.paquete_id
-        if not paquete_id:
-            # Si no hay paquete_id, asignamos el primero temporalmente o uno dummy
-            stmt_pkg = select(PaqueteInversion).limit(1)
-            pkg_res = await db.execute(stmt_pkg)
-            first_pkg = pkg_res.scalar_one_or_none()
-            paquete_id = first_pkg.id if first_pkg else 1
-            
-        extra_data = {
-            "contract_period_id": data.contract_period_id, 
-            "is_custom_monto": data.paquete_id is None, 
-            "kyc_docs": data.kyc_docs,
-            "personal_info": {
-                "name": data.name,
-                "email": data.email,
-                "tipo_documento": data.tipo_documento,
-                "documento": data.documento,
-                "numero_celular": data.numero_celular,
-                "ciudad": data.ciudad,
-                "fecha_nacimiento": data.fecha_nacimiento.isoformat() if data.fecha_nacimiento else None
-            },
-            "bank_info": {
-                "banco": data.banco,
-                "tipo_cuenta": data.tipo_cuenta,
-                "numero_cuenta": data.numero_cuenta
-            }
+    # Manejar paquete personalizado
+    paquete_id = data.paquete_id
+    if not paquete_id:
+        # Si no hay paquete_id, asignamos el primero temporalmente o uno dummy
+        stmt_pkg = select(PaqueteInversion).limit(1)
+        pkg_res = await db.execute(stmt_pkg)
+        first_pkg = pkg_res.scalar_one_or_none()
+        paquete_id = first_pkg.id if first_pkg else 1
+
+    # Preparar el extra_data con toda la información del cliente
+    # para que al aprobarse la solicitud se puedan crear los perfiles
+    extra_data = {
+        "periodo_contrato": data.contract_period_id,
+        "is_custom_monto": data.paquete_id is None,
+        "kyc_docs": data.kyc_docs,
+        "personal_info": {
+            "nombre_completo": data.name,
+            "correo_electronico": data.email,
+            "tipo_documento": data.tipo_documento,
+            "documento": data.documento,
+            "numero_celular": data.numero_celular,
+            "ciudad": data.ciudad,
+            "fecha_nacimiento": data.fecha_nacimiento.isoformat() if data.fecha_nacimiento else None
+        },
+        "bank_info": {
+            "banco": data.banco,
+            "tipo_cuenta": data.tipo_cuenta,
+            "numero_cuenta": data.numero_cuenta
         }
+    }
+
+    new_request = InvestmentRequest(
+        user_id=user_id,
+        paquete_inversion_id=paquete_id,
+        monto=data.monto,
+        comprobante_path=data.comprobante_path,
+        status="pending",
+        extra_data=extra_data
+    )
+    db.add(new_request)
     
-        new_request = InvestmentRequest(
-            user_id=user_id,
-            investor_id=investor_id,
-            paquete_inversion_id=paquete_id,
-            monto=data.monto,
-            comprobante_path=data.comprobante_path,
-            status="pending",
-            extra_data=extra_data
-        )
-        db.add(new_request)
-        
-        await db.commit()
-        return {"message": "Solicitud de inversión creada exitosamente"}
-        
-    except IntegrityError as e:
-        await db.rollback()
-        error_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
-        if "Duplicate entry" in error_msg:
-            raise HTTPException(status_code=400, detail="El correo electrónico o documento ya se encuentra registrado.")
-        raise HTTPException(status_code=400, detail="Error de integridad de datos.")
-    except Exception as e:
-        await db.rollback()
-        print(f"Error in create_investment_for_client: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Error inesperado: {str(e)}")
+    await db.commit()
+    return {"message": "Solicitud de inversión creada exitosamente"}
 
 @router.put("/{investment_id}")
 async def update_investment(
