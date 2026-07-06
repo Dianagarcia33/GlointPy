@@ -782,74 +782,46 @@ async def create_investment_for_client(
     try:
         user_id = data.user_id
         if not user_id:
-            # Create new user
-            # Hash password (using documento)
-            hashed_pw = pwd_context.hash(data.documento)
-            new_user = User(
-                name=data.name,
-                email=data.email,
-                password=hashed_pw,
-                is_active=True
+            # Check if user already exists by email or document
+            existing_user_stmt = select(User).outerjoin(Investor, User.id == Investor.user_id).where(
+                (User.email == data.email) | 
+                (Investor.documento == data.documento)
             )
-            db.add(new_user)
-            await db.flush()
-            user_id = new_user.id
+            existing_user_res = await db.execute(existing_user_stmt)
+            existing_user = existing_user_res.scalar_one_or_none()
             
-            # Assign investor role
-            role_stmt = select(Role).where(Role.name == "investor")
-            role_res = await db.execute(role_stmt)
-            inv_role = role_res.scalar_one_or_none()
-            if inv_role:
-                new_user.roles.append(inv_role)
+            if existing_user:
+                user_id = existing_user.id
+            else:
+                # Create new user
+                # Hash password (using documento)
+                hashed_pw = pwd_context.hash(data.documento)
+                new_user = User(
+                    name=data.name,
+                    email=data.email,
+                    password=hashed_pw,
+                    is_active=True
+                )
+                db.add(new_user)
                 await db.flush()
+                user_id = new_user.id
                 
-        # Check or create bank account
-        bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == user_id)
-        bank_res = await db.execute(bank_stmt)
-        bank_acc = bank_res.scalar_one_or_none()
-        
-        if not bank_acc:
-            bank_acc = UserBankAccount(
-                user_id=user_id,
-                banco=data.banco,
-                tipo_cuenta=data.tipo_cuenta,
-                numero_cuenta=data.numero_cuenta,
-                is_primary=True
-            )
-            db.add(bank_acc)
-        else:
-            bank_acc.banco = data.banco
-            bank_acc.tipo_cuenta = data.tipo_cuenta
-            bank_acc.numero_cuenta = data.numero_cuenta
+                # Assign investor role
+                role_stmt = select(Role).where(Role.name == "investor")
+                role_res = await db.execute(role_stmt)
+                inv_role = role_res.scalar_one_or_none()
+                if inv_role:
+                    new_user.roles.append(inv_role)
+                    await db.flush()
+                
+        # Manage existing investor if any
+        existing_investor = None
+        if user_id:
+            inv_stmt = select(Investor).where(Investor.user_id == user_id)
+            inv_res = await db.execute(inv_stmt)
+            existing_investor = inv_res.scalar_one_or_none()
             
-        # Check or create investor
-        inv_stmt = select(Investor).where(Investor.user_id == user_id)
-        inv_res = await db.execute(inv_stmt)
-        investor = inv_res.scalar_one_or_none()
-        
-        if not investor:
-            investor = Investor(
-                user_id=user_id,
-                nombre_completo=data.name,
-                correo_electronico=data.email,
-                tipo_documento=data.tipo_documento,
-                documento=data.documento,
-                numero_celular=data.numero_celular,
-                ciudad=data.ciudad,
-                fecha_nacimiento=data.fecha_nacimiento
-            )
-            db.add(investor)
-            await db.flush()
-        else:
-            investor.tipo_documento = data.tipo_documento
-            investor.documento = data.documento
-            investor.numero_celular = data.numero_celular
-            investor.ciudad = data.ciudad
-            if data.fecha_nacimiento:
-                investor.fecha_nacimiento = data.fecha_nacimiento
-                
-        if data.kyc_docs:
-            investor.tusdatos_evidencia_paths = data.kyc_docs
+        investor_id = existing_investor.id if existing_investor else None
                 
         # Create Investment Request
         
@@ -861,15 +833,35 @@ async def create_investment_for_client(
             pkg_res = await db.execute(stmt_pkg)
             first_pkg = pkg_res.scalar_one_or_none()
             paquete_id = first_pkg.id if first_pkg else 1
+            
+        extra_data = {
+            "contract_period_id": data.contract_period_id, 
+            "is_custom_monto": data.paquete_id is None, 
+            "kyc_docs": data.kyc_docs,
+            "personal_info": {
+                "name": data.name,
+                "email": data.email,
+                "tipo_documento": data.tipo_documento,
+                "documento": data.documento,
+                "numero_celular": data.numero_celular,
+                "ciudad": data.ciudad,
+                "fecha_nacimiento": data.fecha_nacimiento.isoformat() if data.fecha_nacimiento else None
+            },
+            "bank_info": {
+                "banco": data.banco,
+                "tipo_cuenta": data.tipo_cuenta,
+                "numero_cuenta": data.numero_cuenta
+            }
+        }
     
         new_request = InvestmentRequest(
             user_id=user_id,
-            investor_id=investor.id,
+            investor_id=investor_id,
             paquete_inversion_id=paquete_id,
             monto=data.monto,
             comprobante_path=data.comprobante_path,
             status="pending",
-            extra_data={"contract_period_id": data.contract_period_id, "is_custom_monto": data.paquete_id is None, "kyc_docs": data.kyc_docs}
+            extra_data=extra_data
         )
         db.add(new_request)
         
