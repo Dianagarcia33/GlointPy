@@ -17,7 +17,8 @@ const formatCOP = (value: number | undefined) => {
 
 const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('es-CO');
+    const safeDate = dateString.includes('T') ? dateString : `${dateString}T12:00:00`;
+    return new Date(safeDate).toLocaleDateString('es-CO');
 };
 
 export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ inv }) => {
