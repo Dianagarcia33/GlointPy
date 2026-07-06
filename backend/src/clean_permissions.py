@@ -38,8 +38,12 @@ async def clean_and_seed():
         ]
         
         for p_data in required_permissions:
-            perm = Permission(**p_data)
-            db.add(perm)
+            stmt = select(Permission).where(Permission.slug == p_data["slug"])
+            result = await db.execute(stmt)
+            existing = result.scalar_one_or_none()
+            if not existing:
+                perm = Permission(**p_data)
+                db.add(perm)
         
         await db.commit()
         
