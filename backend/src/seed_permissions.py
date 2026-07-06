@@ -46,6 +46,7 @@ async def seed_roles_and_permissions():
             {"slug": "investor.create", "name": "Crear Inversionista", "module": "investor", "description": "Permite crear un nuevo inversionista"},
             {"slug": "investor.edit", "name": "Editar Inversionista", "module": "investor", "description": "Permite editar los datos de un inversionista existente"},
             {"slug": "investor.view", "name": "Ver Inversionista", "module": "investor", "description": "Permite ver la información de un inversionista"}
+            # Permisos de inversionista ya incluidos en el seeder
         ]
         # 3. Crear los permisos si no existen y asignarlos al super_admin
         perms_to_assign = []
