@@ -293,7 +293,7 @@ async def get_simple_users(
         res_retiros = await db.execute(query_retiros)
         retiros_dict = {row.user_id: float(row.sum_retiros or 0) for row in res_retiros.fetchall()}
         
-        cutoff_date = date(2024, 6, 29)
+        cutoff_date = date(2026, 6, 29)
         results = []
         
         from datetime import timedelta
@@ -428,7 +428,7 @@ async def migrate_simple_users(
         res_retiros = await db.execute(query_retiros)
         retiros_dict = {row.user_id: float(row.sum_retiros or 0) for row in res_retiros.fetchall()}
         
-        cutoff_date = date(2024, 6, 29)
+        cutoff_date = date(2026, 6, 29)
         from datetime import timedelta
         
         wallets_to_insert = []
