@@ -91,26 +91,29 @@ def parse_colombian_id_coordinates(blocks) -> dict:
                 extracted['tipo_documento'] = 'CE'
                 
             # Número de documento (buscamos un número largo, puede tener puntos)
-            # Removemos puntos y espacios para evaluar
             clean_text = text.replace(".", "").replace(" ", "").replace(",", "")
             numbers = re.findall(r'\b\d{6,11}\b', clean_text)
-            if numbers and not extracted['documento'] and top > 0.05:
-                # Evitar que tome números de la parte super superior (fechas etc)
+            if numbers and not extracted['documento']:
                 extracted['documento'] = numbers[0]
                 
-            # Nombre: Usualmente está en el tercio medio superior (0.2 a 0.6)
-            if 0.2 < top < 0.6 and not re.search(r'\d', text) and len(text) > 3:
-                ignore_words = ["REPUBLICA DE COLOMBIA", "CEDULA DE CIUDADANIA", "IDENTIFICACION", "NOMBRES", "APELLIDOS", "FIRMA"]
+            # Nombre: Buscamos texto que no tenga números, no sea muy corto y no sea palabra clave
+            if not re.search(r'\d', text) and len(text) > 3:
+                ignore_words = ["REPUBLICA", "COLOMBIA", "CEDULA", "CIUDADANIA", "IDENTIFICACION", "NOMBRES", "APELLIDOS", "FIRMA", "FECHA", "NACIMIENTO", "LUGAR", "ESTATURA", "SANGRE", "SEXO", "INDICE", "DERECHO"]
                 if not any(word in text for word in ignore_words):
                     name_lines.append(text)
                     
             # Fecha de Nacimiento (heurística básica para fechas)
-            if re.search(r'\d{2} [A-Z]{3} \d{4}', text):
+            if re.search(r'\d{2} [A-Z]{3} \d{4}', text) or re.search(r'\d{2}/\d{2}/\d{4}', text):
                 extracted['fecha_nacimiento'] = text
     
     if name_lines:
-        # Los dos primeros suelen ser apellidos y luego nombres en la cédula amarilla
-        extracted['name'] = " ".join(name_lines[:2]).strip()
+        # Los nombres/apellidos suelen ser las líneas más largas si hay muchas basuras, o las primeras
+        # Filtremos posibles basuras de 1 sola palabra corta
+        valid_names = [n for n in name_lines if len(n.split()) >= 1]
+        if len(valid_names) >= 2:
+            extracted['name'] = " ".join(valid_names[:2]).strip()
+        elif valid_names:
+            extracted['name'] = valid_names[0]
         
     return extracted
 
