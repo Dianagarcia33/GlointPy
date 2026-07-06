@@ -75,6 +75,27 @@ async def seed_roles_and_permissions():
             print("Permisos asignados al rol 'super_admin'.")
         else:
             print("El rol 'super_admin' ya tenía todos los permisos.")
+            
+        # 5. Asignar los mismos permisos al rol 'admin' (que es el que el usuario usa)
+        stmt = select(Role).where(Role.name == "admin")
+        result = await db.execute(stmt)
+        admin_role = result.scalar_one_or_none()
+        
+        if admin_role:
+            existing_admin_perms = admin_role.permissions if isinstance(admin_role.permissions, list) else []
+            new_admin_perms = []
+            
+            for p in perms_to_assign:
+                if p.slug not in existing_admin_perms:
+                    new_admin_perms.append(p.slug)
+                    
+            if new_admin_perms:
+                admin_role.permissions = existing_admin_perms + new_admin_perms
+                db.add(admin_role)
+                await db.commit()
+                print("Permisos asignados al rol 'admin'.")
+            else:
+                print("El rol 'admin' ya tenía todos los permisos.")
 
 if __name__ == "__main__":
     asyncio.run(seed_roles_and_permissions())
