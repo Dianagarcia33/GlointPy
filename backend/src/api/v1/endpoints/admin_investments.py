@@ -44,7 +44,7 @@ async def get_all_investments(
     stmt = select(Investor).options(
         selectinload(Investor.user).selectinload(User.bank_accounts),
         selectinload(Investor.paquete)
-    ).order_by(Investor.id.asc())
+    ).order_by(Investor.codigo_asignado.desc())
     result = await db.execute(stmt)
     investors = result.scalars().all()
     
