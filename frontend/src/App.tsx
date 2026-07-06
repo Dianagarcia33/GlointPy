@@ -27,9 +27,9 @@ function App() {
   // Inicializamos el "Perro Guardián" de inactividad
   useInactivityTimer();
 
-  // Lógica de mantenimiento
-  const isMaintenanceMode = true; // import.meta.env.VITE_MAINTENANCE_MODE === 'true';
-  if (isMaintenanceMode) return <MaintenancePage />;
+  // Lógica de mantenimiento comentada
+  // const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
+  // if (isMaintenanceMode) return <MaintenancePage />;
 
   return (
     <Routes>
