@@ -468,19 +468,19 @@ async def migrate_simple_users(
             calculated_real_balance = calculated_yields + capital_liberado + sum_bonus - retiros
             
             wallets_to_insert.append(f"DELETE FROM wallets WHERE user_id = {uid};")
-            wallets_to_insert.append(f"INSERT INTO wallets (user_id, balance, is_active, created_at, updated_at) VALUES ({uid}, {calculated_real_balance}, 1, NOW(), NOW());")
+            wallets_to_insert.append(f"INSERT INTO wallets (user_id, balance, status, currency, created_at, updated_at) VALUES ({uid}, {calculated_real_balance}, 'active', 'COP', NOW(), NOW());")
             
             if calculated_yields > 0:
-                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, user_id, amount, type, concept, description, status, created_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {uid}, {calculated_yields}, 'CREDIT', 'RENDIMIENTOS_HISTORICOS', 'Migración de rendimientos generados hasta 29 de junio', 'COMPLETED', NOW());")
+                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, amount, type, reference_type, description, balance_after, created_at, updated_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {calculated_yields}, 'CREDIT', 'RENDIMIENTOS_HISTORICOS', 'Migración de rendimientos generados hasta 29 de junio', {calculated_real_balance}, NOW(), NOW());")
             
             if capital_liberado > 0:
-                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, user_id, amount, type, concept, description, status, created_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {uid}, {capital_liberado}, 'CREDIT', 'CAPITAL_LIBERADO_HISTORICO', 'Migración de liberación de capital por finalización de contrato', 'COMPLETED', NOW());")
+                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, amount, type, reference_type, description, balance_after, created_at, updated_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {capital_liberado}, 'CREDIT', 'CAPITAL_LIBERADO_HISTORICO', 'Migración de liberación de capital por finalización de contrato', {calculated_real_balance}, NOW(), NOW());")
             
             if sum_bonus > 0:
-                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, user_id, amount, type, concept, description, status, created_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {uid}, {sum_bonus}, 'CREDIT', 'BONO_ACELERACION_HISTORICO', 'Migración de bonos de aceleración históricos', 'COMPLETED', NOW());")
+                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, amount, type, reference_type, description, balance_after, created_at, updated_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {sum_bonus}, 'CREDIT', 'BONO_ACELERACION_HISTORICO', 'Migración de bonos de aceleración históricos', {calculated_real_balance}, NOW(), NOW());")
                 
             if retiros > 0:
-                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, user_id, amount, type, concept, description, status, created_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {uid}, {retiros}, 'DEBIT', 'RETIROS_HISTORICOS', 'Migración de suma de retiros acumulados', 'COMPLETED', NOW());")
+                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, amount, type, reference_type, description, balance_after, created_at, updated_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {retiros}, 'DEBIT', 'RETIROS_HISTORICOS', 'Migración de suma de retiros acumulados', {calculated_real_balance}, NOW(), NOW());")
         
         async def get_intersecting_columns(src_table: str, dest_table: str) -> str:
             src_res = await db.execute(text(f"SHOW COLUMNS FROM {src_table}"))
