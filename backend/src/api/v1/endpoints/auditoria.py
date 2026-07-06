@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
 from src.models.user_bank_account import UserBankAccount
+from datetime import datetime, date
 
 router = APIRouter()
 
@@ -205,6 +206,340 @@ async def get_inversiones_respaldo(
         
     except Exception as e:
         print(f"Error fetching from respaldo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SimpleUserMigrationRequest(BaseModel):
+    user_ids: List[int]
+
+@router.get("/simple-users", response_model=List[Dict[str, Any]])
+async def get_simple_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(get_current_user)
+):
+    """
+    Obtiene los usuarios 'sencillos' (exactamente 1 inversión) y calcula su saldo real 
+    desde el Día 1 hasta el 29 de junio de 2024, usando EXCLUSIVAMENTE los paquetes predefinidos.
+    """
+    # Verify admin
+    is_admin = current_user.email == "superadmin@gloint.com"
+    if hasattr(current_user, 'roles') and current_user.roles:
+        for r in current_user.roles:
+            if getattr(r, 'name', '') in ["admin", "superadmin"]:
+                is_admin = True
+                break
+                
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Not enough privileges")
+        
+    try:
+        # Get users with exactly 1 investment and join paquetes
+        query_base = text("""
+            SELECT 
+                ir.user_id,
+                ir.id as investment_id,
+                u.name as user_name,
+                u.email as user_email,
+                u.document as user_document,
+                ir.fecha_ingreso,
+                ir.fecha_finalizacion as original_fecha_finalizacion,
+                ir.liquidacion_diaria_rendimiento,
+                p.paquete_accion_adquirido as paquete_nombre,
+                COALESCE(wr.balance, 0) as old_wallet_balance
+            FROM investor_respaldo ir
+            JOIN users u ON ir.user_id = u.id
+            LEFT JOIN paquetes_inversion p ON ir.paquete_inversion_adquirido = p.id
+            LEFT JOIN wallet_respaldo wr ON ir.user_id = wr.user_id
+            WHERE ir.user_id IN (
+                SELECT user_id 
+                FROM investor_respaldo 
+                GROUP BY user_id 
+                HAVING COUNT(id) = 1
+            )
+        """)
+        res_base = await db.execute(query_base)
+        base_users = res_base.fetchall()
+        
+        if not base_users:
+            return []
+            
+        user_ids = [str(row.user_id) for row in base_users]
+        user_ids_str = ",".join(user_ids)
+        
+        # Get Bonuses (created <= 2024-06-29)
+        query_bonos = text(f"""
+            SELECT 
+                ir.user_id, 
+                SUM(car.bonus_amount) as sum_bonus, 
+                SUM(car.days_to_reduce) as sum_days 
+            FROM contract_accelerations_respaldo car
+            JOIN investor_respaldo ir ON car.investor_id = ir.id
+            WHERE car.created_at <= '2024-06-29 23:59:59' 
+              AND ir.user_id IN ({user_ids_str})
+            GROUP BY ir.user_id
+        """)
+        res_bonos = await db.execute(query_bonos)
+        bonos_dict = {row.user_id: {"sum_bonus": float(row.sum_bonus or 0), "sum_days": float(row.sum_days or 0)} for row in res_bonos.fetchall()}
+        
+        # Get Retiros (approved)
+        query_retiros = text(f"""
+            SELECT 
+                user_id, 
+                SUM(monto) as sum_retiros 
+            FROM retiros_respaldo 
+            WHERE estado IN ('aprobado', 'procesado', 'completado')
+              AND user_id IN ({user_ids_str})
+            GROUP BY user_id
+        """)
+        res_retiros = await db.execute(query_retiros)
+        retiros_dict = {row.user_id: float(row.sum_retiros or 0) for row in res_retiros.fetchall()}
+        
+        cutoff_date = date(2024, 6, 29)
+        results = []
+        
+        from datetime import timedelta
+        
+        for row in base_users:
+            uid = row.user_id
+            bonos_data = bonos_dict.get(uid, {"sum_bonus": 0.0, "sum_days": 0.0})
+            retiros = retiros_dict.get(uid, 0.0)
+            
+            # Obtener el Capital Inicial EXCLUSIVAMENTE del paquete
+            capital = 0.0
+            paquete_nombre = str(row.paquete_nombre) if row.paquete_nombre else ""
+            if paquete_nombre and paquete_nombre != "N/A" and paquete_nombre != "0":
+                try:
+                    capital = float(paquete_nombre)
+                except ValueError:
+                    pass
+                
+            # Fechas y Reducción
+            fecha_ingreso = row.fecha_ingreso
+            original_fin = row.original_fecha_finalizacion
+            sum_days = int(bonos_data["sum_days"])
+            
+            real_fin = (original_fin - timedelta(days=sum_days)) if original_fin else None
+                
+            # Cálculo de Rendimientos
+            calculated_yields = 0.0
+            capital_liberado = 0.0
+            
+            if fecha_ingreso and real_fin:
+                end_yield_date = min(cutoff_date, real_fin)
+                if end_yield_date >= fecha_ingreso:
+                    days_passed = (end_yield_date - fecha_ingreso).days
+                    calculated_yields = days_passed * float(row.liquidacion_diaria_rendimiento or 0)
+                    
+                if real_fin <= cutoff_date:
+                    capital_liberado = capital
+            
+            sum_bonus = bonos_data["sum_bonus"]
+            calculated_real_balance = calculated_yields + capital_liberado + sum_bonus - retiros
+            
+            results.append({
+                "user_id": uid,
+                "investment_id": row.investment_id,
+                "user_name": row.user_name,
+                "user_email": row.user_email,
+                "user_document": row.user_document,
+                "fecha_ingreso": fecha_ingreso,
+                "original_fecha_finalizacion": original_fin,
+                "real_fecha_finalizacion": real_fin,
+                "capital_inicial": capital,
+                "liquidacion_diaria_rendimiento": float(row.liquidacion_diaria_rendimiento or 0),
+                "calculated_yields": calculated_yields,
+                "calculated_bonuses": sum_bonus,
+                "calculated_capital_release": capital_liberado,
+                "calculated_withdrawals": retiros,
+                "calculated_real_balance": calculated_real_balance,
+                "old_wallet_balance": float(row.old_wallet_balance),
+                "discrepancy": calculated_real_balance - float(row.old_wallet_balance)
+            })
+            
+        return results
+
+    except Exception as e:
+        print(f"Error fetching simple users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/migrate-simple")
+async def migrate_simple_users(
+    req: SimpleUserMigrationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Any = Depends(get_current_user)
+):
+    """
+    Ejecuta la migración matemática para los usuarios simples.
+    Crea las wallets con el saldo calculado e inserta las transacciones de trazabilidad.
+    Luego los mueve a las tablas reales.
+    """
+    is_admin = current_user.email == "superadmin@gloint.com"
+    if hasattr(current_user, 'roles') and current_user.roles:
+        for r in current_user.roles:
+            if getattr(r, 'name', '') in ["admin", "superadmin"]:
+                is_admin = True
+                break
+                
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Not enough privileges")
+        
+    if not req.user_ids:
+        return {"migrated": 0, "status": "success"}
+        
+    try:
+        user_ids_str = ",".join(str(uid) for uid in req.user_ids)
+        
+        query_base = text(f"""
+            SELECT 
+                ir.user_id,
+                ir.fecha_ingreso,
+                ir.fecha_finalizacion as original_fecha_finalizacion,
+                ir.liquidacion_diaria_rendimiento,
+                p.paquete_accion_adquirido as paquete_nombre
+            FROM investor_respaldo ir
+            LEFT JOIN paquetes_inversion p ON ir.paquete_inversion_adquirido = p.id
+            WHERE ir.user_id IN ({user_ids_str})
+        """)
+        res_base = await db.execute(query_base)
+        base_users = res_base.fetchall()
+        
+        query_bonos = text(f"""
+            SELECT 
+                ir.user_id, 
+                SUM(car.bonus_amount) as sum_bonus, 
+                SUM(car.days_to_reduce) as sum_days 
+            FROM contract_accelerations_respaldo car
+            JOIN investor_respaldo ir ON car.investor_id = ir.id
+            WHERE car.created_at <= '2024-06-29 23:59:59' 
+              AND ir.user_id IN ({user_ids_str})
+            GROUP BY ir.user_id
+        """)
+        res_bonos = await db.execute(query_bonos)
+        bonos_dict = {row.user_id: {"sum_bonus": float(row.sum_bonus or 0), "sum_days": float(row.sum_days or 0)} for row in res_bonos.fetchall()}
+        
+        query_retiros = text(f"""
+            SELECT 
+                user_id, 
+                SUM(monto) as sum_retiros 
+            FROM retiros_respaldo 
+            WHERE estado IN ('aprobado', 'procesado', 'completado')
+              AND user_id IN ({user_ids_str})
+            GROUP BY user_id
+        """)
+        res_retiros = await db.execute(query_retiros)
+        retiros_dict = {row.user_id: float(row.sum_retiros or 0) for row in res_retiros.fetchall()}
+        
+        cutoff_date = date(2024, 6, 29)
+        from datetime import timedelta
+        
+        wallets_to_insert = []
+        transactions_to_insert = []
+        
+        for row in base_users:
+            uid = row.user_id
+            bonos_data = bonos_dict.get(uid, {"sum_bonus": 0.0, "sum_days": 0.0})
+            retiros = retiros_dict.get(uid, 0.0)
+            
+            capital = 0.0
+            paquete_nombre = str(row.paquete_nombre) if row.paquete_nombre else ""
+            if paquete_nombre and paquete_nombre != "N/A" and paquete_nombre != "0":
+                try:
+                    capital = float(paquete_nombre)
+                except ValueError:
+                    pass
+                
+            fecha_ingreso = row.fecha_ingreso
+            original_fin = row.original_fecha_finalizacion
+            sum_days = int(bonos_data["sum_days"])
+            
+            real_fin = (original_fin - timedelta(days=sum_days)) if original_fin else None
+            
+            calculated_yields = 0.0
+            capital_liberado = 0.0
+            
+            if fecha_ingreso and real_fin:
+                end_yield_date = min(cutoff_date, real_fin)
+                if end_yield_date >= fecha_ingreso:
+                    calculated_yields = (end_yield_date - fecha_ingreso).days * float(row.liquidacion_diaria_rendimiento or 0)
+                    
+                if real_fin <= cutoff_date:
+                    capital_liberado = capital
+            
+            sum_bonus = bonos_data["sum_bonus"]
+            calculated_real_balance = calculated_yields + capital_liberado + sum_bonus - retiros
+            
+            wallets_to_insert.append(f"DELETE FROM wallets WHERE user_id = {uid};")
+            wallets_to_insert.append(f"INSERT INTO wallets (user_id, balance, is_active, created_at, updated_at) VALUES ({uid}, {calculated_real_balance}, 1, NOW(), NOW());")
+            
+            if calculated_yields > 0:
+                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, user_id, amount, type, concept, description, status, created_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {uid}, {calculated_yields}, 'CREDIT', 'RENDIMIENTOS_HISTORICOS', 'Migración de rendimientos generados hasta 29 de junio', 'COMPLETED', NOW());")
+            
+            if capital_liberado > 0:
+                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, user_id, amount, type, concept, description, status, created_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {uid}, {capital_liberado}, 'CREDIT', 'CAPITAL_LIBERADO_HISTORICO', 'Migración de liberación de capital por finalización de contrato', 'COMPLETED', NOW());")
+            
+            if sum_bonus > 0:
+                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, user_id, amount, type, concept, description, status, created_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {uid}, {sum_bonus}, 'CREDIT', 'BONO_ACELERACION_HISTORICO', 'Migración de bonos de aceleración históricos', 'COMPLETED', NOW());")
+                
+            if retiros > 0:
+                transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, user_id, amount, type, concept, description, status, created_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {uid}, {retiros}, 'DEBIT', 'RETIROS_HISTORICOS', 'Migración de suma de retiros acumulados', 'COMPLETED', NOW());")
+        
+        async def get_intersecting_columns(src_table: str, dest_table: str) -> str:
+            src_res = await db.execute(text(f"SHOW COLUMNS FROM {src_table}"))
+            src_cols = {r[0] for r in src_res.fetchall()}
+            dest_res = await db.execute(text(f"SHOW COLUMNS FROM {dest_table}"))
+            dest_cols = {r[0] for r in dest_res.fetchall()}
+            intersect = src_cols.intersection(dest_cols)
+            return ", ".join(f"`{c}`" for c in intersect)
+            
+        cols_inv = await get_intersecting_columns("investor_respaldo", "investors")
+        cols_ret = await get_intersecting_columns("retiros_respaldo", "retiros")
+        cols_req = await get_intersecting_columns("investment_requests_respaldo", "investment_requests")
+        cols_acc = await get_intersecting_columns("contract_accelerations_respaldo", "contract_accelerations")
+        cols_hist = await get_intersecting_columns("contract_histories_respaldo", "contract_histories")
+        
+        queries = [
+            f"INSERT INTO investors ({cols_inv}) SELECT {cols_inv} FROM investor_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO retiros ({cols_ret}) SELECT {cols_ret} FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO investment_requests ({cols_req}) SELECT {cols_req} FROM investment_requests_respaldo WHERE user_id IN ({user_ids_str})",
+            f"INSERT INTO contract_accelerations ({cols_acc}) SELECT {cols_acc} FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"INSERT INTO contract_histories ({cols_hist}) SELECT {cols_hist} FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            
+            f"DELETE FROM contract_accelerations_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"DELETE FROM contract_histories_respaldo WHERE investor_id IN (SELECT id FROM investor_respaldo WHERE user_id IN ({user_ids_str}))",
+            f"DELETE FROM investment_requests_respaldo WHERE user_id IN ({user_ids_str})",
+            f"DELETE FROM retiros_respaldo WHERE user_id IN ({user_ids_str})",
+            f"DELETE FROM investor_respaldo WHERE user_id IN ({user_ids_str})"
+        ]
+        
+        for wq in wallets_to_insert:
+            await db.execute(text(wq))
+            
+        for tq in transactions_to_insert:
+            await db.execute(text(tq))
+            
+        res_bancos = await db.execute(text(f"SELECT DISTINCT user_id, banco, tipo_cuenta, numero_cuenta FROM investor_respaldo WHERE user_id IN ({user_ids_str}) AND banco IS NOT NULL AND numero_cuenta IS NOT NULL"))
+        bancos_a_crear = []
+        for row in res_bancos:
+            check_exist = await db.execute(text(f"SELECT id FROM user_bank_accounts WHERE user_id = {row.user_id} AND banco = '{row.banco}'"))
+            if not check_exist.first():
+                bancos_a_crear.append(UserBankAccount(
+                    user_id=row.user_id,
+                    banco=row.banco,
+                    tipo_cuenta=row.tipo_cuenta,
+                    numero_cuenta=row.numero_cuenta,
+                    is_primary=True
+                ))
+        if bancos_a_crear:
+            db.add_all(bancos_a_crear)
+            
+        for q in queries:
+            await db.execute(text(q))
+            
+        await db.commit()
+        return {"migrated": len(req.user_ids), "status": "success"}
+        
+    except Exception as e:
+        await db.rollback()
+        print(f"Error migrating simple users: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/reales", response_model=List[Dict[str, Any]])
