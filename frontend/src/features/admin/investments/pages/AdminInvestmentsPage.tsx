@@ -124,7 +124,7 @@ export const AdminInvestmentsPage = () => {
         <div className="p-8 max-w-full mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-slate-800">Administración de Inversiones</h1>
-                <Can permission="admin.investments.create_for_client">
+                <Can permission="investor.create">
                     <button 
                         onClick={() => setIsCreateModalOpen(true)}
                         className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-xl shadow-sm shadow-brand-500/20 font-semibold flex items-center gap-2 transition-colors"

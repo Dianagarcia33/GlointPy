@@ -40,7 +40,7 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
 
     return (
         <div className="bg-slate-50 p-6 shadow-inner flex flex-col gap-8 border-t border-slate-200 relative">
-            <Can permission="admin.investments.edit">
+            <Can permission="investor.edit">
                 {onEdit && (
                     <button 
                         onClick={() => onEdit(inv)}
