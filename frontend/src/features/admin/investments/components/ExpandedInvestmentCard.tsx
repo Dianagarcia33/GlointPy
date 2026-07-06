@@ -45,13 +45,13 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
                     <Banknote className="w-6 h-6 text-brand-600" />
                     Resumen Financiero (Migración)
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                         <div className="text-xs text-slate-500 uppercase font-semibold">Capital Actual</div>
                         <div className="text-lg font-bold text-slate-800 mt-1">{formatCOP(financial_info.capital_actual)}</div>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <div className="text-xs text-slate-500 uppercase font-semibold">Producido (Tramos)</div>
+                        <div className="text-xs text-slate-500 uppercase font-semibold">Producido</div>
                         <div className="text-lg font-bold text-blue-600 mt-1">{formatCOP(financial_info.rendimiento_producido_hasta_ayer)}</div>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -63,8 +63,12 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
                         <div className="text-lg font-bold text-rose-600 mt-1">- {formatCOP(total_retiros_rendimiento)}</div>
                     </div>
                     <div className="bg-brand-50 p-4 rounded-xl border border-brand-200 shadow-sm">
-                        <div className="text-xs text-brand-600 uppercase font-bold">Saldo a Migrar</div>
+                        <div className="text-xs text-brand-600 uppercase font-bold">Saldo Migración</div>
                         <div className="text-xl font-black text-brand-700 mt-1">{formatCOP(financial_info.saldo_a_migrar)}</div>
+                    </div>
+                    <div className="bg-slate-800 p-4 rounded-xl shadow-sm">
+                        <div className="text-xs text-slate-400 uppercase font-bold">Saldo Wallet</div>
+                        <div className="text-xl font-black text-white mt-1">{formatCOP(financial_info.wallet_balance_actual || 0)}</div>
                     </div>
                 </div>
             </div>

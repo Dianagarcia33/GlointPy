@@ -149,10 +149,10 @@ export const AdminInvestmentsPage = () => {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                             <tr>
-                                <th className="px-6 py-4 w-12 text-center">Detalles</th>
-                                <th className="px-6 py-4">ID / Código</th>
+                                <th className="px-6 py-4 w-12 text-center"></th>
                                 <th className="px-6 py-4">Usuario</th>
-                                <th className="px-6 py-4">Paquete Base</th>
+                                <th className="px-6 py-4">Inversión</th>
+                                <th className="px-6 py-4">Wallet</th>
                                 <th className="px-6 py-4 text-center">Estado</th>
                             </tr>
                         </thead>
@@ -174,18 +174,27 @@ export const AdminInvestmentsPage = () => {
                                                 {expandedRows.has(inv.id) ? <ChevronDown className="w-5 h-5 mx-auto" /> : <ChevronRight className="w-5 h-5 mx-auto" />}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="font-mono text-sm text-slate-500">#{inv.id}</div>
-                                                <div className="font-medium text-slate-900">{inv.codigo_asignado || 'N/A'}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="font-semibold text-slate-800">{inv.personal_info?.nombre_completo || 'Usuario'}</div>
-                                                <div className="text-sm text-slate-500">{inv.personal_info?.correo_electronico}</div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-1">
+                                                        <div className="font-semibold text-slate-800">{inv.personal_info?.nombre_completo || 'Usuario'}</div>
+                                                        <div className="text-xs text-slate-500">{inv.personal_info?.correo_electronico}</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="font-mono text-xs text-slate-400">#{inv.id}</div>
+                                                        <div className="text-xs font-medium text-slate-600">{inv.codigo_asignado || 'N/A'}</div>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="font-medium text-brand-600">
                                                     {inv.financial_info?.paquete_nombre !== 'N/A' && inv.financial_info?.paquete_nombre 
                                                         ? formatCOP(parseInt(inv.financial_info.paquete_nombre, 10)) 
                                                         : 'N/A'}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-semibold text-slate-800">
+                                                    {formatCOP(inv.financial_info?.wallet_balance_actual || 0)}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
