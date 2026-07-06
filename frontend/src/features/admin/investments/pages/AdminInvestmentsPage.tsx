@@ -2,8 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { investmentsService, AdminInvestment } from '../../../../services/investments';
 import { Loader2, AlertCircle, Search, ChevronDown, ChevronRight, CheckCircle } from 'lucide-react';
 import { ExpandedInvestmentCard } from '../components/ExpandedInvestmentCard';
+import { Can } from '../../../../components/security/Can';
+import { usePermissions } from '../../../../hooks/usePermissions';
 
 export const AdminInvestmentsPage = () => {
+    const { hasPermission } = usePermissions();
+    const [activeTab, setActiveTab] = useState<'inversiones' | 'solicitudes'>(
+        hasPermission('admin.investments.reales') ? 'inversiones' : 'solicitudes'
+    );
     const [data, setData] = useState<AdminInvestment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -112,8 +118,38 @@ export const AdminInvestmentsPage = () => {
         <div className="p-8 max-w-full mx-auto">
             <h1 className="text-2xl font-bold text-slate-800 mb-6">Administración de Inversiones</h1>
             
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+            {/* Tabs */}
+            <div className="flex space-x-4 border-b border-slate-200 mb-6">
+                {hasPermission('admin.investments.reales') && (
+                    <button
+                        onClick={() => setActiveTab('inversiones')}
+                        className={`pb-4 px-2 text-sm font-medium transition-colors ${
+                            activeTab === 'inversiones'
+                                ? 'border-b-2 border-brand-600 text-brand-600'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Inversiones Activas
+                    </button>
+                )}
+                {hasPermission('admin.investments.requests') && (
+                    <button
+                        onClick={() => setActiveTab('solicitudes')}
+                        className={`pb-4 px-2 text-sm font-medium transition-colors ${
+                            activeTab === 'solicitudes'
+                                ? 'border-b-2 border-brand-600 text-brand-600'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Solicitudes Pendientes
+                    </button>
+                )}
+            </div>
+            
+            {activeTab === 'inversiones' && (
+                <Can permission="admin.investments.reales">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h2 className="font-semibold text-slate-800">Inversiones Activas</h2>
@@ -225,6 +261,22 @@ export const AdminInvestmentsPage = () => {
                     </table>
                 </div>
             </div>
+            </Can>
+            )}
+
+            {activeTab === 'solicitudes' && (
+                <Can permission="admin.investments.requests">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
+                        <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <AlertCircle className="w-8 h-8 text-brand-600" />
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-800 mb-2">Solicitudes en Construcción</h2>
+                        <p className="text-slate-500 max-w-md mx-auto">
+                            El módulo de administración de solicitudes está siendo desarrollado. Pronto podrás revisar, aprobar y rechazar solicitudes de inversión desde aquí.
+                        </p>
+                    </div>
+                </Can>
+            )}
         </div>
     );
 };
