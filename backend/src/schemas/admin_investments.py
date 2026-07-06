@@ -87,3 +87,19 @@ class AdminInvestorResponse(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
 
+class AdminInvestmentRequestResponse(BaseModel):
+    id: int
+    user_id: int
+    monto: Decimal
+    status: str
+    comprobante_path: Optional[str] = None
+    created_at: datetime
+    
+    # User info
+    usuario_nombre: Optional[str] = None
+    usuario_correo: Optional[str] = None
+    
+    # Paquete info
+    paquete_nombre: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)

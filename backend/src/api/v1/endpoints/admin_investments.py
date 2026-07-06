@@ -10,7 +10,9 @@ from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
 from src.models.investor import Investor
 from src.models.wallet import Wallet
-from src.schemas.admin_investments import AdminInvestorResponse
+from src.schemas.admin_investments import AdminInvestorResponse, AdminInvestmentRequestResponse
+from src.models.investment_request import InvestmentRequest
+from src.models.paquete_inversion import PaqueteInversion
 
 router = APIRouter()
 
@@ -403,6 +405,62 @@ async def get_all_investments(
             traceback.print_exc()
             db.rollback()
     
+    return response_list
+
+@router.get("/requests", response_model=List[AdminInvestmentRequestResponse])
+async def get_all_investment_requests(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene todas las solicitudes de inversión para el módulo de administración.
+    Requiere permiso de administrador (admin.investments.requests).
+    """
+    from sqlalchemy.orm import selectinload
+    
+    # Hacer JOIN con users y paquetes para tener la información completa
+    stmt = (
+        select(InvestmentRequest)
+        .options(
+            selectinload(InvestmentRequest.user),
+            selectinload(InvestmentRequest.paquete)
+        )
+        .order_by(InvestmentRequest.created_at.desc())
+    )
+    
+    result = await db.execute(stmt)
+    requests = result.scalars().all()
+    
+    response_list = []
+    for req in requests:
+        usuario_nombre = None
+        usuario_correo = None
+        paquete_nombre = None
+        
+        if req.user:
+            if hasattr(req.user, 'name') and req.user.name:
+                usuario_nombre = req.user.name
+            elif hasattr(req.user, 'first_name') and req.user.first_name:
+                usuario_nombre = f"{req.user.first_name} {getattr(req.user, 'last_name', '')}".strip()
+            
+            if req.user.email:
+                usuario_correo = req.user.email
+                
+        if req.paquete and req.paquete.paquete_accion_adquirido:
+            paquete_nombre = str(req.paquete.paquete_accion_adquirido)
+            
+        response_list.append(AdminInvestmentRequestResponse(
+            id=req.id,
+            user_id=req.user_id,
+            monto=req.monto,
+            status=req.status,
+            comprobante_path=req.comprobante_path,
+            created_at=req.created_at,
+            usuario_nombre=usuario_nombre,
+            usuario_correo=usuario_correo,
+            paquete_nombre=paquete_nombre
+        ))
+        
     return response_list
 
 class NivelacionRequest(BaseModel):

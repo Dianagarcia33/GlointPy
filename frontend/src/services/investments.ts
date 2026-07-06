@@ -132,12 +132,27 @@ export interface AdminInvestment {
   }[];
 }
 
+export interface AdminInvestmentRequest {
+  id: number;
+  user_id: number;
+  monto: number;
+  status: string;
+  comprobante_path?: string;
+  created_at: string;
+  usuario_nombre?: string;
+  usuario_correo?: string;
+  paquete_nombre?: string;
+}
+
 export const investmentsService = {
   getMyInvestments: async (): Promise<Investment[]> => {
     return await fetchApi('/investments/me');
   },
   getAllInvestments: async (): Promise<AdminInvestment[]> => {
     return await fetchApi('/investments/admin/all');
+  },
+  getAllInvestmentRequests: async (): Promise<AdminInvestmentRequest[]> => {
+    return await fetchApi('/investments/admin/requests');
   },
 
   nivelarWallet: async (userId: number, saldoAuditado: number) => {

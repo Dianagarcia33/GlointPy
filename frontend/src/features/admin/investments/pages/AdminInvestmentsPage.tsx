@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { investmentsService, AdminInvestment } from '../../../../services/investments';
 import { Loader2, AlertCircle, Search, ChevronDown, ChevronRight, CheckCircle } from 'lucide-react';
 import { ExpandedInvestmentCard } from '../components/ExpandedInvestmentCard';
+import { AdminInvestmentRequestsTable } from '../components/AdminInvestmentRequestsTable';
 import { Can } from '../../../../components/security/Can';
 import { usePermissions } from '../../../../hooks/usePermissions';
 
@@ -266,15 +267,7 @@ export const AdminInvestmentsPage = () => {
 
             {activeTab === 'solicitudes' && (
                 <Can permission="admin.investments.requests">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                        <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <AlertCircle className="w-8 h-8 text-brand-600" />
-                        </div>
-                        <h2 className="text-xl font-bold text-slate-800 mb-2">Solicitudes en Construcción</h2>
-                        <p className="text-slate-500 max-w-md mx-auto">
-                            El módulo de administración de solicitudes está siendo desarrollado. Pronto podrás revisar, aprobar y rechazar solicitudes de inversión desde aquí.
-                        </p>
-                    </div>
+                    <AdminInvestmentRequestsTable />
                 </Can>
             )}
         </div>
