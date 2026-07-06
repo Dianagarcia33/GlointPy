@@ -173,7 +173,7 @@ export const investmentsService = {
     return await fetchApi('/investments/admin/fix-missing-retiros', { method: 'POST' });
   },
 
-  searchUser: async (query: string): Promise<any> => {
+  searchUser: async (query: string): Promise<any[]> => {
     return await fetchApi(`/investments/admin/search-user?query=${encodeURIComponent(query)}`);
   },
 

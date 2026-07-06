@@ -693,40 +693,46 @@ import traceback
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-@router.get("/search-user", response_model=UserSearchResponse)
+@router.get("/search-user", response_model=List[UserSearchResponse])
 async def search_user(
     query: str = Query(..., min_length=3),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     from sqlalchemy.orm import selectinload
-    # Buscar por email en User o por documento en Investor
+    search_term = f"%{query}%"
+    
     stmt = select(User).options(
         selectinload(User.investor_records),
         selectinload(User.bank_accounts)
     ).outerjoin(Investor, User.id == Investor.user_id).where(
-        (User.email == query) | (Investor.documento == query)
-    )
+        (User.email.ilike(search_term)) | 
+        (User.name.ilike(search_term)) | 
+        (Investor.documento.ilike(search_term)) | 
+        (Investor.nombre_completo.ilike(search_term))
+    ).limit(10)
+    
     result = await db.execute(stmt)
-    user = result.scalars().first()
+    users = result.scalars().all()
     
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    response_list = []
+    for user in users:
+        investor = user.investor_records[0] if user.investor_records else None
+        bank = user.bank_accounts[0] if user.bank_accounts else None
         
-    investor = user.investor_records[0] if user.investor_records else None
-    bank = user.bank_accounts[0] if user.bank_accounts else None
-    
-    return UserSearchResponse(
-        id=user.id,
-        name=user.name,
-        email=user.email,
-        documento=investor.documento if investor else None,
-        numero_celular=investor.numero_celular if investor else None,
-        ciudad=investor.ciudad if investor else None,
-        banco=bank.banco if bank else None,
-        tipo_cuenta=bank.tipo_cuenta if bank else None,
-        numero_cuenta=bank.numero_cuenta if bank else None
-    )
+        response_list.append(UserSearchResponse(
+            id=user.id,
+            name=investor.nombre_completo if investor and investor.nombre_completo else user.name,
+            email=user.email,
+            documento=investor.documento if investor else None,
+            numero_celular=investor.numero_celular if investor else None,
+            ciudad=investor.ciudad if investor else None,
+            banco=bank.banco if bank else None,
+            tipo_cuenta=bank.tipo_cuenta if bank else None,
+            numero_cuenta=bank.numero_cuenta if bank else None
+        ))
+        
+    return response_list
 
 @router.post("/create-for-client")
 async def create_investment_for_client(
