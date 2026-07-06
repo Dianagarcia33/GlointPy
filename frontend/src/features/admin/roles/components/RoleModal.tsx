@@ -149,41 +149,43 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                   </div>
 
                   <div className="mt-8">
-                    <h4 className="text-md font-semibold text-slate-800 mb-4 border-b border-slate-200 pb-2">
-                      Asignación de Permisos
-                    </h4>
+                    <h4 className="text-md font-semibold text-slate-800 mb-4 border-b border-slate-200 pb-2">Asignación de Permisos</h4>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-96 overflow-y-auto pr-2">
-                      {(Object.entries(groupedPermissions) as [string, Permission[]][]).map(([module, perms]) => (
-                        <div key={module} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                          <h5 className="font-semibold text-brand-700 mb-3 capitalize text-sm">{module}</h5>
-                          <div className="space-y-3">
-                            {perms.map((perm: Permission) => (
-                              <label key={perm.id} className="flex items-start gap-3 cursor-pointer group">
-                                <div className="relative flex items-center justify-center mt-0.5">
-                                  <input
-                                    type="checkbox"
-                                    className="peer sr-only"
-                                    checked={selectedPermissions.includes(perm.id)}
-                                    onChange={() => handleTogglePermission(perm.id)}
-                                  />
-                                  <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-brand-500 peer-checked:border-brand-500 transition-colors"></div>
-                                  <Check className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={3} />
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-sm font-medium text-slate-700 group-hover:text-brand-600 transition-colors">
-                                    {perm.action || perm.name}
+                    {allPermissions.length === 0 ? (
+                      <p className="text-sm text-slate-500">No hay permisos disponibles para asignar.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-96 overflow-y-auto pr-2">
+                        {(Object.entries(groupedPermissions) as [string, Permission[]][]).map(([module, perms]) => (
+                          <div key={module} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <h5 className="font-semibold text-brand-700 mb-3 capitalize text-sm">{module}</h5>
+                            <div className="space-y-3">
+                              {perms.map((perm: Permission) => (
+                                <label key={perm.id} className="flex items-start gap-3 cursor-pointer group">
+                                  <div className="relative flex items-center justify-center mt-0.5">
+                                    <input
+                                      type="checkbox"
+                                      className="peer sr-only"
+                                      checked={selectedPermissions.includes(perm.id)}
+                                      onChange={() => handleTogglePermission(perm.id)}
+                                    />
+                                    <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-brand-500 peer-checked:border-brand-500 transition-colors"></div>
+                                    <Check className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={3} />
                                   </div>
-                                  {perm.description && (
-                                    <div className="text-xs text-slate-500 mt-0.5">{perm.description}</div>
-                                  )}
-                                </div>
-                              </label>
-                            ))}
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-slate-700 group-hover:text-brand-600 transition-colors">
+                                      {perm.action || perm.name}
+                                    </div>
+                                    {perm.description && (
+                                      <div className="text-xs text-slate-500 mt-0.5">{perm.description}</div>
+                                    )}
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                 </div>
