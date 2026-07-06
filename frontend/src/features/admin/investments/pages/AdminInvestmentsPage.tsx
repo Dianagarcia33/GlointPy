@@ -8,6 +8,7 @@ export const AdminInvestmentsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'Todas' | 'Activa' | 'Finalizada'>('Todas');
     const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
     const fetchData = async () => {
@@ -28,15 +29,24 @@ export const AdminInvestmentsPage = () => {
     }, []);
 
     const filteredData = useMemo(() => {
-        if (!searchQuery) return data;
-        const lowerQuery = searchQuery.toLowerCase();
-        return data.filter(inv => 
-            (inv.personal_info?.nombre_completo && inv.personal_info.nombre_completo.toLowerCase().includes(lowerQuery)) ||
-            (inv.personal_info?.correo_electronico && inv.personal_info.correo_electronico.toLowerCase().includes(lowerQuery)) ||
-            (inv.codigo_asignado && inv.codigo_asignado.toLowerCase().includes(lowerQuery)) ||
-            (inv.personal_info?.documento && inv.personal_info.documento.includes(lowerQuery))
-        );
-    }, [data, searchQuery]);
+        let result = data;
+        
+        if (statusFilter !== 'Todas') {
+            result = result.filter(inv => getEstadoReal(inv) === statusFilter);
+        }
+
+        if (searchQuery) {
+            const lowerQuery = searchQuery.toLowerCase();
+            result = result.filter(inv => 
+                (inv.personal_info?.nombre_completo && inv.personal_info.nombre_completo.toLowerCase().includes(lowerQuery)) ||
+                (inv.personal_info?.correo_electronico && inv.personal_info.correo_electronico.toLowerCase().includes(lowerQuery)) ||
+                (inv.codigo_asignado && inv.codigo_asignado.toLowerCase().includes(lowerQuery)) ||
+                (inv.personal_info?.documento && inv.personal_info.documento.includes(lowerQuery))
+            );
+        }
+        
+        return result;
+    }, [data, searchQuery, statusFilter]);
 
     const formatCOP = (value: number | undefined) => {
         if (value === undefined || value === null) return '$0';
@@ -110,15 +120,26 @@ export const AdminInvestmentsPage = () => {
                                 Viendo {filteredData.length} inversiones en el sistema.
                             </p>
                         </div>
-                        <div className="relative">
-                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                                type="text"
-                                placeholder="Buscar inversión..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent w-64"
-                            />
+                        <div className="flex items-center gap-3">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value as any)}
+                                className="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
+                            >
+                                <option value="Todas">Todas las Inversiones</option>
+                                <option value="Activa">Solo Activas</option>
+                                <option value="Finalizada">Solo Finalizadas</option>
+                            </select>
+                            <div className="relative">
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar inversión..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent w-64"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
