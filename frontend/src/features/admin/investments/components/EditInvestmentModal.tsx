@@ -332,7 +332,7 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
                                 <UploadCloud className="w-5 h-5 text-brand-600" />
-                                Documentos KYC (Opcional)
+                                Documentos 
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
