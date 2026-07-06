@@ -14,7 +14,6 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
     const [isLoading, setIsLoading] = useState(false);
     const [suggestedCode, setSuggestedCode] = useState('');
     const [formData, setFormData] = useState({
-        codigo_asignado: '',
         fecha_ingreso: new Date().toISOString().split('T')[0],
         banco: '',
         tipo_cuenta: '',
@@ -28,12 +27,6 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
 
     useEffect(() => {
         if (isOpen && request) {
-            // Load latest assigned code
-            investmentsService.getLatestAssignedCode().then(res => {
-                setSuggestedCode(res.suggested_code);
-                setFormData(prev => ({ ...prev, codigo_asignado: res.suggested_code }));
-            }).catch(err => console.error("Failed to load suggested code", err));
-            
             // Pre-fill form from extra_data if available
             const extra = request.extra_data || {};
             const bank = extra.bank_info || {};
@@ -61,11 +54,6 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
     const kycDocs = extra.kyc_docs || {};
 
     const handleApprove = async () => {
-        if (!formData.codigo_asignado) {
-            setError("Debes ingresar un código asignado válido.");
-            return;
-        }
-        
         try {
             setIsLoading(true);
             setError(null);
@@ -233,16 +221,6 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
                                     </h3>
                                     <div className="space-y-5">
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-slate-700 mb-1.5">Código Asignado</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={formData.codigo_asignado}
-                                                    onChange={e => setFormData(prev => ({...prev, codigo_asignado: e.target.value}))}
-                                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-sm"
-                                                />
-                                                <p className="text-xs text-slate-500 mt-1">Sugerido: <span className="font-semibold">{suggestedCode}</span></p>
-                                            </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Fecha de Ingreso</label>
                                                 <input 

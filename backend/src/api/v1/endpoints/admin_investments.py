@@ -508,15 +508,21 @@ async def approve_investment_request(
     if req.status != InvestmentStatus.pending:
         raise HTTPException(status_code=400, detail="La solicitud no está en estado pendiente")
         
-    # 2. Get latest assigned code to validate we are not making duplicates, or just parse if needed.
-    # We trust the frontend or we can validate the sequential logic here if desired.
-    # The user mentioned we are above 1900.
+    # 2. Generate latest assigned code dynamically inside the backend
+    stmt_codes = select(Investor.codigo_asignado).where(Investor.codigo_asignado.isnot(None))
+    result_codes = await db.execute(stmt_codes)
+    codes = result_codes.scalars().all()
     
-    # Check if the generated code already exists
-    stmt_check = select(Investor).where(Investor.codigo_asignado == payload.codigo_asignado)
-    res_check = await db.execute(stmt_check)
-    if res_check.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail=f"El código {payload.codigo_asignado} ya está en uso.")
+    max_num = 0
+    pattern = re.compile(r'\d+')
+    for code in codes:
+        match = pattern.search(code)
+        if match:
+            num = int(match.group())
+            if num > max_num:
+                max_num = num
+                
+    generated_code = f"INV-{max_num + 1}" if max_num > 0 else "INV-1"
         
     extra_data = req.extra_data or {}
     personal_info = extra_data.get("personal_info", {})
@@ -540,7 +546,7 @@ async def approve_investment_request(
     # 3. Create Investor Record
     new_investor = Investor(
         user_id=req.user_id,
-        codigo_asignado=payload.codigo_asignado,
+        codigo_asignado=generated_code,
         estado="Activa",
         fecha_ingreso=payload.fecha_ingreso,
         nombre_completo=personal_info.get("nombre_completo"),
@@ -606,24 +612,6 @@ async def reject_investment_request(
     
     await db.commit()
     return {"message": "Solicitud rechazada exitosamente"}
-
-@router.get("/latest-assigned-code")
-async def get_latest_assigned_code(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # To fix the > 1000 parsing bug, we use a regex or string manipulation in the python side to find the true max
-    stmt = select(Investor.codigo_asignado).where(Investor.codigo_asignado.isnot(None))
-    result = await db.execute(stmt)
-    codes = result.scalars().all()
-    
-    max_num = 0
-    pattern = re.compile(r'\d+')
-    for code in codes:
-        match = pattern.search(code)
-        if match:
-            num = int(match.group())
-            if num > max_num:
-                max_num = num
-                
-    return {"latest_number": max_num, "suggested_code": f"INV-{max_num + 1}" if max_num > 0 else "INV-1"}
 
 class NivelacionRequest(BaseModel):
     saldo_auditado: float

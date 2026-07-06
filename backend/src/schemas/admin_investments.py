@@ -108,7 +108,6 @@ class AdminInvestmentRequestResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class ApproveRequestPayload(BaseModel):
-    codigo_asignado: str
     fecha_ingreso: date
     contract_period_id: Optional[int] = None
     # Allowed edits for banking info

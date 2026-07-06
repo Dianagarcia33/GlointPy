@@ -156,10 +156,6 @@ export const investmentsService = {
     return await fetchApi('/investments/admin/requests');
   },
 
-  getLatestAssignedCode: async (): Promise<{latest_number: number, suggested_code: string}> => {
-    return await fetchApi('/investments/admin/latest-assigned-code');
-  },
-
   approveInvestmentRequest: async (id: number, data: any) => {
     return await fetchApi(`/investments/admin/requests/${id}/approve`, {
       method: 'POST',
