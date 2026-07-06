@@ -23,6 +23,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Componente para rutas de invitados (si YA está logueado, lo manda al dashboard)
+const GuestRoute = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+};
+
 function App() {
   // Inicializamos el "Perro Guardián" de inactividad
   useInactivityTimer();
@@ -33,11 +40,11 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<GuestRoute><LandingPage /></GuestRoute>} />
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
-      <Route path="/onboarding" element={<WelcomeOnboardingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/onboarding" element={<GuestRoute><WelcomeOnboardingPage /></GuestRoute>} />
+      <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+      <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
       
       {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
       <Route 
