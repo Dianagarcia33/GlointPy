@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
+from sqlalchemy import text, select
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from src.core.database import get_db
