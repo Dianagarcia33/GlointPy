@@ -42,7 +42,7 @@ export const PromoModal: React.FC = () => {
         <div className="text-center relative z-10 w-full pt-2">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 px-2">
             <span className="bg-gradient-to-r from-brand-500 to-brand-600 bg-clip-text text-transparent">
-              ¡Atención Inversionistas!
+              ¡Estamos restableciendo servicios!
             </span>
           </h2>
 
@@ -50,7 +50,7 @@ export const PromoModal: React.FC = () => {
 
           <div className="text-left mb-5 px-2">
             <p className="text-sm text-gray-700 leading-relaxed mb-4">
-              <span className="text-brand-600 font-bold">Ya puedes descargar la APP de GLOINT</span> y gestionar tus solicitudes, pagos y capital en tiempo real.
+              <span className="text-brand-600 font-bold">Hemos actualizado nuestro sistema</span> y estamos restableciendo todos nuestros servicios para brindarte una mejor experiencia. ¡Gracias por tu paciencia!
             </p>
 
             {/* Botón de descarga de APP */}
