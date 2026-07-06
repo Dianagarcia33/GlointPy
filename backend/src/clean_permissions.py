@@ -10,10 +10,10 @@ async def clean_and_seed():
     async with async_session_maker() as db:
         print("Borrando SOLO los 109 permisos viejos del backup para proteger los que tú creaste...")
         await db.execute(text("DELETE FROM permissions WHERE id <= 109"))
-        
-        print("Vaciando los arreglos JSON de permisos de todos los roles...")
-        await db.execute(text("UPDATE roles SET permissions = '[]'"))
         await db.commit()
+        
+        # Ya no vaciamos los roles para no borrar las asignaciones que la usuaria haga
+
         
         print("Insertando ÚNICAMENTE los permisos nuevos...")
         required_permissions = [
