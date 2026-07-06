@@ -428,6 +428,28 @@ async def migrate_simple_users(
         res_retiros = await db.execute(query_retiros)
         retiros_dict = {row.user_id: float(row.sum_retiros or 0) for row in res_retiros.fetchall()}
         
+        query_retiros_capital = text(f"""
+            SELECT 
+                user_id, 
+                monto,
+                fecha_solicitud
+            FROM retiros_respaldo 
+            WHERE estado IN ('aprobado', 'procesado', 'completado')
+              AND tipo = 'capital'
+              AND user_id IN ({user_ids_str})
+            ORDER BY fecha_solicitud ASC
+        """)
+        res_retiros_capital = await db.execute(query_retiros_capital)
+        retiros_capital_dict = {}
+        for row in res_retiros_capital.fetchall():
+            if row.user_id not in retiros_capital_dict:
+                retiros_capital_dict[row.user_id] = []
+            retiros_capital_dict[row.user_id].append({
+                "monto": float(row.monto),
+                "fecha": row.fecha_solicitud
+            })
+
+        
         query_bonos_june = text(f"""
             SELECT 
                 ir.user_id, 
@@ -444,6 +466,37 @@ async def migrate_simple_users(
         
         cutoff_date = date(2026, 6, 29)
         from datetime import timedelta
+        
+        def calc_yield(start_d, end_d, cap_inicial, base_yield, cap_wd):
+            if not start_d or not end_d or start_d >= end_d: return 0.0
+            curr_d = start_d
+            curr_cap = cap_inicial
+            if cap_inicial <= 0: return 0.0
+            
+            curr_yield = base_yield
+            tot = 0.0
+            
+            for w in cap_wd:
+                w_date = w['fecha']
+                if w_date > end_d:
+                    continue
+                if w_date <= curr_d:
+                    curr_cap -= w['monto']
+                    if curr_cap < 0: curr_cap = 0
+                    curr_yield = (curr_cap / cap_inicial) * base_yield
+                    continue
+                    
+                days = (w_date - curr_d).days
+                tot += days * curr_yield
+                
+                curr_cap -= w['monto']
+                if curr_cap < 0: curr_cap = 0
+                curr_yield = (curr_cap / cap_inicial) * base_yield
+                curr_d = w_date
+                
+            if end_d > curr_d:
+                tot += (end_d - curr_d).days * curr_yield
+            return tot
         
         wallets_to_insert = []
         transactions_to_insert = []
@@ -475,10 +528,12 @@ async def migrate_simple_users(
             june_capital = 0.0
             historical_capital = 0.0
             
+            user_cap_wd = retiros_capital_dict.get(uid, [])
+            
             if fecha_ingreso and real_fin:
                 end_yield_date = min(cutoff_date, real_fin)
                 if end_yield_date >= fecha_ingreso:
-                    calculated_yields = (end_yield_date - fecha_ingreso).days * float(row.liquidacion_diaria_rendimiento or 0)
+                    calculated_yields = calc_yield(fecha_ingreso, end_yield_date, capital, float(row.liquidacion_diaria_rendimiento or 0), user_cap_wd)
                     
                 if real_fin <= cutoff_date:
                     if real_fin > date(2026, 5, 29):
@@ -493,8 +548,7 @@ async def migrate_simple_users(
                 june_start = max(fecha_ingreso, cycle_start)
                 june_end = min(real_fin, cycle_end)
                 if june_end > june_start:
-                    june_days = (june_end - june_start).days
-                    june_yield = june_days * float(row.liquidacion_diaria_rendimiento or 0)
+                    june_yield = calc_yield(june_start, june_end, capital, float(row.liquidacion_diaria_rendimiento or 0), user_cap_wd)
             
             sum_bonus = bonos_data["sum_bonus"]
             june_bonus = bonos_june_dict.get(uid, 0.0)
