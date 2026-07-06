@@ -474,7 +474,7 @@ async def migrate_simple_users(
         from datetime import timedelta
         
         def calc_yield(start_d, end_d, cap_inicial, base_yield, cap_wd):
-            if not start_d or not end_d or start_d >= end_d: return 0.0
+            if not start_d or not end_d or start_d > end_d: return 0.0
             curr_d = start_d
             curr_cap = cap_inicial
             if cap_inicial <= 0: return 0.0
@@ -486,22 +486,22 @@ async def migrate_simple_users(
                 w_date = w['fecha']
                 if w_date > end_d:
                     continue
-                if w_date <= curr_d:
+                if w_date < curr_d:
                     curr_cap -= w['monto']
                     if curr_cap < 0: curr_cap = 0
                     curr_yield = (curr_cap / cap_inicial) * base_yield
                     continue
                     
-                days = (w_date - curr_d).days
+                days = (w_date - curr_d).days + 1
                 tot += days * curr_yield
                 
                 curr_cap -= w['monto']
                 if curr_cap < 0: curr_cap = 0
                 curr_yield = (curr_cap / cap_inicial) * base_yield
-                curr_d = w_date
+                curr_d = w_date + timedelta(days=1)
                 
-            if end_d > curr_d:
-                tot += (end_d - curr_d).days * curr_yield
+            if end_d >= curr_d:
+                tot += ((end_d - curr_d).days + 1) * curr_yield
             return tot
         
         wallets_to_insert = []

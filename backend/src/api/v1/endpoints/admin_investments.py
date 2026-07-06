@@ -206,7 +206,7 @@ async def get_all_investments(
                     if fecha_retiro < current_start_date:
                         fecha_retiro = current_start_date
                     
-                    dias_tramo = (fecha_retiro - current_start_date).days
+                    dias_tramo = (fecha_retiro - current_start_date).days + 1
                     if dias_tramo > 0:
                         rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
                         producido_tramo = dias_tramo * rendimiento_tramo
@@ -227,10 +227,10 @@ async def get_all_investments(
                     if current_capital < 0:
                         current_capital = 0.0
                         
-                    current_start_date = fecha_retiro
+                    current_start_date = fecha_retiro + timedelta(days=1)
     
-                if current_start_date < fecha_fin_calculo:
-                    dias_tramo = (fecha_fin_calculo - current_start_date).days
+                if current_start_date <= fecha_fin_calculo:
+                    dias_tramo = (fecha_fin_calculo - current_start_date).days + 1
                     if dias_tramo > 0:
                         rendimiento_tramo = (current_capital * (periodo_porcentaje / 100) * periodo_meses) / periodo_dias
                         producido_tramo = dias_tramo * rendimiento_tramo
