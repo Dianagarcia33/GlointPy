@@ -73,8 +73,13 @@ def parse_colombian_id_coordinates(blocks) -> dict:
                 extracted['documento'] = clean_num
                 
             # Nombre: Buscamos texto que no tenga números, no sea muy corto y no sea palabra clave
-            if not re.search(r'\d', text) and len(text) > 3:
-                ignore_words = ["REPUBLICA", "COLOMBIA", "CEDULA", "CIUDADANIA", "IDENTIFICACION", "NOMBRES", "APELLIDOS", "FIRMA", "FECHA", "NACIMIENTO", "LUGAR", "ESTATURA", "SANGRE", "SEXO", "INDICE", "DERECHO"]
+            if not re.search(r'\d', text) and len(text) > 4:
+                ignore_words = [
+                    "REPUBLICA", "COLOMBIA", "CEDULA", "CIUDADANIA", "IDENTIFICACION", 
+                    "NOMBRES", "APELLIDOS", "FIRMA", "FECHA", "NACIMIENTO", "LUGAR", 
+                    "ESTATURA", "SANGRE", "SEXO", "INDICE", "DERECHO", "NUMERO", 
+                    "REGISTRADURIA", "NACIONAL", "ICA DE", "PUBLICA"
+                ]
                 if not any(word in text for word in ignore_words):
                     name_lines.append(text)
                     
@@ -83,14 +88,18 @@ def parse_colombian_id_coordinates(blocks) -> dict:
                 extracted['fecha_nacimiento'] = text
     
     if name_lines:
-        # Los nombres/apellidos suelen ser las líneas más largas si hay muchas basuras, o las primeras
-        # Filtremos posibles basuras de 1 sola palabra corta
-        valid_names = [n for n in name_lines if len(n.split()) >= 1]
+        # Filtrar basuras y pedazos de holograma
+        valid_names = [n for n in name_lines if len(n) >= 5]
+        
         if len(valid_names) >= 2:
-            extracted['name'] = " ".join(valid_names[:2]).strip()
+            # Tomamos las 2 líneas más largas (que suelen ser los nombres y apellidos reales)
+            longest_two = sorted(valid_names, key=len, reverse=True)[:2]
+            # Las ordenamos por su aparición original (arriba hacia abajo)
+            longest_two.sort(key=lambda x: valid_names.index(x))
+            extracted['name'] = " ".join(longest_two).strip()
         elif valid_names:
             extracted['name'] = valid_names[0]
-        
+            
     return extracted
 
 def process_kyc_documents(front_bytes: bytes, back_bytes: bytes, selfie_bytes: bytes):
