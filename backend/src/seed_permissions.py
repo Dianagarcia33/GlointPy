@@ -10,6 +10,18 @@ async def seed_roles_and_permissions():
     async with async_session_maker() as db:
         print("Iniciando seeder de permisos y roles...")
         
+        # Eliminar la columna 'permissions' antigua de la tabla 'roles' si existe
+        # (Esto arregla el error: Field 'permissions' doesn't have a default value)
+        try:
+            from sqlalchemy import text
+            await db.execute(text("ALTER TABLE roles DROP COLUMN permissions"))
+            await db.commit()
+            print("Columna 'permissions' antigua eliminada de la tabla roles.")
+        except Exception:
+            # Si la columna no existe u ocurre otro error, lo ignoramos y seguimos
+            await db.rollback()
+            pass
+        
         # 1. Asegurar que existe el rol de Super Admin
         stmt = select(Role).options(selectinload(Role.permissions)).where(Role.name == "super_admin")
         result = await db.execute(stmt)
