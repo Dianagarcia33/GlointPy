@@ -142,6 +142,7 @@ export interface AdminInvestmentRequest {
   usuario_nombre?: string;
   usuario_correo?: string;
   paquete_nombre?: string;
+  extra_data?: any;
 }
 
 export const investmentsService = {
@@ -153,6 +154,24 @@ export const investmentsService = {
   },
   getAllInvestmentRequests: async (): Promise<AdminInvestmentRequest[]> => {
     return await fetchApi('/investments/admin/requests');
+  },
+
+  getLatestAssignedCode: async (): Promise<{latest_number: number, suggested_code: string}> => {
+    return await fetchApi('/investments/admin/latest-assigned-code');
+  },
+
+  approveInvestmentRequest: async (id: number, data: any) => {
+    return await fetchApi(`/investments/admin/requests/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  rejectInvestmentRequest: async (id: number, reason: string) => {
+    return await fetchApi(`/investments/admin/requests/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejection_reason: reason })
+    });
   },
 
   nivelarWallet: async (userId: number, saldoAuditado: number) => {

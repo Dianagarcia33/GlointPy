@@ -102,7 +102,25 @@ class AdminInvestmentRequestResponse(BaseModel):
     # Paquete info
     paquete_nombre: Optional[str] = None
     
+    # Added extra_data to show user details
+    extra_data: Optional[dict] = None
+    
     model_config = ConfigDict(from_attributes=True)
+
+class ApproveRequestPayload(BaseModel):
+    codigo_asignado: str
+    fecha_ingreso: date
+    contract_period_id: Optional[int] = None
+    # Allowed edits for banking info
+    banco: Optional[str] = None
+    tipo_cuenta: Optional[str] = None
+    numero_cuenta: Optional[str] = None
+    # Referrals etc
+    referido_por: Optional[str] = None
+
+class RejectRequestPayload(BaseModel):
+    rejection_reason: str
+
 
 class UserSearchResponse(BaseModel):
     id: int

@@ -475,13 +475,155 @@ async def get_all_investment_requests(
                 created_at=req.created_at,
                 usuario_nombre=usuario_nombre,
                 usuario_correo=usuario_correo,
-                paquete_nombre=paquete_nombre
+                paquete_nombre=paquete_nombre,
+                extra_data=req.extra_data if isinstance(req.extra_data, dict) else {}
             ))
         except Exception as e:
             print(f"Error procesando solicitud ID {getattr(req, 'id', 'Desconocido')}: {e}")
             traceback.print_exc()
         
     return response_list
+
+from src.schemas.admin_investments import ApproveRequestPayload, RejectRequestPayload
+from sqlalchemy.sql import func
+import re
+
+@router.post("/requests/{request_id}/approve")
+async def approve_investment_request(
+    request_id: int,
+    payload: ApproveRequestPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from src.models.user_bank_account import UserBankAccount
+    from src.models.investment_request import InvestmentStatus
+    
+    # 1. Fetch Request
+    stmt = select(InvestmentRequest).where(InvestmentRequest.id == request_id)
+    result = await db.execute(stmt)
+    req = result.scalar_one_or_none()
+    
+    if not req:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    if req.status != InvestmentStatus.pending:
+        raise HTTPException(status_code=400, detail="La solicitud no está en estado pendiente")
+        
+    # 2. Get latest assigned code to validate we are not making duplicates, or just parse if needed.
+    # We trust the frontend or we can validate the sequential logic here if desired.
+    # The user mentioned we are above 1900.
+    
+    # Check if the generated code already exists
+    stmt_check = select(Investor).where(Investor.codigo_asignado == payload.codigo_asignado)
+    res_check = await db.execute(stmt_check)
+    if res_check.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"El código {payload.codigo_asignado} ya está en uso.")
+        
+    extra_data = req.extra_data or {}
+    personal_info = extra_data.get("personal_info", {})
+    bank_info = extra_data.get("bank_info", {})
+    
+    # Apply admin edits for bank
+    if payload.banco:
+        bank_info["banco"] = payload.banco
+    if payload.tipo_cuenta:
+        bank_info["tipo_cuenta"] = payload.tipo_cuenta
+    if payload.numero_cuenta:
+        bank_info["numero_cuenta"] = payload.numero_cuenta
+        
+    # Update User Info
+    user_stmt = select(User).where(User.id == req.user_id)
+    user_res = await db.execute(user_stmt)
+    user = user_res.scalar_one_or_none()
+    if user and "nombre_completo" in personal_info:
+        user.name = personal_info["nombre_completo"]
+        
+    # 3. Create Investor Record
+    new_investor = Investor(
+        user_id=req.user_id,
+        codigo_asignado=payload.codigo_asignado,
+        estado="Activa",
+        fecha_ingreso=payload.fecha_ingreso,
+        nombre_completo=personal_info.get("nombre_completo"),
+        tipo_documento=personal_info.get("tipo_documento"),
+        documento=personal_info.get("documento"),
+        numero_celular=personal_info.get("numero_celular"),
+        ciudad=personal_info.get("ciudad"),
+        fecha_nacimiento=personal_info.get("fecha_nacimiento"),
+        referido_por=payload.referido_por or personal_info.get("referido_por"),
+        paquete_inversion_adquirido=req.paquete_inversion_id,
+        total_contrato=req.monto,
+        contract_period_id=payload.contract_period_id or extra_data.get("periodo_contrato"),
+        tusdatos_evidencia_paths=extra_data.get("kyc_docs")
+    )
+    db.add(new_investor)
+    await db.flush()
+    
+    # 4. Handle Bank Info
+    if bank_info and bank_info.get("banco") and bank_info.get("numero_cuenta"):
+        bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == req.user_id)
+        bank_res = await db.execute(bank_stmt)
+        bank_acc = bank_res.scalar_one_or_none()
+        
+        if not bank_acc:
+            bank_acc = UserBankAccount(user_id=req.user_id, is_primary=True)
+            db.add(bank_acc)
+            
+        bank_acc.banco = bank_info.get("banco")
+        bank_acc.tipo_cuenta = bank_info.get("tipo_cuenta")
+        bank_acc.numero_cuenta = bank_info.get("numero_cuenta")
+        
+    # 5. Update Request Status
+    req.status = InvestmentStatus.approved
+    req.investor_id = new_investor.id
+    req.reviewed_at = datetime.now()
+    req.reviewed_by = current_user.id
+    
+    await db.commit()
+    return {"message": "Solicitud aprobada y contrato creado exitosamente", "investor_id": new_investor.id}
+
+
+@router.post("/requests/{request_id}/reject")
+async def reject_investment_request(
+    request_id: int,
+    payload: RejectRequestPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from src.models.investment_request import InvestmentStatus
+    stmt = select(InvestmentRequest).where(InvestmentRequest.id == request_id)
+    result = await db.execute(stmt)
+    req = result.scalar_one_or_none()
+    
+    if not req:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    if req.status != InvestmentStatus.pending:
+        raise HTTPException(status_code=400, detail="La solicitud no está en estado pendiente")
+        
+    req.status = InvestmentStatus.rejected
+    req.rejection_reason = payload.rejection_reason
+    req.reviewed_at = datetime.now()
+    req.reviewed_by = current_user.id
+    
+    await db.commit()
+    return {"message": "Solicitud rechazada exitosamente"}
+
+@router.get("/latest-assigned-code")
+async def get_latest_assigned_code(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # To fix the > 1000 parsing bug, we use a regex or string manipulation in the python side to find the true max
+    stmt = select(Investor.codigo_asignado).where(Investor.codigo_asignado.isnot(None))
+    result = await db.execute(stmt)
+    codes = result.scalars().all()
+    
+    max_num = 0
+    pattern = re.compile(r'\d+')
+    for code in codes:
+        match = pattern.search(code)
+        if match:
+            num = int(match.group())
+            if num > max_num:
+                max_num = num
+                
+    return {"latest_number": max_num, "suggested_code": f"INV-{max_num + 1}" if max_num > 0 else "INV-1"}
 
 class NivelacionRequest(BaseModel):
     saldo_auditado: float

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { investmentsService, AdminInvestmentRequest } from '../../../../services/investments';
 import { Loader2, AlertCircle, FileText, CheckCircle, XCircle, Search } from 'lucide-react';
 import { formatCurrency } from '../../../../utils/format';
+import { ReviewInvestmentRequestModal } from './ReviewInvestmentRequestModal';
 
 export const AdminInvestmentRequestsTable = () => {
     const [requests, setRequests] = useState<AdminInvestmentRequest[]>([]);
@@ -9,6 +10,7 @@ export const AdminInvestmentRequestsTable = () => {
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [selectedRequest, setSelectedRequest] = useState<AdminInvestmentRequest | null>(null);
 
     const fetchRequests = async () => {
         try {
@@ -195,14 +197,16 @@ export const AdminInvestmentRequestsTable = () => {
                                             {req.status === 'pending' && (
                                                 <>
                                                     <button 
+                                                        onClick={() => setSelectedRequest(req)}
                                                         className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                                        title="Aprobar (Próximamente)"
+                                                        title="Aprobar Inversión"
                                                     >
                                                         <CheckCircle className="w-5 h-5" />
                                                     </button>
                                                     <button 
+                                                        onClick={() => setSelectedRequest(req)}
                                                         className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                        title="Rechazar (Próximamente)"
+                                                        title="Rechazar Inversión"
                                                     >
                                                         <XCircle className="w-5 h-5" />
                                                     </button>
@@ -216,6 +220,16 @@ export const AdminInvestmentRequestsTable = () => {
                     </tbody>
                 </table>
             </div>
+
+            <ReviewInvestmentRequestModal
+                isOpen={!!selectedRequest}
+                onClose={() => setSelectedRequest(null)}
+                request={selectedRequest}
+                onSuccess={() => {
+                    setSelectedRequest(null);
+                    fetchRequests();
+                }}
+            />
         </div>
     );
 };
