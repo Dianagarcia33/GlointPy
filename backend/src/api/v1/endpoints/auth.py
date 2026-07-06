@@ -182,24 +182,22 @@ async def register_investor(
             detail="Ya existe un usuario con ese correo electrónico"
         )
     
-    # 2. Create User
+    # 2. Assign role (Query first to avoid MissingGreenlet on async lazy load)
+    role_stmt = select(Role).where(Role.name.in_(["investor", "inversionista"]))
+    role_res = await db.execute(role_stmt)
+    inv_role = role_res.scalars().first()
+
+    # 3. Create User
     hashed_password = get_password_hash(request.password)
     new_user = User(
         name=request.name,
         email=request.email,
         password=hashed_password,
-        is_active=True
+        is_active=True,
+        roles=[inv_role] if inv_role else []
     )
     db.add(new_user)
     await db.flush()
-
-    # 3. Assign role
-    role_stmt = select(Role).where(Role.name.in_(["investor", "inversionista"]))
-    role_res = await db.execute(role_stmt)
-    inv_role = role_res.scalars().first()
-    if inv_role:
-        new_user.roles.append(inv_role)
-        await db.flush()
 
     # 4. Construct extra_data
     extra_data = {
