@@ -1,9 +1,11 @@
 import React from 'react';
-import { User, CreditCard, ShieldCheck, Banknote, Calendar, Smartphone, MapPin, Percent, History, ArrowDownToLine, Zap, CheckCircle2 } from 'lucide-react';
+import { User, CreditCard, ShieldCheck, Banknote, Calendar, Smartphone, MapPin, Percent, History, ArrowDownToLine, Zap, CheckCircle2, Edit } from 'lucide-react';
 import { AdminInvestment } from '../../../../services/investments';
+import { Can } from '../../../../components/security/Can';
 
 interface ExpandedInvestmentCardProps {
     inv: AdminInvestment;
+    onEdit?: (inv: AdminInvestment) => void;
 }
 
 const formatCOP = (value: number | undefined) => {
@@ -22,7 +24,7 @@ const formatDate = (dateString: string | undefined) => {
     return new Date(safeDate).toLocaleDateString('es-CO');
 };
 
-export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ inv }) => {
+export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ inv, onEdit }) => {
     const { 
         personal_info, 
         bank_account, 
@@ -37,8 +39,19 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
     } = inv;
 
     return (
-        <div className="bg-slate-50 p-6 shadow-inner flex flex-col gap-8 border-t border-slate-200">
-            
+        <div className="bg-slate-50 p-6 shadow-inner flex flex-col gap-8 border-t border-slate-200 relative">
+            <Can permission="admin.investments.edit">
+                {onEdit && (
+                    <button 
+                        onClick={() => onEdit(inv)}
+                        className="absolute top-6 right-6 flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg shadow-sm transition-colors"
+                    >
+                        <Edit className="w-4 h-4" />
+                        Editar Inversión
+                    </button>
+                )}
+            </Can>
+
             {/* SECCIÓN 1: RESUMEN FINANCIERO DE MIGRACIÓN */}
             <div>
                 <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4">

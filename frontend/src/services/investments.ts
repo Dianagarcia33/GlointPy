@@ -171,5 +171,23 @@ export const investmentsService = {
 
   fixMissingRetiros: async () => {
     return await fetchApi('/investments/admin/fix-missing-retiros', { method: 'POST' });
+  },
+
+  searchUser: async (query: string): Promise<any> => {
+    return await fetchApi(`/investments/admin/search-user?query=${encodeURIComponent(query)}`);
+  },
+
+  createInvestmentForClient: async (data: any) => {
+    return await fetchApi('/investments/admin/create-for-client', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  updateInvestment: async (id: number, data: any) => {
+    return await fetchApi(`/investments/admin/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
   }
 };

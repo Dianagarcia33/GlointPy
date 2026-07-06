@@ -685,3 +685,190 @@ async def nivelar_wallets_masivo(
         
     await db.commit()
     return {"message": f"Se nivelaron {count_updated} wallets exitosamente."}
+
+from src.schemas.admin_investments import UserSearchResponse, AdminInvestmentUpdate, AgentInvestmentCreate
+from src.models.user_bank_accounts import UserBankAccount
+from passlib.context import CryptContext
+import traceback
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+@router.get("/search-user", response_model=UserSearchResponse)
+async def search_user(
+    query: str = Query(..., min_length=3),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from sqlalchemy.orm import selectinload
+    # Buscar por email en User o por documento en Investor
+    stmt = select(User).options(
+        selectinload(User.investor_records),
+        selectinload(User.bank_accounts)
+    ).outerjoin(Investor, User.id == Investor.user_id).where(
+        (User.email == query) | (Investor.documento == query)
+    )
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    investor = user.investor_records[0] if user.investor_records else None
+    bank = user.bank_accounts[0] if user.bank_accounts else None
+    
+    return UserSearchResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        documento=investor.documento if investor else None,
+        numero_celular=investor.numero_celular if investor else None,
+        ciudad=investor.ciudad if investor else None,
+        banco=bank.banco if bank else None,
+        tipo_cuenta=bank.tipo_cuenta if bank else None,
+        numero_cuenta=bank.numero_cuenta if bank else None
+    )
+
+@router.post("/create-for-client")
+async def create_investment_for_client(
+    data: AgentInvestmentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from src.models.security import Role
+    
+    user_id = data.user_id
+    if not user_id:
+        # Create new user
+        # Hash password (using documento)
+        hashed_pw = pwd_context.hash(data.documento)
+        new_user = User(
+            name=data.name,
+            email=data.email,
+            password=hashed_pw,
+            is_active=True
+        )
+        db.add(new_user)
+        await db.flush()
+        user_id = new_user.id
+        
+        # Assign investor role
+        role_stmt = select(Role).where(Role.name == "investor")
+        role_res = await db.execute(role_stmt)
+        inv_role = role_res.scalar_one_or_none()
+        if inv_role:
+            new_user.roles.append(inv_role)
+            await db.flush()
+            
+    # Check or create bank account
+    bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == user_id)
+    bank_res = await db.execute(bank_stmt)
+    bank_acc = bank_res.scalar_one_or_none()
+    
+    if not bank_acc:
+        bank_acc = UserBankAccount(
+            user_id=user_id,
+            banco=data.banco,
+            tipo_cuenta=data.tipo_cuenta,
+            numero_cuenta=data.numero_cuenta,
+            is_primary=True
+        )
+        db.add(bank_acc)
+    else:
+        bank_acc.banco = data.banco
+        bank_acc.tipo_cuenta = data.tipo_cuenta
+        bank_acc.numero_cuenta = data.numero_cuenta
+        
+    # Check or create investor
+    inv_stmt = select(Investor).where(Investor.user_id == user_id)
+    inv_res = await db.execute(inv_stmt)
+    investor = inv_res.scalar_one_or_none()
+    
+    if not investor:
+        investor = Investor(
+            user_id=user_id,
+            nombre_completo=data.name,
+            correo_electronico=data.email,
+            tipo_documento=data.tipo_documento,
+            documento=data.documento,
+            numero_celular=data.numero_celular,
+            ciudad=data.ciudad,
+            fecha_nacimiento=data.fecha_nacimiento
+        )
+        db.add(investor)
+        await db.flush()
+    else:
+        investor.tipo_documento = data.tipo_documento
+        investor.documento = data.documento
+        investor.numero_celular = data.numero_celular
+        investor.ciudad = data.ciudad
+        if data.fecha_nacimiento:
+            investor.fecha_nacimiento = data.fecha_nacimiento
+            
+    # Create Investment Request
+    new_request = InvestmentRequest(
+        user_id=user_id,
+        investor_id=investor.id,
+        paquete_inversion_id=data.paquete_id,
+        monto=data.monto,
+        comprobante_path=data.comprobante_path,
+        status="pending"
+    )
+    db.add(new_request)
+    
+    await db.commit()
+    return {"message": "Solicitud de inversión creada exitosamente"}
+
+@router.put("/{investment_id}")
+async def update_investment(
+    investment_id: int,
+    data: AdminInvestmentUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    stmt = select(Investor).where(Investor.id == investment_id)
+    result = await db.execute(stmt)
+    investor = result.scalar_one_or_none()
+    
+    if not investor:
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+        
+    # Update Investor
+    update_data = data.dict(exclude_unset=True)
+    
+    investor_fields = [
+        "nombre_completo", "correo_electronico", "tipo_documento", "documento",
+        "numero_celular", "ciudad", "fecha_nacimiento", "referido_por", "observaciones",
+        "paquete_inversion_adquirido", "total_contrato", "fecha_ingreso", "fecha_finalizacion"
+    ]
+    
+    for field in investor_fields:
+        if field in update_data:
+            setattr(investor, field, update_data[field])
+            
+    # Update User if fields provided
+    if investor.user_id:
+        user_stmt = select(User).where(User.id == investor.user_id)
+        user_res = await db.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+        
+        if user:
+            if "nombre_completo" in update_data:
+                user.name = update_data["nombre_completo"]
+            if "correo_electronico" in update_data:
+                user.email = update_data["correo_electronico"]
+                
+        # Update Bank
+        bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == investor.user_id)
+        bank_res = await db.execute(bank_stmt)
+        bank_acc = bank_res.scalar_one_or_none()
+        
+        if bank_acc:
+            if "banco" in update_data:
+                bank_acc.banco = update_data["banco"]
+            if "tipo_cuenta" in update_data:
+                bank_acc.tipo_cuenta = update_data["tipo_cuenta"]
+            if "numero_cuenta" in update_data:
+                bank_acc.numero_cuenta = update_data["numero_cuenta"]
+                
+    await db.commit()
+    return {"message": "Inversión actualizada correctamente"}

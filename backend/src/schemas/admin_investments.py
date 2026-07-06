@@ -103,3 +103,56 @@ class AdminInvestmentRequestResponse(BaseModel):
     paquete_nombre: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+class UserSearchResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    documento: Optional[str] = None
+    numero_celular: Optional[str] = None
+    ciudad: Optional[str] = None
+    banco: Optional[str] = None
+    tipo_cuenta: Optional[str] = None
+    numero_cuenta: Optional[str] = None
+
+class AdminInvestmentUpdate(BaseModel):
+    # Personal
+    nombre_completo: Optional[str] = None
+    correo_electronico: Optional[str] = None
+    tipo_documento: Optional[str] = None
+    documento: Optional[str] = None
+    numero_celular: Optional[str] = None
+    ciudad: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
+    referido_por: Optional[str] = None
+    observaciones: Optional[str] = None
+    # Bank
+    banco: Optional[str] = None
+    tipo_cuenta: Optional[str] = None
+    numero_cuenta: Optional[str] = None
+    # Financial
+    paquete_inversion_adquirido: Optional[int] = None
+    total_contrato: Optional[Decimal] = None
+    fecha_ingreso: Optional[date] = None
+    fecha_finalizacion: Optional[date] = None
+
+class AgentInvestmentCreate(BaseModel):
+    # Search / New User
+    user_id: Optional[int] = None
+    name: str
+    email: str
+    # Personal
+    tipo_documento: str
+    documento: str
+    numero_celular: str
+    ciudad: str
+    fecha_nacimiento: Optional[date] = None
+    # Bank
+    banco: str
+    tipo_cuenta: str
+    numero_cuenta: str
+    # Investment
+    paquete_id: int
+    monto: Decimal
+    comprobante_path: Optional[str] = None
+
