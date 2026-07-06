@@ -260,24 +260,24 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-hidden">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
-                <div className="flex-none flex items-center justify-between p-6 border-b border-slate-100 bg-white">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/50 backdrop-blur-sm overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl flex flex-col" style={{ maxHeight: 'calc(100vh - 1rem)' }}>
+                <div className="flex-none flex items-center justify-between p-4 md:p-5 border-b border-slate-100 bg-white">
                     <div>
                         <h2 className="text-xl font-bold text-slate-900">Crear Solicitud de Inversión</h2>
-                        <p className="text-sm text-slate-500 mt-1">Registra una inversión a nombre de un cliente (Existente o Nuevo)</p>
+                        <p className="text-sm text-slate-500 mt-0.5">Registra una inversión a nombre de un cliente</p>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto min-h-0 p-6 bg-slate-50/50">
-                    <form id="create-investment-form" onSubmit={handleSubmit} className="space-y-6 max-w-3xl mx-auto">
+                <div className="flex-1 overflow-y-auto min-h-0 p-4 md:p-5 bg-slate-50/50">
+                    <form id="create-investment-form" onSubmit={handleSubmit} className="space-y-4 md:space-y-5 max-w-4xl mx-auto">
                         
                         {/* Buscador Autocompletado */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                        <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm relative">
+                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 mb-3 border-b border-slate-100 pb-2">
                                 <Search className="w-5 h-5 text-brand-600" />
                                 Buscar Cliente
                             </h3>
@@ -355,8 +355,8 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                         </div>
 
                         {/* Datos Personales */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                        <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 mb-3 border-b border-slate-100 pb-2">
                                 <User className="w-5 h-5 text-brand-600" />
                                 Información Personal
                             </h3>
@@ -407,8 +407,8 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                         </div>
 
                         {/* Cuenta Bancaria */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                        <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 mb-3 border-b border-slate-100 pb-2">
                                 <Landmark className="w-5 h-5 text-brand-600" />
                                 Cuenta Bancaria
                             </h3>
@@ -432,8 +432,8 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                         </div>
 
                         {/* Documentos KYC */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                        <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 mb-3 border-b border-slate-100 pb-2">
                                 <UploadCloud className="w-5 h-5 text-brand-600" />
                                 Documentos
                             </h3>
@@ -460,12 +460,12 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                         </div>
 
                         {/* Detalles Inversión */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                        <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 mb-3 border-b border-slate-100 pb-2">
                                 <CreditCard className="w-5 h-5 text-brand-600" />
                                 Detalles de la Inversión
                             </h3>
-                            <div className="space-y-6">
+                            <div className="space-y-4 md:space-y-5">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {/* Selector de Paquetes */}
                                     <div>
@@ -561,7 +561,7 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                     </form>
                 </div>
 
-                <div className="flex-none p-6 border-t border-slate-100 flex justify-end bg-white">
+                <div className="flex-none p-4 md:p-5 border-t border-slate-100 flex justify-end bg-white">
                     <button 
                         type="submit"
                         form="create-investment-form"
