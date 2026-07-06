@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 from typing import List
 
 from src.core.database import get_db
-from src.core.security import get_current_user
+from src.api.dependencies.auth_deps import get_current_user
 from src.models.user import User
 from src.models.security import Role, Permission
 from src.schemas.roles import RoleResponse, RoleCreate, RoleUpdate, PermissionResponse
