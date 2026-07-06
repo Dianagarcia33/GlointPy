@@ -144,7 +144,7 @@ export const InvestorRegistrationFlow = () => {
             } else {
                 setIsCustomMonto(false);
                 const pkg = paquetes.find((p: any) => p.id.toString() === value);
-                const montoVal = pkg ? pkg.nombre.replace(/[^0-9]/g, '') : '';
+                const montoVal = pkg ? pkg.paquete_accion_adquirido.replace(/[^0-9]/g, '') : '';
                 setFormData(prev => ({ ...prev, paquete_id: value, monto: montoVal }));
             }
             return;
@@ -370,7 +370,7 @@ export const InvestorRegistrationFlow = () => {
                                 <select required name="paquete_id" value={formData.paquete_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
                                     <option value="">Selecciona un paquete...</option>
                                     {paquetes.map((p: any) => (
-                                        <option key={p.id} value={p.id}>{p.nombre}</option>
+                                        <option key={p.id} value={p.id}>{p.paquete_accion_adquirido}</option>
                                     ))}
                                     <option value="custom">Personalizado (Ingresar Monto)</option>
                                 </select>
