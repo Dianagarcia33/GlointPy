@@ -108,7 +108,7 @@ async def get_my_investments(
                 "id": req.id,
                 "user_id": req.user_id,
                 "monto": req.monto,
-                "status": req.status.value if hasattr(req.status, 'value') else req.status,
+                "status": str(req.status.value) if hasattr(req.status, 'value') else str(req.status),
                 "created_at": req.created_at,
                 "total_contrato": None,
                 "rendimiento_total_contrato": None,
