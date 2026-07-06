@@ -146,7 +146,10 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
             total_contrato: parseFloat(formData.total_contrato) || 0,
             paquete_inversion_adquirido: isCustomMonto || !formData.paquete_inversion_adquirido || formData.paquete_inversion_adquirido === 'custom' ? null : parseInt(formData.paquete_inversion_adquirido),
             contract_period_id: formData.periodo_id ? parseInt(formData.periodo_id) : undefined,
-            kyc_docs: kycDocs
+            kyc_docs: kycDocs,
+            fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null,
+            fecha_ingreso: formData.fecha_ingreso ? formData.fecha_ingreso : null,
+            fecha_finalizacion: formData.fecha_finalizacion ? formData.fecha_finalizacion : null
         };
         
         updateMutation.mutate(payload);
