@@ -165,7 +165,7 @@ async def logout(response: Response):
 from src.schemas.auth_schema import InvestorRegisterRequest
 from src.core.security import get_password_hash
 from src.models.investment_request import InvestmentRequest
-from src.models.role import Role
+from src.models.security import Role
 
 @router.post("/register-investor", response_model=Token)
 async def register_investor(
