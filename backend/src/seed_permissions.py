@@ -9,6 +9,17 @@ async def seed_roles_and_permissions():
     async with async_session_maker() as db:
         print("Iniciando seeder de permisos y roles...")
         
+        # Recuperar la columna 'permissions' si fue eliminada por error
+        try:
+            from sqlalchemy import text
+            await db.execute(text("ALTER TABLE roles ADD COLUMN permissions JSON NOT NULL"))
+            await db.commit()
+            print("Columna 'permissions' recuperada exitosamente en la tabla roles.")
+        except Exception as e:
+            # Si ya existe, MySQL arrojará un error (Duplicate column name), lo ignoramos.
+            await db.rollback()
+            pass
+            
         # 1. Asegurar que existe el rol de Super Admin
         stmt = select(Role).where(Role.name == "super_admin")
         result = await db.execute(stmt)
