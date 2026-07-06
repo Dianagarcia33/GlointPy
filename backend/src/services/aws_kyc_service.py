@@ -71,7 +71,9 @@ def parse_colombian_id_coordinates(blocks) -> dict:
         "documento": "",
         "name": "",
         "tipo_documento": "CC",
-        "fecha_nacimiento": ""
+        "fecha_nacimiento": "",
+        "biometrics_passed": True,
+        "biometrics_message": "Identidad validada con éxito."
     }
     
     name_lines = []
@@ -141,16 +143,17 @@ def process_kyc_documents(front_bytes: bytes, back_bytes: bytes, selfie_bytes: b
         
         matches = rek_response.get('FaceMatches', [])
         if not matches:
-            raise ValueError("No se detectó el mismo rostro en el documento y en la selfie.")
-            
-        similarity = matches[0]['Similarity']
-        if similarity < 85.0:
-            raise ValueError(f"Similitud facial insuficiente ({similarity:.2f}%).")
+            extracted_data["biometrics_passed"] = False
+            extracted_data["biometrics_message"] = "No se detectó una coincidencia facial clara. Requerirá validación manual."
+        else:
+            similarity = matches[0]['Similarity']
+            if similarity < 85.0:
+                extracted_data["biometrics_passed"] = False
+                extracted_data["biometrics_message"] = f"Similitud facial baja ({similarity:.2f}%). Requerirá validación manual."
             
     except Exception as e:
-        if "No se detectó el mismo rostro" in str(e) or "Similitud facial" in str(e):
-            raise
         print(f"Error Rekognition: {e}")
-        raise ValueError(f"Error de biometría (Rekognition): {str(e)}")
+        extracted_data["biometrics_passed"] = False
+        extracted_data["biometrics_message"] = "No se pudo procesar la biometría automáticamente. Requerirá validación manual."
         
     return extracted_data

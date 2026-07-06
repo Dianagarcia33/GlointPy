@@ -40,6 +40,7 @@ export const InvestorRegistrationFlow = () => {
     });
 
     const [kycPaths, setKycPaths] = useState<string[]>([]);
+    const [biometricsWarning, setBiometricsWarning] = useState<string | null>(null);
 
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -84,6 +85,13 @@ export const InvestorRegistrationFlow = () => {
                 fecha_nacimiento: data.extracted_data?.fecha_nacimiento || prev.fecha_nacimiento,
                 tipo_documento: data.extracted_data?.tipo_documento || prev.tipo_documento
             }));
+            
+            if (data.extracted_data && data.extracted_data.biometrics_passed === false) {
+                setBiometricsWarning(data.extracted_data.biometrics_message || "Validación manual requerida.");
+            } else {
+                setBiometricsWarning(null);
+            }
+            
             setStep(3); // Pasar a Formulario de Datos Personales
         },
         onError: (error: any) => {
@@ -288,6 +296,12 @@ export const InvestorRegistrationFlow = () => {
                 <form onSubmit={handleFinalSubmit} className="space-y-8 animate-fadeIn max-w-xl mx-auto text-left">
                     
                     {/* Section: Personal Info */}
+                    {biometricsWarning && (
+                        <div className="p-4 bg-orange-50 rounded-xl text-orange-700 text-sm font-medium border border-orange-200 flex items-start gap-3 mb-6">
+                            <span className="mt-0.5">⚠️</span>
+                            <span>{biometricsWarning} Puedes continuar con el registro, pero tu cuenta requerirá validación manual por parte de un administrador antes de ser activada.</span>
+                        </div>
+                    )}
                     <div>
                         <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
                             <User className="w-5 h-5 text-brand-600" /> Datos Personales
