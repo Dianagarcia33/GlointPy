@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { investmentsService, AdminInvestment } from '../../../../services/investments';
-import { Loader2, AlertCircle, Search, ChevronDown, ChevronRight, CheckCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Search, ChevronDown, ChevronRight, CheckCircle, Plus } from 'lucide-react';
 import { ExpandedInvestmentCard } from '../components/ExpandedInvestmentCard';
 import { AdminInvestmentRequestsTable } from '../components/AdminInvestmentRequestsTable';
 import { Can } from '../../../../components/security/Can';
 import { usePermissions } from '../../../../hooks/usePermissions';
+import { CreateInvestmentModal } from '../components/CreateInvestmentModal';
+import { EditInvestmentModal } from '../components/EditInvestmentModal';
 
 export const AdminInvestmentsPage = () => {
     const { hasPermission } = usePermissions();
@@ -17,6 +19,9 @@ export const AdminInvestmentsPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'Todas' | 'Activa' | 'Finalizada'>('Todas');
     const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+    
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [editingInvestment, setEditingInvestment] = useState<AdminInvestment | null>(null);
 
     const fetchData = async () => {
         try {
@@ -117,7 +122,18 @@ export const AdminInvestmentsPage = () => {
 
     return (
         <div className="p-8 max-w-full mx-auto">
-            <h1 className="text-2xl font-bold text-slate-800 mb-6">Administración de Inversiones</h1>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-2xl font-bold text-slate-800">Administración de Inversiones</h1>
+                <Can permission="admin.investments.create_for_client">
+                    <button 
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="bg-brand-500 hover:bg-brand-600 text-white px-4 py-2 rounded-xl shadow-sm shadow-brand-500/20 font-semibold flex items-center gap-2 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Nueva Solicitud (Asesor)
+                    </button>
+                </Can>
+            </div>
             
             {/* Tabs */}
             <div className="flex space-x-4 border-b border-slate-200 mb-6">
@@ -251,7 +267,7 @@ export const AdminInvestmentsPage = () => {
                                         {expandedRows.has(inv.id) && (
                                             <tr>
                                                 <td colSpan={5} className="p-0 border-b-2 border-brand-100">
-                                                    <ExpandedInvestmentCard inv={inv} />
+                                                    <ExpandedInvestmentCard inv={inv} onEdit={(i) => setEditingInvestment(i)} />
                                                 </td>
                                             </tr>
                                         )}
@@ -270,6 +286,17 @@ export const AdminInvestmentsPage = () => {
                     <AdminInvestmentRequestsTable />
                 </Can>
             )}
+
+            <CreateInvestmentModal 
+                isOpen={isCreateModalOpen} 
+                onClose={() => setIsCreateModalOpen(false)} 
+            />
+            
+            <EditInvestmentModal 
+                isOpen={!!editingInvestment} 
+                onClose={() => setEditingInvestment(null)} 
+                investment={editingInvestment} 
+            />
         </div>
     );
 };

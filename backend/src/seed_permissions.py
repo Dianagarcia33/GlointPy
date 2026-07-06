@@ -42,8 +42,11 @@ async def seed_roles_and_permissions():
             {"slug": "admin.roles.manage", "name": "Gestionar Roles", "module": "administración", "description": "Permite crear, editar y eliminar roles y permisos"},
             {"slug": "investments:view", "name": "Ver Inversiones", "module": "inversiones", "description": "Ver inversiones del usuario"},
             {"slug": "admin.investments.requests", "name": "Gestionar Solicitudes", "module": "inversiones", "description": "Aprobar o rechazar solicitudes de inversión"},
+            {"slug": "auditoria:view", "name": "Ver Auditoría", "module": "auditoria", "description": "Permite acceder al módulo de auditoría"},
+            {"slug": "investor.create", "name": "Crear Inversionista", "module": "investor", "description": "Permite crear un nuevo inversionista"},
+            {"slug": "investor.edit", "name": "Editar Inversionista", "module": "investor", "description": "Permite editar los datos de un inversionista existente"},
+            {"slug": "investor.view", "name": "Ver Inversionista", "module": "investor", "description": "Permite ver la información de un inversionista"}
         ]
-        
         # 3. Crear los permisos si no existen y asignarlos al super_admin
         perms_to_assign = []
         for p_data in required_permissions:

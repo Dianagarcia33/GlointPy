@@ -15,8 +15,10 @@ async def sync_all_permissions():
             {"slug": "investments:view", "name": "Ver Menú Inversiones", "module": "inversiones", "description": "Permite ver el menú lateral de inversiones"},
             {"slug": "ver_mis_inversiones", "name": "Cargar Inversiones Propias", "module": "dashboard", "description": "Permite visualizar el resumen de inversiones en el dashboard"},
             {"slug": "admin.investments.reales", "name": "Ver Inversiones Activas (Admin)", "module": "administración", "description": "Permite a los administradores ver todas las inversiones reales"},
-            {"slug": "admin.investments.requests", "name": "Gestionar Solicitudes (Admin)", "module": "administración", "description": "Permite aprobar o rechazar nuevas solicitudes"},
-            {"slug": "admin.roles.manage", "name": "Gestionar Roles", "module": "administración", "description": "Permite crear, editar y eliminar roles y permisos"},
+            {"slug": "admin.investments.requests", "name": "Gestionar Solicitudes (Admin)", "module": "administración", "description": "Aprobar o rechazar nuevas solicitudes"},
+            {"slug": "admin.investments.create_for_client", "name": "Crear Solicitudes a Clientes", "module": "administración", "description": "Crear solicitudes de inversión a nombre de terceros"},
+            {"slug": "admin.investments.edit", "name": "Editar Inversiones (Admin)", "module": "administración", "description": "Modificar los datos de las inversiones"},
+            {"slug": "admin.roles.manage", "name": "Gestionar Roles", "module": "administración", "description": "Crear, editar y eliminar roles"},
             {"slug": "manage_system_events", "name": "Ver Auditoría del Sistema", "module": "administración", "description": "Permite consultar los logs y eventos del sistema"},
             {"slug": "superadmin_tools", "name": "Herramientas de Superadmin", "module": "sistema", "description": "Acceso a herramientas avanzadas de desarrollo"},
         ]
