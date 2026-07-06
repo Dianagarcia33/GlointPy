@@ -28,6 +28,29 @@ export const AdminInvestmentsPage = () => {
         fetchData();
     }, []);
 
+    const getEstadoReal = (inv: AdminInvestment) => {
+        if (!inv.fecha_finalizacion) return inv.estado || 'Activa';
+        
+        let diasReducidos = 0;
+        if (inv.detalles_bonos) {
+            inv.detalles_bonos.forEach(bono => {
+                diasReducidos += bono.dias_reducidos || 0;
+            });
+        }
+        
+        const fechaFin = new Date(inv.fecha_finalizacion.includes('T') ? inv.fecha_finalizacion : `${inv.fecha_finalizacion}T12:00:00`);
+        fechaFin.setDate(fechaFin.getDate() - diasReducidos);
+        
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        fechaFin.setHours(0, 0, 0, 0);
+        
+        if (fechaFin <= hoy) {
+            return 'Finalizada';
+        }
+        return 'Activa';
+    };
+
     const filteredData = useMemo(() => {
         let result = data;
         
@@ -58,28 +81,6 @@ export const AdminInvestmentsPage = () => {
         }).format(value);
     };
 
-    const getEstadoReal = (inv: AdminInvestment) => {
-        if (!inv.fecha_finalizacion) return inv.estado || 'Activa';
-        
-        let diasReducidos = 0;
-        if (inv.detalles_bonos) {
-            inv.detalles_bonos.forEach(bono => {
-                diasReducidos += bono.dias_reducidos || 0;
-            });
-        }
-        
-        const fechaFin = new Date(inv.fecha_finalizacion.includes('T') ? inv.fecha_finalizacion : `${inv.fecha_finalizacion}T12:00:00`);
-        fechaFin.setDate(fechaFin.getDate() - diasReducidos);
-        
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
-        fechaFin.setHours(0, 0, 0, 0);
-        
-        if (fechaFin <= hoy) {
-            return 'Finalizada';
-        }
-        return 'Activa';
-    };
 
     const toggleRow = (id: number) => {
         const newSet = new Set(expandedRows);
