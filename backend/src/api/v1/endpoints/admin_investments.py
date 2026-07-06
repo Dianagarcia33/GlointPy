@@ -432,34 +432,42 @@ async def get_all_investment_requests(
     requests = result.scalars().all()
     
     response_list = []
+    import traceback
+    
     for req in requests:
-        usuario_nombre = None
-        usuario_correo = None
-        paquete_nombre = None
-        
-        if req.user:
-            if hasattr(req.user, 'name') and req.user.name:
-                usuario_nombre = req.user.name
-            elif hasattr(req.user, 'first_name') and req.user.first_name:
-                usuario_nombre = f"{req.user.first_name} {getattr(req.user, 'last_name', '')}".strip()
+        try:
+            usuario_nombre = None
+            usuario_correo = None
+            paquete_nombre = None
             
-            if req.user.email:
-                usuario_correo = req.user.email
+            if req.user:
+                if hasattr(req.user, 'name') and req.user.name:
+                    usuario_nombre = req.user.name
+                elif hasattr(req.user, 'first_name') and req.user.first_name:
+                    usuario_nombre = f"{req.user.first_name} {getattr(req.user, 'last_name', '')}".strip()
                 
-        if req.paquete and req.paquete.paquete_accion_adquirido:
-            paquete_nombre = str(req.paquete.paquete_accion_adquirido)
-            
-        response_list.append(AdminInvestmentRequestResponse(
-            id=req.id,
-            user_id=req.user_id,
-            monto=req.monto,
-            status=req.status,
-            comprobante_path=req.comprobante_path,
-            created_at=req.created_at,
-            usuario_nombre=usuario_nombre,
-            usuario_correo=usuario_correo,
-            paquete_nombre=paquete_nombre
-        ))
+                if req.user.email:
+                    usuario_correo = req.user.email
+                    
+            if req.paquete and req.paquete.paquete_accion_adquirido:
+                paquete_nombre = str(req.paquete.paquete_accion_adquirido)
+                
+            status_str = req.status.value if hasattr(req.status, 'value') else str(req.status)
+                
+            response_list.append(AdminInvestmentRequestResponse(
+                id=req.id,
+                user_id=req.user_id,
+                monto=req.monto,
+                status=status_str,
+                comprobante_path=req.comprobante_path,
+                created_at=req.created_at,
+                usuario_nombre=usuario_nombre,
+                usuario_correo=usuario_correo,
+                paquete_nombre=paquete_nombre
+            ))
+        except Exception as e:
+            print(f"Error procesando solicitud ID {getattr(req, 'id', 'Desconocido')}: {e}")
+            traceback.print_exc()
         
     return response_list
 

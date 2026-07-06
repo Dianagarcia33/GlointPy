@@ -93,7 +93,7 @@ class AdminInvestmentRequestResponse(BaseModel):
     monto: Decimal
     status: str
     comprobante_path: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     # User info
     usuario_nombre: Optional[str] = None
