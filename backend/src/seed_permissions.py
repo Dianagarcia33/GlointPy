@@ -3,11 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from src.core.database import SessionLocal
+from src.core.database import async_session_maker
 from src.models.security import Permission, Role
 
 async def seed_roles_and_permissions():
-    async with SessionLocal() as db:
+    async with async_session_maker() as db:
         print("Iniciando seeder de permisos y roles...")
         
         # 1. Asegurar que existe el rol de Super Admin
