@@ -8,8 +8,8 @@ from src.models.security import Role, Permission
 
 async def clean_and_seed():
     async with async_session_maker() as db:
-        print("Borrando TODOS los permisos viejos de la tabla permissions...")
-        await db.execute(text("TRUNCATE TABLE permissions"))
+        print("Borrando SOLO los 109 permisos viejos del backup para proteger los que tú creaste...")
+        await db.execute(text("DELETE FROM permissions WHERE id <= 109"))
         
         print("Vaciando los arreglos JSON de permisos de todos los roles...")
         await db.execute(text("UPDATE roles SET permissions = '[]'"))
