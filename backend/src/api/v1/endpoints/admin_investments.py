@@ -425,7 +425,7 @@ async def get_all_investment_requests(
             selectinload(InvestmentRequest.user),
             selectinload(InvestmentRequest.paquete)
         )
-        .order_by(InvestmentRequest.created_at.desc())
+        .order_by(InvestmentRequest.id.desc())
     )
     
     result = await db.execute(stmt)
