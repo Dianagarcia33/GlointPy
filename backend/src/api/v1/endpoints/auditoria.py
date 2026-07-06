@@ -395,11 +395,7 @@ async def migrate_simple_users(
                 ir.fecha_ingreso,
                 ir.fecha_finalizacion as original_fecha_finalizacion,
                 ir.liquidacion_diaria_rendimiento,
-                p.paquete_accion_adquirido as paquete_nombre,
-                p.porcentaje_mensual_rendimiento,
-                p.periodo_contrato_meses,
-                p.periodo_contrato_dias,
-                p.contract_period_id
+                p.paquete_accion_adquirido as paquete_nombre
             FROM investor_respaldo ir
             LEFT JOIN paquetes_inversion p ON ir.paquete_inversion_adquirido = p.id
             WHERE ir.user_id IN ({user_ids_str})
@@ -526,21 +522,7 @@ async def migrate_simple_users(
             else:
                 capital = 0.0
                 
-            period_obj = None
-            if row.contract_period_id:
-                period_obj = periods_dict.get(row.contract_period_id)
-            if not period_obj and row.periodo_contrato_dias:
-                for p in all_periods:
-                    if p.days == row.periodo_contrato_dias or p.months == row.periodo_contrato_meses:
-                        period_obj = p
-                        break
-                        
             base_yield = float(row.liquidacion_diaria_rendimiento or 0)
-            if base_yield == 0 and capital > 0:
-                if period_obj:
-                    base_yield = (capital * (float(period_obj.percentage) / 100) * int(period_obj.months)) / int(period_obj.days)
-                elif row.porcentaje_mensual_rendimiento and row.periodo_contrato_meses and row.periodo_contrato_dias:
-                    base_yield = (capital * (float(row.porcentaje_mensual_rendimiento) / 100) * int(row.periodo_contrato_meses)) / int(row.periodo_contrato_dias)
             
             fecha_ingreso = row.fecha_ingreso
             original_fin = row.original_fecha_finalizacion
