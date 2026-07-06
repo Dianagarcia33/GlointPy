@@ -77,6 +77,7 @@ export const InvestorRegistrationFlow = () => {
             return res;
         },
         onSuccess: (data: any) => {
+            console.log("OCR Response:", data.extracted_data);
             setKycPaths(data.paths || []);
             setFormData(prev => ({ 
                 ...prev, 

@@ -90,10 +90,12 @@ def parse_colombian_id_coordinates(blocks) -> dict:
             elif 'EXTRANJERIA' in text or 'EXTRANJERÍA' in text:
                 extracted['tipo_documento'] = 'CE'
                 
-            # Número de documento (buscamos un número largo aislado)
-            numbers = re.findall(r'\b\d{6,10}\b', text)
-            if numbers and not extracted['documento'] and top > 0.1:
-                # Evitar que tome números de la parte superior del encabezado
+            # Número de documento (buscamos un número largo, puede tener puntos)
+            # Removemos puntos y espacios para evaluar
+            clean_text = text.replace(".", "").replace(" ", "").replace(",", "")
+            numbers = re.findall(r'\b\d{6,11}\b', clean_text)
+            if numbers and not extracted['documento'] and top > 0.05:
+                # Evitar que tome números de la parte super superior (fechas etc)
                 extracted['documento'] = numbers[0]
                 
             # Nombre: Usualmente está en el tercio medio superior (0.2 a 0.6)
