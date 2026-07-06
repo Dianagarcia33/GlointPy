@@ -271,24 +271,38 @@ async def register_investor(
     full_user = res.scalars().first()
     
     roles_list = []
-    raw_permissions = set()
     if hasattr(full_user, 'roles') and full_user.roles:
-        for r in full_user.roles:
-            roles_list.append(r.name)
-            if hasattr(r, 'permissions') and r.permissions:
-                perms_data = r.permissions
-                import json
-                if isinstance(perms_data, str):
-                    try:
-                        perms_list = json.loads(perms_data)
-                    except:
-                        perms_list = []
-                elif isinstance(perms_data, list):
-                    perms_list = perms_data
-                else:
+        roles_list = [r.name for r in full_user.roles]
+
+    from sqlalchemy import text
+    try:
+        perms_result = await db.execute(
+            text("""
+                SELECT r.permissions 
+                FROM roles r
+                JOIN user_roles ur ON r.id = ur.role_id
+                WHERE ur.user_id = :user_id
+            """),
+            {"user_id": full_user.id}
+        )
+        raw_permissions = set()
+        for row in perms_result.fetchall():
+            import json
+            perms_data = row[0]
+            if isinstance(perms_data, str):
+                try:
+                    perms_list = json.loads(perms_data)
+                except:
                     perms_list = []
-                for p in perms_list:
-                    raw_permissions.add(p)
+            elif isinstance(perms_data, list):
+                perms_list = perms_data
+            else:
+                perms_list = []
+                
+            for p in perms_list:
+                raw_permissions.add(p)
+    except Exception as e:
+        raw_permissions = set()
                     
     from src.schemas.auth_schema import UserResponse
     user_response = UserResponse(

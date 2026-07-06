@@ -38,7 +38,7 @@ async def get_current_user(
         # Buscar el usuario e intentar cargar sus roles e información de permisos
         result = await db.execute(
             select(User)
-            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .options(selectinload(User.roles))
             .where(User.id == int(user_id))
         )
         user = result.scalars().first()
