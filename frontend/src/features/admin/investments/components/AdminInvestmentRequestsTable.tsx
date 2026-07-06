@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { investmentsService, AdminInvestmentRequest } from '../../../../services/investments';
 import { Loader2, AlertCircle, FileText, CheckCircle, XCircle, Search } from 'lucide-react';
-import { formatCOP } from '../../../../utils/currency';
+import { formatCurrency } from '../../../../utils/format';
 
 export const AdminInvestmentRequestsTable = () => {
     const [requests, setRequests] = useState<AdminInvestmentRequest[]>([]);
@@ -135,12 +135,12 @@ export const AdminInvestmentRequestsTable = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-brand-600">
-                                            {req.paquete_nombre ? formatCOP(parseFloat(req.paquete_nombre)) : 'N/A'}
+                                            {req.paquete_nombre ? formatCurrency(parseFloat(req.paquete_nombre)) : 'N/A'}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="font-semibold text-slate-800">
-                                            {formatCOP(req.monto)}
+                                            {formatCurrency(req.monto)}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
