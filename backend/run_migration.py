@@ -8,6 +8,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from src.core.database import async_session_maker as SessionLocal
 from src.api.v1.endpoints.auditoria import migrate_simple_users, SimpleUserMigrationRequest, get_simple_users
 from sqlalchemy import text
+import src.main # Pre-cargar todos los modelos y relaciones de SQLAlchemy
 
 class MockUser:
     email = "superadmin@gloint.com"
