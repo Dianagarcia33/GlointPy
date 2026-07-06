@@ -22,7 +22,7 @@ export const InvestorRegistrationFlow = () => {
     const [formData, setFormData] = useState({
         name: '',
         documento: '',
-        tipo_documento: 'CC',
+        tipo_documento: '',
         email: '',
         password: '',
         numero_celular: '',
@@ -30,7 +30,7 @@ export const InvestorRegistrationFlow = () => {
         custom_ciudad: '',
         fecha_nacimiento: '',
         banco: '',
-        tipo_cuenta: 'Ahorros',
+        tipo_cuenta: '',
         numero_cuenta: '',
         paquete_id: '',
         monto: '',
@@ -84,7 +84,7 @@ export const InvestorRegistrationFlow = () => {
         },
         onSuccess: (data: any) => {
             setKycPaths(data.paths);
-            setFormData(prev => ({ ...prev, name: data.name || prev.name, documento: data.documentNumber || prev.documento }));
+            setFormData(prev => ({ ...prev, name: '', documento: '' }));
             setStep(3); // Pasar a Formulario de Datos Personales
         }
     });
@@ -288,7 +288,8 @@ export const InvestorRegistrationFlow = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Doc.</label>
-                                <select name="tipo_documento" value={formData.tipo_documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                <select required name="tipo_documento" value={formData.tipo_documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                    <option value="">Selecciona...</option>
                                     <option value="CC">Cédula</option>
                                     <option value="CE">Cédula Extranjería</option>
                                     <option value="PAS">Pasaporte</option>
@@ -347,7 +348,8 @@ export const InvestorRegistrationFlow = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta</label>
-                                <select name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                <select required name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                    <option value="">Selecciona...</option>
                                     <option value="Ahorros">Ahorros</option>
                                     <option value="Corriente">Corriente</option>
                                 </select>
