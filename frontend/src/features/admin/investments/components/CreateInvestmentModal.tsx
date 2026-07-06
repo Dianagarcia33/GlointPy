@@ -224,9 +224,9 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white sm:rounded-2xl shadow-xl w-full max-w-4xl h-full sm:h-auto max-h-[100vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white z-10 shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+                <div className="flex-none flex items-center justify-between p-6 border-b border-slate-100 bg-white">
                     <div>
                         <h2 className="text-xl font-bold text-slate-900">Crear Solicitud de Inversión</h2>
                         <p className="text-sm text-slate-500 mt-1">Registra una inversión a nombre de un cliente (Existente o Nuevo)</p>
@@ -236,8 +236,8 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50">
-                    <form id="create-investment-form" onSubmit={handleSubmit} className="space-y-6 max-w-3xl mx-auto pb-8">
+                <div className="flex-1 overflow-y-auto min-h-0 p-6 bg-slate-50/50">
+                    <form id="create-investment-form" onSubmit={handleSubmit} className="space-y-6 max-w-3xl mx-auto">
                         
                         {/* Buscador Autocompletado */}
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative">
@@ -497,7 +497,7 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                     </form>
                 </div>
 
-                <div className="p-4 sm:p-6 border-t border-slate-100 flex justify-end bg-white z-10 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <div className="flex-none p-6 border-t border-slate-100 flex justify-end bg-white">
                     <button 
                         type="submit"
                         form="create-investment-form"
