@@ -390,10 +390,15 @@ async def migrate_simple_users(
         
         query_base = text(f"""
             SELECT 
+                ir.id as inv_id,
                 ir.user_id,
                 ir.fecha_ingreso,
                 ir.fecha_finalizacion as original_fecha_finalizacion,
                 ir.liquidacion_diaria_rendimiento,
+                ir.contract_period_id,
+                ir.periodo_contrato,
+                ir.dias_contrato,
+                ir.total_contrato,
                 p.paquete_accion_adquirido as paquete_nombre
             FROM investor_respaldo ir
             LEFT JOIN paquetes_inversion p ON ir.paquete_inversion_adquirido = p.id
@@ -401,6 +406,11 @@ async def migrate_simple_users(
         """)
         res_base = await db.execute(query_base)
         base_users = res_base.fetchall()
+        
+        from src.models.contract_period import ContractPeriod
+        periods_res = await db.execute(select(ContractPeriod))
+        all_periods = periods_res.scalars().all()
+        periods_dict = {p.id: p for p in all_periods}
         
         query_bonos = text(f"""
             SELECT 
@@ -508,12 +518,34 @@ async def migrate_simple_users(
             
             capital = 0.0
             paquete_nombre = str(row.paquete_nombre) if row.paquete_nombre else ""
-            if paquete_nombre and paquete_nombre != "N/A" and paquete_nombre != "0":
+            if row.paquete_nombre:
                 try:
-                    capital = float(paquete_nombre)
-                except ValueError:
-                    pass
+                    capital = float(row.paquete_nombre)
+                except:
+                    capital = float(row.total_contrato or 0.0)
+            else:
+                capital = float(row.total_contrato or 0.0)
                 
+            period_obj = None
+            if row.contract_period_id:
+                period_obj = periods_dict.get(row.contract_period_id)
+            if not period_obj and row.periodo_contrato:
+                period_obj = periods_dict.get(row.periodo_contrato)
+                if not period_obj:
+                    for p in all_periods:
+                        if p.days == row.periodo_contrato or p.months == row.periodo_contrato:
+                            period_obj = p
+                            break
+            if not period_obj and row.dias_contrato:
+                for p in all_periods:
+                    if p.days == row.dias_contrato:
+                        period_obj = p
+                        break
+                        
+            base_yield = float(row.liquidacion_diaria_rendimiento or 0)
+            if base_yield == 0 and period_obj and capital > 0:
+                base_yield = (capital * (float(period_obj.percentage) / 100) * int(period_obj.months)) / int(period_obj.days)
+            
             fecha_ingreso = row.fecha_ingreso
             original_fin = row.original_fecha_finalizacion
             sum_days = int(bonos_data["sum_days"])
@@ -533,7 +565,7 @@ async def migrate_simple_users(
             if fecha_ingreso and real_fin:
                 end_yield_date = min(cutoff_date, real_fin)
                 if end_yield_date >= fecha_ingreso:
-                    calculated_yields = calc_yield(fecha_ingreso, end_yield_date, capital, float(row.liquidacion_diaria_rendimiento or 0), user_cap_wd)
+                    calculated_yields = calc_yield(fecha_ingreso, end_yield_date, capital, base_yield, user_cap_wd)
                     
                 if real_fin <= cutoff_date:
                     if real_fin > date(2026, 5, 29):
@@ -548,7 +580,7 @@ async def migrate_simple_users(
                 june_start = max(fecha_ingreso, cycle_start)
                 june_end = min(real_fin, cycle_end)
                 if june_end > june_start:
-                    june_yield = calc_yield(june_start, june_end, capital, float(row.liquidacion_diaria_rendimiento or 0), user_cap_wd)
+                    june_yield = calc_yield(june_start, june_end, capital, base_yield, user_cap_wd)
             
             sum_bonus = bonos_data["sum_bonus"]
             june_bonus = bonos_june_dict.get(uid, 0.0)
