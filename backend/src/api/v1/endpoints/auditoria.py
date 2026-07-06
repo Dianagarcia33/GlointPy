@@ -609,15 +609,15 @@ async def migrate_simple_users(
                 transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, amount, type, reference_type, description, balance_after, created_at, updated_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {retiros}, 'DEBIT', 'RETIROS_HISTORICOS', 'Migración de suma de retiros acumulados', {calculated_real_balance}, NOW(), NOW());")
 
             if june_yield > 0:
-                transactions_to_insert.append(f"INSERT INTO retiros (user_id, investor_id, origen, tipo, monto, impuesto, monto_neto, fecha_solicitud, estado, metodo_pago, observaciones, created_at, updated_at) VALUES ({uid}, (SELECT id FROM investor_respaldo WHERE user_id = {uid} LIMIT 1), 'auto_yield_transfer', 'rendimiento', {june_yield}, 0, {june_yield}, '2026-06-29', 'procesado', 'wallet', 'Rendimientos de ciclo (Mayo 29 - Junio 29)', '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
+                transactions_to_insert.append(f"INSERT INTO retiros (user_id, investor_id, origen, tipo, monto, impuesto, monto_neto, fecha_solicitud, estado, metodo_pago, observaciones, created_at, updated_at) VALUES ({uid}, {row.inv_id}, 'auto_yield_transfer', 'rendimiento', {june_yield}, 0, {june_yield}, '2026-06-29', 'procesado', 'wallet', 'Rendimientos de ciclo (Mayo 29 - Junio 29)', '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
                 transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, amount, type, reference_type, reference_id, description, balance_after, created_at, updated_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {june_yield}, 'yield_payout', 'retiros', (SELECT max(id) FROM retiros WHERE user_id = {uid} AND origen = 'auto_yield_transfer'), 'Rendimientos de ciclo (Mayo 29 - Junio 29)', {calculated_real_balance}, '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
 
             if june_bonus > 0:
-                transactions_to_insert.append(f"INSERT INTO retiros (user_id, investor_id, origen, tipo, monto, impuesto, monto_neto, fecha_solicitud, estado, metodo_pago, observaciones, created_at, updated_at) VALUES ({uid}, (SELECT id FROM investor_respaldo WHERE user_id = {uid} LIMIT 1), 'auto_bonus_transfer', 'bono', {june_bonus}, 0, {june_bonus}, '2026-06-29', 'procesado', 'wallet', 'Bono de aceleración ciclo (Mayo 29 - Junio 29)', '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
+                transactions_to_insert.append(f"INSERT INTO retiros (user_id, investor_id, origen, tipo, monto, impuesto, monto_neto, fecha_solicitud, estado, metodo_pago, observaciones, created_at, updated_at) VALUES ({uid}, {row.inv_id}, 'auto_bonus_transfer', 'bono', {june_bonus}, 0, {june_bonus}, '2026-06-29', 'procesado', 'wallet', 'Bono de aceleración ciclo (Mayo 29 - Junio 29)', '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
                 transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, amount, type, reference_type, reference_id, description, balance_after, created_at, updated_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {june_bonus}, 'bonus_payout', 'retiros', (SELECT max(id) FROM retiros WHERE user_id = {uid} AND origen = 'auto_bonus_transfer'), 'Bono de aceleración ciclo (Mayo 29 - Junio 29)', {calculated_real_balance}, '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
 
             if june_capital > 0:
-                transactions_to_insert.append(f"INSERT INTO retiros (user_id, investor_id, origen, tipo, monto, impuesto, monto_neto, fecha_solicitud, estado, metodo_pago, observaciones, created_at, updated_at) VALUES ({uid}, (SELECT id FROM investor_respaldo WHERE user_id = {uid} LIMIT 1), 'fin_contrato', 'capital', {june_capital}, 0, {june_capital}, '2026-06-29', 'procesado', 'wallet', 'Liberación de capital ciclo (Mayo 29 - Junio 29)', '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
+                transactions_to_insert.append(f"INSERT INTO retiros (user_id, investor_id, origen, tipo, monto, impuesto, monto_neto, fecha_solicitud, estado, metodo_pago, observaciones, created_at, updated_at) VALUES ({uid}, {row.inv_id}, 'fin_contrato', 'capital', {june_capital}, 0, {june_capital}, '2026-06-29', 'procesado', 'wallet', 'Liberación de capital ciclo (Mayo 29 - Junio 29)', '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
                 transactions_to_insert.append(f"INSERT INTO wallet_transactions (wallet_id, amount, type, reference_type, reference_id, description, balance_after, created_at, updated_at) VALUES ((SELECT id FROM wallets WHERE user_id = {uid}), {june_capital}, 'capital_return', 'retiros', (SELECT max(id) FROM retiros WHERE user_id = {uid} AND tipo = 'capital'), 'Liberación de capital ciclo (Mayo 29 - Junio 29)', {calculated_real_balance}, '2026-06-29 23:59:59', '2026-06-29 23:59:59');")
 
         
@@ -651,6 +651,7 @@ async def migrate_simple_users(
             f"DELETE FROM investor_respaldo WHERE user_id IN ({user_ids_str})"
         ]
         
+        await db.execute(text("SET FOREIGN_KEY_CHECKS=0;"))
         for wq in wallets_to_insert:
             await db.execute(text(wq))
             
