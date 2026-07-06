@@ -122,9 +122,8 @@ def process_kyc_documents(front_bytes: bytes, back_bytes: bytes, selfie_bytes: b
     # 1. OCR (Textract)
     try:
         textract = get_textract_client()
-        response = textract.analyze_document(
-            Document={'Bytes': cropped_front},
-            FeatureTypes=[]
+        response = textract.detect_document_text(
+            Document={'Bytes': cropped_front}
         )
         extracted_data = parse_colombian_id_coordinates(response.get('Blocks', []))
     except Exception as e:
