@@ -48,6 +48,29 @@ export const AdminInvestmentsPage = () => {
         }).format(value);
     };
 
+    const getEstadoReal = (inv: AdminInvestment) => {
+        if (!inv.fecha_finalizacion) return inv.estado || 'Activa';
+        
+        let diasReducidos = 0;
+        if (inv.detalles_bonos) {
+            inv.detalles_bonos.forEach(bono => {
+                diasReducidos += bono.dias_reducidos || 0;
+            });
+        }
+        
+        const fechaFin = new Date(inv.fecha_finalizacion.includes('T') ? inv.fecha_finalizacion : `${inv.fecha_finalizacion}T12:00:00`);
+        fechaFin.setDate(fechaFin.getDate() - diasReducidos);
+        
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        fechaFin.setHours(0, 0, 0, 0);
+        
+        if (fechaFin <= hoy) {
+            return 'Finalizada';
+        }
+        return 'Activa';
+    };
+
     const toggleRow = (id: number) => {
         const newSet = new Set(expandedRows);
         if (newSet.has(id)) newSet.delete(id);
@@ -144,10 +167,15 @@ export const AdminInvestmentsPage = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${inv.estado?.toLowerCase() === 'activo' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
-                                                    <CheckCircle className="w-3 h-3" />
-                                                    {inv.estado || 'N/A'}
-                                                </span>
+                                                {(() => {
+                                                    const estadoReal = getEstadoReal(inv);
+                                                    return (
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${estadoReal === 'Activa' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                                                            <CheckCircle className="w-3 h-3" />
+                                                            {estadoReal}
+                                                        </span>
+                                                    );
+                                                })()}
                                             </td>
                                         </tr>
                                         
