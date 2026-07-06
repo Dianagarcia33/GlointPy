@@ -28,6 +28,14 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
     const [userId, setUserId] = useState<number | null>(null);
     const [showCustomCity, setShowCustomCity] = useState(false);
     const [isCustomMonto, setIsCustomMonto] = useState(false);
+    
+    // KYC State
+    const [kycDocs, setKycDocs] = useState({
+        frontal: '',
+        lateral: '',
+        selfie: ''
+    });
+    const [uploadingKyc, setUploadingKyc] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -114,8 +122,29 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
             });
             setShowCustomCity(false);
             setIsCustomMonto(false);
+            setKycDocs({ frontal: '', lateral: '', selfie: '' });
         }
     });
+
+    const handleKycUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'frontal' | 'lateral' | 'selfie' | 'comprobante_path') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        try {
+            setUploadingKyc(type);
+            const res = await investmentsService.uploadKycDocument(file);
+            if (type === 'comprobante_path') {
+                setFormData(prev => ({ ...prev, comprobante_path: res.path }));
+            } else {
+                setKycDocs(prev => ({ ...prev, [type]: res.path }));
+            }
+        } catch (error) {
+            console.error("Error al subir archivo", error);
+            alert("Error al subir archivo");
+        } finally {
+            setUploadingKyc(null);
+        }
+    };
 
     const handleSelectUser = (user: any) => {
         setUserId(user.id);
@@ -165,7 +194,8 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
             user_id: userId,
             monto: parseFloat(formData.monto),
             paquete_id: isCustomMonto ? null : parseInt(formData.paquete_id),
-            contract_period_id: parseInt(formData.periodo_id)
+            contract_period_id: parseInt(formData.periodo_id),
+            kyc_docs: kycDocs
         });
     };
 
@@ -216,7 +246,12 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
     };
 
     const formatCOP = (value: number) => {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+            maximumFractionDigits: 10
+        }).format(value);
     };
 
     const calc = getCalculations();
@@ -395,6 +430,34 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                             </div>
                         </div>
 
+                        {/* Documentos KYC */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                                <UploadCloud className="w-5 h-5 text-brand-600" />
+                                Documentos KYC (Opcional)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Doc. Frontal</label>
+                                    <input type="file" accept="image/*,.pdf" onChange={(e) => handleKycUpload(e, 'frontal')} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+                                    {kycDocs.frontal && <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Cargado</p>}
+                                    {uploadingKyc === 'frontal' && <p className="text-xs text-brand-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> Subiendo...</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Doc. Lateral/Reverso</label>
+                                    <input type="file" accept="image/*,.pdf" onChange={(e) => handleKycUpload(e, 'lateral')} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+                                    {kycDocs.lateral && <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Cargado</p>}
+                                    {uploadingKyc === 'lateral' && <p className="text-xs text-brand-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> Subiendo...</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Selfie</label>
+                                    <input type="file" accept="image/*" onChange={(e) => handleKycUpload(e, 'selfie')} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+                                    {kycDocs.selfie && <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Cargado</p>}
+                                    {uploadingKyc === 'selfie' && <p className="text-xs text-brand-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> Subiendo...</p>}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Detalles Inversión */}
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
@@ -484,12 +547,17 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                                 )}
                                 
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Comprobante de Pago (URL)</label>
-                                    <div className="relative">
-                                        <UploadCloud className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                        <input name="comprobante_path" value={formData.comprobante_path} onChange={handleChange} placeholder="https://ejemplo.com/comprobante.pdf" className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" />
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Comprobante de Pago (PDF o Imagen)</label>
+                                    <div className="flex flex-col gap-2">
+                                        <input type="file" accept="image/*,.pdf" onChange={(e) => handleKycUpload(e, 'comprobante_path')} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+                                        {uploadingKyc === 'comprobante_path' && <p className="text-xs text-brand-500 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> Subiendo...</p>}
+                                        
+                                        <div className="relative mt-2">
+                                            <UploadCloud className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                            <input name="comprobante_path" value={formData.comprobante_path} onChange={handleChange} placeholder="O pega la URL aquí (https://ejemplo.com/comprobante.pdf)" className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-1">Ingresa la URL del comprobante si ya lo tienes subido a un almacenamiento en la nube.</p>
+                                    <p className="text-xs text-slate-500 mt-2">Sube el archivo o pega el enlace si ya está en la nube.</p>
                                 </div>
                             </div>
                         </div>

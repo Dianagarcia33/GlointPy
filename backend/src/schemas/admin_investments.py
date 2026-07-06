@@ -136,6 +136,7 @@ class AdminInvestmentUpdate(BaseModel):
     fecha_ingreso: Optional[date] = None
     fecha_finalizacion: Optional[date] = None
     contract_period_id: Optional[int] = None
+    kyc_docs: Optional[dict] = None
 
 class AgentInvestmentCreate(BaseModel):
     # Search / New User
@@ -157,4 +158,5 @@ class AgentInvestmentCreate(BaseModel):
     contract_period_id: Optional[int] = None
     monto: Decimal
     comprobante_path: Optional[str] = None
+    kyc_docs: Optional[dict] = None
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from typing import List, Optional
@@ -746,6 +746,30 @@ async def search_user(
         
     return response_list
 
+@router.post("/upload-kyc")
+async def upload_kyc_document(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    import os
+    import uuid
+    
+    upload_dir = "uploads/kyc_docs"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(upload_dir, unique_filename)
+    
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+        
+    # Return absolute URL path (assuming serving from static mount or returning relative for frontend to append base url)
+    # We will return the relative path
+    return {"path": file_path}
+
 @router.post("/create-for-client")
 async def create_investment_for_client(
     data: AgentInvestmentCreate,
@@ -822,6 +846,9 @@ async def create_investment_for_client(
         if data.fecha_nacimiento:
             investor.fecha_nacimiento = data.fecha_nacimiento
             
+    if data.kyc_docs:
+        investor.tusdatos_evidencia_paths = data.kyc_docs
+            
     # Create Investment Request
     
     # Manejar paquete personalizado
@@ -841,7 +868,7 @@ async def create_investment_for_client(
         monto=data.monto,
         comprobante_path=data.comprobante_path,
         status="pending",
-        extra_data={"contract_period_id": data.contract_period_id, "is_custom_monto": data.paquete_id is None}
+        extra_data={"contract_period_id": data.contract_period_id, "is_custom_monto": data.paquete_id is None, "kyc_docs": data.kyc_docs}
     )
     db.add(new_request)
     
@@ -874,6 +901,15 @@ async def update_investment(
     for field in investor_fields:
         if field in update_data:
             setattr(investor, field, update_data[field])
+            
+    if data.kyc_docs:
+        # Merge dict if exists or overwrite
+        current_docs = investor.tusdatos_evidencia_paths or {}
+        if isinstance(current_docs, dict):
+            current_docs.update(data.kyc_docs)
+            investor.tusdatos_evidencia_paths = current_docs
+        else:
+            investor.tusdatos_evidencia_paths = data.kyc_docs
             
     # Update User if fields provided
     if investor.user_id:

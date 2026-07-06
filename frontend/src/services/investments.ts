@@ -185,6 +185,15 @@ export const investmentsService = {
     return await fetchApi('/contract-periods');
   },
 
+  uploadKycDocument: async (file: File): Promise<{path: string}> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return await fetchApi('/investments/admin/upload-kyc', {
+      method: 'POST',
+      body: formData
+    });
+  },
+
   createInvestmentForClient: async (data: any) => {
     return await fetchApi('/investments/admin/create-for-client', {
       method: 'POST',

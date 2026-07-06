@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, CreditCard, Landmark, Loader2, Calculator } from 'lucide-react';
+import { X, User, CreditCard, Landmark, Loader2, Calculator, UploadCloud, CheckCircle2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { investmentsService, AdminInvestment } from '../../../../services/investments';
 
@@ -20,6 +20,14 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
     
     const [showCustomCity, setShowCustomCity] = useState(false);
     const [isCustomMonto, setIsCustomMonto] = useState(false);
+
+    // KYC State
+    const [kycDocs, setKycDocs] = useState({
+        frontal: '',
+        lateral: '',
+        selfie: ''
+    });
+    const [uploadingKyc, setUploadingKyc] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
         // Personal
@@ -102,6 +110,20 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
 
             setShowCustomCity(isCustom);
             setIsCustomMonto(!investment.financial_info.paquete_inversion_adquirido);
+            
+            // Try to parse existing kyc docs if any
+            if (investment.kyc_info?.evidencia_paths) {
+                try {
+                    const parsed = typeof investment.kyc_info.evidencia_paths === 'string' 
+                        ? JSON.parse(investment.kyc_info.evidencia_paths) 
+                        : investment.kyc_info.evidencia_paths;
+                    setKycDocs({
+                        frontal: parsed.frontal || '',
+                        lateral: parsed.lateral || '',
+                        selfie: parsed.selfie || ''
+                    });
+                } catch (e) {}
+            }
         }
     }, [investment, periodos]);
 
@@ -123,7 +145,8 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
             ciudad: finalCity,
             total_contrato: parseFloat(formData.total_contrato) || 0,
             paquete_inversion_adquirido: isCustomMonto || !formData.paquete_inversion_adquirido || formData.paquete_inversion_adquirido === 'custom' ? null : parseInt(formData.paquete_inversion_adquirido),
-            contract_period_id: formData.periodo_id ? parseInt(formData.periodo_id) : undefined
+            contract_period_id: formData.periodo_id ? parseInt(formData.periodo_id) : undefined,
+            kyc_docs: kycDocs
         };
         
         updateMutation.mutate(payload);
@@ -152,6 +175,22 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleKycUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'frontal' | 'lateral' | 'selfie') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        try {
+            setUploadingKyc(type);
+            const res = await investmentsService.uploadKycDocument(file);
+            setKycDocs(prev => ({ ...prev, [type]: res.path }));
+        } catch (error) {
+            console.error("Error al subir archivo", error);
+            alert("Error al subir archivo");
+        } finally {
+            setUploadingKyc(null);
+        }
+    };
+
     // Live Calculations
     const getCalculations = () => {
         const monto = parseFloat(formData.total_contrato) || 0;
@@ -176,7 +215,12 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
     };
 
     const formatCOP = (value: number) => {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
+        return new Intl.NumberFormat('es-CO', { 
+            style: 'currency', 
+            currency: 'COP', 
+            minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+            maximumFractionDigits: 10
+        }).format(value);
     };
 
     const calc = getCalculations();
@@ -280,6 +324,34 @@ export const EditInvestmentModal: React.FC<EditInvestmentModalProps> = ({ isOpen
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Número de Cuenta</label>
                                     <input name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Documentos KYC */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
+                                <UploadCloud className="w-5 h-5 text-brand-600" />
+                                Documentos KYC (Opcional)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Doc. Frontal</label>
+                                    <input type="file" accept="image/*,.pdf" onChange={(e) => handleKycUpload(e, 'frontal')} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+                                    {kycDocs.frontal && <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Cargado: {kycDocs.frontal.split('/').pop()}</p>}
+                                    {uploadingKyc === 'frontal' && <p className="text-xs text-brand-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> Subiendo...</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Doc. Lateral/Reverso</label>
+                                    <input type="file" accept="image/*,.pdf" onChange={(e) => handleKycUpload(e, 'lateral')} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+                                    {kycDocs.lateral && <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Cargado: {kycDocs.lateral.split('/').pop()}</p>}
+                                    {uploadingKyc === 'lateral' && <p className="text-xs text-brand-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> Subiendo...</p>}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Selfie</label>
+                                    <input type="file" accept="image/*" onChange={(e) => handleKycUpload(e, 'selfie')} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" />
+                                    {kycDocs.selfie && <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Cargado: {kycDocs.selfie.split('/').pop()}</p>}
+                                    {uploadingKyc === 'selfie' && <p className="text-xs text-brand-500 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin"/> Subiendo...</p>}
                                 </div>
                             </div>
                         </div>
