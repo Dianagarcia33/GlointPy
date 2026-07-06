@@ -20,10 +20,11 @@ def get_rekognition_client():
         region_name=settings.AWS_REGION
     )
 
-def crop_document(image_bytes: bytes) -> bytes:
+def compress_image(image_bytes: bytes) -> bytes:
     """
-    Usa OpenCV para encontrar el contorno más grande (el documento)
-    y recortar la imagen a sus bordes exactos.
+    Decodifica, valida y comprime la imagen para AWS.
+    Eliminamos el auto-recorte por contornos ya que causaba que
+    se perdiera texto valioso de la cédula.
     """
     if not image_bytes:
         raise ValueError("El archivo de imagen está vacío.")
@@ -33,32 +34,7 @@ def crop_document(image_bytes: bytes) -> bytes:
     if img is None:
         raise ValueError("Formato de imagen no soportado o archivo corrupto. Sube una foto en formato JPG o PNG.")
         
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blur, 50, 150)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    if not contours:
-        is_success, buffer = cv2.imencode(".jpg", img)
-        return buffer.tobytes() if is_success else image_bytes
-        
-    largest_contour = max(contours, key=cv2.contourArea)
-    x, y, w, h = cv2.boundingRect(largest_contour)
-    
-    pad = 5
-    y1 = max(0, y - pad)
-    y2 = min(img.shape[0], y + h + pad)
-    x1 = max(0, x - pad)
-    x2 = min(img.shape[1], x + w + pad)
-    
-    cropped = img[y1:y2, x1:x2]
-    
     encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 85]
-    is_success, buffer = cv2.imencode(".jpg", cropped, encode_param)
-    if is_success:
-        return buffer.tobytes()
-        
-    # Si falla el crop encodear, devuelve la original en jpg
     is_success, buffer = cv2.imencode(".jpg", img, encode_param)
     return buffer.tobytes() if is_success else image_bytes
 
@@ -91,10 +67,10 @@ def parse_colombian_id_coordinates(blocks) -> dict:
                 extracted['tipo_documento'] = 'CE'
                 
             # Número de documento (buscamos un número largo, puede tener puntos)
-            clean_text = text.replace(".", "").replace(" ", "").replace(",", "")
-            numbers = re.findall(r'\b\d{6,11}\b', clean_text)
-            if numbers and not extracted['documento']:
-                extracted['documento'] = numbers[0]
+            clean_num = re.sub(r'[A-Za-z:]+', '', text) # Quitar letras como NUMERO o NO.
+            clean_num = clean_num.replace(".", "").replace(" ", "").replace(",", "").strip()
+            if re.fullmatch(r'\d{6,11}', clean_num) and not extracted['documento']:
+                extracted['documento'] = clean_num
                 
             # Nombre: Buscamos texto que no tenga números, no sea muy corto y no sea palabra clave
             if not re.search(r'\d', text) and len(text) > 3:
@@ -124,7 +100,7 @@ def process_kyc_documents(front_bytes: bytes, back_bytes: bytes, selfie_bytes: b
     if not settings.AWS_ACCESS_KEY_ID:
         raise ValueError("AWS Credentials no configuradas. Por favor, agregue AWS_ACCESS_KEY_ID en el archivo .env.")
 
-    cropped_front = crop_document(front_bytes)
+    cropped_front = compress_image(front_bytes)
     
     # 1. OCR (Textract)
     try:
