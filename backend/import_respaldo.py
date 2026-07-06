@@ -15,7 +15,9 @@ def migrate_tables():
         'investment_requests': 'investment_requests_respaldo',
         'retiros': 'retiros_respaldo',
         'contract_accelerations': 'contract_accelerations_respaldo',
-        'contract_histories': 'contract_histories_respaldo'
+        'contract_histories': 'contract_histories_respaldo',
+        'wallets': 'wallet_respaldo',
+        'wallet_transactions': 'wallet_transactions_respaldo'
     }
 
     try:
