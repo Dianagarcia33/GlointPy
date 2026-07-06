@@ -5,7 +5,7 @@ import os
 # Añadir el directorio raíz al path para que Python encuentre los módulos
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.core.database import SessionLocal
+from src.core.database import async_session_maker as SessionLocal
 from src.api.v1.endpoints.auditoria import migrate_simple_users, SimpleUserMigrationRequest, get_simple_users
 from sqlalchemy import text
 
