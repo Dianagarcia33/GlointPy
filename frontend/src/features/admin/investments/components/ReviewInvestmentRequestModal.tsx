@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, XCircle, User, CreditCard, Banknote, Calendar, Phone, Mail, Loader2, FileText, AlertCircle } from 'lucide-react';
 import { AdminInvestmentRequest, investmentsService } from '../../../../services/investments';
+import { API_URL } from '../../../../services/api';
 import { formatCurrency } from '../../../../utils/format';
 
 interface ReviewInvestmentRequestModalProps {
@@ -52,6 +53,9 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
     const personalInfo = extra.personal_info || {};
     const bankInfo = extra.bank_info || {};
     const kycDocs = extra.kyc_docs || {};
+    
+    // Get base URL for static files (removes /api/v1 if present)
+    const baseUrl = API_URL.replace('/api/v1', '');
 
     const handleApprove = async () => {
         try {
@@ -157,7 +161,7 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
                                                 {Object.entries(kycDocs).map(([key, path]) => (
                                                     <a 
                                                         key={key} 
-                                                        href={`/${path}`} 
+                                                        href={`${baseUrl}/${path}`} 
                                                         target="_blank" 
                                                         rel="noopener noreferrer"
                                                         className="text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 px-2.5 py-1.5 rounded-lg font-medium transition-colors border border-brand-200 flex items-center gap-1.5"
@@ -194,7 +198,7 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
                                             <span className="text-xs text-emerald-600/80 font-medium block mb-1">Comprobante de Pago</span>
                                             {request.comprobante_path ? (
                                                 <a 
-                                                    href={`/${request.comprobante_path}`} 
+                                                    href={`${baseUrl}/${request.comprobante_path}`} 
                                                     target="_blank" 
                                                     rel="noopener noreferrer"
                                                     className="inline-flex items-center gap-2 text-sm text-emerald-700 bg-white hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors font-medium shadow-sm"

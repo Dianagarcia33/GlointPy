@@ -21,8 +21,15 @@ app = FastAPI(
     description="API para el sistema de inversiones GlointPy",
     version="1.0.0"
 )
+from fastapi.staticfiles import StaticFiles
+import os
+
+# Create uploads directory if it doesn't exist
+os.makedirs("uploads", exist_ok=True)
 
 # Rutas de la API
+# Montar la carpeta uploads para servir archivos estáticos (imágenes y comprobantes)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(wallets.router, prefix="/api/v1/wallets", tags=["wallets"])
 app.include_router(bank_accounts.router, prefix="/api/v1/bank-accounts", tags=["bank_accounts"])
