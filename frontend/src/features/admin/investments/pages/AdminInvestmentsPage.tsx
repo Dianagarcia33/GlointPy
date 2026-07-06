@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { investmentsService, AdminInvestment } from '../../../../services/investments';
-import { Loader2, AlertCircle, Search, ChevronDown, ChevronRight, CheckCircle, Plus } from 'lucide-react';
+import { Loader2, AlertCircle, Search, ChevronDown, ChevronRight, CheckCircle, Plus, Pencil } from 'lucide-react';
 import { ExpandedInvestmentCard } from '../components/ExpandedInvestmentCard';
 import { AdminInvestmentRequestsTable } from '../components/AdminInvestmentRequestsTable';
 import { Can } from '../../../../components/security/Can';
@@ -207,12 +207,13 @@ export const AdminInvestmentsPage = () => {
                                 <th className="px-6 py-4">Inversión</th>
                                 <th className="px-6 py-4">Wallet</th>
                                 <th className="px-6 py-4 text-center">Estado</th>
+                                <th className="px-6 py-4 text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
                                         No se encontraron inversiones.
                                     </td>
                                 </tr>
@@ -261,13 +262,26 @@ export const AdminInvestmentsPage = () => {
                                                     );
                                                 })()}
                                             </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                                                    <Can permission="investor.edit">
+                                                        <button
+                                                            onClick={() => setEditingInvestment(inv)}
+                                                            className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                                                            title="Editar Inversión"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                    </Can>
+                                                </div>
+                                            </td>
                                         </tr>
                                         
                                         {/* Expanded Details Row */}
                                         {expandedRows.has(inv.id) && (
                                             <tr>
-                                                <td colSpan={5} className="p-0 border-b-2 border-brand-100">
-                                                    <ExpandedInvestmentCard inv={inv} onEdit={(i) => setEditingInvestment(i)} />
+                                                <td colSpan={6} className="p-0 border-b-2 border-brand-100">
+                                                    <ExpandedInvestmentCard inv={inv} />
                                                 </td>
                                             </tr>
                                         )}

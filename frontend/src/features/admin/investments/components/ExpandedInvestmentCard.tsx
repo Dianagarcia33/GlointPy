@@ -5,7 +5,6 @@ import { Can } from '../../../../components/security/Can';
 
 interface ExpandedInvestmentCardProps {
     inv: AdminInvestment;
-    onEdit?: (inv: AdminInvestment) => void;
 }
 
 const formatCOP = (value: number | undefined) => {
@@ -40,17 +39,7 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
 
     return (
         <div className="bg-slate-50 p-6 shadow-inner flex flex-col gap-8 border-t border-slate-200 relative">
-            <Can permission="investor.edit">
-                {onEdit && (
-                    <button 
-                        onClick={() => onEdit(inv)}
-                        className="absolute top-6 right-6 flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg shadow-sm transition-colors"
-                    >
-                        <Edit className="w-4 h-4" />
-                        Editar Inversión
-                    </button>
-                )}
-            </Can>
+
 
             {/* SECCIÓN 1: RESUMEN FINANCIERO DE MIGRACIÓN */}
             <div>
