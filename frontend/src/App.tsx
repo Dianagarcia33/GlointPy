@@ -11,6 +11,7 @@ import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { WalletsPage } from "./features/wallets/pages/WalletsPage";
 import { InvestmentsPage } from "./features/investments/pages/InvestmentsPage";
 import { AdminInvestmentsPage } from "./features/admin/investments/pages/AdminInvestmentsPage";
+import { AdminRolesPage } from "./features/admin/roles/pages/AdminRolesPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
@@ -51,6 +52,7 @@ function App() {
         <Route path="wallet" element={<WalletsPage />} />
         <Route path="investments" element={<InvestmentsPage />} />
         <Route path="investments/reales" element={<AdminInvestmentsPage />} />
+        <Route path="roles" element={<AdminRolesPage />} />
         <Route path="system-events" element={<SystemEventsPage />} />
       </Route>
 

@@ -14,7 +14,7 @@ import src.models.investment_request
 import src.models.paquete_inversion
 
 from src.core.database import get_db
-from src.api.v1.endpoints import auth, wallets, investments, contract_periods, admin, admin_investments, admin_system_events, bank_accounts, auditoria
+from src.api.v1.endpoints import auth, wallets, investments, contract_periods, admin, admin_investments, admin_system_events, bank_accounts, auditoria, roles
 
 app = FastAPI(
     title="GlointPy API",
@@ -32,6 +32,7 @@ app.include_router(contract_periods.router, prefix="/api/v1/contract-periods", t
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(admin_system_events.router, prefix="/api/v1/admin-system-events", tags=["admin_system_events"])
 app.include_router(auditoria.router, prefix="/api/v1/auditoria", tags=["auditoria"])
+app.include_router(roles.router, prefix="/api/v1/roles", tags=["roles"])
 
 
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
