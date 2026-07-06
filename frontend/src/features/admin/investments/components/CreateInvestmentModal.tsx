@@ -11,7 +11,7 @@ interface CreateInvestmentModalProps {
 
 export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ isOpen, onClose }) => {
     const queryClient = useQueryClient();
-    const token = useAuthStore(state => state.token);
+    const token = useAuthStore(state => state.accessToken);
     const [step, setStep] = useState<1 | 2>(1);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchError, setSearchError] = useState('');
