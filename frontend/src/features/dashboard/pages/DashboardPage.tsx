@@ -27,6 +27,18 @@ export const DashboardPage = () => {
         }
     }, [user]);
 
+    // LOG DE DEPURACIÓN (Se imprime automáticamente en consola)
+    useEffect(() => {
+        if (user) {
+            console.log("========= DATOS DEL USUARIO LOGUEADO =========");
+            console.log("Nombre:", user.name);
+            console.log("Email:", user.email);
+            console.log("Roles Asignados:", user.roles_list);
+            console.log("Permisos Cargados:", user.permissions);
+            console.log("==============================================");
+        }
+    }, [user]);
+
     const parseNumber = (val: any) => {
         const parsed = Number(val);
         return isNaN(parsed) ? 0 : parsed;
