@@ -360,3 +360,44 @@ async def public_upload_file(file: UploadFile = File(...)):
         
     return {"path": str(file_path)}
 
+@router.post("/public/kyc-validate")
+async def kyc_validate(
+    front: UploadFile = File(...),
+    back: UploadFile = File(...),
+    selfie: UploadFile = File(...)
+):
+    """
+    Recibe las imágenes KYC y realiza extracción OCR por coordenadas 
+    junto con la validación biométrica facial.
+    """
+    from src.services.aws_kyc_service import process_kyc_documents
+    
+    upload_dir = Path("uploads/temp")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    paths = []
+    
+    front_bytes = await front.read()
+    back_bytes = await back.read()
+    selfie_bytes = await selfie.read()
+    
+    for file_obj, fbytes in [(front, front_bytes), (back, back_bytes), (selfie, selfie_bytes)]:
+        file_extension = os.path.splitext(file_obj.filename)[1]
+        safe_filename = f"kyc_{os.urandom(8).hex()}{file_extension}"
+        file_path = upload_dir / safe_filename
+        with file_path.open("wb") as buffer:
+            buffer.write(fbytes)
+        paths.append(str(file_path))
+        
+    try:
+        extracted_data = process_kyc_documents(front_bytes, back_bytes, selfie_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"Server Error KYC: {e}")
+        raise HTTPException(status_code=500, detail="Error de servidor al validar identidad.")
+        
+    return {
+        "paths": paths,
+        "extracted_data": extracted_data
+    }

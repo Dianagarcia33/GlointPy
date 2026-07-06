@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # Encryption
     BANK_ENCRYPTION_KEY: str = "oI0T7pW5j2X2qQ5G2HwX6mH8uW7lI0_gK2U7gO8yMvw="
 
+    # AWS Settings
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+    AWS_REGION: str = "us-east-1"
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
         env_file_encoding="utf-8",

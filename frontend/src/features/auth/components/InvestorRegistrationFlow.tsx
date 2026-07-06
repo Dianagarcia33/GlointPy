@@ -17,6 +17,7 @@ export const InvestorRegistrationFlow = () => {
     // Step 1: KYC Images
     const [frontImage, setFrontImage] = useState<File | null>(null);
     const [backImage, setBackImage] = useState<File | null>(null);
+    const [selfieImage, setSelfieImage] = useState<File | null>(null);
     
     // Extracted / Form Data State
     const [formData, setFormData] = useState({
@@ -58,34 +59,36 @@ export const InvestorRegistrationFlow = () => {
     const paquetes = config?.paquetes || [];
     const periodos = config?.periodos || [];
 
-    // Mock OCR + Real Upload Mutation
+    // KYC Validation and OCR Mutation
     const processOcrMutation = useMutation({
         mutationFn: async () => {
-            // Sube los archivos KYC públicamente
-            const paths = [];
-            if (frontImage) {
-                const fd = new FormData(); fd.append('file', frontImage);
-                const res = await fetchApi('/auth/public/upload-file', { method: 'POST', body: fd });
-                paths.push(res.path);
-            }
-            if (backImage) {
-                const fd = new FormData(); fd.append('file', backImage);
-                const res = await fetchApi('/auth/public/upload-file', { method: 'POST', body: fd });
-                paths.push(res.path);
-            }
+            if (!frontImage || !backImage || !selfieImage) throw new Error("Faltan imágenes");
             
-            // Simular OCR local por ahora
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-            return {
-                paths,
-                name: '', // Podría venir del OCR
-                documentNumber: ''
-            };
+            const fd = new FormData();
+            fd.append('front', frontImage);
+            fd.append('back', backImage);
+            fd.append('selfie', selfieImage);
+            
+            const res = await fetchApi('/auth/public/kyc-validate', { 
+                method: 'POST', 
+                body: fd 
+            });
+            return res;
         },
         onSuccess: (data: any) => {
-            setKycPaths(data.paths);
-            setFormData(prev => ({ ...prev, name: '', documento: '' }));
+            setKycPaths(data.paths || []);
+            setFormData(prev => ({ 
+                ...prev, 
+                name: data.extracted_data?.name || prev.name, 
+                documento: data.extracted_data?.documento || prev.documento,
+                fecha_nacimiento: data.extracted_data?.fecha_nacimiento || prev.fecha_nacimiento,
+                tipo_documento: data.extracted_data?.tipo_documento || prev.tipo_documento
+            }));
             setStep(3); // Pasar a Formulario de Datos Personales
+        },
+        onError: (error: any) => {
+            alert(error.message || "Error al validar tu identidad. Por favor intenta de nuevo con fotos más claras.");
+            setStep(1); // Volver al paso 1
         }
     });
 
@@ -104,7 +107,7 @@ export const InvestorRegistrationFlow = () => {
     });
 
     const handleProcessImages = () => {
-        if (!frontImage || !backImage) return;
+        if (!frontImage || !backImage || !selfieImage) return;
         setStep(2); // Loading step
         processOcrMutation.mutate();
     };
@@ -237,22 +240,32 @@ export const InvestorRegistrationFlow = () => {
             {step === 1 && (
                 <div className="space-y-6 animate-fadeIn">
                     <div className="text-center mb-6">
-                        <h3 className="text-lg font-bold text-slate-900">Carga tu Documento</h3>
-                        <p className="text-sm text-slate-500">Para cumplir con la regulación, necesitamos verificar tu identidad.</p>
+                        <h3 className="text-lg font-bold text-slate-900">Carga tu Documento y Selfie</h3>
+                        <p className="text-sm text-slate-500">Para cumplir con la regulación y validar tu identidad.</p>
                     </div>
                     
-                    <div className="space-y-4">
-                        <FileUploadZone label="Foto Frontal de tu Documento" file={frontImage} onChange={setFrontImage} />
-                        <FileUploadZone label="Foto Trasera de tu Documento" file={backImage} onChange={setBackImage} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <FileUploadZone label="Foto Frontal del Documento" file={frontImage} onChange={setFrontImage} />
+                        <FileUploadZone label="Foto Trasera del Documento" file={backImage} onChange={setBackImage} />
+                        <div className="sm:col-span-2 lg:col-span-1">
+                            <FileUploadZone label="Selfie (Foto de tu Rostro)" file={selfieImage} onChange={setSelfieImage} />
+                        </div>
                     </div>
+
+                    {processOcrMutation.isError && (
+                        <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
+                            <span className="mt-0.5">⚠️</span>
+                            <span>{processOcrMutation.error instanceof Error ? processOcrMutation.error.message : 'Error de validación facial o lectura del documento.'}</span>
+                        </div>
+                    )}
 
                     <div className="flex gap-3">
                         <button 
                             onClick={handleProcessImages}
-                            disabled={!frontImage || !backImage}
+                            disabled={!frontImage || !backImage || !selfieImage}
                             className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4"
                         >
-                            Continuar
+                            Validar Identidad y Continuar
                         </button>
                     </div>
                 </div>
