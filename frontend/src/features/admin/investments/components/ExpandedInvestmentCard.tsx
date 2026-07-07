@@ -37,6 +37,15 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
         total_retiros_rendimiento
     } = inv;
 
+    // Usamos ruta relativa para el symlink de uploads
+    const baseUrl = '';
+    let kycImages: Record<string, string> = {};
+    if (kyc_info.evidencia_paths) {
+        try {
+            kycImages = JSON.parse(kyc_info.evidencia_paths);
+        } catch(e) {}
+    }
+
     return (
         <div className="bg-slate-50 p-6 shadow-inner flex flex-col gap-8 border-t border-slate-200 relative">
 
@@ -300,6 +309,25 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
                         
                         {kyc_info.hallazgos && <div className="mt-2 p-2 bg-slate-50 rounded text-xs text-slate-600 border border-slate-200"><strong>Hallazgos:</strong> {kyc_info.hallazgos}</div>}
                         {kyc_info.justificacion && <div className="mt-2 p-2 bg-slate-50 rounded text-xs text-slate-600 border border-slate-200"><strong>Justificación:</strong> {kyc_info.justificacion}</div>}
+                        
+                        {Object.keys(kycImages).length > 0 && (
+                            <div className="mt-3">
+                                <span className="text-slate-500 text-xs uppercase tracking-wider block mb-2">Documentos KYC</span>
+                                <div className="flex gap-2 flex-wrap">
+                                    {Object.entries(kycImages).map(([key, path]) => (
+                                        <a 
+                                            key={key}
+                                            href={`${baseUrl}/${path}`} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            className="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-medium rounded border border-indigo-100 hover:bg-indigo-100 transition-colors capitalize flex items-center gap-1"
+                                        >
+                                            {key}
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         
                         <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
                             <div>Creado: {inv.created_at ? new Date(inv.created_at).toLocaleString('es-CO') : 'N/A'}</div>

@@ -54,8 +54,9 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
     const bankInfo = extra.bank_info || {};
     const kycDocs = extra.kyc_docs || {};
     
-    // Get base URL for static files (removes /api/v1 if present)
-    const baseUrl = API_URL.replace('/api/v1', '');
+    // Usamos ruta relativa para que el navegador busque en el dominio del frontend (www.gloint.com.co)
+    // Esto funciona perfectamente con el symlink de Nginx.
+    const baseUrl = '';
 
     const handleApprove = async () => {
         try {
