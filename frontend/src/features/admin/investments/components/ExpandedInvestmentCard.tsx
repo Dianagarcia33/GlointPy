@@ -37,8 +37,9 @@ export const ExpandedInvestmentCard: React.FC<ExpandedInvestmentCardProps> = ({ 
         total_retiros_rendimiento
     } = inv;
 
-    // Usamos ruta relativa para el symlink de uploads
-    const baseUrl = '';
+    // Usamos el dominio del backend directamente. FastAPI ya está configurado para 
+    // servir la carpeta uploads nativamente, así evitamos problemas de permisos con el symlink en Linux.
+    const baseUrl = API_URL.replace('/api/v1', '');
     let kycImages: Record<string, string> = {};
     if (kyc_info.evidencia_paths) {
         try {

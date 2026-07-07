@@ -54,9 +54,9 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
     const bankInfo = extra.bank_info || {};
     const kycDocs = extra.kyc_docs || {};
     
-    // Usamos ruta relativa para que el navegador busque en el dominio del frontend (www.gloint.com.co)
-    // Esto funciona perfectamente con el symlink de Nginx.
-    const baseUrl = '';
+    // Usamos el dominio del backend directamente. FastAPI ya está configurado para 
+    // servir la carpeta uploads nativamente, así evitamos problemas de permisos con el symlink en Linux.
+    const baseUrl = API_URL.replace('/api/v1', '');
 
     const handleApprove = async () => {
         try {
