@@ -170,7 +170,6 @@ export const InvestmentsPage = () => {
                         </label>
                         <span className="text-xs text-slate-400 ml-auto">{filteredUsers.length} usuarios filtrados</span>
                     </div>
-                    </div>
                 </div>
                 
                 {selectedUsers.size > 0 && (
@@ -629,4 +628,6 @@ export const InvestmentsPage = () => {
         </div>
     );
 };
+
+export default InvestmentsPage;
 

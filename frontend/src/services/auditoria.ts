@@ -29,6 +29,7 @@ export interface InversionDetail {
     liquidacion_diaria_rendimiento?: number;
     valor_total_acciones?: number;
     porcentaje_participacion_accionista?: number;
+    ganancia_simulada?: number;
 }
 
 export interface BankAccountDetail {
