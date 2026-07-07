@@ -237,7 +237,7 @@ export function ContactoPage() {
                         <input
                           value={form.telefono}
                           onChange={(e) => setForm({ ...form, telefono: e.target.value })}
-                          placeholder="+57 300 000 0000"
+                          placeholder="+57 320 957 3995"
                           className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
                           style={{
                             border: "1px solid #e2e8f0",

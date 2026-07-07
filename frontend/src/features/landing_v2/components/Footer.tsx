@@ -77,7 +77,7 @@ export function Footer() {
               </div>
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <Phone size={13} style={{ color: GOLD }} />
-                +57 300 000 0000
+                +57 320 957 3995
               </div>
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <MapPin size={13} style={{ color: GOLD }} />

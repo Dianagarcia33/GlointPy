@@ -55,7 +55,7 @@ export function SharedFooter() {
             </ul>
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-slate-500 text-xs"><Mail size={13} style={{ color: GOLD }} /> contacto@gloint.com</div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><Phone size={13} style={{ color: GOLD }} /> +57 300 000 0000</div>
+              <div className="flex items-center gap-2 text-slate-500 text-xs"><Phone size={13} style={{ color: GOLD }} /> +57 320 957 3995</div>
               <div className="flex items-center gap-2 text-slate-500 text-xs"><MapPin size={13} style={{ color: GOLD }} /> Colombia</div>
             </div>
           </div>
