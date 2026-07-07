@@ -498,94 +498,117 @@ async def approve_investment_request(
     from src.models.user_bank_account import UserBankAccount
     from src.models.investment_request import InvestmentStatus
     
-    # 1. Fetch Request
-    stmt = select(InvestmentRequest).where(InvestmentRequest.id == request_id)
-    result = await db.execute(stmt)
-    req = result.scalar_one_or_none()
-    
-    if not req:
-        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
-    if req.status != InvestmentStatus.pending:
-        raise HTTPException(status_code=400, detail="La solicitud no está en estado pendiente")
+    try:
+        # 1. Fetch Request
+        stmt = select(InvestmentRequest).where(InvestmentRequest.id == request_id)
+        result = await db.execute(stmt)
+        req = result.scalar_one_or_none()
         
-    # 2. Generate latest assigned code dynamically inside the backend
-    stmt_codes = select(Investor.codigo_asignado).where(Investor.codigo_asignado.isnot(None))
-    result_codes = await db.execute(stmt_codes)
-    codes = result_codes.scalars().all()
-    
-    max_num = 0
-    pattern = re.compile(r'\d+')
-    for code in codes:
-        match = pattern.search(code)
-        if match:
-            num = int(match.group())
-            if num > max_num:
-                max_num = num
-                
-    generated_code = f"INV-{max_num + 1}" if max_num > 0 else "INV-1"
-        
-    extra_data = req.extra_data or {}
-    personal_info = extra_data.get("personal_info", {})
-    bank_info = extra_data.get("bank_info", {})
-    
-    # Apply admin edits for bank
-    if payload.banco:
-        bank_info["banco"] = payload.banco
-    if payload.tipo_cuenta:
-        bank_info["tipo_cuenta"] = payload.tipo_cuenta
-    if payload.numero_cuenta:
-        bank_info["numero_cuenta"] = payload.numero_cuenta
-        
-    # Update User Info
-    user_stmt = select(User).where(User.id == req.user_id)
-    user_res = await db.execute(user_stmt)
-    user = user_res.scalar_one_or_none()
-    if user and "nombre_completo" in personal_info:
-        user.name = personal_info["nombre_completo"]
-        
-    # 3. Create Investor Record
-    new_investor = Investor(
-        user_id=req.user_id,
-        codigo_asignado=generated_code,
-        estado="Activa",
-        fecha_ingreso=payload.fecha_ingreso,
-        nombre_completo=personal_info.get("nombre_completo"),
-        tipo_documento=personal_info.get("tipo_documento"),
-        documento=personal_info.get("documento"),
-        numero_celular=personal_info.get("numero_celular"),
-        ciudad=personal_info.get("ciudad"),
-        fecha_nacimiento=personal_info.get("fecha_nacimiento"),
-        referido_por=payload.referido_por or personal_info.get("referido_por"),
-        paquete_inversion_adquirido=req.paquete_inversion_id,
-        total_contrato=req.monto,
-        contract_period_id=payload.contract_period_id or extra_data.get("periodo_contrato"),
-        tusdatos_evidencia_paths=extra_data.get("kyc_docs")
-    )
-    db.add(new_investor)
-    await db.flush()
-    
-    # 4. Handle Bank Info
-    if bank_info and bank_info.get("banco") and bank_info.get("numero_cuenta"):
-        bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == req.user_id)
-        bank_res = await db.execute(bank_stmt)
-        bank_acc = bank_res.scalar_one_or_none()
-        
-        if not bank_acc:
-            bank_acc = UserBankAccount(user_id=req.user_id, is_primary=True)
-            db.add(bank_acc)
+        if not req:
+            raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+        if req.status != InvestmentStatus.pending:
+            raise HTTPException(status_code=400, detail="La solicitud no está en estado pendiente")
             
-        bank_acc.banco = bank_info.get("banco")
-        bank_acc.tipo_cuenta = bank_info.get("tipo_cuenta")
-        bank_acc.numero_cuenta = bank_info.get("numero_cuenta")
+        # 2. Generate latest assigned code dynamically inside the backend
+        stmt_codes = select(Investor.codigo_asignado).where(Investor.codigo_asignado.isnot(None))
+        result_codes = await db.execute(stmt_codes)
+        codes = result_codes.scalars().all()
         
-    # 5. Update Request Status
-    req.status = InvestmentStatus.approved
-    req.investor_id = new_investor.id
-    req.reviewed_at = datetime.now()
-    req.reviewed_by = current_user.id
-    
-    await db.commit()
-    return {"message": "Solicitud aprobada y contrato creado exitosamente", "investor_id": new_investor.id}
+        max_num = 0
+        pattern = re.compile(r'\d+')
+        for code in codes:
+            match = pattern.search(code)
+            if match:
+                num = int(match.group())
+                if num > max_num:
+                    max_num = num
+                    
+        generated_code = f"INV-{max_num + 1}" if max_num > 0 else "INV-1"
+            
+        # Safely parse extra_data
+        extra_data = req.extra_data
+        if isinstance(extra_data, str):
+            import json
+            try:
+                extra_data = json.loads(extra_data)
+            except Exception:
+                extra_data = {}
+        if not isinstance(extra_data, dict):
+            extra_data = {}
+            
+        personal_info = extra_data.get("personal_info", {})
+        bank_info = extra_data.get("bank_info", {})
+        
+        # Apply admin edits for bank
+        if payload.banco:
+            bank_info["banco"] = payload.banco
+        if payload.tipo_cuenta:
+            bank_info["tipo_cuenta"] = payload.tipo_cuenta
+        if payload.numero_cuenta:
+            bank_info["numero_cuenta"] = payload.numero_cuenta
+            
+        # Update User Info
+        user_stmt = select(User).where(User.id == req.user_id)
+        user_res = await db.execute(user_stmt)
+        user = user_res.scalar_one_or_none()
+        if user and "nombre_completo" in personal_info:
+            user.name = personal_info["nombre_completo"]
+            
+        # Clean fecha_nacimiento if it is empty string
+        f_nac = personal_info.get("fecha_nacimiento")
+        if not f_nac or str(f_nac).strip() == "":
+            f_nac = None
+            
+        # 3. Create Investor Record
+        new_investor = Investor(
+            user_id=req.user_id,
+            codigo_asignado=generated_code,
+            estado="Activa",
+            fecha_ingreso=payload.fecha_ingreso,
+            nombre_completo=personal_info.get("nombre_completo"),
+            tipo_documento=personal_info.get("tipo_documento"),
+            documento=personal_info.get("documento"),
+            numero_celular=personal_info.get("numero_celular"),
+            ciudad=personal_info.get("ciudad"),
+            fecha_nacimiento=f_nac,
+            referido_por=payload.referido_por or personal_info.get("referido_por"),
+            paquete_inversion_adquirido=req.paquete_inversion_id,
+            total_contrato=req.monto,
+            contract_period_id=payload.contract_period_id or extra_data.get("periodo_contrato"),
+            tusdatos_evidencia_paths=extra_data.get("kyc_docs")
+        )
+        db.add(new_investor)
+        await db.flush()
+        
+        # 4. Handle Bank Info
+        if bank_info and bank_info.get("banco") and bank_info.get("numero_cuenta"):
+            bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == req.user_id)
+            bank_res = await db.execute(bank_stmt)
+            bank_acc = bank_res.scalar_one_or_none()
+            
+            if not bank_acc:
+                bank_acc = UserBankAccount(user_id=req.user_id, is_primary=True)
+                db.add(bank_acc)
+                
+            bank_acc.banco = bank_info.get("banco")
+            bank_acc.tipo_cuenta = bank_info.get("tipo_cuenta")
+            bank_acc.numero_cuenta = bank_info.get("numero_cuenta")
+            
+        # 5. Update Request Status
+        req.status = InvestmentStatus.approved
+        req.investor_id = new_investor.id
+        req.reviewed_at = datetime.now()
+        req.reviewed_by = current_user.id
+        
+        await db.commit()
+        return {"message": "Solicitud aprobada y contrato creado exitosamente", "investor_id": new_investor.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno al aprobar: {str(e)}")
 
 
 @router.post("/requests/{request_id}/reject")
