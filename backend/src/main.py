@@ -45,7 +45,7 @@ app.include_router(roles.router, prefix="/api/v1/roles", tags=["roles"])
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost:5173|127\.0\.0\.1:5173|([a-z0-9-]+\.)?gloint\.com\.co)",
+    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -20,7 +20,15 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     headers,
   };
 
-  const response = await fetch(`${API_URL}${endpoint}`, config);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, config);
+  } catch (err: any) {
+    if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
+      throw new Error("No se pudo conectar con el servidor. Verifica tu conexión a internet o si tienes problemas de red (Network Error).");
+    }
+    throw err;
+  }
 
   if (response.status === 401) {
       if (endpoint.includes('/login')) {
