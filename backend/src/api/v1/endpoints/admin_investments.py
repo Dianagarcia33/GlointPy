@@ -330,6 +330,13 @@ async def get_all_investments(
                 print(f"Error SQL al cargar bancos de usuario {inv.user_id}: {sql_err}")
                 db.rollback()
     
+            kyc_paths = getattr(inv, 'tusdatos_evidencia_paths', None)
+            if kyc_paths and isinstance(kyc_paths, dict):
+                import json
+                kyc_paths = json.dumps(kyc_paths)
+            elif kyc_paths:
+                kyc_paths = str(kyc_paths)
+                
             data_dict = {
                 "id": inv.id,
                 "user_id": inv.user_id,
@@ -394,7 +401,7 @@ async def get_all_investments(
                     "msg": getattr(inv, 'tusdatos_msg', None),
                     "sources": getattr(inv, 'tusdatos_sources', None),
                     "justificacion": getattr(inv, 'tusdatos_justificacion', None),
-                    "evidencia_paths": getattr(inv, 'tusdatos_evidencia_paths', None),
+                    "evidencia_paths": kyc_paths,
                     "hallazgos_corregidos": getattr(inv, 'tusdatos_hallazgos_corregidos', None),
                     "fecha_correccion": getattr(inv, 'tusdatos_fecha_correccion', None),
                     "corregido_por": getattr(inv, 'tusdatos_corregido_por', None),
@@ -523,7 +530,7 @@ async def approve_investment_request(
                 if num > max_num:
                     max_num = num
                     
-        generated_code = f"INV-{max_num + 1}" if max_num > 0 else "INV-1"
+        generated_code = f"IG{max_num + 1}" if max_num > 0 else "IG1"
             
         # Safely parse extra_data
         extra_data = req.extra_data
