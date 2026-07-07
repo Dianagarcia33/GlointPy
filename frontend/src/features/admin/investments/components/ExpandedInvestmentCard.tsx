@@ -2,6 +2,7 @@ import React from 'react';
 import { User, CreditCard, ShieldCheck, Banknote, Calendar, Smartphone, MapPin, Percent, History, ArrowDownToLine, Zap, CheckCircle2, Edit } from 'lucide-react';
 import { AdminInvestment } from '../../../../services/investments';
 import { Can } from '../../../../components/security/Can';
+import { API_URL } from '../../../../services/api';
 
 interface ExpandedInvestmentCardProps {
     inv: AdminInvestment;
