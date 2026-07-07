@@ -575,7 +575,8 @@ async def approve_investment_request(
             paquete_inversion_adquirido=req.paquete_inversion_id,
             total_contrato=req.monto,
             contract_period_id=payload.contract_period_id or extra_data.get("periodo_contrato"),
-            tusdatos_evidencia_paths=extra_data.get("kyc_docs")
+            tusdatos_evidencia_paths=extra_data.get("kyc_docs"),
+            tusdatos_hallazgos_corregidos=False
         )
         db.add(new_investor)
         await db.flush()
