@@ -59,7 +59,7 @@ async def get_my_investments(
                 monto = total
 
             status_val = "approved"
-            if inv.estado and inv.estado.lower() != 'activo':
+            if inv.estado and inv.estado.lower() not in ['activo', 'activa']:
                 status_val = "finished"
 
             # Configurar los campos para el schema de respuesta
