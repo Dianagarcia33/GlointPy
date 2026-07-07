@@ -1,6 +1,12 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { LandingPage } from "./features/landing/components/LandingPage";
+import { LandingLayout } from "./features/landing_v2/components/LandingLayout";
+import { LandingHome } from "./features/landing_v2/pages/LandingHome";
+import { NosotrosPage } from "./features/landing_v2/pages/NosotrosPage";
+import { InvestmentPage } from "./features/landing_v2/pages/InvestmentPage";
+import { PlacePage } from "./features/landing_v2/pages/PlacePage";
+import { TechPage } from "./features/landing_v2/pages/TechPage";
+import { ContactoPage } from "./features/landing_v2/pages/ContactoPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
@@ -40,7 +46,14 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<GuestRoute><LandingPage /></GuestRoute>} />
+      <Route element={<GuestRoute><LandingLayout /></GuestRoute>}>
+        <Route path="/" element={<LandingHome />} />
+        <Route path="/nosotros" element={<NosotrosPage />} />
+        <Route path="/investment" element={<InvestmentPage />} />
+        <Route path="/place" element={<PlacePage />} />
+        <Route path="/tech" element={<TechPage />} />
+        <Route path="/contacto" element={<ContactoPage />} />
+      </Route>
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
       <Route path="/onboarding" element={<GuestRoute><WelcomeOnboardingPage /></GuestRoute>} />
       <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
