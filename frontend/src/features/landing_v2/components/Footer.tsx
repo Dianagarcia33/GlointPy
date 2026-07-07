@@ -32,16 +32,7 @@ export function Footer() {
               Ecosistema empresarial de inversión, comercio digital y tecnología.
             </p>
             <div className="flex gap-3">
-              {[].map((Icon, i) => (
-                <a
-                  key={i}
-                  href="#"
-                  className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
-                  style={{ background: "rgba(255,255,255,0.06)", color: "#94a3b8" }}
-                >
-                  <Icon size={16} />
-                </a>
-              ))}
+              {/* Icons removed */}
             </div>
           </div>
 

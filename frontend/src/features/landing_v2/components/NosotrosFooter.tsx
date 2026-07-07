@@ -29,7 +29,6 @@ export function NosotrosFooter() {
             <p className="text-slate-500 text-sm leading-relaxed mb-6">
               Ecosistema empresarial de inversión, comercio digital y tecnología.
             </p>
-            </div>
           </div>
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Empresa</h4>
