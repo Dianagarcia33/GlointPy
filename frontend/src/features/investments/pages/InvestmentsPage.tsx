@@ -538,13 +538,21 @@ export const InvestmentsPage = () => {
                                                     <h3 className="font-bold text-slate-800 text-lg">{user.user_name}</h3>
                                                     <div className="text-sm text-slate-500">{user.user_email}</div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Total Invertido (Paquetes)</div>
-                                                    <div className="text-xl font-black text-slate-800">
-                                                        {formatCOP(user.inversiones?.reduce((sum, inv) => {
-                                                            const val = parseInt(String(inv.nombre_paquete || '').replace(/[^0-9]/g, ''), 10);
-                                                            return sum + (isNaN(val) ? 0 : val);
-                                                        }, 0) || 0)}
+                                                <div className="text-right flex gap-6">
+                                                    <div>
+                                                        <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Saldo Wallet (Respaldo)</div>
+                                                        <div className="text-xl font-black text-brand-600">
+                                                            {formatCOP(user.wallet_balance || 0)}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Total Invertido (Paquetes)</div>
+                                                        <div className="text-xl font-black text-slate-800">
+                                                            {formatCOP(user.inversiones?.reduce((sum, inv) => {
+                                                                const val = parseInt(String(inv.nombre_paquete || '').replace(/[^0-9]/g, ''), 10);
+                                                                return sum + (isNaN(val) ? 0 : val);
+                                                            }, 0) || 0)}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>

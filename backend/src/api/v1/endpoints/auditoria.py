@@ -99,6 +99,13 @@ async def get_inversiones_respaldo(
         """)
         res_hist = await db.execute(query_hist)
         
+        # 6. Wallet Respaldo
+        query_wallet = text("""
+            SELECT user_id, balance FROM wallet_respaldo
+        """)
+        res_wallet = await db.execute(query_wallet)
+        wallet_dict = {row.user_id: float(row.balance or 0) for row in res_wallet.fetchall()}
+        
         grouped_data = {}
         
         def ensure_user(uid, row):
@@ -115,7 +122,8 @@ async def get_inversiones_respaldo(
                     "retiros": [],
                     "requests": [],
                     "accelerations": [],
-                    "histories": []
+                    "histories": [],
+                    "wallet_balance": wallet_dict.get(uid, 0.0)
                 }
                 
         for row in res_inv.fetchall():

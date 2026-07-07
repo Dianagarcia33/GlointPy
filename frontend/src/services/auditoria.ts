@@ -115,6 +115,7 @@ export interface RespaldoInvestment {
     accelerations: AccelerationDetail[];
     histories: HistoryDetail[];
     bank_accounts: BankAccountDetail[];
+    wallet_balance?: number;
 }
 
 export const auditoriaService = {
