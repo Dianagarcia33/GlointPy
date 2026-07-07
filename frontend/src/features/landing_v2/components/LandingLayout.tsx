@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Nav } from './Nav';
 import { Footer } from './Footer';
+import { WhatsAppButton } from './WhatsAppButton';
 import { AnimatePresence, motion } from 'motion/react';
 
 export function LandingLayout() {
@@ -23,6 +24,9 @@ export function LandingLayout() {
       </AnimatePresence>
       {/* We only render Footer on Home page, because other pages have SharedFooter or NosotrosFooter */}
       {location.pathname === '/' && <Footer />}
+      
+      {/* Global Floating WhatsApp Button */}
+      <WhatsAppButton />
     </div>
   );
 }
