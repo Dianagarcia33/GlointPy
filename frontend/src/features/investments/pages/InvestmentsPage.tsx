@@ -529,14 +529,6 @@ export const InvestmentsPage = () => {
                             
                             <div className="space-y-4">
                                 {Array.from(selectedUsers).map(uid => {
-                                    const user = filteredUsers.find(u => u.user_id === uid);
-                                    if (!user) return null;
-                                    
-                                    const gananciaTotal = user.inversiones?.reduce((sum, inv) => sum + (inv.ganancia_simulada || 0), 0) || 0;
-                                    const inversionTotal = user.inversiones?.reduce((sum, inv) => sum + (inv.monto || 0), 0) || 0;
-                                    const retirosTotales = user.retiros?.filter(r => r.estado !== 'rechazado').reduce((sum, ret) => sum + (ret.monto || 0), 0) || 0;
-                                    const diferencia = gananciaTotal - retirosTotales;
-                                    
                                     const withdrawData = manualWithdrawals[uid] || {};
 
                                     return (
@@ -546,25 +538,61 @@ export const InvestmentsPage = () => {
                                                     <h3 className="font-bold text-slate-800 text-lg">{user.user_name}</h3>
                                                     <div className="text-sm text-slate-500">{user.user_email}</div>
                                                 </div>
-                                                <div className="text-right bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                                                        <div className="text-slate-500">Inversión Total:</div>
-                                                        <div className="font-medium text-slate-800">{formatCOP(inversionTotal)}</div>
-                                                        
-                                                        <div className="text-slate-500">Ganancia (29 May - 29 Jun):</div>
-                                                        <div className="font-bold text-emerald-600">{formatCOP(gananciaTotal)}</div>
-                                                        
-                                                        <div className="text-slate-500">Pagos/Retiros Anteriores:</div>
-                                                        <div className="font-medium text-red-500">- {formatCOP(retirosTotales)}</div>
-                                                        
-                                                        <div className="col-span-2 border-t border-slate-200 my-1"></div>
-                                                        
-                                                        <div className="text-slate-700 font-bold">Diferencia Pendiente:</div>
-                                                        <div className={`font-bold ${diferencia >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                                            {formatCOP(diferencia)}
+                                            </div>
+                                            
+                                            <div className="space-y-3 mb-6">
+                                                <h4 className="text-sm font-semibold text-slate-700">Desglose de Inversiones</h4>
+                                                {user.inversiones?.map(inv => {
+                                                    // Calculo de días hasta el 29 de Mayo
+                                                    const fechaIngreso = new Date(inv.fecha_ingreso || inv.created_at || Date.now());
+                                                    const limitDate = new Date('2024-05-29T00:00:00');
+                                                    
+                                                    // Evitar diferencia horaria que afecte el conteo de días exactos usando fechas normalizadas
+                                                    const limitDateNorm = new Date(limitDate.getFullYear(), limitDate.getMonth(), limitDate.getDate());
+                                                    const fechaIngresoNorm = new Date(fechaIngreso.getFullYear(), fechaIngreso.getMonth(), fechaIngreso.getDate());
+                                                    
+                                                    let diffTime = limitDateNorm.getTime() - fechaIngresoNorm.getTime();
+                                                    let diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                                    if (diffDays < 0) diffDays = 0;
+                                                    
+                                                    const rendimientoHistorico = diffDays * (inv.liquidacion_diaria_rendimiento || 0);
+                                                    
+                                                    // Retiros de capital previos al 29 de mayo
+                                                    const retirosCapitalHist = user.retiros?.filter(r => 
+                                                        r.tipo === 'capital' && 
+                                                        new Date(r.fecha_solicitud) <= limitDate &&
+                                                        r.estado !== 'rechazado'
+                                                    ).reduce((sum, r) => sum + Number(r.monto || 0), 0) || 0;
+
+                                                    return (
+                                                        <div key={inv.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm">
+                                                            <div className="flex justify-between font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">
+                                                                <span>{inv.nombre_paquete}</span>
+                                                                <span>{formatCOP(inv.monto)}</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-slate-600">
+                                                                <div>Fecha de Ingreso:</div>
+                                                                <div className="text-right font-medium">{fechaIngreso.toLocaleDateString()}</div>
+                                                                
+                                                                <div>Rendimiento Diario:</div>
+                                                                <div className="text-right">{formatCOP(inv.liquidacion_diaria_rendimiento)} / día</div>
+                                                                
+                                                                <div>Días hasta 29 May:</div>
+                                                                <div className="text-right font-medium">{diffDays} días</div>
+                                                                
+                                                                <div className="font-bold text-slate-800">Rend. Acumulado (hasta 29 May):</div>
+                                                                <div className="text-right font-bold text-emerald-600">{formatCOP(rendimientoHistorico)}</div>
+                                                                
+                                                                {retirosCapitalHist > 0 && (
+                                                                    <>
+                                                                        <div className="font-bold text-slate-800 mt-2 pt-2 border-t border-slate-200">Retiros de Capital (Antes 29 May):</div>
+                                                                        <div className="text-right font-bold text-red-500 mt-2 pt-2 border-t border-slate-200">- {formatCOP(retirosCapitalHist)}</div>
+                                                                    </>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </div>
+                                                    );
+                                                })}
                                             </div>
                                             
                                             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none mb-4">
