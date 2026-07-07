@@ -530,6 +530,9 @@ export const InvestmentsPage = () => {
                             <div className="space-y-4">
                                 {Array.from(selectedUsers).map(uid => {
                                     const withdrawData = manualWithdrawals[uid] || {};
+                                    const user = filteredUsers.find(u => u.user_id === uid);
+                                    
+                                    if (!user) return null;
 
                                     return (
                                         <div key={uid} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
