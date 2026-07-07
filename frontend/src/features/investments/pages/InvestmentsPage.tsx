@@ -538,6 +538,15 @@ export const InvestmentsPage = () => {
                                                     <h3 className="font-bold text-slate-800 text-lg">{user.user_name}</h3>
                                                     <div className="text-sm text-slate-500">{user.user_email}</div>
                                                 </div>
+                                                <div className="text-right">
+                                                    <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Total Invertido (Paquetes)</div>
+                                                    <div className="text-xl font-black text-slate-800">
+                                                        {formatCOP(user.inversiones?.reduce((sum, inv) => {
+                                                            const val = parseInt(String(inv.nombre_paquete || '').replace(/[^0-9]/g, ''), 10);
+                                                            return sum + (isNaN(val) ? 0 : val);
+                                                        }, 0) || 0)}
+                                                    </div>
+                                                </div>
                                             </div>
                                             
                                             <div className="space-y-3 mb-6">
@@ -567,8 +576,8 @@ export const InvestmentsPage = () => {
                                                     return (
                                                         <div key={inv.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm">
                                                             <div className="flex justify-between font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">
-                                                                <span>{inv.nombre_paquete}</span>
-                                                                <span>{formatCOP(inv.monto)}</span>
+                                                                <span>Paquete: {inv.nombre_paquete}</span>
+                                                                <span>{formatCOP(parseInt(String(inv.nombre_paquete || '').replace(/[^0-9]/g, ''), 10) || 0)}</span>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-slate-600">
                                                                 <div>Fecha de Ingreso:</div>
