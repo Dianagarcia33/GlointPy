@@ -608,6 +608,34 @@ async def approve_investment_request(
         req.reviewed_at = datetime.now()
         req.reviewed_by = current_user.id
         
+        # 6. Assign inversionista role if not present
+        from src.models.roles import Role
+        from src.models.user_roles import UserRole
+        
+        role_stmt = select(Role).where(Role.name == 'inversionista')
+        role_res = await db.execute(role_stmt)
+        inversor_role = role_res.scalar_one_or_none()
+        
+        if inversor_role:
+            ur_stmt = select(UserRole).where(
+                UserRole.user_id == req.user_id,
+                UserRole.role_id == inversor_role.id
+            )
+            ur_res = await db.execute(ur_stmt)
+            existing_ur = ur_res.scalar_one_or_none()
+            
+            if not existing_ur:
+                new_ur = UserRole(
+                    user_id=req.user_id,
+                    role_id=inversor_role.id,
+                    assigned_at=datetime.now(),
+                    assigned_by=current_user.id,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.add(new_ur)
+        
+        
         await db.commit()
         return {"message": "Solicitud aprobada y contrato creado exitosamente", "investor_id": new_investor.id}
     except HTTPException:
