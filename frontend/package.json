@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "postbuild": "chmod -R 755 ../backend/uploads || true && cd dist && rm -rf uploads && ln -s ../../backend/uploads uploads",
     "preview": "vite preview"
   },
   "dependencies": {
