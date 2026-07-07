@@ -533,18 +533,37 @@ export const InvestmentsPage = () => {
                                     if (!user) return null;
                                     
                                     const gananciaTotal = user.inversiones?.reduce((sum, inv) => sum + (inv.ganancia_simulada || 0), 0) || 0;
+                                    const inversionTotal = user.inversiones?.reduce((sum, inv) => sum + (inv.monto || 0), 0) || 0;
+                                    const retirosTotales = user.retiros?.filter(r => r.estado !== 'rechazado').reduce((sum, ret) => sum + (ret.monto || 0), 0) || 0;
+                                    const diferencia = gananciaTotal - retirosTotales;
+                                    
                                     const withdrawData = manualWithdrawals[uid] || {};
 
                                     return (
                                         <div key={uid} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-                                            <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-100">
+                                            <div className="flex justify-between items-start mb-4 pb-4 border-b border-slate-100">
                                                 <div>
-                                                    <h3 className="font-bold text-slate-800">{user.user_name}</h3>
-                                                    <div className="text-xs text-slate-500">{user.user_email}</div>
+                                                    <h3 className="font-bold text-slate-800 text-lg">{user.user_name}</h3>
+                                                    <div className="text-sm text-slate-500">{user.user_email}</div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <div className="text-xs text-slate-500 font-medium">Ganancia a sumar en Wallet</div>
-                                                    <div className="text-lg font-bold text-emerald-600">{formatCOP(gananciaTotal)}</div>
+                                                <div className="text-right bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                                    <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                                                        <div className="text-slate-500">Inversión Total:</div>
+                                                        <div className="font-medium text-slate-800">{formatCOP(inversionTotal)}</div>
+                                                        
+                                                        <div className="text-slate-500">Ganancia (29 May - 29 Jun):</div>
+                                                        <div className="font-bold text-emerald-600">{formatCOP(gananciaTotal)}</div>
+                                                        
+                                                        <div className="text-slate-500">Pagos/Retiros Anteriores:</div>
+                                                        <div className="font-medium text-red-500">- {formatCOP(retirosTotales)}</div>
+                                                        
+                                                        <div className="col-span-2 border-t border-slate-200 my-1"></div>
+                                                        
+                                                        <div className="text-slate-700 font-bold">Diferencia Pendiente:</div>
+                                                        <div className={`font-bold ${diferencia >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                            {formatCOP(diferencia)}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                             
