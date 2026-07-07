@@ -16,6 +16,10 @@ export const InvestmentsPage = () => {
     // Selection
     const [selectedUsers, setSelectedUsers] = useState<Set<number | string>>(new Set());
     const [migrating, setMigrating] = useState(false);
+    
+    // Migration Modal
+    const [showMigrationModal, setShowMigrationModal] = useState(false);
+    const [manualWithdrawals, setManualWithdrawals] = useState<Record<string, any>>({});
 
     const fetchData = async () => {
         try {
@@ -53,18 +57,37 @@ export const InvestmentsPage = () => {
         });
     }, [respaldoData, searchQuery, filterOneInvestment, filterNoRetiros, filterOneRequest]);
 
-    const handleMigrate = async () => {
-        if (!confirm(`¿Estás seguro de migrar ${selectedUsers.size} usuarios a las tablas reales?`)) return;
+    const openMigrationModal = () => {
+        const initialWithdrawals: Record<string, any> = {};
+        Array.from(selectedUsers).forEach(uid => {
+            initialWithdrawals[uid] = { enabled: false, monto: '', fecha: new Date().toISOString().split('T')[0], metodo_pago: 'Transferencia', observaciones: '' };
+        });
+        setManualWithdrawals(initialWithdrawals);
+        setShowMigrationModal(true);
+    };
+
+    const handleConfirmMigration = async () => {
         setMigrating(true);
         try {
             const userIdsArray = Array.from(selectedUsers).map(id => Number(id));
-            const res = await auditoriaService.migrateBatch(userIdsArray);
+            const withdrawalsList = Object.entries(manualWithdrawals)
+                .filter(([uid, data]) => data.enabled && data.monto > 0)
+                .map(([uid, data]) => ({
+                    user_id: Number(uid),
+                    monto: Number(data.monto),
+                    fecha: data.fecha,
+                    metodo_pago: data.metodo_pago,
+                    observaciones: data.observaciones
+                }));
+
+            const res = await auditoriaService.migrateBatch(userIdsArray, withdrawalsList);
             alert(`Se migraron ${res.migrated} usuarios exitosamente.`);
             setSelectedUsers(new Set());
+            setShowMigrationModal(false);
             fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error migrating:", error);
-            alert("Ocurrió un error en la migración.");
+            alert(`Ocurrió un error en la migración: ${error.message || 'Error desconocido'}`);
         } finally {
             setMigrating(false);
         }
@@ -110,7 +133,7 @@ export const InvestmentsPage = () => {
                         <div className="flex items-center gap-3">
                             {selectedUsers.size > 0 && (
                                 <button
-                                    onClick={handleMigrate}
+                                    onClick={openMigrationModal}
                                     disabled={migrating}
                                     className="bg-brand-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-brand-700 transition disabled:opacity-50"
                                 >
@@ -147,7 +170,39 @@ export const InvestmentsPage = () => {
                         </label>
                         <span className="text-xs text-slate-400 ml-auto">{filteredUsers.length} usuarios filtrados</span>
                     </div>
+                    </div>
                 </div>
+                
+                {selectedUsers.size > 0 && (
+                    <div className="bg-brand-50 border-b border-brand-100 p-4">
+                        <h3 className="text-sm font-semibold text-brand-800 mb-3">Resumen de Migración Seleccionada</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-3 rounded-lg border border-brand-100 shadow-sm">
+                                <div className="text-xs text-slate-500 font-medium mb-1">Usuarios a Migrar</div>
+                                <div className="text-xl font-bold text-slate-800">{selectedUsers.size}</div>
+                            </div>
+                            <div className="bg-white p-3 rounded-lg border border-brand-100 shadow-sm">
+                                <div className="text-xs text-slate-500 font-medium mb-1">Total Ganancias (May 29 - Jun 29)</div>
+                                <div className="text-xl font-bold text-emerald-600">
+                                    {formatCOP(
+                                        filteredUsers
+                                            .filter(u => selectedUsers.has(u.user_id))
+                                            .reduce((sum, u) => {
+                                                return sum + (u.inversiones?.reduce((invSum, inv) => invSum + (inv.ganancia_simulada || 0), 0) || 0);
+                                            }, 0)
+                                    )}
+                                </div>
+                                <div className="text-[10px] text-slate-400 mt-1">Este valor se sumará a sus Wallets reales.</div>
+                            </div>
+                            <div className="bg-white p-3 rounded-lg border border-brand-100 shadow-sm">
+                                <div className="text-xs text-slate-500 font-medium mb-1">Acción Siguiente</div>
+                                <div className="text-sm text-slate-700 font-medium mt-1">
+                                    Tras la migración, podrás registrar el Retiro Manual para descontar los pagos que ya realizaste externamente.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse whitespace-nowrap min-w-[1000px]">
@@ -457,6 +512,120 @@ export const InvestmentsPage = () => {
                     </table>
                 </div>
             </div>
+
+            {/* Migration Modal */}
+            {showMigrationModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                            <h2 className="text-lg font-bold text-slate-800">Confirmar Migración y Registrar Retiros</h2>
+                            <button onClick={() => setShowMigrationModal(false)} className="text-slate-400 hover:text-slate-600 transition">
+                                &times;
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 bg-slate-50">
+                            <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-sm">
+                                <strong>Importante:</strong> Al migrar, el sistema sumará la Ganancia Simulada a la Wallet real de cada usuario. Aquí puedes registrar un retiro manual para descontar los pagos que ya se hicieron de manera externa, dejando el saldo de la Wallet cuadrado.
+                            </div>
+                            
+                            <div className="space-y-4">
+                                {Array.from(selectedUsers).map(uid => {
+                                    const user = filteredUsers.find(u => u.user_id === uid);
+                                    if (!user) return null;
+                                    
+                                    const gananciaTotal = user.inversiones?.reduce((sum, inv) => sum + (inv.ganancia_simulada || 0), 0) || 0;
+                                    const withdrawData = manualWithdrawals[uid] || {};
+
+                                    return (
+                                        <div key={uid} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                                            <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-100">
+                                                <div>
+                                                    <h3 className="font-bold text-slate-800">{user.user_name}</h3>
+                                                    <div className="text-xs text-slate-500">{user.user_email}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-xs text-slate-500 font-medium">Ganancia a sumar en Wallet</div>
+                                                    <div className="text-lg font-bold text-emerald-600">{formatCOP(gananciaTotal)}</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none mb-4">
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="rounded text-brand-600 focus:ring-brand-500 w-4 h-4"
+                                                    checked={withdrawData.enabled}
+                                                    onChange={e => setManualWithdrawals(prev => ({...prev, [uid]: {...prev[uid], enabled: e.target.checked}}))}
+                                                />
+                                                ¿Registrar un retiro manual por pago externo ya realizado?
+                                            </label>
+
+                                            {withdrawData.enabled && (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-slate-700 mb-1">Monto Pagado</label>
+                                                        <input 
+                                                            type="number" 
+                                                            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-brand-500 focus:border-brand-500"
+                                                            value={withdrawData.monto}
+                                                            onChange={e => setManualWithdrawals(prev => ({...prev, [uid]: {...prev[uid], monto: e.target.value}}))}
+                                                            placeholder="Ej: 500000"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-slate-700 mb-1">Fecha del Pago</label>
+                                                        <input 
+                                                            type="date" 
+                                                            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-brand-500 focus:border-brand-500"
+                                                            value={withdrawData.fecha}
+                                                            onChange={e => setManualWithdrawals(prev => ({...prev, [uid]: {...prev[uid], fecha: e.target.value}}))}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-slate-700 mb-1">Método de Pago</label>
+                                                        <input 
+                                                            type="text" 
+                                                            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-brand-500 focus:border-brand-500"
+                                                            value={withdrawData.metodo_pago}
+                                                            onChange={e => setManualWithdrawals(prev => ({...prev, [uid]: {...prev[uid], metodo_pago: e.target.value}}))}
+                                                            placeholder="Ej: Nequi, Bancolombia..."
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-medium text-slate-700 mb-1">Observaciones / Referencia</label>
+                                                        <input 
+                                                            type="text" 
+                                                            className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-brand-500 focus:border-brand-500"
+                                                            value={withdrawData.observaciones}
+                                                            onChange={e => setManualWithdrawals(prev => ({...prev, [uid]: {...prev[uid], observaciones: e.target.value}}))}
+                                                            placeholder="Ej: Pago de ganancia mes pasado"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-slate-200 flex justify-end gap-3 bg-white">
+                            <button 
+                                onClick={() => setShowMigrationModal(false)}
+                                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition font-medium"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={handleConfirmMigration}
+                                disabled={migrating}
+                                className="px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition font-medium disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {migrating && <Loader2 className="w-4 h-4 animate-spin" />}
+                                {migrating ? 'Migrando y Registrando...' : 'Confirmar y Migrar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

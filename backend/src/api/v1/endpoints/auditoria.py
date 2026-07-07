@@ -6,12 +6,22 @@ from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.dependencies.auth_deps import get_current_user
 from src.models.user_bank_account import UserBankAccount
+from src.models.wallet import Wallet
+from src.models.wallet_transactions import WalletTransaction
 from datetime import datetime, date
 
 router = APIRouter()
 
+class ManualWithdrawal(BaseModel):
+    user_id: int
+    monto: float
+    fecha: str
+    metodo_pago: str
+    observaciones: Optional[str] = None
+
 class MigrateBatchRequest(BaseModel):
     user_ids: List[int]
+    manual_withdrawals: Optional[List[ManualWithdrawal]] = []
 
 @router.get("/respaldo", response_model=List[Dict[str, Any]])
 async def get_inversiones_respaldo(
@@ -949,6 +959,70 @@ async def migrar_batch(
             f"DELETE FROM investor_respaldo WHERE user_id IN ({user_ids_str})"
         ]
         
+        # --- Update Wallets with Simulated Profit ---
+        query_inv_sim = text(f"""
+            SELECT 
+                ir.id, ir.user_id, ir.total_contrato, ir.fecha_ingreso,
+                cp.months as meses_periodo,
+                cp.days as dias_periodo,
+                cp.percentage as porcentaje_periodo
+            FROM investor_respaldo ir
+            LEFT JOIN contract_periods cp ON ir.periodo_contrato = cp.id
+            WHERE ir.user_id IN ({user_ids_str})
+        """)
+        res_inv_sim = await db.execute(query_inv_sim)
+        
+        from decimal import Decimal
+        fecha_inicio_ciclo = date(2026, 5, 29)
+        fecha_fin_ciclo = date(2026, 6, 29)
+        
+        user_gains = {}
+        for row in res_inv_sim.fetchall():
+            monto = float(row.total_contrato or 0)
+            meses = float(row.meses_periodo or 0)
+            dias_totales = float(row.dias_periodo or 1)
+            porcentaje = float(row.porcentaje_periodo or 0)
+            
+            rendimiento_mensual = monto * (porcentaje / 100.0)
+            rendimiento_total = rendimiento_mensual * meses
+            rendimiento_diario = rendimiento_total / dias_totales if dias_totales else 0
+            
+            fecha_ingreso = row.fecha_ingreso
+            if not fecha_ingreso or fecha_ingreso > fecha_fin_ciclo:
+                dias_activos = 0
+            else:
+                effective_start = max(fecha_ingreso, fecha_inicio_ciclo)
+                dias_activos = (fecha_fin_ciclo - effective_start).days
+                if dias_activos < 0: dias_activos = 0
+                
+            ganancia_simulada = rendimiento_diario * dias_activos
+            if ganancia_simulada > 0:
+                user_gains[row.user_id] = user_gains.get(row.user_id, 0) + ganancia_simulada
+                
+        for u_id, gain in user_gains.items():
+            wallet_res = await db.execute(text(f"SELECT id, balance FROM wallets WHERE user_id = {u_id}"))
+            wallet_row = wallet_res.first()
+            wallet_id = None
+            if not wallet_row:
+                new_wallet = Wallet(user_id=u_id, balance=Decimal(gain), currency="COP", status="active")
+                db.add(new_wallet)
+                await db.flush()
+                wallet_id = new_wallet.id
+                balance_after = Decimal(gain)
+            else:
+                wallet_id = wallet_row.id
+                balance_after = wallet_row.balance + Decimal(gain)
+                await db.execute(text(f"UPDATE wallets SET balance = balance + {Decimal(gain)} WHERE id = {wallet_id}"))
+            
+            new_tx = WalletTransaction(
+                wallet_id=wallet_id,
+                amount=Decimal(gain),
+                type="ingreso",
+                description="Ganancia del ciclo (29 May - 29 Jun) migrada",
+                balance_after=balance_after
+            )
+            db.add(new_tx)
+        
         # Migrar cuentas bancarias antes de borrar de investor_respaldo
         res_bancos = await db.execute(text(f"SELECT DISTINCT user_id, banco, tipo_cuenta, numero_cuenta FROM investor_respaldo WHERE user_id IN ({user_ids_str}) AND banco IS NOT NULL AND numero_cuenta IS NOT NULL"))
         bancos_a_crear = []
@@ -968,6 +1042,47 @@ async def migrar_batch(
         
         for q in queries:
             await db.execute(text(q))
+            
+        # Process manual withdrawals
+        if req.manual_withdrawals:
+            from src.models.retiros import Retiro
+            from decimal import Decimal
+            
+            for mw in req.manual_withdrawals:
+                # Deduct from Wallet
+                wallet_res = await db.execute(text(f"SELECT id, balance FROM wallets WHERE user_id = {mw.user_id}"))
+                wallet_row = wallet_res.first()
+                if wallet_row:
+                    wallet_id = wallet_row.id
+                    balance_after = wallet_row.balance - Decimal(mw.monto)
+                    await db.execute(text(f"UPDATE wallets SET balance = balance - {Decimal(mw.monto)} WHERE id = {wallet_id}"))
+                    
+                    new_tx = WalletTransaction(
+                        wallet_id=wallet_id,
+                        amount=Decimal(mw.monto),
+                        type="egreso",
+                        description=f"Retiro manual externo registrado: {mw.observaciones or ''}",
+                        balance_after=balance_after
+                    )
+                    db.add(new_tx)
+                
+                # Register Retiro
+                nuevo_retiro = Retiro(
+                    user_id=mw.user_id,
+                    origen='externo',
+                    tipo='rendimiento',
+                    monto=Decimal(mw.monto),
+                    impuesto=0,
+                    monto_neto=Decimal(mw.monto),
+                    fecha_solicitud=datetime.strptime(mw.fecha, '%Y-%m-%d').date(),
+                    fecha_retiro=datetime.strptime(mw.fecha, '%Y-%m-%d').date(),
+                    estado='procesado',
+                    metodo_pago=mw.metodo_pago,
+                    observaciones=mw.observaciones,
+                    procesado_por=current_user.id,
+                    fecha_procesamiento=func.now()
+                )
+                db.add(nuevo_retiro)
             
         await db.commit()
         return {"migrated": len(req.user_ids), "status": "success"}
