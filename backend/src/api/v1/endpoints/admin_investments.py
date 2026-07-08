@@ -610,26 +610,23 @@ async def approve_investment_request(
         
         # 6. Assign inversionista role if not present
         from src.models.roles import Role
-        from src.models.security import user_roles
+        from sqlalchemy import text
         
         role_stmt = select(Role).where(Role.name == 'inversionista')
         role_res = await db.execute(role_stmt)
         inversor_role = role_res.scalar_one_or_none()
         
         if inversor_role:
-            ur_stmt = select(user_roles).where(
-                user_roles.c.user_id == req.user_id,
-                user_roles.c.role_id == inversor_role.id
-            )
-            ur_res = await db.execute(ur_stmt)
+            ur_stmt = text("SELECT * FROM user_roles WHERE user_id = :u AND role_id = :r")
+            ur_res = await db.execute(ur_stmt, {"u": req.user_id, "r": inversor_role.id})
             existing_ur = ur_res.fetchone()
             
             if not existing_ur:
-                insert_stmt = user_roles.insert().values(
-                    user_id=req.user_id,
-                    role_id=inversor_role.id
+                insert_stmt = text(
+                    "INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) "
+                    "VALUES (:u, :r, NOW(), NOW(), NOW())"
                 )
-                await db.execute(insert_stmt)
+                await db.execute(insert_stmt, {"u": req.user_id, "r": inversor_role.id})
         
         
         await db.commit()
