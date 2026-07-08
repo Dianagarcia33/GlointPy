@@ -14,12 +14,12 @@ from datetime import datetime
 class UserService:
     @staticmethod
     async def get_all_users(db: AsyncSession) -> List[User]:
-        result = await db.execute(select(User).options(selectinload(User.roles)))
+        result = await db.execute(select(User).options(selectinload(User.roles).selectinload(Role.permissions)))
         return result.scalars().all()
 
     @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: int) -> User:
-        result = await db.execute(select(User).options(selectinload(User.roles)).where(User.id == user_id))
+        result = await db.execute(select(User).options(selectinload(User.roles).selectinload(Role.permissions)).where(User.id == user_id))
         user = result.scalars().first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
