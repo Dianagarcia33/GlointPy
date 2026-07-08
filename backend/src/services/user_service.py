@@ -111,6 +111,15 @@ class UserService:
                     errors.append(f"Fila {row_number}: El correo {email} ya existe.")
                     continue
                 
+                user_id_str = row.get("id", "").strip()
+                user_id = None
+                if user_id_str and user_id_str.isdigit():
+                    user_id = int(user_id_str)
+                    existing_id = await db.execute(select(User).where(User.id == user_id))
+                    if existing_id.scalars().first():
+                        errors.append(f"Fila {row_number}: El ID {user_id} ya está en uso.")
+                        continue
+                
                 doc_id = row.get("document_id", "").strip()
                 if not doc_id:
                     errors.append(f"Fila {row_number}: Documento de identidad faltante (requerido para contraseña inicial).")
@@ -126,6 +135,9 @@ class UserService:
                     must_change_password=True,
                     is_active=True
                 )
+                
+                if user_id:
+                    user.id = user_id
 
                 roles_str = row.get("roles", "").strip()
                 if roles_str:

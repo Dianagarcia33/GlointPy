@@ -18,9 +18,9 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
 
   const handleDownloadTemplate = () => {
     // Generate CSV template locally
-    const headers = ["name", "email", "document_id", "phone_number", "date_of_birth", "roles"];
-    const example = ["Admin Principal", "admin@gloint.com", "123456789", "+573001234567", "1990-01-01", "Admin, Supervisor"];
-    const example2 = ["Cajero 1", "cajero@gloint.com", "987654321", "+573009876543", "1995-05-15", "Cajero"];
+    const headers = ["id", "name", "email", "document_id", "phone_number", "date_of_birth", "roles"];
+    const example = ["", "Admin Principal", "admin@gloint.com", "123456789", "+573001234567", "1990-01-01", "Admin, Supervisor"];
+    const example2 = ["99", "Cajero 1", "cajero@gloint.com", "987654321", "+573009876543", "1995-05-15", "Cajero"];
     
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
       + headers.join(";") + "\n"
