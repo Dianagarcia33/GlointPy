@@ -193,11 +193,17 @@ async def register_investor(
         name=request.name,
         email=request.email,
         password=hashed_password,
-        is_active=True,
-        roles=[inv_role] if inv_role else []
+        is_active=True
     )
     db.add(new_user)
     await db.flush()
+
+    if inv_role:
+        from sqlalchemy import text
+        await db.execute(
+            text("INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) VALUES (:user_id, :role_id, NOW(), NOW(), NOW())"),
+            {"user_id": new_user.id, "role_id": inv_role.id}
+        )
 
     # 4. Construct extra_data
     extra_data = {
