@@ -225,7 +225,10 @@ export function Nav() {
             </div>
           )}
           <button onClick={() => go("contacto")} className="text-white text-sm font-medium py-2 text-left">Contacto</button>
-          <button onClick={() => navigate('/onboarding')} className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: ORANGE, color: "#fff" }}>
+          <button onClick={() => navigate('/login')} className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold w-full border" style={{ borderColor: "rgba(255,255,255,0.2)", color: "#fff" }}>
+            Iniciar sesión
+          </button>
+          <button onClick={() => navigate('/onboarding')} className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: ORANGE, color: "#fff" }}>
             Crear Cuenta
           </button>
         </div>
