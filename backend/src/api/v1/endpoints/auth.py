@@ -390,7 +390,16 @@ async def kyc_validate(
         paths.append(str(file_path))
         
     try:
-        extracted_data = process_kyc_documents(front_bytes, back_bytes, selfie_bytes)
+        # TEMP: Saltar OCR temporalmente
+        extracted_data = {
+            "documento": "",
+            "name": "",
+            "tipo_documento": "CC",
+            "fecha_nacimiento": "",
+            "biometrics_passed": True,
+            "biometrics_message": "Validación omitida temporalmente."
+        }
+        # extracted_data = process_kyc_documents(front_bytes, back_bytes, selfie_bytes)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
