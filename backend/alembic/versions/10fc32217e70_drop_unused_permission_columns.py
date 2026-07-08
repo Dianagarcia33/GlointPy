@@ -20,7 +20,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.drop_index(op.f('permissions_slug_unique'), table_name='permissions')
     op.drop_column('permissions', 'is_active')
     op.drop_column('permissions', 'action')
     op.drop_column('permissions', 'slug')
