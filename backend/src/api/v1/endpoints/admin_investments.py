@@ -606,7 +606,7 @@ async def approve_investment_request(
             
             if not existing_ur:
                 await db.execute(
-                    text("INSERT INTO user_roles (user_id, role_id) VALUES (:user_id, :role_id)"),
+                    text("INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) VALUES (:user_id, :role_id, NOW(), NOW(), NOW())"),
                     {"user_id": req.user_id, "role_id": inversor_role.id}
                 )
         
