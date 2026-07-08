@@ -42,8 +42,12 @@ class SecurityService:
 
         db.add(new_role)
         await db.commit()
-        await db.refresh(new_role)
-        return new_role
+        
+        # Recargar con relaciones para evitar MissingGreenlet
+        result = await db.execute(
+            select(Role).options(selectinload(Role.permissions)).where(Role.id == new_role.id)
+        )
+        return result.scalars().first()
 
     @staticmethod
     async def update_role(db: AsyncSession, role_id: int, role_data: RoleUpdate):
@@ -63,14 +67,21 @@ class SecurityService:
             role.description = role_data.description
 
         if role_data.permission_ids is not None:
-            perms_result = await db.execute(
-                select(Permission).where(Permission.id.in_(role_data.permission_ids))
-            )
-            role.permissions = perms_result.scalars().all()
+            if not role_data.permission_ids:
+                role.permissions = []
+            else:
+                perms_result = await db.execute(
+                    select(Permission).where(Permission.id.in_(role_data.permission_ids))
+                )
+                role.permissions = perms_result.scalars().all()
 
         await db.commit()
-        await db.refresh(role)
-        return role
+        
+        # Recargar con relaciones para evitar MissingGreenlet
+        result = await db.execute(
+            select(Role).options(selectinload(Role.permissions)).where(Role.id == role.id)
+        )
+        return result.scalars().first()
 
     @staticmethod
     async def delete_role(db: AsyncSession, role_id: int):
@@ -86,10 +97,4 @@ class SecurityService:
         result = await db.execute(select(Permission))
         return result.scalars().all()
         
-        await db.delete(role)
-        await db.commit()
 
-    @staticmethod
-    async def get_all_permissions(db: AsyncSession):
-        result = await db.execute(select(Permission))
-        return result.scalars().all()
