@@ -9,6 +9,7 @@ from src.core.security import get_password_hash
 from fastapi import HTTPException
 import csv
 import io
+from datetime import datetime
 
 class UserService:
     @staticmethod
@@ -134,12 +135,26 @@ class UserService:
                     errors.append(f"Fila {row_number}: El documento {doc_id} ya existe en base de datos.")
                     continue
                 
+                raw_dob = row.get("date_of_birth", "").strip()
+                date_of_birth = None
+                if raw_dob:
+                    if "/" in raw_dob:
+                        try:
+                            date_of_birth = datetime.strptime(raw_dob, "%d/%m/%Y").strftime("%Y-%m-%d")
+                        except ValueError:
+                            try:
+                                date_of_birth = datetime.strptime(raw_dob, "%Y/%m/%d").strftime("%Y-%m-%d")
+                            except ValueError:
+                                date_of_birth = raw_dob
+                    else:
+                        date_of_birth = raw_dob
+
                 user = User(
                     name=name,
                     email=email,
                     document_id=doc_id,
                     phone_number=row.get("phone_number", "").strip() or None,
-                    date_of_birth=row.get("date_of_birth", "").strip() or None,
+                    date_of_birth=date_of_birth,
                     password_hash=get_password_hash(doc_id),
                     must_change_password=True,
                     is_active=True
