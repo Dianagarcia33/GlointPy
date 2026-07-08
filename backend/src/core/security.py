@@ -1,22 +1,30 @@
 from datetime import datetime, timedelta
 from typing import Union, Any
-from passlib.context import CryptContext
+import bcrypt
 from jose import jwt
 from src.core.config import settings
-
-# Configuramos Passlib para usar bcrypt, compatible con Laravel
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica si la contraseña en texto plano coincide con el hash (ej. el de Laravel)."""
     try:
-        return pwd_context.verify(plain_password, hashed_password)
+        if isinstance(plain_password, str):
+            plain_password = plain_password.encode('utf-8')
+        if isinstance(hashed_password, str):
+            hashed_password = hashed_password.encode('utf-8')
+            
+        # PHP/Laravel usa $2y$, pero la librería bcrypt de Python prefiere $2b$
+        if hashed_password.startswith(b'$2y$'):
+            hashed_password = b'$2b$' + hashed_password[4:]
+            
+        return bcrypt.checkpw(plain_password, hashed_password)
     except Exception:
         return False
 
 def get_password_hash(password: str) -> str:
     """Hashea una contraseña usando bcrypt (ideal para nuevos registros)."""
-    return pwd_context.hash(password)
+    if isinstance(password, str):
+        password = password.encode('utf-8')
+    return bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
 
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
     """Genera el token JWT de acceso (corta duración)."""
