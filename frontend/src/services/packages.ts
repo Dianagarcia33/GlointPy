@@ -48,5 +48,14 @@ export const packagesService = {
         await fetchApi(`/packages/${id}`, {
             method: 'DELETE'
         });
+    },
+
+    uploadBulkPackages: async (file: File): Promise<{ success: number; errors: string[] }> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return await fetchApi('/packages/bulk-upload', {
+            method: 'POST',
+            body: formData,
+        });
     }
 };

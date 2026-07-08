@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { packagesService, Package } from '../../../../services/packages';
 import { PackageModal } from '../components/PackageModal';
-import { Plus, Edit2, Package as PackageIcon, Loader2, Trash2 } from 'lucide-react';
+import { BulkUploadPackagesModal } from '../components/BulkUploadPackagesModal';
+import { Plus, Edit2, Package as PackageIcon, Loader2, Trash2, UploadCloud } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 export const AdminPackagesPage = () => {
@@ -10,6 +11,7 @@ export const AdminPackagesPage = () => {
   const [error, setError] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
 
   const fetchData = async () => {
@@ -91,13 +93,22 @@ export const AdminPackagesPage = () => {
         </div>
         
         <Can permission="admin.packages.manage">
-          <button 
-            onClick={handleCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Crear Paquete
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setIsBulkModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Carga Masiva
+            </button>
+            <button 
+              onClick={handleCreate}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Crear Paquete
+            </button>
+          </div>
         </Can>
       </div>
 
@@ -190,6 +201,15 @@ export const AdminPackagesPage = () => {
         onClose={handleModalClose}
         onSaved={handleSaved}
         pkg={editingPackage}
+      />
+      
+      <BulkUploadPackagesModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onUploaded={() => {
+          setIsBulkModalOpen(false);
+          fetchData();
+        }}
       />
     </div>
   );
