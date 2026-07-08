@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2 } from 'lucide-react';
+import { Can } from '../../../../components/security/Can';
 
 export const AdminUsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -51,76 +53,116 @@ export const AdminUsersPage = () => {
     fetchData();
   };
 
-  if (isLoading) return <div className="p-6 text-slate-300">Cargando usuarios...</div>;
-  if (error) return <div className="p-6 text-red-500">{error}</div>;
+  if (isLoading) {
+      return (
+          <div className="flex justify-center items-center h-64">
+              <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
+          </div>
+      );
+  }
+
+  if (error) {
+      return (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                  <h3 className="font-medium">Error cargando usuarios</h3>
+                  <p className="text-sm mt-1">{error}</p>
+                  <button onClick={fetchData} className="mt-2 text-sm font-semibold hover:underline">Reintentar</button>
+              </div>
+          </div>
+      );
+  }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Gestión de Usuarios</h1>
-          <p className="text-slate-400">Administra los usuarios de la plataforma y sus accesos</p>
+          <h1 className="text-2xl font-bold text-slate-800">Gestión de Usuarios</h1>
+          <p className="text-slate-500 text-sm mt-1">Administra los usuarios de la plataforma y sus accesos</p>
         </div>
-        <button 
-          onClick={handleCreate}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded font-semibold transition-colors"
-        >
-          + Crear Usuario
-        </button>
+        
+        <Can permission="admin.users.manage">
+          <button 
+            onClick={handleCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Crear Usuario
+          </button>
+        </Can>
       </div>
 
-      <div className="bg-slate-800 rounded-lg shadow overflow-hidden">
-        <table className="w-full text-left text-sm text-slate-300">
-          <thead className="bg-slate-900 text-slate-400 uppercase font-medium">
-            <tr>
-              <th className="px-6 py-4">Usuario</th>
-              <th className="px-6 py-4">Documento</th>
-              <th className="px-6 py-4">Roles</th>
-              <th className="px-6 py-4">Estado</th>
-              <th className="px-6 py-4 text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-700">
-            {users.map(user => (
-              <tr key={user.id} className="hover:bg-slate-700/50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="font-semibold text-white">{user.name} {user.is_superuser && <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded ml-2">Admin</span>}</div>
-                  <div className="text-xs text-slate-400">{user.email}</div>
-                  <div className="text-xs text-slate-500">{user.phone_number}</div>
-                </td>
-                <td className="px-6 py-4">{user.document_id || <span className="text-slate-500 italic">No registrado</span>}</td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1">
-                    {user.roles.length > 0 ? user.roles.map(r => (
-                      <span key={r.id} className="bg-slate-700 text-slate-200 text-xs px-2 py-1 rounded">
-                        {r.display_name}
-                      </span>
-                    )) : <span className="text-slate-500 italic">Sin roles</span>}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  {user.is_active ? (
-                    <span className="text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded text-xs">Activo</span>
-                  ) : (
-                    <span className="text-red-400 bg-red-400/10 px-2 py-1 rounded text-xs">Inactivo</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button onClick={() => handleEdit(user)} className="text-blue-400 hover:text-blue-300">
-                    Editar
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {users.length === 0 && (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
-                  No hay usuarios registrados.
-                </td>
+                <th className="px-6 py-4">Usuario</th>
+                <th className="px-6 py-4 hidden sm:table-cell">Documento</th>
+                <th className="px-6 py-4">Roles</th>
+                <th className="px-6 py-4 hidden md:table-cell">Estado</th>
+                <th className="px-6 py-4 text-center">Acciones</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {users.map(user => (
+                <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
+                          <UserIcon className="w-4 h-4 text-brand-600" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-800 flex items-center gap-2">
+                          {user.name} 
+                          {user.is_superuser && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase">Admin</span>}
+                        </div>
+                        <div className="text-xs text-slate-400 font-mono mt-0.5">{user.email}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">{user.phone_number}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 hidden sm:table-cell">{user.document_id || <span className="text-slate-400 italic text-xs">No registrado</span>}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1.5">
+                      {user.roles.length > 0 ? user.roles.map(r => (
+                        <span key={r.id} className="inline-flex px-2 py-0.5 bg-brand-50 text-brand-700 border border-brand-100 rounded text-[10px] font-medium whitespace-nowrap">
+                          {r.display_name}
+                        </span>
+                      )) : <span className="text-slate-400 italic text-xs">Sin roles</span>}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 hidden md:table-cell">
+                    {user.is_active ? (
+                      <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-medium">Activo</span>
+                    ) : (
+                      <span className="text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded text-[10px] font-medium">Inactivo</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <Can permission="admin.users.manage">
+                      <button 
+                        onClick={() => handleEdit(user)} 
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        <span className="hidden lg:inline">Editar</span>
+                      </button>
+                    </Can>
+                  </td>
+                </tr>
+              ))}
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                    No hay usuarios registrados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <UserModal 
