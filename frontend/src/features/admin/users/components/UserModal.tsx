@@ -24,6 +24,8 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const assignableRoles = roles.filter(r => r.name !== 'inversionista' && r.name !== 'cliente');
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -201,11 +203,11 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
 
               <div className="bg-slate-50 border rounded-lg p-4">
                 <label className="block text-sm font-medium text-slate-700 mb-3">Roles Asignados</label>
-                {roles.length === 0 ? (
-                  <p className="text-sm text-slate-500 italic bg-white p-3 rounded border border-dashed">No hay roles configurados en el sistema.</p>
+                {assignableRoles.length === 0 ? (
+                  <p className="text-sm text-slate-500 italic bg-white p-3 rounded border border-dashed">No hay roles administrativos configurados.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {roles.map(role => (
+                    {assignableRoles.map(role => (
                       <label key={role.id} className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${formData.role_ids?.includes(role.id) ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
                         <input
                           type="checkbox"
