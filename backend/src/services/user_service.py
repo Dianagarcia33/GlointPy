@@ -94,11 +94,15 @@ class UserService:
         # Load all roles to map names to objects
         roles_result = await db.execute(select(Role))
         all_roles = {r.name.lower(): r for r in roles_result.scalars().all()}
+        
+        print(f"--- Iniciando Carga Masiva de Usuarios ---")
 
         for row_number, row in enumerate(reader, start=2):
             try:
                 name = row.get("name", "").strip()
                 email = row.get("email", "").strip()
+                
+                print(f"Procesando fila {row_number}: email={email}")
                 
                 if not name or not email:
                     errors.append(f"Fila {row_number}: Nombre o Correo electrónico faltante.")
@@ -107,7 +111,7 @@ class UserService:
                 # Check if email exists
                 existing = await db.execute(select(User).where(User.email == email))
                 if existing.scalars().first():
-                    errors.append(f"Fila {row_number}: El correo {email} ya existe.")
+                    errors.append(f"Fila {row_number}: El correo {email} ya existe en base de datos.")
                     continue
                 
                 user_id_str = row.get("id", "").strip()
@@ -122,6 +126,12 @@ class UserService:
                 doc_id = row.get("document_id", "").strip()
                 if not doc_id:
                     errors.append(f"Fila {row_number}: Documento de identidad faltante (requerido para contraseña inicial).")
+                    continue
+                
+                # Prevenir duplicados de documento en base de datos
+                existing_doc = await db.execute(select(User).where(User.document_id == doc_id))
+                if existing_doc.scalars().first():
+                    errors.append(f"Fila {row_number}: El documento {doc_id} ya existe en base de datos.")
                     continue
                 
                 user = User(
@@ -148,11 +158,17 @@ class UserService:
                     user.roles = assigned_roles
 
                 db.add(user)
+                # Commit here to save each user individually
+                await db.commit()
                 success_count += 1
+                print(f"-> Fila {row_number} guardada con éxito.")
+                
             except Exception as e:
+                await db.rollback() # Limpiar la transacción en caso de error
+                print(f"-> Error en fila {row_number}: {str(e)}")
                 errors.append(f"Fila {row_number}: Error inesperado - {str(e)}")
 
-        await db.commit()
+        print(f"--- Fin Carga Masiva. Exitosos: {success_count}, Errores: {len(errors)} ---")
         return {
             "success": success_count,
             "errors": errors
