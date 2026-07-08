@@ -122,7 +122,7 @@ class UserService:
                     role_names = [r.strip().lower() for r in roles_str.split(",")]
                     assigned_roles = []
                     for r_name in role_names:
-                        if r_name in ('inversionista', 'cliente'):
+                        if r_name == 'cliente':
                             continue # Skip non-administrative roles
                         if r_name in all_roles:
                             assigned_roles.append(all_roles[r_name])
