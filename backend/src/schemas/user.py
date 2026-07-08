@@ -39,13 +39,19 @@ class UserUpdateAdmin(BaseModel):
     date_of_birth: Optional[datetime] = None
     role_ids: Optional[List[int]] = None
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     id: int
+    name: str
+    email: str
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
+    is_active: bool
+    is_superuser: bool
     must_change_password: bool
-    date_of_birth: Optional[datetime] = None
-    permissions_override: Optional[Dict[str, bool]] = None
-    created_at: datetime
-    updated_at: datetime
+    date_of_birth: Optional[Any] = None
+    permissions_override: Optional[Any] = None
+    created_at: Any
+    updated_at: Any
     
     # Devuelve los roles asociados
     roles: List[RoleResponse] = []
