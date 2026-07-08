@@ -1,4 +1,4 @@
-import api from './api';
+import { fetchApi } from './api';
 
 export interface Package {
     id: number;
@@ -20,26 +20,30 @@ export interface PackageUpdate {
 
 export const packagesService = {
     getPackages: async (): Promise<Package[]> => {
-        const response = await api.get('/packages/');
-        return response.data;
+        return await fetchApi('/packages/');
     },
 
     getPackage: async (id: number): Promise<Package> => {
-        const response = await api.get(`/packages/${id}`);
-        return response.data;
+        return await fetchApi(`/packages/${id}`);
     },
 
     createPackage: async (data: PackageCreate): Promise<Package> => {
-        const response = await api.post('/packages/', data);
-        return response.data;
+        return await fetchApi('/packages/', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
     },
 
     updatePackage: async (id: number, data: PackageUpdate): Promise<Package> => {
-        const response = await api.put(`/packages/${id}`, data);
-        return response.data;
+        return await fetchApi(`/packages/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
     },
 
     deletePackage: async (id: number): Promise<void> => {
-        await api.delete(`/packages/${id}`);
+        await fetchApi(`/packages/${id}`, {
+            method: 'DELETE'
+        });
     }
 };
