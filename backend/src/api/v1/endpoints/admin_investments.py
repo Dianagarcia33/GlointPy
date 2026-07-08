@@ -13,8 +13,6 @@ from src.models.wallet import Wallet
 from src.schemas.admin_investments import AdminInvestorResponse, AdminInvestmentRequestResponse
 from src.models.investment_request import InvestmentRequest
 from src.models.paquete_inversion import PaqueteInversion
-from src.models.security import user_roles
-from src.models.user_roles import UserRole
 
 router = APIRouter()
 
