@@ -22,10 +22,10 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
     const example = ["Admin Principal", "admin@gloint.com", "123456789", "+573001234567", "1990-01-01", "Admin, Supervisor"];
     const example2 = ["Cajero 1", "cajero@gloint.com", "987654321", "+573009876543", "1995-05-15", "Cajero"];
     
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n"
-      + example.join(",") + "\n"
-      + example2.join(",");
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+      + headers.join(";") + "\n"
+      + example.join(";") + "\n"
+      + example2.join(";");
       
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");

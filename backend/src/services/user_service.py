@@ -82,7 +82,12 @@ class UserService:
 
     @staticmethod
     async def bulk_create_users(db: AsyncSession, csv_content: str) -> dict:
-        reader = csv.DictReader(io.StringIO(csv_content))
+        try:
+            dialect = csv.Sniffer().sniff(csv_content[:1024])
+            reader = csv.DictReader(io.StringIO(csv_content), dialect=dialect)
+        except Exception:
+            reader = csv.DictReader(io.StringIO(csv_content))
+            
         success_count = 0
         errors = []
         
