@@ -15,6 +15,13 @@ export interface User {
   updated_at: string;
 }
 
+export interface PaginatedUsers {
+  total: number;
+  page: number;
+  limit: number;
+  data: User[];
+}
+
 export interface UserCreate {
   name: string;
   email: string;
@@ -36,8 +43,18 @@ export interface UserUpdate {
 }
 
 export const usersService = {
-  getUsers: async (): Promise<User[]> => {
-    return await fetchApi('/users');
+  getUsers: async (params?: { page?: number, limit?: number, search?: string, role_id?: number, is_active?: boolean }): Promise<PaginatedUsers> => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      if (params.page !== undefined) queryParams.append('page', params.page.toString());
+      if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+      if (params.search) queryParams.append('search', params.search);
+      if (params.role_id !== undefined) queryParams.append('role_id', params.role_id.toString());
+      if (params.is_active !== undefined) queryParams.append('is_active', params.is_active.toString());
+    }
+    const queryString = queryParams.toString();
+    const url = `/users${queryString ? `?${queryString}` : ''}`;
+    return await fetchApi(url);
   },
 
   createUser: async (data: UserCreate): Promise<User> => {

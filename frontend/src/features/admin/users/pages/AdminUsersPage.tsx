@@ -12,6 +12,14 @@ export const AdminUsersPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Pagination & Filters state
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [activeFilter, setActiveFilter] = useState<string>('');
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -19,11 +27,18 @@ export const AdminUsersPage = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [usersData, rolesData] = await Promise.all([
-        usersService.getUsers(),
-        rolesService.getAllRoles(),
-      ]);
-      setUsers(usersData);
+      const usersData = await usersService.getUsers({
+        page,
+        limit,
+        search: search || undefined,
+        role_id: roleFilter ? parseInt(roleFilter) : undefined,
+        is_active: activeFilter === 'true' ? true : activeFilter === 'false' ? false : undefined,
+      });
+      
+      const rolesData = await rolesService.getAllRoles();
+      
+      setUsers(usersData.data);
+      setTotal(usersData.total);
       setRoles(rolesData);
     } catch (err: any) {
       setError(err.message || 'Error al cargar los usuarios.');
@@ -34,7 +49,7 @@ export const AdminUsersPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [page, search, roleFilter, activeFilter]);
 
   const handleCreate = () => {
     setEditingUser(null);
@@ -103,6 +118,51 @@ export const AdminUsersPage = () => {
           </div>
         </Can>
       </div>
+      
+      {/* Filters Bar */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
+        <div className="flex-1 w-full relative">
+          <input 
+            type="text" 
+            placeholder="Buscar por nombre, correo o documento..." 
+            className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="w-full md:w-48">
+          <select 
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Todos los roles</option>
+            {roles.map(r => (
+              <option key={r.id} value={r.id}>{r.display_name || r.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="w-full md:w-48">
+          <select 
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            value={activeFilter}
+            onChange={(e) => {
+              setActiveFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Cualquier estado</option>
+            <option value="true">Activo</option>
+            <option value="false">Inactivo</option>
+          </select>
+        </div>
+      </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -167,12 +227,35 @@ export const AdminUsersPage = () => {
               {users.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    No hay usuarios registrados.
+                    No se encontraron usuarios.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+        
+        {/* Pagination Controls */}
+        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+          <div className="text-sm text-slate-500">
+            Mostrando <span className="font-medium text-slate-700">{users.length}</span> de <span className="font-medium text-slate-700">{total}</span> usuarios
+          </div>
+          <div className="flex gap-2">
+            <button 
+              disabled={page === 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+            >
+              Anterior
+            </button>
+            <button 
+              disabled={page * limit >= total}
+              onClick={() => setPage(p => p + 1)}
+              className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
       </div>
 

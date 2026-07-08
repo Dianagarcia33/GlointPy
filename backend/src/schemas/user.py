@@ -57,3 +57,9 @@ class UserResponse(BaseModel):
     roles: List[RoleResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
+
+class UserPaginatedResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    data: List[UserResponse]

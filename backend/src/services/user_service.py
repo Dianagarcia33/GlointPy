@@ -13,9 +13,53 @@ from datetime import datetime
 
 class UserService:
     @staticmethod
-    async def get_all_users(db: AsyncSession) -> List[User]:
-        result = await db.execute(select(User).options(selectinload(User.roles).selectinload(Role.permissions)))
-        return result.scalars().all()
+    async def get_all_users(
+        db: AsyncSession, 
+        page: int = 1, 
+        limit: int = 20, 
+        search: str = None, 
+        role_id: int = None, 
+        is_active: bool = None
+    ) -> dict:
+        from sqlalchemy import or_, func
+        
+        query = select(User)
+        
+        if search:
+            search_term = f"%{search}%"
+            query = query.where(
+                or_(
+                    User.name.ilike(search_term),
+                    User.email.ilike(search_term),
+                    User.document_id.ilike(search_term)
+                )
+            )
+            
+        if is_active is not None:
+            query = query.where(User.is_active == is_active)
+            
+        if role_id is not None:
+            query = query.join(User.roles).where(Role.id == role_id)
+            
+        # Contar total
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar_one()
+        
+        # Paginar y obtener data
+        offset = (page - 1) * limit
+        query = query.options(selectinload(User.roles).selectinload(Role.permissions))
+        query = query.order_by(User.id.desc()).offset(offset).limit(limit)
+        
+        result = await db.execute(query)
+        data = result.scalars().all()
+        
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "data": data
+        }
 
     @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: int) -> User:

@@ -1,12 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import List
+from typing import List, Optional
 
 from src.core.database import get_db
-from src.core.database import get_db
-from src.schemas.user import UserResponse, UserCreateAdmin, UserUpdateAdmin
+from src.schemas.user import UserResponse, UserCreateAdmin, UserUpdateAdmin, UserPaginatedResponse
 from src.schemas.security import AssignRoleToUser
 from src.models.user import User
 from src.models.security import Role
@@ -15,12 +14,19 @@ from src.api.deps import RequirePermission
 
 router = APIRouter()
 
-@router.get("", response_model=List[UserResponse], dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def list_users(db: AsyncSession = Depends(get_db)):
+@router.get("", response_model=UserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def list_users(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    search: Optional[str] = None,
+    role_id: Optional[int] = None,
+    is_active: Optional[bool] = None,
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Obtiene la lista de todos los usuarios (para panel admin).
+    Obtiene la lista de todos los usuarios paginada (para panel admin).
     """
-    return await UserService.get_all_users(db)
+    return await UserService.get_all_users(db, page, limit, search, role_id, is_active)
 
 @router.post("", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def create_user(user_in: UserCreateAdmin, db: AsyncSession = Depends(get_db)):
