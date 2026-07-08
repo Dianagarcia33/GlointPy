@@ -11,9 +11,10 @@ from src.models.security import Permission
 from sqlalchemy.future import select
 
 PERMISSIONS = [
-    {"name": "admin.roles.manage", "description": "Gestionar roles y permisos del sistema", "module": "admin", "slug": "admin.roles.manage"},
-    {"name": "admin.users.manage", "description": "Gestionar usuarios de la plataforma", "module": "admin", "slug": "admin.users.manage"},
-    {"name": "admin.periods.manage", "description": "Gestionar periodos de inversión", "module": "admin", "slug": "admin.periods.manage"},
+    {"name": "admin.roles.manage", "description": "Gestionar roles y permisos del sistema", "module": "admin"},
+    {"name": "admin.users.manage", "description": "Gestionar usuarios de la plataforma", "module": "admin"},
+    {"name": "admin.periods.manage", "description": "Gestionar periodos de inversión", "module": "admin"},
+    {"name": "admin.packages.manage", "description": "Gestionar paquetes", "module": "admin"},
 ]
 
 async def seed_permissions():
