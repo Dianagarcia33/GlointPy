@@ -37,15 +37,15 @@ export interface RoleUpdate {
 
 export const rolesService = {
   getAllRoles: async (): Promise<Role[]> => {
-    return await fetchApi('/roles/');
+    return await fetchApi('/roles');
   },
 
   getAllPermissions: async (): Promise<Permission[]> => {
-    return await fetchApi('/roles/permissions');
+    return await fetchApi('/permissions');
   },
 
   createRole: async (data: RoleCreate): Promise<Role> => {
-    return await fetchApi('/roles/', {
+    return await fetchApi('/roles', {
       method: 'POST',
       body: JSON.stringify(data),
     });
