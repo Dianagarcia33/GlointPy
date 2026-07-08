@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 class Settings(BaseSettings):
     # Entorno
@@ -18,9 +19,9 @@ class Settings(BaseSettings):
     # Encryption
     BANK_ENCRYPTION_KEY: str = "oI0T7pW5j2X2qQ5G2HwX6mH8uW7lI0_gK2U7gO8yMvw="
 
-    # AWS Settings
-    AWS_ACCESS_KEY_ID: str | None = None
-    AWS_SECRET_ACCESS_KEY: str | None = None
+    # AWS Credentials and Region
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
     AWS_REGION: str = "us-east-1"
 
     model_config = SettingsConfigDict(
