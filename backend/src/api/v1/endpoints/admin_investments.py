@@ -609,31 +609,33 @@ async def approve_investment_request(
         req.reviewed_by = current_user.id
         
         # 6. Assign inversionista role if not present
-        from src.models.roles import Role
-        from src.models.user_roles import UserRole
+        from src.models.security import Role, user_roles
+        from sqlalchemy import text
         
         role_stmt = select(Role).where(Role.name == 'inversionista')
         role_res = await db.execute(role_stmt)
         inversor_role = role_res.scalar_one_or_none()
         
         if inversor_role:
-            ur_stmt = select(UserRole).where(
-                UserRole.user_id == req.user_id,
-                UserRole.role_id == inversor_role.id
+            ur_stmt = select(user_roles).where(
+                user_roles.c.user_id == req.user_id,
+                user_roles.c.role_id == inversor_role.id
             )
             ur_res = await db.execute(ur_stmt)
-            existing_ur = ur_res.scalar_one_or_none()
+            existing_ur = ur_res.first()
             
             if not existing_ur:
-                new_ur = UserRole(
-                    user_id=req.user_id,
-                    role_id=inversor_role.id,
-                    assigned_at=datetime.now(),
-                    assigned_by=current_user.id,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
-                )
-                db.add(new_ur)
+                try:
+                    await db.execute(
+                        text("INSERT INTO user_roles (user_id, role_id) VALUES (:user_id, :role_id)"),
+                        {"user_id": req.user_id, "role_id": inversor_role.id}
+                    )
+                except Exception as ex:
+                    # In case the table has other non-nullable fields like assigned_at
+                    await db.execute(
+                        text("INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) VALUES (:user_id, :role_id, NOW(), NOW(), NOW())"),
+                        {"user_id": req.user_id, "role_id": inversor_role.id}
+                    )
         
         
         await db.commit()
