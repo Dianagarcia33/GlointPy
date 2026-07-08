@@ -4,6 +4,7 @@ from typing import Optional
 
 class PackageBase(BaseModel):
     value: int
+    granted_shares: int = 0
     is_active: bool = True
 
 class PackageCreate(PackageBase):
@@ -11,6 +12,7 @@ class PackageCreate(PackageBase):
 
 class PackageUpdate(BaseModel):
     value: Optional[int] = None
+    granted_shares: Optional[int] = None
     is_active: Optional[bool] = None
 
 class PackageResponse(PackageBase):

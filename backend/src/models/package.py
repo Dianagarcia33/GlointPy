@@ -8,6 +8,7 @@ class Package(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     value = Column(Integer, nullable=False, index=True)
+    granted_shares = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, default=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

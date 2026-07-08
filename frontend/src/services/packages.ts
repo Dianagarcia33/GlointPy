@@ -3,6 +3,7 @@ import { fetchApi } from './api';
 export interface Package {
     id: number;
     value: number;
+    granted_shares: number;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -10,11 +11,13 @@ export interface Package {
 
 export interface PackageCreate {
     value: number;
+    granted_shares: number;
     is_active?: boolean;
 }
 
 export interface PackageUpdate {
     value?: number;
+    granted_shares?: number;
     is_active?: boolean;
 }
 

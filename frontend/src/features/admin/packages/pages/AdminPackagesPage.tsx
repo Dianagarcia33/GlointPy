@@ -107,9 +107,10 @@ export const AdminPackagesPage = () => {
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
               <tr>
                 <th className="px-6 py-4">Valor del Paquete</th>
+                <th className="px-6 py-4">Acciones Otorgadas</th>
                 <th className="px-6 py-4">Estado</th>
                 <Can permission="admin.packages.manage">
-                  <th className="px-6 py-4 text-right">Acciones</th>
+                  <th className="px-6 py-4 text-right">Acciones (Botones)</th>
                 </Can>
               </tr>
             </thead>
@@ -139,6 +140,11 @@ export const AdminPackagesPage = () => {
                             ${pkg.value.toLocaleString()} USD
                           </div>
                         </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-brand-600">
+                        {pkg.granted_shares} acciones
                       </div>
                     </td>
                     <td className="px-6 py-4">

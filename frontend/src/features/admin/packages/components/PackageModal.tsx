@@ -11,6 +11,7 @@ interface PackageModalProps {
 
 export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSaved, pkg }) => {
     const [value, setValue] = useState<number | ''>('');
+    const [grantedShares, setGrantedShares] = useState<number | ''>('');
     const [isActive, setIsActive] = useState<boolean>(true);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -18,9 +19,11 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
     useEffect(() => {
         if (pkg) {
             setValue(pkg.value);
+            setGrantedShares(pkg.granted_shares);
             setIsActive(pkg.is_active);
         } else {
             setValue('');
+            setGrantedShares('');
             setIsActive(true);
         }
         setError(null);
@@ -35,6 +38,11 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
             setError('El valor del paquete debe ser mayor a 0');
             return;
         }
+        
+        if (grantedShares === '' || Number(grantedShares) < 0) {
+            setError('Las acciones otorgadas deben ser un número válido');
+            return;
+        }
 
         setIsSaving(true);
         setError(null);
@@ -43,12 +51,14 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
             if (pkg) {
                 const updateData: PackageUpdate = { 
                     value: Number(value), 
+                    granted_shares: Number(grantedShares),
                     is_active: isActive 
                 };
                 await packagesService.updatePackage(pkg.id, updateData);
             } else {
                 const createData: PackageCreate = { 
                     value: Number(value), 
+                    granted_shares: Number(grantedShares),
                     is_active: isActive 
                 };
                 await packagesService.createPackage(createData);
@@ -96,6 +106,21 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
                                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                                 placeholder="Ej: 1000"
                                 min="1"
+                                required
+                            />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                                Acciones Otorgadas
+                            </label>
+                            <input
+                                type="number"
+                                value={grantedShares}
+                                onChange={(e) => setGrantedShares(e.target.value === '' ? '' : Number(e.target.value))}
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                                placeholder="Ej: 5"
+                                min="0"
                                 required
                             />
                         </div>
