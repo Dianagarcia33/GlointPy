@@ -13,6 +13,8 @@ from src.models.wallet import Wallet
 from src.schemas.admin_investments import AdminInvestorResponse, AdminInvestmentRequestResponse
 from src.models.investment_request import InvestmentRequest
 from src.models.paquete_inversion import PaqueteInversion
+from src.models.security import user_roles
+from src.models.user_roles import UserRole
 
 router = APIRouter()
 
@@ -625,18 +627,10 @@ async def approve_investment_request(
             existing_ur = ur_res.first()
             
             if not existing_ur:
-                try:
-                    await db.execute(
-                        text("INSERT INTO user_roles (user_id, role_id) VALUES (:user_id, :role_id)"),
-                        {"user_id": req.user_id, "role_id": inversor_role.id}
-                    )
-                except Exception as ex:
-                    # In case the table has other non-nullable fields like assigned_at
-                    await db.execute(
-                        text("INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) VALUES (:user_id, :role_id, NOW(), NOW(), NOW())"),
-                        {"user_id": req.user_id, "role_id": inversor_role.id}
-                    )
-        
+                await db.execute(
+                    text("INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) VALUES (:user_id, :role_id, NOW(), NOW(), NOW())"),
+                    {"user_id": req.user_id, "role_id": inversor_role.id}
+                )
         
         await db.commit()
         return {"message": "Solicitud aprobada y contrato creado exitosamente", "investor_id": new_investor.id}
