@@ -159,8 +159,9 @@ async def get_all_investments(
             periodo_dias = None
             
             period_obj = None
-            if inv.contract_period_id:
-                period_obj = periods_dict.get(inv.contract_period_id)
+            contract_period_id = getattr(inv, 'contract_period_id', None)
+            if contract_period_id:
+                period_obj = periods_dict.get(contract_period_id)
                 
             if not period_obj and inv.periodo_contrato:
                 period_obj = periods_dict.get(inv.periodo_contrato)
@@ -570,7 +571,7 @@ async def approve_investment_request(
             referido_por=payload.referido_por or personal_info.get("referido_por"),
             paquete_inversion_adquirido=req.paquete_inversion_id,
             total_contrato=req.monto,
-            contract_period_id=payload.contract_period_id or extra_data.get("periodo_contrato"),
+            periodo_contrato=payload.contract_period_id or extra_data.get("periodo_contrato"),
             tusdatos_evidencia_paths=extra_data.get("kyc_docs"),
             tusdatos_hallazgos_corregidos=False,
             banco=bank_info.get("banco"),
@@ -1031,7 +1032,7 @@ async def update_investment(
     investor_fields = [
         "nombre_completo", "correo_electronico", "tipo_documento", "documento",
         "numero_celular", "ciudad", "fecha_nacimiento", "referido_por", "observaciones",
-        "paquete_inversion_adquirido", "total_contrato", "fecha_ingreso", "fecha_finalizacion", "contract_period_id"
+        "paquete_inversion_adquirido", "total_contrato", "fecha_ingreso", "fecha_finalizacion", "periodo_contrato"
     ]
     
     for field in investor_fields:
