@@ -10,7 +10,7 @@ from src.core.database import get_db
 from src.models.user import User
 
 # This expects the token to be sent to /api/v1/auth/login (standard OAuth2 form or JSON, we will support JSON for frontend)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 async def get_current_user(
     db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme)
