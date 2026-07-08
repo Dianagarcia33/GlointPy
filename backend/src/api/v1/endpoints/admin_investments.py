@@ -502,7 +502,6 @@ async def approve_investment_request(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    from src.models.user_bank_account import UserBankAccount
     from src.models.investment_request import InvestmentStatus
     
     try:
@@ -583,25 +582,16 @@ async def approve_investment_request(
             total_contrato=req.monto,
             contract_period_id=payload.contract_period_id or extra_data.get("periodo_contrato"),
             tusdatos_evidencia_paths=extra_data.get("kyc_docs"),
-            tusdatos_hallazgos_corregidos=False
+            tusdatos_hallazgos_corregidos=False,
+            banco=bank_info.get("banco"),
+            tipo_cuenta=bank_info.get("tipo_cuenta"),
+            numero_cuenta=bank_info.get("numero_cuenta")
         )
         db.add(new_investor)
         await db.flush()
         
         # 4. Handle Bank Info
-        if bank_info and bank_info.get("banco") and bank_info.get("numero_cuenta"):
-            bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == req.user_id)
-            bank_res = await db.execute(bank_stmt)
-            bank_acc = bank_res.scalar_one_or_none()
-            
-            if not bank_acc:
-                bank_acc = UserBankAccount(user_id=req.user_id, is_primary=True)
-                db.add(bank_acc)
-                
-            bank_acc.banco = bank_info.get("banco")
-            bank_acc.tipo_cuenta = bank_info.get("tipo_cuenta")
-            bank_acc.numero_cuenta = bank_info.get("numero_cuenta")
-            
+        
         # 5. Update Request Status
         req.status = InvestmentStatus.approved
         req.investor_id = new_investor.id
@@ -882,7 +872,6 @@ async def nivelar_wallets_masivo(
     return {"message": f"Se nivelaron {count_updated} wallets exitosamente."}
 
 from src.schemas.admin_investments import UserSearchResponse, AdminInvestmentUpdate, AgentInvestmentCreate
-from src.models.user_bank_account import UserBankAccount
 from passlib.context import CryptContext
 import traceback
 
@@ -898,8 +887,7 @@ async def search_user(
     search_term = f"%{query}%"
     
     stmt = select(User).options(
-        selectinload(User.investor_records),
-        selectinload(User.bank_accounts)
+        selectinload(User.investor_records)
     ).outerjoin(Investor, User.id == Investor.user_id).where(
         (User.email.ilike(search_term)) | 
         (User.name.ilike(search_term)) | 
@@ -913,8 +901,6 @@ async def search_user(
     response_list = []
     for user in users:
         investor = user.investor_records[0] if user.investor_records else None
-        bank = user.bank_accounts[0] if user.bank_accounts else None
-        
         response_list.append(UserSearchResponse(
             id=user.id,
             name=investor.nombre_completo if investor and investor.nombre_completo else user.name,
@@ -922,9 +908,9 @@ async def search_user(
             documento=investor.documento if investor else None,
             numero_celular=investor.numero_celular if investor else None,
             ciudad=investor.ciudad if investor else None,
-            banco=bank.banco if bank else None,
-            tipo_cuenta=bank.tipo_cuenta if bank else None,
-            numero_cuenta=bank.numero_cuenta if bank else None
+            banco=investor.banco if investor else None,
+            tipo_cuenta=investor.tipo_cuenta if investor else None,
+            numero_cuenta=investor.numero_cuenta if investor else None
         ))
         
     return response_list
@@ -1071,6 +1057,12 @@ async def update_investment(
         else:
             investor.tusdatos_evidencia_paths = data.kyc_docs
             
+    # Bank is now on investor
+    if data.banco or data.tipo_cuenta or data.numero_cuenta:
+        investor.banco = data.banco or investor.banco
+        investor.tipo_cuenta = data.tipo_cuenta or investor.tipo_cuenta
+        investor.numero_cuenta = data.numero_cuenta or investor.numero_cuenta
+            
     # Update User if fields provided
     if investor.user_id:
         user_stmt = select(User).where(User.id == investor.user_id)
@@ -1082,19 +1074,6 @@ async def update_investment(
                 user.name = update_data["nombre_completo"]
             if "correo_electronico" in update_data:
                 user.email = update_data["correo_electronico"]
-                
-        # Update Bank
-        bank_stmt = select(UserBankAccount).where(UserBankAccount.user_id == investor.user_id)
-        bank_res = await db.execute(bank_stmt)
-        bank_acc = bank_res.scalar_one_or_none()
-        
-        if bank_acc:
-            if "banco" in update_data:
-                bank_acc.banco = update_data["banco"]
-            if "tipo_cuenta" in update_data:
-                bank_acc.tipo_cuenta = update_data["tipo_cuenta"]
-            if "numero_cuenta" in update_data:
-                bank_acc.numero_cuenta = update_data["numero_cuenta"]
                 
     await db.commit()
     return {"message": "Inversión actualizada correctamente"}
