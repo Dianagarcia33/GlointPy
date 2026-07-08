@@ -32,7 +32,11 @@ class AuthService:
                 detail="Usuario inactivo, contacte al administrador"
             )
             
-        if user.must_change_password:
+        # Verificar si es usuario administrativo (para no exigirle cambio de contraseña)
+        # Consideraremos "administrativo" a cualquiera que no sea exclusivamente inversionista o cliente.
+        is_admin = any(role.name.lower() in ("superadmin", "admin", "administrador") for role in user.roles)
+        
+        if user.must_change_password and not is_admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="MUST_CHANGE_PASSWORD"
