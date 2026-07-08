@@ -11,6 +11,7 @@ interface BulkUploadModalProps {
 export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onUploaded }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [result, setResult] = useState<{ success: number; errors: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,16 +49,55 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
     
     setIsUploading(true);
     setResult(null);
+    setProgress(null);
     try {
-      const uploadResult = await usersService.uploadBulkUsers(file);
-      setResult(uploadResult);
-      if (uploadResult.success > 0) {
+      const text = await file.text();
+      // Separar por saltos de línea (Windows o Unix)
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+      
+      if (lines.length <= 1) {
+        throw new Error("El archivo está vacío o no tiene usuarios.");
+      }
+      
+      const header = lines[0];
+      const dataLines = lines.slice(1);
+      const chunkSize = 20; // 20 filas por petición para evitar timeouts
+      
+      let totalSuccess = 0;
+      let totalErrors: string[] = [];
+      
+      setProgress({ current: 0, total: dataLines.length });
+
+      for (let i = 0; i < dataLines.length; i += chunkSize) {
+        const chunkLines = dataLines.slice(i, i + chunkSize);
+        const chunkCsv = [header, ...chunkLines].join('\n');
+        
+        // Crear un nuevo archivo File con el chunk
+        const chunkBlob = new Blob([chunkCsv], { type: 'text/csv' });
+        const chunkFile = new File([chunkBlob], file.name, { type: 'text/csv' });
+        
+        const uploadResult = await usersService.uploadBulkUsers(chunkFile);
+        totalSuccess += uploadResult.success;
+        
+        // Ajustar el número de fila en los errores para que coincida con el archivo original
+        const chunkErrors = uploadResult.errors.map(err => {
+          return err.replace(/Fila (\d+):/, (match, p1) => `Fila ${parseInt(p1) + i}:`);
+        });
+        
+        totalErrors = [...totalErrors, ...chunkErrors];
+        
+        setProgress({ current: Math.min(i + chunkSize, dataLines.length), total: dataLines.length });
+      }
+      
+      setResult({ success: totalSuccess, errors: totalErrors });
+      if (totalSuccess > 0) {
         onUploaded();
       }
     } catch (err: any) {
-      setResult({ success: 0, errors: [err.message || "Error al subir el archivo"] });
+      setResult({ success: 0, errors: [err.message || "Error al procesar el archivo"] });
     } finally {
       setIsUploading(false);
+      setProgress(null);
     }
   };
 
@@ -203,7 +243,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
                 {isUploading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Subiendo...
+                    {progress ? `Procesando ${progress.current}/${progress.total}...` : 'Subiendo...'}
                   </>
                 ) : (
                   <>
