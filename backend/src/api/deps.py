@@ -43,3 +43,27 @@ async def get_current_user(
         raise HTTPException(status_code=400, detail="Inactive user")
         
     return user
+
+class RequirePermission:
+    def __init__(self, required_permission: str):
+        self.required_permission = required_permission
+
+    def __call__(self, current_user: User = Depends(get_current_user)) -> User:
+        if current_user.is_superuser:
+            return current_user
+            
+        has_perm = False
+        for role in current_user.roles:
+            for perm in role.permissions:
+                if perm.name == self.required_permission:
+                    has_perm = True
+                    break
+            if has_perm:
+                break
+                
+        if not has_perm:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos suficientes para realizar esta acción"
+            )
+        return current_user

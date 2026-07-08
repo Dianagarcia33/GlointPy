@@ -21,6 +21,7 @@ import { AdminRolesPage } from "./features/admin/roles/pages/AdminRolesPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
+import { RequirePermission } from "./components/security/RequirePermission";
 
 // Componente para proteger rutas (si no está logueado, lo manda al login)
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -72,7 +73,7 @@ function App() {
         <Route path="wallet" element={<WalletsPage />} />
         <Route path="investments" element={<InvestmentsPage />} />
         <Route path="investments/reales" element={<AdminInvestmentsPage />} />
-        <Route path="roles" element={<AdminRolesPage />} />
+        <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="system-events" element={<SystemEventsPage />} />
       </Route>
 
