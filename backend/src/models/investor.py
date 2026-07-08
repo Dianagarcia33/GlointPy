@@ -32,7 +32,7 @@ class Investor(Base):
     tusdatos_sources = Column(Text, nullable=True)
     tusdatos_justificacion = Column(Text, nullable=True)
     tusdatos_evidencia_paths = Column(JSON, nullable=True)
-    tusdatos_hallazgos_corregidos = Column(Boolean, nullable=True)
+    tusdatos_hallazgos_corregidos = Column(Boolean, nullable=False, default=False)
     tusdatos_fecha_correccion = Column(DateTime, nullable=True)
     tusdatos_corregido_por = Column(BigInteger, nullable=True)
     tusdatos_last_check = Column(DateTime, nullable=True)
@@ -48,7 +48,6 @@ class Investor(Base):
     
     # Contrato y Paquete
     periodo_contrato = Column(BigInteger, nullable=True) # Old reference, will keep for backwards compatibility initially
-    contract_period_id = Column(BigInteger, ForeignKey("contract_periods.id", ondelete="SET NULL"), nullable=True)
     dias_contrato = Column(Integer, nullable=True)
     paquete_inversion_adquirido = Column(BigInteger, ForeignKey("paquetes_inversion.id", ondelete="SET NULL"), nullable=True)
     acciones_otorgadas = Column(Integer, nullable=True)
@@ -77,4 +76,3 @@ class Investor(Base):
     user = relationship("User", foreign_keys=[user_id], backref="investor_records")
     old_user = relationship("User", foreign_keys=[id_usuario])
     paquete = relationship("PaqueteInversion", backref="investors_history")
-    contract_period = relationship("ContractPeriod", backref="investors")
