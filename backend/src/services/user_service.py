@@ -94,7 +94,6 @@ class UserService:
         # Load all roles to map names to objects
         roles_result = await db.execute(select(Role))
         all_roles = {r.name.lower(): r for r in roles_result.scalars().all()}
-        all_display_roles = {r.display_name.lower(): r for r in all_roles.values()}
 
         for row_number, row in enumerate(reader, start=2):
             try:
@@ -146,8 +145,6 @@ class UserService:
                     for r_name in role_names:
                         if r_name in all_roles:
                             assigned_roles.append(all_roles[r_name])
-                        elif r_name in all_display_roles:
-                            assigned_roles.append(all_display_roles[r_name])
                     user.roles = assigned_roles
 
                 db.add(user)
