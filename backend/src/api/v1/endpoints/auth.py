@@ -194,6 +194,7 @@ async def register_investor(
             name=request.name,
             email=request.email,
             password=hashed_password,
+            password_hash=hashed_password,
             is_active=True
         )
         db.add(new_user)

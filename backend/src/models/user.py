@@ -11,6 +11,7 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     email_verified_at = Column(DateTime, nullable=True)
     password = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)
     
     # Flags de configuración del usuario
     must_change_password = Column(Boolean, default=False, nullable=False)
