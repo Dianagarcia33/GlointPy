@@ -612,9 +612,9 @@ async def approve_investment_request(
         from src.models.security import Role, user_roles
         from sqlalchemy import text
         
-        role_stmt = select(Role).where(Role.name == 'inversionista')
+        role_stmt = select(Role).where(Role.name.in_(['inversionista', 'investor']))
         role_res = await db.execute(role_stmt)
-        inversor_role = role_res.scalar_one_or_none()
+        inversor_role = role_res.scalars().first()
         
         if inversor_role:
             ur_stmt = select(user_roles).where(
@@ -992,9 +992,9 @@ async def create_investment_for_client(
             user_id = new_user.id
             
             # Assign investor role
-            role_stmt = select(Role).where(Role.name == "investor")
+            role_stmt = select(Role).where(Role.name.in_(['investor', 'inversionista']))
             role_res = await db.execute(role_stmt)
-            inv_role = role_res.scalar_one_or_none()
+            inv_role = role_res.scalars().first()
             if inv_role:
                 new_user.roles.append(inv_role)
                 await db.flush()
