@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { rolesService, Role, Permission } from '../../../../services/roles';
-import { Loader2, Plus, Edit2, Shield, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, Edit2, Shield, AlertCircle, Trash2, CheckCircle } from 'lucide-react';
 import { RoleModal } from '../components/RoleModal';
 import { Can } from '../../../../components/security/Can';
 
@@ -9,6 +9,7 @@ export const AdminRolesPage: React.FC = () => {
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
     
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,12 +46,37 @@ export const AdminRolesPage: React.FC = () => {
     };
 
     const handleSaveRole = async (roleData: any) => {
+        setError(null);
+        setSuccess(null);
         if (editingRole) {
             await rolesService.updateRole(editingRole.id, roleData);
+            setSuccess('Rol actualizado exitosamente');
         } else {
             await rolesService.createRole(roleData);
+            setSuccess('Rol creado exitosamente');
         }
         await fetchData(); // Recargar datos
+        
+        setTimeout(() => setSuccess(null), 5000);
+    };
+
+    const handleDeleteRole = async (role: Role) => {
+        if (role.is_system_role === "1") {
+            setError('No se pueden eliminar roles del sistema');
+            return;
+        }
+        if (window.confirm(`¿Estás seguro de que deseas eliminar el rol '${role.display_name}'?`)) {
+            try {
+                setError(null);
+                setSuccess(null);
+                await rolesService.deleteRole(role.id);
+                setSuccess(`Rol '${role.display_name}' eliminado exitosamente`);
+                await fetchData();
+                setTimeout(() => setSuccess(null), 5000);
+            } catch (err: any) {
+                setError(err.message || 'Error al eliminar el rol. Es posible que haya usuarios con este rol.');
+            }
+        }
     };
 
     if (isLoading) {
@@ -76,6 +102,15 @@ export const AdminRolesPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
+            {success && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3 text-green-700">
+                    <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                    <div>
+                        <h3 className="font-medium">Éxito</h3>
+                        <p className="text-sm mt-1">{success}</p>
+                    </div>
+                </div>
+            )}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800">Roles y Permisos</h1>
@@ -138,13 +173,24 @@ export const AdminRolesPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <Can permission="admin.roles.manage">
-                                            <button
-                                                onClick={() => handleEditRole(role)}
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                                <span className="hidden sm:inline">Editar</span>
-                                            </button>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => handleEditRole(role)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors"
+                                                    title="Editar Rol"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                {role.is_system_role !== "1" && (
+                                                    <button
+                                                        onClick={() => handleDeleteRole(role)}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Eliminar Rol"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </Can>
                                     </td>
                                 </tr>

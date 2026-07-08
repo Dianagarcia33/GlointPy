@@ -89,6 +89,17 @@ class SecurityService:
         if role.is_system_role == "1":
             raise HTTPException(status_code=403, detail="Cannot delete system roles")
         
+        # Verificar si hay usuarios con este rol
+        from sqlalchemy import select, func
+        from src.models.security import user_roles
+        
+        users_count_query = select(func.count()).select_from(user_roles).where(user_roles.c.role_id == role_id)
+        result = await db.execute(users_count_query)
+        count = result.scalar()
+        
+        if count > 0:
+            raise HTTPException(status_code=400, detail="No se puede eliminar el rol porque hay usuarios que lo tienen asignado")
+            
         await db.delete(role)
         await db.commit()
 
