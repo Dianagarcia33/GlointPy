@@ -37,19 +37,17 @@ async def get_my_balance(
         balance = float(total_balance) if total_balance is not None else 0.0
         
         # Datos bancarios
-        from src.models.user_bank_account import UserBankAccount
-        bank_stmt = select(UserBankAccount).where(
-            UserBankAccount.user_id == current_user.id
-        ).order_by(UserBankAccount.is_primary.desc(), UserBankAccount.created_at.desc())
-        bank_res = await db.execute(bank_stmt)
-        primary_bank = bank_res.scalars().first()
+        from src.models.investor import Investor
+        inv_stmt = select(Investor).where(Investor.user_id == current_user.id).order_by(Investor.id.desc())
+        inv_res = await db.execute(inv_stmt)
+        primary_inv = inv_res.scalars().first()
         
         bank_details = None
-        if primary_bank:
+        if primary_inv and primary_inv.banco:
             bank_details = {
-                "banco": primary_bank.banco,
-                "tipo_cuenta": primary_bank.tipo_cuenta,
-                "numero_cuenta": primary_bank.numero_cuenta
+                "banco": primary_inv.banco,
+                "tipo_cuenta": primary_inv.tipo_cuenta,
+                "numero_cuenta": primary_inv.numero_cuenta
             }
         
         # Fechas de retiro
@@ -237,12 +235,10 @@ async def request_withdrawal(
                 )
             
         # 3. Obtener datos bancarios
-        from src.models.user_bank_account import UserBankAccount
-        bank_stmt = select(UserBankAccount).where(
-            UserBankAccount.user_id == current_user.id
-        ).order_by(UserBankAccount.is_primary.desc(), UserBankAccount.created_at.desc())
-        bank_res = await db.execute(bank_stmt)
-        primary_bank = bank_res.scalars().first()
+        from src.models.investor import Investor
+        inv_stmt = select(Investor).where(Investor.user_id == current_user.id).order_by(Investor.id.desc())
+        inv_res = await db.execute(inv_stmt)
+        primary_bank = inv_res.scalars().first()
         
         if not primary_bank:
             raise HTTPException(
