@@ -37,6 +37,7 @@ class Role(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False) # ej. "SuperAdmin", "Investor"
+    display_name = Column(String(255), nullable=False)
     description = Column(String(255), nullable=True)
     is_system_role = Column(String(5), default="0") # "1" si es rol del sistema (no borrable)
     created_at = Column(DateTime, default=datetime.utcnow)

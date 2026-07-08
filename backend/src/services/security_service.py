@@ -31,12 +31,12 @@ class SecurityService:
         if existing.scalars().first():
             raise HTTPException(status_code=400, detail="Role name already exists")
 
-        new_role = Role(name=role_data.name, description=role_data.description)
+        new_role = Role(name=role_data.name, display_name=role_data.display_name, description=role_data.description)
         
         # Asignar permisos si vienen en el request
-        if role_data.permission_ids:
+        if role_data.permissions:
             perms_result = await db.execute(
-                select(Permission).where(Permission.id.in_(role_data.permission_ids))
+                select(Permission).where(Permission.id.in_(role_data.permissions))
             )
             new_role.permissions = perms_result.scalars().all()
 
@@ -59,12 +59,15 @@ class SecurityService:
                 raise HTTPException(status_code=400, detail="Role name already exists")
             role.name = role_data.name
             
+        if role_data.display_name is not None:
+            role.display_name = role_data.display_name
+
         if role_data.description is not None:
             role.description = role_data.description
 
-        if role_data.permission_ids is not None:
+        if role_data.permissions is not None:
             perms_result = await db.execute(
-                select(Permission).where(Permission.id.in_(role_data.permission_ids))
+                select(Permission).where(Permission.id.in_(role_data.permissions))
             )
             role.permissions = perms_result.scalars().all()
 
