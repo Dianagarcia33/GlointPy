@@ -12,6 +12,7 @@ import src.models.wallet
 import src.models.security
 import src.models.investment_request
 import src.models.paquete_inversion
+import src.models.user_bank_account
 
 from src.core.database import get_db
 from src.api.v1.endpoints import auth, wallets, investments, contract_periods, admin, admin_investments, admin_system_events, bank_accounts, auditoria, roles
