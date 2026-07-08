@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from src.models.user import User
 from src.schemas.auth import LoginRequest, RegisterRequest
@@ -9,7 +10,7 @@ class AuthService:
     
     @staticmethod
     async def authenticate_user(db: AsyncSession, login_data: LoginRequest) -> User:
-        result = await db.execute(select(User).where(User.email == login_data.email))
+        result = await db.execute(select(User).options(selectinload(User.roles)).where(User.email == login_data.email))
         user = result.scalars().first()
         
         if not user:
