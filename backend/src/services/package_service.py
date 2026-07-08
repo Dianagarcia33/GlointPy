@@ -41,6 +41,37 @@ class PackageService:
             )
 
     @staticmethod
+    async def update_package(db: AsyncSession, package_id: int, package_in: PackageUpdate) -> Package:
+        package = await PackageService.get_package_by_id(db, package_id)
+        update_data = package_in.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(package, field, value)
+        
+        try:
+            await db.commit()
+            await db.refresh(package)
+            return package
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Error updating package"
+            )
+
+    @staticmethod
+    async def delete_package(db: AsyncSession, package_id: int) -> None:
+        package = await PackageService.get_package_by_id(db, package_id)
+        try:
+            await db.delete(package)
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot delete package, it might be in use"
+            )
+
+    @staticmethod
     async def bulk_create_packages(db: AsyncSession, csv_text: str) -> dict:
         f = io.StringIO(csv_text)
         # Try different delimiters
@@ -68,7 +99,7 @@ class PackageService:
             try:
                 # Find columns using normalized headers
                 valor_str = row.get('valor', '') or row.get('value', '') or row.get('valor del paquete', '')
-                acciones_str = row.get('acciones', '') or row.get('acciones otorgadas', '') or row.get('granted_shares', '') or row.get('granted shares', '')
+                acciones_str = row.get('acciones', '') or row.get('acciones_otorgadas', '') or row.get('acciones otorgadas', '') or row.get('granted_shares', '') or row.get('granted shares', '')
                 
                 if not valor_str:
                     errors.append(f"Fila {row_num}: Falta el valor del paquete.")

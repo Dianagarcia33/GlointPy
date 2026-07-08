@@ -148,7 +148,7 @@ export const AdminPackagesPage = () => {
                         </div>
                         <div>
                           <div className="font-semibold text-slate-800 text-base">
-                            ${pkg.value.toLocaleString()} USD
+                            ${pkg.value.toLocaleString('es-CO')} COP
                           </div>
                         </div>
                       </div>
