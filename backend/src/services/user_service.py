@@ -95,14 +95,14 @@ class UserService:
         roles_result = await db.execute(select(Role))
         all_roles = {r.name.lower(): r for r in roles_result.scalars().all()}
         
-        print(f"--- Iniciando Carga Masiva de Usuarios ---")
+        print(f"--- Iniciando Carga Masiva de Usuarios ---", flush=True)
 
         for row_number, row in enumerate(reader, start=2):
             try:
                 name = row.get("name", "").strip()
                 email = row.get("email", "").strip()
                 
-                print(f"Procesando fila {row_number}: email={email}")
+                print(f"Procesando fila {row_number}: email={email}", flush=True)
                 
                 if not name or not email:
                     errors.append(f"Fila {row_number}: Nombre o Correo electrónico faltante.")
@@ -161,14 +161,14 @@ class UserService:
                 # Commit here to save each user individually
                 await db.commit()
                 success_count += 1
-                print(f"-> Fila {row_number} guardada con éxito.")
+                print(f"-> Fila {row_number} guardada con éxito.", flush=True)
                 
             except Exception as e:
                 await db.rollback() # Limpiar la transacción en caso de error
-                print(f"-> Error en fila {row_number}: {str(e)}")
+                print(f"-> Error en fila {row_number}: {str(e)}", flush=True)
                 errors.append(f"Fila {row_number}: Error inesperado - {str(e)}")
 
-        print(f"--- Fin Carga Masiva. Exitosos: {success_count}, Errores: {len(errors)} ---")
+        print(f"--- Fin Carga Masiva. Exitosos: {success_count}, Errores: {len(errors)} ---", flush=True)
         return {
             "success": success_count,
             "errors": errors
