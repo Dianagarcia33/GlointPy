@@ -16,6 +16,10 @@ class User(Base):
     # sin necesidad de crear un rol. Ej: {"wallets:delete": true, "users:create": false}
     permissions_override = Column(JSON, nullable=True, default={})
     
+    # Campos Adicionales
+    date_of_birth = Column(DateTime, nullable=True)
+    must_change_password = Column(Boolean, default=False)
+    
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     
