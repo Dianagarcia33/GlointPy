@@ -22,6 +22,7 @@ import { AdminRolesPage } from "./features/admin/roles/pages/AdminRolesPage";
 import { AdminUsersPage } from "./features/admin/users/pages/AdminUsersPage";
 import { AdminPeriodsPage } from "./features/admin/periods/pages/AdminPeriodsPage";
 import { AdminPackagesPage } from "./features/admin/packages/pages/AdminPackagesPage";
+import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvestorsPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
@@ -82,6 +83,7 @@ function App() {
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />
         <Route path="periods" element={<RequirePermission permission="admin.periods.manage"><AdminPeriodsPage /></RequirePermission>} />
         <Route path="packages" element={<RequirePermission permission="admin.packages.manage"><AdminPackagesPage /></RequirePermission>} />
+        <Route path="investors" element={<RequirePermission permission="admin.investors.manage"><AdminInvestorsPage /></RequirePermission>} />
         <Route path="system-events" element={<SystemEventsPage />} />
       </Route>
 

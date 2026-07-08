@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Briefcase, Wallet, ArrowRightLeft, History, ArrowDownToLine, FileText, User, Settings, HelpCircle, Shield, CalendarDays } from 'lucide-react';
+import { Home, Briefcase, Wallet, ArrowRightLeft, History, ArrowDownToLine, FileText, User, Settings, HelpCircle, Shield, CalendarDays, Users } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 
 export const Sidebar = () => {
@@ -173,6 +173,24 @@ export const Sidebar = () => {
                             <Briefcase className="w-[18px] h-[18px]" />
                         </span>
                         <span className="flex-1 text-[13px] font-medium">Paquetes</span>
+                    </NavLink>
+                </Can>
+
+                <Can permission="admin.investors.manage">
+                    <NavLink
+                        to="/dashboard/investors"
+                        className={({ isActive }) => `
+                            group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
+                            ${isActive 
+                                ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30 pointer-events-none' 
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                            }
+                        `}
+                    >
+                        <span className={`flex-shrink-0 transition-colors duration-200 group-hover:scale-110`}>
+                            <Users className="w-[18px] h-[18px]" />
+                        </span>
+                        <span className="flex-1 text-[13px] font-medium">Inversionistas</span>
                     </NavLink>
                 </Can>
             </div>
