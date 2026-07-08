@@ -8,7 +8,6 @@ class Investor(Base):
     __table_args__ = {'extend_existing': True}
 
     id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
-    id_usuario = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     
     codigo_asignado = Column(String(255), nullable=True)
@@ -75,6 +74,5 @@ class Investor(Base):
 
     # Relaciones
     user = relationship("User", foreign_keys=[user_id], backref="investor_records")
-    old_user = relationship("User", foreign_keys=[id_usuario])
     paquete = relationship("PaqueteInversion", backref="investors_history")
     contract_period = relationship("ContractPeriod", backref="investors")
