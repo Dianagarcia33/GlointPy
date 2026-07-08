@@ -1,0 +1,39 @@
+from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey, Table, Text, Boolean, JSON
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from src.core.database import Base
+
+# Tabla Pivote: user_roles
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", BigInteger, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    extend_existing=True
+)
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    slug = Column(String(255), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    module = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+class Role(Base):
+    __tablename__ = "roles"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    name = Column(String(255), unique=True, nullable=False)
+    display_name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    permissions = Column(JSON, nullable=False, default=list)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
