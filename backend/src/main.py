@@ -28,6 +28,8 @@ os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Aquí se agregarán los nuevos endpoints migradas gradualmente
+from src.api.v1.api import api_router
+app.include_router(api_router, prefix="/api/v1")
 
 
 # Configuración de CORS (Permite que el frontend en Vite haga peticiones)
