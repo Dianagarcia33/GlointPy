@@ -25,16 +25,23 @@ async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)) ->
     
     return {
         "access_token": access_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "user": user
     }
 
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=Token)
 async def register(register_data: RegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:
     """
-    Registra un nuevo usuario en la base de datos.
+    Registra un nuevo usuario en la base de datos y lo loguea automáticamente.
     """
     user = await AuthService.register_user(db, register_data)
-    return user
+    access_token = create_access_token(subject=user.id)
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
 
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)) -> Any:
