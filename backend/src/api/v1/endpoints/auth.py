@@ -187,56 +187,55 @@ async def register_investor(
     role_res = await db.execute(role_stmt)
     inv_role = role_res.scalars().first()
 
-    # 3. Create User
-    hashed_password = get_password_hash(request.password)
-    new_user = User(
-        name=request.name,
-        email=request.email,
-        password=hashed_password,
-        is_active=True
-    )
-    db.add(new_user)
-    await db.flush()
-
-    if inv_role:
-        from sqlalchemy import text
-        await db.execute(
-            text("INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) VALUES (:user_id, :role_id, NOW(), NOW(), NOW())"),
-            {"user_id": new_user.id, "role_id": inv_role.id}
-        )
-
-    # 4. Construct extra_data
-    extra_data = {
-        "periodo_contrato": request.contract_period_id,
-        "is_custom_monto": request.paquete_id is None,
-        "kyc_docs": request.kyc_docs,
-        "personal_info": {
-            "nombre_completo": request.name,
-            "correo_electronico": request.email,
-            "tipo_documento": request.tipo_documento,
-            "documento": request.documento,
-            "numero_celular": request.numero_celular,
-            "ciudad": request.ciudad,
-            "fecha_nacimiento": request.fecha_nacimiento.isoformat() if request.fecha_nacimiento else None
-        },
-        "bank_info": {
-            "banco": request.banco,
-            "tipo_cuenta": request.tipo_cuenta,
-            "numero_cuenta": request.numero_cuenta
-        }
-    }
-
-    # 5. Handle package ID (if none, assign dummy 1 to satisfy constraint temporarily)
-    paquete_id = request.paquete_id
-    if not paquete_id:
-        # Import PaqueteInversion here to avoid circular imports if needed
-        from src.models.paquete_inversion import PaqueteInversion
-        stmt_pkg = select(PaqueteInversion).limit(1)
-        pkg_res = await db.execute(stmt_pkg)
-        first_pkg = pkg_res.scalar_one_or_none()
-        paquete_id = first_pkg.id if first_pkg else 1
-
     try:
+        # 3. Create User
+        hashed_password = get_password_hash(request.password)
+        new_user = User(
+            name=request.name,
+            email=request.email,
+            password=hashed_password,
+            is_active=True
+        )
+        db.add(new_user)
+        await db.flush()
+
+        if inv_role:
+            from sqlalchemy import text
+            await db.execute(
+                text("INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) VALUES (:user_id, :role_id, NOW(), NOW(), NOW())"),
+                {"user_id": new_user.id, "role_id": inv_role.id}
+            )
+
+        # 4. Construct extra_data
+        extra_data = {
+            "periodo_contrato": request.contract_period_id,
+            "is_custom_monto": request.paquete_id is None,
+            "kyc_docs": request.kyc_docs,
+            "personal_info": {
+                "nombre_completo": request.name,
+                "correo_electronico": request.email,
+                "tipo_documento": request.tipo_documento,
+                "documento": request.documento,
+                "numero_celular": request.numero_celular,
+                "ciudad": request.ciudad,
+                "fecha_nacimiento": request.fecha_nacimiento.isoformat() if request.fecha_nacimiento else None
+            },
+            "bank_info": {
+                "banco": request.banco,
+                "tipo_cuenta": request.tipo_cuenta,
+                "numero_cuenta": request.numero_cuenta
+            }
+        }
+
+        # 5. Handle package ID
+        paquete_id = request.paquete_id
+        if not paquete_id:
+            from src.models.paquete_inversion import PaqueteInversion
+            stmt_pkg = select(PaqueteInversion).limit(1)
+            pkg_res = await db.execute(stmt_pkg)
+            first_pkg = pkg_res.scalar_one_or_none()
+            paquete_id = first_pkg.id if first_pkg else 1
+
         # 6. Create InvestmentRequest
         new_request = InvestmentRequest(
             user_id=new_user.id,
@@ -254,7 +253,8 @@ async def register_investor(
         await db.rollback()
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error creando solicitud de inversion: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ERROR DETALLADO: {str(e)} | TIPO: {type(e).__name__}")
+
 
     # 7. Generate tokens and login
     access_token = create_access_token(subject=new_user.id)
