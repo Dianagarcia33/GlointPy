@@ -47,6 +47,11 @@ export const LoginPage = () => {
             );
             navigate('/dashboard');
         },
+        onError: (error: any) => {
+            if (error.message === 'MUST_CHANGE_PASSWORD') {
+                navigate('/force-change-password', { state: { email } });
+            }
+        }
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -130,7 +135,7 @@ export const LoginPage = () => {
                     </label>
                 </div>
 
-                {loginMutation.isError && (
+                {loginMutation.isError && loginMutation.error.message !== 'MUST_CHANGE_PASSWORD' && (
                     <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
                         <span>⚠️</span>
                         <span>{loginMutation.error instanceof Error ? loginMutation.error.message : 'Error al iniciar sesión'}</span>

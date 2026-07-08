@@ -17,3 +17,8 @@ class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
+
+class ForceChangePasswordRequest(BaseModel):
+    email: EmailStr
+    current_password: str
+    new_password: str
