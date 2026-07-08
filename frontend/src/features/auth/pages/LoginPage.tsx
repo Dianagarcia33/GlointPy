@@ -49,7 +49,7 @@ export const LoginPage = () => {
         },
         onError: (error: any) => {
             if (error.message === 'MUST_CHANGE_PASSWORD') {
-                navigate('/force-change-password', { state: { email } });
+                navigate('/force-change-password', { state: { email, currentPassword: password } });
             }
         }
     });

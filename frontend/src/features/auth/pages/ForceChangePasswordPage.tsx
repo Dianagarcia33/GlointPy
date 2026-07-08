@@ -11,10 +11,10 @@ export const ForceChangePasswordPage = () => {
     const navigate = useNavigate();
     const loginAction = useAuthStore((state) => state.login);
     
-    // El email debe venir del estado de navegación desde el login
+    // El email y el currentPassword deben venir del estado de navegación desde el login
     const email = location.state?.email;
+    const currentPasswordFromState = location.state?.currentPassword;
 
-    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPasswords, setShowPasswords] = useState(false);
@@ -72,43 +72,27 @@ export const ForceChangePasswordPage = () => {
 
         changePasswordMutation.mutate({ 
             email, 
-            current_password: currentPassword, 
+            current_password: currentPasswordFromState, 
             new_password: newPassword 
         });
     };
 
-    if (!email) return null;
+    if (!email || !currentPasswordFromState) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-slate-50">
+                <p className="text-slate-600 mb-4">Error: Falta información de autenticación.</p>
+                <button onClick={() => navigate('/login')} className="text-brand-500 font-bold hover:underline">Volver al inicio de sesión</button>
+            </div>
+        );
+    }
 
     return (
         <AuthLayout 
             title="Cambio Obligatorio" 
-            subtitle={`Tu cuenta ${email} requiere un cambio de contraseña por seguridad para continuar.`}
+            subtitle={`Tu cuenta requiere un cambio de contraseña por seguridad para continuar.`}
             icon={<ShieldAlert className="w-7 h-7 text-orange-500" />}
         >
             <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Contraseña Actual (Documento)</label>
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <LockKeyhole className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                        </div>
-                        <input
-                            type={showPasswords ? "text" : "password"}
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-                            placeholder="Tu documento de identidad"
-                            required
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPasswords(!showPasswords)}
-                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                            {showPasswords ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                        </button>
-                    </div>
-                </div>
 
                 <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Nueva Contraseña</label>
