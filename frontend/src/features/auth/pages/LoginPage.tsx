@@ -27,8 +27,22 @@ export const LoginPage = () => {
             });
         },
         onSuccess: (data) => {
+            const user = data.user;
+            if (user) {
+                // Map nested roles -> permissions to a flat array of strings
+                const perms = new Set<string>();
+                if (user.roles) {
+                    user.roles.forEach((r: any) => {
+                        if (r.permissions) {
+                            r.permissions.forEach((p: any) => perms.add(p.name));
+                        }
+                    });
+                }
+                user.permissions = Array.from(perms);
+            }
+
             loginAction(
-                data.user || { id: 1, name: email.split('@')[0], email, is_active: true }, 
+                user || { id: 1, name: email.split('@')[0], email, is_active: true }, 
                 data.access_token
             );
             navigate('/dashboard');
