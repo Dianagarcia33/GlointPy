@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import imageCompression from 'browser-image-compression';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi, API_URL } from '../../../services/api';
 
@@ -65,10 +66,20 @@ export const InvestorRegistrationFlow = () => {
         mutationFn: async () => {
             if (!frontImage || !backImage || !selfieImage) throw new Error("Faltan imágenes");
             
+            const options = {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1920,
+                useWebWorker: true
+            };
+
+            const compressedFront = await imageCompression(frontImage, options);
+            const compressedBack = await imageCompression(backImage, options);
+            const compressedSelfie = await imageCompression(selfieImage, options);
+
             const fd = new FormData();
-            fd.append('front', frontImage);
-            fd.append('back', backImage);
-            fd.append('selfie', selfieImage);
+            fd.append('front', compressedFront, frontImage.name || 'front.jpg');
+            fd.append('back', compressedBack, backImage.name || 'back.jpg');
+            fd.append('selfie', compressedSelfie, selfieImage.name || 'selfie.jpg');
             
             const res = await fetchApi('/auth/public/kyc-validate', { 
                 method: 'POST', 
@@ -127,8 +138,19 @@ export const InvestorRegistrationFlow = () => {
         
         try {
             setUploadingComprobante(true);
+            
+            let fileToUpload: File | Blob = file;
+            if (file.type.startsWith('image/')) {
+                const options = {
+                    maxSizeMB: 1,
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true
+                };
+                fileToUpload = await imageCompression(file, options);
+            }
+
             const fd = new FormData();
-            fd.append('file', file);
+            fd.append('file', fileToUpload, file.name || 'comprobante.jpg');
             const res = await fetchApi('/auth/public/upload-file', {
                 method: 'POST',
                 body: fd
