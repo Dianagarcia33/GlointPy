@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2 } from 'lucide-react';
+import { BulkUploadModal } from '../components/BulkUploadModal';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 export const AdminUsersPage = () => {
@@ -13,6 +14,7 @@ export const AdminUsersPage = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -83,13 +85,22 @@ export const AdminUsersPage = () => {
         </div>
         
         <Can permission="admin.users.manage">
-          <button 
-            onClick={handleCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Crear Usuario
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsBulkModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors shadow-sm text-sm font-medium"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Carga Masiva
+            </button>
+            <button 
+              onClick={handleCreate}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
+            >
+              <Plus className="w-4 h-4" />
+              Crear Usuario
+            </button>
+          </div>
         </Can>
       </div>
 
@@ -171,6 +182,15 @@ export const AdminUsersPage = () => {
         onSaved={handleSaved}
         user={editingUser}
         roles={roles}
+      />
+
+      <BulkUploadModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onUploaded={() => {
+          setIsBulkModalOpen(false);
+          fetchData();
+        }}
       />
     </div>
   );

@@ -53,4 +53,13 @@ export const usersService = {
       body: JSON.stringify(data),
     });
   },
+
+  uploadBulkUsers: async (file: File): Promise<{ success: number; errors: string[] }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return await fetchApi('/users/bulk-upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 };

@@ -7,6 +7,8 @@ from src.models.user import User
 from src.models.security import Role
 from src.core.security import get_password_hash
 from fastapi import HTTPException
+import csv
+import io
 
 class UserService:
     @staticmethod
@@ -77,3 +79,64 @@ class UserService:
         await db.commit()
         await db.refresh(user)
         return await UserService.get_user_by_id(db, user.id)
+
+    @staticmethod
+    async def bulk_create_users(db: AsyncSession, csv_content: str) -> dict:
+        reader = csv.DictReader(io.StringIO(csv_content))
+        success_count = 0
+        errors = []
+        
+        # Load all roles to map names to objects
+        roles_result = await db.execute(select(Role))
+        all_roles = {r.name.lower(): r for r in roles_result.scalars().all()}
+        all_display_roles = {r.display_name.lower(): r for r in all_roles.values()}
+
+        for row_number, row in enumerate(reader, start=2):
+            try:
+                name = row.get("name", "").strip()
+                email = row.get("email", "").strip()
+                
+                if not name or not email:
+                    errors.append(f"Fila {row_number}: Nombre o Correo electrónico faltante.")
+                    continue
+
+                # Check if email exists
+                existing = await db.execute(select(User).where(User.email == email))
+                if existing.scalars().first():
+                    errors.append(f"Fila {row_number}: El correo {email} ya existe.")
+                    continue
+                
+                user = User(
+                    name=name,
+                    email=email,
+                    document_id=row.get("document_id", "").strip() or None,
+                    phone_number=row.get("phone_number", "").strip() or None,
+                    date_of_birth=row.get("date_of_birth", "").strip() or None,
+                    password_hash=get_password_hash("Temp123!"),
+                    must_change_password=True,
+                    is_active=True
+                )
+
+                roles_str = row.get("roles", "").strip()
+                if roles_str:
+                    role_names = [r.strip().lower() for r in roles_str.split(",")]
+                    assigned_roles = []
+                    for r_name in role_names:
+                        if r_name in ('inversionista', 'cliente'):
+                            continue # Skip non-administrative roles
+                        if r_name in all_roles:
+                            assigned_roles.append(all_roles[r_name])
+                        elif r_name in all_display_roles:
+                            assigned_roles.append(all_display_roles[r_name])
+                    user.roles = assigned_roles
+
+                db.add(user)
+                success_count += 1
+            except Exception as e:
+                errors.append(f"Fila {row_number}: Error inesperado - {str(e)}")
+
+        await db.commit()
+        return {
+            "success": success_count,
+            "errors": errors
+        }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -64,3 +64,20 @@ async def assign_roles(user_id: int, assign_data: AssignRoleToUser, db: AsyncSes
     await db.refresh(user)
     
     return user
+
+@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def bulk_upload_users(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    """
+    Sube un archivo CSV y crea usuarios masivamente.
+    """
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
+    
+    content = await file.read()
+    try:
+        csv_text = content.decode('utf-8')
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8.")
+        
+    result = await UserService.bulk_create_users(db, csv_text)
+    return result
