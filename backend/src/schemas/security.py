@@ -21,17 +21,15 @@ class PermissionResponse(PermissionBase):
 # ==========================
 class RoleBase(BaseModel):
     name: str
-    display_name: str
     description: Optional[str] = None
 
 class RoleCreate(RoleBase):
     # Opcionalmente, se pueden enviar los IDs de los permisos a asignar al crear el rol
-    permissions: Optional[List[int]] = []
+    permission_ids: Optional[List[int]] = []
 
 class RoleUpdate(RoleBase):
     name: Optional[str] = None
-    display_name: Optional[str] = None
-    permissions: Optional[List[int]] = None
+    permission_ids: Optional[List[int]] = None
 
 class RoleResponse(RoleBase):
     id: int
