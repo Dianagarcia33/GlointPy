@@ -89,9 +89,8 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
                   <p className="font-semibold mb-1">Instrucciones</p>
                   <ul className="list-disc pl-4 space-y-1">
                     <li>Descarga la plantilla y llénala sin cambiar los nombres de las columnas.</li>
-                    <li>La contraseña por defecto para todos será <strong>Temp123!</strong></li>
+                    <li>La contraseña por defecto será <strong>el documento de identidad</strong> del usuario.</li>
                     <li>Para los roles, escribe el nombre del rol. Puedes separarlos por comas (Ej. <em>Admin, Cajero</em>).</li>
-                    <li>No asignes los roles "inversionista" o "cliente" ya que se ignorarán.</li>
                   </ul>
                   <button 
                     onClick={handleDownloadTemplate}
