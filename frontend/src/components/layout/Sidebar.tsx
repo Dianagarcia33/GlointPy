@@ -121,6 +121,24 @@ export const Sidebar = () => {
                         <span className="flex-1 text-[13px] font-medium">Roles y Permisos</span>
                     </NavLink>
                 </Can>
+                
+                <Can permission="admin.users.manage">
+                    <NavLink
+                        to="/dashboard/users"
+                        className={({ isActive }) => `
+                            group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
+                            ${isActive 
+                                ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30 pointer-events-none' 
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                            }
+                        `}
+                    >
+                        <span className={`flex-shrink-0 transition-colors duration-200 group-hover:scale-110`}>
+                            <User className="w-[18px] h-[18px]" />
+                        </span>
+                        <span className="flex-1 text-[13px] font-medium">Usuarios</span>
+                    </NavLink>
+                </Can>
             </div>
         </aside>
     );

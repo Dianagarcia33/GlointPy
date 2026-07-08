@@ -12,6 +12,10 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     
+    # Identificación
+    document_id = Column(String(50), nullable=True, index=True)
+    phone_number = Column(String(50), nullable=True)
+    
     # Campo JSON para dar permisos granulares a un usuario específico
     # sin necesidad de crear un rol. Ej: {"wallets:delete": true, "users:create": false}
     permissions_override = Column(JSON, nullable=True, default={})

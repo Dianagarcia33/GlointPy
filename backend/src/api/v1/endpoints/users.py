@@ -5,14 +5,39 @@ from sqlalchemy.orm import selectinload
 from typing import List
 
 from src.core.database import get_db
-from src.schemas.user import UserResponse
+from src.core.database import get_db
+from src.schemas.user import UserResponse, UserCreateAdmin, UserUpdateAdmin
 from src.schemas.security import AssignRoleToUser
 from src.models.user import User
 from src.models.security import Role
+from src.services.user_service import UserService
+from src.api.deps import RequirePermission
 
 router = APIRouter()
 
-@router.post("/{user_id}/roles", response_model=UserResponse)
+@router.get("", response_model=List[UserResponse], dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def list_users(db: AsyncSession = Depends(get_db)):
+    """
+    Obtiene la lista de todos los usuarios (para panel admin).
+    """
+    return await UserService.get_all_users(db)
+
+@router.post("", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def create_user(user_in: UserCreateAdmin, db: AsyncSession = Depends(get_db)):
+    """
+    Crea un usuario desde el panel admin (con contraseña temporal).
+    """
+    return await UserService.create_user_admin(db, user_in.model_dump())
+
+@router.put("/{user_id}", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def update_user(user_id: int, user_in: UserUpdateAdmin, db: AsyncSession = Depends(get_db)):
+    """
+    Actualiza la información de un usuario desde el panel admin.
+    """
+    update_data = user_in.model_dump(exclude_unset=True)
+    return await UserService.update_user_admin(db, user_id, update_data)
+
+@router.post("/{user_id}/roles", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def assign_roles(user_id: int, assign_data: AssignRoleToUser, db: AsyncSession = Depends(get_db)):
     """
     Asigna un conjunto de roles a un usuario específico.

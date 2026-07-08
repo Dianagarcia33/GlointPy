@@ -6,21 +6,38 @@ from src.schemas.security import RoleResponse
 class UserBase(BaseModel):
     name: str
     email: EmailStr
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
     is_active: bool = True
     is_superuser: bool = False
 
 class UserCreate(UserBase):
     password: str
 
+class UserCreateAdmin(UserBase):
+    date_of_birth: Optional[datetime] = None
+    role_ids: Optional[List[int]] = []
+
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
     password: Optional[str] = None
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
     must_change_password: Optional[bool] = None
     date_of_birth: Optional[datetime] = None
     permissions_override: Optional[Dict[str, bool]] = None
+
+class UserUpdateAdmin(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
+    is_active: Optional[bool] = None
+    date_of_birth: Optional[datetime] = None
+    role_ids: Optional[List[int]] = None
 
 class UserResponse(UserBase):
     id: int
