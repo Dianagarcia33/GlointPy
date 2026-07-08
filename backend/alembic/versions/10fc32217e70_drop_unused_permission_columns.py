@@ -18,12 +18,22 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+from sqlalchemy.engine.reflection import Inspector
+
 def upgrade() -> None:
     """Upgrade schema."""
-    op.drop_column('permissions', 'is_active')
-    op.drop_column('permissions', 'action')
-    op.drop_column('permissions', 'slug')
-    op.drop_column('permissions', 'updated_at')
+    conn = op.get_bind()
+    inspector = Inspector.from_engine(conn)
+    columns = [c['name'] for c in inspector.get_columns('permissions')]
+    
+    if 'is_active' in columns:
+        op.drop_column('permissions', 'is_active')
+    if 'action' in columns:
+        op.drop_column('permissions', 'action')
+    if 'slug' in columns:
+        op.drop_column('permissions', 'slug')
+    if 'updated_at' in columns:
+        op.drop_column('permissions', 'updated_at')
 
 
 def downgrade() -> None:
