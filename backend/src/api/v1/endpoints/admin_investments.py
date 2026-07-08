@@ -56,7 +56,7 @@ async def get_all_investments(
 
     # Obtener todos los inversores con su usuario y paquete
     stmt = select(Investor).options(
-        selectinload(Investor.user).selectinload(User.bank_accounts),
+        selectinload(Investor.user),
         selectinload(Investor.paquete)
     ).order_by(func.length(Investor.codigo_asignado).desc(), Investor.codigo_asignado.desc())
     result = await db.execute(stmt)
@@ -316,20 +316,10 @@ async def get_all_investments(
     
             saldo_a_migrar = rendimiento_producido_hasta_ayer + capital_devuelto - total_retiros_rendimiento
     
-            banco = None
-            tipo_cuenta = None
-            numero_cuenta = None
+            banco = inv.banco
+            tipo_cuenta = inv.tipo_cuenta
+            numero_cuenta = inv.numero_cuenta
             
-            try:
-                if inv.user and hasattr(inv.user, 'bank_accounts') and inv.user.bank_accounts:
-                    primary_acc = next((acc for acc in inv.user.bank_accounts if acc.is_primary), inv.user.bank_accounts[0])
-                    banco = primary_acc.banco
-                    tipo_cuenta = primary_acc.tipo_cuenta
-                    numero_cuenta = primary_acc.numero_cuenta
-            except Exception as sql_err:
-                print(f"Error SQL al cargar bancos de usuario {inv.user_id}: {sql_err}")
-                db.rollback()
-    
             kyc_paths = getattr(inv, 'tusdatos_evidencia_paths', None)
             if kyc_paths and isinstance(kyc_paths, dict):
                 import json
