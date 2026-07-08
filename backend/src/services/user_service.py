@@ -106,13 +106,18 @@ class UserService:
                     errors.append(f"Fila {row_number}: El correo {email} ya existe.")
                     continue
                 
+                doc_id = row.get("document_id", "").strip()
+                if not doc_id:
+                    errors.append(f"Fila {row_number}: Documento de identidad faltante (requerido para contraseña inicial).")
+                    continue
+                
                 user = User(
                     name=name,
                     email=email,
-                    document_id=row.get("document_id", "").strip() or None,
+                    document_id=doc_id,
                     phone_number=row.get("phone_number", "").strip() or None,
                     date_of_birth=row.get("date_of_birth", "").strip() or None,
-                    password_hash=get_password_hash("Temp123!"),
+                    password_hash=get_password_hash(doc_id),
                     must_change_password=True,
                     is_active=True
                 )
@@ -122,8 +127,6 @@ class UserService:
                     role_names = [r.strip().lower() for r in roles_str.split(",")]
                     assigned_roles = []
                     for r_name in role_names:
-                        if r_name in ('inversionista', 'cliente'):
-                            continue # Skip non-administrative roles
                         if r_name in all_roles:
                             assigned_roles.append(all_roles[r_name])
                         elif r_name in all_display_roles:
