@@ -14,6 +14,8 @@ export const AdminRolesPage: React.FC = () => {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRole, setEditingRole] = useState<Role | undefined>(undefined);
+    const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -60,22 +62,31 @@ export const AdminRolesPage: React.FC = () => {
         setTimeout(() => setSuccess(null), 5000);
     };
 
-    const handleDeleteRole = async (role: Role) => {
+    const handleDeleteRole = (role: Role) => {
         if (role.is_system_role === "1") {
             setError('No se pueden eliminar roles del sistema');
             return;
         }
-        if (window.confirm(`¿Estás seguro de que deseas eliminar el rol '${role.display_name}'?`)) {
-            try {
-                setError(null);
-                setSuccess(null);
-                await rolesService.deleteRole(role.id);
-                setSuccess(`Rol '${role.display_name}' eliminado exitosamente`);
-                await fetchData();
-                setTimeout(() => setSuccess(null), 5000);
-            } catch (err: any) {
-                setError(err.message || 'Error al eliminar el rol. Es posible que haya usuarios con este rol.');
-            }
+        setRoleToDelete(role);
+    };
+
+    const confirmDelete = async () => {
+        if (!roleToDelete) return;
+        
+        setIsDeleting(true);
+        try {
+            setError(null);
+            setSuccess(null);
+            await rolesService.deleteRole(roleToDelete.id);
+            setSuccess(`Rol '${roleToDelete.display_name}' eliminado exitosamente`);
+            await fetchData();
+            setTimeout(() => setSuccess(null), 5000);
+            setRoleToDelete(null);
+        } catch (err: any) {
+            setError(err.message || 'Error al eliminar el rol. Es posible que haya usuarios con este rol.');
+            setRoleToDelete(null);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -214,6 +225,54 @@ export const AdminRolesPage: React.FC = () => {
                 role={editingRole}
                 allPermissions={permissions}
             />
+
+            {roleToDelete && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={() => setRoleToDelete(null)}>
+                            <div className="absolute inset-0 bg-slate-900/75 backdrop-blur-sm"></div>
+                        </div>
+
+                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                        <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <div className="sm:flex sm:items-start">
+                                    <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                                        <AlertCircle className="h-6 w-6 text-red-600" aria-hidden="true" />
+                                    </div>
+                                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                                        <h3 className="text-lg leading-6 font-semibold text-slate-900">Eliminar Rol</h3>
+                                        <div className="mt-2">
+                                            <p className="text-sm text-slate-500">
+                                                ¿Estás seguro de que deseas eliminar el rol <strong>{roleToDelete.display_name}</strong>? Esta acción no se puede deshacer.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-slate-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-2xl border-t border-slate-200">
+                                <button
+                                    type="button"
+                                    disabled={isDeleting}
+                                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                                    onClick={confirmDelete}
+                                >
+                                    {isDeleting ? 'Eliminando...' : 'Eliminar Rol'}
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isDeleting}
+                                    className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                                    onClick={() => setRoleToDelete(null)}
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
