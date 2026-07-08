@@ -12,10 +12,6 @@ from sqlalchemy.future import select
 
 PERMISSIONS = [
     {"name": "admin.roles.manage", "description": "Gestionar roles y permisos del sistema", "module": "admin"},
-    {"name": "wallets:view", "description": "Ver saldos y billeteras de usuarios", "module": "wallets"},
-    {"name": "admin.investments.requests", "description": "Gestionar y auditar solicitudes de inversión", "module": "investments"},
-    {"name": "admin.investments.reales", "description": "Gestionar inversiones activas", "module": "investments"},
-    {"name": "manage_system_events", "description": "Configurar fechas y eventos del sistema", "module": "admin"},
 ]
 
 async def seed_permissions():
