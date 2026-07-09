@@ -11,6 +11,7 @@ interface PeriodModalProps {
 
 export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSaved, period }) => {
   const [formData, setFormData] = useState({
+    id: '' as number | '',
     percentage: 0,
     months: 0,
     days: 0,
@@ -23,6 +24,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
   useEffect(() => {
     if (period) {
       setFormData({
+        id: period.id,
         percentage: period.percentage,
         months: period.months,
         days: period.days,
@@ -30,6 +32,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
       });
     } else {
       setFormData({
+        id: '',
         percentage: 0,
         months: 0,
         days: 0,
@@ -47,10 +50,15 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
     setError(null);
 
     try {
+      const payload = {
+        ...formData,
+        id: formData.id === '' ? undefined : Number(formData.id),
+      };
+
       if (period) {
-        await periodsService.updatePeriod(period.id, formData);
+        await periodsService.updatePeriod(period.id, payload);
       } else {
-        await periodsService.createPeriod(formData);
+        await periodsService.createPeriod(payload);
       }
       onSaved();
       onClose();
@@ -93,20 +101,34 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">
-              Porcentaje (%)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              required
-              value={formData.percentage}
-              onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) })}
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all outline-none"
-              placeholder="Ej. 15.5"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2">
+                ID <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded font-normal">Avanzado</span>
+              </label>
+              <input
+                type="number"
+                value={formData.id}
+                onChange={(e) => setFormData({ ...formData, id: e.target.value === '' ? '' : parseInt(e.target.value) })}
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all outline-none"
+                placeholder="Auto"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">
+                Porcentaje (%)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={formData.percentage}
+                onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) })}
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all outline-none"
+                placeholder="Ej. 15.5"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
