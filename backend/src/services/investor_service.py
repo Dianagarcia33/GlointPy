@@ -278,24 +278,38 @@ class InvestorService:
                 
                 end_date = await InvestorService._calculate_end_date(db, period.id, start_date)
 
-                investor_id_str = row.get('id', '')
+                # Check if investor with assigned_code already exists
+                existing_res = await db.execute(select(Investor).where(Investor.assigned_code == str(assigned_code).strip()))
+                existing_investor = existing_res.scalars().first()
                 
-                investor_data = Investor(
-                    assigned_code=str(assigned_code).strip(),
-                    referred_by=str(referred_by).strip() if referred_by else None,
-                    user_id=user.id,
-                    package_id=package.id,
-                    period_id=period.id,
-                    start_date=start_date,
-                    end_date=end_date,
-                    observations=str(observations).strip() if observations else None
-                )
-                
-                if investor_id_str and str(investor_id_str).strip().isdigit():
-                    investor_data.id = int(str(investor_id_str).strip())
-                    
-                db.add(investor_data)
-                success_count += 1
+                if existing_investor:
+                    # Update existing record
+                    existing_investor.referred_by = str(referred_by).strip() if referred_by else None
+                    existing_investor.user_id = user.id
+                    existing_investor.package_id = package.id
+                    existing_investor.period_id = period.id
+                    existing_investor.start_date = start_date
+                    existing_investor.end_date = end_date
+                    existing_investor.observations = str(observations).strip() if observations else None
+                    if investor_id_str and str(investor_id_str).strip().isdigit():
+                        existing_investor.id = int(str(investor_id_str).strip())
+                    success_count += 1
+                else:
+                    # Insert new record
+                    investor_data = Investor(
+                        assigned_code=str(assigned_code).strip(),
+                        referred_by=str(referred_by).strip() if referred_by else None,
+                        user_id=user.id,
+                        package_id=package.id,
+                        period_id=period.id,
+                        start_date=start_date,
+                        end_date=end_date,
+                        observations=str(observations).strip() if observations else None
+                    )
+                    if investor_id_str and str(investor_id_str).strip().isdigit():
+                        investor_data.id = int(str(investor_id_str).strip())
+                    db.add(investor_data)
+                    success_count += 1
                 
             except Exception as e:
                 errors.append(f"Fila {row_num}: Error inesperado: {str(e)}")
