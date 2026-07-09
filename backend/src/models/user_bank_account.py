@@ -1,6 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from datetime import datetime
 from src.core.database import Base
 
 class UserBankAccount(Base):
@@ -13,8 +13,8 @@ class UserBankAccount(Base):
     numero_cuenta = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationship back to User
     user = relationship("User", back_populates="bank_accounts")

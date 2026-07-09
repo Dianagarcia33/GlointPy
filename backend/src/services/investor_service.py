@@ -15,6 +15,7 @@ from src.models.period import Period
 from src.models.package import Package
 from src.models.user import User
 from src.models.security import Role
+from src.models.user_bank_account import UserBankAccount
 from src.schemas.investor import InvestorCreate, InvestorUpdate
 
 class InvestorService:
