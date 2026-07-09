@@ -165,52 +165,58 @@ class InvestorService:
                 
                 referred_by = row.get('referido', '') or row.get('referred_by', '')
                 
-                user_email = row.get('usuario', '') or row.get('email', '') or row.get('correo', '')
-                if not user_email:
-                    errors.append(f"Fila {row_num}: Falta el correo del usuario.")
+                user_id_str = row.get('usuario_id', '') or row.get('user_id', '')
+                if not user_id_str:
+                    errors.append(f"Fila {row_num}: Falta el ID del usuario (usuario_id).")
                     continue
                 
-                # Buscar usuario por email
-                user_res = await db.execute(select(User).where(User.email == user_email.strip()))
+                try:
+                    u_id = int(str(user_id_str).strip())
+                except ValueError:
+                    errors.append(f"Fila {row_num}: usuario_id inválido '{user_id_str}'.")
+                    continue
+                    
+                # Buscar usuario por ID
+                user_res = await db.execute(select(User).where(User.id == u_id))
                 user = user_res.scalars().first()
                 if not user:
-                    errors.append(f"Fila {row_num}: Usuario con email {user_email} no encontrado.")
+                    errors.append(f"Fila {row_num}: Usuario con ID {u_id} no encontrado.")
                     continue
                 
-                package_value = row.get('paquete', '') or row.get('valor', '') or row.get('package', '')
-                if not package_value:
-                    errors.append(f"Fila {row_num}: Falta el valor del paquete.")
+                package_id_str = row.get('paquete_id', '') or row.get('package_id', '')
+                if not package_id_str:
+                    errors.append(f"Fila {row_num}: Falta el ID del paquete (paquete_id).")
                     continue
                 
                 try:
-                    p_value = int(float(str(package_value).replace(',', '').replace('$', '').strip()))
+                    p_id = int(str(package_id_str).strip())
                 except ValueError:
-                    errors.append(f"Fila {row_num}: Valor de paquete inválido '{package_value}'.")
+                    errors.append(f"Fila {row_num}: paquete_id inválido '{package_id_str}'.")
                     continue
                 
-                # Buscar paquete por valor
-                package_res = await db.execute(select(Package).where(Package.value == p_value))
+                # Buscar paquete por ID
+                package_res = await db.execute(select(Package).where(Package.id == p_id))
                 package = package_res.scalars().first()
                 if not package:
-                    errors.append(f"Fila {row_num}: Paquete de valor {p_value} no encontrado.")
+                    errors.append(f"Fila {row_num}: Paquete con ID {p_id} no encontrado.")
                     continue
                 
-                period_str = row.get('periodo', '') or row.get('meses', '') or row.get('period', '')
-                if not period_str:
-                    errors.append(f"Fila {row_num}: Falta los meses del periodo.")
+                period_id_str = row.get('periodo_id', '') or row.get('period_id', '')
+                if not period_id_str:
+                    errors.append(f"Fila {row_num}: Falta el ID del periodo (periodo_id).")
                     continue
                 
                 try:
-                    p_months = int(float(str(period_str).strip()))
+                    per_id = int(str(period_id_str).strip())
                 except ValueError:
-                    errors.append(f"Fila {row_num}: Meses de periodo inválido '{period_str}'.")
+                    errors.append(f"Fila {row_num}: periodo_id inválido '{period_id_str}'.")
                     continue
                 
-                # Buscar periodo por meses
-                period_res = await db.execute(select(Period).where(Period.months == p_months))
+                # Buscar periodo por ID
+                period_res = await db.execute(select(Period).where(Period.id == per_id))
                 period = period_res.scalars().first()
                 if not period:
-                    errors.append(f"Fila {row_num}: Periodo de {p_months} meses no encontrado.")
+                    errors.append(f"Fila {row_num}: Periodo con ID {per_id} no encontrado.")
                     continue
 
                 start_date_str = row.get('fecha_ingreso', '') or row.get('fecha ingreso', '') or row.get('start_date', '')

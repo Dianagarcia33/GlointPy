@@ -116,7 +116,7 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
   };
 
   const downloadTemplate = () => {
-    const csvContent = "id,codigo asignado,referido,usuario,paquete,periodo,fecha_ingreso,observaciones\n,INV-001,REF-001,test@test.com,5000000,12,2024-01-01,Observaciones de ejemplo";
+    const csvContent = "id,codigo asignado,referido,usuario_id,paquete_id,periodo_id,fecha_ingreso,observaciones\n,INV-001,REF-001,1,2,3,2024-01-01,Observaciones de ejemplo";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -158,9 +158,9 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
                   <li><strong>id:</strong> ID único del inversor (Opcional).</li>
                   <li><strong>codigo asignado:</strong> Código único de inversión.</li>
                   <li><strong>referido:</strong> (Opcional) Código de otra inversión.</li>
-                  <li><strong>usuario:</strong> Correo electrónico del usuario existente.</li>
-                  <li><strong>paquete:</strong> Valor numérico del paquete (ej: 5000000).</li>
-                  <li><strong>periodo:</strong> Número de meses (ej: 12).</li>
+                  <li><strong>usuario_id:</strong> ID numérico del usuario.</li>
+                  <li><strong>paquete_id:</strong> ID numérico del paquete.</li>
+                  <li><strong>periodo_id:</strong> ID numérico del periodo.</li>
                   <li><strong>fecha_ingreso:</strong> Formato YYYY-MM-DD.</li>
                   <li><strong>observaciones:</strong> (Opcional) Notas.</li>
                 </ul>
