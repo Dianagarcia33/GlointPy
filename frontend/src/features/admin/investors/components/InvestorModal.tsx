@@ -90,11 +90,11 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
 
     const payload = {
         assigned_code: assignedCode,
-        referred_by: referredBy || null,
+        referred_by: referredBy || undefined,
         user_id: Number(userId),
         package_id: Number(packageId),
         period_id: Number(periodId),
-        observations: observations || null,
+        observations: observations || undefined,
         start_date: startDate ? new Date(startDate).toISOString() : undefined
     };
 
