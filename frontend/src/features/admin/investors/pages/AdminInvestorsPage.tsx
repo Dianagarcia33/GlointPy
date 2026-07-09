@@ -15,6 +15,7 @@ export const AdminInvestorsPage = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,6 +49,16 @@ export const AdminInvestorsPage = () => {
       setIsLoading(false);
     }
   };
+
+  // Debounce search input changes to avoid firing requests on every keystroke
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   useEffect(() => {
     fetchData();
@@ -148,10 +159,9 @@ export const AdminInvestorsPage = () => {
             type="text" 
             placeholder="Buscar por código, nombre, correo o documento del usuario..." 
             className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
-            value={search}
+            value={searchInput}
             onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
+              setSearchInput(e.target.value);
             }}
           />
         </div>
