@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 from datetime import datetime
 from typing import Optional
+from dateutil.relativedelta import relativedelta
 from src.schemas.user import UserResponse
 from src.schemas.package import PackageResponse
 from src.schemas.period import PeriodResponse
@@ -28,7 +29,6 @@ class InvestorUpdate(BaseModel):
 
 class InvestorResponse(InvestorBase):
     id: int
-    end_date: datetime
     created_at: datetime
     updated_at: Optional[datetime] = None
     
@@ -36,6 +36,19 @@ class InvestorResponse(InvestorBase):
     user: Optional[UserResponse] = None
     package: Optional[PackageResponse] = None
     period: Optional[PeriodResponse] = None
+
+    @computed_field
+    @property
+    def end_date(self) -> datetime:
+        # Fallback to start_date if not set
+        base_date = self.start_date or datetime.utcnow()
+        if not self.period:
+            return base_date
+        
+        if self.period.months > 0:
+            return base_date + relativedelta(months=self.period.months)
+        else:
+            return base_date + relativedelta(days=self.period.days)
 
     model_config = ConfigDict(from_attributes=True)
 

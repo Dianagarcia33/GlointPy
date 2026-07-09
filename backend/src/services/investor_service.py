@@ -18,21 +18,6 @@ from src.models.security import Role
 from src.schemas.investor import InvestorCreate, InvestorUpdate
 
 class InvestorService:
-    @staticmethod
-    async def _calculate_end_date(db: AsyncSession, period_id: int, start_date: datetime) -> datetime:
-        result = await db.execute(select(Period).where(Period.id == period_id))
-        period = result.scalars().first()
-        if not period:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Period not found"
-            )
-        
-        if period.months > 0:
-            end_date = start_date + relativedelta(months=period.months)
-        else:
-            end_date = start_date + relativedelta(days=period.days)
-        return end_date
 
     @staticmethod
     async def get_investors(
@@ -109,7 +94,6 @@ class InvestorService:
             raise HTTPException(status_code=404, detail="Package not found")
             
         start_date = investor.start_date or datetime.utcnow()
-        end_date = await InvestorService._calculate_end_date(db, investor.period_id, start_date)
 
         db_investor = Investor(
             assigned_code=investor.assigned_code,
@@ -118,7 +102,6 @@ class InvestorService:
             package_id=investor.package_id,
             period_id=investor.period_id,
             start_date=start_date,
-            end_date=end_date,
             observations=investor.observations
         )
         
@@ -141,13 +124,6 @@ class InvestorService:
 
         update_data = investor.model_dump(exclude_unset=True)
         
-        # Check if we need to recalculate end_date
-        period_id = update_data.get("period_id", db_investor.period_id)
-        start_date = update_data.get("start_date", db_investor.start_date)
-        
-        if "period_id" in update_data or "start_date" in update_data:
-            update_data["end_date"] = await InvestorService._calculate_end_date(db, period_id, start_date)
-
         for field, value in update_data.items():
             setattr(db_investor, field, value)
 
@@ -276,8 +252,6 @@ class InvestorService:
                 
                 observations = row.get('observaciones', '') or row.get('notas', '') or row.get('observations', '')
                 
-                end_date = await InvestorService._calculate_end_date(db, period.id, start_date)
-
                 # Check if investor with assigned_code already exists
                 existing_res = await db.execute(select(Investor).where(Investor.assigned_code == str(assigned_code).strip()))
                 existing_investor = existing_res.scalars().first()
@@ -289,7 +263,6 @@ class InvestorService:
                     existing_investor.package_id = package.id
                     existing_investor.period_id = period.id
                     existing_investor.start_date = start_date
-                    existing_investor.end_date = end_date
                     existing_investor.observations = str(observations).strip() if observations else None
                     if investor_id_str and str(investor_id_str).strip().isdigit():
                         existing_investor.id = int(str(investor_id_str).strip())
@@ -303,7 +276,6 @@ class InvestorService:
                         package_id=package.id,
                         period_id=period.id,
                         start_date=start_date,
-                        end_date=end_date,
                         observations=str(observations).strip() if observations else None
                     )
                     if investor_id_str and str(investor_id_str).strip().isdigit():

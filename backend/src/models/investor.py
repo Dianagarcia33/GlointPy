@@ -15,7 +15,6 @@ class Investor(Base):
     period_id = Column(Integer, ForeignKey('periods.id'), nullable=False)
     
     start_date = Column(DateTime, default=datetime.utcnow, nullable=False)
-    end_date = Column(DateTime, nullable=False)
     observations = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
