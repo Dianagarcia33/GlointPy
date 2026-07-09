@@ -12,24 +12,37 @@ async def bulk_create_bank_accounts(db: AsyncSession, csv_file: bytes) -> tuple[
     
     try:
         content_str = csv_file.decode('utf-8-sig')
-    except Exception:
-        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8 válida.")
+    except UnicodeDecodeError:
+        try:
+            content_str = csv_file.decode('latin-1')
+        except Exception:
+            raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8 o Latin-1 válida.")
 
     stream = io.StringIO(content_str)
-    first_line = content_str.split('\n')[0]
-    delimiter = ';' if ';' in first_line else ','
     
-    reader = csv.DictReader(stream, delimiter=delimiter)
+    # Use sniffer to detect dialect/delimiter automatically
+    sniffer = csv.Sniffer()
+    try:
+        # Check first 2048 characters to detect dialect
+        dialect = sniffer.sniff(content_str[:2048])
+    except csv.Error:
+        dialect = csv.excel
+        
+    stream.seek(0)
+    reader = csv.DictReader(stream, dialect=dialect)
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="El archivo CSV está vacío o no tiene cabeceras válidas.")
+        
+    # Normalize headers
+    headers = [h.strip().lower() for h in reader.fieldnames if h is not None]
+    reader.fieldnames = headers
     
     for row_num, row in enumerate(reader, start=2):
         try:
-            # Normalizar nombres de columnas a minúsculas y sin espacios
-            cleaned_row = {k.strip().lower(): v for k, v in row.items() if k is not None}
-            
-            user_id_str = cleaned_row.get('usuario_id') or cleaned_row.get('user_id')
-            banco = cleaned_row.get('banco')
-            tipo_cuenta = cleaned_row.get('tipo_cuenta') or cleaned_row.get('tipo')
-            numero_cuenta = cleaned_row.get('numero_cuenta') or cleaned_row.get('numero')
+            user_id_str = row.get('usuario_id') or row.get('user_id')
+            banco = row.get('banco')
+            tipo_cuenta = row.get('tipo_cuenta') or row.get('tipo')
+            numero_cuenta = row.get('numero_cuenta') or row.get('numero')
 
             if not user_id_str or not str(user_id_str).strip().isdigit():
                 errors.append(f"Fila {row_num}: El campo 'usuario_id' es requerido y debe ser numérico.")
