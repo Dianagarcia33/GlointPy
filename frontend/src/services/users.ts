@@ -1,6 +1,15 @@
 import { fetchApi } from './api';
 import { Role } from './roles';
 
+export interface BankAccount {
+  id: number;
+  user_id: number;
+  banco: string;
+  tipo_cuenta: string;
+  numero_cuenta: string;
+  is_active: boolean;
+}
+
 export interface User {
   id: number;
   name: string;
@@ -11,6 +20,7 @@ export interface User {
   is_active: boolean;
   is_superuser: boolean;
   roles: Role[];
+  bank_accounts?: BankAccount[];
   created_at: string;
   updated_at: string;
 }

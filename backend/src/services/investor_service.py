@@ -51,6 +51,7 @@ class InvestorService:
         offset = (page - 1) * limit
         query = query.options(
             selectinload(Investor.user).selectinload(User.roles).selectinload(Role.permissions),
+            selectinload(Investor.user).selectinload(User.bank_accounts),
             selectinload(Investor.package),
             selectinload(Investor.period)
         )

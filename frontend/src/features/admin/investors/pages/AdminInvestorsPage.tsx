@@ -195,10 +195,20 @@ export const AdminInvestorsPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       {investor.user ? (
-                          <>
-                              <div className="font-medium text-slate-700">{investor.user.name}</div>
+                          <div className="space-y-1">
+                              <div className="font-semibold text-slate-800">{investor.user.name}</div>
                               <div className="text-xs text-slate-500">{investor.user.email}</div>
-                          </>
+                              {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
+                                <div className="mt-2 space-y-1 pt-1 border-t border-slate-100">
+                                  {investor.user.bank_accounts.map((acc) => (
+                                    <div key={acc.id} className="text-[10px] text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded flex flex-col gap-0.5 max-w-[200px]">
+                                      <span className="font-semibold text-brand-700 uppercase tracking-wider">{acc.banco}</span>
+                                      <span className="text-slate-500">{acc.tipo_cuenta}: <span className="font-mono text-slate-700">{acc.numero_cuenta}</span></span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                          </div>
                       ) : (
                           <span className="text-slate-400">Desconocido</span>
                       )}

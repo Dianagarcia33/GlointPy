@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import List, Optional, Any, Dict
 from datetime import datetime
 from src.schemas.security import RoleResponse
+from src.schemas.user_bank_account import UserBankAccountResponse
 
 class UserBase(BaseModel):
     name: str
@@ -55,6 +56,7 @@ class UserResponse(BaseModel):
     
     # Devuelve los roles asociados
     roles: List[RoleResponse] = []
+    bank_accounts: List[UserBankAccountResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
 
