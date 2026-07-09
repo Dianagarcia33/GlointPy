@@ -117,10 +117,12 @@ export const AdminInvestorsPage = () => {
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
               <tr>
-                <th className="px-6 py-4">Código</th>
+                <th className="px-6 py-4">ID</th>
+                <th className="px-6 py-4">Código / Ref.</th>
                 <th className="px-6 py-4">Usuario</th>
-                <th className="px-6 py-4">Paquete</th>
+                <th className="px-6 py-4">Paquete / Periodo</th>
                 <th className="px-6 py-4">Fechas</th>
+                <th className="px-6 py-4">Observaciones</th>
                 <Can permission="admin.investors.manage">
                   <th className="px-6 py-4 text-right">Acciones</th>
                 </Can>
@@ -142,6 +144,9 @@ export const AdminInvestorsPage = () => {
               ) : (
                 investors.map((investor) => (
                   <tr key={investor.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                      #{investor.id}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-800">{investor.assigned_code}</div>
                       {investor.referred_by && (
@@ -179,6 +184,9 @@ export const AdminInvestorsPage = () => {
                                 {new Date(investor.end_date).toLocaleDateString()}
                             </span>
                         </div>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate">
+                      {investor.observations || '-'}
                     </td>
                     <Can permission="admin.investors.manage">
                       <td className="px-6 py-4 text-right">

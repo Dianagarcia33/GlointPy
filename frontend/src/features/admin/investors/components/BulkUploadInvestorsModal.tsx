@@ -76,7 +76,7 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
   };
 
   const downloadTemplate = () => {
-    const csvContent = "codigo asignado,referido,usuario,paquete,periodo,fecha_ingreso,observaciones\nINV-001,REF-001,test@test.com,5000000,12,2024-01-01,Observaciones de ejemplo";
+    const csvContent = "id,codigo asignado,referido,usuario,paquete,periodo,fecha_ingreso,observaciones\n,INV-001,REF-001,test@test.com,5000000,12,2024-01-01,Observaciones de ejemplo";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -115,6 +115,7 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
                 <p className="font-semibold mb-1">Instrucciones</p>
                 <p className="mb-2">Sube un archivo CSV con las siguientes columnas exactas:</p>
                 <ul className="list-disc pl-4 space-y-1 text-blue-700/80 mb-3">
+                  <li><strong>id:</strong> ID único del inversor (Opcional).</li>
                   <li><strong>codigo asignado:</strong> Código único de inversión.</li>
                   <li><strong>referido:</strong> (Opcional) Código de otra inversión.</li>
                   <li><strong>usuario:</strong> Correo electrónico del usuario existente.</li>
