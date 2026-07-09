@@ -14,6 +14,7 @@ from src.models.investor import Investor
 from src.models.period import Period
 from src.models.package import Package
 from src.models.user import User
+from src.models.security import Role
 from src.schemas.investor import InvestorCreate, InvestorUpdate
 
 class InvestorService:
@@ -35,7 +36,7 @@ class InvestorService:
         result = await db.execute(
             select(Investor)
             .options(
-                selectinload(Investor.user),
+                selectinload(Investor.user).selectinload(User.roles).selectinload(Role.permissions),
                 selectinload(Investor.package),
                 selectinload(Investor.period)
             )
@@ -49,7 +50,7 @@ class InvestorService:
         result = await db.execute(
             select(Investor)
             .options(
-                selectinload(Investor.user),
+                selectinload(Investor.user).selectinload(User.roles).selectinload(Role.permissions),
                 selectinload(Investor.package),
                 selectinload(Investor.period)
             )
