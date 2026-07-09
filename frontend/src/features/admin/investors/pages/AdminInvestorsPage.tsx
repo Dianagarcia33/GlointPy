@@ -6,6 +6,72 @@ import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccount
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
+const InvestorTableSkeleton = () => {
+  return (
+    <>
+      {[...Array(5)].map((_, i) => (
+        <tr key={i} className="animate-pulse">
+          {/* Chevron spacer */}
+          <td className="px-4 py-4 w-10">
+            <div className="h-4 w-4 bg-slate-200 rounded"></div>
+          </td>
+          {/* ID */}
+          <td className="px-6 py-4 w-20">
+            <div className="h-3 w-8 bg-slate-200 rounded font-mono"></div>
+          </td>
+          {/* Código / Ref. */}
+          <td className="px-6 py-4">
+            <div className="space-y-2">
+              <div className="h-4 w-16 bg-slate-200 rounded"></div>
+              <div className="h-3 w-24 bg-slate-100 rounded"></div>
+            </div>
+          </td>
+          {/* Usuario */}
+          <td className="px-6 py-4">
+            <div className="space-y-2">
+              <div className="h-4 w-32 bg-slate-200 rounded"></div>
+              <div className="h-3 w-40 bg-slate-100 rounded"></div>
+            </div>
+          </td>
+          {/* Paquete / Periodo */}
+          <td className="px-6 py-4">
+            <div className="space-y-2">
+              <div className="h-5 w-24 bg-slate-200 rounded-md"></div>
+              <div className="h-3 w-20 bg-slate-100 rounded"></div>
+            </div>
+          </td>
+          {/* Fechas */}
+          <td className="px-6 py-4">
+            <div className="space-y-2">
+              <div className="flex justify-between w-40">
+                <div className="h-3 w-12 bg-slate-100 rounded"></div>
+                <div className="h-3 w-16 bg-slate-200 rounded"></div>
+              </div>
+              <div className="flex justify-between w-40">
+                <div className="h-3 w-8 bg-slate-100 rounded"></div>
+                <div className="h-3 w-16 bg-slate-200 rounded"></div>
+              </div>
+            </div>
+          </td>
+          {/* Observaciones */}
+          <td className="px-6 py-4">
+            <div className="h-3 w-20 bg-slate-200 rounded"></div>
+          </td>
+          {/* Acciones */}
+          <Can permission="admin.investors.manage">
+            <td className="px-6 py-4 text-right">
+              <div className="flex items-center justify-end gap-2">
+                <div className="h-7 w-7 bg-slate-200 rounded-lg"></div>
+                <div className="h-7 w-7 bg-slate-200 rounded-lg"></div>
+              </div>
+            </td>
+          </Can>
+        </tr>
+      ))}
+    </>
+  );
+};
+
 export const AdminInvestorsPage = () => {
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,16 +160,7 @@ export const AdminInvestorsPage = () => {
     fetchData();
   };
 
-  if (isLoading) {
-      return (
-          <div className="flex items-center justify-center h-64">
-              <div className="flex flex-col items-center gap-2 text-slate-500">
-                  <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-                  <p className="text-sm font-medium">Cargando inversionistas...</p>
-              </div>
-          </div>
-      );
-  }
+
 
   if (error) {
       return (
@@ -185,7 +242,9 @@ export const AdminInvestorsPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {investors.length === 0 ? (
+              {isLoading ? (
+                <InvestorTableSkeleton />
+              ) : investors.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
