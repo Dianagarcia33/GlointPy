@@ -5,12 +5,11 @@ from typing import List
 from src.core.database import get_db
 from src.schemas.investor import InvestorCreate, InvestorUpdate, InvestorResponse
 from src.services.investor_service import InvestorService
-from src.api.v1.deps import RequirePermission
+from src.api.deps import RequirePermission
 
 router = APIRouter()
 
-@router.get("/", response_model=List[InvestorResponse])
-@RequirePermission("admin.investors.manage")
+@router.get("/", response_model=List[InvestorResponse], dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investors(
     skip: int = 0,
     limit: int = 100,
@@ -21,8 +20,7 @@ async def read_investors(
     """
     return await InvestorService.get_investors(db, skip=skip, limit=limit)
 
-@router.get("/{investor_id}", response_model=InvestorResponse)
-@RequirePermission("admin.investors.manage")
+@router.get("/{investor_id}", response_model=InvestorResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investor(
     investor_id: int,
     db: AsyncSession = Depends(get_db)
@@ -32,8 +30,7 @@ async def read_investor(
     """
     return await InvestorService.get_investor(db, investor_id=investor_id)
 
-@router.post("/", response_model=InvestorResponse, status_code=status.HTTP_201_CREATED)
-@RequirePermission("admin.investors.manage")
+@router.post("/", response_model=InvestorResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def create_investor(
     investor: InvestorCreate,
     db: AsyncSession = Depends(get_db)
@@ -43,8 +40,7 @@ async def create_investor(
     """
     return await InvestorService.create_investor(db, investor=investor)
 
-@router.put("/{investor_id}", response_model=InvestorResponse)
-@RequirePermission("admin.investors.manage")
+@router.put("/{investor_id}", response_model=InvestorResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def update_investor(
     investor_id: int,
     investor: InvestorUpdate,
@@ -55,8 +51,7 @@ async def update_investor(
     """
     return await InvestorService.update_investor(db, investor_id=investor_id, investor=investor)
 
-@router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT)
-@RequirePermission("admin.investors.manage")
+@router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def delete_investor(
     investor_id: int,
     db: AsyncSession = Depends(get_db)
@@ -66,8 +61,7 @@ async def delete_investor(
     """
     await InvestorService.delete_investor(db, investor_id=investor_id)
 
-@router.post("/bulk-upload")
-@RequirePermission("admin.investors.manage")
+@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def bulk_upload_investors(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     """
     Upload a CSV file and create multiple investors in bulk.
