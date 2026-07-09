@@ -24,7 +24,6 @@ class PeriodService:
     async def create_period(db: AsyncSession, period_data: PeriodCreate) -> Period:
         # Prevent exact duplicates (same months, days, percentage) if needed, but not strictly required
         period = Period(
-            id=period_data.id if getattr(period_data, 'id', None) else None,
             percentage=period_data.percentage,
             months=period_data.months,
             days=period_data.days,
@@ -41,11 +40,6 @@ class PeriodService:
         
         update_dict = period_data.model_dump(exclude_unset=True)
         for key, value in update_dict.items():
-            if key == 'id' and value is not None:
-                # Modifying PK in SQLAlchemy might require session flush/commit handling
-                # but since it's a simple update and there are few dependencies right now,
-                # we'll allow it as requested for this temporary change.
-                pass
             setattr(period, key, value)
             
         await db.commit()

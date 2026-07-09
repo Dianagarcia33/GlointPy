@@ -9,10 +9,9 @@ class PeriodBase(BaseModel):
     is_active: bool = True
 
 class PeriodCreate(PeriodBase):
-    id: Optional[int] = None
+    pass
 
 class PeriodUpdate(BaseModel):
-    id: Optional[int] = None
     percentage: Optional[float] = Field(None, gt=0)
     months: Optional[int] = Field(None, ge=0)
     days: Optional[int] = Field(None, ge=0)

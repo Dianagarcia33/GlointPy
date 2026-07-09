@@ -35,10 +35,10 @@ def upgrade() -> None:
 
     op.create_table(
         'investors',
-        sa.Column('id', mysql.BIGINT(unsigned=True), autoincrement=True, nullable=False),
+        sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column('assigned_code', sa.String(length=50), nullable=False),
         sa.Column('referred_by', sa.String(length=255), nullable=True),
-        sa.Column('user_id', mysql.BIGINT(unsigned=True), nullable=False),
+        sa.Column('user_id', sa.BigInteger(), nullable=False),
         sa.Column('package_id', sa.Integer(), nullable=False),
         sa.Column('period_id', sa.Integer(), nullable=False),
         sa.Column('start_date', sa.DateTime(), nullable=False),

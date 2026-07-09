@@ -11,7 +11,6 @@ export interface Period {
 }
 
 export interface PeriodCreate {
-  id?: number;
   percentage: number;
   months: number;
   days: number;
@@ -19,7 +18,6 @@ export interface PeriodCreate {
 }
 
 export interface PeriodUpdate {
-  id?: number;
   percentage?: number;
   months?: number;
   days?: number;
