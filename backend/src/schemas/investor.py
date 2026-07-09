@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, computed_field
 from datetime import datetime
 from typing import Optional
 from dateutil.relativedelta import relativedelta
-from src.schemas.user import UserResponse
+from src.schemas.user import UserResponse, UserWithBankAccountsResponse
 from src.schemas.package import PackageResponse
 from src.schemas.period import PeriodResponse
 
@@ -33,7 +33,7 @@ class InvestorResponse(InvestorBase):
     updated_at: Optional[datetime] = None
     
     # Relationships
-    user: Optional[UserResponse] = None
+    user: Optional[UserWithBankAccountsResponse] = None
     package: Optional[PackageResponse] = None
     period: Optional[PeriodResponse] = None
 

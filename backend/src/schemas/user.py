@@ -56,9 +56,11 @@ class UserResponse(BaseModel):
     
     # Devuelve los roles asociados
     roles: List[RoleResponse] = []
-    bank_accounts: List[UserBankAccountResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
+
+class UserWithBankAccountsResponse(UserResponse):
+    bank_accounts: List[UserBankAccountResponse] = []
 
 class UserPaginatedResponse(BaseModel):
     total: int
