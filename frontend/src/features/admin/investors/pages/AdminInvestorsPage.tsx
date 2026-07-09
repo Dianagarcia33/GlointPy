@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Investor, getInvestors, deleteInvestor } from '../../../../services/investors';
 import { InvestorModal } from '../components/InvestorModal';
 import { BulkUploadInvestorsModal } from '../components/BulkUploadInvestorsModal';
+import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
@@ -18,6 +19,7 @@ export const AdminInvestorsPage = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
 
   const fetchData = async () => {
@@ -115,6 +117,13 @@ export const AdminInvestorsPage = () => {
             >
               <UploadCloud className="w-4 h-4" />
               Carga Masiva
+            </button>
+            <button 
+              onClick={() => setIsBulkBankModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Carga Masiva Cuentas
             </button>
             <button 
               onClick={handleCreate}
@@ -282,6 +291,15 @@ export const AdminInvestorsPage = () => {
         onClose={() => setIsBulkModalOpen(false)}
         onUploaded={() => {
           setIsBulkModalOpen(false);
+          fetchData();
+        }}
+      />
+
+      <BulkUploadBankAccountsModal
+        isOpen={isBulkBankModalOpen}
+        onClose={() => setIsBulkBankModalOpen(false)}
+        onUploaded={() => {
+          setIsBulkBankModalOpen(false);
           fetchData();
         }}
       />

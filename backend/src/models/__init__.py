@@ -3,3 +3,4 @@ from src.models.user import User
 from src.models.period import Period
 from src.models.package import Package
 from src.models.investor import Investor
+from src.models.user_bank_account import UserBankAccount
