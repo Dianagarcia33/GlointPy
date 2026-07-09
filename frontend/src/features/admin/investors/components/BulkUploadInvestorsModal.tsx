@@ -116,7 +116,7 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
   };
 
   const downloadTemplate = () => {
-    const csvContent = "id,codigo asignado,referido,usuario_id,paquete_id,periodo_id,fecha_ingreso,observaciones\n,INV-001,REF-001,1,2,3,2024-01-01,Observaciones de ejemplo";
+    const csvContent = "\uFEFFid;codigo asignado;referido;usuario_id;paquete_id;periodo_id;fecha_ingreso;observaciones\n;INV-001;REF-001;1;2;3;2024-01-01;Observaciones de ejemplo";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
