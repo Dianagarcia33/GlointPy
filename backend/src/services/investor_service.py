@@ -236,6 +236,8 @@ class InvestorService:
                 
                 end_date = await InvestorService._calculate_end_date(db, period.id, start_date)
 
+                investor_id_str = row.get('id', '')
+                
                 investor_data = Investor(
                     assigned_code=str(assigned_code).strip(),
                     referred_by=str(referred_by).strip() if referred_by else None,
@@ -246,6 +248,10 @@ class InvestorService:
                     end_date=end_date,
                     observations=str(observations).strip() if observations else None
                 )
+                
+                if investor_id_str and str(investor_id_str).strip().isdigit():
+                    investor_data.id = int(str(investor_id_str).strip())
+                    
                 db.add(investor_data)
                 success_count += 1
                 

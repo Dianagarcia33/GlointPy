@@ -15,6 +15,7 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [result, setResult] = useState<{ success: number; errors: string[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,16 +55,54 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
 
     setIsUploading(true);
     setResult(null);
+    setProgress(null);
 
     try {
-      const response = await bulkUploadInvestors(file);
-      setResult(response);
-      if (response.success > 0 && response.errors.length === 0) {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+      
+      if (lines.length <= 1) {
+        throw new Error("El archivo está vacío o no tiene inversionistas.");
+      }
+      
+      const header = lines[0];
+      const dataLines = lines.slice(1);
+      const chunkSize = 20;
+      
+      let totalSuccess = 0;
+      let totalErrors: string[] = [];
+      
+      setProgress({ current: 0, total: dataLines.length });
+
+      for (let i = 0; i < dataLines.length; i += chunkSize) {
+        const chunkLines = dataLines.slice(i, i + chunkSize);
+        const chunkCsv = [header, ...chunkLines].join('\n');
+        
+        const chunkBlob = new Blob([chunkCsv], { type: 'text/csv' });
+        const chunkFile = new File([chunkBlob], file.name, { type: 'text/csv' });
+        
+        const response = await bulkUploadInvestors(chunkFile);
+        totalSuccess += response.success;
+        
+        const chunkErrors = response.errors.map((err: string) => {
+          return err.replace(/Fila (\d+):/, (match, p1) => `Fila ${parseInt(p1) + i}:`);
+        });
+        
+        totalErrors = [...totalErrors, ...chunkErrors];
+        
+        setProgress({ current: Math.min(i + chunkSize, dataLines.length), total: dataLines.length });
+      }
+      
+      setResult({ success: totalSuccess, errors: totalErrors });
+      
+      if (totalSuccess > 0 && totalErrors.length === 0) {
         setTimeout(() => {
           onUploaded();
           setFile(null);
           setResult(null);
         }, 2000);
+      } else if (totalSuccess > 0) {
+        onUploaded();
       }
     } catch (err: any) {
       setResult({
@@ -72,6 +111,7 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
       });
     } finally {
       setIsUploading(false);
+      setProgress(null);
     }
   };
 
@@ -239,7 +279,7 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
               {isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Procesando...
+                  {progress ? `Procesando ${progress.current}/${progress.total}...` : 'Procesando...'}
                 </>
               ) : (
                 'Subir e Importar'
