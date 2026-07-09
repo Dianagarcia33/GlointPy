@@ -33,3 +33,4 @@ class User(Base):
     # Relación a la tabla roles usando la tabla pivote user_roles
     roles = relationship('Role', secondary=user_roles, back_populates='users')
     bank_accounts = relationship("UserBankAccount", back_populates="user", cascade="all, delete-orphan")
+    wallet = relationship("Wallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
