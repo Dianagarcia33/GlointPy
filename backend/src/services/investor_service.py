@@ -251,7 +251,8 @@ class InvestorService:
                     continue
                 
                 observations = row.get('observaciones', '') or row.get('notas', '') or row.get('observations', '')
-                
+                investor_id_str = row.get('id', '')
+
                 # Check if investor with assigned_code already exists
                 existing_res = await db.execute(select(Investor).where(Investor.assigned_code == str(assigned_code).strip()))
                 existing_investor = existing_res.scalars().first()
