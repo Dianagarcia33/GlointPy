@@ -28,7 +28,10 @@ class InvestorService:
                 detail="Period not found"
             )
         
-        end_date = start_date + relativedelta(months=period.months, days=period.days)
+        if period.months > 0:
+            end_date = start_date + relativedelta(months=period.months)
+        else:
+            end_date = start_date + relativedelta(days=period.days)
         return end_date
 
     @staticmethod
