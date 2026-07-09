@@ -21,8 +21,15 @@ export interface Investor {
   period?: Period;
 }
 
-export const getInvestors = async () => {
-  return await fetchApi('/investors/');
+export const getInvestors = async (params?: { page?: number; limit?: number; search?: string }): Promise<{ data: Investor[]; total: number }> => {
+  const queryParams = new URLSearchParams();
+  if (params) {
+    if (params.page !== undefined) queryParams.append('page', params.page.toString());
+    if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params.search) queryParams.append('search', params.search);
+  }
+  const queryString = queryParams.toString();
+  return await fetchApi(`/investors/${queryString ? `?${queryString}` : ''}`);
 };
 
 export const createInvestor = async (data: Partial<Investor>) => {

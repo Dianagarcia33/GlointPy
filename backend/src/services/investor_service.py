@@ -32,18 +32,51 @@ class InvestorService:
         return end_date
 
     @staticmethod
-    async def get_investors(db: AsyncSession, skip: int = 0, limit: int = 100) -> Sequence[Investor]:
-        result = await db.execute(
-            select(Investor)
-            .options(
-                selectinload(Investor.user).selectinload(User.roles).selectinload(Role.permissions),
-                selectinload(Investor.package),
-                selectinload(Investor.period)
+    async def get_investors(
+        db: AsyncSession, 
+        page: int = 1, 
+        limit: int = 20, 
+        search: Optional[str] = None
+    ) -> dict:
+        from sqlalchemy import or_, func
+        
+        query = select(Investor)
+        
+        if search:
+            search_term = f"%{search}%"
+            query = query.join(Investor.user).where(
+                or_(
+                    Investor.assigned_code.ilike(search_term),
+                    Investor.referred_by.ilike(search_term),
+                    User.name.ilike(search_term),
+                    User.email.ilike(search_term),
+                    User.document_id.ilike(search_term)
+                )
             )
-            .offset(skip)
-            .limit(limit)
+            
+        # Count total
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar_one()
+        
+        # Paginate and fetch data
+        offset = (page - 1) * limit
+        query = query.options(
+            selectinload(Investor.user).selectinload(User.roles).selectinload(Role.permissions),
+            selectinload(Investor.package),
+            selectinload(Investor.period)
         )
-        return result.scalars().all()
+        query = query.order_by(Investor.id.desc()).offset(offset).limit(limit)
+        
+        result = await db.execute(query)
+        data = result.scalars().all()
+        
+        return {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "data": data
+        }
 
     @staticmethod
     async def get_investor(db: AsyncSession, investor_id: int) -> Optional[Investor]:

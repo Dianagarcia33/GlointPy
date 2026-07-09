@@ -38,3 +38,9 @@ class InvestorResponse(InvestorBase):
     period: Optional[PeriodResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class InvestorPaginatedResponse(BaseModel):
+    data: list[InvestorResponse]
+    total: int
+
+    model_config = ConfigDict(from_attributes=True)
