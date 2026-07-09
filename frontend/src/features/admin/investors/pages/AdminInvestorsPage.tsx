@@ -3,7 +3,7 @@ import { Investor, getInvestors, deleteInvestor } from '../../../../services/inv
 import { InvestorModal } from '../components/InvestorModal';
 import { BulkUploadInvestorsModal } from '../components/BulkUploadInvestorsModal';
 import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 export const AdminInvestorsPage = () => {
@@ -21,6 +21,11 @@ export const AdminInvestorsPage = () => {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+
+  const toggleRow = (id: number) => {
+    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -157,6 +162,7 @@ export const AdminInvestorsPage = () => {
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
               <tr>
+                <th className="px-4 py-4 w-10"></th>
                 <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Código / Ref.</th>
                 <th className="px-6 py-4">Usuario</th>
@@ -171,7 +177,7 @@ export const AdminInvestorsPage = () => {
             <tbody className="divide-y divide-slate-100">
               {investors.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay inversionistas registrados.</p>
@@ -183,83 +189,120 @@ export const AdminInvestorsPage = () => {
                 </tr>
               ) : (
                 investors.map((investor) => (
-                  <tr key={investor.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-slate-500">
-                      #{investor.id}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-800">{investor.assigned_code}</div>
-                      {investor.referred_by && (
-                          <div className="text-xs text-slate-500">Ref: {investor.referred_by}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {investor.user ? (
-                          <div className="space-y-1">
-                              <div className="font-semibold text-slate-800">{investor.user.name}</div>
-                              <div className="text-xs text-slate-500">{investor.user.email}</div>
-                              {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
-                                <div className="mt-2 space-y-1.5 pt-1 border-t border-slate-100">
-                                  {investor.user.bank_accounts.map((acc) => (
-                                    <div key={acc.id} className="text-[10px] text-slate-600 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded flex flex-col gap-0.5 max-w-[180px] break-words">
-                                      <div className="font-bold text-brand-700 uppercase tracking-wider">{acc.banco}</div>
-                                      <div className="text-slate-500 text-[9px]">{acc.tipo_cuenta}</div>
-                                      <div className="font-mono text-slate-800 break-all">{acc.numero_cuenta}</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                          </div>
-                      ) : (
-                          <span className="text-slate-400">Desconocido</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-brand-50 text-brand-700">
-                        {investor.package ? `$${investor.package.value.toLocaleString('es-CO')} COP` : 'Desconocido'}
-                      </span>
-                      <div className="text-xs text-slate-500 mt-1">
-                          {investor.period ? `${investor.period.months}m ${investor.period.days}d (${investor.period.percentage}%)` : ''}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-xs space-y-1">
-                        <div className="flex justify-between w-40">
-                            <span className="text-slate-500">Ingreso:</span>
-                            <span className="font-medium text-slate-700">
-                                {new Date(investor.start_date).toLocaleDateString()}
-                            </span>
-                        </div>
-                        <div className="flex justify-between w-40">
-                            <span className="text-slate-500">Fin:</span>
-                            <span className="font-medium text-emerald-700">
-                                {new Date(investor.end_date).toLocaleDateString()}
-                            </span>
-                        </div>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate">
-                      {investor.observations || '-'}
-                    </td>
-                    <Can permission="admin.investors.manage">
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                  <React.Fragment key={investor.id}>
+                    <tr className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-4 py-4 w-10 text-center">
+                        {investor.user && investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
                           <button 
-                            onClick={() => handleEdit(investor)}
-                            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-                            title="Editar"
+                            onClick={() => toggleRow(investor.id)}
+                            className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            {expandedRows[investor.id] ? (
+                              <ChevronDown className="w-4 h-4" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4" />
+                            )}
                           </button>
-                          <button 
-                            onClick={() => handleDelete(investor.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                        #{investor.id}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-slate-800">{investor.assigned_code}</div>
+                        {investor.referred_by && (
+                            <div className="text-xs text-slate-500">Ref: {investor.referred_by}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {investor.user ? (
+                            <div className="space-y-0.5">
+                                <div className="font-semibold text-slate-800">{investor.user.name}</div>
+                                <div className="text-xs text-slate-500">{investor.user.email}</div>
+                                {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
+                                  <button 
+                                    onClick={() => toggleRow(investor.id)}
+                                    className="text-[10px] text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-0.5 mt-1 hover:underline"
+                                  >
+                                    Ver cuentas ({investor.user.bank_accounts.length})
+                                  </button>
+                                )}
+                            </div>
+                        ) : (
+                            <span className="text-slate-400">Desconocido</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-brand-50 text-brand-700">
+                          {investor.package ? `$${investor.package.value.toLocaleString('es-CO')} COP` : 'Desconocido'}
+                        </span>
+                        <div className="text-xs text-slate-500 mt-1">
+                            {investor.period ? `${investor.period.months}m ${investor.period.days}d (${investor.period.percentage}%)` : ''}
                         </div>
                       </td>
-                    </Can>
-                  </tr>
+                      <td className="px-6 py-4 text-xs space-y-1">
+                          <div className="flex justify-between w-40">
+                              <span className="text-slate-500">Ingreso:</span>
+                              <span className="font-medium text-slate-700">
+                                  {new Date(investor.start_date).toLocaleDateString()}
+                              </span>
+                          </div>
+                          <div className="flex justify-between w-40">
+                              <span className="text-slate-500">Fin:</span>
+                              <span className="font-medium text-emerald-700">
+                                  {new Date(investor.end_date).toLocaleDateString()}
+                              </span>
+                          </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate">
+                        {investor.observations || '-'}
+                      </td>
+                      <Can permission="admin.investors.manage">
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => handleEdit(investor)}
+                              className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(investor.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </Can>
+                    </tr>
+                    {expandedRows[investor.id] && investor.user && investor.user.bank_accounts && (
+                      <tr className="bg-slate-50/40">
+                        <td colSpan={8} className="px-8 py-3.5 border-b border-slate-100">
+                          <div className="flex flex-col gap-2">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas Bancarias Registradas:</div>
+                            <div className="flex flex-wrap gap-3">
+                              {investor.user.bank_accounts.map((acc) => (
+                                <div key={acc.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-col gap-2 min-w-[220px] max-w-[260px] relative overflow-hidden">
+                                  <div className="absolute top-0 left-0 w-1 h-full bg-brand-500" />
+                                  <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 pl-1">
+                                    <span className="font-bold text-brand-700 uppercase tracking-wider text-xs">{acc.banco}</span>
+                                    <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold uppercase">{acc.tipo_cuenta}</span>
+                                  </div>
+                                  <div className="space-y-1 pl-1">
+                                    <div className="text-[9px] text-slate-400 uppercase font-medium tracking-wide">Número de Cuenta</div>
+                                    <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{acc.numero_cuenta}</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))
               )}
             </tbody>
