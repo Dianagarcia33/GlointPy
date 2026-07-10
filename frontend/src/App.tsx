@@ -13,6 +13,8 @@ import { RegisterPage } from "./features/auth/pages/RegisterPage";
 import { WelcomeOnboardingPage } from "./features/auth/pages/WelcomeOnboardingPage";
 import { ForceChangePasswordPage } from "./features/auth/pages/ForceChangePasswordPage";
 import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditionsPage";
+import { PrivacyPolicyPage } from "./features/landing/pages/PrivacyPolicyPage";
+import { LegalNoticePage } from "./features/landing/pages/LegalNoticePage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { WalletsPage } from "./features/wallets/pages/WalletsPage";
@@ -61,6 +63,8 @@ function App() {
         <Route path="/contact" element={<ContactoPage />} />
       </Route>
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
+      <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+      <Route path="/legal" element={<LegalNoticePage />} />
       <Route path="/onboarding" element={<GuestRoute><WelcomeOnboardingPage /></GuestRoute>} />
       <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
       <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
