@@ -5,7 +5,8 @@ from fastapi import HTTPException, status
 from src.models.user import User
 from src.models.security import Role
 from src.schemas.auth import LoginRequest, RegisterRequest, ForceChangePasswordRequest
-from src.core.security import verify_password, get_password_hash, create_access_token
+from src.core.security import verify_password, get_password_hash, create_access_token, create_password_reset_token, verify_password_reset_token
+from src.services.email_service import EmailService
 
 class AuthService:
     
@@ -94,3 +95,55 @@ class AuthService:
         await db.commit()
         await db.refresh(user)
         return user
+
+    @staticmethod
+    async def request_password_reset(db: AsyncSession, email: str) -> bool:
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalars().first()
+        
+        if not user or not user.is_active:
+            # Por razones de seguridad (evitar enumeración de usuarios), 
+            # devolvemos True o un mensaje genérico aunque no exista el usuario.
+            return True
+            
+        token = create_password_reset_token(user.email, user.password_hash)
+        # Enviar email
+        EmailService.send_password_reset_email(user.email, token)
+        return True
+
+    @staticmethod
+    async def reset_password(db: AsyncSession, token: str, new_password: str) -> bool:
+        payload = verify_password_reset_token(token)
+        if not payload:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token inválido o expirado."
+            )
+            
+        email = payload.get("sub")
+        hash_fragment = payload.get("hash_fragment")
+        
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalars().first()
+        
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token inválido o expirado."
+            )
+            
+        # Verificar que el hash siga siendo el mismo (el token no se ha invalidado)
+        current_hash_fragment = user.password_hash[-10:] if user.password_hash else ""
+        if hash_fragment != current_hash_fragment:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este enlace ya fue utilizado o es inválido."
+            )
+            
+        # Cambiar la contraseña
+        user.password_hash = get_password_hash(new_password)
+        # Si tenía el flag de obligatoriedad, lo quitamos
+        user.must_change_password = False
+        
+        await db.commit()
+        return True

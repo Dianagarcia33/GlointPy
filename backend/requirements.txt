@@ -19,3 +19,4 @@ python-dotenv
 greenlet
 boto3
 opencv-python-headless
+resend

@@ -55,3 +55,26 @@ def create_refresh_token(subject: Union[str, Any], expires_delta: timedelta = No
         algorithm=settings.ALGORITHM
     )
     return encoded_jwt
+
+def create_password_reset_token(email: str, password_hash: str) -> str:
+    """Genera un token temporal para recuperación de contraseña."""
+    expire = datetime.utcnow() + timedelta(minutes=15)
+    # Incluimos un pedazo del hash de la contraseña actual para que el token se invalide 
+    # automáticamente si la contraseña es cambiada por otro medio o si se usa el token una vez.
+    to_encode = {
+        "exp": expire,
+        "sub": email,
+        "type": "reset_password",
+        "hash_fragment": password_hash[-10:] if password_hash else ""
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+def verify_password_reset_token(token: str) -> dict:
+    """Verifica y decodifica un token de recuperación. Devuelve el payload si es válido."""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("type") != "reset_password":
+            return None
+        return payload
+    except Exception:
+        return None

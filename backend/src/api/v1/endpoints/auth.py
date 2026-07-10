@@ -4,7 +4,7 @@ from typing import Any
 
 from src.core.database import get_db
 from src.core.security import create_access_token
-from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest
+from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
 from src.schemas.user import UserResponse
 from src.services.auth_service import AuthService
 from src.api.deps import get_current_user
@@ -59,6 +59,22 @@ async def force_change_password(data: ForceChangePasswordRequest, db: AsyncSessi
         "token_type": "bearer",
         "user": user
     }
+
+@router.post("/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Envía un correo de recuperación de contraseña si el correo existe en la base de datos.
+    """
+    await AuthService.request_password_reset(db, data.email)
+    return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
+
+@router.post("/reset-password")
+async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Valida el token de recuperación y establece una nueva contraseña.
+    """
+    await AuthService.reset_password(db, data.token, data.new_password)
+    return {"message": "Tu contraseña ha sido actualizada exitosamente."}
 
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)) -> Any:

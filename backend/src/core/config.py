@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     AWS_REGION: str = "us-east-1"
 
+    # Resend Email Settings
+    RESEND_API_KEY: Optional[str] = None
+    SENDER_EMAIL: str = "soporte@gloint.com.co"
+    
+    # Frontend URL for emails
+    FRONTEND_URL: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
         env_file_encoding="utf-8",

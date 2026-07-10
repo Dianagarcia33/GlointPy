@@ -10,6 +10,8 @@ import { ContactoPage } from "./features/landing_v2/pages/ContactoPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
+import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
 import { WelcomeOnboardingPage } from "./features/auth/pages/WelcomeOnboardingPage";
 import { ForceChangePasswordPage } from "./features/auth/pages/ForceChangePasswordPage";
 import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditionsPage";
@@ -68,6 +70,8 @@ function App() {
       <Route path="/onboarding" element={<GuestRoute><WelcomeOnboardingPage /></GuestRoute>} />
       <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
       <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
+      <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+      <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
       <Route path="/force-change-password" element={<GuestRoute><ForceChangePasswordPage /></GuestRoute>} />
       
       {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
