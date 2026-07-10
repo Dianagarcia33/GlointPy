@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import { motion, useInView, useMotionValue, useSpring } from "motion/react";
+import { motion, useInView, useMotionValue, useSpring, useMotionValueEvent } from "motion/react";
 
 export function FadeUp({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = useRef(null);
@@ -35,19 +35,22 @@ export function FadeIn({ children, delay = 0, className = "" }: { children: Reac
 
 export function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: string }) {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true });
+  const inView = useInView(ref, { once: true, margin: "0px" });
   const mv = useMotionValue(0);
-  const spring = useSpring(mv, { stiffness: 60, damping: 18 });
+  const spring = useSpring(mv, { stiffness: 50, damping: 20 });
   const [display, setDisplay] = useState(0);
 
-  useEffect(() => {
-    const unsub = spring.on("change", (v) => setDisplay(Math.round(v)));
-    return unsub;
-  }, [spring]);
+  useMotionValueEvent(spring, "change", (latest) => {
+    setDisplay(Math.round(latest));
+  });
 
-  useEffect(() => { if (inView) mv.set(value); }, [inView, mv, value]);
+  useEffect(() => { 
+    if (inView) {
+      mv.set(value);
+    } 
+  }, [inView, mv, value]);
 
-  return <span ref={ref}>{display.toLocaleString()}{suffix}</span>;
+  return <span ref={ref} style={{ display: 'inline-block' }}>{display.toLocaleString()}{suffix}</span>;
 }
 
 // ─── Brand colours ────────────────────────────────────────────────────────────
