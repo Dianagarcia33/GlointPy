@@ -5,12 +5,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
 
-const CITIES = [
-    "Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", 
-    "Bucaramanga", "Manizales", "Pereira", "Cúcuta", "Ibagué", 
-    "Villavicencio", "Santa Marta", "Valledupar", "Montería", "Pasto", "Otra"
-];
-
 export const InvestorRegistrationFlow = () => {
     const [step, setStep] = useState(1);
     
@@ -46,6 +40,13 @@ export const InvestorRegistrationFlow = () => {
     const [showCustomCity, setShowCustomCity] = useState(false);
     const [uploadingComprobante, setUploadingComprobante] = useState(false);
 
+    // Departments & Cities dynamic fetch
+    const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
+    const [cities, setCities] = useState<{ id: number; name: string }[]>([]);
+    const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+    const [loadingDepartments, setLoadingDepartments] = useState(false);
+    const [loadingCities, setLoadingCities] = useState(false);
+
     const navigate = useNavigate();
     const loginAction = useAuthStore((state) => state.login);
 
@@ -57,6 +58,87 @@ export const InvestorRegistrationFlow = () => {
 
     const paquetes = config?.paquetes || [];
     const periodos = config?.periodos || [];
+
+    // Fetch Departments on Mount
+    React.useEffect(() => {
+        const fetchDepartments = async () => {
+            try {
+                setLoadingDepartments(true);
+                const response = await fetch('https://api-colombia.com/api/v1/Department');
+                if (!response.ok) throw new Error("API error");
+                const data = await response.json();
+                const sorted = data.sort((a: any, b: any) => a.name.localeCompare(b.name));
+                setDepartments(sorted);
+            } catch (err) {
+                console.error("Error fetching departments", err);
+                // Fallback list of departments in case public API is down
+                setDepartments([
+                    { id: 1, name: "Antioquia" },
+                    { id: 2, name: "Bogotá D.C." },
+                    { id: 3, name: "Valle del Cauca" },
+                    { id: 4, name: "Atlántico" },
+                    { id: 5, name: "Bolívar" },
+                    { id: 6, name: "Santander" },
+                    { id: 7, name: "Caldas" },
+                    { id: 8, name: "Risaralda" },
+                    { id: 9, name: "Norte de Santander" },
+                    { id: 10, name: "Tolima" },
+                    { id: 11, name: "Meta" },
+                    { id: 12, name: "Magdalena" },
+                    { id: 13, name: "Cesar" },
+                    { id: 14, name: "Córdoba" },
+                    { id: 15, name: "Nariño" }
+                ]);
+            } finally {
+                setLoadingDepartments(false);
+            }
+        };
+        fetchDepartments();
+    }, []);
+
+    // Handle Department Selection & Fetch Cities
+    const handleDepartmentChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const deptId = e.target.value;
+        setSelectedDepartmentId(deptId);
+        setFormData(prev => ({ ...prev, ciudad: '' }));
+        setShowCustomCity(false);
+        setCities([]);
+        
+        if (!deptId) return;
+
+        try {
+            setLoadingCities(true);
+            const response = await fetch(`https://api-colombia.com/api/v1/Department/${deptId}/cities`);
+            if (!response.ok) throw new Error("API error");
+            const data = await response.json();
+            const sorted = data.sort((a: any, b: any) => a.name.localeCompare(b.name));
+            setCities([...sorted, { id: 9999, name: "Otra" }]);
+        } catch (err) {
+            console.error("Error fetching cities", err);
+            // Fallback cities for major departments
+            const fallbackCities: Record<string, { id: number; name: string }[]> = {
+                "1": [{ id: 101, name: "Medellín" }, { id: 102, name: "Bello" }, { id: 103, name: "Envigado" }, { id: 104, name: "Itagüí" }, { id: 105, name: "Rionegro" }],
+                "2": [{ id: 201, name: "Bogotá" }],
+                "3": [{ id: 301, name: "Cali" }, { id: 302, name: "Palmira" }, { id: 303, name: "Tuluá" }, { id: 304, name: "Buenaventura" }, { id: 305, name: "Yumbo" }],
+                "4": [{ id: 401, name: "Barranquilla" }, { id: 402, name: "Soledad" }],
+                "5": [{ id: 501, name: "Cartagena" }],
+                "6": [{ id: 601, name: "Bucaramanga" }, { id: 602, name: "Floridablanca" }, { id: 603, name: "Girón" }],
+                "7": [{ id: 701, name: "Manizales" }],
+                "8": [{ id: 801, name: "Pereira" }],
+                "9": [{ id: 901, name: "Cúcuta" }],
+                "10": [{ id: 1001, name: "Ibagué" }],
+                "11": [{ id: 1101, name: "Villavicencio" }],
+                "12": [{ id: 1201, name: "Santa Marta" }],
+                "13": [{ id: 1301, name: "Valledupar" }],
+                "14": [{ id: 1401, name: "Montería" }],
+                "15": [{ id: 1501, name: "Pasto" }]
+            };
+            const list = fallbackCities[deptId] || [];
+            setCities([...list, { id: 9999, name: "Otra" }]);
+        } finally {
+            setLoadingCities(false);
+        }
+    };
 
     // KYC Upload Mutation (No OCR, just save files)
     const uploadKycDocsMutation = useMutation({
@@ -299,12 +381,12 @@ export const InvestorRegistrationFlow = () => {
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <User className="h-5 w-5 text-slate-400" />
                                     </div>
-                                    <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" placeholder="Ej: Ana Pérez" />
+                                    <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900 animate-none" placeholder="Ej: Ana Pérez" />
                                 </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Doc. *</label>
-                                <select required name="tipo_documento" value={formData.tipo_documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                <select required name="tipo_documento" value={formData.tipo_documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
                                     <option value="">Selecciona...</option>
                                     <option value="CC">Cédula</option>
                                     <option value="CE">Cédula Extranjería</option>
@@ -317,7 +399,7 @@ export const InvestorRegistrationFlow = () => {
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <FileText className="h-5 w-5 text-slate-400" />
                                     </div>
-                                    <input required type="text" name="documento" value={formData.documento} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" placeholder="Ej: 12345678" />
+                                    <input required type="text" name="documento" value={formData.documento} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 12345678" />
                                 </div>
                             </div>
                             <div>
@@ -326,30 +408,60 @@ export const InvestorRegistrationFlow = () => {
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <Phone className="h-5 w-5 text-slate-400" />
                                     </div>
-                                    <input required type="text" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" placeholder="Ej: 3001234567" />
+                                    <input required type="text" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 3001234567" />
                                 </div>
                             </div>
+                            
+                            {/* Departamento Select */}
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1">Departamento *</label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                        <MapPin className="h-5 w-5 text-slate-400" />
+                                    </div>
+                                    <select 
+                                        required 
+                                        value={selectedDepartmentId} 
+                                        onChange={handleDepartmentChange} 
+                                        className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
+                                        disabled={loadingDepartments}
+                                    >
+                                        <option value="">{loadingDepartments ? 'Cargando...' : 'Selecciona...'}</option>
+                                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Ciudad Select (filtered by department) */}
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Ciudad *</label>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <MapPin className="h-5 w-5 text-slate-400" />
                                     </div>
-                                    <select required name="ciudad" value={formData.ciudad} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
-                                        <option value="">Selecciona...</option>
-                                        {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    <select 
+                                        required 
+                                        name="ciudad" 
+                                        value={formData.ciudad} 
+                                        onChange={handleChange} 
+                                        className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
+                                        disabled={!selectedDepartmentId || loadingCities}
+                                    >
+                                        <option value="">{loadingCities ? 'Cargando...' : 'Selecciona...'}</option>
+                                        {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                     </select>
                                 </div>
                             </div>
+
                             {showCustomCity && (
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué ciudad? *</label>
-                                    <input required type="text" name="custom_ciudad" value={formData.custom_ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
+                                    <input required type="text" name="custom_ciudad" value={formData.custom_ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
                                 </div>
                             )}
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Nacimiento</label>
-                                <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" />
+                                <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico *</label>
@@ -357,7 +469,7 @@ export const InvestorRegistrationFlow = () => {
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <Mail className="h-5 w-5 text-slate-400" />
                                     </div>
-                                    <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" placeholder="tu@correo.com" />
+                                    <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="tu@correo.com" />
                                 </div>
                             </div>
                             <div className="md:col-span-2">
@@ -366,7 +478,7 @@ export const InvestorRegistrationFlow = () => {
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <LockKeyhole className="h-5 w-5 text-slate-400" />
                                     </div>
-                                    <input required minLength={8} type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" placeholder="Mínimo 8 caracteres" />
+                                    <input required minLength={8} type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
                                         {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
                                     </button>
@@ -383,11 +495,11 @@ export const InvestorRegistrationFlow = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Banco *</label>
-                                <input required type="text" name="banco" value={formData.banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" placeholder="Ej: Bancolombia" />
+                                <input required type="text" name="banco" value={formData.banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Bancolombia" />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta *</label>
-                                <select required name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                <select required name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
                                     <option value="">Selecciona...</option>
                                     <option value="Ahorros">Ahorros</option>
                                     <option value="Corriente">Corriente</option>
@@ -395,7 +507,7 @@ export const InvestorRegistrationFlow = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Número de Cuenta *</label>
-                                <input required type="text" name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500" placeholder="Ej: 123456789" />
+                                <input required type="text" name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 123456789" />
                             </div>
                         </div>
                     </div>
@@ -408,7 +520,7 @@ export const InvestorRegistrationFlow = () => {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Paquete de Inversión *</label>
-                                <select required name="paquete_id" value={formData.paquete_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                <select required name="paquete_id" value={formData.paquete_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
                                     <option value="">Selecciona un paquete...</option>
                                     {paquetes.map((p: any) => (
                                         <option key={p.id} value={p.id}>{p.paquete_accion_adquirido}</option>
@@ -424,7 +536,7 @@ export const InvestorRegistrationFlow = () => {
 
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-1">Plazo del Contrato *</label>
-                                <select required name="periodo_id" value={formData.periodo_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500">
+                                <select required name="periodo_id" value={formData.periodo_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
                                     <option value="">Selecciona el plazo...</option>
                                     {periodos.map((p: any) => (
                                         <option key={p.id} value={p.id}>{p.name} ({p.months} meses al {p.percentage}%)</option>
