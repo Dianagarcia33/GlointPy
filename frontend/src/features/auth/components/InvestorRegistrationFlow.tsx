@@ -6,6 +6,8 @@ import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
 
 export const InvestorRegistrationFlow = () => {
+    const [step, setStep] = useState(1);
+    
     // KYC Images States
     const [frontImage, setFrontImage] = useState<File | null>(null);
     const [backImage, setBackImage] = useState<File | null>(null);
@@ -249,6 +251,29 @@ export const InvestorRegistrationFlow = () => {
         registerMutation.mutate(payload);
     };
 
+    // Validation helpers for wizard steps
+    const isStep1Valid = () => {
+        const cityValid = formData.ciudad === 'Otra' ? !!formData.custom_ciudad : !!formData.ciudad;
+        return (
+            !!formData.name &&
+            !!formData.tipo_documento &&
+            !!formData.documento &&
+            !!formData.numero_celular &&
+            !!selectedDepartmentId &&
+            cityValid &&
+            !!formData.email &&
+            formData.password.length >= 8
+        );
+    };
+
+    const isStep2Valid = () => {
+        return !!frontPath && !!backPath && !!selfiePath;
+    };
+
+    const isStep3Valid = () => {
+        return !!formData.banco && !!formData.tipo_cuenta && !!formData.numero_cuenta;
+    };
+
     // Calculations
     const getCalculations = () => {
         const monto = parseFloat(formData.monto) || 0;
@@ -302,7 +327,7 @@ export const InvestorRegistrationFlow = () => {
             <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
                 {uploading ? (
                     <>
-                        <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-3" />
+                        <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-3 animate-none" />
                         <p className="text-sm font-semibold text-slate-700">Subiendo...</p>
                     </>
                 ) : hasPath ? (
@@ -324,286 +349,391 @@ export const InvestorRegistrationFlow = () => {
         </label>
     );
 
+    const stepsInfo = [
+        { num: 1, label: "Datos" },
+        { num: 2, label: "Documentos" },
+        { num: 3, label: "Banco" },
+        { num: 4, label: "Pago" }
+    ];
+
     return (
         <div className="w-full">
-            <form onSubmit={handleFinalSubmit} className="space-y-8 animate-fadeIn max-w-xl mx-auto text-left">
-                
-                {/* Section: Personal Info */}
-                <div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                        <User className="w-5 h-5 text-brand-600" /> Datos Personales
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Completo *</label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <User className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Ana Pérez" />
+            
+            {/* Steps Progress Indicator */}
+            <div className="mb-8 max-w-xl mx-auto">
+                <div className="flex items-center justify-between relative">
+                    <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-200 -translate-y-1/2 z-0"></div>
+                    {stepsInfo.map((s) => (
+                        <div key={s.num} className="flex flex-col items-center z-10 relative bg-white px-2">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+                                step === s.num
+                                    ? 'bg-brand-600 text-white ring-4 ring-brand-100'
+                                    : step > s.num
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'bg-slate-200 text-slate-500'
+                            }`}>
+                                {step > s.num ? '✓' : s.num}
                             </div>
+                            <span className={`text-[10px] font-semibold mt-1 transition-all duration-300 ${
+                                step === s.num ? 'text-brand-600' : 'text-slate-500'
+                            }`}>
+                                {s.label}
+                            </span>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Doc. *</label>
-                            <select required name="tipo_documento" value={formData.tipo_documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                <option value="">Selecciona...</option>
-                                <option value="CC">Cédula</option>
-                                <option value="CE">Cédula Extranjería</option>
-                                <option value="PAS">Pasaporte</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Documento *</label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <FileText className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <input required type="text" name="documento" value={formData.documento} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 12345678" />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Celular *</label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <Phone className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <input required type="text" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 3001234567" />
-                            </div>
-                        </div>
-                        
-                        {/* Departamento Select */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Departamento *</label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <MapPin className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <select 
-                                    required 
-                                    value={selectedDepartmentId} 
-                                    onChange={handleDepartmentChange} 
-                                    className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
-                                    disabled={loadingDepartments}
-                                >
-                                    <option value="">{loadingDepartments ? 'Cargando...' : 'Selecciona...'}</option>
-                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Ciudad Select */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Ciudad *</label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <MapPin className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <select 
-                                    required 
-                                    name="ciudad" 
-                                    value={formData.ciudad} 
-                                    onChange={handleChange} 
-                                    className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
-                                    disabled={!selectedDepartmentId || loadingCities}
-                                >
-                                    <option value="">{loadingCities ? 'Cargando...' : 'Selecciona...'}</option>
-                                    {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        {showCustomCity && (
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué ciudad? *</label>
-                                <input required type="text" name="custom_ciudad" value={formData.custom_ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
-                            </div>
-                        )}
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Nacimiento</label>
-                            <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico *</label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <Mail className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="tu@correo.com" />
-                            </div>
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña *</label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <LockKeyhole className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <input required minLength={8} type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
-                                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
-                                    {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    ))}
                 </div>
+            </div>
 
-                {/* Section: KYC Documents */}
-                <div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                        <FileText className="w-5 h-5 text-brand-600" /> Documentos de Identidad
-                    </h3>
-                    <p className="text-xs text-slate-500 mb-4">Sube tus fotos para verificar tu identidad manualmente.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FileUploadZone 
-                            label="Foto Frontal del Documento" 
-                            file={frontImage} 
-                            uploading={uploadingFront}
-                            hasPath={!!frontPath}
-                            onChange={(file) => {
-                                setFrontImage(file);
-                                uploadKycFile(file, 'front');
-                            }} 
-                        />
-                        <FileUploadZone 
-                            label="Foto Trasera del Documento" 
-                            file={backImage} 
-                            uploading={uploadingBack}
-                            hasPath={!!backPath}
-                            onChange={(file) => {
-                                setBackImage(file);
-                                uploadKycFile(file, 'back');
-                            }} 
-                        />
-                        <FileUploadZone 
-                            label="Selfie (Foto de tu Rostro)" 
-                            file={selfieImage} 
-                            uploading={uploadingSelfie}
-                            hasPath={!!selfiePath}
-                            onChange={(file) => {
-                                setSelfieImage(file);
-                                uploadKycFile(file, 'selfie');
-                            }} 
-                        />
-                    </div>
-                </div>
-
-                {/* Section: Bank Info */}
-                <div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                        <Landmark className="w-5 h-5 text-brand-600" /> Datos Bancarios para Desembolsos
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Banco *</label>
-                            <input required type="text" name="banco" value={formData.banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Bancolombia" />
-                        </div>
+            <div className="max-w-xl mx-auto text-left">
+                {/* Step 1: Personal Info */}
+                {step === 1 && (
+                    <div className="space-y-6 animate-fadeIn">
                         <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta *</label>
-                            <select required name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                <option value="">Selecciona...</option>
-                                <option value="Ahorros">Ahorros</option>
-                                <option value="Corriente">Corriente</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Número de Cuenta *</label>
-                            <input required type="text" name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 123456789" />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Section: Investment Info */}
-                <div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                        <CreditCard className="w-5 h-5 text-brand-600" /> Detalles de tu Inversión
-                    </h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Paquete de Inversión *</label>
-                            <select required name="paquete_id" value={formData.paquete_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                <option value="">Selecciona un paquete...</option>
-                                {paquetes.map((p: any) => (
-                                    <option key={p.id} value={p.id}>{p.paquete_accion_adquirido}</option>
-                                ))}
-                                <option value="custom">Personalizado (Ingresar Monto)</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Monto a Invertir (COP) *</label>
-                            <input required type="number" min="0" step="1000" name="monto" value={formData.monto} onChange={handleChange} readOnly={!isCustomMonto} className={`w-full px-4 py-2.5 border rounded-lg outline-none ${isCustomMonto ? 'bg-white border-slate-300 focus:ring-2 focus:ring-brand-500' : 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'}`} placeholder="Ej: 5000000" />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Plazo del Contrato *</label>
-                            <select required name="periodo_id" value={formData.periodo_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                <option value="">Selecciona el plazo...</option>
-                                {periodos.map((p: any) => (
-                                    <option key={p.id} value={p.id}>{p.name} ({p.months} meses al {p.percentage}%)</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {calc && (
-                            <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-brand-900 mt-4 shadow-sm">
-                                <h4 className="font-bold mb-3 flex items-center gap-2 text-sm">
-                                    <Calculator className="w-4 h-4" /> Proyección de Rendimiento
-                                </h4>
-                                <div className="grid grid-cols-2 gap-3 text-sm">
-                                    <div>
-                                        <p className="text-brand-600/80 text-xs font-semibold uppercase">Rendimiento Mensual</p>
-                                        <p className="font-bold">{formatCOP(calc.rendimientoMensual)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-brand-600/80 text-xs font-semibold uppercase">Rendimiento Total ({calc.meses}m)</p>
-                                        <p className="font-bold">{formatCOP(calc.rendimientoTotal)}</p>
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                                <User className="w-5 h-5 text-brand-600" /> Datos Personales
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Completo *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <User className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Ana Pérez" />
                                     </div>
                                 </div>
-                                <div className="mt-3 pt-3 border-t border-brand-200/50 flex justify-between items-center">
-                                    <span className="font-bold text-sm">Capital + Rendimiento:</span>
-                                    <span className="font-black text-lg text-brand-700">{formatCOP(calc.totalContrato)}</span>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Doc. *</label>
+                                    <select required name="tipo_documento" value={formData.tipo_documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
+                                        <option value="">Selecciona...</option>
+                                        <option value="CC">Cédula</option>
+                                        <option value="CE">Cédula Extranjería</option>
+                                        <option value="PAS">Pasaporte</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Documento *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <FileText className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required type="text" name="documento" value={formData.documento} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 12345678" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Celular *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <Phone className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required type="text" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 3001234567" />
+                                    </div>
+                                </div>
+                                
+                                {/* Departamento Select */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Departamento *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <MapPin className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <select 
+                                            required 
+                                            value={selectedDepartmentId} 
+                                            onChange={handleDepartmentChange} 
+                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
+                                            disabled={loadingDepartments}
+                                        >
+                                            <option value="">{loadingDepartments ? 'Cargando...' : 'Selecciona...'}</option>
+                                            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Ciudad Select */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Ciudad *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <MapPin className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <select 
+                                            required 
+                                            name="ciudad" 
+                                            value={formData.ciudad} 
+                                            onChange={handleChange} 
+                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
+                                            disabled={!selectedDepartmentId || loadingCities}
+                                        >
+                                            <option value="">{loadingCities ? 'Cargando...' : 'Selecciona...'}</option>
+                                            {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {showCustomCity && (
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué ciudad? *</label>
+                                        <input required type="text" name="custom_ciudad" value={formData.custom_ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
+                                    </div>
+                                )}
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Nacimiento</label>
+                                    <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <Mail className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="tu@correo.com" />
+                                    </div>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <LockKeyhole className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required minLength={8} type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
+                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
+                                            {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        )}
-
-                        <div className="pt-2">
-                            <label className="block text-sm font-bold text-slate-700 mb-1">Comprobante de Pago *</label>
-                            <p className="text-xs text-slate-500 mb-2">Por favor sube la foto o el PDF de tu consignación.</p>
-                            <input required={!formData.comprobante_path} type="file" accept="image/*,.pdf" onChange={handleComprobanteUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer" />
-                            {formData.comprobante_path && <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Comprobante adjunto correctamente.</p>}
-                            {uploadingComprobante && <p className="text-xs text-brand-500 mt-2 flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin"/> Subiendo...</p>}
                         </div>
-                    </div>
-                </div>
 
-                {registerMutation.isError && (
-                    <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
-                        <span className="mt-0.5">⚠️</span>
-                        <span>{registerMutation.error instanceof Error ? registerMutation.error.message : 'Error al registrar tu inversión'}</span>
+                        <div className="flex justify-end pt-4">
+                            <button
+                                type="button"
+                                onClick={() => setStep(2)}
+                                disabled={!isStep1Valid()}
+                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
+                            >
+                                Siguiente paso
+                            </button>
+                        </div>
                     </div>
                 )}
 
-                <div className="border-t border-slate-200 pt-6">
-                    <div className="flex items-start gap-3 mb-6">
-                        <div className="flex items-center h-5 mt-0.5">
-                            <input id="terms" type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500" required />
+                {/* Step 2: KYC Documents */}
+                {step === 2 && (
+                    <div className="space-y-6 animate-fadeIn">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                                <FileText className="w-5 h-5 text-brand-600" /> Documentos de Identidad
+                            </h3>
+                            <p className="text-xs text-slate-500 mb-4">Sube tus fotos para verificar tu identidad manualmente.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <FileUploadZone 
+                                    label="Foto Frontal del Documento" 
+                                    file={frontImage} 
+                                    uploading={uploadingFront}
+                                    hasPath={!!frontPath}
+                                    onChange={(file) => {
+                                        setFrontImage(file);
+                                        uploadKycFile(file, 'front');
+                                    }} 
+                                />
+                                <FileUploadZone 
+                                    label="Foto Trasera del Documento" 
+                                    file={backImage} 
+                                    uploading={uploadingBack}
+                                    hasPath={!!backPath}
+                                    onChange={(file) => {
+                                        setBackImage(file);
+                                        uploadKycFile(file, 'back');
+                                    }} 
+                                />
+                                <FileUploadZone 
+                                    label="Selfie (Foto de tu Rostro)" 
+                                    file={selfieImage} 
+                                    uploading={uploadingSelfie}
+                                    hasPath={!!selfiePath}
+                                    onChange={(file) => {
+                                        setSelfieImage(file);
+                                        uploadKycFile(file, 'selfie');
+                                    }} 
+                                />
+                            </div>
                         </div>
-                        <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
-                            Declaro que la información proporcionada es verdadera y acepto los{' '}
-                            <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600">Términos y Condiciones</Link>
-                            {' '}de inversión.
-                        </label>
-                    </div>
 
-                    <button
-                        type="submit"
-                        disabled={registerMutation.isPending || !acceptedTerms || uploadingComprobante || !formData.comprobante_path}
-                        className="w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98]"
-                    >
-                        {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
-                        {registerMutation.isPending ? 'Enviando Solicitud...' : 'Confirmar y Enviar Solicitud'}
-                    </button>
-                </div>
-            </form>
+                        <div className="flex justify-between pt-4 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => setStep(1)}
+                                className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                            >
+                                Atrás
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setStep(3)}
+                                disabled={!isStep2Valid() || uploadingFront || uploadingBack || uploadingSelfie}
+                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
+                            >
+                                Siguiente paso
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 3: Bank Info */}
+                {step === 3 && (
+                    <div className="space-y-6 animate-fadeIn">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                                <Landmark className="w-5 h-5 text-brand-600" /> Datos Bancarios para Desembolsos
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Banco *</label>
+                                    <input required type="text" name="banco" value={formData.banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Bancolombia" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta *</label>
+                                    <select required name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
+                                        <option value="">Selecciona...</option>
+                                        <option value="Ahorros">Ahorros</option>
+                                        <option value="Corriente">Corriente</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Número de Cuenta *</label>
+                                    <input required type="text" name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 123456789" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between pt-4 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => setStep(2)}
+                                className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                            >
+                                Atrás
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setStep(4)}
+                                disabled={!isStep3Valid()}
+                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
+                            >
+                                Siguiente paso
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 4: Investment and Submission */}
+                {step === 4 && (
+                    <form onSubmit={handleFinalSubmit} className="space-y-6 animate-fadeIn">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                                <CreditCard className="w-5 h-5 text-brand-600" /> Detalles de tu Inversión
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Paquete de Inversión *</label>
+                                    <select required name="paquete_id" value={formData.paquete_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
+                                        <option value="">Selecciona un paquete...</option>
+                                        {paquetes.map((p: any) => (
+                                            <option key={p.id} value={p.id}>{p.paquete_accion_adquirido}</option>
+                                        ))}
+                                        <option value="custom">Personalizado (Ingresar Monto)</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Monto a Invertir (COP) *</label>
+                                    <input required type="number" min="0" step="1000" name="monto" value={formData.monto} onChange={handleChange} readOnly={!isCustomMonto} className={`w-full px-4 py-2.5 border rounded-lg outline-none ${isCustomMonto ? 'bg-white border-slate-300 focus:ring-2 focus:ring-brand-500' : 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'}`} placeholder="Ej: 5000000" />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Plazo del Contrato *</label>
+                                    <select required name="periodo_id" value={formData.periodo_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
+                                        <option value="">Selecciona el plazo...</option>
+                                        {periodos.map((p: any) => (
+                                            <option key={p.id} value={p.id}>{p.name} ({p.months} meses al {p.percentage}%)</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {calc && (
+                                    <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-brand-900 mt-4 shadow-sm">
+                                        <h4 className="font-bold mb-3 flex items-center gap-2 text-sm">
+                                            <Calculator className="w-4 h-4" /> Proyección de Rendimiento
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <p className="text-brand-600/80 text-xs font-semibold uppercase">Rendimiento Mensual</p>
+                                                <p className="font-bold">{formatCOP(calc.rendimientoMensual)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-brand-600/80 text-xs font-semibold uppercase">Rendimiento Total ({calc.meses}m)</p>
+                                                <p className="font-bold">{formatCOP(calc.rendimientoTotal)}</p>
+                                            </div>
+                                        </div>
+                                        <div className="mt-3 pt-3 border-t border-brand-200/50 flex justify-between items-center">
+                                            <span className="font-bold text-sm">Capital + Rendimiento:</span>
+                                            <span className="font-black text-lg text-brand-700">{formatCOP(calc.totalContrato)}</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="pt-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Comprobante de Pago *</label>
+                                    <p className="text-xs text-slate-500 mb-2">Por favor sube la foto o el PDF de tu consignación.</p>
+                                    <input required={!formData.comprobante_path} type="file" accept="image/*,.pdf" onChange={handleComprobanteUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer" />
+                                    {formData.comprobante_path && <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Comprobante adjunto correctamente.</p>}
+                                    {uploadingComprobante && <p className="text-xs text-brand-500 mt-2 flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin"/> Subiendo...</p>}
+                                </div>
+                            </div>
+                        </div>
+
+                        {registerMutation.isError && (
+                            <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
+                                <span className="mt-0.5">⚠️</span>
+                                <span>{registerMutation.error instanceof Error ? registerMutation.error.message : 'Error al registrar tu inversión'}</span>
+                            </div>
+                        )}
+
+                        <div className="border-t border-slate-200 pt-6">
+                            <div className="flex items-start gap-3 mb-6">
+                                <div className="flex items-center h-5 mt-0.5">
+                                    <input id="terms" type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500" required />
+                                </div>
+                                <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
+                                    Declaro que la información proporcionada es verdadera y acepto los{' '}
+                                    <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600">Términos y Condiciones</Link>
+                                    {' '}de inversión.
+                                </label>
+                            </div>
+
+                            <div className="flex justify-between pt-4 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(3)}
+                                    className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                                    disabled={registerMutation.isPending}
+                                >
+                                    Atrás
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={registerMutation.isPending || !acceptedTerms || uploadingComprobante || !formData.comprobante_path}
+                                    className="w-full md:w-auto px-8 py-3 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98]"
+                                >
+                                    {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
+                                    {registerMutation.isPending ? 'Enviando Solicitud...' : 'Confirmar y Enviar Solicitud'}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                )}
+            </div>
         </div>
     );
 };
