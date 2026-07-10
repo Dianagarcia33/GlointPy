@@ -103,6 +103,9 @@ export const ForceChangePasswordPage = () => {
                         </div>
                         <input
                             type={showPasswords ? "text" : "password"}
+                            id="newPassword"
+                            name="newPassword"
+                            autoComplete="new-password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
@@ -120,6 +123,9 @@ export const ForceChangePasswordPage = () => {
                         </div>
                         <input
                             type={showPasswords ? "text" : "password"}
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            autoComplete="new-password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             className={`block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all ${confirmPassword && newPassword !== confirmPassword ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}

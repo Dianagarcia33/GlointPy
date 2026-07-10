@@ -750,7 +750,7 @@ export const InvestorRegistrationFlow = () => {
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <Mail className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="tu@correo.com" />
+                                        <input required type="email" id="email" name="email" autoComplete="email" value={formData.email} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="tu@correo.com" />
                                     </div>
                                 </div>
                                 <div>
@@ -759,7 +759,7 @@ export const InvestorRegistrationFlow = () => {
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <LockKeyhole className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
+                                        <input required type={showPassword ? "text" : "password"} id="password" name="password" autoComplete="new-password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
                                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
                                             {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
                                         </button>
@@ -776,7 +776,7 @@ export const InvestorRegistrationFlow = () => {
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <LockKeyhole className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required type={showPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Repite tu contraseña" />
+                                        <input required type={showPassword ? "text" : "password"} id="confirmPassword" name="confirmPassword" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Repite tu contraseña" />
                                     </div>
                                     {confirmPassword && (
                                         <p className={`text-xs mt-1.5 font-semibold ${
