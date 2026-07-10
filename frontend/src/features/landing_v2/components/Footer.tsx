@@ -63,7 +63,7 @@ export function Footer() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Empresa</h4>
             <ul className="space-y-2">
-              {([["Inicio", "home"], ["Nosotros", "nosotros"], ["Servicios", "investment"], ["Contacto", "contacto"]] as [string, string][]).map(([l, p]) => (
+              {([["Inicio", "home"], ["Nosotros", "about"], ["Servicios", "investment"], ["Contacto", "contact"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}>
                   <button onClick={() => go(p)} className="text-slate-500 text-sm hover:text-white transition-colors text-left font-medium">{l}</button>
                 </li>

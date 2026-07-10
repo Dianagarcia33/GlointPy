@@ -1,4 +1,4 @@
-export type Page = "home" | "nosotros" | "investment" | "place" | "tech" | "contacto" | "registro";
+export type Page = "home" | "about" | "investment" | "place" | "tech" | "contact" | "registro";
 export const DARK = "#0d1526";
 export const DARK2 = "#111827";
 export const GOLD = "#C59B4E";

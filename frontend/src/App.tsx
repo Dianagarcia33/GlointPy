@@ -54,11 +54,11 @@ function App() {
     <Routes>
       <Route element={<GuestRoute><LandingLayout /></GuestRoute>}>
         <Route path="/" element={<LandingHome />} />
-        <Route path="/nosotros" element={<NosotrosPage />} />
+        <Route path="/about" element={<NosotrosPage />} />
         <Route path="/investment" element={<InvestmentPage />} />
         <Route path="/place" element={<PlacePage />} />
         <Route path="/tech" element={<TechPage />} />
-        <Route path="/contacto" element={<ContactoPage />} />
+        <Route path="/contact" element={<ContactoPage />} />
       </Route>
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
       <Route path="/onboarding" element={<GuestRoute><WelcomeOnboardingPage /></GuestRoute>} />

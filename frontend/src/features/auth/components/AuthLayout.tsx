@@ -1,6 +1,6 @@
 import React from 'react';
-import { Navbar } from '../../../components/layout/Navbar';
-import { Footer } from '../../../components/layout/Footer';
+import { Nav as Navbar } from '../../landing_v2/components/Nav';
+import { Footer } from '../../landing_v2/components/Footer';
 
 interface AuthLayoutProps {
   children: React.ReactNode;

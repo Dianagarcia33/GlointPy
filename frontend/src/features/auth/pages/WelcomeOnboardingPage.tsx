@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Building2, TrendingUp, ShieldCheck, ArrowRight, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { Navbar } from '../../../components/layout/Navbar';
+import { Nav as Navbar } from '../../landing_v2/components/Nav';
 
 type Role = 'client' | 'investor' | null;
 
