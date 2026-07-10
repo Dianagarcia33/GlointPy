@@ -15,7 +15,7 @@ class Wallet(Base):
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
     balance = Column(Numeric(15, 2), default=0.00, nullable=False)
     currency = Column(String(3), default="COP", nullable=False)
-    status = Column(Enum(WalletStatus), default=WalletStatus.ACTIVE, nullable=False)
+    status = Column(Enum(WalletStatus, values_callable=lambda obj: [e.value for e in obj]), default=WalletStatus.ACTIVE, nullable=False)
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
