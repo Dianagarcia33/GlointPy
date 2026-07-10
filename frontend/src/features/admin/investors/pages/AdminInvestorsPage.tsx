@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Investor, getInvestors, deleteInvestor } from '../../../../services/investors';
 import { InvestorModal } from '../components/InvestorModal';
 import { BulkUploadInvestorsModal } from '../components/BulkUploadInvestorsModal';
+import { BulkUploadInvestmentRequestsModal } from '../components/BulkUploadInvestmentRequestsModal';
 import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
 import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
 import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
@@ -88,6 +89,7 @@ export const AdminInvestorsPage = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isBulkReqModalOpen, setIsBulkReqModalOpen] = useState(false);
   const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
   const [isBulkWalletModalOpen, setIsBulkWalletModalOpen] = useState(false);
   const [isBulkTxModalOpen, setIsBulkTxModalOpen] = useState(false);
@@ -188,6 +190,20 @@ export const AdminInvestorsPage = () => {
         
         <Can permission="admin.investors.manage">
           <div className="flex gap-2">
+            <button 
+              onClick={() => setIsBulkReqModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Carga Solicitudes Inversión
+            </button>
+            <button 
+              onClick={() => setIsBulkModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Carga Masiva Inversionistas
+            </button>
             <button 
               onClick={() => setIsBulkTxModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
@@ -452,6 +468,15 @@ export const AdminInvestorsPage = () => {
         onClose={() => setIsBulkModalOpen(false)}
         onUploaded={() => {
           setIsBulkModalOpen(false);
+          fetchData();
+        }}
+      />
+
+      <BulkUploadInvestmentRequestsModal
+        isOpen={isBulkReqModalOpen}
+        onClose={() => setIsBulkReqModalOpen(false)}
+        onUploaded={() => {
+          setIsBulkReqModalOpen(false);
           fetchData();
         }}
       />
