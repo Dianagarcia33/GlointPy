@@ -35,9 +35,7 @@ export function NosotrosMisionVision() {
               Misión
             </div>
             <p className="text-slate-300 leading-relaxed text-sm relative z-10">
-              Impulsar el crecimiento de emprendedores, empresas e inversionistas mediante
-              soluciones innovadoras en inversión, comercio electrónico y tecnología,
-              generando oportunidades sostenibles en la economía digital latinoamericana.
+              Desarrollar empresas sostenibles que generen crecimiento económico, innovación y bienestar para clientes, colaboradores, inversionistas y aliados estratégicos
             </p>
           </div>
 
@@ -60,9 +58,7 @@ export function NosotrosMisionVision() {
               Visión
             </div>
             <p className="text-slate-600 leading-relaxed text-sm relative z-10">
-              Ser el ecosistema empresarial de referencia en Latinoamérica, reconocido
-              por conectar talento, capital y tecnología para crear negocios escalables
-              que transformen la vida de miles de emprendedores.
+              Consolidar a GLOINT GROUP como uno de los grupos empresariales más innovadores de Latinoamérica, integrando soluciones de tecnología, logística, servicios financieros, comercio electrónico e inversión.
             </p>
           </div>
         </div>
@@ -106,4 +102,3 @@ export function NosotrosMisionVision() {
     </section>
   );
 }
-

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   TrendingUp, ShoppingBag, Cpu, BarChart2, Shield, Globe, Zap,
@@ -12,6 +12,14 @@ import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 
 export function Footer() {
+  const navigate = useNavigate();
+
+  const go = (p: string) => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); };
+  const whatsappLink = "https://wa.me/573209573995";
+  const whatsappDisplay = "+57 320 957 3995";
+  const emailDisplay = "atencionalcliente@gloint.com.co";
+  const addressDisplay = "Calle 31 # 14 - 31 oficina 201";
+
   return (
     <footer style={{ background: "#080e1b" }} className="pt-16 pb-8">
       <div className="max-w-6xl mx-auto px-6">
@@ -32,7 +40,22 @@ export function Footer() {
               Ecosistema empresarial de inversión, comercio digital y tecnología.
             </p>
             <div className="flex gap-3">
-              {/* Icons removed */}
+              <a
+                href="https://web.facebook.com/people/Gloint-SAS/100090908195698/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:bg-[#1877f2] hover:text-white transition-all border border-slate-700/30"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+              </a>
+              <a
+                href="https://www.instagram.com/gloint.oficial/?hl=es"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:bg-[#c13584] hover:text-white transition-all border border-slate-700/30"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+              </a>
             </div>
           </div>
 
@@ -40,9 +63,9 @@ export function Footer() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Empresa</h4>
             <ul className="space-y-2">
-              {["Inicio", "Nosotros", "Servicios", "Contacto"].map((l) => (
+              {([["Inicio", "home"], ["Nosotros", "nosotros"], ["Servicios", "investment"], ["Contacto", "contacto"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}>
-                  <a href="#" className="text-slate-500 text-sm hover:text-white transition-colors">{l}</a>
+                  <button onClick={() => go(p)} className="text-slate-500 text-sm hover:text-white transition-colors text-left font-medium">{l}</button>
                 </li>
               ))}
             </ul>
@@ -52,9 +75,9 @@ export function Footer() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Unidades</h4>
             <ul className="space-y-2">
-              {["GLOINT Investment", "GLOINT Place", "GLOINT Tech"].map((l) => (
+              {([["GLOINT Investment", "investment"], ["GLOINT Place", "place"], ["GLOINT Tech", "tech"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}>
-                  <a href="#" className="text-slate-500 text-sm hover:text-white transition-colors">{l}</a>
+                  <button onClick={() => go(p)} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button>
                 </li>
               ))}
             </ul>
@@ -73,15 +96,15 @@ export function Footer() {
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <Mail size={13} style={{ color: GOLD }} />
-                contacto@gloint.com
+                <a href={`mailto:${emailDisplay}`} className="hover:underline">{emailDisplay}</a>
               </div>
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <Phone size={13} style={{ color: GOLD }} />
-                +57 320 957 3995
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="hover:underline">{whatsappDisplay}</a>
               </div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs">
-                <MapPin size={13} style={{ color: GOLD }} />
-                Colombia
+              <div className="flex items-start gap-2 text-slate-500 text-xs">
+                <MapPin size={13} className="mt-0.5 flex-shrink-0" style={{ color: GOLD }} />
+                <span>{addressDisplay}</span>
               </div>
             </div>
           </div>
@@ -102,8 +125,3 @@ export function Footer() {
     </footer>
   );
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// NOSOTROS PAGE
-// ══════════════════════════════════════════════════════════════════════════════
-

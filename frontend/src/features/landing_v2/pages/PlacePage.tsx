@@ -27,6 +27,10 @@ export function PlacePage() {
     { emoji: "🍳", name: "Cocina & Hogar", tag: "Nuevo", tagColor: "#f59e0b" },
   ];
 
+  const handleGoToCatalog = () => {
+    window.open("https://glointplace.com.co", "_blank", "noopener,noreferrer");
+  };
+
   return (
     <>
       {/* Hero */}
@@ -43,11 +47,12 @@ export function PlacePage() {
             Plataforma de comercio electrónico enfocada en productos innovadores, diferenciadores y de tendencia, con cobertura de envíos a nivel nacional.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90" style={{ background: `linear-gradient(90deg, ${ORANGE}, #ea580c)` }}>
+            <button 
+              onClick={handleGoToCatalog}
+              className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90 animate-none" 
+              style={{ background: `linear-gradient(90deg, ${ORANGE}, #ea580c)` }}
+            >
               Ver catálogo
-            </button>
-            <button className="px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90" style={{ border: `1px solid ${ORANGE}`, color: ORANGE, background: `${ORANGE}10` }}>
-              Registrarme como vendedor
             </button>
           </div>
         </div>
@@ -166,8 +171,14 @@ export function PlacePage() {
           </h2>
           <p className="text-slate-300 mb-10">Únete a miles de compradores que eligen GLOINT Place por su calidad, variedad y servicio.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90" style={{ background: `linear-gradient(90deg, ${ORANGE}, #ea580c)` }}>Explorar catálogo</button>
-            <button onClick={() => { navigate('/investment'); window.scrollTo({ top: 0 }); }} className="px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90" style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "rgba(255,255,255,0.06)" }}>Ver GLOINT Investment</button>
+            <button 
+              onClick={handleGoToCatalog}
+              className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90" 
+              style={{ background: `linear-gradient(90deg, ${ORANGE}, #ea580c)` }}
+            >
+              Explorar catálogo
+            </button>
+            <button onClick={() => { navigate('/nosotros'); window.scrollTo({ top: 0 }); }} className="px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90" style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "rgba(255,255,255,0.06)" }}>Ver GLOINT Investment</button>
           </div>
         </div>
       </section>
@@ -176,7 +187,3 @@ export function PlacePage() {
     </>
   );
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// GLOINT TECH PAGE
-// ══════════════════════════════════════════════════════════════════════════════

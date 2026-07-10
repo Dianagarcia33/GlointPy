@@ -16,6 +16,11 @@ export function SharedFooter() {
   const navigate = useNavigate();
 
   const go = (p: string) => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); };
+  const whatsappLink = "https://wa.me/573209573995";
+  const whatsappDisplay = "+57 320 957 3995";
+  const emailDisplay = "atencionalcliente@gloint.com.co";
+  const addressDisplay = "Calle 31 # 14 - 31 oficina 201";
+
   return (
     <footer style={{ background: "#080e1b" }} className="pt-16 pb-8">
       <div className="max-w-6xl mx-auto px-6">
@@ -26,7 +31,22 @@ export function SharedFooter() {
             </div>
             <p className="text-slate-500 text-sm leading-relaxed mb-6">Ecosistema empresarial de inversión, comercio digital y tecnología.</p>
             <div className="flex gap-3">
-              {/* Removed icons */}
+              <a
+                href="https://web.facebook.com/people/Gloint-SAS/100090908195698/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:bg-[#1877f2] hover:text-white transition-all border border-slate-700/30"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+              </a>
+              <a
+                href="https://www.instagram.com/gloint.oficial/?hl=es"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:bg-[#c13584] hover:text-white transition-all border border-slate-700/30"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+              </a>
             </div>
           </div>
           <div>
@@ -35,7 +55,7 @@ export function SharedFooter() {
               {([["Inicio", "home"], ["Nosotros", "nosotros"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}><button onClick={() => go(p)} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button></li>
               ))}
-              <li><a href="#" className="text-slate-500 text-sm hover:text-white transition-colors">Contacto</a></li>
+              <li><button onClick={() => go("contacto")} className="text-slate-500 text-sm hover:text-white transition-colors text-left font-medium">Contacto</button></li>
             </ul>
           </div>
           <div>
@@ -54,9 +74,18 @@ export function SharedFooter() {
               ))}
             </ul>
             <div className="mt-6 space-y-2">
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><Mail size={13} style={{ color: GOLD }} /> contacto@gloint.com</div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><Phone size={13} style={{ color: GOLD }} /> +57 320 957 3995</div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><MapPin size={13} style={{ color: GOLD }} /> Colombia</div>
+              <div className="flex items-center gap-2 text-slate-500 text-xs">
+                <Mail size={13} style={{ color: GOLD }} /> 
+                <a href={`mailto:${emailDisplay}`} className="hover:underline">{emailDisplay}</a>
+              </div>
+              <div className="flex items-center gap-2 text-slate-500 text-xs">
+                <Phone size={13} style={{ color: GOLD }} /> 
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="hover:underline">{whatsappDisplay}</a>
+              </div>
+              <div className="flex items-start gap-2 text-slate-500 text-xs">
+                <MapPin size={13} className="mt-0.5 flex-shrink-0" style={{ color: GOLD }} /> 
+                <span>{addressDisplay}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -68,7 +97,3 @@ export function SharedFooter() {
     </footer>
   );
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// GLOINT INVESTMENT PAGE
-// ══════════════════════════════════════════════════════════════════════════════
