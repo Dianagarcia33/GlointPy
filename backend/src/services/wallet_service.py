@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException
 from src.models.user import User
-from src.models.wallet import Wallet, WalletStatus
+from src.models.wallet import Wallet, WalletStatus, WalletTransaction
 
 async def bulk_create_or_update_wallets(db: AsyncSession, csv_file: bytes) -> tuple[int, list[str]]:
     success_count = 0
