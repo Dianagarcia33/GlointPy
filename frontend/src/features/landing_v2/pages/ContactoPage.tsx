@@ -108,6 +108,9 @@ export function ContactoPage() {
                   <div className="font-bold text-sm mb-1" style={{ color: DARK }}>Ubicación</div>
                   <div className="text-slate-500 text-sm">{addressDisplay}</div>
                   <div className="text-slate-500 text-sm">Bogotá, Colombia</div>
+                  <div className="text-slate-400 text-xs mt-1.5 italic font-medium">
+                    * Para atención presencial se debe hacer con cita previa.
+                  </div>
                 </div>
               </div>
 

@@ -37,7 +37,7 @@ export function TechPage() {
   const techs = ["React", "Next.js", "Node.js", "Python", "PostgreSQL", "MongoDB", "AWS", "Firebase", "Docker", "Stripe", "Figma", "TypeScript"];
 
   const handleGoToGlointech = () => {
-    window.open("https://glointech.co", "_blank", "noopener,noreferrer");
+    window.open("https://glointech.com.co", "_blank", "noopener,noreferrer");
   };
 
   const handleScrollToProcess = () => {

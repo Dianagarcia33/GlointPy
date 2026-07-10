@@ -7,7 +7,7 @@ import {
   ChevronRight, Menu, X, ArrowRight, CheckCircle, Users, Package,
   Truck, Wallet, Map, Activity, Star, 
   Mail, Phone, MapPin, Award, Target, Handshake, Clock,
-  BookOpen, Building2, FileCheck, Heart, Lightbulb, Scale
+  BookOpen, Building2, FileCheck, Heart, Lightbulb, Scale, Facebook, Instagram
 } from "lucide-react";
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
@@ -31,7 +31,22 @@ export function SharedFooter() {
             </div>
             <p className="text-slate-500 text-sm leading-relaxed mb-6">Ecosistema empresarial de inversión, comercio digital y tecnología.</p>
             <div className="flex gap-3">
-              {/* Removed icons */}
+              <a
+                href="https://web.facebook.com/people/Gloint-SAS/100090908195698/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:bg-[#1877f2] hover:text-white transition-all border border-slate-700/30"
+              >
+                <Facebook size={16} />
+              </a>
+              <a
+                href="https://www.instagram.com/gloint.oficial/?hl=es"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:bg-[#c13584] hover:text-white transition-all border border-slate-700/30"
+              >
+                <Instagram size={16} />
+              </a>
             </div>
           </div>
           <div>
