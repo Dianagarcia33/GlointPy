@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   TrendingUp, ShoppingBag, Cpu, BarChart2, Shield, Globe, Zap,
@@ -12,6 +12,14 @@ import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 
 export function Footer() {
+  const navigate = useNavigate();
+
+  const go = (p: string) => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); };
+  const whatsappLink = "https://wa.me/573209573995";
+  const whatsappDisplay = "+57 320 957 3995";
+  const emailDisplay = "atencionalcliente@gloint.com.co";
+  const addressDisplay = "Calle 31 # 14 - 31 oficina 201";
+
   return (
     <footer style={{ background: "#080e1b" }} className="pt-16 pb-8">
       <div className="max-w-6xl mx-auto px-6">
@@ -40,9 +48,9 @@ export function Footer() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Empresa</h4>
             <ul className="space-y-2">
-              {["Inicio", "Nosotros", "Servicios", "Contacto"].map((l) => (
+              {([["Inicio", "home"], ["Nosotros", "nosotros"], ["Servicios", "investment"], ["Contacto", "contacto"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}>
-                  <a href="#" className="text-slate-500 text-sm hover:text-white transition-colors">{l}</a>
+                  <button onClick={() => go(p)} className="text-slate-500 text-sm hover:text-white transition-colors text-left font-medium">{l}</button>
                 </li>
               ))}
             </ul>
@@ -52,9 +60,9 @@ export function Footer() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Unidades</h4>
             <ul className="space-y-2">
-              {["GLOINT Investment", "GLOINT Place", "GLOINT Tech"].map((l) => (
+              {([["GLOINT Investment", "investment"], ["GLOINT Place", "place"], ["GLOINT Tech", "tech"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}>
-                  <a href="#" className="text-slate-500 text-sm hover:text-white transition-colors">{l}</a>
+                  <button onClick={() => go(p)} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button>
                 </li>
               ))}
             </ul>
@@ -73,15 +81,15 @@ export function Footer() {
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <Mail size={13} style={{ color: GOLD }} />
-                contacto@gloint.com
+                <a href={`mailto:${emailDisplay}`} className="hover:underline">{emailDisplay}</a>
               </div>
               <div className="flex items-center gap-2 text-slate-500 text-xs">
                 <Phone size={13} style={{ color: GOLD }} />
-                +57 320 957 3995
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="hover:underline">{whatsappDisplay}</a>
               </div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs">
-                <MapPin size={13} style={{ color: GOLD }} />
-                Colombia
+              <div className="flex items-start gap-2 text-slate-500 text-xs">
+                <MapPin size={13} className="mt-0.5 flex-shrink-0" style={{ color: GOLD }} />
+                <span>{addressDisplay}</span>
               </div>
             </div>
           </div>
@@ -102,8 +110,3 @@ export function Footer() {
     </footer>
   );
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// NOSOTROS PAGE
-// ══════════════════════════════════════════════════════════════════════════════
-

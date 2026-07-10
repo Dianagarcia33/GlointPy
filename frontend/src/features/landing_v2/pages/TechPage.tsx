@@ -36,6 +36,17 @@ export function TechPage() {
 
   const techs = ["React", "Next.js", "Node.js", "Python", "PostgreSQL", "MongoDB", "AWS", "Firebase", "Docker", "Stripe", "Figma", "TypeScript"];
 
+  const handleGoToGlointech = () => {
+    window.open("https://glointech.co", "_blank", "noopener,noreferrer");
+  };
+
+  const handleScrollToProcess = () => {
+    const el = document.getElementById("proceso");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <>
       {/* Hero */}
@@ -54,14 +65,18 @@ export function TechPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => { navigate('/contacto'); window.scrollTo({ top: 0 }); }}
+              onClick={handleScrollToProcess}
               className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
               style={{ background: `linear-gradient(90deg, ${BLUE}, #3b82f6)` }}
             >
-              Solicitar propuesta
-            </button>
-            <button className="px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90" style={{ border: `1px solid ${BLUE}`, color: BLUE, background: `${BLUE}10` }}>
               Ver nuestro proceso
+            </button>
+            <button 
+              onClick={handleGoToGlointech}
+              className="px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90" 
+              style={{ border: `1px solid ${BLUE}`, color: BLUE, background: `${BLUE}10` }}
+            >
+              glointech
             </button>
           </div>
         </div>
@@ -164,7 +179,7 @@ export function TechPage() {
       </section>
 
       {/* Proceso */}
-      <section className="py-24 bg-white">
+      <section id="proceso" className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-14">
             <div className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: BLUE }}>Metodología</div>
@@ -255,11 +270,11 @@ export function TechPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => { navigate('/contacto'); window.scrollTo({ top: 0 }); }}
+              onClick={handleGoToGlointech}
               className="px-8 py-4 rounded-xl font-bold text-white transition-all hover:opacity-90"
               style={{ background: `linear-gradient(90deg, ${BLUE}, #3b82f6)` }}
             >
-              Solicitar propuesta
+              glointech
             </button>
             <button
               onClick={() => { navigate('/nosotros'); window.scrollTo({ top: 0 }); }}
@@ -276,8 +291,3 @@ export function TechPage() {
     </>
   );
 }
-
-// ─── Root ─────────────────────────────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════════════════════
-// CONTACTO PAGE
-// ══════════════════════════════════════════════════════════════════════════════

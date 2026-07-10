@@ -10,9 +10,8 @@ import {
 } from "lucide-react";
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
-
 export function Aliados() {
-  const partners = ["Wompi", "IRIS", "Bold", "PayU", "Bancolombia", "Rappi"];
+  const partners = ["Wompi", "IRIS", "Bold", "PayU", "Bancolombia", "Howden"];
 
   return (
     <section className="py-20 bg-white">

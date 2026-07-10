@@ -32,7 +32,7 @@ export function NosotrosAcerca() {
 
             <p className="text-slate-600 leading-relaxed mb-4">
               Nace en el 2022, fruto de la visión de un grupo de emprendedores con{" "}
-              <span className="font-semibold" style={{ color: ORANGE }}>más de 30 años de experiencia</span>{" "}
+              <span className="font-semibold" style={{ color: ORANGE }}>más de 3 años de experiencia</span>{" "}
               en diferentes mercados que desean crear herramientas y soluciones para{" "}
               <span className="font-semibold" style={{ color: DARK }}>potenciar el crecimiento de otros emprendedores</span>.
             </p>
@@ -56,8 +56,7 @@ export function NosotrosAcerca() {
               <div>
                 <div className="font-bold text-sm mb-1" style={{ color: DARK }}>Constitución Legal</div>
                 <div className="text-slate-500 text-xs leading-relaxed">
-                  Certificado en la Superintendencia de Sociedades de Colombia.
-                  Empresa legalmente constituida y operativa bajo normativa vigente.
+                  Certificado en la Cámara de Comercio de Bogotá, Colombia. Nuestra empresa se encuentra legalmente constituida y registrada conforme a la normativa vigente, lo que garantiza su plena operatividad y cumplimiento de las disposiciones legales aplicables en el país.
                 </div>
               </div>
             </div>
@@ -90,7 +89,7 @@ export function NosotrosAcerca() {
             {/* Stats */}
             <div className="flex flex-col gap-4">
               {[
-                { icon: <Award size={20} />, value: "+10", label: "Años de experiencia del equipo fundador" },
+                { icon: <Award size={20} />, value: "+3", label: "Años de experiencia del equipo fundador" },
                 { icon: <Heart size={20} />, value: "100%", label: "Compromiso total con nuestros clientes" },
                 { icon: <Clock size={20} />, value: "24/7", label: "Disponibilidad y soporte continuo" },
               ].map(({ icon, value, label }) => (
@@ -121,4 +120,3 @@ export function NosotrosAcerca() {
     </section>
   );
 }
-

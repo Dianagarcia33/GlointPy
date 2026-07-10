@@ -16,6 +16,11 @@ export function SharedFooter() {
   const navigate = useNavigate();
 
   const go = (p: string) => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); };
+  const whatsappLink = "https://wa.me/573209573995";
+  const whatsappDisplay = "+57 320 957 3995";
+  const emailDisplay = "atencionalcliente@gloint.com.co";
+  const addressDisplay = "Calle 31 # 14 - 31 oficina 201";
+
   return (
     <footer style={{ background: "#080e1b" }} className="pt-16 pb-8">
       <div className="max-w-6xl mx-auto px-6">
@@ -35,7 +40,7 @@ export function SharedFooter() {
               {([["Inicio", "home"], ["Nosotros", "nosotros"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}><button onClick={() => go(p)} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button></li>
               ))}
-              <li><a href="#" className="text-slate-500 text-sm hover:text-white transition-colors">Contacto</a></li>
+              <li><button onClick={() => go("contacto")} className="text-slate-500 text-sm hover:text-white transition-colors text-left font-medium">Contacto</button></li>
             </ul>
           </div>
           <div>
@@ -54,9 +59,18 @@ export function SharedFooter() {
               ))}
             </ul>
             <div className="mt-6 space-y-2">
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><Mail size={13} style={{ color: GOLD }} /> contacto@gloint.com</div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><Phone size={13} style={{ color: GOLD }} /> +57 320 957 3995</div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><MapPin size={13} style={{ color: GOLD }} /> Colombia</div>
+              <div className="flex items-center gap-2 text-slate-500 text-xs">
+                <Mail size={13} style={{ color: GOLD }} /> 
+                <a href={`mailto:${emailDisplay}`} className="hover:underline">{emailDisplay}</a>
+              </div>
+              <div className="flex items-center gap-2 text-slate-500 text-xs">
+                <Phone size={13} style={{ color: GOLD }} /> 
+                <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="hover:underline">{whatsappDisplay}</a>
+              </div>
+              <div className="flex items-start gap-2 text-slate-500 text-xs">
+                <MapPin size={13} className="mt-0.5 flex-shrink-0" style={{ color: GOLD }} /> 
+                <span>{addressDisplay}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -68,7 +82,3 @@ export function SharedFooter() {
     </footer>
   );
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// GLOINT INVESTMENT PAGE
-// ══════════════════════════════════════════════════════════════════════════════

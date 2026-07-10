@@ -18,7 +18,7 @@ export function WhyGloint() {
       n: "01",
       icon: <Zap size={24} />,
       title: "Dinero en minutos",
-      desc: "Recibe tu capital sin demoras. Procesos ágiles pensados para que tu negocio nunca se detenga.",
+      desc: "Recibe tus operaciones sin demoras. Procesos ágiles pensados para que tu negocio nunca se detenga.",
     },
     {
       n: "02",
@@ -28,15 +28,15 @@ export function WhyGloint() {
     },
     {
       n: "03",
-      icon: <Users size={24} />,
-      title: "Acompañamiento real",
-      desc: "Un equipo especializado te guía en cada paso, desde la solicitud hasta el crecimiento de tu negocio.",
+      icon: <Cpu size={24} />,
+      title: "Soluciones tecnológicas",
+      desc: "Sistemas empresariales complejos, siempre adaptados exactamente a lo que tu negocio necesita.",
     },
     {
       n: "04",
       icon: <TrendingUp size={24} />,
       title: "Escalabilidad garantizada",
-      desc: "Soluciones que crecen contigo. Desde tu primer paquete hasta inversiones millonarias, te acompañamos.",
+      desc: "Soluciones que crecen contigo. Desde tu primer paquete hasta inversiones.",
     },
   ];
 
@@ -94,5 +94,3 @@ export function WhyGloint() {
     </section>
   );
 }
-
-// ─── Estadísticas ─────────────────────────────────────────────────────────────

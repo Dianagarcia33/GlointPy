@@ -1,6 +1,6 @@
 import React from 'react';
-import { Navbar } from '../../../components/layout/Navbar';
-import { Footer } from '../../../components/layout/Footer';
+import { Nav } from '../../landing_v2/components/Nav';
+import { SharedFooter } from '../../landing_v2/components/SharedFooter';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -26,7 +26,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 to-slate-950/100" />
       </div>
 
-      <Navbar />
+      <Nav />
 
       <main className="flex-grow flex items-center justify-center px-4 pt-10 pb-12 relative z-10">
         {/* Centered Overlapping Card */}
@@ -51,7 +51,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
         </div>
       </main>
 
-      <Footer />
+      <SharedFooter />
     </div>
   );
 };

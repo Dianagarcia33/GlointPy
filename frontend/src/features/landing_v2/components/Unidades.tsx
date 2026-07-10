@@ -27,6 +27,7 @@ export function Unidades() {
         "Crecimiento patrimonial sostenible",
       ],
       btn: "Conocer Investment",
+      path: "/investment",
     },
     {
       title: "GLOINT PLACE",
@@ -41,6 +42,7 @@ export function Unidades() {
         "Experiencia moderna y confiable",
       ],
       btn: "Explorar Place",
+      path: "/place",
     },
     {
       title: "GLOINT TECH",
@@ -55,6 +57,7 @@ export function Unidades() {
         "Optimización de rutas",
       ],
       btn: "Descubrir Tech",
+      path: "/tech",
     },
   ];
 
@@ -125,13 +128,15 @@ export function Unidades() {
                     </li>
                   ))}
                 </ul>
-                <motion.button
-                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                  className="mt-6 w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-                  style={{ background: c.color, color: c.color === "#60a5fa" ? DARK : "#fff" }}
-                >
-                  {c.btn} <ArrowRight size={15} />
-                </motion.button>
+                <Link to={c.path} onClick={() => window.scrollTo({ top: 0 })} className="w-full">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                    className="mt-6 w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 animate-none"
+                    style={{ background: c.color, color: c.color === "#60a5fa" ? DARK : "#fff" }}
+                  >
+                    {c.btn} <ArrowRight size={15} />
+                  </motion.button>
+                </Link>
               </div>
             </motion.div>
             </FadeUp>
@@ -141,5 +146,3 @@ export function Unidades() {
     </section>
   );
 }
-
-// ─── GLOINT Investment Section ────────────────────────────────────────────────
