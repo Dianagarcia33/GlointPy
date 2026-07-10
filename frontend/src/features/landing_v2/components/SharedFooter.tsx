@@ -7,7 +7,7 @@ import {
   ChevronRight, Menu, X, ArrowRight, CheckCircle, Users, Package,
   Truck, Wallet, Map, Activity, Star, 
   Mail, Phone, MapPin, Award, Target, Handshake, Clock,
-  BookOpen, Building2, FileCheck, Heart, Lightbulb, Scale, Facebook, Instagram
+  BookOpen, Building2, FileCheck, Heart, Lightbulb, Scale
 } from "lucide-react";
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
@@ -37,7 +37,7 @@ export function SharedFooter() {
                 rel="noopener noreferrer"
                 className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:bg-[#1877f2] hover:text-white transition-all border border-slate-700/30"
               >
-                <Facebook size={16} />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
               </a>
               <a
                 href="https://www.instagram.com/gloint.oficial/?hl=es"
@@ -45,7 +45,7 @@ export function SharedFooter() {
                 rel="noopener noreferrer"
                 className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:bg-[#c13584] hover:text-white transition-all border border-slate-700/30"
               >
-                <Instagram size={16} />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
               </a>
             </div>
           </div>
