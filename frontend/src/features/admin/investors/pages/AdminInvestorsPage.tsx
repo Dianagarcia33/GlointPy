@@ -4,6 +4,7 @@ import { InvestorModal } from '../components/InvestorModal';
 import { BulkUploadInvestorsModal } from '../components/BulkUploadInvestorsModal';
 import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
 import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
+import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
@@ -89,6 +90,7 @@ export const AdminInvestorsPage = () => {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
   const [isBulkWalletModalOpen, setIsBulkWalletModalOpen] = useState(false);
+  const [isBulkTxModalOpen, setIsBulkTxModalOpen] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
@@ -186,6 +188,13 @@ export const AdminInvestorsPage = () => {
         
         <Can permission="admin.investors.manage">
           <div className="flex gap-2">
+            <button 
+              onClick={() => setIsBulkTxModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Carga Masiva Transacciones
+            </button>
             <button 
               onClick={handleCreate}
               className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
@@ -461,6 +470,15 @@ export const AdminInvestorsPage = () => {
         onClose={() => setIsBulkWalletModalOpen(false)}
         onUploaded={() => {
           setIsBulkWalletModalOpen(false);
+          fetchData();
+        }}
+      />
+
+      <BulkUploadWalletTransactionsModal
+        isOpen={isBulkTxModalOpen}
+        onClose={() => setIsBulkTxModalOpen(false)}
+        onUploaded={() => {
+          setIsBulkTxModalOpen(false);
           fetchData();
         }}
       />
