@@ -13,13 +13,7 @@ export const InvestorRegistrationFlow = () => {
     const [backImage, setBackImage] = useState<File | null>(null);
     const [selfieImage, setSelfieImage] = useState<File | null>(null);
 
-    const [frontPath, setFrontPath] = useState('');
-    const [backPath, setBackPath] = useState('');
-    const [selfiePath, setSelfiePath] = useState('');
-
-    const [uploadingFront, setUploadingFront] = useState(false);
-    const [uploadingBack, setUploadingBack] = useState(false);
-    const [uploadingSelfie, setUploadingSelfie] = useState(false);
+    const [kycPaths, setKycPaths] = useState<string[]>([]);
 
     // Form Data State
     const [formData, setFormData] = useState({
@@ -148,31 +142,47 @@ export const InvestorRegistrationFlow = () => {
     };
 
     // Upload KYC single file to backend in background
-    const uploadKycFile = async (file: File, type: 'front' | 'back' | 'selfie') => {
-        try {
-            if (type === 'front') setUploadingFront(true);
-            if (type === 'back') setUploadingBack(true);
-            if (type === 'selfie') setUploadingSelfie(true);
+    const uploadKycDocsMutation = useMutation({
+        mutationFn: async () => {
+            if (!frontImage || !backImage || !selfieImage) throw new Error("Faltan imágenes");
+            
+            const uploadSingleFile = async (file: File) => {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await fetchApi('/auth/public/upload-file', {
+                    method: 'POST',
+                    body: fd
+                });
+                return res.path;
+            };
 
-            const fd = new FormData();
-            fd.append('file', file);
-            const res = await fetchApi('/auth/public/upload-file', {
-                method: 'POST',
-                body: fd
-            });
+            // Upload all three documents in parallel
+            const [frontPath, backPath, selfiePath] = await Promise.all([
+                uploadSingleFile(frontImage),
+                uploadSingleFile(backImage),
+                uploadSingleFile(selfieImage)
+            ]);
 
-            if (type === 'front') setFrontPath(res.path);
-            if (type === 'back') setBackPath(res.path);
-            if (type === 'selfie') setSelfiePath(res.path);
-        } catch (error) {
-            console.error("Error al subir documento", error);
-            alert("Error al subir el archivo.");
-        } finally {
-            if (type === 'front') setUploadingFront(false);
-            if (type === 'back') setUploadingBack(false);
-            if (type === 'selfie') setUploadingSelfie(false);
+            return [frontPath, backPath, selfiePath];
+        },
+        onSuccess: (paths: string[]) => {
+            setKycPaths(paths);
+            setTimeout(() => {
+                setStep(3); // Advance to Step 3 after simulation delay
+            }, 1500);
+        },
+        onError: (error: any) => {
+            alert(error.message || "Error al subir tus documentos. Por favor intenta de nuevo.");
+            setStep(1);
         }
-    };
+    });
+
+    // Start uploads when we enter Step 2
+    React.useEffect(() => {
+        if (step === 2) {
+            uploadKycDocsMutation.mutate();
+        }
+    }, [step]);
 
     // Final Registration Mutation
     const registerMutation = useMutation({
@@ -244,7 +254,7 @@ export const InvestorRegistrationFlow = () => {
             monto: parseFloat(formData.monto),
             paquete_id: isCustomMonto ? null : parseInt(formData.paquete_id),
             contract_period_id: parseInt(formData.periodo_id),
-            kyc_docs: [frontPath, backPath, selfiePath].filter(Boolean),
+            kyc_docs: kycPaths,
             fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null
         };
 
@@ -252,7 +262,7 @@ export const InvestorRegistrationFlow = () => {
     };
 
     // Validation helpers for wizard steps
-    const isStep1Valid = () => {
+    const isStep3Valid = () => {
         const cityValid = formData.ciudad === 'Otra' ? !!formData.custom_ciudad : !!formData.ciudad;
         return (
             !!formData.name &&
@@ -260,18 +270,24 @@ export const InvestorRegistrationFlow = () => {
             !!formData.documento &&
             !!formData.numero_celular &&
             !!selectedDepartmentId &&
-            cityValid &&
-            !!formData.email &&
-            formData.password.length >= 8
+            cityValid
         );
     };
 
-    const isStep2Valid = () => {
-        return !!frontPath && !!backPath && !!selfiePath;
+    const isStep4Valid = () => {
+        return !!formData.banco && !!formData.tipo_cuenta && !!formData.numero_cuenta;
     };
 
-    const isStep3Valid = () => {
-        return !!formData.banco && !!formData.tipo_cuenta && !!formData.numero_cuenta;
+    const isStep5Valid = () => {
+        return (
+            !!formData.paquete_id &&
+            !!formData.monto &&
+            !!formData.periodo_id &&
+            !!formData.comprobante_path &&
+            !!formData.email &&
+            formData.password.length >= 8 &&
+            acceptedTerms
+        );
     };
 
     // Calculations
@@ -310,50 +326,34 @@ export const InvestorRegistrationFlow = () => {
 
     const calc = getCalculations();
 
-    const FileUploadZone = ({ 
-        label, 
-        file, 
-        uploading, 
-        hasPath, 
-        onChange 
-    }: { 
-        label: string; 
-        file: File | null; 
-        uploading: boolean; 
-        hasPath: boolean; 
-        onChange: (f: File) => void 
-    }) => (
+    const FileUploadZone = ({ label, file, onChange }: { label: string, file: File | null, onChange: (f: File) => void }) => (
         <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-slate-300 border-dashed rounded-2xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors group">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-                {uploading ? (
+            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                {file ? (
                     <>
-                        <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-3 animate-none" />
-                        <p className="text-sm font-semibold text-slate-700">Subiendo...</p>
-                    </>
-                ) : hasPath ? (
-                    <>
-                        <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-3" />
-                        <p className="text-xs font-semibold text-slate-700 truncate max-w-full">{file?.name || 'Archivo subido'}</p>
+                        <CheckCircle2 className="w-10 h-10 text-green-500 mb-3" />
+                        <p className="text-sm font-semibold text-slate-700">{file.name}</p>
                     </>
                 ) : (
                     <>
-                        <Camera className="w-8 h-8 text-slate-400 mb-2 group-hover:text-brand-500 transition-colors" />
-                        <p className="text-xs font-semibold text-slate-700">{label}</p>
-                        <p className="text-[10px] text-slate-500 mt-1">PNG, JPG (Máx. 10MB)</p>
+                        <Camera className="w-10 h-10 text-slate-400 mb-3 group-hover:text-brand-500 transition-colors" />
+                        <p className="text-sm font-semibold text-slate-700">{label}</p>
+                        <p className="text-xs text-slate-500 mt-1">Sube o toma una foto (JPG, PNG)</p>
                     </>
                 )}
             </div>
             <input type="file" className="hidden" accept="image/*" onChange={(e) => {
                 if (e.target.files && e.target.files[0]) onChange(e.target.files[0]);
-            }} disabled={uploading} />
+            }} />
         </label>
     );
 
     const stepsInfo = [
-        { num: 1, label: "Datos" },
-        { num: 2, label: "Documentos" },
-        { num: 3, label: "Banco" },
-        { num: 4, label: "Pago" }
+        { num: 1, label: "Documentos" },
+        { num: 2, label: "Validación" },
+        { num: 3, label: "Datos" },
+        { num: 4, label: "Banco" },
+        { num: 5, label: "Pago" }
     ];
 
     return (
@@ -385,8 +385,48 @@ export const InvestorRegistrationFlow = () => {
             </div>
 
             <div className="max-w-xl mx-auto text-left">
-                {/* Step 1: Personal Info */}
+                {/* Step 1: Upload Documents */}
                 {step === 1 && (
+                    <div className="space-y-6 animate-fadeIn">
+                        <div className="text-center mb-6">
+                            <h3 className="text-lg font-bold text-slate-900">Carga tu Documento y Selfie</h3>
+                            <p className="text-sm text-slate-500">Sube tus fotos para verificar tu identidad.</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-4">
+                            <FileUploadZone label="Foto Frontal del Documento" file={frontImage} onChange={setFrontImage} />
+                            <FileUploadZone label="Foto Trasera del Documento" file={backImage} onChange={setBackImage} />
+                            <FileUploadZone label="Selfie (Foto de tu Rostro)" file={selfieImage} onChange={setSelfieImage} />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setStep(2)}
+                                disabled={!frontImage || !backImage || !selfieImage}
+                                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4"
+                            >
+                                Continuar a Validación
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 2: Processing / Validation */}
+                {step === 2 && (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-6 animate-fadeIn text-center">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-brand-500/20 blur-xl rounded-full animate-pulse"></div>
+                            <Loader2 className="w-16 h-16 text-brand-500 animate-spin relative z-10" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Procesando Documentos</h3>
+                            <p className="text-sm text-slate-500">Guardando imágenes y preparando validación de identidad...</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 3: Personal Details */}
+                {step === 3 && (
                     <div className="space-y-6 animate-fadeIn">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
@@ -481,82 +521,6 @@ export const InvestorRegistrationFlow = () => {
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Nacimiento</label>
                                     <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
                                 </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico *</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <Mail className="h-5 w-5 text-slate-400" />
-                                        </div>
-                                        <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="tu@correo.com" />
-                                    </div>
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña *</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <LockKeyhole className="h-5 w-5 text-slate-400" />
-                                        </div>
-                                        <input required minLength={8} type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
-                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
-                                            {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end pt-4">
-                            <button
-                                type="button"
-                                onClick={() => setStep(2)}
-                                disabled={!isStep1Valid()}
-                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
-                            >
-                                Siguiente paso
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 2: KYC Documents */}
-                {step === 2 && (
-                    <div className="space-y-6 animate-fadeIn">
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                                <FileText className="w-5 h-5 text-brand-600" /> Documentos de Identidad
-                            </h3>
-                            <p className="text-xs text-slate-500 mb-4">Sube tus fotos para verificar tu identidad manualmente.</p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <FileUploadZone 
-                                    label="Foto Frontal del Documento" 
-                                    file={frontImage} 
-                                    uploading={uploadingFront}
-                                    hasPath={!!frontPath}
-                                    onChange={(file) => {
-                                        setFrontImage(file);
-                                        uploadKycFile(file, 'front');
-                                    }} 
-                                />
-                                <FileUploadZone 
-                                    label="Foto Trasera del Documento" 
-                                    file={backImage} 
-                                    uploading={uploadingBack}
-                                    hasPath={!!backPath}
-                                    onChange={(file) => {
-                                        setBackImage(file);
-                                        uploadKycFile(file, 'back');
-                                    }} 
-                                />
-                                <FileUploadZone 
-                                    label="Selfie (Foto de tu Rostro)" 
-                                    file={selfieImage} 
-                                    uploading={uploadingSelfie}
-                                    hasPath={!!selfiePath}
-                                    onChange={(file) => {
-                                        setSelfieImage(file);
-                                        uploadKycFile(file, 'selfie');
-                                    }} 
-                                />
                             </div>
                         </div>
 
@@ -570,8 +534,8 @@ export const InvestorRegistrationFlow = () => {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setStep(3)}
-                                disabled={!isStep2Valid() || uploadingFront || uploadingBack || uploadingSelfie}
+                                onClick={() => setStep(4)}
+                                disabled={!isStep3Valid()}
                                 className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
                             >
                                 Siguiente paso
@@ -580,8 +544,8 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                 )}
 
-                {/* Step 3: Bank Info */}
-                {step === 3 && (
+                {/* Step 4: Bank Details */}
+                {step === 4 && (
                     <div className="space-y-6 animate-fadeIn">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
@@ -610,15 +574,15 @@ export const InvestorRegistrationFlow = () => {
                         <div className="flex justify-between pt-4 border-t border-slate-100">
                             <button
                                 type="button"
-                                onClick={() => setStep(2)}
+                                onClick={() => setStep(3)}
                                 className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
                             >
                                 Atrás
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setStep(4)}
-                                disabled={!isStep3Valid()}
+                                onClick={() => setStep(5)}
+                                disabled={!isStep4Valid()}
                                 className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
                             >
                                 Siguiente paso
@@ -627,8 +591,8 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                 )}
 
-                {/* Step 4: Investment and Submission */}
-                {step === 4 && (
+                {/* Step 5: Investment Details, Credentials, and Submission */}
+                {step === 5 && (
                     <form onSubmit={handleFinalSubmit} className="space-y-6 animate-fadeIn">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
@@ -693,6 +657,36 @@ export const InvestorRegistrationFlow = () => {
                             </div>
                         </div>
 
+                        {/* Section: Credentials */}
+                        <div className="border-t border-slate-200 pt-6">
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 pb-2">
+                                <LockKeyhole className="w-5 h-5 text-brand-600" /> Datos de Acceso
+                            </h3>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <Mail className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required type="email" name="email" value={formData.email} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="tu@correo.com" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Contraseña *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <LockKeyhole className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required minLength={8} type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
+                                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
+                                            {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {registerMutation.isError && (
                             <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
                                 <span className="mt-0.5">⚠️</span>
@@ -715,7 +709,7 @@ export const InvestorRegistrationFlow = () => {
                             <div className="flex justify-between pt-4 gap-4">
                                 <button
                                     type="button"
-                                    onClick={() => setStep(3)}
+                                    onClick={() => setStep(4)}
                                     className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
                                     disabled={registerMutation.isPending}
                                 >
