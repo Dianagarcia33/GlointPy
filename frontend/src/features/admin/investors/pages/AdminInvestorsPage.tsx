@@ -187,27 +187,6 @@ export const AdminInvestorsPage = () => {
         <Can permission="admin.investors.manage">
           <div className="flex gap-2">
             <button 
-              onClick={() => setIsBulkModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
-            >
-              <UploadCloud className="w-4 h-4" />
-              Carga Masiva
-            </button>
-            <button 
-              onClick={() => setIsBulkBankModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
-            >
-              <UploadCloud className="w-4 h-4" />
-              Carga Masiva Cuentas
-            </button>
-            <button 
-              onClick={() => setIsBulkWalletModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm text-sm font-medium"
-            >
-              <UploadCloud className="w-4 h-4" />
-              Carga Masiva Billeteras
-            </button>
-            <button 
               onClick={handleCreate}
               className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
             >
