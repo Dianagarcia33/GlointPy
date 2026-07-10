@@ -83,7 +83,7 @@ export const ResetPasswordPage = () => {
             subtitle="Crea una nueva contraseña segura para tu cuenta de GLOINT."
             icon={<LockKeyhole className="w-7 h-7" />}
         >
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} method="post" className="space-y-5">
                 <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Nueva Contraseña</label>
                     <div className="relative group">

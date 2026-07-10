@@ -737,7 +737,7 @@ export const InvestorRegistrationFlow = () => {
 
                 {/* Step 6: Credentials and Submission */}
                 {step === 6 && (
-                    <form onSubmit={handleFinalSubmit} className="space-y-6 animate-fadeIn">
+                    <form onSubmit={handleFinalSubmit} method="post" className="space-y-6 animate-fadeIn">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
                                 <LockKeyhole className="w-5 h-5 text-brand-600" /> Datos de Acceso

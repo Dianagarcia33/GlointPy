@@ -77,7 +77,7 @@ export const RegisterPage = () => {
             {role === 'investor' ? (
                 <InvestorRegistrationFlow />
             ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} method="post" className="space-y-5">
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Nombre Completo</label>
                         <div className="relative group">

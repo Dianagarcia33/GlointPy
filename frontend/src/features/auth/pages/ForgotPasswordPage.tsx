@@ -60,7 +60,7 @@ export const ForgotPasswordPage = () => {
             subtitle="Ingresa el correo electrónico asociado a tu cuenta y te enviaremos un enlace para restablecerla."
             icon={<KeyRound className="w-7 h-7" />}
         >
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} method="post" className="space-y-6">
                 <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
                     <div className="relative group">
