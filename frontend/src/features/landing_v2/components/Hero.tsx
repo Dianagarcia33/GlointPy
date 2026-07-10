@@ -100,6 +100,12 @@ export function Hero() {
             whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
             className="px-8 py-4 rounded-xl font-bold text-white text-base"
             style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})` }}
+            onClick={() => {
+              const element = document.getElementById("unidades");
+              if (element) {
+                element.scrollIntoView({ behavior: "smooth" });
+              }
+            }}
           >
             Conocer nuestras unidades
           </motion.button>
@@ -145,5 +151,3 @@ export function Hero() {
     </section>
   );
 }
-
-// ─── Quiénes somos ────────────────────────────────────────────────────────────

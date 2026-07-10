@@ -59,7 +59,7 @@ export function Unidades() {
   ];
 
   return (
-    <section className="py-24" style={{ background: "#f8fafc" }}>
+    <section id="unidades" className="py-24" style={{ background: "#f8fafc" }}>
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center mb-16">
           <Badge text="Nuestras Unidades" />
