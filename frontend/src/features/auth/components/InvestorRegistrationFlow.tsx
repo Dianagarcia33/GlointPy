@@ -5,6 +5,32 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
 
+const COLOMBIAN_BANKS = [
+    "Bancolombia",
+    "Nequi",
+    "Davivienda",
+    "Daviplata",
+    "Banco de Bogotá",
+    "BBVA Colombia",
+    "Banco Popular",
+    "Banco de Occidente",
+    "Banco AV Villas",
+    "Scotiabank Colpatria",
+    "Itaú Colombia",
+    "GNB Sudameris",
+    "Banco Caja Social",
+    "Banco Agrario de Colombia",
+    "Lulo Bank",
+    "Nubank (Nu Colombia)",
+    "Ualá",
+    "RappiPay (RappiCuenta)",
+    "Banco W",
+    "Banco Coomeva",
+    "Banco Falabella",
+    "Banco Pichincha",
+    "Otro / Cooperativa"
+];
+
 export const InvestorRegistrationFlow = () => {
     const [step, setStep] = useState(1);
     
@@ -27,6 +53,7 @@ export const InvestorRegistrationFlow = () => {
         custom_ciudad: '',
         fecha_nacimiento: '',
         banco: '',
+        custom_banco: '',
         tipo_cuenta: '',
         numero_cuenta: '',
         paquete_id: '',
@@ -39,6 +66,7 @@ export const InvestorRegistrationFlow = () => {
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [isCustomMonto, setIsCustomMonto] = useState(false);
     const [showCustomCity, setShowCustomCity] = useState(false);
+    const [showCustomBank, setShowCustomBank] = useState(false);
     const [uploadingComprobante, setUploadingComprobante] = useState(false);
 
     // Departments & Cities dynamic fetch
@@ -226,6 +254,10 @@ export const InvestorRegistrationFlow = () => {
             setShowCustomCity(value === 'Otra');
         }
 
+        if (name === 'banco') {
+            setShowCustomBank(value === 'Otro / Cooperativa');
+        }
+
         if (name === 'paquete_id') {
             if (value === 'custom') {
                 setIsCustomMonto(true);
@@ -247,10 +279,12 @@ export const InvestorRegistrationFlow = () => {
         if (!acceptedTerms) return;
 
         const finalCity = formData.ciudad === 'Otra' ? formData.custom_ciudad : formData.ciudad;
+        const finalBank = formData.banco === 'Otro / Cooperativa' ? formData.custom_banco : formData.banco;
 
         const payload = {
             ...formData,
             ciudad: finalCity,
+            banco: finalBank,
             monto: parseFloat(formData.monto),
             paquete_id: isCustomMonto ? null : parseInt(formData.paquete_id),
             contract_period_id: parseInt(formData.periodo_id),
@@ -275,7 +309,8 @@ export const InvestorRegistrationFlow = () => {
     };
 
     const isStep4Valid = () => {
-        return !!formData.banco && !!formData.tipo_cuenta && !!formData.numero_cuenta;
+        const bankValid = formData.banco === 'Otro / Cooperativa' ? !!formData.custom_banco : !!formData.banco;
+        return bankValid && !!formData.tipo_cuenta && !!formData.numero_cuenta;
     };
 
     const isStep5Valid = () => {
@@ -554,8 +589,25 @@ export const InvestorRegistrationFlow = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Banco *</label>
-                                    <input required type="text" name="banco" value={formData.banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Bancolombia" />
+                                    <select 
+                                        required 
+                                        name="banco" 
+                                        value={formData.banco} 
+                                        onChange={handleChange} 
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
+                                    >
+                                        <option value="">Selecciona tu banco...</option>
+                                        {COLOMBIAN_BANKS.map(b => (
+                                            <option key={b} value={b}>{b}</option>
+                                        ))}
+                                    </select>
                                 </div>
+                                {showCustomBank && (
+                                    <div className="md:col-span-2 animate-fadeIn">
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué banco o cooperativa? *</label>
+                                        <input required type="text" name="custom_banco" value={formData.custom_banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Cooperativa Confiar" />
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta *</label>
                                     <select required name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
