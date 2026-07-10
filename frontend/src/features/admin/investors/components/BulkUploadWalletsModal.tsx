@@ -116,7 +116,7 @@ export const BulkUploadWalletsModal: React.FC<BulkUploadWalletsModalProps> = ({
   };
 
   const downloadTemplate = () => {
-    const csvContent = "\uFEFFusuario_id;balance;currency;status\n1;500000;COP;active\n2;250000;COP;active";
+    const csvContent = "\uFEFFid;usuario_id;balance;currency;status\n1;179;637146.98;COP;active\n2;1;0.00;COP;active";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -155,6 +155,7 @@ export const BulkUploadWalletsModal: React.FC<BulkUploadWalletsModalProps> = ({
                 <p className="font-semibold mb-1">Instrucciones</p>
                 <p className="mb-2">Sube un archivo CSV con las siguientes columnas exactas:</p>
                 <ul className="list-disc pl-4 space-y-1 text-blue-700/80 mb-3">
+                  <li><strong>id (opcional):</strong> ID numérico de la billetera (útil para restaurar respaldos).</li>
                   <li><strong>usuario_id:</strong> ID numérico del usuario.</li>
                   <li><strong>balance:</strong> Saldo/Monto de la billetera (ej: 500000).</li>
                   <li><strong>currency:</strong> COP (por defecto si se deja vacío).</li>

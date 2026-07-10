@@ -39,6 +39,7 @@ async def bulk_create_or_update_wallets(db: AsyncSession, csv_file: bytes) -> tu
     
     for row_num, row in enumerate(reader, start=2):
         try:
+            id_str = row.get('id') or row.get('wallet_id')
             user_id_str = row.get('usuario_id') or row.get('user_id')
             balance_str = row.get('balance') or row.get('saldo') or row.get('monto')
             currency_str = row.get('currency') or row.get('divisa') or 'COP'
@@ -68,6 +69,11 @@ async def bulk_create_or_update_wallets(db: AsyncSession, csv_file: bytes) -> tu
             else:
                 status_enum = WalletStatus.ACTIVE
 
+            # Parse ID if provided
+            id_val = None
+            if id_str and str(id_str).strip().isdigit():
+                id_val = int(id_str)
+
             # Check if user exists
             user_res = await db.execute(select(User).where(User.id == int(user_id_str)))
             user = user_res.scalars().first()
@@ -75,11 +81,23 @@ async def bulk_create_or_update_wallets(db: AsyncSession, csv_file: bytes) -> tu
                 errors.append(f"Fila {row_num}: No existe ningún usuario con ID '{user_id_str}'.")
                 continue
 
+            # Check for wallet conflicts if id is provided
+            if id_val:
+                conflict_res = await db.execute(select(Wallet).where(Wallet.id == id_val))
+                conflict_wallet = conflict_res.scalars().first()
+                if conflict_wallet and conflict_wallet.user_id != user.id:
+                    errors.append(f"Fila {row_num}: El ID de wallet '{id_val}' ya está en uso por otro usuario (ID '{conflict_wallet.user_id}').")
+                    continue
+
             # Check if wallet already exists for this user
             wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == user.id))
             wallet = wallet_res.scalars().first()
 
             if wallet:
+                # If ID is provided, verify it matches
+                if id_val and wallet.id != id_val:
+                    errors.append(f"Fila {row_num}: El usuario con ID '{user.id}' ya tiene la wallet ID '{wallet.id}', no se puede cambiar a ID '{id_val}'.")
+                    continue
                 # Update existing wallet balance
                 wallet.balance = balance_val
                 wallet.currency = str(currency_str).strip().upper()[:3]
@@ -88,6 +106,7 @@ async def bulk_create_or_update_wallets(db: AsyncSession, csv_file: bytes) -> tu
             else:
                 # Create new wallet
                 new_wallet = Wallet(
+                    id=id_val,  # Will be None if not provided (DB auto-increment)
                     user_id=user.id,
                     balance=balance_val,
                     currency=str(currency_str).strip().upper()[:3],
