@@ -461,6 +461,10 @@ export const InvestorRegistrationFlow = () => {
                                     </div>
                                 </div>
                                 <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1 font-sans">Fecha de Nacimiento</label>
+                                    <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
+                                </div>
+                                <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Celular *</label>
                                     <div className="relative group">
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -517,10 +521,6 @@ export const InvestorRegistrationFlow = () => {
                                         <input required type="text" name="custom_ciudad" value={formData.custom_ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
                                     </div>
                                 )}
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Fecha de Nacimiento</label>
-                                    <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
-                                </div>
                             </div>
                         </div>
 
