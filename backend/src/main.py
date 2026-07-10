@@ -54,7 +54,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "¡Bienvenido a la API de Gloint V2 (Clean Architecture)!"}
+    return {"message": "¡Bienvenido a la API de Gloint (Clean Architecture)!"}
 
 @app.get("/api/v1/health")
 def health_check():

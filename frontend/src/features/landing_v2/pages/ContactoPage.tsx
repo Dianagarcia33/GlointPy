@@ -84,7 +84,7 @@ export function ContactoPage() {
                     <div className="font-black text-sm leading-tight" style={{ color: DARK }}>
                       GLOINT INTERNATIONAL PARTNERS SAS
                     </div>
-                    <div className="text-xs text-slate-400 mt-1 font-medium">NIT: 901524385-5</div>
+                    <div className="text-xs text-slate-400 mt-1 font-medium">NIT: 901702380-5</div>
                     <div className="text-xs text-slate-400 mt-0.5">Bogotá, Colombia</div>
                   </div>
                 </div>
@@ -348,7 +348,7 @@ export function ContactoPage() {
           <div className="grid md:grid-cols-3 gap-5">
             {[
               { icon: <Clock size={20} />, title: "Horario de atención", lines: [hoursDisplay, "Atención telefónica"], color: GOLD },
-              { icon: <Phone size={20} />, title: "Llámanos", lines: [whatsappDisplay, "Atención inmediata"], color: ORANGE, link: whatsappLink },
+              { icon: <Phone size={20} />, title: "Llámanos", lines: ["601-5283660", "Atención inmediata"], color: ORANGE, link: "tel:6015283660" },
               { icon: <Mail size={20} />, title: "Escríbenos", lines: [emailDisplay, "Respuesta en 24 h"], color: "#60a5fa", link: `mailto:${emailDisplay}` },
             ].map(({ icon, title, lines, color, link }) => (
               <div
