@@ -4,6 +4,7 @@ import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockK
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
+import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 
 const COLOMBIAN_BANKS = [
     "Bancolombia",
@@ -296,20 +297,6 @@ export const InvestorRegistrationFlow = () => {
         registerMutation.mutate(payload);
     };
 
-    // Real-time password requirement test checklist
-    const passwordRequirements = [
-        { label: "Mínimo 8 caracteres", test: (pw: string) => pw.length >= 8 },
-        { label: "Una letra mayúscula", test: (pw: string) => /[A-Z]/.test(pw) },
-        { label: "Una letra minúscula", test: (pw: string) => /[a-z]/.test(pw) },
-        { label: "Un número", test: (pw: string) => /[0-9]/.test(pw) },
-        { label: "Un carácter especial (@$!%*?&)", test: (pw: string) => /[@$!%*?&#.]/.test(pw) }
-    ];
-
-    const allPasswordRequirementsMet = () => {
-        const pw = formData.password;
-        return passwordRequirements.every(req => req.test(pw));
-    };
-
     // Validation helpers for wizard steps
     const isStep3Valid = () => {
         const cityValid = formData.ciudad === 'Otra' ? !!formData.custom_ciudad : !!formData.ciudad;
@@ -335,7 +322,7 @@ export const InvestorRegistrationFlow = () => {
     const isStep6Valid = () => {
         return (
             !!formData.email &&
-            allPasswordRequirementsMet() &&
+            isValidPassword(formData.password) &&
             formData.password === confirmPassword &&
             acceptedTerms
         );
@@ -778,27 +765,9 @@ export const InvestorRegistrationFlow = () => {
                                         </button>
                                     </div>
 
-                                    {/* Password requirements checker */}
-                                    <div className="mt-3 p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-1.5">
-                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Requisitos de contraseña:</p>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                                            {passwordRequirements.map((req, idx) => {
-                                                const met = req.test(formData.password);
-                                                return (
-                                                    <div key={idx} className="flex items-center gap-1.5">
-                                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                                                            met ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-400'
-                                                        }`}>
-                                                            {met ? '✓' : '•'}
-                                                        </span>
-                                                        <span className={met ? 'text-emerald-600 font-medium' : 'text-slate-500'}>
-                                                            {req.label}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                    {formData.password.length > 0 && (
+                                        <PasswordStrengthIndicator password={formData.password} confirmPassword={confirmPassword} />
+                                    )}
                                 </div>
 
                                 <div>

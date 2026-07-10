@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { fetchApi } from '../../../services/api';
 import { LockKeyhole, Loader2, ArrowRight, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
+import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 
 export const ResetPasswordPage = () => {
     const [password, setPassword] = useState('');
@@ -34,6 +35,7 @@ export const ResetPasswordPage = () => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (password !== confirmPassword) return;
+        if (!isValidPassword(password)) return;
         if (password && token) {
             resetPasswordMutation.mutate({ token, new_password: password });
         }
@@ -93,9 +95,8 @@ export const ResetPasswordPage = () => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-                            placeholder="Mínimo 8 caracteres"
+                            placeholder="Mínimo 8 caracteres, etc."
                             required
-                            minLength={8}
                         />
                         <button
                             type="button"
@@ -134,6 +135,10 @@ export const ResetPasswordPage = () => {
                     )}
                 </div>
 
+                {password.length > 0 && (
+                    <PasswordStrengthIndicator password={password} confirmPassword={confirmPassword} />
+                )}
+
                 {resetPasswordMutation.isError && (
                     <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
                         <span>⚠️</span>
@@ -143,7 +148,7 @@ export const ResetPasswordPage = () => {
 
                 <button
                     type="submit"
-                    disabled={resetPasswordMutation.isPending || password.length < 8 || password !== confirmPassword}
+                    disabled={resetPasswordMutation.isPending || !isValidPassword(password) || password !== confirmPassword}
                     className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
                 >
                     {resetPasswordMutation.isPending ? (

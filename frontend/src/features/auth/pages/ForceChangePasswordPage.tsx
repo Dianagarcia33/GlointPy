@@ -5,6 +5,7 @@ import { fetchApi } from '../../../services/api';
 import { useAuthStore } from '../../../store/authStore';
 import { Loader2, ArrowRight, LockKeyhole, EyeOff, Eye, ShieldAlert } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
+import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 
 export const ForceChangePasswordPage = () => {
     const location = useLocation();
@@ -65,8 +66,8 @@ export const ForceChangePasswordPage = () => {
             return;
         }
 
-        if (newPassword.length < 8) {
-            setPasswordError('La contraseña debe tener al menos 8 caracteres');
+        if (!isValidPassword(newPassword)) {
+            setPasswordError('La nueva contraseña no cumple con los requisitos de seguridad');
             return;
         }
 
@@ -105,9 +106,8 @@ export const ForceChangePasswordPage = () => {
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-                            placeholder="Mínimo 8 caracteres"
+                            placeholder="Mínimo 8 caracteres, etc."
                             required
-                            minLength={8}
                         />
                     </div>
                 </div>
@@ -122,13 +122,19 @@ export const ForceChangePasswordPage = () => {
                             type={showPasswords ? "text" : "password"}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
+                            className={`block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all ${confirmPassword && newPassword !== confirmPassword ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}
                             placeholder="Repite tu nueva contraseña"
                             required
-                            minLength={8}
                         />
                     </div>
+                    {confirmPassword && newPassword !== confirmPassword && (
+                        <p className="text-xs text-red-500 mt-2 font-semibold">Las contraseñas no coinciden.</p>
+                    )}
                 </div>
+
+                {newPassword.length > 0 && (
+                    <PasswordStrengthIndicator password={newPassword} confirmPassword={confirmPassword} />
+                )}
 
                 {(passwordError || changePasswordMutation.isError) && (
                     <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
@@ -141,7 +147,7 @@ export const ForceChangePasswordPage = () => {
 
                 <button
                     type="submit"
-                    disabled={changePasswordMutation.isPending}
+                    disabled={changePasswordMutation.isPending || !isValidPassword(newPassword) || newPassword !== confirmPassword}
                     className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
                 >
                     {changePasswordMutation.isPending ? (

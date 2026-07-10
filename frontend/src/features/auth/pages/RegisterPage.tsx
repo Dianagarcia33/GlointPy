@@ -6,12 +6,15 @@ import { useAuthStore } from '../../../store/authStore';
 import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole, User } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
 import { InvestorRegistrationFlow } from '../components/InvestorRegistrationFlow';
+import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 
 export const RegisterPage = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     
     const navigate = useNavigate();
@@ -50,6 +53,8 @@ export const RegisterPage = () => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!acceptedTerms) return;
+        if (password !== confirmPassword) return;
+        if (!isValidPassword(password)) return;
         if (name && email && password) {
             registerMutation.mutate({ name, email, password, role });
         }
@@ -118,9 +123,8 @@ export const RegisterPage = () => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-                                placeholder="Mínimo 8 caracteres"
+                                placeholder="Mínimo 8 caracteres, etc."
                                 required
-                                minLength={8}
                             />
                             <button
                                 type="button"
@@ -130,12 +134,35 @@ export const RegisterPage = () => {
                                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                             </button>
                         </div>
-                        {password.length > 0 && password.length < 8 && (
-                            <p className="text-xs text-brand-500 mt-2 font-semibold">
-                                La contraseña debe tener al menos 8 caracteres.
-                            </p>
-                        )}
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Contraseña</label>
+                        <div className="relative group">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <LockKeyhole className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                            </div>
+                            <input
+                                type={showConfirmPassword ? "text" : "password"}
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className={`block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all ${confirmPassword && password !== confirmPassword ? 'border-red-300 bg-red-50' : 'border-slate-200'}`}
+                                placeholder="Debe coincidir con la de arriba"
+                                required
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                        </div>
+                    </div>
+
+                    {password.length > 0 && (
+                        <PasswordStrengthIndicator password={password} confirmPassword={confirmPassword} />
+                    )}
 
                     {registerMutation.isError && (
                         <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
@@ -146,7 +173,7 @@ export const RegisterPage = () => {
 
                     <button
                         type="submit"
-                        disabled={registerMutation.isPending || (password.length > 0 && password.length < 8)}
+                        disabled={registerMutation.isPending || !isValidPassword(password) || password !== confirmPassword}
                         className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
                     >
                         {registerMutation.isPending ? (
