@@ -66,3 +66,27 @@ async def read_users_me(current_user: User = Depends(get_current_user)) -> Any:
     Obtiene los datos del usuario actual (el dueño del token enviado en el header).
     """
     return current_user
+
+
+import os
+import shutil
+import uuid
+from fastapi import UploadFile, File
+
+@router.post("/public/upload-file")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Sube un archivo públicamente (comprobantes, documentos KYC) y retorna su ruta de acceso.
+    """
+    ext = os.path.splitext(file.filename)[1]
+    if ext.lower() not in ['.jpg', '.jpeg', '.png', '.pdf']:
+        raise HTTPException(status_code=400, detail="Extensión de archivo no permitida.")
+        
+    filename = f"{uuid.uuid4()}{ext}"
+    file_path = os.path.join("uploads", filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    return {"path": f"/uploads/{filename}"}
+
