@@ -1,13 +1,13 @@
-import api from './api';
+import { fetchApi } from './api';
 
 export const bulkUploadInvestmentRequests = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
   
-  const response = await api.post('/investment-requests/bulk-upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+  const response = await fetchApi('/investment_requests/bulk-upload', {
+    method: 'POST',
+    body: formData,
   });
-  return response.data;
+  
+  return response;
 };
