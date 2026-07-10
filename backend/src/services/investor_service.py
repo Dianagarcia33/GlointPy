@@ -16,6 +16,7 @@ from src.models.package import Package
 from src.models.user import User
 from src.models.security import Role
 from src.models.user_bank_account import UserBankAccount
+from src.models.wallet import Wallet
 from src.schemas.investor import InvestorCreate, InvestorUpdate
 
 class InvestorService:
@@ -53,6 +54,7 @@ class InvestorService:
         query = query.options(
             selectinload(Investor.user).selectinload(User.roles).selectinload(Role.permissions),
             selectinload(Investor.user).selectinload(User.bank_accounts),
+            selectinload(Investor.user).selectinload(User.wallet),
             selectinload(Investor.package),
             selectinload(Investor.period)
         )

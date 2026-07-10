@@ -3,6 +3,7 @@ from typing import List, Optional, Any, Dict
 from datetime import datetime
 from src.schemas.security import RoleResponse
 from src.schemas.user_bank_account import UserBankAccountResponse
+from src.schemas.wallet import WalletResponse
 
 class UserBase(BaseModel):
     name: str
@@ -61,6 +62,7 @@ class UserResponse(BaseModel):
 
 class UserWithBankAccountsResponse(UserResponse):
     bank_accounts: List[UserBankAccountResponse] = []
+    wallet: Optional[WalletResponse] = None
 
 class UserPaginatedResponse(BaseModel):
     total: int

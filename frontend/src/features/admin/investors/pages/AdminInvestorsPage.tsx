@@ -249,7 +249,7 @@ export const AdminInvestorsPage = () => {
                   <React.Fragment key={investor.id}>
                     <tr className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-4 w-10 text-center">
-                        {investor.user && investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
+                        {investor.user && ((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet) && (
                           <button 
                             onClick={() => toggleRow(investor.id)}
                             className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
@@ -276,12 +276,12 @@ export const AdminInvestorsPage = () => {
                             <div className="space-y-0.5">
                                 <div className="font-semibold text-slate-800">{investor.user.name}</div>
                                 <div className="text-xs text-slate-500">{investor.user.email}</div>
-                                {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
+                                {((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet) && (
                                   <button 
                                     onClick={() => toggleRow(investor.id)}
                                     className="text-[10px] text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-0.5 mt-1 hover:underline"
                                   >
-                                    Ver cuentas ({investor.user.bank_accounts.length})
+                                    Ver detalles {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 ? `(${investor.user.bank_accounts.length} ctas)` : ''}
                                   </button>
                                 )}
                             </div>
@@ -335,26 +335,67 @@ export const AdminInvestorsPage = () => {
                         </td>
                       </Can>
                     </tr>
-                    {expandedRows[investor.id] && investor.user && investor.user.bank_accounts && (
+                    {expandedRows[investor.id] && investor.user && (
                       <tr className="bg-slate-50/40">
-                        <td colSpan={8} className="px-8 py-3.5 border-b border-slate-100">
-                          <div className="flex flex-col gap-2">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas Bancarias Registradas:</div>
-                            <div className="flex flex-wrap gap-3">
-                              {investor.user.bank_accounts.map((acc) => (
-                                <div key={acc.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-col gap-2 min-w-[220px] max-w-[260px] relative overflow-hidden">
-                                  <div className="absolute top-0 left-0 w-1 h-full bg-brand-500" />
+                        <td colSpan={8} className="px-8 py-4 border-b border-slate-100">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            
+                            {/* Wallet Info Column */}
+                            <div className="space-y-2">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Billetera (Wallet):</div>
+                              {investor.user.wallet ? (
+                                <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-col gap-2 relative overflow-hidden">
+                                  <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
                                   <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 pl-1">
-                                    <span className="font-bold text-brand-700 uppercase tracking-wider text-xs">{acc.banco}</span>
-                                    <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold uppercase">{acc.tipo_cuenta}</span>
+                                    <span className="font-bold text-slate-700 uppercase tracking-wider text-xs">Saldo Disponible</span>
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${
+                                      investor.user.wallet.status === 'active' 
+                                        ? 'bg-emerald-100 text-emerald-700' 
+                                        : 'bg-red-100 text-red-700'
+                                    }`}>
+                                      {investor.user.wallet.status === 'active' ? 'ACTIVA' : 'CONGELADA'}
+                                    </span>
                                   </div>
-                                  <div className="space-y-1 pl-1">
-                                    <div className="text-[9px] text-slate-400 uppercase font-medium tracking-wide">Número de Cuenta</div>
-                                    <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{acc.numero_cuenta}</div>
+                                  <div className="pl-1">
+                                    <div className="text-xl font-bold text-slate-800">
+                                      {investor.user.wallet.balance.toLocaleString('es-CO', { style: 'currency', currency: investor.user.wallet.currency || 'COP', minimumFractionDigits: 0 })}
+                                    </div>
+                                    <div className="text-[9px] text-slate-400 mt-1">ID: #{investor.user.wallet.id} • Moneda: {investor.user.wallet.currency}</div>
                                   </div>
                                 </div>
-                              ))}
+                              ) : (
+                                <div className="bg-white border border-slate-200 border-dashed rounded-lg p-4 text-center text-xs text-slate-500">
+                                  El usuario no tiene una billetera creada.
+                                </div>
+                              )}
                             </div>
+
+                            {/* Bank Accounts Column */}
+                            <div className="md:col-span-2 space-y-2">
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cuentas Bancarias Registradas:</div>
+                              {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 ? (
+                                <div className="flex flex-wrap gap-3">
+                                  {investor.user.bank_accounts.map((acc) => (
+                                    <div key={acc.id} className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-col gap-2 min-w-[200px] max-w-[240px] relative overflow-hidden flex-1">
+                                      <div className="absolute top-0 left-0 w-1 h-full bg-brand-500" />
+                                      <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 pl-1">
+                                        <span className="font-bold text-brand-700 uppercase tracking-wider text-xs">{acc.banco}</span>
+                                        <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold uppercase">{acc.tipo_cuenta}</span>
+                                      </div>
+                                      <div className="space-y-1 pl-1">
+                                        <div className="text-[9px] text-slate-400 uppercase font-medium tracking-wide">Número de Cuenta</div>
+                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{acc.numero_cuenta}</div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="bg-white border border-slate-200 border-dashed rounded-lg p-4 text-center text-xs text-slate-500">
+                                  No hay cuentas bancarias registradas para este usuario.
+                                </div>
+                              )}
+                            </div>
+
                           </div>
                         </td>
                       </tr>

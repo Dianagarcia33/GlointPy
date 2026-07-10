@@ -10,6 +10,16 @@ export interface BankAccount {
   is_active: boolean;
 }
 
+export interface Wallet {
+  id: number;
+  user_id: number;
+  balance: number;
+  currency: string;
+  status: 'active' | 'frozen';
+  created_at: string;
+  updated_at: string;
+}
+
 export interface User {
   id: number;
   name: string;
@@ -21,6 +31,7 @@ export interface User {
   is_superuser: boolean;
   roles: Role[];
   bank_accounts?: BankAccount[];
+  wallet?: Wallet | null;
   created_at: string;
   updated_at: string;
 }
