@@ -63,7 +63,7 @@ export const RegisterPage = () => {
     return (
         <AuthLayout 
             title="Crear Cuenta" 
-            subtitle="Únete a la plataforma financiera que impulsa a cientos de negocios a escalar más rápido."
+            subtitle="Únete al ecosistema empresarial de inversión, comercio digital y tecnología."
             icon={<User className="w-7 h-7" />}
         >
             {roleName && (

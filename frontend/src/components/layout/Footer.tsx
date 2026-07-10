@@ -19,7 +19,7 @@ export const Footer: React.FC = () => {
                 <img src={logo} alt="Gloint Logo" className="h-10 w-auto object-contain" />
               </Link>
               <p className="text-sm text-slate-400 leading-relaxed mb-6">
-                Tecnología financiera y consultoría estratégica para escalar tu e-commerce y negocio logístico al siguiente nivel.
+                Ecosistema empresarial de inversión, comercio digital y tecnología para escalar tu negocio al siguiente nivel.
               </p>
               {/* Redes Sociales */}
               <div className="flex gap-4">
@@ -36,8 +36,9 @@ export const Footer: React.FC = () => {
             <div>
               <h4 className="text-white font-bold mb-6 font-montserrat tracking-wide">Plataforma</h4>
               <ul className="space-y-4">
-                <li><Link to="/servicios/cashback-logistico" className="text-sm text-slate-400 hover:text-white transition-colors">Cashback Logístico</Link></li>
-                <li><Link to="/servicios/factoring-logistico" className="text-sm text-slate-400 hover:text-white transition-colors">Factoring Logístico</Link></li>
+                <li><Link to="/investment" className="text-sm text-slate-400 hover:text-white transition-colors">GLOINT Investment</Link></li>
+                <li><Link to="/place" className="text-sm text-slate-400 hover:text-white transition-colors">GLOINT Place</Link></li>
+                <li><Link to="/tech" className="text-sm text-slate-400 hover:text-white transition-colors">GLOINT Tech</Link></li>
                 <li><Link to="/about" className="text-sm text-slate-400 hover:text-white transition-colors">Nosotros</Link></li>
                 <li><Link to="/contact" className="text-sm text-slate-400 hover:text-white transition-colors">Contacto</Link></li>
               </ul>
@@ -84,7 +85,7 @@ export const Footer: React.FC = () => {
             </p>
             <div className="flex gap-6">
               <span className="text-xs text-slate-500 font-semibold tracking-widest uppercase">
-                Plataforma Financiera Certificada
+                Ecosistema Empresarial
               </span>
             </div>
           </div>

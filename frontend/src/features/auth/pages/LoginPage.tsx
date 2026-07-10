@@ -65,7 +65,7 @@ export const LoginPage = () => {
     return (
         <AuthLayout 
             title="Iniciar Sesión" 
-            subtitle="Accede a tu cuenta para gestionar tu liquidez y hacer crecer tu negocio."
+            subtitle="Accede a tu cuenta en el ecosistema GLOINT y descubre nuevas oportunidades para tu negocio."
             icon={<LockKeyhole className="w-7 h-7" />}
         >
             <form onSubmit={handleSubmit} className="space-y-5">

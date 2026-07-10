@@ -52,7 +52,7 @@ export const WelcomeOnboardingPage = () => {
                             </div>
                             <h2 className="text-2xl font-bold text-slate-900 mb-3">Quiero ser Cliente</h2>
                             <p className="text-slate-500 mb-8 min-h-[4rem]">
-                                Busca liquidez inmediata para tu empresa, factoring o pago anticipado de facturas logísticas.
+                                Busca soluciones tecnológicas a la medida, desarrollo web, aplicaciones corporativas y optimización logística.
                             </p>
                             <div className="flex items-center text-sm font-bold text-slate-400 group-hover:text-brand-500 transition-colors duration-300">
                                 Continuar como Cliente <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-2 transition-transform" />
