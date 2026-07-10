@@ -24,6 +24,10 @@ class User(Base):
     date_of_birth = Column(DateTime, nullable=True)
     must_change_password = Column(Boolean, default=False)
     
+    # Seguridad y Bloqueos
+    failed_login_attempts = Column(Integer, default=0)
+    locked_until = Column(DateTime, nullable=True)
+    
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
     

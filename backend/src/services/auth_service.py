@@ -1,3 +1,5 @@
+import datetime
+from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -21,11 +23,28 @@ class AuthService:
                 detail="Correo o contraseña incorrectos",
             )
             
-        if not verify_password(login_data.password, user.password_hash):
+        # Check if account is locked
+        if user.locked_until and user.locked_until > datetime.datetime.utcnow():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Correo o contraseña incorrectos",
             )
+            
+        if not verify_password(login_data.password, user.password_hash):
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            if user.failed_login_attempts >= 5:
+                user.locked_until = datetime.datetime.utcnow() + timedelta(minutes=15)
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Correo o contraseña incorrectos",
+            )
+            
+        # Success: reset counters
+        if user.failed_login_attempts > 0 or user.locked_until is not None:
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            await db.commit()
             
         if not user.is_active:
             raise HTTPException(
