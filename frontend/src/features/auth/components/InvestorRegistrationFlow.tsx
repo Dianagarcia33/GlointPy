@@ -62,6 +62,7 @@ export const InvestorRegistrationFlow = () => {
         comprobante_path: ''
     });
 
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [isCustomMonto, setIsCustomMonto] = useState(false);
@@ -295,6 +296,20 @@ export const InvestorRegistrationFlow = () => {
         registerMutation.mutate(payload);
     };
 
+    // Real-time password requirement test checklist
+    const passwordRequirements = [
+        { label: "Mínimo 8 caracteres", test: (pw: string) => pw.length >= 8 },
+        { label: "Una letra mayúscula", test: (pw: string) => /[A-Z]/.test(pw) },
+        { label: "Una letra minúscula", test: (pw: string) => /[a-z]/.test(pw) },
+        { label: "Un número", test: (pw: string) => /[0-9]/.test(pw) },
+        { label: "Un carácter especial (@$!%*?&)", test: (pw: string) => /[@$!%*?&#.]/.test(pw) }
+    ];
+
+    const allPasswordRequirementsMet = () => {
+        const pw = formData.password;
+        return passwordRequirements.every(req => req.test(pw));
+    };
+
     // Validation helpers for wizard steps
     const isStep3Valid = () => {
         const cityValid = formData.ciudad === 'Otra' ? !!formData.custom_ciudad : !!formData.ciudad;
@@ -314,13 +329,14 @@ export const InvestorRegistrationFlow = () => {
     };
 
     const isStep5Valid = () => {
+        return !!formData.paquete_id && !!formData.monto && !!formData.periodo_id && !!formData.comprobante_path;
+    };
+
+    const isStep6Valid = () => {
         return (
-            !!formData.paquete_id &&
-            !!formData.monto &&
-            !!formData.periodo_id &&
-            !!formData.comprobante_path &&
             !!formData.email &&
-            formData.password.length >= 8 &&
+            allPasswordRequirementsMet() &&
+            formData.password === confirmPassword &&
             acceptedTerms
         );
     };
@@ -388,8 +404,11 @@ export const InvestorRegistrationFlow = () => {
         { num: 2, label: "Validación" },
         { num: 3, label: "Datos" },
         { num: 4, label: "Banco" },
-        { num: 5, label: "Pago" }
+        { num: 5, label: "Inversión" },
+        { num: 6, label: "Acceso" }
     ];
+
+    const passwordsMatch = formData.password && confirmPassword ? formData.password === confirmPassword : false;
 
     return (
         <div className="w-full">
@@ -455,7 +474,7 @@ export const InvestorRegistrationFlow = () => {
                         </div>
                         <div>
                             <h3 className="text-xl font-bold text-slate-900 mb-2">Procesando Documentos</h3>
-                            <p className="text-sm text-slate-500">Guardando imágenes y preparando validación de identidad...</p>
+                            <p className="text-sm text-slate-500">Guardando imágenes and preparando validación de identidad...</p>
                         </div>
                     </div>
                 )}
@@ -643,9 +662,9 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                 )}
 
-                {/* Step 5: Investment Details, Credentials, and Submission */}
+                {/* Step 5: Investment Details */}
                 {step === 5 && (
-                    <form onSubmit={handleFinalSubmit} className="space-y-6 animate-fadeIn">
+                    <div className="space-y-6 animate-fadeIn">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
                                 <CreditCard className="w-5 h-5 text-brand-600" /> Detalles de tu Inversión
@@ -709,12 +728,35 @@ export const InvestorRegistrationFlow = () => {
                             </div>
                         </div>
 
-                        {/* Section: Credentials */}
-                        <div className="border-t border-slate-200 pt-6">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 pb-2">
+                        <div className="flex justify-between pt-4 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => setStep(4)}
+                                className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                            >
+                                Atrás
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setStep(6)}
+                                disabled={!isStep5Valid() || uploadingComprobante}
+                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
+                            >
+                                Siguiente paso
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 6: Credentials and Submission */}
+                {step === 6 && (
+                    <form onSubmit={handleFinalSubmit} className="space-y-6 animate-fadeIn">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
                                 <LockKeyhole className="w-5 h-5 text-brand-600" /> Datos de Acceso
                             </h3>
-                            <div className="grid grid-cols-1 gap-4">
+                            <p className="text-xs text-slate-500 mb-4">Define tu correo electrónico y tu contraseña para iniciar sesión en tu cuenta.</p>
+                            <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico *</label>
                                     <div className="relative group">
@@ -730,11 +772,50 @@ export const InvestorRegistrationFlow = () => {
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <LockKeyhole className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required minLength={8} type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
+                                        <input required type={showPassword ? "text" : "password"} name="password" value={formData.password} onChange={handleChange} className="w-full pl-11 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Mínimo 8 caracteres" />
                                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400">
                                             {showPassword ? <EyeOff className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
                                         </button>
                                     </div>
+
+                                    {/* Password requirements checker */}
+                                    <div className="mt-3 p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-1.5">
+                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Requisitos de contraseña:</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                            {passwordRequirements.map((req, idx) => {
+                                                const met = req.test(formData.password);
+                                                return (
+                                                    <div key={idx} className="flex items-center gap-1.5">
+                                                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                                            met ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-400'
+                                                        }`}>
+                                                            {met ? '✓' : '•'}
+                                                        </span>
+                                                        <span className={met ? 'text-emerald-600 font-medium' : 'text-slate-500'}>
+                                                            {req.label}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Confirmar Contraseña *</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <LockKeyhole className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input required type={showPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Repite tu contraseña" />
+                                    </div>
+                                    {confirmPassword && (
+                                        <p className={`text-xs mt-1.5 font-semibold ${
+                                            passwordsMatch ? 'text-emerald-600' : 'text-red-500'
+                                        }`}>
+                                            {passwordsMatch ? '✓ Las contraseñas coinciden.' : '✗ Las contraseñas no coinciden.'}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -761,7 +842,7 @@ export const InvestorRegistrationFlow = () => {
                             <div className="flex justify-between pt-4 gap-4">
                                 <button
                                     type="button"
-                                    onClick={() => setStep(4)}
+                                    onClick={() => setStep(5)}
                                     className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
                                     disabled={registerMutation.isPending}
                                 >
@@ -769,7 +850,7 @@ export const InvestorRegistrationFlow = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={registerMutation.isPending || !acceptedTerms || uploadingComprobante || !formData.comprobante_path}
+                                    disabled={registerMutation.isPending || !isStep6Valid()}
                                     className="w-full md:w-auto px-8 py-3 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98]"
                                 >
                                     {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
