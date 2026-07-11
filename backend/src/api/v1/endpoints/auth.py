@@ -106,3 +106,26 @@ async def upload_file(file: UploadFile = File(...)):
         
     return {"path": f"/uploads/{filename}"}
 
+@router.post("/public/ocr-extract")
+async def extract_ocr_data(file: UploadFile = File(...)):
+    """
+    Sube un archivo de documento de identidad y usa AWS Rekognition
+    para extraer heurísticamente el nombre completo y la cédula.
+    """
+    ext = os.path.splitext(file.filename)[1]
+    if ext.lower() not in ['.jpg', '.jpeg', '.png']:
+        raise HTTPException(status_code=400, detail="Solo se permiten imágenes para OCR.")
+        
+    try:
+        from src.services.ocr_service import ocr_service
+        # Read the file bytes directly into memory
+        contents = await file.read()
+        
+        # Llama a Amazon Rekognition via nuestro servicio
+        extracted_data = ocr_service.extract_colombian_id_data(contents)
+        
+        return extracted_data
+    except Exception as e:
+        print(f"Error procesando OCR: {e}")
+        # Retornamos vacío si falla, el frontend hace fallback manual
+        return {"document_number": "", "full_name": ""}

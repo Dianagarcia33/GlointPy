@@ -186,17 +186,42 @@ export const InvestorRegistrationFlow = () => {
                 return res.path;
             };
 
-            // Upload all three documents in parallel
-            const [frontPath, backPath, selfiePath] = await Promise.all([
+            const extractOcr = async (file: File) => {
+                const fd = new FormData();
+                fd.append('file', file);
+                try {
+                    const res = await fetchApi('/auth/public/ocr-extract', {
+                        method: 'POST',
+                        body: fd
+                    });
+                    return res;
+                } catch (e) {
+                    console.error("OCR failed", e);
+                    return { full_name: "", document_number: "" };
+                }
+            };
+
+            // Upload all three documents and extract OCR in parallel
+            const [frontPath, backPath, selfiePath, ocrData] = await Promise.all([
                 uploadSingleFile(frontImage),
                 uploadSingleFile(backImage),
-                uploadSingleFile(selfieImage)
+                uploadSingleFile(selfieImage),
+                extractOcr(frontImage)
             ]);
 
-            return [frontPath, backPath, selfiePath];
+            return { paths: [frontPath, backPath, selfiePath], ocrData };
         },
-        onSuccess: (paths: string[]) => {
+        onSuccess: ({ paths, ocrData }: { paths: string[], ocrData: any }) => {
             setKycPaths(paths);
+            
+            if (ocrData?.full_name || ocrData?.document_number) {
+                setFormData(prev => ({
+                    ...prev,
+                    name: prev.name || ocrData.full_name || '',
+                    documento: prev.documento || ocrData.document_number || ''
+                }));
+            }
+
             setTimeout(() => {
                 setStep(3); // Advance to Step 3 after simulation delay
             }, 1500);
