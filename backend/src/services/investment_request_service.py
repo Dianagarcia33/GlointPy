@@ -22,7 +22,7 @@ class InvestmentRequestService:
     async def get_investment_requests(db: AsyncSession, page: int = 1, limit: int = 20, search: Optional[str] = None) -> Dict[str, Any]:
         query = select(InvestmentRequest).options(
             selectinload(InvestmentRequest.user),
-            selectinload(InvestmentRequest.paquete)
+            selectinload(InvestmentRequest.package)
         )
         
         if search:

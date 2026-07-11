@@ -27,7 +27,7 @@ class InvestmentRequestCreate(InvestmentRequestBase):
 class InvestmentRequestResponse(InvestmentRequestBase):
     id: int
     user: Optional[Any] = None
-    paquete: Optional[Any] = None
+    package: Optional[Any] = None
 
     model_config = ConfigDict(from_attributes=True)
 

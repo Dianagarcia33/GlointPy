@@ -16,7 +16,7 @@ export interface InvestmentRequest {
   created_at?: string;
   updated_at?: string;
   user?: any;
-  paquete?: any;
+  package?: any;
 }
 
 export interface PaginatedInvestmentRequests {
