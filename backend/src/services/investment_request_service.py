@@ -56,6 +56,15 @@ class InvestmentRequestService:
         result = await db.execute(query)
         requests = result.scalars().all()
         
+        logger.info(f"DEBUG: count_query returned total={total}")
+        logger.info(f"DEBUG: query returned {len(requests)} rows")
+        if not requests:
+            # Check raw count via text query just to be absolutely sure
+            from sqlalchemy import text
+            raw_count = await db.execute(text("SELECT COUNT(*) FROM investment_requests"))
+            raw_total = raw_count.scalar()
+            logger.info(f"DEBUG: raw SQL COUNT(*) FROM investment_requests = {raw_total}")
+        
         return {
             "data": requests,
             "total": total
@@ -99,10 +108,27 @@ class InvestmentRequestService:
         # Skip the first row since we provided fieldnames manually
         next(reader, None)
         
+        # Read all rows into memory to do bulk validation
+        rows_data = list(reader)
+        
+        # Collect all user IDs to check existence
+        user_ids_to_check = set()
+        for row in rows_data:
+            u_id = str(row.get("user_id", "")).strip(' "')
+            r_by = str(row.get("reviewed_by", "")).strip(' "')
+            if u_id.isdigit(): user_ids_to_check.add(int(u_id))
+            if r_by.isdigit(): user_ids_to_check.add(int(r_by))
+            
+        valid_users = set()
+        if user_ids_to_check:
+            user_query = select(User.id).where(User.id.in_(user_ids_to_check))
+            user_result = await db.execute(user_query)
+            valid_users = set(user_result.scalars().all())
+        
         success_count = 0
         errors = []
         
-        for i, row in enumerate(reader, start=1):
+        for i, row in enumerate(rows_data, start=1):
             try:
                 # Normalizamos las claves del diccionario por si alguna vino con espacios
                 # y convertimos 'NULL' o '\N' a strings vacíos
@@ -128,6 +154,14 @@ class InvestmentRequestService:
                     errors.append(f"Fila {i}: 'user_id', 'paquete_inversion_id' y 'monto' son obligatorios.")
                     continue
                     
+                try:
+                    u_id = int(user_id_str)
+                    if u_id not in valid_users:
+                        errors.append(f"Fila {i}: El usuario con ID {u_id} no existe en el sistema. Fila omitida.")
+                        continue
+                except ValueError:
+                    pass
+                    
                 status_str = row.get("status", "")
                 if not status_str:
                     status_str = "pending"
@@ -151,7 +185,15 @@ class InvestmentRequestService:
                 if prosp_id: req.prospecto_id = int(prosp_id)
                 
                 rev_by = row.get("reviewed_by", "")
-                if rev_by: req.reviewed_by = int(rev_by)
+                if rev_by: 
+                    try:
+                        r_id = int(rev_by)
+                        if r_id in valid_users:
+                            req.reviewed_by = r_id
+                        else:
+                            req.reviewed_by = None # Si el revisor no existe, lo dejamos nulo en vez de fallar toda la tabla
+                    except ValueError:
+                        pass
                 
                 # Campos opcionales de texto
                 req.comprobante_path = row.get("comprobante_path", "") or None
