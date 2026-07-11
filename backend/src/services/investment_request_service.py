@@ -67,6 +67,9 @@ class InvestmentRequestService:
 
     @staticmethod
     async def bulk_create_investment_requests(db: AsyncSession, csv_text: str) -> Dict[str, Any]:
+        if csv_text.startswith('\ufeff'):
+            csv_text = csv_text[1:]
+            
         first_line = csv_text.split('\n')[0] if csv_text else ""
         delim = ';' if first_line.count(';') >= first_line.count(',') else ','
         reader = csv.DictReader(io.StringIO(csv_text), delimiter=delim)
