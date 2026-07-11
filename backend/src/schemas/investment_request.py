@@ -14,7 +14,7 @@ class InvestmentRequestBase(BaseModel):
     rejection_reason: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     reviewed_by: Optional[int] = None
-    extra_data: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Any] = None
     
     # Permitir sobreescribir fechas si vienen en el CSV
     created_at: Optional[datetime] = None
