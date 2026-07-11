@@ -116,8 +116,8 @@ export const BulkUploadInvestmentRequestsModal: React.FC<BulkUploadInvestmentReq
   };
 
   const downloadTemplate = () => {
-    const header = "user_id;investor_id;paquete_inversion_id;prospecto_id;monto;comprobante_path;status;rejection_reason;reviewed_by;reviewed_at;extra_data;created_at;updated_at;deleted_at";
-    const sampleRow = "1;;2;;5000000;;pending;;;;;2024-01-01 10:00:00;2024-01-01 10:00:00;";
+    const header = "id;user_id;investor_id;paquete_inversion_id;prospecto_id;monto;comprobante_path;status;rejection_reason;reviewed_by;reviewed_at;extra_data;created_at;updated_at;deleted_at";
+    const sampleRow = "1;1;;2;;5000000;;pending;;;;;2024-01-01 10:00:00;2024-01-01 10:00:00;";
     const csvContent = "\uFEFF" + header + "\n" + sampleRow;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -157,6 +157,7 @@ export const BulkUploadInvestmentRequestsModal: React.FC<BulkUploadInvestmentReq
                 <p className="font-semibold mb-1">Instrucciones</p>
                 <p className="mb-2">Sube un archivo CSV delimitado por punto y coma (;) con las siguientes columnas:</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 pl-4 mb-3 text-xs">
+                  <li><strong>id:</strong> (Opcional)</li>
                   <li><strong>user_id:</strong> (Obligatorio)</li>
                   <li><strong>paquete_inversion_id:</strong> (Obligatorio)</li>
                   <li><strong>monto:</strong> (Obligatorio)</li>

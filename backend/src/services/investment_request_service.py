@@ -93,6 +93,10 @@ class InvestmentRequestService:
                     status=InvestmentRequestStatus(status_str)
                 )
                 
+                req_id_str = row.get("id", "").strip()
+                if req_id_str:
+                    req.id = int(req_id_str)
+                
                 # Campos opcionales numéricos
                 inv_id = row.get("investor_id", "").strip()
                 if inv_id: req.investor_id = int(inv_id)
