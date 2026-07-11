@@ -96,21 +96,30 @@ class InvestmentRequestService:
         for i, row in enumerate(reader, start=1):
             try:
                 # Normalizamos las claves del diccionario por si alguna vino con espacios
-                row = {k.strip(' "'): v for k, v in row.items() if k is not None}
+                # y convertimos 'NULL' o '\N' a strings vacíos
+                clean_row = {}
+                for k, v in row.items():
+                    if k is not None:
+                        clean_k = k.strip(' "')
+                        clean_v = str(v).strip() if v is not None else ""
+                        if clean_v.upper() in ('NULL', '\\N', 'NONE'):
+                            clean_v = ""
+                        clean_row[clean_k] = clean_v
+                row = clean_row
                 
                 # Si toda la fila está vacía, ignorarla (por si Excel deja filas extra al final)
-                if not any(v.strip() for v in row.values() if isinstance(v, str)):
+                if not any(v for v in row.values()):
                     continue
                     
-                user_id_str = str(row.get("user_id", "")).strip() if row.get("user_id") else ""
-                paquete_id_str = str(row.get("paquete_inversion_id", "")).strip() if row.get("paquete_inversion_id") else ""
-                monto_str = str(row.get("monto", "")).strip() if row.get("monto") else ""
+                user_id_str = row.get("user_id", "")
+                paquete_id_str = row.get("paquete_inversion_id", "")
+                monto_str = row.get("monto", "")
                 
                 if not user_id_str or not paquete_id_str or not monto_str:
                     errors.append(f"Fila {i}: 'user_id', 'paquete_inversion_id' y 'monto' son obligatorios.")
                     continue
                     
-                status_str = row.get("status", "pending").strip()
+                status_str = row.get("status", "")
                 if not status_str:
                     status_str = "pending"
                     
@@ -121,24 +130,24 @@ class InvestmentRequestService:
                     status=InvestmentRequestStatus(status_str)
                 )
                 
-                req_id_str = row.get("id", "").strip()
+                req_id_str = row.get("id", "")
                 if req_id_str:
                     req.id = int(req_id_str)
                 
                 # Campos opcionales numéricos
-                inv_id = row.get("investor_id", "").strip()
+                inv_id = row.get("investor_id", "")
                 if inv_id: req.investor_id = int(inv_id)
                 
-                prosp_id = row.get("prospecto_id", "").strip()
+                prosp_id = row.get("prospecto_id", "")
                 if prosp_id: req.prospecto_id = int(prosp_id)
                 
-                rev_by = row.get("reviewed_by", "").strip()
+                rev_by = row.get("reviewed_by", "")
                 if rev_by: req.reviewed_by = int(rev_by)
                 
                 # Campos opcionales de texto
-                req.comprobante_path = row.get("comprobante_path", "").strip() or None
-                req.rejection_reason = row.get("rejection_reason", "").strip() or None
-                req.extra_data = row.get("extra_data", "").strip() or None
+                req.comprobante_path = row.get("comprobante_path", "") or None
+                req.rejection_reason = row.get("rejection_reason", "") or None
+                req.extra_data = row.get("extra_data", "") or None
                 
                 # Fechas
                 if "reviewed_at" in row:
