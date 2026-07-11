@@ -24,10 +24,21 @@ class InvestmentRequestBase(BaseModel):
 class InvestmentRequestCreate(InvestmentRequestBase):
     pass
 
+class SimpleUserResponse(BaseModel):
+    id: int
+    name: Optional[str] = None
+    email: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class SimplePackageResponse(BaseModel):
+    id: int
+    value: Optional[float] = None
+    model_config = ConfigDict(from_attributes=True)
+
 class InvestmentRequestResponse(InvestmentRequestBase):
     id: int
-    user: Optional[Any] = None
-    package: Optional[Any] = None
+    user: Optional[SimpleUserResponse] = None
+    package: Optional[SimplePackageResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 

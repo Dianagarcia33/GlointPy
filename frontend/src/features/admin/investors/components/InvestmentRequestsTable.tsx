@@ -164,7 +164,7 @@ export const InvestmentRequestsTable = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-700">
-                      {request.package ? request.package.name : `Paquete #${request.paquete_inversion_id}`}
+                      {request.package?.value ? `Paquete $${request.package.value.toLocaleString('es-CO')}` : `Paquete #${request.paquete_inversion_id}`}
                     </td>
                     <td className="px-6 py-4 font-semibold text-brand-700">
                       ${request.monto.toLocaleString('es-CO')} COP
