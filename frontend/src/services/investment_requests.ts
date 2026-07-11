@@ -31,14 +31,14 @@ export const getInvestmentRequests = async (params?: { page?: number; limit?: nu
   if (params?.search) query.append('search', params.search);
 
   const qs = query.toString();
-  return fetchApi(`/investment_requests/${qs ? `?${qs}` : ''}`);
+  return fetchApi(`/investment-requests/${qs ? `?${qs}` : ''}`);
 };
 
 export const bulkUploadInvestmentRequests = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
   
-  const response = await fetchApi('/investment_requests/bulk-upload', {
+  const response = await fetchApi('/investment-requests/bulk-upload', {
     method: 'POST',
     body: formData,
   });
