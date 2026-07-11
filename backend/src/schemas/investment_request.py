@@ -26,5 +26,13 @@ class InvestmentRequestCreate(InvestmentRequestBase):
 
 class InvestmentRequestResponse(InvestmentRequestBase):
     id: int
+    user: Optional[Any] = None
+    paquete: Optional[Any] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class InvestmentRequestPaginatedResponse(BaseModel):
+    data: list[InvestmentRequestResponse]
+    total: int
 
     model_config = ConfigDict(from_attributes=True)

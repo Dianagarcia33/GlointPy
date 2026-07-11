@@ -1,5 +1,39 @@
 import { fetchApi } from './api';
 
+export interface InvestmentRequest {
+  id: number;
+  user_id: number;
+  paquete_inversion_id: number;
+  monto: number;
+  status: string;
+  investor_id?: number;
+  prospecto_id?: number;
+  comprobante_path?: string;
+  rejection_reason?: string;
+  reviewed_at?: string;
+  reviewed_by?: number;
+  extra_data?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+  user?: any;
+  paquete?: any;
+}
+
+export interface PaginatedInvestmentRequests {
+  data: InvestmentRequest[];
+  total: number;
+}
+
+export const getInvestmentRequests = async (params?: { page?: number; limit?: number; search?: string }): Promise<PaginatedInvestmentRequests> => {
+  const query = new URLSearchParams();
+  if (params?.page) query.append('page', params.page.toString());
+  if (params?.limit) query.append('limit', params.limit.toString());
+  if (params?.search) query.append('search', params.search);
+
+  const qs = query.toString();
+  return fetchApi(`/investment_requests/${qs ? `?${qs}` : ''}`);
+};
+
 export const bulkUploadInvestmentRequests = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);

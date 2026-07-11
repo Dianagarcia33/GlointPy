@@ -6,12 +6,52 @@ from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 
+from sqlalchemy.future import select
+from sqlalchemy import or_, func
+from sqlalchemy.orm import selectinload
+from typing import Dict, Any, Optional
+
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+from src.models.user import User
 
 logger = logging.getLogger(__name__)
 
 class InvestmentRequestService:
     
+    @staticmethod
+    async def get_investment_requests(db: AsyncSession, page: int = 1, limit: int = 20, search: Optional[str] = None) -> Dict[str, Any]:
+        query = select(InvestmentRequest).options(
+            selectinload(InvestmentRequest.user),
+            selectinload(InvestmentRequest.paquete)
+        )
+        
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.join(User).filter(
+                or_(
+                    User.name.ilike(search_pattern),
+                    User.email.ilike(search_pattern),
+                    User.document_id.ilike(search_pattern)
+                )
+            )
+            
+        # Count total
+        count_query = select(func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar_one_or_none() or 0
+        
+        # Pagination
+        query = query.order_by(InvestmentRequest.created_at.desc())
+        query = query.offset((page - 1) * limit).limit(limit)
+        
+        result = await db.execute(query)
+        requests = result.scalars().all()
+        
+        return {
+            "data": requests,
+            "total": total
+        }
+
     @staticmethod
     def parse_datetime(date_str: str) -> datetime | None:
         if not date_str or date_str.strip() == "":

@@ -6,6 +6,7 @@ import { BulkUploadInvestmentRequestsModal } from '../components/BulkUploadInves
 import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
 import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
 import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
+import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
@@ -168,6 +169,8 @@ export const AdminInvestorsPage = () => {
 
 
 
+  const [activeTab, setActiveTab] = useState<'investments' | 'requests'>('investments');
+
   if (error) {
       return (
           <div className="p-6 bg-red-50 rounded-xl border border-red-100 flex items-start gap-3">
@@ -185,7 +188,7 @@ export const AdminInvestorsPage = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Gestión de Inversionistas</h1>
-          <p className="text-slate-500 text-sm mt-1">Administra las inversiones y sus periodos</p>
+          <p className="text-slate-500 text-sm mt-1">Administra las inversiones y sus solicitudes</p>
         </div>
         
         <Can permission="admin.investors.manage">
@@ -222,20 +225,50 @@ export const AdminInvestorsPage = () => {
         </Can>
       </div>
 
-      {/* Filters Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
-        <div className="flex-1 w-full relative">
-          <input 
-            type="text" 
-            placeholder="Buscar por código, nombre, correo o documento del usuario..." 
-            className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value);
-            }}
-          />
-        </div>
+      {/* Tabs Navigation */}
+      <div className="border-b border-slate-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('investments')}
+            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'investments'
+                ? 'border-brand-500 text-brand-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Inversiones (Contratos)
+          </button>
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'requests'
+                ? 'border-brand-500 text-brand-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Solicitudes
+          </button>
+        </nav>
       </div>
+
+      {activeTab === 'requests' ? (
+        <InvestmentRequestsTable />
+      ) : (
+        <>
+          {/* Filters Bar */}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
+            <div className="flex-1 w-full relative">
+              <input 
+                type="text" 
+                placeholder="Buscar por código, nombre, correo o documento del usuario..." 
+                className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                value={searchInput}
+                onChange={(e) => {
+                  setSearchInput(e.target.value);
+                }}
+              />
+            </div>
+          </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -455,6 +488,8 @@ export const AdminInvestorsPage = () => {
           </div>
         </div>
       </div>
+      </>
+      )}
 
       <InvestorModal 
         isOpen={isModalOpen}
