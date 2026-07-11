@@ -35,8 +35,17 @@ class InvestmentRequestService:
                 )
             )
             
-        # Count total
-        count_query = select(func.count()).select_from(query.subquery())
+        # Count total (sin usar subquery para evitar problemas en SQLAlchemy)
+        count_query = select(func.count(InvestmentRequest.id))
+        if search:
+            count_query = count_query.join(User).filter(
+                or_(
+                    User.name.ilike(search_pattern),
+                    User.email.ilike(search_pattern),
+                    User.document_id.ilike(search_pattern)
+                )
+            )
+            
         total_result = await db.execute(count_query)
         total = total_result.scalar_one_or_none() or 0
         
