@@ -41,7 +41,7 @@ class AuthService:
             )
             
         # Success: reset counters
-        if user.failed_login_attempts > 0 or user.locked_until is not None:
+        if (user.failed_login_attempts or 0) > 0 or user.locked_until is not None:
             user.failed_login_attempts = 0
             user.locked_until = None
             await db.commit()
