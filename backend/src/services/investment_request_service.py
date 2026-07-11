@@ -70,18 +70,41 @@ class InvestmentRequestService:
         if csv_text.startswith('\ufeff'):
             csv_text = csv_text[1:]
             
-        first_line = csv_text.split('\n')[0] if csv_text else ""
-        delim = ';' if first_line.count(';') >= first_line.count(',') else ','
-        reader = csv.DictReader(io.StringIO(csv_text), delimiter=delim)
+        lines = csv_text.splitlines()
+        first_line = lines[0] if lines else ""
+        
+        # Detect delimiter (Tab, Semicolon, or Comma)
+        if first_line.count('\t') > first_line.count(';') and first_line.count('\t') > first_line.count(','):
+            delim = '\t'
+        elif first_line.count(';') >= first_line.count(','):
+            delim = ';'
+        else:
+            delim = ','
+        
+        # Split line manually to normalize field names (handle BOM and spaces)
+        raw_fieldnames = first_line.strip().split(delim)
+        fieldnames = [f.replace('\ufeff', '').strip(' "') for f in raw_fieldnames]
+        
+        reader = csv.DictReader(io.StringIO(csv_text), delimiter=delim, fieldnames=fieldnames)
+        
+        # Skip the first row since we provided fieldnames manually
+        next(reader, None)
         
         success_count = 0
         errors = []
         
         for i, row in enumerate(reader, start=1):
             try:
-                user_id_str = row.get("user_id", "").strip()
-                paquete_id_str = row.get("paquete_inversion_id", "").strip()
-                monto_str = row.get("monto", "").strip()
+                # Normalizamos las claves del diccionario por si alguna vino con espacios
+                row = {k.strip(' "'): v for k, v in row.items() if k is not None}
+                
+                # Si toda la fila está vacía, ignorarla (por si Excel deja filas extra al final)
+                if not any(v.strip() for v in row.values() if isinstance(v, str)):
+                    continue
+                    
+                user_id_str = str(row.get("user_id", "")).strip() if row.get("user_id") else ""
+                paquete_id_str = str(row.get("paquete_inversion_id", "")).strip() if row.get("paquete_inversion_id") else ""
+                monto_str = str(row.get("monto", "")).strip() if row.get("monto") else ""
                 
                 if not user_id_str or not paquete_id_str or not monto_str:
                     errors.append(f"Fila {i}: 'user_id', 'paquete_inversion_id' y 'monto' son obligatorios.")
