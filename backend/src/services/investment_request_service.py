@@ -50,7 +50,7 @@ class InvestmentRequestService:
         total = total_result.scalar_one_or_none() or 0
         
         # Pagination
-        query = query.order_by(InvestmentRequest.created_at.desc())
+        query = query.order_by(InvestmentRequest.id.desc())
         query = query.offset((page - 1) * limit).limit(limit)
         
         result = await db.execute(query)
