@@ -27,7 +27,7 @@ class InvestmentRequestService:
         
         if search:
             search_pattern = f"%{search}%"
-            query = query.join(User).filter(
+            query = query.join(InvestmentRequest.user).filter(
                 or_(
                     User.name.ilike(search_pattern),
                     User.email.ilike(search_pattern),
@@ -38,7 +38,7 @@ class InvestmentRequestService:
         # Count total (sin usar subquery para evitar problemas en SQLAlchemy)
         count_query = select(func.count(InvestmentRequest.id))
         if search:
-            count_query = count_query.join(User).filter(
+            count_query = count_query.join(InvestmentRequest.user).filter(
                 or_(
                     User.name.ilike(search_pattern),
                     User.email.ilike(search_pattern),
