@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getInvestmentRequests, InvestmentRequest } from '../../../../services/investment_requests';
-import { Loader2, Users } from 'lucide-react';
+import { Loader2, Users, ChevronDown, ChevronRight } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const InvestmentRequestsTableSkeleton = () => {
@@ -8,6 +8,9 @@ const InvestmentRequestsTableSkeleton = () => {
     <>
       {[...Array(5)].map((_, i) => (
         <tr key={i} className="animate-pulse">
+          <td className="px-4 py-4 w-10">
+            <div className="h-4 w-4 bg-slate-200 rounded"></div>
+          </td>
           <td className="px-6 py-4 w-20">
             <div className="h-3 w-8 bg-slate-200 rounded font-mono"></div>
           </td>
@@ -39,7 +42,12 @@ export const InvestmentRequestsTable = () => {
   const [requests, setRequests] = useState<InvestmentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   
+  const toggleRow = (id: number) => {
+    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   // Pagination & Search state
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -127,6 +135,7 @@ export const InvestmentRequestsTable = () => {
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
               <tr>
+                <th className="px-4 py-4 w-10"></th>
                 <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Usuario</th>
                 <th className="px-6 py-4">Paquete</th>
@@ -140,7 +149,7 @@ export const InvestmentRequestsTable = () => {
                 <InvestmentRequestsTableSkeleton />
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay solicitudes de inversión registradas.</p>
@@ -149,33 +158,107 @@ export const InvestmentRequestsTable = () => {
                 </tr>
               ) : (
                 requests.map((request) => (
-                  <tr key={request.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="px-6 py-4 font-mono text-xs text-slate-500">
-                      #{request.id}
-                    </td>
-                    <td className="px-6 py-4">
-                      {request.user ? (
-                        <div className="space-y-0.5">
-                          <div className="font-semibold text-slate-800">{request.user.name}</div>
-                          <div className="text-xs text-slate-500">{request.user.email}</div>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400">Usuario #{request.user_id}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-700">
-                      {request.package?.value ? `Paquete $${request.package.value.toLocaleString('es-CO')}` : `Paquete #${request.paquete_inversion_id}`}
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-brand-700">
-                      ${request.monto.toLocaleString('es-CO')} COP
-                    </td>
-                    <td className="px-6 py-4">
-                      {getStatusBadge(request.status)}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-slate-500">
-                      {request.created_at ? new Date(request.created_at).toLocaleDateString() : '-'}
-                    </td>
-                  </tr>
+                  <React.Fragment key={request.id}>
+                    <tr className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-4 py-4">
+                        <button
+                          onClick={() => toggleRow(request.id)}
+                          className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400 hover:text-slate-600"
+                        >
+                          {expandedRows[request.id] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                        #{request.id}
+                      </td>
+                      <td className="px-6 py-4">
+                        {request.user ? (
+                          <div className="space-y-0.5">
+                            <div className="font-semibold text-slate-800">{request.user.name}</div>
+                            <div className="text-xs text-slate-500">{request.user.email}</div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">Usuario #{request.user_id}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-slate-700">
+                        {request.package?.value ? `Paquete $${request.package.value.toLocaleString('es-CO')}` : `Paquete #${request.paquete_inversion_id}`}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-brand-700">
+                        ${request.monto.toLocaleString('es-CO')} COP
+                      </td>
+                      <td className="px-6 py-4">
+                        {getStatusBadge(request.status)}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-500">
+                        {request.created_at ? new Date(request.created_at).toLocaleDateString() : '-'}
+                      </td>
+                    </tr>
+                    
+                    {/* Expanded Details Row */}
+                    {expandedRows[request.id] && (
+                      <tr className="bg-slate-50/50">
+                        <td colSpan={7} className="px-6 py-4 border-t border-slate-100">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                            
+                            {/* Fechas */}
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Seguimiento</h4>
+                              <div className="grid grid-cols-2 gap-2 text-slate-600">
+                                <span className="text-slate-400">Actualizado:</span>
+                                <span>{request.updated_at ? new Date(request.updated_at).toLocaleDateString() : '-'}</span>
+                                <span className="text-slate-400">Revisado Por:</span>
+                                <span>{request.reviewed_by ? `Admin #${request.reviewed_by}` : 'N/A'}</span>
+                                <span className="text-slate-400">Fecha Revisión:</span>
+                                <span>{request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString() : 'N/A'}</span>
+                              </div>
+                            </div>
+
+                            {/* Referencias */}
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Referencias</h4>
+                              <div className="grid grid-cols-2 gap-2 text-slate-600">
+                                <span className="text-slate-400">ID Inversionista:</span>
+                                <span>{request.investor_id ? `#${request.investor_id}` : 'N/A'}</span>
+                                <span className="text-slate-400">ID Prospecto:</span>
+                                <span>{request.prospecto_id ? `#${request.prospecto_id}` : 'N/A'}</span>
+                                <span className="text-slate-400">Comprobante:</span>
+                                <span>
+                                  {request.comprobante_path ? (
+                                    <a href={request.comprobante_path} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">Ver Archivo</a>
+                                  ) : 'Sin adjunto'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Datos Extra y Rechazo */}
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Información Adicional</h4>
+                              {request.rejection_reason && (
+                                <div className="mb-2 p-2 bg-red-50 text-red-700 rounded-lg text-xs border border-red-100">
+                                  <strong>Motivo Rechazo:</strong> {request.rejection_reason}
+                                </div>
+                              )}
+                              
+                              <div className="text-slate-600">
+                                <span className="text-slate-400 block mb-1">Datos Extra (JSON):</span>
+                                <div className="bg-white border border-slate-200 p-2 rounded-lg text-xs font-mono break-all text-slate-700 max-h-32 overflow-y-auto">
+                                  {request.extra_data ? (
+                                    typeof request.extra_data === 'object' 
+                                      ? JSON.stringify(request.extra_data, null, 2)
+                                      : request.extra_data
+                                  ) : (
+                                    <span className="text-slate-400 italic">Sin datos extra</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))
               )}
             </tbody>
