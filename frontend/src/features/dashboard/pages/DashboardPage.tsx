@@ -7,7 +7,7 @@ import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
-import { MaintenanceModal } from '../components/MaintenanceModal';
+
 import { AutoTransferModal } from '../components/AutoTransferModal';
 
 export const DashboardPage = () => {
@@ -88,7 +88,7 @@ export const DashboardPage = () => {
 
             {/* TODO EL DASHBOARD ESTÁ PROTEGIDO POR PBAC */}
             <Can permission="ver_mis_inversiones">
-                <MaintenanceModal />
+
                 {loading ? (
                     <div className="space-y-8 animate-pulse">
                         {/* HeroCard Skeleton */}
