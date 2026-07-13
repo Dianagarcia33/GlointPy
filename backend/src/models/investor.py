@@ -23,3 +23,4 @@ class Investor(Base):
     user = relationship("User")
     package = relationship("Package")
     period = relationship("Period")
+    withdrawals = relationship("Withdrawal", back_populates="investor", cascade="all, delete-orphan")
