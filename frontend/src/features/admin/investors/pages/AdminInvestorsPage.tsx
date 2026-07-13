@@ -6,6 +6,7 @@ import { BulkUploadInvestmentRequestsModal } from '../components/BulkUploadInves
 import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
 import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
 import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
+import { BulkUploadWithdrawalsModal } from '../components/BulkUploadWithdrawalsModal';
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
@@ -88,12 +89,14 @@ export const AdminInvestorsPage = () => {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
 
+  const [isMassUploadOpen, setIsMassUploadOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isBulkReqModalOpen, setIsBulkReqModalOpen] = useState(false);
   const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
   const [isBulkWalletModalOpen, setIsBulkWalletModalOpen] = useState(false);
   const [isBulkTxModalOpen, setIsBulkTxModalOpen] = useState(false);
+  const [isBulkWithdrawalsModalOpen, setIsBulkWithdrawalsModalOpen] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
@@ -192,7 +195,57 @@ export const AdminInvestorsPage = () => {
         </div>
         
         <Can permission="admin.investors.manage">
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative">
+            <button 
+              onClick={() => setIsMassUploadOpen(!isMassUploadOpen)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors shadow-sm text-sm font-medium border border-slate-200"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Carga Masiva
+              <ChevronDown className={`w-4 h-4 transition-transform ${isMassUploadOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {isMassUploadOpen && (
+              <div className="absolute top-full mt-2 right-0 w-64 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
+                <button 
+                  onClick={() => { setIsBulkModalOpen(true); setIsMassUploadOpen(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Cargar Inversionistas (CSV)
+                </button>
+                <button 
+                  onClick={() => { setIsBulkReqModalOpen(true); setIsMassUploadOpen(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Cargar Solicitudes de Inversión (CSV)
+                </button>
+                <button 
+                  onClick={() => { setIsBulkBankModalOpen(true); setIsMassUploadOpen(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Cargar Cuentas Bancarias (CSV)
+                </button>
+                <button 
+                  onClick={() => { setIsBulkWalletModalOpen(true); setIsMassUploadOpen(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Cargar Billeteras (CSV)
+                </button>
+                <button 
+                  onClick={() => { setIsBulkTxModalOpen(true); setIsMassUploadOpen(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Cargar Transacciones Billetera (CSV)
+                </button>
+                <button 
+                  onClick={() => { setIsBulkWithdrawalsModalOpen(true); setIsMassUploadOpen(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Cargar Retiros (CSV)
+                </button>
+              </div>
+            )}
+
             <button 
               onClick={handleCreate}
               className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
@@ -518,6 +571,15 @@ export const AdminInvestorsPage = () => {
         onClose={() => setIsBulkTxModalOpen(false)}
         onUploaded={() => {
           setIsBulkTxModalOpen(false);
+          fetchData();
+        }}
+      />
+
+      <BulkUploadWithdrawalsModal
+        isOpen={isBulkWithdrawalsModalOpen}
+        onClose={() => setIsBulkWithdrawalsModalOpen(false)}
+        onUploaded={() => {
+          setIsBulkWithdrawalsModalOpen(false);
           fetchData();
         }}
       />
