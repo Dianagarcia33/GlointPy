@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from src.core.database import get_db
 from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate
 from src.services.withdrawal_service import WithdrawalService
-from src.core.security import get_current_user
+from src.api.deps import get_current_user
 from src.models.user import User
 
 router = APIRouter()
