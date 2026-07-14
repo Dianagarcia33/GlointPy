@@ -36,12 +36,13 @@ export interface Investor {
   contract_histories?: ContractHistory[];
 }
 
-export const getInvestors = async (params?: { page?: number; limit?: number; search?: string }): Promise<{ data: Investor[]; total: number }> => {
+export const getInvestors = async (params?: { page?: number; limit?: number; search?: string; has_history?: boolean }): Promise<{ data: Investor[]; total: number }> => {
   const queryParams = new URLSearchParams();
   if (params) {
     if (params.page !== undefined) queryParams.append('page', params.page.toString());
     if (params.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params.search) queryParams.append('search', params.search);
+    if (params.has_history !== undefined) queryParams.append('has_history', params.has_history.toString());
   }
   const queryString = queryParams.toString();
   return await fetchApi(`/investors/${queryString ? `?${queryString}` : ''}`);

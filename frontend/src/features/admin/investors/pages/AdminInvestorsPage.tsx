@@ -123,6 +123,7 @@ export const AdminInvestorsPage = () => {
   const [total, setTotal] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [hasHistoryFilter, setHasHistoryFilter] = useState<boolean | undefined>(undefined);
 
   const [isMassUploadOpen, setIsMassUploadOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -156,7 +157,8 @@ export const AdminInvestorsPage = () => {
       const response = await getInvestors({
         page,
         limit,
-        search: search || undefined
+        search: search || undefined,
+        has_history: hasHistoryFilter
       });
       setInvestors(response.data);
       setTotal(response.total);
@@ -184,7 +186,7 @@ export const AdminInvestorsPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [page, search]);
+  }, [page, search, hasHistoryFilter]);
 
   const handleCreate = () => {
     setEditingInvestor(null);
@@ -311,6 +313,21 @@ export const AdminInvestorsPage = () => {
                   setSearchInput(e.target.value);
                 }}
               />
+            </div>
+            <div className="w-full md:w-64">
+              <select
+                className="w-full pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all bg-white text-slate-700"
+                value={hasHistoryFilter === undefined ? "" : hasHistoryFilter.toString()}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setHasHistoryFilter(val === "" ? undefined : val === "true");
+                  setPage(1);
+                }}
+              >
+                <option value="">Todas las inversiones</option>
+                <option value="true">Con historial de contratos</option>
+                <option value="false">Sin historial de contratos</option>
+              </select>
             </div>
           </div>
 

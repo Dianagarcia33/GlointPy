@@ -26,7 +26,8 @@ class InvestorService:
         db: AsyncSession, 
         page: int = 1, 
         limit: int = 20, 
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        has_history: Optional[bool] = None
     ) -> dict:
         from sqlalchemy import or_, func
         
@@ -43,6 +44,12 @@ class InvestorService:
                     User.document_id.ilike(search_term)
                 )
             )
+            
+        if has_history is not None:
+            if has_history:
+                query = query.where(Investor.contract_histories.any())
+            else:
+                query = query.where(~Investor.contract_histories.any())
             
         # Count total
         count_query = select(func.count()).select_from(query.subquery())

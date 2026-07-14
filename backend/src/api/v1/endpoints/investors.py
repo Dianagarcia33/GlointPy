@@ -14,12 +14,13 @@ async def read_investors(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
+    has_history: Optional[bool] = Query(None, description="Filtrar por inversiones que tienen historial de contratos"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Retrieve all investors paginated.
     """
-    return await InvestorService.get_investors(db, page=page, limit=limit, search=search)
+    return await InvestorService.get_investors(db, page=page, limit=limit, search=search, has_history=has_history)
 
 @router.get("/{investor_id}", response_model=InvestorResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investor(
