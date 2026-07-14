@@ -197,54 +197,12 @@ export const AdminInvestorsPage = () => {
         <Can permission="admin.investors.manage">
           <div className="flex gap-2 relative">
             <button 
-              onClick={() => setIsMassUploadOpen(!isMassUploadOpen)}
+              onClick={() => setIsBulkWithdrawalsModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors shadow-sm text-sm font-medium border border-slate-200"
             >
               <UploadCloud className="w-4 h-4" />
-              Carga Masiva
-              <ChevronDown className={`w-4 h-4 transition-transform ${isMassUploadOpen ? 'rotate-180' : ''}`} />
+              Cargar Retiros (CSV)
             </button>
-            
-            {isMassUploadOpen && (
-              <div className="absolute top-full mt-2 right-0 w-64 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50">
-                <button 
-                  onClick={() => { setIsBulkModalOpen(true); setIsMassUploadOpen(false); }}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Cargar Inversionistas (CSV)
-                </button>
-                <button 
-                  onClick={() => { setIsBulkReqModalOpen(true); setIsMassUploadOpen(false); }}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Cargar Solicitudes de Inversión (CSV)
-                </button>
-                <button 
-                  onClick={() => { setIsBulkBankModalOpen(true); setIsMassUploadOpen(false); }}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Cargar Cuentas Bancarias (CSV)
-                </button>
-                <button 
-                  onClick={() => { setIsBulkWalletModalOpen(true); setIsMassUploadOpen(false); }}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Cargar Billeteras (CSV)
-                </button>
-                <button 
-                  onClick={() => { setIsBulkTxModalOpen(true); setIsMassUploadOpen(false); }}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Cargar Transacciones Billetera (CSV)
-                </button>
-                <button 
-                  onClick={() => { setIsBulkWithdrawalsModalOpen(true); setIsMassUploadOpen(false); }}
-                  className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-                >
-                  Cargar Retiros (CSV)
-                </button>
-              </div>
-            )}
 
             <button 
               onClick={handleCreate}
