@@ -100,12 +100,17 @@ class AuthService:
                 detail="El correo ya está registrado."
             )
 
+        # Buscar el rol
+        role_result = await db.execute(select(Role).where(Role.name == "investor"))
+        role = role_result.scalars().first()
+
         new_user = User(
             name=data.name,
             email=data.email,
             password_hash=get_password_hash(data.password),
             document_id=data.documento,
             phone_number=data.numero_celular,
+            roles=[role] if role else []
         )
         
         db.add(new_user)
@@ -142,12 +147,6 @@ class AuthService:
             }
         )
         db.add(req)
-
-        # Assign Role
-        role_result = await db.execute(select(Role).where(Role.name == "investor"))
-        role = role_result.scalars().first()
-        if role:
-            new_user.roles.append(role)
 
         await db.commit()
         await db.refresh(new_user)
