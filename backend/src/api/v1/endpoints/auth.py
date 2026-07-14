@@ -43,6 +43,21 @@ async def register(register_data: RegisterRequest, db: AsyncSession = Depends(ge
         "user": user
     }
 
+from src.schemas.auth import InvestorRegisterRequest
+@router.post("/register-investor", response_model=Token)
+async def register_investor(register_data: InvestorRegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Registra un inversionista con sus datos personales, bancarios, KYC y la solicitud de inversión.
+    """
+    user = await AuthService.register_investor(db, register_data)
+    access_token = create_access_token(subject=user.id)
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
+
 @router.post("/force-change-password", response_model=Token)
 async def force_change_password(data: ForceChangePasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
     """

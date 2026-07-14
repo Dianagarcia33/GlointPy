@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from src.models.user import User
 from src.models.security import Role
-from src.schemas.auth import LoginRequest, RegisterRequest, ForceChangePasswordRequest
+from src.schemas.auth import LoginRequest, RegisterRequest, ForceChangePasswordRequest, InvestorRegisterRequest
 from src.core.security import verify_password, get_password_hash, create_access_token, create_password_reset_token, verify_password_reset_token
 from src.services.email_service import EmailService
 
@@ -81,6 +81,74 @@ class AuthService:
         )
         
         db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+        return new_user
+
+    @staticmethod
+    async def register_investor(db: AsyncSession, data: InvestorRegisterRequest) -> User:
+        import uuid
+        from src.models.user_bank_account import UserBankAccount
+        from src.models.investor import Investor
+        from src.models.investment_request import InvestmentRequest
+
+        # Check si ya existe
+        existing = await db.execute(select(User).where(User.email == data.email))
+        if existing.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El correo ya está registrado."
+            )
+
+        new_user = User(
+            name=data.name,
+            email=data.email,
+            password_hash=get_password_hash(data.password),
+            document_id=data.documento,
+            phone_number=data.numero_celular,
+        )
+        
+        db.add(new_user)
+        await db.flush()
+
+        bank_acc = UserBankAccount(
+            user_id=new_user.id,
+            banco=data.banco,
+            tipo_cuenta=data.tipo_cuenta,
+            numero_cuenta=data.numero_cuenta
+        )
+        db.add(bank_acc)
+
+        investor = Investor(
+            assigned_code=f"INV-{uuid.uuid4().hex[:6].upper()}",
+            user_id=new_user.id,
+            package_id=data.paquete_id,
+            period_id=data.contract_period_id,
+            observations=f"Ciudad: {data.ciudad}, Tipo Doc: {data.tipo_documento}, KYC: {','.join(data.kyc_docs)}"
+        )
+        db.add(investor)
+        await db.flush()
+
+        req = InvestmentRequest(
+            user_id=new_user.id,
+            investor_id=investor.id,
+            paquete_inversion_id=data.paquete_id,
+            monto=data.monto,
+            comprobante_path=data.comprobante_path,
+            extra_data={
+                "kyc_docs": data.kyc_docs,
+                "ciudad": data.ciudad,
+                "fecha_nacimiento": data.fecha_nacimiento
+            }
+        )
+        db.add(req)
+
+        # Assign Role
+        role_result = await db.execute(select(Role).where(Role.name == "investor"))
+        role = role_result.scalars().first()
+        if role:
+            new_user.roles.append(role)
+
         await db.commit()
         await db.refresh(new_user)
         return new_user
