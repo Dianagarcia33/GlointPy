@@ -87,7 +87,7 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="wallet" element={<WalletsPage />} />
         <Route path="investments" element={<InvestmentsPage />} />
-        <Route path="investments/reales" element={<AdminInvestmentsPage />} />
+        <Route path="audit" element={<RequirePermission permission="admin.investments.requests"><AdminInvestmentsPage /></RequirePermission>} />
         <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />
         <Route path="periods" element={<RequirePermission permission="admin.periods.manage"><AdminPeriodsPage /></RequirePermission>} />

@@ -51,7 +51,7 @@ export const Sidebar = () => {
                 {/* MODULO DE AUDITORIA */}
                 <Can permission="admin.investments.requests">
                     <NavLink
-                        to="/dashboard/investments"
+                        to="/dashboard/audit"
                         end
                         className={({ isActive }) => `
                             group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
