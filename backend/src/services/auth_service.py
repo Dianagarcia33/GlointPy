@@ -100,9 +100,19 @@ class AuthService:
                 detail="El correo ya está registrado."
             )
 
-        # Buscar el rol por su ID (5 = Investor)
-        role_result = await db.execute(select(Role).where(Role.id == 5))
+        from sqlalchemy import insert
+        from src.models.security import user_roles
+
+        # Buscar el rol (por nombre o ID como respaldo)
+        role_result = await db.execute(select(Role).where(Role.name.ilike("investor")))
         role = role_result.scalars().first()
+        
+        if not role:
+            role_result = await db.execute(select(Role).where(Role.id == 5))
+            role = role_result.scalars().first()
+            
+        if not role:
+            raise HTTPException(status_code=500, detail="Error crítico: El rol 'investor' no existe en la base de datos.")
 
         new_user = User(
             name=data.name,
@@ -110,11 +120,13 @@ class AuthService:
             password_hash=get_password_hash(data.password),
             document_id=data.documento,
             phone_number=data.numero_celular,
-            roles=[role] if role else []
         )
         
         db.add(new_user)
         await db.flush()
+
+        # Inserción directa en la tabla pivot para asegurar el rol
+        await db.execute(insert(user_roles).values(user_id=new_user.id, role_id=role.id))
 
         bank_acc = UserBankAccount(
             user_id=new_user.id,
