@@ -20,14 +20,7 @@ export const AdminUsersPage = () => {
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
   
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
-
-  const toggleRow = (id: number) => {
-    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -174,61 +167,94 @@ export const AdminUsersPage = () => {
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
               <tr>
-                <th className="px-4 py-4 w-10"></th>
-                <th className="px-6 py-4">Usuario</th>
-                <th className="px-6 py-4 hidden sm:table-cell">Documento</th>
-                <th className="px-6 py-4">Roles</th>
-                <th className="px-6 py-4 hidden md:table-cell">Estado</th>
+                <th className="px-6 py-4">Usuario & Contacto</th>
+                <th className="px-6 py-4 hidden md:table-cell">Billetera & Cuentas</th>
+                <th className="px-6 py-4">Roles & Estado</th>
                 <th className="px-6 py-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {users.map(user => (
-                <React.Fragment key={user.id}>
-                <tr className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-4 py-4 w-10 text-center">
-                    <button 
-                      onClick={() => toggleRow(user.id)}
-                      className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      {expandedRows[user.id] ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
-                      )}
-                    </button>
-                  </td>
+                <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0 mt-1">
                           <UserIcon className="w-4 h-4 text-brand-600" />
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <div className="font-semibold text-slate-800 flex items-center gap-2">
                           {user.name} 
                           {user.is_superuser && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase">Admin</span>}
                         </div>
-                        <div className="text-xs text-slate-400 font-mono mt-0.5">{user.email}</div>
-                        <div className="text-xs text-slate-400 mt-0.5">{user.phone_number}</div>
+                        <div className="text-xs text-slate-500 font-mono">{user.email}</div>
+                        {user.document_id && <div className="text-xs text-slate-500">Doc: <span className="font-medium text-slate-700">{user.document_id}</span></div>}
+                        {user.phone_number && <div className="text-xs text-slate-500">Tel: <span className="font-medium text-slate-700">{user.phone_number}</span></div>}
+                        {user.date_of_birth && <div className="text-xs text-slate-500">Nac: <span className="font-medium text-slate-700">{new Date(user.date_of_birth).toLocaleDateString()}</span></div>}
+                        <div className="text-[10px] text-slate-400">Reg: {new Date(user.created_at).toLocaleDateString()}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 hidden sm:table-cell">{user.document_id || <span className="text-slate-400 italic text-xs">No registrado</span>}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-1.5">
-                      {user.roles.length > 0 ? user.roles.map(r => (
-                        <span key={r.id} className="inline-flex px-2 py-0.5 bg-brand-50 text-brand-700 border border-brand-100 rounded text-[10px] font-medium whitespace-nowrap">
-                          {r.display_name}
-                        </span>
-                      )) : <span className="text-slate-400 italic text-xs">Sin roles</span>}
+                  <td className="px-6 py-4 hidden md:table-cell">
+                    <div className="space-y-4">
+                      {/* Billetera */}
+                      <div className="text-xs">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Billetera</div>
+                        {user.wallet ? (
+                          <>
+                            <div className="font-semibold text-slate-800">
+                              {user.wallet.balance.toLocaleString('es-CO', { style: 'currency', currency: user.wallet.currency || 'COP', minimumFractionDigits: 0 })}
+                            </div>
+                            <div className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase inline-block mt-0.5 ${
+                              user.wallet.status === 'active' 
+                                ? 'bg-emerald-100 text-emerald-700' 
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              {user.wallet.status === 'active' ? 'ACTIVA' : 'CONGELADA'}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-slate-400 italic">Sin billetera</div>
+                        )}
+                      </div>
+                      
+                      {/* Cuentas */}
+                      <div className="text-xs">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex justify-between items-center w-48">
+                          <span>Cuentas Bancarias</span>
+                          <span className="bg-slate-100 px-1.5 rounded">{user.bank_accounts?.length || 0}</span>
+                        </div>
+                        {user.bank_accounts && user.bank_accounts.length > 0 ? (
+                          <div className="space-y-1.5 w-48">
+                            {user.bank_accounts.map(acc => (
+                              <div key={acc.id} className="text-[11px] bg-slate-50 border border-slate-200 rounded px-2 py-1.5 shadow-xs">
+                                <div className="font-medium text-slate-700 truncate">{acc.banco} - {acc.tipo_cuenta}</div>
+                                <div className="text-slate-500 font-mono mt-0.5">{acc.numero_cuenta}</div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-slate-400 italic">Sin cuentas registradas</div>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 hidden md:table-cell">
-                    {user.is_active ? (
-                      <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-medium">Activo</span>
-                    ) : (
-                      <span className="text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded text-[10px] font-medium">Inactivo</span>
-                    )}
+                  <td className="px-6 py-4">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-1.5 max-w-[150px]">
+                        {user.roles.length > 0 ? user.roles.map(r => (
+                          <span key={r.id} className="inline-flex px-2 py-0.5 bg-brand-50 text-brand-700 border border-brand-100 rounded text-[10px] font-medium whitespace-nowrap">
+                            {r.display_name}
+                          </span>
+                        )) : <span className="text-slate-400 italic text-xs">Sin roles</span>}
+                      </div>
+                      <div>
+                        {user.is_active ? (
+                          <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-medium">Activo</span>
+                        ) : (
+                          <span className="text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded text-[10px] font-medium">Inactivo</span>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <Can permission="admin.users.manage">
@@ -242,111 +268,10 @@ export const AdminUsersPage = () => {
                     </Can>
                   </td>
                 </tr>
-                {expandedRows[user.id] && (
-                  <tr className="bg-slate-50/40">
-                    <td colSpan={6} className="px-8 py-4 border-b border-slate-100">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        
-                        {/* Personal Info Column */}
-                        <div className="space-y-2">
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Datos Personales:</div>
-                          <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-2">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-500">Documento:</span>
-                              <span className="font-medium text-slate-700">{user.document_id || 'No registrado'}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-500">Teléfono:</span>
-                              <span className="font-medium text-slate-700">{user.phone_number || 'No registrado'}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-500">Nacimiento:</span>
-                              <span className="font-medium text-slate-700">
-                                {user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'No registrado'}
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-500">Registro:</span>
-                              <span className="font-medium text-slate-700">
-                                {new Date(user.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Wallet Info Column */}
-                        <div className="space-y-2">
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Billetera (Wallet):</div>
-                          {user.wallet ? (
-                            <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-col gap-2 relative overflow-hidden">
-                              <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
-                              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 pl-1">
-                                <span className="font-bold text-slate-700 uppercase tracking-wider text-xs">Saldo Disponible</span>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${
-                                  user.wallet.status === 'active' 
-                                    ? 'bg-emerald-100 text-emerald-700' 
-                                    : 'bg-red-100 text-red-700'
-                                }`}>
-                                  {user.wallet.status === 'active' ? 'ACTIVA' : 'CONGELADA'}
-                                </span>
-                              </div>
-                              <div className="pl-1">
-                                <div className="text-xl font-bold text-slate-800">
-                                  {user.wallet.balance.toLocaleString('es-CO', { style: 'currency', currency: user.wallet.currency || 'COP', minimumFractionDigits: 0 })}
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-lg p-4 text-center text-xs text-slate-500">
-                              El usuario no tiene una billetera configurada.
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Bank Accounts Column */}
-                        <div className="space-y-2">
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                            <span>Cuentas Bancarias:</span>
-                            <span className="bg-slate-200 text-slate-600 px-1.5 rounded">{user.bank_accounts?.length || 0}</span>
-                          </div>
-                          
-                          {user.bank_accounts && user.bank_accounts.length > 0 ? (
-                            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
-                              <table className="w-full text-left text-xs">
-                                <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
-                                  <tr>
-                                    <th className="px-3 py-2 font-semibold">Banco</th>
-                                    <th className="px-3 py-2 font-semibold">Tipo</th>
-                                    <th className="px-3 py-2 font-semibold">Número</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                  {user.bank_accounts.map(acc => (
-                                    <tr key={acc.id} className="hover:bg-slate-50/50">
-                                      <td className="px-3 py-2 font-medium text-slate-700">{acc.banco}</td>
-                                      <td className="px-3 py-2 text-slate-500">{acc.tipo_cuenta}</td>
-                                      <td className="px-3 py-2 text-slate-600 font-mono">{acc.numero_cuenta}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-lg p-4 text-center text-xs text-slate-500">
-                              No hay cuentas bancarias registradas.
-                            </div>
-                          )}
-                        </div>
-
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                </React.Fragment>
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                     No se encontraron usuarios.
                   </td>
                 </tr>
