@@ -87,32 +87,37 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
 
       // Clean the parsed data to match Pydantic schema
       const jsonPayload = parsedData
-        .filter(item => item.user_id && !isNaN(parseInt(item.user_id)) && item.tipo && item.monto && item.monto_neto && item.fecha_solicitud)
-        .map(item => ({
-        id: item.id ? parseInt(item.id) : undefined,
-        user_id: parseInt(item.user_id),
-        investor_id: item.investor_id ? parseInt(item.investor_id) : null,
-        origen: item.origen || 'inversion',
-        tipo: item.tipo,
-        monto: parseFloat(item.monto),
-        impuesto: item.impuesto ? parseFloat(item.impuesto) : 0.00,
-        monto_neto: parseFloat(item.monto_neto),
-        fecha_solicitud: item.fecha_solicitud,
-        fecha_retiro: item.fecha_retiro,
-        estado: item.estado || 'pendiente',
-        metodo_pago: item.metodo_pago,
-        banco: item.banco,
-        tipo_cuenta: item.tipo_cuenta,
-        numero_cuenta: item.numero_cuenta,
-        observaciones: item.observaciones,
-        motivo_rechazo: item.motivo_rechazo,
-        aprobado_por: item.aprobado_por ? parseInt(item.aprobado_por) : null,
-        fecha_aprobacion: item.fecha_aprobacion,
-        procesado_por: item.procesado_por ? parseInt(item.procesado_por) : null,
-        fecha_procesamiento: item.fecha_procesamiento,
-        comprobante_pago: item.comprobante_pago,
-        receipt_path: item.receipt_path,
-      }));
+        .filter(item => item.user_id && !isNaN(parseInt(item.user_id)))
+        .map(item => {
+          const monto = parseFloat(item.monto);
+          const monto_neto = parseFloat(item.monto_neto);
+          
+          return {
+            id: item.id ? parseInt(item.id) : undefined,
+            user_id: parseInt(item.user_id),
+            investor_id: item.investor_id ? parseInt(item.investor_id) : null,
+            origen: item.origen || 'inversion',
+            tipo: item.tipo || 'capital', // Valor por defecto si viene vacío
+            monto: isNaN(monto) ? 0.00 : monto, // Valor por defecto 0
+            impuesto: item.impuesto && !isNaN(parseFloat(item.impuesto)) ? parseFloat(item.impuesto) : 0.00,
+            monto_neto: isNaN(monto_neto) ? 0.00 : monto_neto, // Valor por defecto 0
+            fecha_solicitud: item.fecha_solicitud || new Date().toISOString().split('T')[0], // Fecha actual por defecto
+            fecha_retiro: item.fecha_retiro,
+            estado: item.estado || 'pendiente',
+            metodo_pago: item.metodo_pago,
+            banco: item.banco,
+            tipo_cuenta: item.tipo_cuenta,
+            numero_cuenta: item.numero_cuenta,
+            observaciones: item.observaciones,
+            motivo_rechazo: item.motivo_rechazo,
+            aprobado_por: item.aprobado_por && !isNaN(parseInt(item.aprobado_por)) ? parseInt(item.aprobado_por) : null,
+            fecha_aprobacion: item.fecha_aprobacion,
+            procesado_por: item.procesado_por && !isNaN(parseInt(item.procesado_por)) ? parseInt(item.procesado_por) : null,
+            fecha_procesamiento: item.fecha_procesamiento,
+            comprobante_pago: item.comprobante_pago,
+            receipt_path: item.receipt_path,
+          };
+        });
 
       const CHUNK_SIZE = 50;
       let totalSuccess = 0;
