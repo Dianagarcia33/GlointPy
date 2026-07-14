@@ -300,7 +300,14 @@ export const InvestorRegistrationFlow = () => {
 
     const handleFinalSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!acceptedTerms) return;
+        
+        if (!isStep6Valid()) {
+            if (!formData.email) return alert("Por favor ingresa tu correo electrónico.");
+            if (!isValidPassword(formData.password)) return alert("La contraseña no cumple con todos los requisitos.");
+            if (formData.password !== confirmPassword) return alert("Las contraseñas no coinciden.");
+            if (!acceptedTerms) return alert("Debes aceptar los Términos y Condiciones.");
+            return alert("Por favor completa todos los campos correctamente.");
+        }
 
         const finalCity = formData.ciudad === 'Otra' ? formData.custom_ciudad : formData.ciudad;
         const finalBank = formData.banco === 'Otro / Cooperativa' ? formData.custom_banco : formData.banco;
@@ -840,7 +847,7 @@ export const InvestorRegistrationFlow = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={registerMutation.isPending || !isStep6Valid()}
+                                    disabled={registerMutation.isPending}
                                     className="w-full md:w-auto px-8 py-3 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98]"
                                 >
                                     {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
