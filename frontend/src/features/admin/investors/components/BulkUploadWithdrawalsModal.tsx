@@ -65,8 +65,11 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
         throw new Error("El archivo está vacío o no tiene registros.");
       }
       
-      const delimiter = lines[0].includes(';') ? ';' : ',';
-      const headers = lines[0].split(delimiter).map(h => h.trim());
+      let delimiter = ',';
+      if (lines[0].includes('\t')) delimiter = '\t';
+      else if (lines[0].includes(';')) delimiter = ';';
+      
+      const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^\uFEFF/, ''));
       
       const parsedData = lines.slice(1).map((line, index) => {
         const values = line.split(delimiter);
@@ -126,7 +129,7 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
       if (jsonPayload.length === 0) {
         setResult({
           success: 0,
-          errors: ['No se encontraron filas válidas para subir. Verifica que la columna de ID de usuario (user_id o id_user) exista y contenga números válidos.'],
+          errors: [`No se encontraron filas válidas. Cabeceras detectadas: ${headers.join(' | ')}. Revisa que exista la columna user_id o id_user y que tu archivo esté separado correctamente.`],
         });
         setIsUploading(false);
         setProgress(null);
