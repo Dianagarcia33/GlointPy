@@ -112,6 +112,14 @@ export const ForceChangePasswordPage = () => {
                             placeholder="Mínimo 8 caracteres, etc."
                             required
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowPasswords(!showPasswords)}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-brand-500 transition-colors focus:outline-none"
+                            tabIndex={-1}
+                        >
+                            {showPasswords ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
                     </div>
                 </div>
 
@@ -132,6 +140,14 @@ export const ForceChangePasswordPage = () => {
                             placeholder="Repite tu nueva contraseña"
                             required
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowPasswords(!showPasswords)}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-brand-500 transition-colors focus:outline-none"
+                            tabIndex={-1}
+                        >
+                            {showPasswords ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
                     </div>
                     {confirmPassword && newPassword !== confirmPassword && (
                         <p className="text-xs text-red-500 mt-2 font-semibold">Las contraseñas no coinciden.</p>
