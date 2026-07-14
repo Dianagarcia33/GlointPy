@@ -838,14 +838,25 @@ export const InvestorRegistrationFlow = () => {
                                 >
                                     Atrás
                                 </button>
-                                <button
-                                    type="submit"
-                                    disabled={registerMutation.isPending || !isStep6Valid()}
-                                    className="w-full md:w-auto px-8 py-3 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98]"
-                                >
-                                    {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
-                                    {registerMutation.isPending ? 'Enviando Solicitud...' : 'Confirmar y Enviar Solicitud'}
-                                </button>
+                                <div className="flex flex-col items-end gap-2 w-full md:w-auto">
+                                    {!isStep6Valid() && (
+                                        <div className="text-xs text-red-500 text-right">
+                                            Falta completar: 
+                                            {!formData.email && ' Correo /'}
+                                            {!isValidPassword(formData.password) && ' Contraseña válida /'}
+                                            {(formData.password !== confirmPassword) && ' Confirmar contraseña /'}
+                                            {!acceptedTerms && ' Aceptar términos'}
+                                        </div>
+                                    )}
+                                    <button
+                                        type="submit"
+                                        disabled={registerMutation.isPending || !isStep6Valid()}
+                                        className="w-full md:w-auto px-8 py-3 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98]"
+                                    >
+                                        {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
+                                        {registerMutation.isPending ? 'Enviando Solicitud...' : 'Confirmar y Enviar Solicitud'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </form>
