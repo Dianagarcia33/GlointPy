@@ -8,3 +8,4 @@ from src.models.wallet import Wallet, WalletTransaction
 from src.models.investment_request import InvestmentRequest
 from src.models.withdrawal import Withdrawal
 from src.models.acceleration import Acceleration
+from src.models.contract_history import ContractHistory
