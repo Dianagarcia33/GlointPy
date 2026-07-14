@@ -93,10 +93,6 @@ const InvestorTableSkeleton = () => {
               </div>
             </div>
           </td>
-          {/* Observaciones */}
-          <td className="px-6 py-4">
-            <div className="h-3 w-20 bg-slate-200 rounded"></div>
-          </td>
           {/* Acciones */}
           <Can permission="admin.investors.manage">
             <td className="px-6 py-4 text-right">
@@ -342,7 +338,6 @@ export const AdminInvestorsPage = () => {
                 <th className="px-6 py-4">Usuario</th>
                 <th className="px-6 py-4">Paquete / Periodo</th>
                 <th className="px-6 py-4">Fechas</th>
-                <th className="px-6 py-4">Observaciones</th>
                 <Can permission="admin.investors.manage">
                   <th className="px-6 py-4 text-right">Acciones</th>
                 </Can>
@@ -353,7 +348,7 @@ export const AdminInvestorsPage = () => {
                 <InvestorTableSkeleton />
               ) : investors.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay inversionistas registrados.</p>
@@ -430,9 +425,6 @@ export const AdminInvestorsPage = () => {
                               </span>
                           </div>
                       </td>
-                      <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate">
-                        {investor.observations || '-'}
-                      </td>
                       <Can permission="admin.investors.manage">
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -456,7 +448,7 @@ export const AdminInvestorsPage = () => {
                     </tr>
                     {expandedRows[investor.id] && investor.user && (
                       <tr className="bg-slate-50/40">
-                        <td colSpan={8} className="px-8 py-4 border-b border-slate-100">
+                        <td colSpan={7} className="px-8 py-4 border-b border-slate-100">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             
                             {/* Wallet Info Column */}
