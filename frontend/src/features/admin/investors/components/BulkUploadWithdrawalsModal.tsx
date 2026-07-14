@@ -87,7 +87,7 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
 
       // Clean the parsed data to match Pydantic schema
       const jsonPayload = parsedData
-        .filter(item => item.user_id && !isNaN(parseInt(item.user_id)))
+        .filter(item => item.user_id && !isNaN(parseInt(item.user_id)) && item.tipo && item.monto && item.monto_neto && item.fecha_solicitud)
         .map(item => ({
         id: item.id ? parseInt(item.id) : undefined,
         user_id: parseInt(item.user_id),
