@@ -48,8 +48,20 @@ class WithdrawalService:
         result = await db.execute(query)
         withdrawals = result.scalars().all()
         
+        from src.schemas.withdrawal import WithdrawalResponse
+        from fastapi import HTTPException
+        import traceback
+        
+        data_res = []
+        for w in withdrawals:
+            try:
+                data_res.append(WithdrawalResponse.model_validate(w))
+            except Exception as e:
+                logger.error(f"Validation error on withdrawal {w.id}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error validando retiro {w.id}: {str(e)}")
+        
         return {
-            "data": withdrawals,
+            "data": data_res,
             "total": total,
             "page": page,
             "limit": limit
