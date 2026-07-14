@@ -1,4 +1,4 @@
-import api from '../../../../services/api';
+import { fetchApi } from '../../../../services/api';
 import { PaginatedWithdrawals } from '../types';
 
 export const paymentService = {
@@ -12,7 +12,7 @@ export const paymentService = {
       params.append('search', search);
     }
 
-    const response = await api.get(`/withdrawals/?${params.toString()}`);
-    return response.data;
+    const data = await fetchApi(`/withdrawals/?${params.toString()}`);
+    return data as PaginatedWithdrawals;
   }
 };
