@@ -11,7 +11,7 @@ export const PasswordStrengthIndicator: React.FC<PasswordStrengthIndicatorProps>
     const hasUppercase = /[A-Z]/.test(password);
     const hasLowercase = /[a-z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
-    const hasSpecialChar = /[@$!%*?&#.]/.test(password);
+    const hasSpecialChar = /[^A-Za-z0-9]/.test(password);
     const passwordsMatch = confirmPassword !== undefined ? password === confirmPassword && password.length > 0 : true;
 
     const requirements = [
@@ -19,7 +19,7 @@ export const PasswordStrengthIndicator: React.FC<PasswordStrengthIndicatorProps>
         { label: 'Una letra mayúscula', met: hasUppercase },
         { label: 'Una letra minúscula', met: hasLowercase },
         { label: 'Un número', met: hasNumber },
-        { label: 'Un carácter especial (@$!%*?&#.)', met: hasSpecialChar },
+        { label: 'Un carácter especial', met: hasSpecialChar },
         ...(confirmPassword !== undefined ? [{ label: 'Las contraseñas coinciden', met: passwordsMatch }] : [])
     ];
 
@@ -48,6 +48,6 @@ export const isValidPassword = (password: string): boolean => {
         /[A-Z]/.test(password) &&
         /[a-z]/.test(password) &&
         /[0-9]/.test(password) &&
-        /[@$!%*?&#.]/.test(password)
+        /[^A-Za-z0-9]/.test(password)
     );
 };
