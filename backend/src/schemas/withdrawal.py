@@ -59,3 +59,9 @@ class WithdrawalResponse(WithdrawalBase):
     user: Optional[SimpleUserResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class WithdrawalPaginatedResponse(BaseModel):
+    data: List[WithdrawalResponse]
+    total: int
+    page: int
+    limit: int

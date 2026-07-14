@@ -3,14 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any
 
 from src.core.database import get_db
-from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate
+from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate, WithdrawalPaginatedResponse
 from src.services.withdrawal_service import WithdrawalService
 from src.api.deps import get_current_user
 from src.models.user import User
 
 router = APIRouter()
 
-@router.get("/", response_model=Dict[str, Any])
+@router.get("/", response_model=WithdrawalPaginatedResponse)
 async def get_withdrawals(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
