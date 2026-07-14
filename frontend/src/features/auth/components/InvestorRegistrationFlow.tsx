@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
 import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
+import { compressImage } from '../../../utils/imageCompression';
 
 const COLOMBIAN_BANKS = [
     "Bancolombia",
@@ -176,8 +177,9 @@ export const InvestorRegistrationFlow = () => {
             if (!frontImage || !backImage || !selfieImage) throw new Error("Faltan imágenes");
             
             const uploadSingleFile = async (file: File) => {
+                const compressedFile = await compressImage(file);
                 const fd = new FormData();
-                fd.append('file', file);
+                fd.append('file', compressedFile);
                 const res = await fetchApi('/auth/public/upload-file', {
                     method: 'POST',
                     body: fd
@@ -186,8 +188,9 @@ export const InvestorRegistrationFlow = () => {
             };
 
             const extractOcr = async (file: File) => {
+                const compressedFile = await compressImage(file);
                 const fd = new FormData();
-                fd.append('file', file);
+                fd.append('file', compressedFile);
                 try {
                     const res = await fetchApi('/auth/public/ocr-extract', {
                         method: 'POST',
@@ -258,8 +261,9 @@ export const InvestorRegistrationFlow = () => {
         
         try {
             setUploadingComprobante(true);
+            const compressedFile = await compressImage(file);
             const fd = new FormData();
-            fd.append('file', file);
+            fd.append('file', compressedFile);
             const res = await fetchApi('/auth/public/upload-file', {
                 method: 'POST',
                 body: fd
