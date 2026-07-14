@@ -18,7 +18,7 @@ export const DashboardPage = () => {
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
 
     useEffect(() => {
-        if (user?.permissions?.includes('ver_mis_inversiones')) {
+        if (user?.permissions?.includes('dashboard:view_investments') || user?.permissions?.includes('ver_mis_inversiones')) {
             setLoading(true);
             investmentsService.getMyInvestments()
                 .then(setInvestments)
@@ -86,36 +86,10 @@ export const DashboardPage = () => {
                 />
             </Can>
 
-            {/* TODO EL DASHBOARD ESTÁ PROTEGIDO POR PBAC */}
-            <Can permission="ver_mis_inversiones">
-
-                {loading ? (
-                    <div className="space-y-8 animate-pulse">
-                        {/* HeroCard Skeleton */}
-                        <div className="bg-slate-900 rounded-3xl p-8 md:p-10 h-64 shadow-xl"></div>
-                        
-                        {/* KPIs Skeleton */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-200/50 rounded-3xl"></div>)}
-                        </div>
-                        
-                        {/* QuickActions Skeleton */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[1, 2, 3, 4].map(i => <div key={i} className="h-40 bg-slate-200/50 rounded-3xl"></div>)}
-                        </div>
-                        
-                        {/* Active Investments Skeleton */}
-                        <div>
-                            <div className="h-6 w-48 bg-slate-200/50 rounded mb-2"></div>
-                            <div className="h-4 w-64 bg-slate-200/50 rounded mb-6"></div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {[1, 2, 3].map(i => <div key={i} className="h-80 bg-slate-200/50 rounded-3xl"></div>)}
-                            </div>
-                        </div>
-                    </div>
-                ) : (
+            {/* HERO Y KPIS */}
+            <Can permission="dashboard:view_kpis">
+                {!loading ? (
                     <>
-                        {/* HEROCARD */}
                         <HeroCard 
                             userName={user?.name?.split(' ')[0] || ''}
                             totalPortfolio={totalPortafolio}
@@ -125,65 +99,93 @@ export const DashboardPage = () => {
                             dailyProfit={gananciaDiaria}
                         />
 
-                        {/* KPIS Y ACCIONES */}
                         <DashboardKPIs 
                             investedCapital={totalInvertido}
                             currentValue={totalPortafolio}
                             accumulatedProfit={totalRendimiento}
                             acquiredShares={totalAcciones}
                         />
+                    </>
+                ) : (
+                    <div className="space-y-8 animate-pulse mb-8">
+                        <div className="bg-slate-900 rounded-3xl p-8 md:p-10 h-64 shadow-xl"></div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-200/50 rounded-3xl"></div>)}
+                        </div>
+                    </div>
+                )}
+            </Can>
 
-                        <QuickActions />
-                        
-                        <div className="mb-10">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                                <div>
-                                    <h3 className="text-xl font-bold text-slate-900 tracking-tight font-montserrat mb-1">Mis Inversiones</h3>
-                                    <p className="text-sm font-medium text-slate-500">Gestiona y haz seguimiento detallado a tus contratos</p>
-                                </div>
-                                <div className="flex bg-slate-100 p-1 rounded-xl">
-                                    <button 
-                                        onClick={() => setActiveTab('approved')}
-                                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'approved' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        Activas
-                                    </button>
+            {/* ACCIONES RÁPIDAS */}
+            <Can permission="dashboard:view_quick_actions">
+                {!loading ? (
+                    <QuickActions />
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-pulse">
+                        {[1, 2, 3, 4].map(i => <div key={i} className="h-40 bg-slate-200/50 rounded-3xl"></div>)}
+                    </div>
+                )}
+            </Can>
+            
+            {/* MIS INVERSIONES */}
+            <Can permission="dashboard:view_investments">
+                {!loading ? (
+                    <div className="mb-10">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-900 tracking-tight font-montserrat mb-1">Mis Inversiones</h3>
+                                <p className="text-sm font-medium text-slate-500">Gestiona y haz seguimiento detallado a tus contratos</p>
+                            </div>
+                            <div className="flex bg-slate-100 p-1 rounded-xl">
+                                <button 
+                                    onClick={() => setActiveTab('approved')}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'approved' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Activas
+                                </button>
+                                <Can permission="dashboard:view_requests">
                                     <button 
                                         onClick={() => setActiveTab('pending')}
                                         className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'pending' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                                     >
                                         Solicitudes
                                     </button>
-                                    <button 
-                                        onClick={() => setActiveTab('finished')}
-                                        className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'finished' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        Finalizadas
-                                    </button>
-                                </div>
+                                </Can>
+                                <button 
+                                    onClick={() => setActiveTab('finished')}
+                                    className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${activeTab === 'finished' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    Finalizadas
+                                </button>
                             </div>
-                            
-                            {filteredInvestments.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {filteredInvestments.map(inv => (
-                                        <InvestmentCard key={inv.id} investment={inv} />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 border-dashed">
-                                    <p className="text-slate-500 font-medium">No hay inversiones en esta categoría.</p>
-                                    {activeTab === 'approved' && (
-                                        <button className="mt-6 px-8 py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-bold shadow-sm active:scale-95">
-                                            Explorar Paquetes
-                                        </button>
-                                    )}
-                                </div>
-                            )}
                         </div>
-                    </>
+                        
+                        {filteredInvestments.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {filteredInvestments.map(inv => (
+                                    <InvestmentCard key={inv.id} investment={inv} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 border-dashed">
+                                <p className="text-slate-500 font-medium">No hay inversiones en esta categoría.</p>
+                                {activeTab === 'approved' && (
+                                    <button className="mt-6 px-8 py-3 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-bold shadow-sm active:scale-95">
+                                        Explorar Paquetes
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="animate-pulse">
+                        <div className="h-6 w-48 bg-slate-200/50 rounded mb-2"></div>
+                        <div className="h-4 w-64 bg-slate-200/50 rounded mb-6"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[1, 2, 3].map(i => <div key={i} className="h-80 bg-slate-200/50 rounded-3xl"></div>)}
+                        </div>
+                    </div>
                 )}
-
-
             </Can>
         </div>
     );
