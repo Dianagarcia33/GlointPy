@@ -47,10 +47,7 @@ class InvestorResponse(InvestorBase):
         if not self.period:
             return base_date
         
-        if self.period.months > 0:
-            return base_date + relativedelta(months=self.period.months)
-        else:
-            return base_date + relativedelta(days=self.period.days)
+        return base_date + relativedelta(days=self.period.days)
 
     model_config = ConfigDict(from_attributes=True)
 
