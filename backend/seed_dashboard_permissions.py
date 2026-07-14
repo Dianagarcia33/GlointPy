@@ -2,94 +2,70 @@ import asyncio
 import os
 import sys
 
-# Añadir el directorio base al PYTHONPATH para poder importar módulos de src
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Asegurar que los imports de src funcionen correctamente
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from sqlalchemy import select
-from src.core.database import SessionLocal
+from src.core.database import async_session_maker
 from src.models.security import Permission, Role, role_permissions
+from sqlalchemy.future import select
+from sqlalchemy import insert
 
-# Lista de nuevos permisos para el dashboard
-NEW_PERMISSIONS = [
-    {
-        "name": "dashboard:view_kpis",
-        "description": "Ver HeroCard y KPIs en el Dashboard",
-        "module": "dashboard"
-    },
-    {
-        "name": "dashboard:view_quick_actions",
-        "description": "Ver acciones rápidas en el Dashboard",
-        "module": "dashboard"
-    },
-    {
-        "name": "dashboard:view_investments",
-        "description": "Ver listado de inversiones en el Dashboard",
-        "module": "dashboard"
-    },
-    {
-        "name": "dashboard:view_requests",
-        "description": "Ver pestaña de solicitudes de inversión",
-        "module": "dashboard"
-    }
-]
-
-async def seed_dashboard_permissions():
-    print("Iniciando seed de permisos del dashboard...")
+async def main():
+    print("Iniciando conexión a la base de datos...")
     
-    async with SessionLocal() as db:
-        try:
-            # 1. Insertar permisos si no existen
-            created_perms = []
-            for perm_data in NEW_PERMISSIONS:
-                stmt = select(Permission).where(Permission.name == perm_data["name"])
-                result = await db.execute(stmt)
-                existing_perm = result.scalars().first()
-                
-                if not existing_perm:
-                    new_perm = Permission(
-                        name=perm_data["name"],
-                        description=perm_data["description"],
-                        module=perm_data["module"]
-                    )
-                    db.add(new_perm)
-                    await db.flush() # Para obtener el ID
-                    created_perms.append(new_perm)
-                    print(f"[+] Permiso creado: {perm_data['name']}")
-                else:
-                    created_perms.append(existing_perm)
-                    print(f"[*] Permiso ya existe: {perm_data['name']}")
+    # Lista de permisos nuevos que creamos en el frontend
+    new_permissions = [
+        {"name": "dashboard:view_kpis", "description": "Ver KPIs en Dashboard", "module": "dashboard"},
+        {"name": "dashboard:view_quick_actions", "description": "Ver acciones rápidas en Dashboard", "module": "dashboard"},
+        {"name": "dashboard:view_investments", "description": "Ver listado de mis inversiones", "module": "dashboard"},
+        {"name": "dashboard:view_requests", "description": "Ver solicitudes pendientes", "module": "dashboard"},
+    ]
+    
+    async with async_session_maker() as db:
+        
+        # 1. Crear los permisos en la base de datos si no existen
+        inserted_perms = []
+        for p in new_permissions:
+            result = await db.execute(select(Permission).where(Permission.name == p["name"]))
+            perm = result.scalars().first()
+            if not perm:
+                print(f"Creando permiso en BD: {p['name']}")
+                perm = Permission(name=p["name"], description=p["description"], module=p["module"])
+                db.add(perm)
+                await db.commit()
+                await db.refresh(perm)
+            inserted_perms.append(perm)
             
-            # 2. Buscar el rol "Inversionista" (ID 5 o por nombre)
-            stmt_role = select(Role).where(
-                (Role.id == 5) | (Role.name.ilike('%inversionista%')) | (Role.name.ilike('%investor%'))
-            )
-            result_role = await db.execute(stmt_role)
-            investor_role = result_role.scalars().first()
+        print("Permisos registrados en el sistema.")
+        
+        # 2. Buscar el rol oficial de Inversionista
+        role_result = await db.execute(select(Role).where(Role.name.ilike("%invest%")))
+        role = role_result.scalars().first()
+        
+        if not role:
+            role_result = await db.execute(select(Role).where(Role.name.ilike("%inversionista%")))
+            role = role_result.scalars().first()
             
-            if investor_role:
-                print(f"\nAsignando permisos al rol: {investor_role.name} (ID: {investor_role.id})")
-                
-                # Asignación manual en la tabla pivot para evitar problemas de carga de ORM
-                for perm in created_perms:
-                    # Verificar si ya lo tiene
-                    from sqlalchemy import text
-                    check_stmt = text("SELECT 1 FROM role_permissions WHERE role_id = :role_id AND permission_id = :perm_id")
-                    res = await db.execute(check_stmt, {"role_id": investor_role.id, "perm_id": perm.id})
-                    if not res.first():
-                        insert_stmt = text("INSERT INTO role_permissions (role_id, permission_id) VALUES (:role_id, :perm_id)")
-                        await db.execute(insert_stmt, {"role_id": investor_role.id, "perm_id": perm.id})
-                        print(f"  -> Permiso '{perm.name}' asignado exitosamente.")
-                    else:
-                        print(f"  -> Permiso '{perm.name}' ya estaba asignado.")
-            else:
-                print("\n[!] No se encontró el rol Inversionista (ID 5). Tendrás que asignar los permisos manualmente desde el panel de admin.")
+        # 3. Vincular los permisos al rol
+        if role:
+            print(f"\\nRol Inversionista encontrado: {role.name}. Asignando permisos nuevos...")
+            for perm in inserted_perms:
+                # Verificar si ya tiene este permiso para no duplicar
+                check = await db.execute(select(role_permissions).where(
+                    (role_permissions.c.role_id == role.id) & 
+                    (role_permissions.c.permission_id == perm.id)
+                ))
+                if not check.first():
+                    await db.execute(insert(role_permissions).values(
+                        role_id=role.id,
+                        permission_id=perm.id
+                    ))
+                    print(f"✅ Permiso '{perm.name}' asignado al rol '{role.name}'.")
             
             await db.commit()
-            print("\n¡Seed finalizado exitosamente!")
-            
-        except Exception as e:
-            await db.rollback()
-            print(f"Error durante el seed: {e}")
+            print("\\n¡Éxito total! Permisos creados y asignados al Inversionista automáticamente.")
+        else:
+            print("Rol Inversionista no encontrado.")
 
 if __name__ == "__main__":
-    asyncio.run(seed_dashboard_permissions())
+    asyncio.run(main())
