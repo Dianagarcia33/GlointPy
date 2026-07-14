@@ -106,6 +106,50 @@ async def upload_file(file: UploadFile = File(...)):
         
     return {"path": f"/uploads/{filename}"}
 
+from sqlalchemy import select
+from src.models.package import Package
+from src.models.period import Period
+
+@router.get("/public/config")
+async def get_public_config(db: AsyncSession = Depends(get_db)):
+    """
+    Retorna la configuración pública necesaria para el registro (paquetes y periodos).
+    """
+    # Fetch packages
+    paquetes_result = await db.execute(select(Package).where(Package.is_active == True))
+    paquetes_db = paquetes_result.scalars().all()
+    
+    # Fetch periods
+    periodos_result = await db.execute(select(Period).where(Period.is_active == True))
+    periodos_db = periodos_result.scalars().all()
+    
+    # Format to match frontend expectations
+    paquetes = [
+        {
+            "id": p.id,
+            "paquete_accion_adquirido": f"${p.value:,.0f} COP",
+            "value": p.value,
+            "granted_shares": p.granted_shares
+        }
+        for p in paquetes_db
+    ]
+    
+    periodos = [
+        {
+            "id": p.id,
+            "name": f"Plazo de {p.months} Meses",
+            "months": p.months,
+            "days": p.days,
+            "percentage": p.percentage
+        }
+        for p in periodos_db
+    ]
+    
+    return {
+        "paquetes": paquetes,
+        "periodos": periodos
+    }
+
 @router.post("/public/ocr-extract")
 async def extract_ocr_data(file: UploadFile = File(...)):
     """

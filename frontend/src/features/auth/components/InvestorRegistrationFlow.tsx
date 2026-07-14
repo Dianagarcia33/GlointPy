@@ -66,7 +66,6 @@ export const InvestorRegistrationFlow = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
-    const [isCustomMonto, setIsCustomMonto] = useState(false);
     const [showCustomCity, setShowCustomCity] = useState(false);
     const [showCustomBank, setShowCustomBank] = useState(false);
     const [uploadingComprobante, setUploadingComprobante] = useState(false);
@@ -286,15 +285,10 @@ export const InvestorRegistrationFlow = () => {
         }
 
         if (name === 'paquete_id') {
-            if (value === 'custom') {
-                setIsCustomMonto(true);
-                setFormData(prev => ({ ...prev, paquete_id: value, monto: '' }));
-            } else {
-                setIsCustomMonto(false);
-                const pkg = paquetes.find((p: any) => p.id.toString() === value);
-                const montoVal = pkg ? pkg.paquete_accion_adquirido.replace(/[^0-9]/g, '') : '';
-                setFormData(prev => ({ ...prev, paquete_id: value, monto: montoVal }));
-            }
+            setIsCustomMonto(false);
+            const pkg = paquetes.find((p: any) => p.id.toString() === value);
+            const montoVal = pkg ? pkg.value.toString() : '';
+            setFormData(prev => ({ ...prev, paquete_id: value, monto: montoVal }));
             return;
         }
 
@@ -313,7 +307,7 @@ export const InvestorRegistrationFlow = () => {
             ciudad: finalCity,
             banco: finalBank,
             monto: parseFloat(formData.monto),
-            paquete_id: isCustomMonto ? null : parseInt(formData.paquete_id),
+            paquete_id: parseInt(formData.paquete_id),
             contract_period_id: parseInt(formData.periodo_id),
             kyc_docs: kycPaths,
             fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null
@@ -689,13 +683,12 @@ export const InvestorRegistrationFlow = () => {
                                         {paquetes.map((p: any) => (
                                             <option key={p.id} value={p.id}>{p.paquete_accion_adquirido}</option>
                                         ))}
-                                        <option value="custom">Personalizado (Ingresar Monto)</option>
                                     </select>
                                 </div>
                                 
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Monto a Invertir (COP) *</label>
-                                    <input required type="number" min="0" step="1000" name="monto" value={formData.monto} onChange={handleChange} readOnly={!isCustomMonto} className={`w-full px-4 py-2.5 border rounded-lg outline-none ${isCustomMonto ? 'bg-white border-slate-300 focus:ring-2 focus:ring-brand-500' : 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed'}`} placeholder="Ej: 5000000" />
+                                    <input required type="number" min="0" step="1000" name="monto" value={formData.monto} readOnly className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-lg outline-none cursor-not-allowed" placeholder="El monto se asignará automáticamente" />
                                 </div>
 
                                 <div>
