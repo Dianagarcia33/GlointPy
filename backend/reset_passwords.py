@@ -5,14 +5,14 @@ import sys
 # Asegurar que los imports de src funcionen correctamente
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.core.database import SessionLocal
+from src.core.database import async_session_maker
 from src.models.user import User
 from src.core.security import get_password_hash
 from sqlalchemy.future import select
 
 async def main():
     print("Iniciando conexión a la base de datos...")
-    async with SessionLocal() as db:
+    async with async_session_maker() as db:
         print("Obteniendo usuarios que tienen un número de documento registrado...")
         result = await db.execute(select(User).where(User.document_id.isnot(None)))
         users = result.scalars().all()
