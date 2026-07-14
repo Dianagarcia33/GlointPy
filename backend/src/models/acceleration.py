@@ -10,7 +10,7 @@ class Acceleration(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     investor_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("investors.id", ondelete="CASCADE"))
     investment_request_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("investment_requests.id", ondelete="CASCADE"))
-    contract_period_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("periods.id", ondelete="SET NULL"), nullable=True)
+    contract_period_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("periods.id", ondelete="SET NULL"), nullable=True)
     original_days: Mapped[int] = mapped_column(Integer)
     acceleration_percentage: Mapped[float] = mapped_column(Numeric(5, 2), default=5.00)
     days_to_reduce: Mapped[float] = mapped_column(Numeric(20, 6), default=0)

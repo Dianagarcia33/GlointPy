@@ -23,7 +23,7 @@ def upgrade() -> None:
         sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column('investor_id', sa.BigInteger(), nullable=False),
         sa.Column('investment_request_id', sa.BigInteger(), nullable=False),
-        sa.Column('contract_period_id', sa.BigInteger(), nullable=True),
+        sa.Column('contract_period_id', sa.Integer(), nullable=True),
         sa.Column('original_days', sa.Integer(), nullable=False),
         sa.Column('acceleration_percentage', sa.Numeric(precision=5, scale=2), server_default='5.00', nullable=False),
         sa.Column('days_to_reduce', sa.Numeric(precision=20, scale=6), server_default='0.000000', nullable=False),
