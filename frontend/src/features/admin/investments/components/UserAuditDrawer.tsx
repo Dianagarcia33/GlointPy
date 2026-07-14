@@ -222,7 +222,7 @@ export const UserAuditDrawer: React.FC<UserAuditDrawerProps> = ({ userId, userNa
                             <h4 className="font-medium text-gray-900 capitalize">{wd.tipo}</h4>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                               wd.estado === 'procesado' || wd.estado === 'aprobado' ? 'bg-green-50 text-green-700 border border-green-200' :
-                              wd.estado === 'rechazado' || wd.estado === 'cancelado' ? 'bg-red-50 text-red-700 border border-red-200' :
+                              wd.estado === 'rechazado' ? 'bg-red-50 text-red-700 border border-red-200' :
                               'bg-amber-50 text-amber-700 border border-amber-200'
                             }`}>
                               {wd.estado}

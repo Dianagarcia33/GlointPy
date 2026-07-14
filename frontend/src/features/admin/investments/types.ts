@@ -1,4 +1,4 @@
-import { User } from '../users/types';
+import { User } from '../../../../services/users';
 import { Withdrawal } from '../payments/types';
 
 export interface AuditUserSummary {
