@@ -149,8 +149,10 @@ class AuthService:
         db.add(req)
 
         await db.commit()
-        await db.refresh(new_user)
-        return new_user
+        
+        # Reload user with roles explicitly loaded to prevent MissingGreenlet during FastAPI serialization
+        result = await db.execute(select(User).options(selectinload(User.roles)).where(User.id == new_user.id))
+        return result.scalars().first()
 
     @staticmethod
     async def force_change_password(db: AsyncSession, data: ForceChangePasswordRequest) -> User:
