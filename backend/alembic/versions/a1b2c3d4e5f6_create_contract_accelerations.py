@@ -33,7 +33,7 @@ def upgrade() -> None:
         sa.Column('bonus_amount', sa.Numeric(precision=20, scale=6), server_default='0.000000', nullable=True),
         sa.Column('created_at', sa.TIMESTAMP(), nullable=True),
         sa.Column('updated_at', sa.TIMESTAMP(), nullable=True),
-        sa.ForeignKeyConstraint(['contract_period_id'], ['contract_periods.id'], name='fk_accelerations_period', ondelete='SET NULL'),
+        sa.ForeignKeyConstraint(['contract_period_id'], ['periods.id'], name='fk_accelerations_period', ondelete='SET NULL'),
         sa.ForeignKeyConstraint(['investment_request_id'], ['investment_requests.id'], name='fk_accelerations_request', ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['investor_id'], ['investors.id'], name='fk_accelerations_investor', ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
