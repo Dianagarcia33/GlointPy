@@ -76,10 +76,17 @@ class WithdrawalService:
         # Validate that users exist to avoid foreign key errors
         users_result = await db.execute(select(User.id))
         valid_user_ids = set(users_result.scalars().all())
+
+        # Fetch existing withdrawal IDs to skip duplicates
+        existing_result = await db.execute(select(Withdrawal.id))
+        existing_ids = set(existing_result.scalars().all())
         
         valid_withdrawals = []
         skipped_user_ids = set()
         for w in withdrawals_in:
+            if w.id is not None and w.id in existing_ids:
+                continue # Skip already registered
+                
             if w.user_id in valid_user_ids:
                 if w.aprobado_por and w.aprobado_por not in valid_user_ids:
                     w.aprobado_por = None
