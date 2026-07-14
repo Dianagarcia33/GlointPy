@@ -100,8 +100,8 @@ class AuthService:
                 detail="El correo ya está registrado."
             )
 
-        # Buscar el rol de manera case-insensitive
-        role_result = await db.execute(select(Role).where(Role.name.ilike("investor")))
+        # Buscar el rol por su ID (5 = Investor)
+        role_result = await db.execute(select(Role).where(Role.id == 5))
         role = role_result.scalars().first()
 
         new_user = User(
