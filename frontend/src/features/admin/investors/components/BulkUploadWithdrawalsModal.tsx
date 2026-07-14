@@ -123,15 +123,7 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
           totalSuccess += response.count || 0;
         } catch (err: any) {
           let errorMsg = `Error en filas ${i + 1} a ${Math.min(i + CHUNK_SIZE, jsonPayload.length)}: `;
-          if (err.detail) {
-            errorMsg += Array.isArray(err.detail) 
-              ? err.detail.map((e: any) => `${e.loc?.join('.') || 'Campo'}: ${e.msg}`).join(', ') 
-              : err.detail;
-          } else if (err.message) {
-            errorMsg += typeof err.message === 'string' ? err.message : JSON.stringify(err.message);
-          } else if (typeof err === 'object') {
-            errorMsg += JSON.stringify(err);
-          }
+          errorMsg += err.message || 'Error desconocido';
           allErrors.push(errorMsg);
         }
         setProgress({ current: Math.min(i + CHUNK_SIZE, jsonPayload.length), total: jsonPayload.length });
