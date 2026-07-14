@@ -99,6 +99,23 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
           const monto = parseFloat(item.monto);
           const monto_neto = parseFloat(item.monto_neto);
           
+          const parseDate = (dateStr: string | null | undefined): string | null => {
+            if (!dateStr) return null;
+            const parts = dateStr.trim().split(/\s+/);
+            const dStr = parts[0];
+            const tStr = parts[1] || '';
+
+            let isoDate = dStr;
+            if (!/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
+              const dParts = dStr.split(/[/-]/);
+              if (dParts.length === 3 && dParts[2].length === 4) {
+                // Assuming DD/MM/YYYY
+                isoDate = `${dParts[2]}-${dParts[1].padStart(2, '0')}-${dParts[0].padStart(2, '0')}`;
+              }
+            }
+            return tStr ? `${isoDate}T${tStr}` : isoDate;
+          };
+
           return {
             id: item.id ? parseInt(item.id) : undefined,
             user_id: parseInt(uId),
@@ -108,8 +125,8 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
             monto: isNaN(monto) ? 0.00 : monto, // Valor por defecto 0
             impuesto: item.impuesto && !isNaN(parseFloat(item.impuesto)) ? parseFloat(item.impuesto) : 0.00,
             monto_neto: isNaN(monto_neto) ? 0.00 : monto_neto, // Valor por defecto 0
-            fecha_solicitud: item.fecha_solicitud || new Date().toISOString().split('T')[0], // Fecha actual por defecto
-            fecha_retiro: item.fecha_retiro,
+            fecha_solicitud: parseDate(item.fecha_solicitud) || new Date().toISOString().split('T')[0],
+            fecha_retiro: parseDate(item.fecha_retiro),
             estado: item.estado || 'pendiente',
             metodo_pago: item.metodo_pago,
             banco: item.banco,
@@ -118,9 +135,9 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
             observaciones: item.observaciones,
             motivo_rechazo: item.motivo_rechazo,
             aprobado_por: item.aprobado_por && !isNaN(parseInt(item.aprobado_por)) ? parseInt(item.aprobado_por) : null,
-            fecha_aprobacion: item.fecha_aprobacion,
+            fecha_aprobacion: parseDate(item.fecha_aprobacion),
             procesado_por: item.procesado_por && !isNaN(parseInt(item.procesado_por)) ? parseInt(item.procesado_por) : null,
-            fecha_procesamiento: item.fecha_procesamiento,
+            fecha_procesamiento: parseDate(item.fecha_procesamiento),
             comprobante_pago: item.comprobante_pago,
             receipt_path: item.receipt_path,
           };
