@@ -500,7 +500,7 @@ export const AdminInvestorsPage = () => {
                                   </div>
                                   <div className="pl-1">
                                     <div className="text-xl font-bold text-slate-800">
-                                      {Number(investor.user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: investor.user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                      {Number(investor.user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: investor.user.wallet.currency || 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </div>
                                     <div className="text-[9px] text-slate-400 mt-1">ID: #{investor.user.wallet.id} • Moneda: {investor.user.wallet.currency}</div>
                                   </div>

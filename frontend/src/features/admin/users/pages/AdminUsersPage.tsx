@@ -204,7 +204,7 @@ export const AdminUsersPage = () => {
                         {user.wallet ? (
                           <>
                             <div className="font-semibold text-slate-800">
-                              {Number(user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              {Number(user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: user.wallet.currency || 'COP', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                             <div className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase inline-block mt-0.5 ${
                               user.wallet.status === 'active' 
