@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals
+from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, audit
 
 api_router = APIRouter()
 
@@ -13,3 +13,4 @@ api_router.include_router(bank_accounts.router, prefix="/bank-accounts", tags=["
 api_router.include_router(wallets.router, prefix="/wallets", tags=["wallets"])
 api_router.include_router(investment_requests.router, prefix="/investment-requests", tags=["investment-requests"])
 api_router.include_router(withdrawals.router, prefix="/withdrawals", tags=["withdrawals"])
+api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
