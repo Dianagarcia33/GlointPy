@@ -7,3 +7,4 @@ from src.models.user_bank_account import UserBankAccount
 from src.models.wallet import Wallet, WalletTransaction
 from src.models.investment_request import InvestmentRequest
 from src.models.withdrawal import Withdrawal
+from src.models.acceleration import Acceleration
