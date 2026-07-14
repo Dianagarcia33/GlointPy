@@ -1,5 +1,5 @@
-import { User } from '../../users/types';
-import { Withdrawal } from '../../payments/types';
+import { User } from '../users/types';
+import { Withdrawal } from '../payments/types';
 
 export interface AuditUserSummary {
   user_id: number;
