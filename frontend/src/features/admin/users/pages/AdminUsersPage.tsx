@@ -3,7 +3,7 @@ import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 export const AdminUsersPage = () => {
@@ -23,6 +23,11 @@ export const AdminUsersPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+
+  const toggleRow = (id: number) => {
+    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -169,6 +174,7 @@ export const AdminUsersPage = () => {
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
               <tr>
+                <th className="px-4 py-4 w-10"></th>
                 <th className="px-6 py-4">Usuario</th>
                 <th className="px-6 py-4 hidden sm:table-cell">Documento</th>
                 <th className="px-6 py-4">Roles</th>
@@ -178,7 +184,22 @@ export const AdminUsersPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {users.map(user => (
-                <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
+                <React.Fragment key={user.id}>
+                <tr className="hover:bg-slate-50/50 transition-colors">
+                  <td className="px-4 py-4 w-10 text-center">
+                    {((user.bank_accounts && user.bank_accounts.length > 0) || user.wallet) && (
+                      <button 
+                        onClick={() => toggleRow(user.id)}
+                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {expandedRows[user.id] ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
@@ -223,10 +244,84 @@ export const AdminUsersPage = () => {
                     </Can>
                   </td>
                 </tr>
+                {expandedRows[user.id] && (
+                  <tr className="bg-slate-50/40">
+                    <td colSpan={6} className="px-8 py-4 border-b border-slate-100">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        {/* Wallet Info Column */}
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Billetera (Wallet):</div>
+                          {user.wallet ? (
+                            <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs flex flex-col gap-2 relative overflow-hidden">
+                              <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
+                              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5 pl-1">
+                                <span className="font-bold text-slate-700 uppercase tracking-wider text-xs">Saldo Disponible</span>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${
+                                  user.wallet.status === 'active' 
+                                    ? 'bg-emerald-100 text-emerald-700' 
+                                    : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {user.wallet.status === 'active' ? 'ACTIVA' : 'CONGELADA'}
+                                </span>
+                              </div>
+                              <div className="pl-1">
+                                <div className="text-xl font-bold text-slate-800">
+                                  {user.wallet.balance.toLocaleString('es-CO', { style: 'currency', currency: user.wallet.currency || 'COP', minimumFractionDigits: 0 })}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-lg p-4 text-center text-xs text-slate-500">
+                              El usuario no tiene una billetera configurada.
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Bank Accounts Column */}
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>Cuentas Bancarias:</span>
+                            <span className="bg-slate-200 text-slate-600 px-1.5 rounded">{user.bank_accounts?.length || 0}</span>
+                          </div>
+                          
+                          {user.bank_accounts && user.bank_accounts.length > 0 ? (
+                            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
+                              <table className="w-full text-left text-xs">
+                                <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                                  <tr>
+                                    <th className="px-3 py-2 font-semibold">Banco</th>
+                                    <th className="px-3 py-2 font-semibold">Tipo</th>
+                                    <th className="px-3 py-2 font-semibold">Número</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {user.bank_accounts.map(acc => (
+                                    <tr key={acc.id} className="hover:bg-slate-50/50">
+                                      <td className="px-3 py-2 font-medium text-slate-700">{acc.banco}</td>
+                                      <td className="px-3 py-2 text-slate-500">{acc.tipo_cuenta}</td>
+                                      <td className="px-3 py-2 text-slate-600 font-mono">{acc.numero_cuenta}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="bg-slate-50 border border-dashed border-slate-200 rounded-lg p-4 text-center text-xs text-slate-500">
+                              No hay cuentas bancarias registradas.
+                            </div>
+                          )}
+                        </div>
+
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                     No se encontraron usuarios.
                   </td>
                 </tr>

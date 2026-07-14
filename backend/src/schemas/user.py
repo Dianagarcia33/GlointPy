@@ -68,4 +68,4 @@ class UserPaginatedResponse(BaseModel):
     total: int
     page: int
     limit: int
-    data: List[UserResponse]
+    data: List[UserWithBankAccountsResponse]

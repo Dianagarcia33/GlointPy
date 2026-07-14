@@ -48,7 +48,11 @@ class UserService:
         
         # Paginar y obtener data
         offset = (page - 1) * limit
-        query = query.options(selectinload(User.roles).selectinload(Role.permissions))
+        query = query.options(
+            selectinload(User.roles).selectinload(Role.permissions),
+            selectinload(User.bank_accounts),
+            selectinload(User.wallet)
+        )
         query = query.order_by(User.id.desc()).offset(offset).limit(limit)
         
         result = await db.execute(query)
@@ -63,7 +67,13 @@ class UserService:
 
     @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: int) -> User:
-        result = await db.execute(select(User).options(selectinload(User.roles).selectinload(Role.permissions)).where(User.id == user_id))
+        result = await db.execute(
+            select(User).options(
+                selectinload(User.roles).selectinload(Role.permissions),
+                selectinload(User.bank_accounts),
+                selectinload(User.wallet)
+            ).where(User.id == user_id)
+        )
         user = result.scalars().first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
