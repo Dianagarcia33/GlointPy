@@ -415,19 +415,46 @@ export const AdminInvestorsPage = () => {
                             {investor.period ? `${investor.period.months}m ${investor.period.days}d (${investor.period.percentage}%)` : ''}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-xs space-y-1">
-                          <div className="flex justify-between w-40">
-                              <span className="text-slate-500">Ingreso:</span>
-                              <span className="font-medium text-slate-700">
-                                  {new Date(investor.start_date).toLocaleDateString()}
-                              </span>
+                      <td className="px-6 py-4 text-xs space-y-2">
+                          <div className="space-y-1">
+                            <div className="flex justify-between w-40">
+                                <span className="text-slate-500">Ingreso:</span>
+                                <span className="font-medium text-slate-700">
+                                    {new Date(investor.start_date).toLocaleDateString()}
+                                </span>
+                            </div>
+                            <div className="flex justify-between w-40">
+                                <span className="text-slate-500">Fin:</span>
+                                <span className="font-medium text-emerald-700">
+                                    {new Date(investor.end_date).toLocaleDateString()}
+                                </span>
+                            </div>
                           </div>
-                          <div className="flex justify-between w-40">
-                              <span className="text-slate-500">Fin:</span>
-                              <span className="font-medium text-emerald-700">
-                                  {new Date(investor.end_date).toLocaleDateString()}
-                              </span>
-                          </div>
+                          
+                          {/* Progreso del contrato */}
+                          {(() => {
+                            const now = new Date().getTime();
+                            const start = new Date(investor.start_date).getTime();
+                            const totalDays = investor.period ? investor.period.days : 0;
+                            const elapsedRaw = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                            const elapsed = Math.max(0, Math.min(elapsedRaw, totalDays));
+                            const progress = totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 0;
+                            
+                            return totalDays > 0 ? (
+                              <div className="w-40 pt-1">
+                                <div className="flex justify-between text-[10px] mb-1">
+                                  <span className="text-slate-500 font-medium">Avance</span>
+                                  <span className="text-brand-600 font-bold">{elapsed} / {totalDays} días</span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                  <div 
+                                    className="bg-brand-500 h-1.5 rounded-full transition-all" 
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
                       </td>
                       <Can permission="admin.investors.manage">
                         <td className="px-6 py-4 text-right">
