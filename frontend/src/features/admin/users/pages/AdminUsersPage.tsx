@@ -187,18 +187,16 @@ export const AdminUsersPage = () => {
                 <React.Fragment key={user.id}>
                 <tr className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-4 w-10 text-center">
-                    {((user.bank_accounts && user.bank_accounts.length > 0) || user.wallet) && (
-                      <button 
-                        onClick={() => toggleRow(user.id)}
-                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
-                      >
-                        {expandedRows[user.id] ? (
-                          <ChevronDown className="w-4 h-4" />
-                        ) : (
-                          <ChevronRight className="w-4 h-4" />
-                        )}
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => toggleRow(user.id)}
+                      className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {expandedRows[user.id] ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                    </button>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -247,8 +245,35 @@ export const AdminUsersPage = () => {
                 {expandedRows[user.id] && (
                   <tr className="bg-slate-50/40">
                     <td colSpan={6} className="px-8 py-4 border-b border-slate-100">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         
+                        {/* Personal Info Column */}
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Datos Personales:</div>
+                          <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xs space-y-2">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-500">Documento:</span>
+                              <span className="font-medium text-slate-700">{user.document_id || 'No registrado'}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-500">Teléfono:</span>
+                              <span className="font-medium text-slate-700">{user.phone_number || 'No registrado'}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-500">Nacimiento:</span>
+                              <span className="font-medium text-slate-700">
+                                {user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : 'No registrado'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-slate-500">Registro:</span>
+                              <span className="font-medium text-slate-700">
+                                {new Date(user.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Wallet Info Column */}
                         <div className="space-y-2">
                           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Billetera (Wallet):</div>
