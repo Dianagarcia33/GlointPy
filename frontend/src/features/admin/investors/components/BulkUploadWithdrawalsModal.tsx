@@ -103,7 +103,32 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
             if (!dateStr) return null;
             const parts = dateStr.trim().split(/\s+/);
             const dStr = parts[0];
-            const tStr = parts[1] || '';
+            
+            // Clean time string: extract only the HH:MM or HH:MM:SS part
+            let tStr = '';
+            if (parts.length > 1) {
+              const rawTime = parts[1];
+              // Match digits and colons at the beginning of the string
+              const timeMatch = rawTime.match(/^(\d{1,2}:\d{2}(:\d{2})?(\.\d+)?)/);
+              if (timeMatch) {
+                tStr = timeMatch[1];
+                
+                // Add 12 hours if PM is detected anywhere in the remaining parts or attached to time
+                const fullStrLower = dateStr.toLowerCase();
+                if (fullStrLower.includes('p.m') || fullStrLower.includes('pm') || fullStrLower.includes('p. m.')) {
+                  let [h, m, s] = tStr.split(':');
+                  let hn = parseInt(h);
+                  if (hn < 12) hn += 12;
+                  h = hn.toString().padStart(2, '0');
+                  tStr = `${h}:${m}${s ? ':' + s : ''}`;
+                } else {
+                  // Ensure hour is 2 digits
+                  let [h, m, s] = tStr.split(':');
+                  h = h.padStart(2, '0');
+                  tStr = `${h}:${m}${s ? ':' + s : ''}`;
+                }
+              }
+            }
 
             let isoDate = dStr;
             if (!/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
@@ -111,8 +136,11 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
               if (dParts.length === 3 && dParts[2].length === 4) {
                 // Assuming DD/MM/YYYY
                 isoDate = `${dParts[2]}-${dParts[1].padStart(2, '0')}-${dParts[0].padStart(2, '0')}`;
+              } else if (dParts.length === 3 && dParts[0].length === 4) {
+                isoDate = `${dParts[0]}-${dParts[1].padStart(2, '0')}-${dParts[2].padStart(2, '0')}`;
               }
             }
+            
             return tStr ? `${isoDate}T${tStr}` : isoDate;
           };
 
