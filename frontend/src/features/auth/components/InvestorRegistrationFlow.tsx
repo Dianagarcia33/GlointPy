@@ -285,7 +285,6 @@ export const InvestorRegistrationFlow = () => {
         }
 
         if (name === 'paquete_id') {
-            setIsCustomMonto(false);
             const pkg = paquetes.find((p: any) => p.id.toString() === value);
             const montoVal = pkg ? pkg.value.toString() : '';
             setFormData(prev => ({ ...prev, paquete_id: value, monto: montoVal }));
