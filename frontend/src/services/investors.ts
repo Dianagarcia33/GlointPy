@@ -3,6 +3,20 @@ import { User } from './users';
 import { Package } from './packages';
 import { Period } from './periods';
 
+export interface ContractHistory {
+  id: number;
+  investor_id: number;
+  fecha_inicio: string;
+  fecha_fin: string;
+  total_contrato: number;
+  tasa_interes: string;
+  rentabilidad_contrato: number;
+  rendimiento_total_pagado: number;
+  motivo: string;
+  observaciones?: string;
+  created_at?: string;
+}
+
 export interface Investor {
   id: number;
   assigned_code: string;
@@ -19,6 +33,7 @@ export interface Investor {
   user?: User;
   package?: Package;
   period?: Period;
+  contract_histories?: ContractHistory[];
 }
 
 export const getInvestors = async (params?: { page?: number; limit?: number; search?: string }): Promise<{ data: Investor[]; total: number }> => {

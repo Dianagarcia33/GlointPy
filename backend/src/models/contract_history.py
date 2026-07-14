@@ -34,6 +34,6 @@ class ContractHistory(Base):
     updated_at: Mapped[datetime | None] = mapped_column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
 
     # Relaciones
-    investor = relationship("Investor", backref="contract_histories")
-    package = relationship("Package", backref="contract_histories")
-    period = relationship("Period", backref="contract_histories")
+    investor = relationship("Investor", back_populates="contract_histories")
+    package = relationship("Package")
+    period = relationship("Period")

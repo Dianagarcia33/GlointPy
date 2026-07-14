@@ -8,8 +8,43 @@ import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
 import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
 import { BulkUploadWithdrawalsModal } from '../components/BulkUploadWithdrawalsModal';
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
+
+const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl border border-slate-100">
+        <div className="p-6">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mb-4 mx-auto">
+            <Trash2 className="w-6 h-6 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 text-center mb-2">Eliminar Inversión</h2>
+          <p className="text-slate-500 text-center text-sm mb-6">
+            ¿Estás seguro de que deseas eliminar la inversión <span className="font-semibold text-slate-700">{investorCode}</span>? Esta acción no se puede deshacer y eliminará todos los registros asociados.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={isDeleting}
+              className="flex-1 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isDeleting}
+              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Eliminar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const InvestorTableSkeleton = () => {
   return (
@@ -100,6 +135,17 @@ export const AdminInvestorsPage = () => {
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
+  const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const toggleRow = (id: number) => {
     setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -150,14 +196,22 @@ export const AdminInvestorsPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este inversionista?')) {
-      try {
-        await deleteInvestor(id);
-        fetchData();
-      } catch (err: any) {
-        alert(err.message || 'Error al eliminar el inversionista');
-      }
+  const handleDelete = (investor: Investor) => {
+    setInvestorToDelete(investor);
+  };
+
+  const confirmDelete = async () => {
+    if (!investorToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteInvestor(investorToDelete.id);
+      setToast({ message: 'Inversión eliminada exitosamente', type: 'success' });
+      fetchData();
+    } catch (err: any) {
+      setToast({ message: err.message || 'Error al eliminar la inversión', type: 'error' });
+    } finally {
+      setIsDeleting(false);
+      setInvestorToDelete(null);
     }
   };
 
@@ -373,7 +427,7 @@ export const AdminInvestorsPage = () => {
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button 
-                              onClick={() => handleDelete(investor.id)}
+                              onClick={() => handleDelete(investor)}
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Eliminar"
                             >
@@ -445,6 +499,55 @@ export const AdminInvestorsPage = () => {
                             </div>
 
                           </div>
+                          
+                          {/* Contract Histories Section */}
+                          <div className="mt-6 space-y-2 border-t border-slate-100 pt-4">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Historial de Contratos:</div>
+                            {investor.contract_histories && investor.contract_histories.length > 0 ? (
+                              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left text-xs text-slate-600">
+                                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 uppercase">
+                                      <tr>
+                                        <th className="px-4 py-3">ID</th>
+                                        <th className="px-4 py-3">Inicio</th>
+                                        <th className="px-4 py-3">Fin</th>
+                                        <th className="px-4 py-3 text-right">Capital</th>
+                                        <th className="px-4 py-3 text-right">Rendimiento (Pagado)</th>
+                                        <th className="px-4 py-3">Tasa</th>
+                                        <th className="px-4 py-3">Motivo</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {investor.contract_histories.map((history) => (
+                                        <tr key={history.id} className="hover:bg-slate-50/50">
+                                          <td className="px-4 py-3 font-mono text-slate-400">#{history.id}</td>
+                                          <td className="px-4 py-3 font-medium text-slate-700">{new Date(history.fecha_inicio).toLocaleDateString()}</td>
+                                          <td className="px-4 py-3 font-medium text-slate-700">{new Date(history.fecha_fin).toLocaleDateString()}</td>
+                                          <td className="px-4 py-3 text-right font-semibold text-slate-800">${history.total_contrato.toLocaleString('es-CO')}</td>
+                                          <td className="px-4 py-3 text-right">
+                                            <span className="font-semibold text-emerald-600">${history.rendimiento_total_pagado.toLocaleString('es-CO')}</span>
+                                            <span className="text-slate-400 block text-[10px]">Total de: ${history.rentabilidad_contrato.toLocaleString('es-CO')}</span>
+                                          </td>
+                                          <td className="px-4 py-3 text-brand-600 font-medium">{history.tasa_interes}</td>
+                                          <td className="px-4 py-3">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 uppercase">
+                                              {history.motivo}
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-white border border-slate-200 border-dashed rounded-lg p-4 text-center text-xs text-slate-500">
+                                No hay historial de contratos registrado para esta inversión.
+                              </div>
+                            )}
+                          </div>
+                          
                         </td>
                       </tr>
                     )}
@@ -540,6 +643,23 @@ export const AdminInvestorsPage = () => {
           setIsBulkWithdrawalsModalOpen(false);
           fetchData();
         }}
+      />
+
+      {toast && (
+        <div className={`fixed bottom-4 right-4 z-[60] flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border ${
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+        } animate-in slide-in-from-bottom-2`}>
+          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <AlertCircle className="w-5 h-5 text-red-600" />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
+      <DeleteConfirmationModal
+        isOpen={!!investorToDelete}
+        onClose={() => setInvestorToDelete(null)}
+        onConfirm={confirmDelete}
+        investorCode={investorToDelete?.assigned_code}
+        isDeleting={isDeleting}
       />
     </div>
   );

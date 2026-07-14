@@ -54,5 +54,9 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     throw new Error(errMsg);
   }
 
+  if (response.status === 204) {
+    return null;
+  }
+
   return response.json();
 }

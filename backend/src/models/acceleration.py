@@ -22,6 +22,6 @@ class Acceleration(Base):
     updated_at: Mapped[datetime | None] = mapped_column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relaciones
-    investor = relationship("Investor", backref="accelerations")
-    investment_request = relationship("InvestmentRequest", backref="accelerations")
-    period = relationship("Period", backref="accelerations")
+    investor = relationship("Investor", back_populates="accelerations")
+    investment_request = relationship("InvestmentRequest")
+    period = relationship("Period")

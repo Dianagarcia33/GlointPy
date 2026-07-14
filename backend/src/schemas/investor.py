@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from src.schemas.user import UserResponse, UserWithBankAccountsResponse
 from src.schemas.package import PackageResponse
 from src.schemas.period import PeriodResponse
+from src.schemas.contract_history import ContractHistoryResponse
 
 class InvestorBase(BaseModel):
     assigned_code: str
@@ -36,6 +37,7 @@ class InvestorResponse(InvestorBase):
     user: Optional[UserWithBankAccountsResponse] = None
     package: Optional[PackageResponse] = None
     period: Optional[PeriodResponse] = None
+    contract_histories: Optional[list[ContractHistoryResponse]] = None
 
     @computed_field
     @property

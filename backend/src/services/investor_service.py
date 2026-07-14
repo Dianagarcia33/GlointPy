@@ -56,7 +56,8 @@ class InvestorService:
             selectinload(Investor.user).selectinload(User.bank_accounts),
             selectinload(Investor.user).selectinload(User.wallet),
             selectinload(Investor.package),
-            selectinload(Investor.period)
+            selectinload(Investor.period),
+            selectinload(Investor.contract_histories)
         )
         query = query.order_by(Investor.id.desc()).offset(offset).limit(limit)
         
@@ -77,7 +78,8 @@ class InvestorService:
             .options(
                 selectinload(Investor.user).selectinload(User.roles).selectinload(Role.permissions),
                 selectinload(Investor.package),
-                selectinload(Investor.period)
+                selectinload(Investor.period),
+                selectinload(Investor.contract_histories)
             )
             .where(Investor.id == investor_id)
         )
