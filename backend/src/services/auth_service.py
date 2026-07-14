@@ -103,16 +103,23 @@ class AuthService:
         from sqlalchemy import insert
         from src.models.security import user_roles
 
-        # Buscar el rol (por nombre o ID como respaldo)
-        role_result = await db.execute(select(Role).where(Role.name.ilike("investor")))
+        # Buscar el rol (investor o inversionista)
+        role_result = await db.execute(select(Role).where(Role.name.ilike("%invest%")))
         role = role_result.scalars().first()
         
         if not role:
-            role_result = await db.execute(select(Role).where(Role.id == 5))
+            role_result = await db.execute(select(Role).where(Role.name.ilike("%inversionista%")))
             role = role_result.scalars().first()
             
         if not role:
-            raise HTTPException(status_code=500, detail="Error crítico: El rol 'investor' no existe en la base de datos.")
+            # Crear el rol automáticamente si no existe en la base de datos
+            role = Role(
+                name="Investor",
+                description="Rol creado automáticamente por el sistema de registro",
+                is_system_role="1"
+            )
+            db.add(role)
+            await db.flush()
 
         new_user = User(
             name=data.name,
