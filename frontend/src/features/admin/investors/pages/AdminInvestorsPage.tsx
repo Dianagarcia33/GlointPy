@@ -390,10 +390,14 @@ export const AdminInvestorsPage = () => {
                             <div className="space-y-0.5">
                                 <div className="font-semibold text-slate-800">{investor.user.name}</div>
                                 <div className="text-xs text-slate-500">{investor.user.email}</div>
+                                {investor.user.document_id && <div className="text-[11px] text-slate-500 mt-1.5">Doc: <span className="font-medium text-slate-700">{investor.user.document_id}</span></div>}
+                                {investor.user.phone_number && <div className="text-[11px] text-slate-500">Tel: <span className="font-medium text-slate-700">{investor.user.phone_number}</span></div>}
+                                {investor.user.date_of_birth && <div className="text-[11px] text-slate-500">Nac: <span className="font-medium text-slate-700">{new Date(investor.user.date_of_birth).toLocaleDateString()}</span></div>}
+                                
                                 {((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet) && (
                                   <button 
                                     onClick={() => toggleRow(investor.id)}
-                                    className="text-[10px] text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-0.5 mt-1 hover:underline"
+                                    className="text-[10px] text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-0.5 mt-2 hover:underline"
                                   >
                                     Ver detalles {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 ? `(${investor.user.bank_accounts.length} ctas)` : ''}
                                   </button>
