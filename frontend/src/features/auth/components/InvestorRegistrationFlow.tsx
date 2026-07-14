@@ -250,7 +250,22 @@ export const InvestorRegistrationFlow = () => {
             });
         },
         onSuccess: (data: any) => {
-            loginAction(data.user, data.access_token);
+            const user = data.user;
+            if (user) {
+                const perms = new Set<string>();
+                const rolesList = new Set<string>();
+                if (user.roles) {
+                    user.roles.forEach((r: any) => {
+                        rolesList.add(r.name);
+                        if (r.permissions) {
+                            r.permissions.forEach((p: any) => perms.add(p.name));
+                        }
+                    });
+                }
+                user.permissions = Array.from(perms);
+                user.roles_list = Array.from(rolesList);
+            }
+            loginAction(user, data.access_token);
             navigate('/dashboard');
         },
     });

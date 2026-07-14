@@ -30,14 +30,17 @@ export const LoginPage = () => {
             if (user) {
                 // Map nested roles -> permissions to a flat array of strings
                 const perms = new Set<string>();
+                const rolesList = new Set<string>();
                 if (user.roles) {
                     user.roles.forEach((r: any) => {
+                        rolesList.add(r.name);
                         if (r.permissions) {
                             r.permissions.forEach((p: any) => perms.add(p.name));
                         }
                     });
                 }
                 user.permissions = Array.from(perms);
+                user.roles_list = Array.from(rolesList);
             }
 
             loginAction(
