@@ -169,8 +169,12 @@ class AuthService:
 
         await db.commit()
         
-        # Reload user with roles explicitly loaded to prevent MissingGreenlet during FastAPI serialization
-        result = await db.execute(select(User).options(selectinload(User.roles)).where(User.id == new_user.id))
+        # Reload user with roles and permissions explicitly loaded to prevent MissingGreenlet during FastAPI serialization
+        result = await db.execute(
+            select(User)
+            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .where(User.id == new_user.id)
+        )
         return result.scalars().first()
 
     @staticmethod
