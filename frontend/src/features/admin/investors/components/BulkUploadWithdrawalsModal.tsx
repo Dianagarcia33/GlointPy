@@ -112,32 +112,45 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
         receipt_path: item.receipt_path,
       }));
 
-      const response = await bulkUploadWithdrawalsJSON(jsonPayload);
+      const CHUNK_SIZE = 50;
+      let totalSuccess = 0;
+      const allErrors: string[] = [];
+
+      for (let i = 0; i < jsonPayload.length; i += CHUNK_SIZE) {
+        const chunk = jsonPayload.slice(i, i + CHUNK_SIZE);
+        try {
+          const response = await bulkUploadWithdrawalsJSON(chunk);
+          totalSuccess += response.count || 0;
+        } catch (err: any) {
+          let errorMsg = `Error en filas ${i + 1} a ${Math.min(i + CHUNK_SIZE, jsonPayload.length)}: `;
+          if (err.detail) {
+            errorMsg += Array.isArray(err.detail) 
+              ? err.detail.map((e: any) => `${e.loc?.join('.') || 'Campo'}: ${e.msg}`).join(', ') 
+              : err.detail;
+          } else if (err.message) {
+            errorMsg += typeof err.message === 'string' ? err.message : JSON.stringify(err.message);
+          } else if (typeof err === 'object') {
+            errorMsg += JSON.stringify(err);
+          }
+          allErrors.push(errorMsg);
+        }
+        setProgress({ current: Math.min(i + CHUNK_SIZE, jsonPayload.length), total: jsonPayload.length });
+      }
+
+      setResult({ success: totalSuccess, errors: allErrors });
       
-      const totalSuccess = response.count || 0;
-      setResult({ success: totalSuccess, errors: [] });
-      
-      setTimeout(() => {
-        onUploaded();
-        setFile(null);
-        setResult(null);
-      }, 2000);
+      if (allErrors.length === 0) {
+        setTimeout(() => {
+          onUploaded();
+          setFile(null);
+          setResult(null);
+        }, 2000);
+      }
 
     } catch (err: any) {
-      let errorMsg = 'Error desconocido al subir el archivo.';
-      if (err.detail) {
-        errorMsg = Array.isArray(err.detail) 
-          ? err.detail.map((e: any) => `${e.loc?.join('.') || 'Campo'}: ${e.msg}`).join(', ') 
-          : err.detail;
-      } else if (err.message) {
-        errorMsg = typeof err.message === 'string' ? err.message : JSON.stringify(err.message);
-      } else if (typeof err === 'object') {
-        errorMsg = JSON.stringify(err);
-      }
-      
       setResult({
         success: 0,
-        errors: [errorMsg],
+        errors: ['Error crítico al procesar el archivo CSV.'],
       });
     } finally {
       setIsUploading(false);
@@ -301,7 +314,7 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
               {isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  {progress ? `Procesando...` : 'Procesando...'}
+                  {progress ? `Procesando ${progress.current} de ${progress.total}...` : 'Procesando...'}
                 </>
               ) : (
                 'Subir e Importar'
