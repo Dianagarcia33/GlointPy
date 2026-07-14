@@ -20,6 +20,8 @@ export const AdminUsersPage = () => {
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
   
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
   const fetchData = async () => {
