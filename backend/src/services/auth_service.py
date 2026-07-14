@@ -143,26 +143,18 @@ class AuthService:
         )
         db.add(bank_acc)
 
-        investor = Investor(
-            assigned_code=f"INV-{uuid.uuid4().hex[:6].upper()}",
-            user_id=new_user.id,
-            package_id=data.paquete_id,
-            period_id=data.contract_period_id,
-            observations=f"Ciudad: {data.ciudad}, Tipo Doc: {data.tipo_documento}, KYC: {','.join(data.kyc_docs)}"
-        )
-        db.add(investor)
-        await db.flush()
-
         req = InvestmentRequest(
             user_id=new_user.id,
-            investor_id=investor.id,
+            investor_id=None,
             paquete_inversion_id=data.paquete_id,
             monto=data.monto,
             comprobante_path=data.comprobante_path,
             extra_data={
                 "kyc_docs": data.kyc_docs,
                 "ciudad": data.ciudad,
-                "fecha_nacimiento": data.fecha_nacimiento
+                "fecha_nacimiento": data.fecha_nacimiento,
+                "tipo_documento": data.tipo_documento,
+                "contract_period_id": data.contract_period_id
             }
         )
         db.add(req)
