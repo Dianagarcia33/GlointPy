@@ -8,7 +8,7 @@ class SimpleUserResponse(BaseModel):
     id: int
     name: str
     email: str
-    document_id: str
+    document_id: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
