@@ -159,7 +159,7 @@ export const AdminRolesPage: React.FC = () => {
                                                 <Shield className="w-4 h-4 text-brand-600" />
                                             </div>
                                             <div>
-                                                <div className="font-semibold text-slate-800">{role.display_name}</div>
+                                                <div className="font-semibold text-slate-800">{role.display_name || role.name}</div>
                                                 <div className="text-xs text-slate-400 font-mono mt-0.5">{role.name}</div>
                                             </div>
                                         </div>

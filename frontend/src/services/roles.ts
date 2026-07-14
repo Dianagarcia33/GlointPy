@@ -22,18 +22,16 @@ export interface Role {
 
 export interface RoleCreate {
   name: string;
-  display_name: string;
   description?: string;
   is_active?: boolean;
-  permissions: number[]; // Array of Permission IDs
+  permission_ids: number[]; // Array of Permission IDs
 }
 
 export interface RoleUpdate {
   name?: string;
-  display_name?: string;
   description?: string;
   is_active?: boolean;
-  permissions?: number[]; // Array of Permission IDs
+  permission_ids?: number[]; // Array of Permission IDs
 }
 
 export const rolesService = {

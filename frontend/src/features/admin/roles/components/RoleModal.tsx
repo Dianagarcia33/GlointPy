@@ -18,7 +18,6 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   allPermissions
 }) => {
   const [name, setName] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,12 +27,10 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     if (isOpen) {
       if (role) {
         setName(role.name);
-        setDisplayName(role.display_name);
         setDescription(role.description || '');
         setSelectedPermissions(role.permissions.map((p: Permission) => p.id));
       } else {
         setName('');
-        setDisplayName('');
         setDescription('');
         setSelectedPermissions([]);
       }
@@ -49,9 +46,8 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     try {
       const data = {
         name,
-        display_name: displayName,
         description,
-        permissions: selectedPermissions,
+        permission_ids: selectedPermissions,
         is_active: true
       };
 
@@ -123,19 +119,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                         placeholder="nombre_rol"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Nombre a Mostrar <span className="text-slate-400 font-normal">(ej. Super Administrador)</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                        placeholder="Nombre a mostrar"
-                      />
-                    </div>
+
                     <div className="sm:col-span-2">
                       <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
                       <textarea
