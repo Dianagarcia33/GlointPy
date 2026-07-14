@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, Any
+from typing import Optional, Any, List
 from datetime import datetime, date
 from decimal import Decimal
 from src.models.withdrawal import WithdrawalStatus, WithdrawalType
