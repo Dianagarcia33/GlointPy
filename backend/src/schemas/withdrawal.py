@@ -37,7 +37,7 @@ class WithdrawalBase(BaseModel):
     receipt_path: Optional[str] = None
 
 class WithdrawalCreate(WithdrawalBase):
-    pass
+    id: Optional[int] = None
 
 class WithdrawalUpdate(BaseModel):
     estado: Optional[WithdrawalStatus] = None

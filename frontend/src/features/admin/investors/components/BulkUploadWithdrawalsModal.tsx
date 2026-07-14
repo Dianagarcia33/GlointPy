@@ -87,6 +87,7 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
 
       // Clean the parsed data to match Pydantic schema
       const jsonPayload = parsedData.map(item => ({
+        id: item.id ? parseInt(item.id) : undefined,
         user_id: parseInt(item.user_id),
         investor_id: item.investor_id ? parseInt(item.investor_id) : null,
         origen: item.origen || 'inversion',
@@ -123,9 +124,20 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
       }, 2000);
 
     } catch (err: any) {
+      let errorMsg = 'Error desconocido al subir el archivo.';
+      if (err.detail) {
+        errorMsg = Array.isArray(err.detail) 
+          ? err.detail.map((e: any) => `${e.loc?.join('.') || 'Campo'}: ${e.msg}`).join(', ') 
+          : err.detail;
+      } else if (err.message) {
+        errorMsg = typeof err.message === 'string' ? err.message : JSON.stringify(err.message);
+      } else if (typeof err === 'object') {
+        errorMsg = JSON.stringify(err);
+      }
+      
       setResult({
         success: 0,
-        errors: [err.message || 'Error desconocido al subir el archivo.'],
+        errors: [errorMsg],
       });
     } finally {
       setIsUploading(false);
@@ -134,8 +146,8 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
   };
 
   const downloadTemplate = () => {
-    const header = "user_id;investor_id;origen;tipo;monto;impuesto;monto_neto;fecha_solicitud;fecha_retiro;estado;metodo_pago;banco;tipo_cuenta;numero_cuenta;observaciones;motivo_rechazo;aprobado_por;fecha_aprobacion;procesado_por;fecha_procesamiento;comprobante_pago;receipt_path";
-    const sampleRow = "1;2;inversion;rendimiento;100000;0.00;100000;2024-01-01;;procesado;transferencia;NEQUI;ahorros;3001234567;;;1;2024-01-01 10:00:00;1;2024-01-01 10:00:00;;";
+    const header = "id;user_id;investor_id;origen;tipo;monto;impuesto;monto_neto;fecha_solicitud;fecha_retiro;estado;metodo_pago;banco;tipo_cuenta;numero_cuenta;observaciones;motivo_rechazo;aprobado_por;fecha_aprobacion;procesado_por;fecha_procesamiento;comprobante_pago;receipt_path";
+    const sampleRow = "1;1;2;inversion;rendimiento;100000;0.00;100000;2024-01-01;;procesado;transferencia;NEQUI;ahorros;3001234567;;;1;2024-01-01 10:00:00;1;2024-01-01 10:00:00;;";
     const csvContent = "\uFEFF" + header + "\n" + sampleRow;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
