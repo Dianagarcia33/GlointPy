@@ -87,14 +87,18 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
 
       // Clean the parsed data to match Pydantic schema
       const jsonPayload = parsedData
-        .filter(item => item.user_id && !isNaN(parseInt(item.user_id)))
+        .filter(item => {
+          const uId = item.user_id || item.id_user;
+          return uId && !isNaN(parseInt(uId));
+        })
         .map(item => {
+          const uId = item.user_id || item.id_user;
           const monto = parseFloat(item.monto);
           const monto_neto = parseFloat(item.monto_neto);
           
           return {
             id: item.id ? parseInt(item.id) : undefined,
-            user_id: parseInt(item.user_id),
+            user_id: parseInt(uId),
             investor_id: item.investor_id ? parseInt(item.investor_id) : null,
             origen: item.origen || 'inversion',
             tipo: item.tipo || 'capital', // Valor por defecto si viene vacío
@@ -118,6 +122,16 @@ export const BulkUploadWithdrawalsModal: React.FC<BulkUploadWithdrawalsModalProp
             receipt_path: item.receipt_path,
           };
         });
+
+      if (jsonPayload.length === 0) {
+        setResult({
+          success: 0,
+          errors: ['No se encontraron filas válidas para subir. Verifica que la columna de ID de usuario (user_id o id_user) exista y contenga números válidos.'],
+        });
+        setIsUploading(false);
+        setProgress(null);
+        return;
+      }
 
       const CHUNK_SIZE = 50;
       let totalSuccess = 0;
