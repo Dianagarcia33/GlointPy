@@ -458,7 +458,7 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
                 <h1>Retiro de Capital - Gloint</h1>
             </div>
             <div class="content">
-                <p>Hola <strong>{current_user.nombre}</strong>,</p>
+                <p>Hola <strong>{current_user.name}</strong>,</p>
                 <p>Has solicitado retirar capital disponible de tu inversión <strong>#{inv_record.id}</strong>.</p>
                 <p>Para confirmar y procesar esta solicitud, por favor ingresa el siguiente código de 6 dígitos en la plataforma:</p>
                 <div class="code-box">
