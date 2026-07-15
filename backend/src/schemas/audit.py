@@ -15,6 +15,7 @@ class AuditUserSummary(BaseModel):
     total_withdrawals: Decimal = Decimal('0.00')
     active_packages_count: int = 0
     pending_requests_count: int = 0
+    investments: List[InvestorResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
 

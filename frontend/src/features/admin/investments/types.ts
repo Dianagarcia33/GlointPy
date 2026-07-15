@@ -10,6 +10,7 @@ export interface AuditUserSummary {
   total_withdrawals: number;
   active_packages_count: number;
   pending_requests_count: number;
+  investments?: AuditInvestment[];
 }
 
 export interface PaginatedAuditUsers {
