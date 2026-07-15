@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from datetime import date, datetime
+from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.deps import get_current_user
 from src.models.investment_request import InvestmentRequest
