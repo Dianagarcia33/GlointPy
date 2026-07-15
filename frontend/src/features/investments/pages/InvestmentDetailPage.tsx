@@ -138,6 +138,19 @@ export const InvestmentDetailPage = () => {
                                 Gestión de Capital
                             </h3>
                             
+                            <div className="mb-6">
+                                <div className="flex justify-between items-end mb-2">
+                                    <span className="text-xs font-semibold text-slate-500">Progreso de Liberación</span>
+                                    <span className="text-xs font-bold text-brand-600">{((inv.capital_liberado / inv.monto) * 100 || 0).toFixed(0)}%</span>
+                                </div>
+                                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                    <div 
+                                        className="bg-brand-500 h-2 rounded-full transition-all duration-1000 ease-out" 
+                                        style={{ width: `${Math.min(100, Math.max(0, (inv.capital_liberado / inv.monto) * 100 || 0))}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                            
                             <div className="space-y-4 mb-6">
                                 <div>
                                     <p className="text-xs font-semibold text-slate-500">Capital Liberado a la fecha</p>
