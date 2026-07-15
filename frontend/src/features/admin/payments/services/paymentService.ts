@@ -1,5 +1,5 @@
 import { fetchApi } from '../../../../services/api';
-import { PaginatedWithdrawals } from '../types';
+import { PaginatedWithdrawals, Withdrawal } from '../types';
 
 export const paymentService = {
   getWithdrawals: async (page = 1, limit = 20, search = ''): Promise<PaginatedWithdrawals> => {
