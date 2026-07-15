@@ -14,5 +14,20 @@ export const paymentService = {
 
     const data = await fetchApi(`/withdrawals/?${params.toString()}`);
     return data as PaginatedWithdrawals;
+  },
+
+  approveWithdrawal: async (id: number): Promise<Withdrawal> => {
+    const data = await fetchApi(`/withdrawals/${id}/approve`, {
+      method: 'POST',
+    });
+    return data as Withdrawal;
+  },
+
+  rejectWithdrawal: async (id: number, reason: string): Promise<Withdrawal> => {
+    const data = await fetchApi(`/withdrawals/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ motivo_rechazo: reason }),
+    });
+    return data as Withdrawal;
   }
 };

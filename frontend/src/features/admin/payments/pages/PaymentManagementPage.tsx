@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
 import { Withdrawal, PaginatedWithdrawals } from '../types';
+import { WithdrawalApprovalModal } from '../components/WithdrawalApprovalModal';
+import { Can } from '../../../../components/security/Can';
 
 export const PaymentManagementPage: React.FC = () => {
   const [data, setData] = useState<PaginatedWithdrawals | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
   const limit = 20;
 
   const fetchWithdrawals = async () => {
@@ -44,8 +47,8 @@ export const PaymentManagementPage: React.FC = () => {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       pendiente: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      aprobado: 'bg-blue-100 text-blue-800 border-blue-200',
-      procesado: 'bg-green-100 text-green-800 border-green-200',
+      aprobado: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      procesado: 'bg-blue-100 text-blue-800 border-blue-200',
       rechazado: 'bg-red-100 text-red-800 border-red-200',
     };
     
@@ -107,7 +110,9 @@ export const PaymentManagementPage: React.FC = () => {
                 <th className="px-6 py-4">Detalle</th>
                 <th className="px-6 py-4 text-right">Monto a Pagar</th>
                 <th className="px-6 py-4 text-center">Estado</th>
-                <th className="px-6 py-4 text-center">Acciones</th>
+                <Can permission="admin.withdrawals.manage">
+                  <th className="px-6 py-4 text-center">Acciones</th>
+                </Can>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -130,7 +135,11 @@ export const PaymentManagementPage: React.FC = () => {
                 </tr>
               ) : (
                 data?.data.map((withdrawal) => (
-                  <tr key={withdrawal.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <tr 
+                    key={withdrawal.id} 
+                    className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
+                    onClick={() => withdrawal.estado === 'pendiente' && setSelectedWithdrawal(withdrawal)}
+                  >
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">#{withdrawal.id}</div>
                       <div className="text-gray-500 text-xs mt-1">{withdrawal.fecha_solicitud}</div>
@@ -153,11 +162,20 @@ export const PaymentManagementPage: React.FC = () => {
                     <td className="px-6 py-4 text-center">
                       {getStatusBadge(withdrawal.estado)}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <button className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                        <FileText className="w-4 h-4" />
-                      </button>
-                    </td>
+                    <Can permission="admin.withdrawals.manage">
+                      <td className="px-6 py-4 text-center">
+                        {withdrawal.estado === 'pendiente' ? (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setSelectedWithdrawal(withdrawal); }}
+                            className="px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                          >
+                            Revisar
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                    </Can>
                   </tr>
                 ))
               )}
@@ -192,6 +210,18 @@ export const PaymentManagementPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Approval Modal */}
+      {selectedWithdrawal && (
+        <WithdrawalApprovalModal
+          withdrawal={selectedWithdrawal}
+          onClose={() => setSelectedWithdrawal(null)}
+          onUpdate={() => {
+            fetchWithdrawals();
+          }}
+        />
+      )}
     </div>
   );
 };
+
