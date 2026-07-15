@@ -25,6 +25,19 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
     }).format(num);
   };
 
+  const formatAccountNumber = (accountNum: string | undefined | null) => {
+    if (!accountNum) return 'N/A';
+    if (accountNum.toLowerCase().includes('e')) {
+      const standardFormat = accountNum.replace(',', '.');
+      const num = Number(standardFormat);
+      if (!isNaN(num)) {
+        // useGrouping: false prevents commas, fullwide prevents scientific notation string output
+        return num.toLocaleString('fullwide', { useGrouping: false });
+      }
+    }
+    return accountNum;
+  };
+
   const handleApprove = async () => {
     try {
       setIsProcessing(true);
@@ -153,7 +166,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
               </div>
               <div>
                 <span className="text-gray-500 block">Número de Cuenta:</span>
-                <span className="font-medium text-gray-900 tracking-wider">{withdrawal.numero_cuenta || 'N/A'}</span>
+                <span className="font-medium text-gray-900 tracking-wider">{formatAccountNumber(withdrawal.numero_cuenta)}</span>
               </div>
             </div>
           </div>
