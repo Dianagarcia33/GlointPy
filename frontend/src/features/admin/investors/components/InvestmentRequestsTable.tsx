@@ -404,6 +404,73 @@ export const InvestmentRequestsTable = () => {
                 </div>
               </div>
 
+              {selectedRequestToReview.extra_data && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedRequestToReview.extra_data.personal_info && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Información Personal</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Documento:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.personal_info.tipo_documento} {selectedRequestToReview.extra_data.personal_info.numero_documento}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Teléfono:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.personal_info.telefono}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Ciudad:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.personal_info.ciudad}, {selectedRequestToReview.extra_data.personal_info.pais}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Dirección:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.personal_info.direccion}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedRequestToReview.extra_data.bank_info && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Información Bancaria</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Banco:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.bank_info.banco}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Tipo de Cuenta:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.bank_info.tipo_cuenta}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Número de Cuenta:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.bank_info.numero_cuenta}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedRequestToReview.extra_data && selectedRequestToReview.extra_data.kyc_docs && Object.keys(selectedRequestToReview.extra_data.kyc_docs).length > 0 && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos KYC Adjuntos</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(selectedRequestToReview.extra_data.kyc_docs).map(([key, path]) => (
+                      <a 
+                        key={key} 
+                        href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${path}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 px-3 py-2 rounded-lg font-medium transition-colors border border-brand-200"
+                      >
+                        {key}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {selectedRequestToReview.comprobante_path ? (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">

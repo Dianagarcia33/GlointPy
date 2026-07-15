@@ -6,7 +6,6 @@ import { BulkUploadInvestmentRequestsModal } from '../components/BulkUploadInves
 import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
 import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
 import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
-import { BulkUploadWithdrawalsModal } from '../components/BulkUploadWithdrawalsModal';
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
@@ -129,7 +128,6 @@ export const AdminInvestorsPage = () => {
   const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
   const [isBulkWalletModalOpen, setIsBulkWalletModalOpen] = useState(false);
   const [isBulkTxModalOpen, setIsBulkTxModalOpen] = useState(false);
-  const [isBulkWithdrawalsModalOpen, setIsBulkWithdrawalsModalOpen] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
@@ -251,13 +249,6 @@ export const AdminInvestorsPage = () => {
         
         <Can permission="admin.investors.manage">
           <div className="flex gap-2 relative">
-            <button 
-              onClick={() => setIsBulkWithdrawalsModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors shadow-sm text-sm font-medium border border-slate-200"
-            >
-              <UploadCloud className="w-4 h-4" />
-              Cargar Retiros (CSV)
-            </button>
 
             <button 
               onClick={handleCreate}
@@ -695,15 +686,6 @@ export const AdminInvestorsPage = () => {
         onClose={() => setIsBulkTxModalOpen(false)}
         onUploaded={() => {
           setIsBulkTxModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadWithdrawalsModal
-        isOpen={isBulkWithdrawalsModalOpen}
-        onClose={() => setIsBulkWithdrawalsModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkWithdrawalsModalOpen(false);
           fetchData();
         }}
       />
