@@ -80,11 +80,8 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
 
     // Calculate amounts dynamically based on Package name and Period
     const getPackageAmount = (pkg: any) => {
-        if (!pkg || !pkg.paquete_accion_adquirido) return 0;
-        const match = pkg.paquete_accion_adquirido.match(/[\d,.]+/);
-        if (!match) return 0;
-        const numStr = match[0].replace(/,/g, '');
-        return parseFloat(numStr) || 0;
+        if (!pkg || pkg.value === undefined) return 0;
+        return parseFloat(pkg.value) || 0;
     };
 
     const packageAmount = getPackageAmount(selectedPackage);
@@ -169,7 +166,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                         <option value="">-- Selecciona un paquete --</option>
                                         {packages?.map((pkg: any) => (
                                             <option key={pkg.id} value={pkg.id}>
-                                                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.acciones_otorgadas} Acciones)
+                                                {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.granted_shares} Acciones)
                                             </option>
                                         ))}
                                     </select>
