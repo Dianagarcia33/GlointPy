@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
+import { periodsService, Period } from '../../../../services/periods';
 import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
@@ -40,6 +41,7 @@ const InvestmentRequestsTableSkeleton = () => {
 
 export const InvestmentRequestsTable = () => {
   const [requests, setRequests] = useState<InvestmentRequest[]>([]);
+  const [periods, setPeriods] = useState<Period[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
@@ -98,7 +100,12 @@ export const InvestmentRequestsTable = () => {
         search: search || undefined
       });
       setRequests(response.data);
-      setTotal(response.total);
+      setTotal(response.total || 0);
+
+      if (periods.length === 0) {
+        const periodsData = await periodsService.getPeriods();
+        setPeriods(periodsData);
+      }
       setError(null);
     } catch (err: any) {
       console.error("Error cargando solicitudes:", err);
@@ -429,8 +436,13 @@ export const InvestmentRequestsTable = () => {
                       )}
                       {selectedRequestToReview.extra_data.contract_period_id && (
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Periodo de Contrato (ID):</span>
-                          <span className="font-medium">{selectedRequestToReview.extra_data.contract_period_id}</span>
+                          <span className="text-slate-500">Periodo de Contrato:</span>
+                          <span className="font-medium">
+                            {(() => {
+                              const p = periods.find(p => p.id === Number(selectedRequestToReview.extra_data?.contract_period_id));
+                              return p ? `${p.months} meses y ${p.days} días (${p.percentage}%)` : `ID: ${selectedRequestToReview.extra_data?.contract_period_id}`;
+                            })()}
+                          </span>
                         </div>
                       )}
                     </div>
