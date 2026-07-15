@@ -185,6 +185,49 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         
     return response
 
+@router.get("/me/withdrawals")
+async def get_my_withdrawals(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Get the withdrawals of the current logged-in user.
+    """
+    from src.models.withdrawal import Withdrawal
+    
+    w_result = await db.execute(
+        select(Withdrawal)
+        .where(Withdrawal.user_id == current_user.id)
+        .order_by(Withdrawal.created_at.desc())
+    )
+    withdrawals = w_result.scalars().all()
+    
+    response = []
+    for w in withdrawals:
+        response.append({
+            "id": f"w_{w.id}",
+            "real_id": w.id,
+            "investor_id": w.investor_id,
+            "user_id": w.user_id,
+            "origen": w.origen,
+            "tipo": w.tipo.value if hasattr(w.tipo, 'value') else w.tipo,
+            "monto": float(w.monto),
+            "impuesto": float(w.impuesto),
+            "monto_neto": float(w.monto_neto),
+            "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
+            "fecha_retiro": w.fecha_retiro.isoformat() if w.fecha_retiro else None,
+            "estado": w.estado.value if hasattr(w.estado, 'value') else w.estado,
+            "metodo_pago": w.metodo_pago,
+            "banco": w.banco,
+            "tipo_cuenta": w.tipo_cuenta,
+            "numero_cuenta": w.numero_cuenta,
+            "observaciones": w.observaciones,
+            "motivo_rechazo": w.motivo_rechazo,
+            "fecha_aprobacion": w.fecha_aprobacion.isoformat() if w.fecha_aprobacion else None,
+            "fecha_procesamiento": w.fecha_procesamiento.isoformat() if w.fecha_procesamiento else None,
+            "created_at": w.created_at.isoformat() if w.created_at else None,
+            "updated_at": w.updated_at.isoformat() if w.updated_at else None,
+        })
+        
+    return response
+
 @router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def bulk_upload_wallets(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     """

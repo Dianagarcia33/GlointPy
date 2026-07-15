@@ -37,6 +37,8 @@ export const WalletsPage = () => {
     const [balance, setBalance] = useState<number>(0);
     const [bankDetails, setBankDetails] = useState<any>(null);
     const [movements, setMovements] = useState<Movement[]>([]);
+    const [withdrawals, setWithdrawals] = useState<Movement[]>([]);
+    const [activeTab, setActiveTab] = useState<'movements' | 'withdrawals'>('movements');
     const [loading, setLoading] = useState(true);
     
     // Modals state
@@ -47,13 +49,15 @@ export const WalletsPage = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [balanceRes, movementsRes] = await Promise.all([
+            const [balanceRes, movementsRes, withdrawalsRes] = await Promise.all([
                 fetchApi('/wallets/me/balance'),
-                fetchApi('/wallets/me/movements')
+                fetchApi('/wallets/me/movements'),
+                fetchApi('/wallets/me/withdrawals')
             ]);
             setBalance(balanceRes.balance || 0);
             setBankDetails(balanceRes.bank_details || null);
             setMovements(movementsRes || []);
+            setWithdrawals(withdrawalsRes || []);
         } catch (error) {
             console.error('Error fetching wallet data:', error);
         } finally {
@@ -206,77 +210,153 @@ export const WalletsPage = () => {
                             </div>
                         </div>
 
-                        {movements.length > 0 ? (
-                            <div className="space-y-3">
-                                {movements.map((mov) => {
-                                    const status = getStatusConfig(mov.estado);
-                                    const originNormalized = mov.origen.toLowerCase();
-                                    const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase() : '';
-                                    const isIngreso = [
-                                        'generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer',
-                                        'yield payout', 'transfer received', 'bonus payout', 'withdrawal refund'
-                                    ].includes(originNormalized) || metodoPagoNormalized === 'wallet';
+                        <div className="flex gap-4 border-b border-slate-200 mb-6 px-4">
+                            <button
+                                onClick={() => setActiveTab('movements')}
+                                className={`pb-4 px-2 font-bold font-montserrat transition-colors relative ${activeTab === 'movements' ? 'text-brand-500' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                Transacciones
+                                {activeTab === 'movements' && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-500 rounded-t-full"></div>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('withdrawals')}
+                                className={`pb-4 px-2 font-bold font-montserrat transition-colors relative ${activeTab === 'withdrawals' ? 'text-brand-500' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                Solicitudes de Retiro
+                                {activeTab === 'withdrawals' && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-500 rounded-t-full"></div>
+                                )}
+                            </button>
+                        </div>
 
-                                    const typeTranslations: Record<string, string> = {
-                                        'yield payout': 'Pago de Rendimientos',
-                                        'yield payout reversal': 'Reversión de Rendimientos',
-                                        'yield payout reversed': 'Rendimientos Revertidos',
-                                        'withdrawal request': 'Solicitud de Retiro',
-                                        'transfer sent': 'Transferencia Enviada',
-                                        'transfer received': 'Transferencia Recibida',
-                                        'bonus payout': 'Pago de Bono',
-                                        'investment reservation': 'Reserva de Inversión',
-                                        'withdrawal refund': 'Reembolso de Retiro'
-                                    };
+                        {activeTab === 'movements' ? (
+                            movements.length > 0 ? (
+                                <div className="space-y-3">
+                                    {movements.map((mov) => {
+                                        const status = getStatusConfig(mov.estado);
+                                        const originNormalized = mov.origen.toLowerCase();
+                                        const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase() : '';
+                                        const isIngreso = [
+                                            'generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer',
+                                            'yield payout', 'transfer received', 'bonus payout', 'withdrawal refund'
+                                        ].includes(originNormalized) || metodoPagoNormalized === 'wallet';
 
-                                    const displayType = typeTranslations[originNormalized] || mov.origen.replace(/_/g, ' ');
+                                        const typeTranslations: Record<string, string> = {
+                                            'yield payout': 'Pago de Rendimientos',
+                                            'yield payout reversal': 'Reversión de Rendimientos',
+                                            'yield payout reversed': 'Rendimientos Revertidos',
+                                            'withdrawal request': 'Solicitud de Retiro',
+                                            'transfer sent': 'Transferencia Enviada',
+                                            'transfer received': 'Transferencia Recibida',
+                                            'bonus payout': 'Pago de Bono',
+                                            'investment reservation': 'Reserva de Inversión',
+                                            'withdrawal refund': 'Reembolso de Retiro'
+                                        };
 
-                                    return (
-                                        <div 
-                                            key={mov.id} 
-                                            onClick={() => setSelectedMovement(mov)}
-                                            className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all cursor-pointer group"
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className={`p-3 rounded-xl flex-shrink-0 ${isIngreso ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
-                                                    {isIngreso ? <ArrowDownToLine className="w-5 h-5" /> : <ArrowUpToLine className="w-5 h-5" />}
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-slate-900 capitalize font-montserrat">
-                                                        {displayType}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
-                                                        <span>{formatDate(mov.fecha_solicitud)}</span>
-                                                        <span>•</span>
-                                                        <span className={`inline-flex items-center gap-1 ${status.color}`}>
-                                                            <status.icon className="w-3 h-3" />
-                                                            {status.text}
-                                                        </span>
+                                        const displayType = typeTranslations[originNormalized] || mov.origen.replace(/_/g, ' ');
+
+                                        return (
+                                            <div 
+                                                key={mov.id} 
+                                                onClick={() => setSelectedMovement(mov)}
+                                                className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all cursor-pointer group"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`p-3 rounded-xl flex-shrink-0 ${isIngreso ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                        {isIngreso ? <ArrowDownToLine className="w-5 h-5" /> : <ArrowUpToLine className="w-5 h-5" />}
                                                     </div>
-                                                    {(mov.observaciones || mov.motivo_rechazo) && (
-                                                        <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
-                                                            {mov.motivo_rechazo || mov.observaciones}
+                                                    <div>
+                                                        <p className="font-bold text-slate-900 capitalize font-montserrat">
+                                                            {displayType}
                                                         </p>
-                                                    )}
+                                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
+                                                            <span>{formatDate(mov.fecha_solicitud)}</span>
+                                                            <span>•</span>
+                                                            <span className={`inline-flex items-center gap-1 ${status.color}`}>
+                                                                <status.icon className="w-3 h-3" />
+                                                                {status.text}
+                                                            </span>
+                                                        </div>
+                                                        {(mov.observaciones || mov.motivo_rechazo) && (
+                                                            <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
+                                                                {mov.motivo_rechazo || mov.observaciones}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-right">
+                                                        <p className={`font-bold font-montserrat ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
+                                                            {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
+                                                        </p>
+                                                    </div>
+                                                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
                                                 </div>
                                             </div>
-                                            
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-right">
-                                                    <p className={`font-bold font-montserrat ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                                        {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
-                                                    </p>
-                                                </div>
-                                                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
+                                    <p className="text-slate-500 font-medium">No hay transacciones recientes en tu billetera.</p>
+                                </div>
+                            )
                         ) : (
-                            <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
-                                <p className="text-slate-500 font-medium">No hay movimientos recientes en tu billetera.</p>
-                            </div>
+                            withdrawals.length > 0 ? (
+                                <div className="space-y-3">
+                                    {withdrawals.map((mov) => {
+                                        const status = getStatusConfig(mov.estado);
+                                        
+                                        return (
+                                            <div 
+                                                key={mov.id} 
+                                                onClick={() => setSelectedMovement(mov)}
+                                                className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all cursor-pointer group"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="p-3 rounded-xl flex-shrink-0 bg-brand-50 text-brand-600">
+                                                        <ArrowUpToLine className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-900 capitalize font-montserrat">
+                                                            Retiro de Fondos
+                                                        </p>
+                                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
+                                                            <span>{formatDate(mov.fecha_solicitud)}</span>
+                                                            <span>•</span>
+                                                            <span className={`inline-flex items-center gap-1 ${status.color}`}>
+                                                                <status.icon className="w-3 h-3" />
+                                                                {status.text}
+                                                            </span>
+                                                        </div>
+                                                        {(mov.observaciones || mov.motivo_rechazo) && (
+                                                            <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
+                                                                {mov.motivo_rechazo || mov.observaciones}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-right">
+                                                        <p className="font-bold font-montserrat text-slate-900">
+                                                            -{formatCurrency(mov.monto)}
+                                                        </p>
+                                                    </div>
+                                                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
+                                    <p className="text-slate-500 font-medium">No tienes solicitudes de retiro.</p>
+                                </div>
+                            )
                         )}
                     </div>
                 </Can>
