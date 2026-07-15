@@ -4,6 +4,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from src.schemas.withdrawal import WithdrawalResponse
 from src.schemas.investor import InvestorResponse
+from src.schemas.investment_request import InvestmentRequestResponse
 
 class AuditUserSummary(BaseModel):
     user_id: int
@@ -28,6 +29,7 @@ class AuditUserHistory(BaseModel):
     name: str
     investments: List[InvestorResponse]
     withdrawals: List[WithdrawalResponse]
-    # We can add requests and accelerations here later
-    requests: List[dict] = []
+    requests: List[InvestmentRequestResponse] = []
     accelerations: List[dict] = []
+
+    model_config = ConfigDict(from_attributes=True)
