@@ -21,6 +21,7 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { WalletsPage } from "./features/wallets/pages/WalletsPage";
 import { InvestmentsPage } from "./features/investments/pages/InvestmentsPage";
+import { InvestmentDetailPage } from "./features/investments/pages/InvestmentDetailPage";
 import { AdminInvestmentsPage } from "./features/admin/investments/pages/AdminInvestmentsPage";
 import { AdminRolesPage } from "./features/admin/roles/pages/AdminRolesPage";
 import { AdminUsersPage } from "./features/admin/users/pages/AdminUsersPage";
@@ -87,6 +88,7 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="wallet" element={<WalletsPage />} />
         <Route path="investments" element={<InvestmentsPage />} />
+        <Route path="investments/:id" element={<InvestmentDetailPage />} />
         <Route path="audit" element={<RequirePermission permission="admin.investments.requests"><AdminInvestmentsPage /></RequirePermission>} />
         <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />

@@ -155,7 +155,10 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                         <ArrowDownToLine className="w-4 h-4" />
                     </button>
                 </div>
-                <button className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 px-3 py-2 hover:bg-brand-50 rounded-lg transition-colors">
+                <button 
+                    onClick={() => window.location.href = `/dashboard/investments/${inv.id}`}
+                    className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 px-3 py-2 hover:bg-brand-50 rounded-lg transition-colors"
+                >
                     Ver Detalles <ChevronRight className="w-4 h-4" />
                 </button>
             </div>
