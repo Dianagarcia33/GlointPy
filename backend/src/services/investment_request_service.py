@@ -265,7 +265,25 @@ class InvestmentRequestService:
                 else:
                     raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
 
-            code = f"INV-{req.user_id}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{random.randint(10, 99)}"
+            # Obtener el ultimo codigo asignado que empiece con IG
+            investors_codes = await db.execute(
+                select(Investor.assigned_code)
+                .where(Investor.assigned_code.like("IG%"))
+            )
+            codes = investors_codes.scalars().all()
+            
+            max_num = 0
+            for c in codes:
+                try:
+                    # Remover 'IG' y convertir a entero
+                    num = int(c[2:].strip())
+                    if num > max_num:
+                        max_num = num
+                except ValueError:
+                    continue
+                    
+            next_num = max_num + 1
+            code = f"IG{next_num}"
             
             investor = Investor(
                 assigned_code=code,
