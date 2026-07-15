@@ -17,10 +17,22 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
     result = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
     wallet = result.scalars().first()
     
+    from src.models.user_bank_account import UserBankAccount
+    bank_result = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
+    bank_account = bank_result.scalars().first()
+    
+    bank_details = None
+    if bank_account:
+        bank_details = {
+            "banco": bank_account.banco,
+            "tipo_cuenta": bank_account.tipo_cuenta,
+            "numero_cuenta": bank_account.numero_cuenta
+        }
+    
     if not wallet:
-        return {"balance": 0, "currency": "COP"}
+        return {"balance": 0, "currency": "COP", "bank_details": bank_details}
         
-    return {"balance": wallet.balance, "currency": wallet.currency}
+    return {"balance": wallet.balance, "currency": wallet.currency, "bank_details": bank_details}
 
 @router.get("/me/movements")
 async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
