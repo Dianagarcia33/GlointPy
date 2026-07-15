@@ -14,6 +14,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   const formatCurrency = (value: string | number) => {
     const num = typeof value === 'string' ? parseFloat(value) : value;
@@ -28,7 +29,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
     try {
       setIsProcessing(true);
       setError(null);
-      await paymentService.approveWithdrawal(withdrawal.id);
+      await paymentService.approveWithdrawal(withdrawal.id, receiptFile || undefined);
       onUpdate();
       onClose();
     } catch (err: any) {
@@ -148,6 +149,25 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
               </div>
             </div>
           </div>
+
+          {/* Receipt Upload (Optional) */}
+          {!isRejecting && (
+            <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
+              <h3 className="font-semibold text-emerald-900 mb-2">Comprobante de Pago (Opcional)</h3>
+              <p className="text-xs text-emerald-700 mb-3">Sube el comprobante de la transferencia si ya la realizaste.</p>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-emerald-700
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-medium
+                  file:bg-emerald-100 file:text-emerald-700
+                  hover:file:bg-emerald-200 transition-colors"
+              />
+            </div>
+          )}
 
           {/* Rejection Form */}
           {isRejecting && (

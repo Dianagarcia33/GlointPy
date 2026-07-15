@@ -128,7 +128,7 @@ class WithdrawalService:
         return valid_withdrawals
 
     @staticmethod
-    async def approve_withdrawal(db: AsyncSession, withdrawal_id: int, admin_id: int) -> Withdrawal:
+    async def approve_withdrawal(db: AsyncSession, withdrawal_id: int, admin_id: int, file_path: Optional[str] = None) -> Withdrawal:
         withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
         if not withdrawal:
             raise HTTPException(status_code=404, detail="Retiro no encontrado")
@@ -139,6 +139,8 @@ class WithdrawalService:
         withdrawal.estado = WithdrawalStatus.APPROVED
         withdrawal.aprobado_por = admin_id
         withdrawal.fecha_aprobacion = datetime.utcnow()
+        if file_path:
+            withdrawal.comprobante_pago = file_path
 
         await db.commit()
         await db.refresh(withdrawal)

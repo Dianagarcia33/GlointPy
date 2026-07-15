@@ -16,9 +16,21 @@ export const paymentService = {
     return data as PaginatedWithdrawals;
   },
 
-  approveWithdrawal: async (id: number): Promise<Withdrawal> => {
+  approveWithdrawal: async (id: number, receiptFile?: File): Promise<Withdrawal> => {
+    let body = undefined;
+    let headers = undefined;
+
+    if (receiptFile) {
+      const formData = new FormData();
+      formData.append('file', receiptFile);
+      body = formData;
+      // Do not set Content-Type header when using FormData so fetch can set the boundary automatically
+      // But fetchApi might set application/json by default, we need to handle that.
+    }
+
     const data = await fetchApi(`/withdrawals/${id}/approve`, {
       method: 'POST',
+      body,
     });
     return data as Withdrawal;
   },
