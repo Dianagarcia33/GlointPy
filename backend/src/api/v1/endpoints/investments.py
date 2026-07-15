@@ -21,12 +21,16 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
     result = await db.execute(
         select(InvestmentRequest)
         .options(selectinload(InvestmentRequest.package))
-        .where(
-            (InvestmentRequest.user_id == current_user.id) & 
-            (InvestmentRequest.status.in_([InvestmentRequestStatus.pending, InvestmentRequestStatus.rejected, "pending", "rejected", "PENDING", "REJECTED"]))
-        )
+        .where(InvestmentRequest.user_id == current_user.id)
     )
-    requests = result.scalars().all()
+    all_requests = result.scalars().all()
+    
+    requests = []
+    for req in all_requests:
+        raw_status = req.status.value if hasattr(req.status, 'value') else req.status
+        status_str = str(raw_status).lower() if raw_status else "pending"
+        if status_str != "approved":
+            requests.append(req)
     
     investments = []
     today = date.today()
