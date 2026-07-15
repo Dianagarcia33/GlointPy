@@ -205,44 +205,6 @@ export const InvestmentDetailPage = () => {
                                 </div>
                             </div>
                         )}
-
-                        {/* Movements / Payouts */}
-                        <div>
-                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-4">Pagos y Rendimientos</h3>
-                            {inv.movements && inv.movements.length > 0 ? (
-                                <div className="space-y-3">
-                                    {inv.movements.map((m: any) => (
-                                        <div key={m.id} className="p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors bg-white flex justify-between items-center">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-lg ${
-                                                    m.tipo.toLowerCase() === 'capital' ? 'bg-brand-50 text-brand-600' : 'bg-emerald-50 text-emerald-600'
-                                                }`}>
-                                                    <DollarSign className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-slate-900 capitalize">{m.tipo.replace('_', ' ')}</p>
-                                                    <p className="text-xs font-semibold text-slate-500">{formatDate(m.fecha_solicitud)}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="font-bold text-slate-900">{formatCurrency(m.monto)}</p>
-                                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md ${
-                                                    m.estado === 'pendiente' ? 'bg-amber-100 text-amber-700' :
-                                                    m.estado === 'aprobado' || m.estado === 'procesado' ? 'bg-emerald-100 text-emerald-700' :
-                                                    'bg-slate-100 text-slate-600'
-                                                }`}>
-                                                    {m.estado}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-2xl">
-                                    <p className="text-slate-500 text-sm font-medium">Aún no hay movimientos registrados para esta inversión.</p>
-                                </div>
-                            )}
-                        </div>
                     </div>
                 </div>
 
@@ -256,7 +218,7 @@ export const InvestmentDetailPage = () => {
                                     <tr>
                                         <th className="px-4 py-3">Ciclo</th>
                                         <th className="px-4 py-3 text-center">Días</th>
-                                        <th className="px-4 py-3 text-right">Capital Base</th>
+                                        <th className="px-4 py-3 text-right">Capital de Cálculo</th>
                                         <th className="px-4 py-3 text-right">Rendimiento (Est.)</th>
                                         <th className="px-4 py-3 text-center">Estado</th>
                                     </tr>
