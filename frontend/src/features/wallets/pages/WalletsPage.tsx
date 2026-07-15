@@ -8,7 +8,8 @@ import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModa
 import { TrendingUp } from 'lucide-react';
 
 export interface Movement {
-    id: number;
+    id: number | string;
+    real_id?: number;
     investor_id: number | null;
     user_id: number;
     origen: string;
@@ -75,6 +76,20 @@ export const WalletsPage = () => {
             currency: 'COP',
             minimumFractionDigits: 0
         }).format(value);
+    };
+
+    const handleCancelWithdrawal = async (withdrawalId: number) => {
+        if (!window.confirm('¿Estás seguro de que deseas cancelar este retiro? Los fondos serán reembolsados a tu billetera.')) return;
+        
+        try {
+            await fetchApi(`/wallets/me/withdrawals/${withdrawalId}/cancel`, {
+                method: 'POST'
+            });
+            fetchData();
+        } catch (error) {
+            console.error('Error cancelling withdrawal:', error);
+            alert('Error al cancelar el retiro.');
+        }
     };
 
     const formatDate = (dateString: string | null) => {
@@ -236,8 +251,8 @@ export const WalletsPage = () => {
                                 <div className="space-y-3">
                                     {movements.map((mov) => {
                                         const status = getStatusConfig(mov.estado);
-                                        const originNormalized = mov.origen.toLowerCase();
-                                        const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase() : '';
+                                        const originNormalized = (mov.origen || '').toLowerCase().trim();
+                                        const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase().trim() : '';
                                         const isIngreso = [
                                             'generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer',
                                             'yield payout', 'transfer received', 'bonus payout', 'withdrawal refund'
@@ -255,7 +270,7 @@ export const WalletsPage = () => {
                                             'withdrawal refund': 'Reembolso de Retiro'
                                         };
 
-                                        const displayType = typeTranslations[originNormalized] || mov.origen.replace(/_/g, ' ');
+                                        const displayType = typeTranslations[originNormalized] || (mov.origen || '').replace(/_/g, ' ');
 
                                         return (
                                             <div 
@@ -312,11 +327,10 @@ export const WalletsPage = () => {
                                         
                                         return (
                                             <div 
-                                                key={mov.id} 
-                                                onClick={() => setSelectedMovement(mov)}
-                                                className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all cursor-pointer group"
+                                                key={mov.id}
+                                                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all group gap-4"
                                             >
-                                                <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => setSelectedMovement(mov)}>
                                                     <div className="p-3 rounded-xl flex-shrink-0 bg-brand-50 text-brand-600">
                                                         <ArrowUpToLine className="w-5 h-5" />
                                                     </div>
@@ -340,13 +354,25 @@ export const WalletsPage = () => {
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="flex items-center gap-4">
+                                                <div className="flex items-center justify-between sm:justify-end gap-4">
                                                     <div className="text-right">
                                                         <p className="font-bold font-montserrat text-slate-900">
                                                             -{formatCurrency(mov.monto)}
                                                         </p>
                                                     </div>
-                                                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
+                                                    
+                                                    {mov.estado === 'pendiente' && (
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (mov.real_id) handleCancelWithdrawal(mov.real_id);
+                                                            }}
+                                                            className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-medium rounded-lg text-xs transition-colors flex items-center gap-1"
+                                                        >
+                                                            <XCircle className="w-3.5 h-3.5" />
+                                                            Cancelar
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         );

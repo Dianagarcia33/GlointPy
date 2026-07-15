@@ -292,6 +292,9 @@ async def get_my_withdrawals(current_user = Depends(get_current_user), db: Async
     
     response = []
     for w in withdrawals:
+        if w.metodo_pago and w.metodo_pago.lower() == 'wallet':
+            continue
+            
         response.append({
             "id": f"w_{w.id}",
             "real_id": w.id,
@@ -318,6 +321,66 @@ async def get_my_withdrawals(current_user = Depends(get_current_user), db: Async
         })
         
     return response
+
+
+@router.post("/me/withdrawals/{withdrawal_id}/cancel")
+async def cancel_my_withdrawal(
+    withdrawal_id: int,
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cancel a pending withdrawal and refund the amount to the user's wallet.
+    """
+    from src.models.withdrawal import Withdrawal, WithdrawalStatus
+    from src.models.wallet import Wallet, WalletTransaction
+    from decimal import Decimal
+    
+    # 1. Fetch Withdrawal
+    w_res = await db.execute(select(Withdrawal).where(Withdrawal.id == withdrawal_id, Withdrawal.user_id == current_user.id))
+    withdrawal = w_res.scalars().first()
+    
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Retiro no encontrado.")
+        
+    if withdrawal.estado != WithdrawalStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Solo se pueden cancelar retiros en estado pendiente.")
+        
+    # 2. Fetch Wallet
+    wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
+    wallet = wallet_res.scalars().first()
+    
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Billetera no encontrada.")
+        
+    # 3. Process Cancellation
+    withdrawal.estado = WithdrawalStatus.CANCELADO
+    withdrawal.motivo_rechazo = "Cancelado por el usuario"
+    
+    # Refund Wallet
+    monto_decimal = Decimal(str(withdrawal.monto))
+    wallet.balance += monto_decimal
+    
+    # Create WalletTransaction
+    tx = WalletTransaction(
+        wallet_id=wallet.id,
+        amount=monto_decimal,
+        type="withdrawal refund",
+        description=f"Reembolso por retiro cancelado #{withdrawal.id}",
+        balance_after=wallet.balance,
+        reference_type="withdrawal",
+        reference_id=withdrawal.id
+    )
+    db.add(tx)
+    
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    return {"message": "Retiro cancelado exitosamente.", "new_balance": wallet.balance}
+
 
 @router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def bulk_upload_wallets(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
