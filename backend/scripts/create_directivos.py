@@ -6,7 +6,7 @@ from datetime import datetime
 # Add the root project directory to sys.path so we can import src modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.core.database import SessionLocal
+from src.core.database import async_session_maker
 from src.models.user import User
 from src.models.security import Role
 from src.core.security import get_password_hash
@@ -74,7 +74,7 @@ async def main():
         }
     ]
 
-    async with SessionLocal() as db:
+    async with async_session_maker() as db:
         # Get the directivo_inversion role
         role_result = await db.execute(select(Role).where(Role.name == "directivo_inversion"))
         directivo_role = role_result.scalars().first()
