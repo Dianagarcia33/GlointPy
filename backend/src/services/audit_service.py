@@ -17,9 +17,14 @@ class AuditService:
         # Listamos solo los usuarios básicos que tengan el rol 'inversionista'
         query = (
             select(User)
+            .options(
+                selectinload(User.investments).selectinload(Investor.package),
+                selectinload(User.investments).selectinload(Investor.period)
+            )
             .join(user_roles, User.id == user_roles.c.user_id)
             .join(Role, user_roles.c.role_id == Role.id)
             .where(Role.name == 'inversionista')
+            .group_by(User.id)
         )
         
         if search:
@@ -58,16 +63,18 @@ class AuditService:
         
         data = []
         for user_obj in users:
+            total_inv = sum((inv.package.value if inv.package and inv.package.value else 0) for inv in user_obj.investments)
+            
             data.append({
                 "user_id": user_obj.id,
                 "name": user_obj.name,
                 "email": user_obj.email,
                 "document_id": user_obj.document_id,
-                "total_investments": 0,
+                "total_investments": total_inv,
                 "total_withdrawals": 0,
-                "active_packages_count": 0,
+                "active_packages_count": len(user_obj.investments),
                 "pending_requests_count": 0,
-                "investments": []
+                "investments": user_obj.investments
             })
             
         return {
