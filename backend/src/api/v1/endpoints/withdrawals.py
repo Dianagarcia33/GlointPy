@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
 import os
@@ -46,6 +46,7 @@ async def get_withdrawal(
 @router.post("/{withdrawal_id}/approve", response_model=WithdrawalResponse, dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def approve_withdrawal(
     withdrawal_id: int,
+    background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -64,7 +65,22 @@ async def approve_withdrawal(
             content = await file.read()
             await out_file.write(content)
             
-    return await WithdrawalService.approve_withdrawal(db, withdrawal_id, current_user.id, file_path)
+    withdrawal = await WithdrawalService.approve_withdrawal(db, withdrawal_id, current_user.id, file_path)
+    
+    # Enviar email
+    if withdrawal.user and withdrawal.user.email:
+        from src.services.email_service import EmailService
+        background_tasks.add_task(
+            EmailService.send_withdrawal_approval_email,
+            to_email=withdrawal.user.email,
+            user_name=withdrawal.user.name,
+            amount=withdrawal.monto_neto if hasattr(withdrawal, 'monto_neto') else withdrawal.monto,
+            method=withdrawal.metodo_pago,
+            bank=withdrawal.banco,
+            account_number=withdrawal.numero_cuenta
+        )
+        
+    return withdrawal
 
 @router.post("/{withdrawal_id}/reject", response_model=WithdrawalResponse, dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def reject_withdrawal(

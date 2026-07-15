@@ -138,3 +138,29 @@ class EmailService:
         except Exception as e:
             print(f"Error sending email via Resend: {e}")
             return False
+
+    @staticmethod
+    def send_withdrawal_approval_email(to_email: str, user_name: str, amount: float, method: str, bank: str, account_number: str):
+        subject = "¡Tu retiro ha sido aprobado y enviado! - GLOINT"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #4f46e5;">¡Hola {user_name}!</h2>
+                <p>Nos complace informarte que tu solicitud de retiro ha sido <strong>aprobada y procesada</strong> exitosamente.</p>
+                <div style="background-color: #f8fafc; border-left: 4px solid #4f46e5; padding: 15px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #1e293b;">Detalles del Retiro</h3>
+                    <ul style="list-style-type: none; padding-left: 0;">
+                        <li style="margin-bottom: 8px;"><strong>Monto Procesado:</strong> ${amount:,.2f} COP</li>
+                        <li style="margin-bottom: 8px;"><strong>Método de Pago:</strong> {method}</li>
+                        <li style="margin-bottom: 8px;"><strong>Banco Destino:</strong> {bank}</li>
+                        <li style="margin-bottom: 8px;"><strong>Cuenta Destino:</strong> {account_number}</li>
+                    </ul>
+                </div>
+                <p>Ten en cuenta que dependiendo de tu entidad bancaria, los fondos pueden tardar algunas horas en verse reflejados en tu cuenta.</p>
+                <p>Si tienes alguna pregunta, no dudes en contactar a nuestro equipo de soporte.</p>
+                <br>
+                <p>Atentamente,<br><strong>El Equipo de GLOINT</strong></p>
+            </body>
+        </html>
+        """
+        return EmailService.send_html_email(to_email, subject, html_content)

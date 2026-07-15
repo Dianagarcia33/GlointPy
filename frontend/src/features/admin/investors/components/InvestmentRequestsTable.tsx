@@ -47,11 +47,14 @@ export const InvestmentRequestsTable = () => {
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedRequestToReview, setSelectedRequestToReview] = useState<InvestmentRequest | null>(null);
 
-  const handleApprove = async (id: number) => {
+  const handleApproveConfirm = async () => {
+    if (!selectedRequestToReview) return;
     try {
       setIsProcessing(true);
-      await approveInvestmentRequest(id);
+      await approveInvestmentRequest(selectedRequestToReview.id);
+      setSelectedRequestToReview(null);
       await fetchData();
     } catch (err: any) {
       alert(err.message || 'Error al aprobar');
@@ -232,7 +235,7 @@ export const InvestmentRequestsTable = () => {
                           {request.status === 'pending' && (
                             <div className="flex items-center justify-end gap-2">
                               <button 
-                                onClick={() => handleApprove(request.id)}
+                                onClick={() => setSelectedRequestToReview(request)}
                                 disabled={isProcessing}
                                 className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                 title="Aprobar"
@@ -372,6 +375,80 @@ export const InvestmentRequestsTable = () => {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Rechazo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {selectedRequestToReview && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-800">Aprobar Solicitud #{selectedRequestToReview.id}</h3>
+              <button onClick={() => setSelectedRequestToReview(null)} className="p-1 hover:bg-slate-100 rounded-full">
+                <XCircle className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div>
+                  <span className="text-xs text-slate-500 block">Usuario</span>
+                  <span className="font-semibold text-slate-800">{selectedRequestToReview.user?.name || `ID: ${selectedRequestToReview.user_id}`}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 block">Monto Solicitado</span>
+                  <span className="font-semibold text-brand-700">${selectedRequestToReview.monto.toLocaleString('es-CO')} COP</span>
+                </div>
+              </div>
+
+              {selectedRequestToReview.comprobante_path ? (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                    <span className="text-sm font-semibold text-slate-700">Comprobante de Pago</span>
+                  </div>
+                  <div className="p-4 flex justify-center bg-slate-100 min-h-[200px]">
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${selectedRequestToReview.comprobante_path}`} 
+                      alt="Comprobante" 
+                      className="max-h-[400px] object-contain rounded shadow-sm border border-slate-200"
+                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400?text=No+se+pudo+cargar+la+imagen'; }}
+                    />
+                  </div>
+                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-right">
+                    <a 
+                      href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${selectedRequestToReview.comprobante_path}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-brand-600 font-medium hover:underline"
+                    >
+                      Abrir en nueva pestaña
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                  <p className="text-slate-500 font-medium">No se adjuntó comprobante de pago.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedRequestToReview(null)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleApproveConfirm}
+                disabled={isProcessing}
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm shadow-emerald-600/20"
+              >
+                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                Confirmar Aprobación
               </button>
             </div>
           </div>
