@@ -4,9 +4,12 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional, Dict, Any
 import logging
 
-from src.models.withdrawal import Withdrawal
+from src.models.withdrawal import Withdrawal, WithdrawalStatus
 from src.models.user import User
+from src.models.wallet import Wallet, WalletTransaction
 from src.schemas.withdrawal import WithdrawalCreate, WithdrawalUpdate
+from datetime import datetime
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -123,3 +126,57 @@ class WithdrawalService:
         db.add_all(valid_withdrawals)
         await db.commit()
         return valid_withdrawals
+
+    @staticmethod
+    async def approve_withdrawal(db: AsyncSession, withdrawal_id: int, admin_id: int, file_path: Optional[str] = None) -> Withdrawal:
+        withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
+        if not withdrawal:
+            raise HTTPException(status_code=404, detail="Retiro no encontrado")
+        
+        if withdrawal.estado != WithdrawalStatus.PENDING:
+            raise HTTPException(status_code=400, detail="Solo se pueden aprobar retiros pendientes")
+
+        withdrawal.estado = WithdrawalStatus.APPROVED
+        withdrawal.aprobado_por = admin_id
+        withdrawal.fecha_aprobacion = datetime.utcnow()
+        if file_path:
+            withdrawal.comprobante_pago = file_path
+
+        await db.commit()
+        await db.refresh(withdrawal)
+        return withdrawal
+
+    @staticmethod
+    async def reject_withdrawal(db: AsyncSession, withdrawal_id: int, admin_id: int, motivo_rechazo: str) -> Withdrawal:
+        withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
+        if not withdrawal:
+            raise HTTPException(status_code=404, detail="Retiro no encontrado")
+        
+        if withdrawal.estado != WithdrawalStatus.PENDING:
+            raise HTTPException(status_code=400, detail="Solo se pueden rechazar retiros pendientes")
+
+        withdrawal.estado = WithdrawalStatus.REJECTED
+        withdrawal.motivo_rechazo = motivo_rechazo
+        withdrawal.aprobado_por = admin_id
+        withdrawal.fecha_aprobacion = datetime.utcnow()
+
+        # Si viene de wallet, devolvemos el saldo a la wallet
+        if withdrawal.origen == "wallet":
+            wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == withdrawal.user_id))
+            wallet = wallet_res.scalars().first()
+            if wallet:
+                wallet.balance += withdrawal.monto
+                tx = WalletTransaction(
+                    wallet_id=wallet.id,
+                    amount=withdrawal.monto,
+                    type="withdrawal_rejection",
+                    description=f"Devolución por rechazo de retiro #{withdrawal.id}: {motivo_rechazo}",
+                    balance_after=wallet.balance,
+                    reference_type="withdrawal",
+                    reference_id=withdrawal.id
+                )
+                db.add(tx)
+
+        await db.commit()
+        await db.refresh(withdrawal)
+        return withdrawal

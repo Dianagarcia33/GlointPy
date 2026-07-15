@@ -20,7 +20,7 @@ class Investor(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = relationship("User")
+    user = relationship("User", back_populates="investments")
     package = relationship("Package")
     period = relationship("Period")
     withdrawals = relationship("Withdrawal", back_populates="investor", cascade="all, delete-orphan", passive_deletes=True)

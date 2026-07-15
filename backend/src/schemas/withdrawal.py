@@ -65,3 +65,6 @@ class WithdrawalPaginatedResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+class WithdrawalRejectRequest(BaseModel):
+    motivo_rechazo: str

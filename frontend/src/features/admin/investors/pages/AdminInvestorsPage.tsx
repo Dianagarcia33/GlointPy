@@ -6,9 +6,9 @@ import { BulkUploadInvestmentRequestsModal } from '../components/BulkUploadInves
 import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
 import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
 import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
-import { BulkUploadWithdrawalsModal } from '../components/BulkUploadWithdrawalsModal';
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
@@ -128,9 +128,10 @@ export const AdminInvestorsPage = () => {
   const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
   const [isBulkWalletModalOpen, setIsBulkWalletModalOpen] = useState(false);
   const [isBulkTxModalOpen, setIsBulkTxModalOpen] = useState(false);
-  const [isBulkWithdrawalsModalOpen, setIsBulkWithdrawalsModalOpen] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
+  const [userNameToAdjust, setUserNameToAdjust] = useState('');
 
   const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -248,13 +249,6 @@ export const AdminInvestorsPage = () => {
         
         <Can permission="admin.investors.manage">
           <div className="flex gap-2 relative">
-            <button 
-              onClick={() => setIsBulkWithdrawalsModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors shadow-sm text-sm font-medium border border-slate-200"
-            >
-              <UploadCloud className="w-4 h-4" />
-              Cargar Retiros (CSV)
-            </button>
 
             <button 
               onClick={handleCreate}
@@ -499,8 +493,28 @@ export const AdminInvestorsPage = () => {
                                     </span>
                                   </div>
                                   <div className="pl-1">
-                                    <div className="text-xl font-bold text-slate-800">
-                                      {Number(investor.user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: investor.user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                    <div className="flex items-center justify-between">
+                                      <div className="text-xl font-bold text-slate-800">
+                                        {Number(investor.user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: investor.user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                      </div>
+                                      <Can permission="admin.investors.manage">
+                                        <button 
+                                          onClick={() => {
+                                            if (investor.user && investor.user.wallet) {
+                                              setWalletToAdjust({
+                                                id: investor.user.wallet.id,
+                                                balance: investor.user.wallet.balance,
+                                                currency: investor.user.wallet.currency || 'COP'
+                                              });
+                                              setUserNameToAdjust(investor.user.name);
+                                            }
+                                          }}
+                                          className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors border border-transparent hover:border-brand-200"
+                                          title="Ajustar Saldo"
+                                        >
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                      </Can>
                                     </div>
                                     <div className="text-[9px] text-slate-400 mt-1">ID: #{investor.user.wallet.id} • Moneda: {investor.user.wallet.currency}</div>
                                   </div>
@@ -676,13 +690,16 @@ export const AdminInvestorsPage = () => {
         }}
       />
 
-      <BulkUploadWithdrawalsModal
-        isOpen={isBulkWithdrawalsModalOpen}
-        onClose={() => setIsBulkWithdrawalsModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkWithdrawalsModalOpen(false);
+      <WalletAdjustmentModal
+        isOpen={!!walletToAdjust}
+        onClose={() => setWalletToAdjust(null)}
+        onAdjusted={() => {
+          setWalletToAdjust(null);
+          setToast({ message: 'Saldo de billetera ajustado exitosamente', type: 'success' });
           fetchData();
         }}
+        wallet={walletToAdjust}
+        userName={userNameToAdjust}
       />
 
       {toast && (

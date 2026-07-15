@@ -13,3 +13,8 @@ class WalletResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class AdminWalletAdjustRequest(BaseModel):
+    action: str # 'add', 'subtract', 'set'
+    amount: Decimal
+    description: str

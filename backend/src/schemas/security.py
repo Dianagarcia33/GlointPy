@@ -12,7 +12,7 @@ class PermissionBase(BaseModel):
 
 class PermissionResponse(PermissionBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,8 +34,8 @@ class RoleUpdate(RoleBase):
 class RoleResponse(RoleBase):
     id: int
     is_system_role: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     # Devuelve la lista de permisos anidados
     permissions: List[PermissionResponse] = []

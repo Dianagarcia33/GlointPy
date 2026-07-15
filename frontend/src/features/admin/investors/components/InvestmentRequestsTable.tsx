@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
+import { periodsService, Period } from '../../../../services/periods';
 import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
@@ -40,6 +41,7 @@ const InvestmentRequestsTableSkeleton = () => {
 
 export const InvestmentRequestsTable = () => {
   const [requests, setRequests] = useState<InvestmentRequest[]>([]);
+  const [periods, setPeriods] = useState<Period[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
@@ -47,11 +49,14 @@ export const InvestmentRequestsTable = () => {
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedRequestToReview, setSelectedRequestToReview] = useState<InvestmentRequest | null>(null);
 
-  const handleApprove = async (id: number) => {
+  const handleApproveConfirm = async () => {
+    if (!selectedRequestToReview) return;
     try {
       setIsProcessing(true);
-      await approveInvestmentRequest(id);
+      await approveInvestmentRequest(selectedRequestToReview.id);
+      setSelectedRequestToReview(null);
       await fetchData();
     } catch (err: any) {
       alert(err.message || 'Error al aprobar');
@@ -95,7 +100,12 @@ export const InvestmentRequestsTable = () => {
         search: search || undefined
       });
       setRequests(response.data);
-      setTotal(response.total);
+      setTotal(response.total || 0);
+
+      if (periods.length === 0) {
+        const periodsData = await periodsService.getPeriods();
+        setPeriods(periodsData);
+      }
       setError(null);
     } catch (err: any) {
       console.error("Error cargando solicitudes:", err);
@@ -232,7 +242,7 @@ export const InvestmentRequestsTable = () => {
                           {request.status === 'pending' && (
                             <div className="flex items-center justify-end gap-2">
                               <button 
-                                onClick={() => handleApprove(request.id)}
+                                onClick={() => setSelectedRequestToReview(request)}
                                 disabled={isProcessing}
                                 className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                 title="Aprobar"
@@ -372,6 +382,139 @@ export const InvestmentRequestsTable = () => {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Rechazo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {selectedRequestToReview && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-800">Aprobar Solicitud #{selectedRequestToReview.id}</h3>
+              <button onClick={() => setSelectedRequestToReview(null)} className="p-1 hover:bg-slate-100 rounded-full">
+                <XCircle className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                <div>
+                  <span className="text-xs text-slate-500 block">Usuario</span>
+                  <span className="font-semibold text-slate-800">{selectedRequestToReview.user?.name || `ID: ${selectedRequestToReview.user_id}`}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 block">Monto Solicitado</span>
+                  <span className="font-semibold text-brand-700">${selectedRequestToReview.monto.toLocaleString('es-CO')} COP</span>
+                </div>
+              </div>
+
+              {selectedRequestToReview.extra_data && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Información Adicional</h4>
+                    <div className="space-y-2 text-sm">
+                      {selectedRequestToReview.extra_data.tipo_documento && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Tipo Documento:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.tipo_documento}</span>
+                        </div>
+                      )}
+                      {selectedRequestToReview.extra_data.ciudad && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Ciudad:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.ciudad}</span>
+                        </div>
+                      )}
+                      {selectedRequestToReview.extra_data.fecha_nacimiento && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Fecha Nacimiento:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.fecha_nacimiento}</span>
+                        </div>
+                      )}
+                      {selectedRequestToReview.extra_data.contract_period_id && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Periodo de Contrato:</span>
+                          <span className="font-medium">
+                            {(() => {
+                              const p = periods.find(p => p.id === Number(selectedRequestToReview.extra_data?.contract_period_id));
+                              return p ? `${p.months} meses y ${p.days} días (${p.percentage}%)` : `ID: ${selectedRequestToReview.extra_data?.contract_period_id}`;
+                            })()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedRequestToReview.extra_data.kyc_docs && Array.isArray(selectedRequestToReview.extra_data.kyc_docs) && selectedRequestToReview.extra_data.kyc_docs.length > 0 && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos KYC Adjuntos</h4>
+                      <div className="flex flex-col gap-2">
+                        {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => (
+                          <a 
+                            key={index} 
+                            href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${path.startsWith('/') ? path : '/' + path}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs bg-white hover:bg-brand-50 text-brand-700 px-3 py-2 rounded-lg font-medium transition-colors border border-slate-200 hover:border-brand-300 flex items-center justify-between"
+                          >
+                            <span className="truncate max-w-[200px]">Documento {index + 1}</span>
+                            <span className="text-[10px] text-slate-400">Ver</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedRequestToReview.comprobante_path ? (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                    <span className="text-sm font-semibold text-slate-700">Comprobante de Pago</span>
+                  </div>
+                  <div className="p-4 flex justify-center bg-slate-100 min-h-[200px]">
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${selectedRequestToReview.comprobante_path}`} 
+                      alt="Comprobante" 
+                      className="max-h-[400px] object-contain rounded shadow-sm border border-slate-200"
+                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400?text=No+se+pudo+cargar+la+imagen'; }}
+                    />
+                  </div>
+                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-right">
+                    <a 
+                      href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${selectedRequestToReview.comprobante_path}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-brand-600 font-medium hover:underline"
+                    >
+                      Abrir en nueva pestaña
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                  <p className="text-slate-500 font-medium">No se adjuntó comprobante de pago.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button
+                onClick={() => setSelectedRequestToReview(null)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleApproveConfirm}
+                disabled={isProcessing}
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm shadow-emerald-600/20"
+              >
+                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                Confirmar Aprobación
               </button>
             </div>
           </div>

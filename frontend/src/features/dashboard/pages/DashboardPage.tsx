@@ -8,13 +8,10 @@ import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
 
-import { AutoTransferModal } from '../components/AutoTransferModal';
-
 export const DashboardPage = () => {
     const { user } = useAuthStore();
     const [investments, setInvestments] = useState<Investment[]>([]);
     const [loading, setLoading] = useState(false);
-    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
 
     const isSuperAdmin = user?.is_superuser === true;
@@ -65,29 +62,6 @@ export const DashboardPage = () => {
 
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
-            {/* PANEL EXCLUSIVO SUPERADMIN */}
-            <Can permission="superadmin_tools">
-                <div className="mb-8 p-6 bg-slate-900 rounded-3xl text-white shadow-xl">
-                    <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
-                        <Terminal className="w-5 h-5 text-brand-400" /> Panel de Administración
-                    </h2>
-                    <p className="text-slate-400 text-sm mb-6">Herramientas exclusivas para superadmin@gloint.com</p>
-                    <div className="flex gap-4">
-                        <button 
-                            onClick={() => setIsAdminModalOpen(true)}
-                            className="flex items-center gap-2 px-5 py-3 bg-brand-500 hover:bg-brand-600 rounded-xl font-bold transition-all shadow-md active:scale-95"
-                        >
-                            <Terminal className="w-4 h-4" />
-                            Auditoría y Transferencias
-                        </button>
-                    </div>
-                </div>
-                <AutoTransferModal 
-                    isOpen={isAdminModalOpen}
-                    onClose={() => setIsAdminModalOpen(false)}
-                />
-            </Can>
-
             {/* SECCIÓN EXCLUSIVA PARA INVERSIONISTAS */}
             {!isSuperAdmin && (
                 <>

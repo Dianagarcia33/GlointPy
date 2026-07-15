@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+import os
+import aiofiles
+from datetime import datetime
 
 from src.core.database import get_db
-from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate, WithdrawalPaginatedResponse
+from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate, WithdrawalPaginatedResponse, WithdrawalRejectRequest
 from src.services.withdrawal_service import WithdrawalService
-from src.api.deps import get_current_user
+from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
 
 router = APIRouter()
@@ -39,6 +42,57 @@ async def get_withdrawal(
     if not withdrawal:
         raise HTTPException(status_code=404, detail="Withdrawal not found")
     return withdrawal
+
+@router.post("/{withdrawal_id}/approve", response_model=WithdrawalResponse, dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def approve_withdrawal(
+    withdrawal_id: int,
+    background_tasks: BackgroundTasks,
+    file: Optional[UploadFile] = File(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Approve a pending withdrawal. Optionally accepts a receipt file.
+    """
+    file_path = None
+    if file:
+        upload_dir = "uploads/receipts"
+        os.makedirs(upload_dir, exist_ok=True)
+        filename = f"withdrawal_{withdrawal_id}_{datetime.now().timestamp()}_{file.filename}"
+        file_path = os.path.join(upload_dir, filename)
+        
+        async with aiofiles.open(file_path, 'wb') as out_file:
+            content = await file.read()
+            await out_file.write(content)
+            
+    withdrawal = await WithdrawalService.approve_withdrawal(db, withdrawal_id, current_user.id, file_path)
+    
+    # Enviar email
+    if withdrawal.user and withdrawal.user.email:
+        from src.services.email_service import EmailService
+        background_tasks.add_task(
+            EmailService.send_withdrawal_approval_email,
+            to_email=withdrawal.user.email,
+            user_name=withdrawal.user.name,
+            amount=withdrawal.monto_neto if hasattr(withdrawal, 'monto_neto') else withdrawal.monto,
+            method=withdrawal.metodo_pago,
+            bank=withdrawal.banco,
+            account_number=withdrawal.numero_cuenta
+        )
+        
+    return withdrawal
+
+@router.post("/{withdrawal_id}/reject", response_model=WithdrawalResponse, dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def reject_withdrawal(
+    withdrawal_id: int,
+    req: WithdrawalRejectRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Reject a pending withdrawal and refund to wallet.
+    """
+    return await WithdrawalService.reject_withdrawal(db, withdrawal_id, current_user.id, req.motivo_rechazo)
 
 @router.post("/bulk-upload", response_model=Dict[str, Any])
 async def bulk_upload_withdrawals(

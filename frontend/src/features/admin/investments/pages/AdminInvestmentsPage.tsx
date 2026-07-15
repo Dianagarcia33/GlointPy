@@ -95,10 +95,9 @@ export const AdminInvestmentsPage: React.FC = () => {
             <thead className="bg-gray-50 border-b border-gray-100 text-gray-500 font-medium">
               <tr>
                 <th className="px-6 py-4">Usuario</th>
-                <th className="px-6 py-4 text-center">Inversiones Activas</th>
+                <th className="px-6 py-4">Inversiones (Contratos)</th>
                 <th className="px-6 py-4 text-right">Total Invertido</th>
-                <th className="px-6 py-4 text-right">Total Retirado</th>
-                <th className="px-6 py-4 text-center">Acción</th>
+                <th className="px-6 py-4 text-center">Detalle Completo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -140,19 +139,25 @@ export const AdminInvestmentsPage: React.FC = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-medium">
-                        {user.active_packages_count}
-                      </span>
+                    <td className="px-6 py-4">
+                      {user.investments && user.investments.length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                          {user.investments.map((inv, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs bg-white border border-gray-100 rounded-md px-2 py-1.5 shadow-sm w-fit">
+                              <span className="font-mono text-indigo-600 font-medium">{inv.assigned_code || `#${inv.id}`}</span>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-gray-700 font-medium">{inv.package?.name || 'Personalizado'}</span>
+                              <span className="text-gray-300">|</span>
+                              <span className="text-emerald-600 font-medium">{formatCurrency(inv.package?.value || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs italic">Sin inversiones activas</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <p className="font-medium text-gray-900">{formatCurrency(user.total_investments)}</p>
-                      {user.pending_requests_count > 0 && (
-                        <p className="text-xs text-amber-600 font-medium">+{user.pending_requests_count} solicitudes pendientes</p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right font-medium text-gray-900">
-                      {formatCurrency(user.total_withdrawals)}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <button className="p-2 text-gray-400 group-hover:text-indigo-600 group-hover:bg-indigo-50 rounded-lg transition-colors">

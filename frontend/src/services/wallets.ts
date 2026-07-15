@@ -17,3 +17,13 @@ export const bulkUploadWalletTransactions = async (file: File): Promise<{ succes
     body: formData,
   });
 };
+
+export const adjustWalletBalance = async (
+  walletId: number, 
+  data: { action: 'add' | 'subtract' | 'set'; amount: number; description: string }
+): Promise<{ message: string; new_balance: number }> => {
+  return await fetchApi(`/wallets/admin/wallets/${walletId}/adjust`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
