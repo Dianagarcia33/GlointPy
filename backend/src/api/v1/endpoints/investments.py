@@ -71,7 +71,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
         rendimiento_total = 0
         if inv_record.period and monto:
             # rendimiento_aprobado_mensual * meses
-            rendimiento_total = monto * float(inv_record.period.interest_rate) / 100 * inv_record.period.months
+            rendimiento_total = monto * float(inv_record.period.percentage) / 100 * inv_record.period.months
             
         inv = {
             "id": inv_record.id,
