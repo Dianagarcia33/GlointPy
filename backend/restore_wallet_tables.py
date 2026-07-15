@@ -2,7 +2,8 @@ import asyncio
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Hardcoded to /app because __file__ is not available when running via python -c
+sys.path.insert(0, "/app")
 
 from src.core.database import async_session_maker
 from sqlalchemy import text
