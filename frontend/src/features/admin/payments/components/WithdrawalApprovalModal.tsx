@@ -44,11 +44,16 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
       setError(null);
       const updatedWithdrawal = await paymentService.approveWithdrawal(withdrawal.id, receiptFile || undefined);
       
-      // Si el backend devolvió una ruta de comprobante (generada o manual), la abrimos en una nueva pestaña
-      if (updatedWithdrawal.receipt_path) {
+      // Abrir comprobante (ya sea el subido manualmente o el generado dinámicamente)
+      const path = updatedWithdrawal.receipt_path || updatedWithdrawal.comprobante_pago;
+      if (path) {
         const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || '';
-        const fullUrl = `${baseUrl}/${updatedWithdrawal.receipt_path}`.replace(/([^:]\/)\/+/g, "$1"); // remove double slashes
+        const fullUrl = `${baseUrl}/${path}`.replace(/([^:]\/)\/+/g, "$1");
         window.open(fullUrl, '_blank');
+      } else {
+        // Generación dinámica si no hubo comprobante manual
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        window.open(`${baseUrl}/withdrawals/${updatedWithdrawal.id}/receipt`, '_blank');
       }
 
       onUpdate();

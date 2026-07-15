@@ -143,11 +143,6 @@ class WithdrawalService:
         if file_path:
             withdrawal.comprobante_pago = file_path
             withdrawal.receipt_path = file_path
-        else:
-            # Generar PDF comprobante si no se subió un recibo manual
-            generated_pdf_path = PDFService.generate_withdrawal_receipt(withdrawal, withdrawal.user.name)
-            withdrawal.comprobante_pago = generated_pdf_path
-            withdrawal.receipt_path = generated_pdf_path
 
         await db.commit()
         await db.refresh(withdrawal)
