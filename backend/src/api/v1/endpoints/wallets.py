@@ -30,9 +30,102 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
         }
     
     if not wallet:
-        return {"balance": 0, "currency": "COP", "bank_details": bank_details}
+        return {"balance": 0, "currency": "COP", "bank_details": bank_details, "can_withdraw": True}
         
-    return {"balance": wallet.balance, "currency": wallet.currency, "bank_details": bank_details}
+    return {"balance": wallet.balance, "currency": wallet.currency, "bank_details": bank_details, "can_withdraw": True}
+
+from pydantic import BaseModel
+class WalletWithdrawRequest(BaseModel):
+    monto: float
+
+@router.post("/me/withdraw")
+async def request_withdrawal(
+    req: WalletWithdrawRequest,
+    current_user = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Request a withdrawal from the user's wallet.
+    """
+    from src.models.user_bank_account import UserBankAccount
+    from src.models.wallet import WalletTransaction
+    from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
+    from src.models.investor import Investor
+    from decimal import Decimal
+    from datetime import datetime, date
+
+    # 1. Check Bank Account
+    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
+    bank_account = bank_res.scalars().first()
+    if not bank_account:
+        raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa registrada.")
+
+    # 2. Check Wallet & Balance
+    wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
+    wallet = wallet_res.scalars().first()
+    
+    if not wallet:
+        raise HTTPException(status_code=400, detail="No tienes una billetera activa.")
+        
+    monto_decimal = Decimal(str(req.monto))
+    if wallet.balance < monto_decimal:
+        raise HTTPException(status_code=400, detail="Saldo insuficiente.")
+        
+    if monto_decimal < Decimal("5000"):
+        raise HTTPException(status_code=400, detail="El monto mínimo de retiro es de $5,000 COP.")
+
+    # 3. Fetch Investor ID if exists
+    investor_res = await db.execute(select(Investor).where(Investor.user_id == current_user.id))
+    investor = investor_res.scalars().first()
+    investor_id = investor.id if investor else None
+
+    # 4. Calculate Taxes
+    impuesto = monto_decimal * Decimal("0.032")
+    monto_neto = monto_decimal - impuesto
+
+    # 5. Deduct Balance & Create Transaction
+    wallet.balance -= monto_decimal
+    
+    tx = WalletTransaction(
+        wallet_id=wallet.id,
+        amount=-monto_decimal,
+        type="withdrawal request",
+        description="Solicitud de retiro de fondos",
+        balance_after=wallet.balance
+    )
+    db.add(tx)
+    await db.flush() # flush to get tx.id if needed
+    
+    # 6. Create Withdrawal Record
+    withdrawal = Withdrawal(
+        investor_id=investor_id,
+        user_id=current_user.id,
+        origen="wallet",
+        tipo=WithdrawalType.RENDIMIENTO, # default for wallet
+        monto=monto_decimal,
+        impuesto=impuesto,
+        monto_neto=monto_neto,
+        fecha_solicitud=date.today(),
+        estado=WithdrawalStatus.PENDING,
+        metodo_pago="Transferencia",
+        banco=bank_account.banco,
+        tipo_cuenta=bank_account.tipo_cuenta,
+        numero_cuenta=bank_account.numero_cuenta
+    )
+    db.add(withdrawal)
+    
+    # Optional: cross-link them? WalletTransaction.reference_type = 'withdrawal' etc
+    await db.flush()
+    tx.reference_type = "withdrawal"
+    tx.reference_id = withdrawal.id
+
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    return {"message": "Retiro solicitado con éxito.", "withdrawal_id": withdrawal.id, "new_balance": wallet.balance}
 
 @router.get("/me/movements")
 async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
