@@ -16,11 +16,15 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
     """
     Get the investments (requests) of the current logged-in user.
     """
-    # 1. Fetch Investment Requests
+    # 1. Fetch Investment Requests (Solo pendientes o rechazadas, las aprobadas ya están en Investor)
+    from src.models.investment_request import InvestmentRequestStatus
     result = await db.execute(
         select(InvestmentRequest)
         .options(selectinload(InvestmentRequest.package))
-        .where(InvestmentRequest.user_id == current_user.id)
+        .where(
+            (InvestmentRequest.user_id == current_user.id) & 
+            (InvestmentRequest.status != InvestmentRequestStatus.approved)
+        )
     )
     requests = result.scalars().all()
     
