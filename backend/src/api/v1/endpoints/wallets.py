@@ -406,3 +406,60 @@ async def bulk_upload_transactions(file: UploadFile = File(...), db: AsyncSessio
     content = await file.read()
     success_count, errors = await bulk_create_or_update_wallet_transactions(db, content)
     return {"success_count": success_count, "errors": errors}
+
+from src.schemas.wallet import AdminWalletAdjustRequest
+@router.post("/admin/wallets/{wallet_id}/adjust", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
+async def admin_adjust_wallet(
+    wallet_id: int, 
+    req: AdminWalletAdjustRequest, 
+    current_user = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Adjust a user's wallet balance manually as an admin.
+    """
+    from src.models.wallet import WalletTransaction
+    from decimal import Decimal
+
+    if req.action not in ["add", "subtract", "set"]:
+        raise HTTPException(status_code=400, detail="Acción inválida. Use add, subtract, o set.")
+        
+    wallet_res = await db.execute(select(Wallet).where(Wallet.id == wallet_id))
+    wallet = wallet_res.scalars().first()
+    
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Billetera no encontrada.")
+        
+    old_balance = wallet.balance
+    
+    if req.action == "add":
+        diff = req.amount
+        wallet.balance += req.amount
+    elif req.action == "subtract":
+        diff = -req.amount
+        wallet.balance -= req.amount
+    elif req.action == "set":
+        diff = req.amount - wallet.balance
+        wallet.balance = req.amount
+        
+    if wallet.balance < 0:
+        raise HTTPException(status_code=400, detail="El saldo no puede ser negativo.")
+        
+    tx = WalletTransaction(
+        wallet_id=wallet.id,
+        amount=diff,
+        type="admin_adjustment",
+        description=f"{req.description} (Admin: {current_user.name} / ID: {current_user.id})",
+        reference_type="admin",
+        reference_id=current_user.id,
+        balance_after=wallet.balance
+    )
+    db.add(tx)
+    
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al ajustar billetera: {str(e)}")
+        
+    return {"message": "Saldo ajustado correctamente.", "new_balance": wallet.balance}
