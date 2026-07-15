@@ -413,8 +413,8 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
     await db.execute(
         WithdrawalVerificationCode.__table__.update()
         .where(WithdrawalVerificationCode.user_id == current_user.id)
-        .where(WithdrawalVerificationCode.used == False)
-        .values(used=True)
+        .where(WithdrawalVerificationCode.used_at == None)
+        .values(used_at=datetime.utcnow())
     )
     
     code = f"{random.randint(100000, 999999)}"
@@ -424,7 +424,7 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
         user_id=current_user.id,
         code=code,
         expires_at=expires_at,
-        used=False
+        used_at=None
     )
     db.add(new_code)
     try:
@@ -501,7 +501,7 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         .where(
             WithdrawalVerificationCode.user_id == current_user.id,
             WithdrawalVerificationCode.code == req.code,
-            WithdrawalVerificationCode.used == False
+            WithdrawalVerificationCode.used_at == None
         )
     )
     verification = code_res.scalars().first()
@@ -515,7 +515,7 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         raise HTTPException(status_code=400, detail="El código de verificación ha expirado")
         
     # Mark code as used
-    verification.used = True
+    verification.used_at = datetime.utcnow()
     
     # 2. Fetch Investor
     inv_res = await db.execute(

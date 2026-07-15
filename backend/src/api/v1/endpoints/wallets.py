@@ -88,7 +88,7 @@ async def send_withdrawal_code(
         user_id=current_user.id,
         code=code,
         expires_at=expires_at,
-        used=False
+        used_at=None
     )
     db.add(verification_code)
     
@@ -131,7 +131,7 @@ async def request_withdrawal(
         .where(
             WithdrawalVerificationCode.user_id == current_user.id,
             WithdrawalVerificationCode.code == req.code,
-            WithdrawalVerificationCode.used == False,
+            WithdrawalVerificationCode.used_at == None,
             WithdrawalVerificationCode.expires_at > datetime.utcnow()
         )
         .order_by(WithdrawalVerificationCode.created_at.desc())
@@ -182,9 +182,9 @@ async def request_withdrawal(
     )
     db.add(tx)
     
-    # Mark code as used
-    verification.used = True
-    
+    # 0.5 Mark as used
+    verification.used_at = datetime.utcnow()
+    db.add(verification)
     await db.flush() # flush to get tx.id if needed
     
     # 6. Create Withdrawal Record

@@ -8,11 +8,13 @@ class WithdrawalVerificationCode(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    code = Column(String(6), nullable=False)
+    code = Column(String(255), nullable=False)
     expires_at = Column(DateTime, nullable=False)
-    used = Column(Boolean, default=False, nullable=False)
+    attempts = Column(String(255), nullable=True)
+    used_at = Column(DateTime, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     user = relationship("User", backref="withdrawal_verification_codes")
