@@ -25,11 +25,37 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
     }).format(num);
   };
 
+  const formatAccountNumber = (accountNum: string | undefined | null) => {
+    if (!accountNum) return 'N/A';
+    if (accountNum.toLowerCase().includes('e')) {
+      const standardFormat = accountNum.replace(',', '.');
+      const num = Number(standardFormat);
+      if (!isNaN(num)) {
+        // useGrouping: false prevents commas, fullwide prevents scientific notation string output
+        return num.toLocaleString('fullwide', { useGrouping: false });
+      }
+    }
+    return accountNum;
+  };
+
   const handleApprove = async () => {
     try {
       setIsProcessing(true);
       setError(null);
-      await paymentService.approveWithdrawal(withdrawal.id, receiptFile || undefined);
+      const updatedWithdrawal = await paymentService.approveWithdrawal(withdrawal.id, receiptFile || undefined);
+      
+      // Abrir comprobante (ya sea el subido manualmente o el generado dinámicamente)
+      const path = updatedWithdrawal.receipt_path || updatedWithdrawal.comprobante_pago;
+      if (path) {
+        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || '';
+        const fullUrl = `${baseUrl}/${path}`.replace(/([^:]\/)\/+/g, "$1");
+        window.open(fullUrl, '_blank');
+      } else {
+        // Generación dinámica si no hubo comprobante manual
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        window.open(`${baseUrl}/withdrawals/${updatedWithdrawal.id}/receipt`, '_blank');
+      }
+
       onUpdate();
       onClose();
     } catch (err: any) {
@@ -145,7 +171,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
               </div>
               <div>
                 <span className="text-gray-500 block">Número de Cuenta:</span>
-                <span className="font-medium text-gray-900 tracking-wider">{withdrawal.numero_cuenta || 'N/A'}</span>
+                <span className="font-medium text-gray-900 tracking-wider">{formatAccountNumber(withdrawal.numero_cuenta)}</span>
               </div>
             </div>
           </div>

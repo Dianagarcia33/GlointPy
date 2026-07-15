@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
 import os
@@ -8,6 +9,7 @@ from datetime import datetime
 from src.core.database import get_db
 from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate, WithdrawalPaginatedResponse, WithdrawalRejectRequest
 from src.services.withdrawal_service import WithdrawalService
+from src.services.pdf_service import PDFService
 from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
 
@@ -42,6 +44,31 @@ async def get_withdrawal(
     if not withdrawal:
         raise HTTPException(status_code=404, detail="Withdrawal not found")
     return withdrawal
+
+@router.get("/{withdrawal_id}/receipt")
+async def get_withdrawal_receipt(
+    withdrawal_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate and stream a PDF receipt for the approved withdrawal on the fly.
+    """
+    withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Retiro no encontrado")
+    
+    if withdrawal.estado not in ["aprobado", "procesado"]:
+        raise HTTPException(status_code=400, detail="Solo los retiros aprobados o procesados tienen comprobante")
+
+    # Generate the PDF in memory
+    user_name = withdrawal.user.name if withdrawal.user else "Usuario"
+    pdf_buffer = PDFService.generate_withdrawal_receipt_bytes(withdrawal, user_name)
+
+    return StreamingResponse(
+        pdf_buffer, 
+        media_type="application/pdf", 
+        headers={"Content-Disposition": f"inline; filename=receipt_{withdrawal.id}.pdf"}
+    )
 
 @router.post("/{withdrawal_id}/approve", response_model=WithdrawalResponse, dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def approve_withdrawal(

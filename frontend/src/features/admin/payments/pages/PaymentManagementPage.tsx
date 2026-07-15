@@ -171,6 +171,26 @@ export const PaymentManagementPage: React.FC = () => {
                           >
                             Revisar
                           </button>
+                        ) : (withdrawal.estado === 'aprobado' || withdrawal.estado === 'procesado') ? (
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              const path = withdrawal.receipt_path || withdrawal.comprobante_pago;
+                              if (path) {
+                                const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || '';
+                                const fullUrl = `${baseUrl}/${path}`.replace(/([^:]\/)\/+/g, "$1");
+                                window.open(fullUrl, '_blank');
+                              } else {
+                                const baseUrl = import.meta.env.VITE_API_URL || '';
+                                window.open(`${baseUrl}/withdrawals/${withdrawal.id}/receipt`, '_blank');
+                              }
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                            title="Ver Comprobante"
+                          >
+                            <FileText size={14} />
+                            Recibo
+                          </button>
                         ) : (
                           <span className="text-xs text-gray-400">-</span>
                         )}
