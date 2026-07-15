@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, case
 from sqlalchemy.orm import selectinload
 from typing import Dict, Any
 
@@ -22,14 +22,14 @@ class AuditService:
         with_subq = select(
             Withdrawal.user_id,
             func.sum(Withdrawal.monto_neto).label("total_withdrawals"),
-            func.count(Withdrawal.id).filter(Withdrawal.estado == 'pendiente').label("pending_withdrawals_count")
+            func.sum(case((Withdrawal.estado == 'pendiente', 1), else_=0)).label("pending_withdrawals_count")
         ).group_by(Withdrawal.user_id).subquery()
         
         # Subquery for total pending requests per user
         req_subq = select(
             InvestmentRequest.user_id,
             func.sum(InvestmentRequest.monto).label("total_investments"),
-            func.count(InvestmentRequest.id).filter(InvestmentRequest.status == 'pending').label("pending_requests_count")
+            func.sum(case((InvestmentRequest.status == 'pending', 1), else_=0)).label("pending_requests_count")
         ).group_by(InvestmentRequest.user_id).subquery()
         
         # Main query joining user with the subqueries
