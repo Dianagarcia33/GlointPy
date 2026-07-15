@@ -29,7 +29,15 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
     try {
       setIsProcessing(true);
       setError(null);
-      await paymentService.approveWithdrawal(withdrawal.id, receiptFile || undefined);
+      const updatedWithdrawal = await paymentService.approveWithdrawal(withdrawal.id, receiptFile || undefined);
+      
+      // Si el backend devolvió una ruta de comprobante (generada o manual), la abrimos en una nueva pestaña
+      if (updatedWithdrawal.receipt_path) {
+        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || '';
+        const fullUrl = `${baseUrl}/${updatedWithdrawal.receipt_path}`.replace(/([^:]\/)\/+/g, "$1"); // remove double slashes
+        window.open(fullUrl, '_blank');
+      }
+
       onUpdate();
       onClose();
     } catch (err: any) {

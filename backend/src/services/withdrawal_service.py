@@ -8,6 +8,7 @@ from src.models.withdrawal import Withdrawal, WithdrawalStatus
 from src.models.user import User
 from src.models.wallet import Wallet, WalletTransaction
 from src.schemas.withdrawal import WithdrawalCreate, WithdrawalUpdate
+from src.services.pdf_service import PDFService
 from datetime import datetime
 from fastapi import HTTPException
 
@@ -141,6 +142,12 @@ class WithdrawalService:
         withdrawal.fecha_aprobacion = datetime.utcnow()
         if file_path:
             withdrawal.comprobante_pago = file_path
+            withdrawal.receipt_path = file_path
+        else:
+            # Generar PDF comprobante si no se subió un recibo manual
+            generated_pdf_path = PDFService.generate_withdrawal_receipt(withdrawal, withdrawal.user.name)
+            withdrawal.comprobante_pago = generated_pdf_path
+            withdrawal.receipt_path = generated_pdf_path
 
         await db.commit()
         await db.refresh(withdrawal)
