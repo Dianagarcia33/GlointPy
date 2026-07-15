@@ -25,71 +25,24 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
 @router.get("/me/movements")
 async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
-    Get the wallet movements (withdrawals and deposits) of the current logged-in user.
-    Combines WalletTransactions (incomes) and Withdrawals (cashouts).
+    Get the wallet transactions of the current logged-in user.
     """
-    from src.models.withdrawal import Withdrawal
     from src.models.wallet import Wallet, WalletTransaction
     
-    # 1. Fetch Withdrawals (Cashouts with status tracking)
-    w_result = await db.execute(
-        select(Withdrawal)
-        .where(Withdrawal.user_id == current_user.id)
-    )
-    withdrawals = w_result.scalars().all()
-    
-    # 2. Fetch WalletTransactions (Incomes, bonuses, etc) - exclude withdrawals to avoid duplicates
+    # Fetch WalletTransactions
     t_result = await db.execute(
         select(WalletTransaction)
         .join(Wallet)
-        .where(
-            (Wallet.user_id == current_user.id) &
-            (WalletTransaction.reference_type != 'withdrawal') &
-            (WalletTransaction.type != 'withdrawal')
-        )
+        .where(Wallet.user_id == current_user.id)
     )
     transactions = t_result.scalars().all()
     
     response = []
     
-    # Map Withdrawals
-    for w in withdrawals:
-        response.append({
-            "id": f"w_{w.id}",
-            "investor_id": w.investor_id,
-            "user_id": w.user_id,
-            "origen": w.origen,
-            "tipo": w.tipo.value if hasattr(w.tipo, 'value') else w.tipo,
-            "monto": float(w.monto),
-            "impuesto": float(w.impuesto),
-            "monto_neto": float(w.monto_neto),
-            "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
-            "fecha_retiro": w.fecha_retiro.isoformat() if w.fecha_retiro else None,
-            "estado": w.estado.value if hasattr(w.estado, 'value') else w.estado,
-            "metodo_pago": w.metodo_pago,
-            "banco": w.banco,
-            "tipo_cuenta": w.tipo_cuenta,
-            "numero_cuenta": w.numero_cuenta,
-            "observaciones": w.observaciones,
-            "motivo_rechazo": w.motivo_rechazo,
-            "fecha_aprobacion": w.fecha_aprobacion.isoformat() if w.fecha_aprobacion else None,
-            "fecha_procesamiento": w.fecha_procesamiento.isoformat() if w.fecha_procesamiento else None,
-            "created_at": w.created_at.isoformat() if w.created_at else None,
-            "updated_at": w.updated_at.isoformat() if w.updated_at else None,
-            "saldo_anterior": None,
-            "saldo_nuevo": None,
-            "_sort_date": w.created_at
-        })
-        
     # Map Transactions
     for t in transactions:
         amount = float(t.amount)
         origen = t.type
-        if amount > 0 and origen not in ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer']:
-            origen = "cash"
-            
-        if amount < 0:
-            origen = "retiro_interno"
             
         response.append({
             "id": f"t_{t.id}",
@@ -102,7 +55,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             "monto_neto": abs(amount),
             "fecha_solicitud": t.created_at.isoformat() if t.created_at else None,
             "fecha_retiro": None,
-            "estado": "procesado",
+            "estado": "procesado", # Wallet transactions are typically immediately processed
             "metodo_pago": None,
             "banco": None,
             "tipo_cuenta": None,
