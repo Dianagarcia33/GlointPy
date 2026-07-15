@@ -354,7 +354,7 @@ async def cancel_my_withdrawal(
         raise HTTPException(status_code=404, detail="Billetera no encontrada.")
         
     # 3. Process Cancellation
-    withdrawal.estado = WithdrawalStatus.CANCELADO
+    withdrawal.estado = WithdrawalStatus.CANCELLED
     withdrawal.motivo_rechazo = "Cancelado por el usuario"
     
     # Refund Wallet
