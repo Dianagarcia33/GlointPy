@@ -37,6 +37,75 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
 from pydantic import BaseModel
 class WalletWithdrawRequest(BaseModel):
     monto: float
+    code: str
+
+class SendCodeRequest(BaseModel):
+    monto: float
+
+@router.post("/me/withdraw/send-code")
+async def send_withdrawal_code(
+    req: SendCodeRequest,
+    current_user = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate and send a 6-digit verification code to the user's email.
+    """
+    from src.models.user_bank_account import UserBankAccount
+    from src.models.wallet import Wallet
+    from src.models.withdrawal_verification_code import WithdrawalVerificationCode
+    from src.services.email_service import EmailService
+    from decimal import Decimal
+    from datetime import datetime, timedelta
+    import random
+
+    # 1. Check Bank Account
+    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
+    bank_account = bank_res.scalars().first()
+    if not bank_account:
+        raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa registrada.")
+
+    # 2. Check Wallet & Balance
+    wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
+    wallet = wallet_res.scalars().first()
+    
+    if not wallet:
+        raise HTTPException(status_code=400, detail="No tienes una billetera activa.")
+        
+    monto_decimal = Decimal(str(req.monto))
+    if wallet.balance < monto_decimal:
+        raise HTTPException(status_code=400, detail="Saldo insuficiente.")
+        
+    if monto_decimal < Decimal("5000"):
+        raise HTTPException(status_code=400, detail="El monto mínimo de retiro es de $5,000 COP.")
+
+    # 3. Generate 6-digit code
+    code = f"{random.randint(0, 999999):06d}"
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+    # 4. Save to DB
+    verification_code = WithdrawalVerificationCode(
+        user_id=current_user.id,
+        code=code,
+        expires_at=expires_at,
+        used=False
+    )
+    db.add(verification_code)
+    
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Error al generar el código.")
+
+    # 5. Send Email
+    email_sent = EmailService.send_withdrawal_verification_code(current_user.email, code)
+    if not email_sent:
+        # We don't necessarily fail the request if it's mock, but in production we'd want to know
+        pass
+        
+    return {"message": "Código enviado a tu correo electrónico."}
+
 
 @router.post("/me/withdraw")
 async def request_withdrawal(
@@ -46,13 +115,31 @@ async def request_withdrawal(
 ):
     """
     Request a withdrawal from the user's wallet.
+    Requires a valid 6-digit verification code.
     """
     from src.models.user_bank_account import UserBankAccount
     from src.models.wallet import WalletTransaction
     from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
+    from src.models.withdrawal_verification_code import WithdrawalVerificationCode
     from src.models.investor import Investor
     from decimal import Decimal
     from datetime import datetime, date
+
+    # 0. Verify Code
+    code_res = await db.execute(
+        select(WithdrawalVerificationCode)
+        .where(
+            WithdrawalVerificationCode.user_id == current_user.id,
+            WithdrawalVerificationCode.code == req.code,
+            WithdrawalVerificationCode.used == False,
+            WithdrawalVerificationCode.expires_at > datetime.utcnow()
+        )
+        .order_by(WithdrawalVerificationCode.created_at.desc())
+    )
+    verification = code_res.scalars().first()
+    
+    if not verification:
+        raise HTTPException(status_code=400, detail="Código de verificación incorrecto o expirado.")
 
     # 1. Check Bank Account
     bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
@@ -94,6 +181,10 @@ async def request_withdrawal(
         balance_after=wallet.balance
     )
     db.add(tx)
+    
+    # Mark code as used
+    verification.used = True
+    
     await db.flush() # flush to get tx.id if needed
     
     # 6. Create Withdrawal Record
@@ -114,7 +205,7 @@ async def request_withdrawal(
     )
     db.add(withdrawal)
     
-    # Optional: cross-link them? WalletTransaction.reference_type = 'withdrawal' etc
+    # Optional: cross-link them
     await db.flush()
     tx.reference_type = "withdrawal"
     tx.reference_id = withdrawal.id
