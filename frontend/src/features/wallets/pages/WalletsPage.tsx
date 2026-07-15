@@ -212,7 +212,24 @@ export const WalletsPage = () => {
                                     const status = getStatusConfig(mov.estado);
                                     const originNormalized = mov.origen.toLowerCase();
                                     const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase() : '';
-                                    const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'].includes(originNormalized) || metodoPagoNormalized === 'wallet';
+                                    const isIngreso = [
+                                        'generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer',
+                                        'yield payout', 'transfer received', 'bonus payout', 'withdrawal refund'
+                                    ].includes(originNormalized) || metodoPagoNormalized === 'wallet';
+
+                                    const typeTranslations: Record<string, string> = {
+                                        'yield payout': 'Pago de Rendimientos',
+                                        'yield payout reversal': 'Reversión de Rendimientos',
+                                        'yield payout reversed': 'Rendimientos Revertidos',
+                                        'withdrawal request': 'Solicitud de Retiro',
+                                        'transfer sent': 'Transferencia Enviada',
+                                        'transfer received': 'Transferencia Recibida',
+                                        'bonus payout': 'Pago de Bono',
+                                        'investment reservation': 'Reserva de Inversión',
+                                        'withdrawal refund': 'Reembolso de Retiro'
+                                    };
+
+                                    const displayType = typeTranslations[originNormalized] || mov.origen.replace(/_/g, ' ');
 
                                     return (
                                         <div 
@@ -226,7 +243,7 @@ export const WalletsPage = () => {
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-slate-900 capitalize font-montserrat">
-                                                        {mov.origen.replace(/_/g, ' ')}
+                                                        {displayType}
                                                     </p>
                                                     <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
                                                         <span>{formatDate(mov.fecha_solicitud)}</span>
