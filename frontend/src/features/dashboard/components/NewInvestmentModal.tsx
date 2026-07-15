@@ -25,13 +25,13 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
 
     const { data: packages, isLoading: loadingPackages } = useQuery({
         queryKey: ['investment_packages'],
-        queryFn: () => fetchApi('/investments/packages'),
+        queryFn: () => fetchApi('/packages'),
         enabled: isOpen,
     });
 
     const { data: periods, isLoading: loadingPeriods } = useQuery({
         queryKey: ['contract_periods'],
-        queryFn: () => fetchApi('/contract-periods'),
+        queryFn: () => fetchApi('/periods'),
         enabled: isOpen,
     });
     
