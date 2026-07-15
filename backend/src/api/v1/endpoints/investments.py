@@ -42,35 +42,54 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
         }
         investments.append(inv)
         
-    # 2. Fetch Contract Histories
-    contracts_result = await db.execute(
-        select(ContractHistory)
-        .join(Investor)
-        .options(selectinload(ContractHistory.package))
+    # 2. Fetch Active Contracts from Investor table
+    investors_result = await db.execute(
+        select(Investor)
+        .options(selectinload(Investor.package), selectinload(Investor.period))
         .where(Investor.user_id == current_user.id)
     )
-    contracts = contracts_result.scalars().all()
+    active_investors = investors_result.scalars().all()
     
-    for contract in contracts:
-        is_active = contract.fecha_fin >= today if contract.fecha_fin else False
+    for inv_record in active_investors:
+        # Calcular fecha_fin si tenemos start_date y period.months
+        from dateutil.relativedelta import relativedelta
+        fecha_ingreso = inv_record.start_date
+        fecha_fin = None
+        dias_contrato = 0
+        if fecha_ingreso and inv_record.period:
+            fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
+            dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+
+        # Determinar status
+        is_active = True
+        if fecha_fin and fecha_fin.date() < today:
+            is_active = False
+
+        monto = float(inv_record.package.value) if inv_record.package else 0
         
+        # Rendimiento
+        rendimiento_total = 0
+        if inv_record.period and monto:
+            # rendimiento_aprobado_mensual * meses
+            rendimiento_total = monto * float(inv_record.period.interest_rate) / 100 * inv_record.period.months
+            
         inv = {
-            "id": contract.id,
+            "id": inv_record.id,
             "user_id": current_user.id,
-            "monto": float(contract.total_contrato),
+            "monto": monto,
             "status": "approved" if is_active else "finished",
-            "created_at": contract.created_at.isoformat() if contract.created_at else None,
-            "total_contrato": float(contract.total_contrato),
-            "rendimiento_total_contrato": float(contract.rendimiento_total_contrato),
-            "liquidacion_diaria_rendimiento": float(contract.liquidacion_diaria_rendimiento),
-            "dias_contrato": contract.dias_contrato,
-            "fecha_ingreso": contract.fecha_inicio.isoformat() if contract.fecha_inicio else None,
-            "fecha_finalizacion": contract.fecha_fin.isoformat() if contract.fecha_fin else None,
+            "created_at": inv_record.created_at.isoformat() if inv_record.created_at else None,
+            "total_contrato": monto + rendimiento_total,
+            "rendimiento_total_contrato": rendimiento_total,
+            "liquidacion_diaria_rendimiento": rendimiento_total / dias_contrato if dias_contrato > 0 else 0,
+            "dias_contrato": dias_contrato,
+            "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
+            "fecha_finalizacion": fecha_fin.isoformat() if fecha_fin else None,
             "paquete": {
-                "id": contract.package.id if contract.package else 0,
-                "paquete_accion_adquirido": str(contract.package.value) if contract.package else "0",
-                "acciones_otorgadas": contract.acciones_otorgadas
-            }
+                "id": inv_record.package.id if inv_record.package else 0,
+                "paquete_accion_adquirido": str(inv_record.package.value) if inv_record.package else "0",
+                "acciones_otorgadas": inv_record.package.granted_shares if inv_record.package else 0
+            } if inv_record.package else None
         }
         investments.append(inv)
         
