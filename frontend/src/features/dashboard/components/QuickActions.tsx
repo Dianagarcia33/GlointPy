@@ -46,8 +46,7 @@ export const QuickActions = () => {
                     label="Solicitar Retiro" 
                     onClick={() => setIsWithdrawalModalOpen(true)}
                 />
-                <ActionButton icon={<FileText className="w-4 h-4" />} label="Certificados" />
-                <ActionButton icon={<History className="w-4 h-4" />} label="Historial" />
+
                 <ActionButton icon={<HelpCircle className="w-4 h-4" />} label="Soporte" />
                 
             </div>
