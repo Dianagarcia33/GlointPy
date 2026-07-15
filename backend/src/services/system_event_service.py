@@ -3,12 +3,12 @@ from sqlalchemy.future import select
 from fastapi import HTTPException, status
 from typing import List
 from datetime import datetime
-import pytz
+from zoneinfo import ZoneInfo
 
 from src.models.system_event import SystemEvent
 from src.schemas.system_event import SystemEventCreate, SystemEventUpdate
 
-LOCAL_TZ = pytz.timezone("America/Bogota")
+LOCAL_TZ = ZoneInfo("America/Bogota")
 
 class SystemEventService:
     @staticmethod
@@ -65,8 +65,7 @@ class SystemEventService:
             return False
 
         # Get current time in America/Bogota
-        now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
-        now_local = now_utc.astimezone(LOCAL_TZ)
+        now_local = datetime.now(LOCAL_TZ)
         current_day = now_local.day
 
         for event in events:
