@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime, date
 from decimal import Decimal
 from src.schemas.withdrawal import WithdrawalResponse
-from src.schemas.investor import InvestorResponse
+from src.schemas.investor import SimpleInvestorResponse
 from src.schemas.investment_request import InvestmentRequestResponse
 
 class AuditUserSummary(BaseModel):
@@ -15,7 +15,7 @@ class AuditUserSummary(BaseModel):
     total_withdrawals: Decimal = Decimal('0.00')
     active_packages_count: int = 0
     pending_requests_count: int = 0
-    investments: List[InvestorResponse] = []
+    investments: List[SimpleInvestorResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -28,7 +28,7 @@ class AuditPaginatedResponse(BaseModel):
 class AuditUserHistory(BaseModel):
     user_id: int
     name: str
-    investments: List[InvestorResponse]
+    investments: List[SimpleInvestorResponse]
     withdrawals: List[WithdrawalResponse]
     requests: List[InvestmentRequestResponse] = []
     accelerations: List[dict] = []

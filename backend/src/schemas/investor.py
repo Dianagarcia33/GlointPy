@@ -28,6 +28,15 @@ class InvestorUpdate(BaseModel):
     start_date: Optional[datetime] = None
     observations: Optional[str] = None
 
+class SimpleInvestorResponse(InvestorBase):
+    id: int
+    created_at: datetime
+    
+    package: Optional[PackageResponse] = None
+    period: Optional[PeriodResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class InvestorResponse(InvestorBase):
     id: int
     created_at: datetime
