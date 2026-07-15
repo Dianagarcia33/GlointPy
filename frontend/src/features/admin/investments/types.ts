@@ -25,6 +25,7 @@ export interface SimplePackage {
   id: number;
   name: string;
   roi_percentage: number;
+  value?: number;
 }
 
 export interface SimplePeriod {
@@ -39,6 +40,7 @@ export interface AuditInvestment {
   package_id: number;
   period_id: number;
   start_date: string;
+  assigned_code?: string;
   package: SimplePackage;
   period: SimplePeriod;
   created_at: string;
