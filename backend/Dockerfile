@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar el código fuente y archivos de migración
 COPY src/ ./src/
 COPY alembic/ ./alembic/
+COPY scripts/ ./scripts/
 COPY alembic.ini .
 
 # Exponer el puerto
