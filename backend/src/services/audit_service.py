@@ -12,11 +12,15 @@ class AuditService:
     
     @staticmethod
     async def get_audit_users(db: AsyncSession, page: int = 1, limit: int = 20, search: str = None) -> Dict[str, Any]:
-        # Queremos listar los usuarios y sus inversiones
-        query = select(User).options(
-            selectinload(User.investments).selectinload(Investor.package),
-            selectinload(User.investments).selectinload(Investor.period)
-        ).join(Investor, User.id == Investor.user_id) # Solo usuarios con inversiones
+        from src.models.security import Role, user_roles
+        
+        # Listamos solo los usuarios básicos que tengan el rol 'inversionista'
+        query = (
+            select(User)
+            .join(user_roles, User.id == user_roles.c.user_id)
+            .join(Role, user_roles.c.role_id == Role.id)
+            .where(Role.name == 'inversionista')
+        )
         
         if search:
             search_pattern = f"%{search}%"
@@ -28,21 +32,9 @@ class AuditService:
                 )
             )
             
-        # Grouping to avoid duplicates due to the join (since we just want users)
-        query = query.group_by(User.id)
-            
-        count_query = select(func.count(User.id.distinct())).join(Investor, User.id == Investor.user_id)
-        if search:
-            count_query = count_query.filter(
-                or_(
-                    User.name.ilike(search_pattern),
-                    User.email.ilike(search_pattern),
-                    User.document_id.ilike(search_pattern)
-                )
-            )
-            
+        count_query = select(func.count()).select_from(query.subquery())
         total_result = await db.execute(count_query)
-        total = total_result.scalar() or 0
+        total = total_result.scalar_one_or_none() or 0
         
         query = query.order_by(User.id.desc()).offset((page - 1) * limit).limit(limit)
         
@@ -51,19 +43,16 @@ class AuditService:
         
         data = []
         for user_obj in users:
-            # Calcular totales basados en las inversiones reales
-            total_inv = sum((inv.package.value if inv.package and inv.package.value else 0) for inv in user_obj.investments)
-            
             data.append({
                 "user_id": user_obj.id,
                 "name": user_obj.name,
                 "email": user_obj.email,
                 "document_id": user_obj.document_id,
-                "total_investments": total_inv,
-                "total_withdrawals": 0, # Placeholder if needed
-                "active_packages_count": len(user_obj.investments),
+                "total_investments": 0,
+                "total_withdrawals": 0,
+                "active_packages_count": 0,
                 "pending_requests_count": 0,
-                "investments": user_obj.investments
+                "investments": []
             })
             
         return {
