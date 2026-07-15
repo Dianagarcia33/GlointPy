@@ -93,7 +93,12 @@ class AuditService:
             
         inv_result = await db.execute(
             select(Investor)
-            .options(selectinload(Investor.package), selectinload(Investor.period))
+            .options(
+                selectinload(Investor.package), 
+                selectinload(Investor.period),
+                selectinload(Investor.user).selectinload(User.bank_accounts),
+                selectinload(Investor.contract_histories)
+            )
             .where(Investor.user_id == user_id)
             .order_by(Investor.created_at.desc())
         )
@@ -101,6 +106,7 @@ class AuditService:
         
         with_result = await db.execute(
             select(Withdrawal)
+            .options(selectinload(Withdrawal.user).selectinload(User.bank_accounts))
             .where(Withdrawal.user_id == user_id)
             .order_by(Withdrawal.fecha_solicitud.desc())
         )
@@ -108,7 +114,7 @@ class AuditService:
         
         req_result = await db.execute(
             select(InvestmentRequest)
-            .options(selectinload(InvestmentRequest.package))
+            .options(selectinload(InvestmentRequest.package), selectinload(InvestmentRequest.user).selectinload(User.bank_accounts))
             .where(InvestmentRequest.user_id == user_id)
             .order_by(InvestmentRequest.created_at.desc())
         )
