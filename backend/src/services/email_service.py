@@ -119,3 +119,22 @@ class EmailService:
         except Exception as e:
             print(f"Error sending email via Resend: {e}")
             return False
+
+    @staticmethod
+    def send_html_email(to_email: str, subject: str, html_content: str):
+        if not settings.RESEND_API_KEY:
+            print("WARNING: RESEND_API_KEY is not set. Skipping email send.")
+            return False
+
+        resend.api_key = settings.RESEND_API_KEY
+        try:
+            resend.Emails.send({
+                "from": f"GLOINT <{settings.SENDER_EMAIL}>",
+                "to": to_email,
+                "subject": subject,
+                "html": html_content
+            })
+            return True
+        except Exception as e:
+            print(f"Error sending email via Resend: {e}")
+            return False

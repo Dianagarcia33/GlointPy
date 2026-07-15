@@ -413,8 +413,8 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
     await db.execute(
         WithdrawalVerificationCode.__table__.update()
         .where(WithdrawalVerificationCode.user_id == current_user.id)
-        .where(WithdrawalVerificationCode.is_used == False)
-        .values(is_used=True)
+        .where(WithdrawalVerificationCode.used == False)
+        .values(used=True)
     )
     
     code = f"{random.randint(100000, 999999)}"
@@ -424,7 +424,7 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
         user_id=current_user.id,
         code=code,
         expires_at=expires_at,
-        is_used=False
+        used=False
     )
     db.add(new_code)
     await db.commit()
@@ -470,7 +470,7 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
     </body>
     </html>
     """
-    await EmailService.send_email(
+    EmailService.send_html_email(
         to_email=current_user.email,
         subject="Código de Verificación - Retiro de Capital Gloint",
         html_content=html_content
@@ -497,7 +497,7 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         .where(
             WithdrawalVerificationCode.user_id == current_user.id,
             WithdrawalVerificationCode.code == req.code,
-            WithdrawalVerificationCode.is_used == False
+            WithdrawalVerificationCode.used == False
         )
     )
     verification = code_res.scalars().first()
@@ -511,7 +511,7 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         raise HTTPException(status_code=400, detail="El código de verificación ha expirado")
         
     # Mark code as used
-    verification.is_used = True
+    verification.used = True
     
     # 2. Fetch Investor
     inv_res = await db.execute(
