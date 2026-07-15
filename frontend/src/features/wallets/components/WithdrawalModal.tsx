@@ -14,6 +14,8 @@ interface WithdrawalModalProps {
 
 export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: propBalance, bankDetails: propBankDetails }: WithdrawalModalProps) => {
     const [monto, setMonto] = useState<string>('');
+    const [code, setCode] = useState<string>('');
+    const [step, setStep] = useState<'amount' | 'code'>('amount');
     const [error, setError] = useState<string | null>(null);
     const [balance, setBalance] = useState<number>(0);
     const [bankDetails, setBankDetails] = useState<any>(null);
@@ -40,9 +42,27 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
         } else {
             setIsSuccess(false);
             setMonto('');
+            setCode('');
+            setStep('amount');
             setError(null);
         }
     }, [isOpen, propBalance, propBankDetails]);
+
+    const sendCodeMutation = useMutation({
+        mutationFn: async (data: any) => {
+            return await fetchApi('/wallets/me/withdraw/send-code', {
+                method: 'POST',
+                body: JSON.stringify(data),
+            });
+        },
+        onSuccess: () => {
+            setStep('code');
+            setError(null);
+        },
+        onError: (err: any) => {
+            setError(err.message || 'Error al enviar el código de verificación.');
+        }
+    });
 
     const withdrawalMutation = useMutation({
         mutationFn: async (data: any) => {
@@ -58,7 +78,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
             setIsSuccess(true);
         },
         onError: (err: any) => {
-            setError(err.message || 'Error al procesar la solicitud.');
+            setError(err.message || 'Error al procesar la solicitud. Verifica el código.');
         }
     });
 
@@ -101,7 +121,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
         }).format(value);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSendCode = (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
 
@@ -118,8 +138,21 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
             return;
         }
 
+        sendCodeMutation.mutate({ monto: montoNumber });
+    };
+
+    const handleWithdraw = (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+
+        if (code.length !== 6) {
+            setError("Por favor ingresa un código válido de 6 dígitos.");
+            return;
+        }
+
         withdrawalMutation.mutate({
-            monto: montoNumber
+            monto: montoNumber,
+            code: code
         });
     };
 
@@ -136,123 +169,188 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                         <h2 className="text-xl font-bold font-montserrat text-slate-900 flex items-center gap-2">
                             <Landmark className="w-5 h-5 text-brand-500" /> Solicitar Retiro
                         </h2>
-                        <p className="text-slate-500 text-sm mt-1">Transfiere fondos a tu cuenta bancaria</p>
+                        <p className="text-slate-500 text-sm mt-1">
+                            {step === 'amount' ? 'Transfiere fondos a tu cuenta bancaria' : 'Verificación de Seguridad'}
+                        </p>
                     </div>
                     <button 
                         onClick={onClose} 
                         className="p-2 hover:bg-slate-200/50 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-                        disabled={withdrawalMutation.isPending}
+                        disabled={withdrawalMutation.isPending || sendCodeMutation.isPending}
                     >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 flex-1 overflow-y-auto space-y-6">
+                <form onSubmit={step === 'amount' ? handleSendCode : handleWithdraw} className="p-6 flex-1 overflow-y-auto space-y-6">
                     {error && (
-                        <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100 flex items-start gap-2">
+                        <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100 flex items-start gap-2 animate-in fade-in">
                             <HelpCircle className="w-5 h-5 flex-shrink-0" />
                             {error}
                         </div>
                     )}
 
-                    {!canWithdraw && !isLoadingData && (
-                        <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
-                            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
-                            <p>Actualmente no nos encontramos en fechas de retiro habilitadas. Por favor consulta el cronograma oficial.</p>
-                        </div>
-                    )}
-
-                    {!bankDetails && canWithdraw && (
-                        <div className="p-4 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium border border-amber-200 flex items-start gap-3">
-                            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500" />
-                            <p>No hemos encontrado datos bancarios asociados a tu perfil. Por favor contacta a soporte para registrar tu cuenta antes de retirar.</p>
-                        </div>
-                    )}
-
-                    {/* Balance Info */}
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                        <div className="flex justify-between items-end mb-2">
-                            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Saldo Disponible</span>
-                            <button 
-                                type="button" 
-                                onClick={handleMaxBalance}
-                                disabled={!bankDetails || isLoadingData}
-                                className="text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
-                            >
-                                USAR MAX
-                            </button>
-                        </div>
-                        <p className="text-2xl font-bold text-slate-900 font-montserrat tracking-tight">
-                            {isLoadingData ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : formatCurrency(balance)}
-                        </p>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a Retirar (COP)</label>
-                            <input 
-                                type="number" 
-                                value={monto}
-                                onChange={(e) => setMonto(e.target.value)}
-                                placeholder="Mínimo $5,000"
-                                disabled={!bankDetails || !canWithdraw}
-                                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none disabled:bg-slate-50 disabled:text-slate-500"
-                                required
-                            />
-                        </div>
-
-                        {bankDetails && (
-                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                                <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Cuenta de Destino</label>
-                                <div className="space-y-1">
-                                    <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Banco:</span> {bankDetails.banco}</p>
-                                    <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Tipo:</span> {bankDetails.tipo_cuenta}</p>
-                                    <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Número:</span> {bankDetails.numero_cuenta}</p>
+                    {step === 'amount' && (
+                        <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
+                            {!canWithdraw && !isLoadingData && (
+                                <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
+                                    <p>Actualmente no nos encontramos en fechas de retiro habilitadas. Por favor consulta el cronograma oficial.</p>
                                 </div>
-                            </div>
-                        )}
-                    </div>
+                            )}
 
-                    {/* Resumen */}
-                    {montoNumber > 0 && bankDetails && (
-                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-amber-700">Subtotal solicitado:</span>
-                                <span className="font-semibold text-amber-900">{formatCurrency(montoNumber)}</span>
+                            {!bankDetails && canWithdraw && (
+                                <div className="p-4 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium border border-amber-200 flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500" />
+                                    <p>No hemos encontrado datos bancarios asociados a tu perfil. Por favor contacta a soporte para registrar tu cuenta antes de retirar.</p>
+                                </div>
+                            )}
+
+                            {/* Balance Info */}
+                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                <div className="flex justify-between items-end mb-2">
+                                    <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Saldo Disponible</span>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleMaxBalance}
+                                        disabled={!bankDetails || isLoadingData}
+                                        className="text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                                    >
+                                        USAR MAX
+                                    </button>
+                                </div>
+                                <p className="text-2xl font-bold text-slate-900 font-montserrat tracking-tight">
+                                    {isLoadingData ? <Loader2 className="w-5 h-5 animate-spin text-slate-400" /> : formatCurrency(balance)}
+                                </p>
                             </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-amber-700 flex items-center gap-1">
-                                    Impuestos/Comisión (3.2%): 
-                                </span>
-                                <span className="font-semibold text-red-600">-{formatCurrency(impuesto)}</span>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a Retirar (COP)</label>
+                                    <input 
+                                        type="number" 
+                                        value={monto}
+                                        onChange={(e) => setMonto(e.target.value)}
+                                        placeholder="Mínimo $5,000"
+                                        disabled={!bankDetails || !canWithdraw}
+                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                                        required
+                                    />
+                                </div>
+
+                                {bankDetails && (
+                                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                        <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Cuenta de Destino</label>
+                                        <div className="space-y-1">
+                                            <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Banco:</span> {bankDetails.banco}</p>
+                                            <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Tipo:</span> {bankDetails.tipo_cuenta}</p>
+                                            <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Número:</span> {bankDetails.numero_cuenta}</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div className="pt-2 border-t border-amber-200 flex justify-between">
-                                <span className="font-bold text-amber-900">Total a Recibir:</span>
-                                <span className="font-bold text-emerald-600 text-lg">{formatCurrency(montoNeto)}</span>
+
+                            {/* Resumen */}
+                            {montoNumber > 0 && bankDetails && (
+                                <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-amber-700">Subtotal solicitado:</span>
+                                        <span className="font-semibold text-amber-900">{formatCurrency(montoNumber)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-amber-700 flex items-center gap-1">
+                                            Impuestos/Comisión (3.2%): 
+                                        </span>
+                                        <span className="font-semibold text-red-600">-{formatCurrency(impuesto)}</span>
+                                    </div>
+                                    <div className="pt-2 border-t border-amber-200 flex justify-between">
+                                        <span className="font-bold text-amber-900">Total a Recibir:</span>
+                                        <span className="font-bold text-emerald-600 text-lg">{formatCurrency(montoNeto)}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {step === 'code' && (
+                        <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6 text-center">
+                            <div className="bg-brand-50 rounded-2xl p-6 mb-2 inline-block">
+                                <svg className="w-12 h-12 text-brand-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
                             </div>
+                            <h3 className="text-xl font-bold font-montserrat text-slate-900">Código Enviado</h3>
+                            <p className="text-slate-500 text-sm">
+                                Hemos enviado un código de seguridad de 6 dígitos a tu correo electrónico. Por favor, ingrésalo a continuación para autorizar el retiro.
+                            </p>
+
+                            <div className="pt-4">
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Código de 6 dígitos</label>
+                                <input 
+                                    type="text" 
+                                    maxLength={6}
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                                    placeholder="000000"
+                                    className="w-full text-center tracking-[0.5em] text-2xl px-4 py-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-bold text-slate-900 outline-none"
+                                    required
+                                />
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={handleSendCode}
+                                disabled={sendCodeMutation.isPending}
+                                className="text-sm font-bold text-brand-600 hover:text-brand-700 disabled:opacity-50 transition-colors mt-2"
+                            >
+                                {sendCodeMutation.isPending ? 'Reenviando...' : 'Reenviar código'}
+                            </button>
                         </div>
                     )}
                 </form>
 
                 {/* Footer */}
                 <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-3xl">
-                    <button 
-                        type="button"
-                        onClick={onClose}
-                        disabled={withdrawalMutation.isPending}
-                        className="px-5 py-2.5 text-slate-600 hover:text-slate-800 font-semibold transition-colors"
-                    >
-                        Cancelar
-                    </button>
-                    <button 
-                        onClick={handleSubmit}
-                        disabled={withdrawalMutation.isPending || montoNumber < 5000 || montoNumber > balance || !bankDetails || !canWithdraw || isLoadingData}
-                        className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:active:scale-100 shadow-brand-500/20"
-                    >
-                        {withdrawalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                        Confirmar Retiro
-                    </button>
+                    {step === 'code' ? (
+                        <button 
+                            type="button"
+                            onClick={() => { setStep('amount'); setCode(''); setError(null); }}
+                            disabled={withdrawalMutation.isPending}
+                            className="px-5 py-2.5 text-slate-600 hover:text-slate-800 font-semibold transition-colors"
+                        >
+                            Volver
+                        </button>
+                    ) : (
+                        <button 
+                            type="button"
+                            onClick={onClose}
+                            disabled={sendCodeMutation.isPending}
+                            className="px-5 py-2.5 text-slate-600 hover:text-slate-800 font-semibold transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                    )}
+                    
+                    {step === 'amount' ? (
+                        <button 
+                            onClick={handleSendCode}
+                            disabled={sendCodeMutation.isPending || montoNumber < 5000 || montoNumber > balance || !bankDetails || !canWithdraw || isLoadingData}
+                            className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:active:scale-100 shadow-brand-500/20"
+                        >
+                            {sendCodeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                            Continuar
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={handleWithdraw}
+                            disabled={withdrawalMutation.isPending || code.length !== 6}
+                            className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:active:scale-100 shadow-brand-500/20"
+                        >
+                            {withdrawalMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                            Confirmar Retiro
+                        </button>
+                    )}
                 </div>
             </div>
         </div>,
