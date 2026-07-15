@@ -238,6 +238,63 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     # Upgrade eligibility (less than 90 days)
     can_upgrade = dias_transcurridos <= 90
 
+    # --- Yield Projection Cycles ---
+    projection_table = []
+    if fecha_ingreso and fecha_fin and inv_record.period:
+        current_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
+        end_contract = fecha_fin.date() if isinstance(fecha_fin, datetime) else fecha_fin
+        
+        while current_start < end_contract:
+            # Determine next 29th
+            if current_start.day < 29:
+                try:
+                    next_end = current_start.replace(day=29)
+                except ValueError: # e.g. Feb 29 on non-leap year
+                    next_end = current_start.replace(day=28)
+            else:
+                next_month = current_start + relativedelta(months=1)
+                try:
+                    next_end = next_month.replace(day=29)
+                except ValueError:
+                    next_end = next_month.replace(day=28)
+                    
+            if next_end > end_contract:
+                next_end = end_contract
+                
+            dias_ciclo = (next_end - current_start).days
+            if dias_ciclo <= 0:
+                current_start = next_end
+                continue
+                
+            # Calculate capital base for this cycle
+            # (Initial capital minus any capital withdrawals requested before or on next_end)
+            capital_retirado_ciclo = 0
+            for w in withdrawals:
+                w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else w.tipo
+                if w_tipo.lower() == "capital" and w.estado.lower() in ["pendiente", "aprobado", "procesado"]:
+                    w_date = w.fecha_solicitud.date() if isinstance(w.fecha_solicitud, datetime) else w.fecha_solicitud
+                    if w_date <= next_end:
+                        capital_retirado_ciclo += float(w.monto)
+            
+            capital_base_ciclo = max(0, monto - capital_retirado_ciclo)
+            porcentaje = float(inv_record.period.percentage)
+            
+            rendimiento_generado = (capital_base_ciclo * (porcentaje / 100)) / 30 * dias_ciclo
+            
+            # Status: Paid vs Projected
+            estado_ciclo = "Procesado" if next_end <= today else "Proyectado"
+            
+            projection_table.append({
+                "fecha_inicio": current_start.isoformat(),
+                "fecha_fin": next_end.isoformat(),
+                "dias": dias_ciclo,
+                "capital_base": capital_base_ciclo,
+                "rendimiento": rendimiento_generado,
+                "estado": estado_ciclo
+            })
+            
+            current_start = next_end
+
     inv = {
         "id": inv_record.id,
         "user_id": current_user.id,
@@ -262,7 +319,8 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "capital_disponible": capital_disponible,
         "can_upgrade": can_upgrade,
         "movements": movements,
-        "history": history
+        "history": history,
+        "projection": projection_table
     }
     return inv
 

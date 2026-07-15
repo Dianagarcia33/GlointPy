@@ -245,6 +245,51 @@ export const InvestmentDetailPage = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Projection Table */}
+                {inv.projection && inv.projection.length > 0 && (
+                    <div className="p-8 border-t border-slate-100 bg-white">
+                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6">Proyección de Rendimientos</h3>
+                        <div className="overflow-x-auto rounded-xl border border-slate-200">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                    <tr>
+                                        <th className="px-4 py-3">Ciclo</th>
+                                        <th className="px-4 py-3 text-center">Días</th>
+                                        <th className="px-4 py-3 text-right">Capital Base</th>
+                                        <th className="px-4 py-3 text-right">Rendimiento (Est.)</th>
+                                        <th className="px-4 py-3 text-center">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {inv.projection.map((proj: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-4 py-3 font-medium text-slate-700 whitespace-nowrap">
+                                                {formatDate(proj.fecha_inicio)} - {formatDate(proj.fecha_fin)}
+                                            </td>
+                                            <td className="px-4 py-3 text-center text-slate-600">
+                                                {proj.dias}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                                                {formatCurrency(proj.capital_base)}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-bold text-emerald-600">
+                                                +{formatCurrency(proj.rendimiento)}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-md ${
+                                                    proj.estado === 'Procesado' ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'
+                                                }`}>
+                                                    {proj.estado}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
