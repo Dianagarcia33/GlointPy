@@ -9,7 +9,7 @@ from src.api.deps import RequirePermission
 
 router = APIRouter()
 
-@router.get("", response_model=List[PeriodResponse], dependencies=[Depends(RequirePermission("admin.periods.manage"))])
+@router.get("", response_model=List[PeriodResponse])
 async def list_periods(db: AsyncSession = Depends(get_db)):
     """
     Obtiene la lista de todos los periodos.

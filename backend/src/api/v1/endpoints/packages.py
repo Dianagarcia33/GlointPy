@@ -10,7 +10,7 @@ from src.services.package_service import PackageService
 
 router = APIRouter()
 
-@router.get("/", response_model=List[PackageResponse])
+@router.get("", response_model=List[PackageResponse])
 async def read_packages(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -20,7 +20,7 @@ async def read_packages(
     """
     return await PackageService.get_all_packages(db)
 
-@router.post("/", response_model=PackageResponse, dependencies=[Depends(RequirePermission("admin.packages.manage"))])
+@router.post("", response_model=PackageResponse, dependencies=[Depends(RequirePermission("admin.packages.manage"))])
 async def create_package(
     package_in: PackageCreate,
     db: AsyncSession = Depends(get_db),
