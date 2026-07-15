@@ -23,7 +23,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
         .options(selectinload(InvestmentRequest.package))
         .where(
             (InvestmentRequest.user_id == current_user.id) & 
-            (InvestmentRequest.status != InvestmentRequestStatus.approved)
+            (InvestmentRequest.status.in_([InvestmentRequestStatus.pending, InvestmentRequestStatus.rejected, "pending", "rejected", "PENDING", "REJECTED"]))
         )
     )
     requests = result.scalars().all()
@@ -36,7 +36,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             "id": f"req_{req.id}",
             "user_id": req.user_id,
             "monto": float(req.monto),
-            "status": req.status.value if hasattr(req.status, 'value') else req.status,
+            "status": (req.status.value if hasattr(req.status, 'value') else req.status).lower() if req.status else "pending",
             "created_at": req.created_at.isoformat() if req.created_at else None,
             "paquete": {
                 "id": req.package.id,
