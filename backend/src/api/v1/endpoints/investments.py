@@ -245,14 +245,16 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         end_contract = fecha_fin.date() if isinstance(fecha_fin, datetime) else fecha_fin
         
         while current_start < end_contract:
-            # Determine next 29th
-            if current_start.day < 29:
+            # Advance at least 1 day to find the NEXT 29th
+            temp_date = current_start + relativedelta(days=1)
+            
+            if temp_date.day <= 29:
                 try:
-                    next_end = current_start.replace(day=29)
-                except ValueError: # e.g. Feb 29 on non-leap year
-                    next_end = current_start.replace(day=28)
+                    next_end = temp_date.replace(day=29)
+                except ValueError:
+                    next_end = temp_date.replace(day=28)
             else:
-                next_month = current_start + relativedelta(months=1)
+                next_month = temp_date + relativedelta(months=1)
                 try:
                     next_end = next_month.replace(day=29)
                 except ValueError:
@@ -263,7 +265,8 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
                 
             dias_ciclo = (next_end - current_start).days
             if dias_ciclo <= 0:
-                current_start = next_end
+                # Fallback to avoid ANY possibility of infinite loop
+                current_start = current_start + relativedelta(days=1)
                 continue
                 
             # Calculate capital base for this cycle
