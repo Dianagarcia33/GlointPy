@@ -39,26 +39,31 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
   };
 
   const handleApprove = async () => {
+    let newTab: Window | null = null;
     try {
       setIsProcessing(true);
       setError(null);
+      
+      // Abrimos la pestaña ANTES del await para evitar que el navegador la bloquee por popup blocker
+      newTab = window.open('about:blank', '_blank');
+
       const updatedWithdrawal = await paymentService.approveWithdrawal(withdrawal.id, receiptFile || undefined);
       
-      // Abrir comprobante (ya sea el subido manualmente o el generado dinámicamente)
-      const path = updatedWithdrawal.receipt_path || updatedWithdrawal.comprobante_pago;
-      if (path) {
-        const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || '';
-        const fullUrl = `${baseUrl}/${path}`.replace(/([^:]\/)\/+/g, "$1");
-        window.open(fullUrl, '_blank');
-      } else {
-        // Generación dinámica si no hubo comprobante manual
-        const baseUrl = import.meta.env.VITE_API_URL || '';
-        window.open(`${baseUrl}/withdrawals/${updatedWithdrawal.id}/receipt`, '_blank');
+      if (newTab) {
+        const path = updatedWithdrawal.receipt_path || updatedWithdrawal.comprobante_pago;
+        if (path) {
+          const baseUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || '';
+          newTab.location.href = `${baseUrl}/${path}`.replace(/([^:]\/)\/+/g, "$1");
+        } else {
+          const baseUrl = import.meta.env.VITE_API_URL || '';
+          newTab.location.href = `${baseUrl}/withdrawals/${updatedWithdrawal.id}/receipt`;
+        }
       }
 
       onUpdate();
       onClose();
     } catch (err: any) {
+      if (newTab) newTab.close();
       setError(err.message || 'Error al aprobar el retiro');
       setIsProcessing(false);
     }
