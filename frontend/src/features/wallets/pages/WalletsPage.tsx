@@ -148,113 +148,121 @@ export const WalletsPage = () => {
                 ) : (
                     <>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                            {/* Balance Card (Rediseñada para coherencia con HeroCard del Dashboard) */}
-                            <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-                                {/* Círculos decorativos tipo Glassmorphism */}
-                                <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-brand-500/20 rounded-full blur-3xl"></div>
-                                <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl"></div>
-                                
-                                <div className="relative z-10">
-                                    <div className="flex items-center gap-3 mb-6">
-                                        <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
-                                            <Wallet className="w-6 h-6 text-brand-400" />
-                                        </div>
-                                        <h2 className="text-lg font-medium text-slate-300">Saldo Disponible</h2>
-                                    </div>
+                            {/* Balance Card */}
+                            <Can permission="wallets:view_balance">
+                                <div className="col-span-1 md:col-span-2 bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+                                    {/* Círculos decorativos tipo Glassmorphism */}
+                                    <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-brand-500/20 rounded-full blur-3xl"></div>
+                                    <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl"></div>
                                     
-                                    <p className="text-5xl md:text-6xl font-bold font-montserrat tracking-tight text-white drop-shadow-sm">
-                                        {formatCurrency(balance)}
-                                    </p>
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/10">
+                                                <Wallet className="w-6 h-6 text-brand-400" />
+                                            </div>
+                                            <h2 className="text-lg font-medium text-slate-300">Saldo Disponible</h2>
+                                        </div>
+                                        
+                                        <p className="text-5xl md:text-6xl font-bold font-montserrat tracking-tight text-white drop-shadow-sm">
+                                            {formatCurrency(balance)}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
+                            </Can>
 
                     {/* Actions Card */}
                     <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-4">
-                        <button 
-                            onClick={() => setIsWithdrawalModalOpen(true)}
-                            className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all shadow-md shadow-brand-500/20 active:scale-95"
-                        >
-                            <ArrowUpToLine className="w-5 h-5" />
-                            Retirar Fondos
-                        </button>
+                        <Can permission="wallets:request_withdrawal">
+                            <button 
+                                onClick={() => setIsWithdrawalModalOpen(true)}
+                                className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition-all shadow-md shadow-brand-500/20 active:scale-95"
+                            >
+                                <ArrowUpToLine className="w-5 h-5" />
+                                Retirar Fondos
+                            </button>
+                        </Can>
                         
-                        <button 
-                            onClick={() => setIsNewInvestmentModalOpen(true)}
-                            className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold rounded-xl transition-all active:scale-95"
-                        >
-                            <TrendingUp className="w-5 h-5" />
-                            Nueva Inversión
-                        </button>
+                        <Can permission="wallets:new_investment">
+                            <button 
+                                onClick={() => setIsNewInvestmentModalOpen(true)}
+                                className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold rounded-xl transition-all active:scale-95"
+                            >
+                                <TrendingUp className="w-5 h-5" />
+                                Nueva Inversión
+                            </button>
+                        </Can>
                     </div>
                 </div>
 
-                {/* Historial de Movimientos (Lista Moderna) */}
-                <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-slate-100 rounded-xl">
-                                <ArrowRightLeft className="w-5 h-5 text-slate-700" />
+                {/* Historial de Movimientos */}
+                <Can permission="wallets:view_history">
+                    <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-slate-100 rounded-xl">
+                                    <ArrowRightLeft className="w-5 h-5 text-slate-700" />
+                                </div>
+                                <h2 className="text-xl font-bold text-slate-900 font-montserrat">Historial de Movimientos</h2>
                             </div>
-                            <h2 className="text-xl font-bold text-slate-900 font-montserrat">Historial de Movimientos</h2>
                         </div>
-                    </div>
 
-                    {movements.length > 0 ? (
-                        <div className="space-y-3">
-                            {movements.map((mov) => {
-                                const status = getStatusConfig(mov.estado);
-                                const originNormalized = mov.origen.toLowerCase();
-                                const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase() : '';
-                                const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'].includes(originNormalized) || metodoPagoNormalized === 'wallet';
+                        {movements.length > 0 ? (
+                            <div className="space-y-3">
+                                {movements.map((mov) => {
+                                    const status = getStatusConfig(mov.estado);
+                                    const originNormalized = mov.origen.toLowerCase();
+                                    const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase() : '';
+                                    const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'].includes(originNormalized) || metodoPagoNormalized === 'wallet';
 
-                                return (
-                                    <div 
-                                        key={mov.id} 
-                                        onClick={() => setSelectedMovement(mov)}
-                                        className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all cursor-pointer group"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-xl flex-shrink-0 ${isIngreso ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
-                                                {isIngreso ? <ArrowDownToLine className="w-5 h-5" /> : <ArrowUpToLine className="w-5 h-5" />}
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-slate-900 capitalize font-montserrat">
-                                                    {mov.origen.replace(/_/g, ' ')}
-                                                </p>
-                                                <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
-                                                    <span>{formatDate(mov.fecha_solicitud)}</span>
-                                                    <span>•</span>
-                                                    <span className={`inline-flex items-center gap-1 ${status.color}`}>
-                                                        <status.icon className="w-3 h-3" />
-                                                        {status.text}
-                                                    </span>
+                                    return (
+                                        <div 
+                                            key={mov.id} 
+                                            onClick={() => setSelectedMovement(mov)}
+                                            className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all cursor-pointer group"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={`p-3 rounded-xl flex-shrink-0 ${isIngreso ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {isIngreso ? <ArrowDownToLine className="w-5 h-5" /> : <ArrowUpToLine className="w-5 h-5" />}
                                                 </div>
-                                                {(mov.observaciones || mov.motivo_rechazo) && (
-                                                    <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
-                                                        {mov.motivo_rechazo || mov.observaciones}
+                                                <div>
+                                                    <p className="font-bold text-slate-900 capitalize font-montserrat">
+                                                        {mov.origen.replace(/_/g, ' ')}
                                                     </p>
-                                                )}
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
+                                                        <span>{formatDate(mov.fecha_solicitud)}</span>
+                                                        <span>•</span>
+                                                        <span className={`inline-flex items-center gap-1 ${status.color}`}>
+                                                            <status.icon className="w-3 h-3" />
+                                                            {status.text}
+                                                        </span>
+                                                    </div>
+                                                    {(mov.observaciones || mov.motivo_rechazo) && (
+                                                        <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
+                                                            {mov.motivo_rechazo || mov.observaciones}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right">
+                                                    <p className={`font-bold font-montserrat ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
+                                                        {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
+                                                    </p>
+                                                </div>
+                                                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
                                             </div>
                                         </div>
-                                        
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right">
-                                                <p className={`font-bold font-montserrat ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                                    {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
-                                                </p>
-                                            </div>
-                                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
-                            <p className="text-slate-500 font-medium">No hay movimientos recientes en tu billetera.</p>
-                        </div>
-                    )}
-                </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
+                                <p className="text-slate-500 font-medium">No hay movimientos recientes en tu billetera.</p>
+                            </div>
+                        )}
+                    </div>
+                </Can>
                     </>
                 )}
             </div>
