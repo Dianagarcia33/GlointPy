@@ -96,7 +96,7 @@ async def send_withdrawal_code(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Error al generar el código.")
+        raise HTTPException(status_code=500, detail=f"Error al generar el código: {str(e)}")
 
     # 5. Send Email
     email_sent = EmailService.send_withdrawal_verification_code(current_user.email, code)

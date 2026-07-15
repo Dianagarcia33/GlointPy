@@ -427,7 +427,11 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
         used=False
     )
     db.add(new_code)
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al generar el código: {str(e)}")
     
     html_content = f"""
     <!DOCTYPE html>
