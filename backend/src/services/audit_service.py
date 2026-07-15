@@ -32,9 +32,24 @@ class AuditService:
                 )
             )
             
-        count_query = select(func.count()).select_from(query.subquery())
+        count_query = (
+            select(func.count(User.id.distinct()))
+            .join(user_roles, User.id == user_roles.c.user_id)
+            .join(Role, user_roles.c.role_id == Role.id)
+            .where(Role.name == 'inversionista')
+        )
+        
+        if search:
+            count_query = count_query.filter(
+                or_(
+                    User.name.ilike(search_pattern),
+                    User.email.ilike(search_pattern),
+                    User.document_id.ilike(search_pattern)
+                )
+            )
+
         total_result = await db.execute(count_query)
-        total = total_result.scalar_one_or_none() or 0
+        total = total_result.scalar() or 0
         
         query = query.order_by(User.id.desc()).offset((page - 1) * limit).limit(limit)
         
