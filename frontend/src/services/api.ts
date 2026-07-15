@@ -41,7 +41,21 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || 'Error en la petición al servidor');
+    let errMsg = 'Error en la petición al servidor';
+    if (errorData.detail) {
+      if (typeof errorData.detail === 'string') {
+        errMsg = errorData.detail;
+      } else if (Array.isArray(errorData.detail)) {
+        errMsg = errorData.detail.map((e: any) => `${e.loc?.join('.') || 'Campo'}: ${e.msg}`).join(', ');
+      } else {
+        errMsg = JSON.stringify(errorData.detail);
+      }
+    }
+    throw new Error(errMsg);
+  }
+
+  if (response.status === 204) {
+    return null;
   }
 
   return response.json();

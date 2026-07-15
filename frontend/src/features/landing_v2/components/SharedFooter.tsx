@@ -52,10 +52,10 @@ export function SharedFooter() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Empresa</h4>
             <ul className="space-y-2">
-              {([["Inicio", "home"], ["Nosotros", "nosotros"]] as [string, string][]).map(([l, p]) => (
+              {([["Inicio", "home"], ["Nosotros", "about"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}><button onClick={() => go(p)} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button></li>
               ))}
-              <li><button onClick={() => go("contacto")} className="text-slate-500 text-sm hover:text-white transition-colors text-left font-medium">Contacto</button></li>
+                <li><button onClick={() => go("contact")} className="text-slate-500 text-sm hover:text-white transition-colors text-left font-medium">Contacto</button></li>
             </ul>
           </div>
           <div>
@@ -69,8 +69,8 @@ export function SharedFooter() {
           <div>
             <h4 className="text-white font-semibold text-sm mb-4">Legal</h4>
             <ul className="space-y-2">
-              {["Política de privacidad", "Términos y condiciones"].map((l) => (
-                <li key={l}><a href="#" className="text-slate-500 text-sm hover:text-white transition-colors">{l}</a></li>
+              {([["Política de privacidad", "privacidad"], ["Términos y condiciones", "terminos"], ["Aviso legal", "legal"]] as [string, string][]).map(([l, p]) => (
+                <li key={l}><button onClick={() => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); }} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button></li>
               ))}
             </ul>
             <div className="mt-6 space-y-2">

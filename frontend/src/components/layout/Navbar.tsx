@@ -112,20 +112,28 @@ export const Navbar: React.FC = () => {
                 <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-4 w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
                   <div className="p-2">
                     <Link
-                      to="/servicios/cashback-logistico"
+                      to="/investment"
                       className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
                       onClick={() => setServiciosMenuOpen(false)}
                     >
-                      <div className="font-bold text-slate-900 text-sm">Cashback Logístico</div>
-                      <div className="text-xs text-slate-500 mt-0.5">Liquidez rápida para envíos</div>
+                      <div className="font-bold text-slate-900 text-sm">GLOINT Investment</div>
+                      <div className="text-xs text-slate-500 mt-0.5">Oportunidades de inversión</div>
                     </Link>
                     <Link
-                      to="/servicios/factoring-logistico"
+                      to="/place"
                       className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
                       onClick={() => setServiciosMenuOpen(false)}
                     >
-                      <div className="font-bold text-slate-900 text-sm">Factoring Logístico</div>
-                      <div className="text-xs text-slate-500 mt-0.5">Adelanto de facturas</div>
+                      <div className="font-bold text-slate-900 text-sm">GLOINT Place</div>
+                      <div className="text-xs text-slate-500 mt-0.5">Comercio y logística</div>
+                    </Link>
+                    <Link
+                      to="/tech"
+                      className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+                      onClick={() => setServiciosMenuOpen(false)}
+                    >
+                      <div className="font-bold text-slate-900 text-sm">GLOINT Tech</div>
+                      <div className="text-xs text-slate-500 mt-0.5">Soluciones a la medida</div>
                     </Link>
                   </div>
                 </div>
@@ -243,8 +251,9 @@ export const Navbar: React.FC = () => {
             <div className="border-b border-slate-100 pb-3">
               <span className="block text-slate-400 font-semibold text-sm mb-3">Servicios</span>
               <div className="pl-4 space-y-3">
-                <Link to="/servicios/cashback-logistico" className="block text-slate-900 font-medium">Cashback Logístico</Link>
-                <Link to="/servicios/factoring-logistico" className="block text-slate-900 font-medium">Factoring Logístico</Link>
+                <Link to="/investment" className="block text-slate-900 font-medium">GLOINT Investment</Link>
+                <Link to="/place" className="block text-slate-900 font-medium">GLOINT Place</Link>
+                <Link to="/tech" className="block text-slate-900 font-medium">GLOINT Tech</Link>
               </div>
             </div>
 

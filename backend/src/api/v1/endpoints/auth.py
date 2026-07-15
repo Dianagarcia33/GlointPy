@@ -1,419 +1,190 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from typing import Any
 
 from src.core.database import get_db
-from src.core.config import settings
+from src.core.security import create_access_token
+from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
+from src.schemas.user import UserResponse
+from src.services.auth_service import AuthService
+from src.api.deps import get_current_user
 from src.models.user import User
-from src.core.security import verify_password, create_access_token, create_refresh_token
-from src.schemas.auth_schema import LoginRequest, Token
 
 router = APIRouter()
 
 @router.post("/login", response_model=Token)
-async def login(
-    response: Response,
-    request: LoginRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    # Buscar al usuario por correo intentando cargar sus roles
-    try:
-        from sqlalchemy.orm import selectinload
-        result = await db.execute(
-            select(User)
-            .options(selectinload(User.roles))
-            .where(User.email == request.email)
-        )
-        user = result.scalars().first()
-    except Exception as e:
-        await db.rollback()
-        # Fallback 2: Cargar solo el usuario básico
-        result = await db.execute(select(User).where(User.email == request.email))
-        user = result.scalars().first()
+async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Inicia sesión (Login). 
+    Recibe email y password, devuelve un Access Token.
+    """
+    user = await AuthService.authenticate_user(db, login_data)
     
-    if user:
-        # 1. Extraer nombres de roles PRIMERO (seguro de MissingGreenlet)
-        try:
-            if hasattr(user, 'roles') and user.roles:
-                user_roles_list = [r.name for r in user.roles]
-            else:
-                user_roles_list = []
-            setattr(user, 'roles_list', user_roles_list)
-        except Exception:
-            setattr(user, 'roles_list', [])
-
-        # 2. Extraer permisos desde la columna JSON de la tabla roles
-        from sqlalchemy import text
-        try:
-            perms_result = await db.execute(
-                text("""
-                    SELECT r.permissions 
-                    FROM roles r
-                    JOIN user_roles ur ON r.id = ur.role_id
-                    WHERE ur.user_id = :user_id
-                """),
-                {"user_id": user.id}
-            )
-            raw_permissions = set()
-            for row in perms_result.fetchall():
-                import json
-                perms_data = row[0]
-                if isinstance(perms_data, str):
-                    try:
-                        perms_list = json.loads(perms_data)
-                    except:
-                        perms_list = []
-                elif isinstance(perms_data, list):
-                    perms_list = perms_data
-                else:
-                    perms_list = []
-                    
-                for p in perms_list:
-                    raw_permissions.add(p)
-            
-            # Mezclar con overrides individuales si existen
-            try:
-                if hasattr(user, 'permissions_override') and user.permissions_override:
-                    import json
-                    overrides = user.permissions_override
-                    if isinstance(overrides, str):
-                        try:
-                            overrides = json.loads(overrides)
-                        except:
-                            overrides = {}
-                            
-                    if isinstance(overrides, dict):
-                        for perm_name, is_granted in overrides.items():
-                            if is_granted:
-                                raw_permissions.add(perm_name)
-                            elif perm_name in raw_permissions:
-                                raw_permissions.remove(perm_name)
-            except Exception as override_err:
-                print(f"Ignorando error en permissions_override: {override_err}")
-                
-            user.permissions = list(raw_permissions)
-        except Exception as perm_error:
-            print(f"Error cargando permisos: {perm_error}")
-            user.permissions = list(raw_permissions) if 'raw_permissions' in locals() else []
-            
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Correo o contraseña incorrectos",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    if not verify_password(request.password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Correo o contraseña incorrectos",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Usuario inactivo"
-        )
-        
-    # Generar tokens
+    # Generar token
     access_token = create_access_token(subject=user.id)
-    refresh_token = create_refresh_token(subject=user.id)
     
-    # Inyectar el Refresh Token en una Cookie HttpOnly
-    is_secure = settings.ENVIRONMENT != "development"
-    
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=is_secure,
-        samesite="lax",
-        max_age=7200,    # 2 horas
-    )
-    from src.schemas.auth_schema import UserResponse
-    user_response = None
-    if user:
-        user_response = UserResponse(
-            id=user.id,
-            name=user.name,
-            email=user.email,
-            is_active=user.is_active,
-            roles_list=getattr(user, "roles_list", []),
-            permissions=getattr(user, "permissions", [])
-        )
-        
-    return {
-        "access_token": access_token, 
-        "token_type": "bearer",
-        "user": user_response
-    }
-
-@router.post("/logout")
-async def logout(response: Response):
-    # Borrar la cookie HttpOnly
-    is_secure = settings.ENVIRONMENT != "development"
-    
-    response.delete_cookie(
-        key="refresh_token",
-        httponly=True,
-        secure=is_secure,
-        samesite="lax",
-    )
-    return {"message": "Sesión cerrada correctamente"}
-
-from src.schemas.auth_schema import InvestorRegisterRequest
-from src.core.security import get_password_hash
-from src.models.investment_request import InvestmentRequest, InvestmentStatus
-from src.models.security import Role
-
-@router.post("/register-investor", response_model=Token)
-async def register_investor(
-    response: Response,
-    request: InvestorRegisterRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    # 1. Validate if user exists
-    existing_user_stmt = select(User).where(User.email == request.email)
-    existing_user_res = await db.execute(existing_user_stmt)
-    if existing_user_res.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ya existe un usuario con ese correo electrónico"
-        )
-    
-    # 2. Assign role (Query first to avoid MissingGreenlet on async lazy load)
-    role_stmt = select(Role).where(Role.name.in_(["investor", "inversionista"]))
-    role_res = await db.execute(role_stmt)
-    inv_role = role_res.scalars().first()
-
-    try:
-        # 3. Create User
-        hashed_password = get_password_hash(request.password)
-        new_user = User(
-            name=request.name,
-            email=request.email,
-            password=hashed_password,
-            password_hash=hashed_password,
-            is_active=True
-        )
-        db.add(new_user)
-        await db.flush()
-
-        if inv_role:
-            from sqlalchemy import text
-            await db.execute(
-                text("INSERT INTO user_roles (user_id, role_id, assigned_at, created_at, updated_at) VALUES (:user_id, :role_id, NOW(), NOW(), NOW())"),
-                {"user_id": new_user.id, "role_id": inv_role.id}
-            )
-
-        # 4. Construct extra_data
-        extra_data = {
-            "periodo_contrato": request.contract_period_id,
-            "is_custom_monto": request.paquete_id is None,
-            "kyc_docs": request.kyc_docs,
-            "personal_info": {
-                "nombre_completo": request.name,
-                "correo_electronico": request.email,
-                "tipo_documento": request.tipo_documento,
-                "documento": request.documento,
-                "numero_celular": request.numero_celular,
-                "ciudad": request.ciudad,
-                "fecha_nacimiento": request.fecha_nacimiento.isoformat() if request.fecha_nacimiento else None
-            },
-            "bank_info": {
-                "banco": request.banco,
-                "tipo_cuenta": request.tipo_cuenta,
-                "numero_cuenta": request.numero_cuenta
-            }
-        }
-
-        # 5. Handle package ID
-        paquete_id = request.paquete_id
-        if not paquete_id:
-            from src.models.paquete_inversion import PaqueteInversion
-            stmt_pkg = select(PaqueteInversion).limit(1)
-            pkg_res = await db.execute(stmt_pkg)
-            first_pkg = pkg_res.scalar_one_or_none()
-            paquete_id = first_pkg.id if first_pkg else 1
-
-        # 6. Create InvestmentRequest
-        new_request = InvestmentRequest(
-            user_id=new_user.id,
-            paquete_inversion_id=paquete_id,
-            monto=request.monto,
-            comprobante_path=request.comprobante_path,
-            status=InvestmentStatus.pending,
-            extra_data=extra_data
-        )
-        db.add(new_request)
-        
-        await db.commit()
-        await db.refresh(new_user)
-    except Exception as e:
-        await db.rollback()
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"ERROR DETALLADO: {str(e)} | TIPO: {type(e).__name__}")
-
-
-    # 7. Generate tokens and login
-    access_token = create_access_token(subject=new_user.id)
-    refresh_token = create_refresh_token(subject=new_user.id)
-    
-    is_secure = settings.ENVIRONMENT != "development"
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=is_secure,
-        samesite="lax",
-        max_age=7200,
-    )
-
-    # Re-fetch user with roles to format response correctly
-    from sqlalchemy.orm import selectinload
-    stmt = select(User).options(selectinload(User.roles)).where(User.id == new_user.id)
-    res = await db.execute(stmt)
-    full_user = res.scalars().first()
-    
-    roles_list = []
-    if hasattr(full_user, 'roles') and full_user.roles:
-        roles_list = [r.name for r in full_user.roles]
-
-    from sqlalchemy import text
-    try:
-        perms_result = await db.execute(
-            text("""
-                SELECT r.permissions 
-                FROM roles r
-                JOIN user_roles ur ON r.id = ur.role_id
-                WHERE ur.user_id = :user_id
-            """),
-            {"user_id": full_user.id}
-        )
-        raw_permissions = set()
-        for row in perms_result.fetchall():
-            import json
-            perms_data = row[0]
-            if isinstance(perms_data, str):
-                try:
-                    perms_list = json.loads(perms_data)
-                except:
-                    perms_list = []
-            elif isinstance(perms_data, list):
-                perms_list = perms_data
-            else:
-                perms_list = []
-                
-            for p in perms_list:
-                raw_permissions.add(p)
-    except Exception as e:
-        raw_permissions = set()
-                    
-    from src.schemas.auth_schema import UserResponse
-    user_response = UserResponse(
-        id=full_user.id,
-        name=full_user.name,
-        email=full_user.email,
-        is_active=full_user.is_active,
-        roles_list=roles_list,
-        permissions=list(raw_permissions)
-    )
-
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": user_response
+        "user": user
     }
 
-from src.models.paquete_inversion import PaqueteInversion
-from src.models.contract_period import ContractPeriod
-from fastapi import UploadFile, File
-import shutil
+@router.post("/register", response_model=Token)
+async def register(register_data: RegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Registra un nuevo usuario en la base de datos y lo loguea automáticamente.
+    """
+    user = await AuthService.register_user(db, register_data)
+    access_token = create_access_token(subject=user.id)
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
+
+from src.schemas.auth import InvestorRegisterRequest
+@router.post("/register-investor", response_model=Token)
+async def register_investor(register_data: InvestorRegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Registra un inversionista con sus datos personales, bancarios, KYC y la solicitud de inversión.
+    """
+    user = await AuthService.register_investor(db, register_data)
+    access_token = create_access_token(subject=user.id)
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
+
+@router.post("/force-change-password", response_model=Token)
+async def force_change_password(data: ForceChangePasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Cambia la contraseña de forma obligatoria cuando must_change_password = True.
+    Retorna el Token de acceso tras cambiarla exitosamente.
+    """
+    user = await AuthService.force_change_password(db, data)
+    
+    # Generar token
+    access_token = create_access_token(subject=user.id)
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user
+    }
+
+@router.post("/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Envía un correo de recuperación de contraseña si el correo existe en la base de datos.
+    """
+    await AuthService.request_password_reset(db, data.email)
+    return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
+
+@router.post("/reset-password")
+async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Valida el token de recuperación y establece una nueva contraseña.
+    """
+    await AuthService.reset_password(db, data.token, data.new_password)
+    return {"message": "Tu contraseña ha sido actualizada exitosamente."}
+
+@router.get("/me", response_model=UserResponse)
+async def read_users_me(current_user: User = Depends(get_current_user)) -> Any:
+    """
+    Obtiene los datos del usuario actual (el dueño del token enviado en el header).
+    """
+    return current_user
+
+
 import os
-from pathlib import Path
+import shutil
+import uuid
+from fastapi import UploadFile, File
+
+@router.post("/public/upload-file")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Sube un archivo públicamente (comprobantes, documentos KYC) y retorna su ruta de acceso.
+    """
+    ext = os.path.splitext(file.filename)[1]
+    if ext.lower() not in ['.jpg', '.jpeg', '.png', '.pdf']:
+        raise HTTPException(status_code=400, detail="Extensión de archivo no permitida.")
+        
+    filename = f"{uuid.uuid4()}{ext}"
+    file_path = os.path.join("uploads", filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    return {"path": f"/uploads/{filename}"}
+
+from sqlalchemy import select
+from src.models.package import Package
+from src.models.period import Period
 
 @router.get("/public/config")
 async def get_public_config(db: AsyncSession = Depends(get_db)):
-    """Retorna los paquetes y periodos de inversión públicamente para el formulario de registro"""
-    # Paquetes
-    stmt_pkgs = select(PaqueteInversion).order_by(PaqueteInversion.id)
-    res_pkgs = await db.execute(stmt_pkgs)
-    paquetes = res_pkgs.scalars().all()
+    """
+    Retorna la configuración pública necesaria para el registro (paquetes y periodos).
+    """
+    # Fetch packages
+    paquetes_result = await db.execute(select(Package).where(Package.is_active == True))
+    paquetes_db = paquetes_result.scalars().all()
     
-    # Periodos
-    stmt_periods = select(ContractPeriod).order_by(ContractPeriod.id)
-    res_periods = await db.execute(stmt_periods)
-    periodos = res_periods.scalars().all()
+    # Fetch periods
+    periodos_result = await db.execute(select(Period).where(Period.is_active == True))
+    periodos_db = periodos_result.scalars().all()
+    
+    # Format to match frontend expectations
+    paquetes = [
+        {
+            "id": p.id,
+            "paquete_accion_adquirido": f"${p.value:,.0f} COP",
+            "value": p.value,
+            "granted_shares": p.granted_shares
+        }
+        for p in paquetes_db
+    ]
+    
+    periodos = [
+        {
+            "id": p.id,
+            "name": f"Plazo de {p.months} Meses",
+            "months": p.months,
+            "days": p.days,
+            "percentage": p.percentage
+        }
+        for p in periodos_db
+    ]
     
     return {
         "paquetes": paquetes,
         "periodos": periodos
     }
 
-@router.post("/public/upload-file")
-async def public_upload_file(file: UploadFile = File(...)):
-    """Sube un archivo de forma pública (para el proceso de registro)"""
-    upload_dir = Path("uploads/temp")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    file_extension = os.path.splitext(file.filename)[1]
-    safe_filename = f"temp_{os.urandom(8).hex()}{file_extension}"
-    file_path = upload_dir / safe_filename
-    
-    with file_path.open("wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    return {"path": str(file_path)}
-
-@router.post("/public/kyc-validate")
-async def kyc_validate(
-    front: UploadFile = File(...),
-    back: UploadFile = File(...),
-    selfie: UploadFile = File(...)
-):
+@router.post("/public/ocr-extract")
+async def extract_ocr_data(file: UploadFile = File(...)):
     """
-    Recibe las imágenes KYC y realiza extracción OCR por coordenadas 
-    junto con la validación biométrica facial.
+    Sube un archivo de documento de identidad y usa AWS Rekognition
+    para extraer heurísticamente el nombre completo y la cédula.
     """
-    from src.services.aws_kyc_service import process_kyc_documents
-    
-    upload_dir = Path("uploads/temp")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    
-    paths = []
-    
-    front_bytes = await front.read()
-    back_bytes = await back.read()
-    selfie_bytes = await selfie.read()
-    
-    for file_obj, fbytes in [(front, front_bytes), (back, back_bytes), (selfie, selfie_bytes)]:
-        file_extension = os.path.splitext(file_obj.filename)[1]
-        safe_filename = f"kyc_{os.urandom(8).hex()}{file_extension}"
-        file_path = upload_dir / safe_filename
-        with file_path.open("wb") as buffer:
-            buffer.write(fbytes)
-        paths.append(str(file_path))
+    ext = os.path.splitext(file.filename)[1]
+    if ext.lower() not in ['.jpg', '.jpeg', '.png']:
+        raise HTTPException(status_code=400, detail="Solo se permiten imágenes para OCR.")
         
     try:
-        # TEMP: Saltar OCR temporalmente
-        extracted_data = {
-            "documento": "",
-            "name": "",
-            "tipo_documento": "CC",
-            "fecha_nacimiento": "",
-            "biometrics_passed": True,
-            "biometrics_message": "Validación omitida temporalmente."
-        }
-        # extracted_data = process_kyc_documents(front_bytes, back_bytes, selfie_bytes)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        print(f"Server Error KYC: {e}")
-        raise HTTPException(status_code=500, detail="Error de servidor al validar identidad.")
+        from src.services.ocr_service import ocr_service
+        # Read the file bytes directly into memory
+        contents = await file.read()
         
-    return {
-        "paths": paths,
-        "extracted_data": extracted_data
-    }
+        # Llama a Amazon Rekognition via nuestro servicio
+        extracted_data = ocr_service.extract_colombian_id_data(contents)
+        
+        return extracted_data
+    except Exception as e:
+        print(f"Error procesando OCR: {e}")
+        # Retornamos vacío si falla, el frontend hace fallback manual
+        return {"document_number": "", "full_name": ""}

@@ -1,312 +1,153 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.sql import func
-from sqlalchemy import and_
-from pydantic import BaseModel, Field
-from decimal import Decimal
-from datetime import datetime
-import traceback
 
 from src.core.database import get_db
-from src.models.user import User
+from src.api.deps import RequirePermission, get_current_user
+from src.services.wallet_service import bulk_create_or_update_wallets, bulk_create_or_update_wallet_transactions
+from sqlalchemy.future import select
 from src.models.wallet import Wallet
-from src.models.wallet_transactions import WalletTransaction
-from src.api.dependencies.auth_deps import get_current_user
 
 router = APIRouter()
 
-class WithdrawalRequest(BaseModel):
-    monto: float = Field(..., gt=0)
-
 @router.get("/me/balance")
-async def get_my_balance(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Obtiene el balance y la información bancaria del usuario."""
-    from src.models.investor import Investor
-    try:
-        # Balance
-        result = await db.execute(
-            select(func.sum(Wallet.balance))
-            .where(Wallet.user_id == current_user.id)
-            .where(Wallet.status == 'active')
-        )
-        total_balance = result.scalar()
-        balance = float(total_balance) if total_balance is not None else 0.0
+async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Get the wallet balance of the current logged-in user.
+    """
+    result = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
+    wallet = result.scalars().first()
+    
+    if not wallet:
+        return {"balance": 0, "currency": "COP"}
         
-        # Datos bancarios
-        from src.models.investor import Investor
-        inv_stmt = select(Investor).where(Investor.user_id == current_user.id).order_by(Investor.id.desc())
-        inv_res = await db.execute(inv_stmt)
-        primary_inv = inv_res.scalars().first()
-        
-        bank_details = None
-        if primary_inv and primary_inv.banco:
-            bank_details = {
-                "banco": primary_inv.banco,
-                "tipo_cuenta": primary_inv.tipo_cuenta,
-                "numero_cuenta": primary_inv.numero_cuenta
-            }
-        
-        # Fechas de retiro
-        from src.models.system_events import SystemEvent
-        from datetime import datetime
-        
-        current_date = datetime.utcnow().date()
-        current_day = current_date.day
-        
-        event_stmt = select(SystemEvent).where(
-            SystemEvent.type == 'retiro',
-            SystemEvent.is_active == 1
-        )
-        event_res = await db.execute(event_stmt)
-        withdrawal_event = event_res.scalars().first()
-        
-        can_withdraw = True
-        if withdrawal_event:
-            can_withdraw = False
-            if withdrawal_event.is_recurring == 1:
-                if withdrawal_event.recurrence_start_day and withdrawal_event.recurrence_end_day:
-                    if withdrawal_event.recurrence_start_day <= current_day <= withdrawal_event.recurrence_end_day:
-                        can_withdraw = True
-            else:
-                if withdrawal_event.start_date and withdrawal_event.end_date:
-                    if withdrawal_event.start_date.date() <= current_date <= withdrawal_event.end_date.date():
-                        can_withdraw = True
-        
-        return {
-            "balance": balance,
-            "currency": "COP",
-            "bank_details": bank_details,
-            "can_withdraw": can_withdraw
-        }
-    except Exception as e:
-        import traceback
-        print("ERROR EN WALLETS:", traceback.format_exc())
-        return {
-            "balance": 0.0,
-            "currency": str(e)
-        }
+    return {"balance": wallet.balance, "currency": wallet.currency}
 
 @router.get("/me/movements")
-async def get_my_movements(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Obtiene el historial de movimientos de la billetera desde la tabla retiros."""
-    from src.models.retiros import Retiro
-    try:
-        from src.models.wallet_transactions import WalletTransaction
-        
-        stmt = (
-            select(Retiro, WalletTransaction)
-            .outerjoin(
-                WalletTransaction,
-                and_(
-                    WalletTransaction.reference_id == Retiro.id,
-                    WalletTransaction.reference_type.in_(['retiros', 'App\\Models\\Retiro'])
-                )
-            )
-            .where(Retiro.user_id == current_user.id)
-            .order_by(Retiro.created_at.desc())
-        )
-        result = await db.execute(stmt)
-        
-        movements = []
-        for m, wt in result.all():
-            saldo_nuevo = float(wt.balance_after) if wt and wt.balance_after else None
-            saldo_anterior = None
-            if wt and wt.amount is not None and wt.balance_after is not None:
-                # Determinar si fue ingreso o egreso basado en type o método de pago
-                metodo_pago_norm = m.metodo_pago.lower() if m.metodo_pago else ""
-                origen_norm = m.origen.lower() if m.origen else ""
-                
-                is_ingreso = False
-                if wt.type in ['yield_payout', 'bonus_payout', 'deposit']:
-                    is_ingreso = True
-                elif origen_norm in ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'] or metodo_pago_norm == 'wallet':
-                    is_ingreso = True
-                
-                if is_ingreso:
-                    saldo_anterior = float(wt.balance_after) - float(wt.amount)
-                else:
-                    saldo_anterior = float(wt.balance_after) + float(wt.amount)
-            
-            movements.append({
-                "id": m.id,
-                "investor_id": m.investor_id,
-                "user_id": m.user_id,
-                "origen": m.origen,
-                "tipo": m.tipo,
-                "monto": float(m.monto) if m.monto else 0,
-                "impuesto": float(m.impuesto) if m.impuesto else 0,
-                "monto_neto": float(m.monto_neto) if m.monto_neto else 0,
-                "fecha_solicitud": m.fecha_solicitud.isoformat() if m.fecha_solicitud else None,
-                "fecha_retiro": m.fecha_retiro.isoformat() if m.fecha_retiro else None,
-                "estado": m.estado,
-                "metodo_pago": m.metodo_pago,
-                "banco": m.banco,
-                "tipo_cuenta": m.tipo_cuenta,
-                "numero_cuenta": m.numero_cuenta,
-                "observaciones": m.observaciones,
-                "motivo_rechazo": m.motivo_rechazo,
-                "fecha_aprobacion": m.fecha_aprobacion.isoformat() if m.fecha_aprobacion else None,
-                "fecha_procesamiento": m.fecha_procesamiento.isoformat() if m.fecha_procesamiento else None,
-                "created_at": m.created_at.isoformat() if m.created_at else None,
-                "updated_at": m.updated_at.isoformat() if m.updated_at else None,
-                "saldo_anterior": saldo_anterior,
-                "saldo_nuevo": saldo_nuevo
-            })
-            
-        return movements
-    except Exception as e:
-        print("ERROR EN MOVIMIENTOS:", traceback.format_exc())
-        return []
-
-@router.post("/me/withdraw")
-async def request_withdrawal(
-    request: WithdrawalRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Crea una solicitud de retiro, calcula impuestos y descuenta de la billetera."""
-    from src.models.retiros import Retiro
+async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Get the wallet movements (withdrawals and deposits) of the current logged-in user.
+    Combines WalletTransactions (incomes) and Withdrawals (cashouts).
+    """
+    from src.models.withdrawal import Withdrawal
+    from src.models.wallet import Wallet, WalletTransaction
     
-    try:
-        # 1. Obtener la billetera activa del usuario
-        wallet_stmt = select(Wallet).where(
-            Wallet.user_id == current_user.id,
-            Wallet.status == 'active'
+    # 1. Fetch Withdrawals (Cashouts with status tracking)
+    w_result = await db.execute(
+        select(Withdrawal)
+        .where(Withdrawal.user_id == current_user.id)
+    )
+    withdrawals = w_result.scalars().all()
+    
+    # 2. Fetch WalletTransactions (Incomes, bonuses, etc) - exclude withdrawals to avoid duplicates
+    t_result = await db.execute(
+        select(WalletTransaction)
+        .join(Wallet)
+        .where(
+            (Wallet.user_id == current_user.id) &
+            (WalletTransaction.reference_type != 'withdrawal') &
+            (WalletTransaction.type != 'withdrawal')
         )
-        wallet_res = await db.execute(wallet_stmt)
-        wallet = wallet_res.scalars().first()
+    )
+    transactions = t_result.scalars().all()
+    
+    response = []
+    
+    # Map Withdrawals
+    for w in withdrawals:
+        response.append({
+            "id": f"w_{w.id}",
+            "investor_id": w.investor_id,
+            "user_id": w.user_id,
+            "origen": w.origen,
+            "tipo": w.tipo.value if hasattr(w.tipo, 'value') else w.tipo,
+            "monto": float(w.monto),
+            "impuesto": float(w.impuesto),
+            "monto_neto": float(w.monto_neto),
+            "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
+            "fecha_retiro": w.fecha_retiro.isoformat() if w.fecha_retiro else None,
+            "estado": w.estado.value if hasattr(w.estado, 'value') else w.estado,
+            "metodo_pago": w.metodo_pago,
+            "banco": w.banco,
+            "tipo_cuenta": w.tipo_cuenta,
+            "numero_cuenta": w.numero_cuenta,
+            "observaciones": w.observaciones,
+            "motivo_rechazo": w.motivo_rechazo,
+            "fecha_aprobacion": w.fecha_aprobacion.isoformat() if w.fecha_aprobacion else None,
+            "fecha_procesamiento": w.fecha_procesamiento.isoformat() if w.fecha_procesamiento else None,
+            "created_at": w.created_at.isoformat() if w.created_at else None,
+            "updated_at": w.updated_at.isoformat() if w.updated_at else None,
+            "saldo_anterior": None,
+            "saldo_nuevo": None,
+            "_sort_date": w.created_at
+        })
         
-        if not wallet:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Billetera no encontrada o inactiva."
-            )
+    # Map Transactions
+    for t in transactions:
+        amount = float(t.amount)
+        origen = t.type
+        if amount > 0 and origen not in ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer']:
+            origen = "cash"
             
-        # 2. Validar saldo
-        monto_solicitado = Decimal(str(request.monto))
-        saldo_actual = Decimal(str(wallet.balance))
-        
-        if saldo_actual < monto_solicitado:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Saldo insuficiente para realizar el retiro."
-            )
+        if amount < 0:
+            origen = "retiro_interno"
             
-        if monto_solicitado < Decimal('5000'):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El monto mínimo de retiro es de $5,000 COP."
-            )
-            
-        # 2.5 Verificar Fechas de Retiro
-        from src.models.system_events import SystemEvent
-        current_date = datetime.utcnow().date()
-        current_day = current_date.day
+        response.append({
+            "id": f"t_{t.id}",
+            "investor_id": None,
+            "user_id": current_user.id,
+            "origen": origen,
+            "tipo": t.type,
+            "monto": abs(amount),
+            "impuesto": 0,
+            "monto_neto": abs(amount),
+            "fecha_solicitud": t.created_at.isoformat() if t.created_at else None,
+            "fecha_retiro": None,
+            "estado": "procesado",
+            "metodo_pago": None,
+            "banco": None,
+            "tipo_cuenta": None,
+            "numero_cuenta": None,
+            "observaciones": t.description,
+            "motivo_rechazo": None,
+            "fecha_aprobacion": t.created_at.isoformat() if t.created_at else None,
+            "fecha_procesamiento": t.created_at.isoformat() if t.created_at else None,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+            "saldo_anterior": None,
+            "saldo_nuevo": float(t.balance_after),
+            "_sort_date": t.created_at
+        })
         
-        event_stmt = select(SystemEvent).where(
-            SystemEvent.type == 'retiro',
-            SystemEvent.is_active == 1
-        )
-        event_res = await db.execute(event_stmt)
-        withdrawal_event = event_res.scalars().first()
+    # Sort descending
+    response.sort(key=lambda x: x["_sort_date"].isoformat() if x["_sort_date"] else "", reverse=True)
+    
+    # Remove sort helper
+    for r in response:
+        r.pop("_sort_date", None)
         
-        if withdrawal_event:
-            can_withdraw = False
-            if withdrawal_event.is_recurring == 1:
-                if withdrawal_event.recurrence_start_day and withdrawal_event.recurrence_end_day:
-                    if withdrawal_event.recurrence_start_day <= current_day <= withdrawal_event.recurrence_end_day:
-                        can_withdraw = True
-            else:
-                if withdrawal_event.start_date and withdrawal_event.end_date:
-                    if withdrawal_event.start_date.date() <= current_date <= withdrawal_event.end_date.date():
-                        can_withdraw = True
-                        
-            if not can_withdraw:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Actualmente no nos encontramos en fechas de retiro habilitadas."
-                )
-            
-        # 3. Obtener datos bancarios
-        from src.models.investor import Investor
-        inv_stmt = select(Investor).where(Investor.user_id == current_user.id).order_by(Investor.id.desc())
-        inv_res = await db.execute(inv_stmt)
-        primary_bank = inv_res.scalars().first()
-        
-        if not primary_bank:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No tienes información bancaria registrada. Por favor agrega una cuenta bancaria primero."
-            )
-            
-        # 4. Calcular impuesto (3.2%) y monto neto
-        impuesto = monto_solicitado * Decimal('0.032')
-        monto_neto = monto_solicitado - impuesto
-        
-        now_utc = datetime.utcnow()
-        
-        # 5. Crear el Retiro (pendiente)
-        nuevo_retiro = Retiro(
-            investor_id=investor.id,
-            user_id=current_user.id,
-            origen='retiro_wallet',
-            tipo='rendimiento', # O genérico
-            monto=monto_solicitado,
-            impuesto=impuesto,
-            monto_neto=monto_neto,
-            fecha_solicitud=now_utc.date(),
-            estado='pendiente',
-            metodo_pago='transferencia_bancaria',
-            banco=primary_bank.banco,
-            tipo_cuenta=primary_bank.tipo_cuenta,
-            numero_cuenta=primary_bank.numero_cuenta,
-            created_at=now_utc,
-            updated_at=now_utc
-        )
-        db.add(nuevo_retiro)
-        await db.flush() # Para obtener el ID
-        
-        # 6. Descontar saldo de la billetera
-        wallet.balance = saldo_actual - monto_solicitado
-        db.add(wallet)
-        
-        # 7. Registrar en WalletTransaction
-        wt = WalletTransaction(
-            wallet_id=wallet.id,
-            amount=monto_solicitado,
-            type='withdrawal_request',
-            reference_type='retiros',
-            reference_id=nuevo_retiro.id,
-            balance_after=wallet.balance,
-            created_at=now_utc
-        )
-        db.add(wt)
-        
-        await db.commit()
-        
-        return {
-            "status": "success",
-            "message": "Retiro solicitado correctamente",
-            "retiro_id": nuevo_retiro.id,
-            "monto": float(monto_solicitado),
-            "impuesto": float(impuesto),
-            "monto_neto": float(monto_neto)
-        }
-        
-    except HTTPException:
-        await db.rollback()
-        raise
-    except Exception as e:
-        await db.rollback()
-        print("ERROR EN RETIRO:", traceback.format_exc())
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error interno al procesar el retiro."
-        )
+    return response
+
+@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
+async def bulk_upload_wallets(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    """
+    Upload a CSV file and load/update wallets for users in bulk.
+    """
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
+    
+    content = await file.read()
+    success_count, errors = await bulk_create_or_update_wallets(db, content)
+    return {"success_count": success_count, "errors": errors}
+
+
+@router.post("/transactions/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
+async def bulk_upload_transactions(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    """
+    Upload a CSV file and load/update wallet transactions in bulk.
+    """
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
+    
+    content = await file.read()
+    success_count, errors = await bulk_create_or_update_wallet_transactions(db, content)
+    return {"success_count": success_count, "errors": errors}

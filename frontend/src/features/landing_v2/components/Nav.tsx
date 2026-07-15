@@ -47,7 +47,7 @@ export function Nav() {
   };
 
   const serviceActive = ["investment", "place", "tech"].includes(page);
-  const forceDark = ["nosotros", "contacto"].includes(page);
+  const forceDark = ["about", "contact", "onboarding"].includes(page);
 
   return (
     <nav
@@ -90,11 +90,11 @@ export function Nav() {
           {/* Nosotros */}
           <li>
             <button
-              onClick={() => go("nosotros")}
+              onClick={() => go("about")}
               className="text-sm font-medium transition-colors"
               style={{
-                color: page === "nosotros" ? ORANGE : "#cbd5e1",
-                borderBottom: page === "nosotros" ? `2px solid ${ORANGE}` : "2px solid transparent",
+                color: page === "about" ? ORANGE : "#cbd5e1",
+                borderBottom: page === "about" ? `2px solid ${ORANGE}` : "2px solid transparent",
                 paddingBottom: "2px",
               }}
             >
@@ -158,11 +158,11 @@ export function Nav() {
           {/* Contacto */}
           <li>
             <button
-              onClick={() => go("contacto")}
+              onClick={() => go("contact")}
               className="text-sm font-medium transition-colors"
               style={{
-                color: page === "contacto" ? ORANGE : "#cbd5e1",
-                borderBottom: page === "contacto" ? `2px solid ${ORANGE}` : "2px solid transparent",
+                color: page === "contact" ? ORANGE : "#cbd5e1",
+                borderBottom: page === "contact" ? `2px solid ${ORANGE}` : "2px solid transparent",
                 paddingBottom: "2px",
               }}
             >
@@ -196,7 +196,7 @@ export function Nav() {
       {/* Mobile menu */}
       {open && (
         <div style={{ background: DARK2 }} className="md:hidden px-6 pb-6 pt-2 flex flex-col gap-1">
-          {(["home", "nosotros"]).map((id) => (
+          {(["home", "about"]).map((id) => (
             <button key={id} onClick={() => go(id)} className="text-white text-sm font-medium py-2 text-left capitalize">
               {id === "home" ? "Inicio" : "Nosotros"}
             </button>
@@ -224,7 +224,7 @@ export function Nav() {
               ))}
             </div>
           )}
-          <button onClick={() => go("contacto")} className="text-white text-sm font-medium py-2 text-left">Contacto</button>
+          <button onClick={() => go("contact")} className="text-white text-sm font-medium py-2 text-left">Contacto</button>
           <button onClick={() => navigate('/login')} className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold w-full border" style={{ borderColor: "rgba(255,255,255,0.2)", color: "#fff" }}>
             Iniciar sesión
           </button>

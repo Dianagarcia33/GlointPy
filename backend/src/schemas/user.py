@@ -1,0 +1,71 @@
+from pydantic import BaseModel, EmailStr, ConfigDict
+from typing import List, Optional, Any, Dict
+from datetime import datetime
+from src.schemas.security import RoleResponse
+from src.schemas.user_bank_account import UserBankAccountResponse
+from src.schemas.wallet import WalletResponse
+
+class UserBase(BaseModel):
+    name: str
+    email: EmailStr
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
+    is_active: bool = True
+    is_superuser: bool = False
+
+class UserCreate(UserBase):
+    password: str
+
+class UserCreateAdmin(UserBase):
+    date_of_birth: Optional[datetime] = None
+    role_ids: Optional[List[int]] = []
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_superuser: Optional[bool] = None
+    must_change_password: Optional[bool] = None
+    date_of_birth: Optional[datetime] = None
+    permissions_override: Optional[Dict[str, bool]] = None
+
+class UserUpdateAdmin(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
+    is_active: Optional[bool] = None
+    date_of_birth: Optional[datetime] = None
+    role_ids: Optional[List[int]] = None
+
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
+    is_active: bool
+    is_superuser: bool
+    must_change_password: bool
+    date_of_birth: Optional[Any] = None
+    permissions_override: Optional[Any] = None
+    created_at: Any
+    updated_at: Any
+    
+    # Devuelve los roles asociados
+    roles: List[RoleResponse] = []
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class UserWithBankAccountsResponse(UserResponse):
+    bank_accounts: List[UserBankAccountResponse] = []
+    wallet: Optional[WalletResponse] = None
+
+class UserPaginatedResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    data: List[UserWithBankAccountsResponse]

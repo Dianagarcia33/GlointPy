@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
@@ -19,10 +20,17 @@ class Settings(BaseSettings):
     # Encryption
     BANK_ENCRYPTION_KEY: str = "oI0T7pW5j2X2qQ5G2HwX6mH8uW7lI0_gK2U7gO8yMvw="
 
-    # AWS Credentials and Region
+    # AWS Settings
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     AWS_REGION: str = "us-east-1"
+
+    # Resend Email Settings
+    RESEND_API_KEY: Optional[str] = None
+    SENDER_EMAIL: str = "soporte@gloint.com.co"
+    
+    # Frontend URL for emails
+    FRONTEND_URL: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),

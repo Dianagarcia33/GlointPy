@@ -10,17 +10,28 @@ import { ContactoPage } from "./features/landing_v2/pages/ContactoPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
+import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
 import { WelcomeOnboardingPage } from "./features/auth/pages/WelcomeOnboardingPage";
+import { ForceChangePasswordPage } from "./features/auth/pages/ForceChangePasswordPage";
 import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditionsPage";
+import { PrivacyPolicyPage } from "./features/landing/pages/PrivacyPolicyPage";
+import { LegalNoticePage } from "./features/landing/pages/LegalNoticePage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { WalletsPage } from "./features/wallets/pages/WalletsPage";
 import { InvestmentsPage } from "./features/investments/pages/InvestmentsPage";
 import { AdminInvestmentsPage } from "./features/admin/investments/pages/AdminInvestmentsPage";
 import { AdminRolesPage } from "./features/admin/roles/pages/AdminRolesPage";
+import { AdminUsersPage } from "./features/admin/users/pages/AdminUsersPage";
+import { AdminPeriodsPage } from "./features/admin/periods/pages/AdminPeriodsPage";
+import { AdminPackagesPage } from "./features/admin/packages/pages/AdminPackagesPage";
+import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvestorsPage";
+import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
+import { RequirePermission } from "./components/security/RequirePermission";
 
 // Componente para proteger rutas (si no está logueado, lo manda al login)
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -48,16 +59,21 @@ function App() {
     <Routes>
       <Route element={<GuestRoute><LandingLayout /></GuestRoute>}>
         <Route path="/" element={<LandingHome />} />
-        <Route path="/nosotros" element={<NosotrosPage />} />
+        <Route path="/about" element={<NosotrosPage />} />
         <Route path="/investment" element={<InvestmentPage />} />
         <Route path="/place" element={<PlacePage />} />
         <Route path="/tech" element={<TechPage />} />
-        <Route path="/contacto" element={<ContactoPage />} />
+        <Route path="/contact" element={<ContactoPage />} />
       </Route>
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
+      <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+      <Route path="/legal" element={<LegalNoticePage />} />
       <Route path="/onboarding" element={<GuestRoute><WelcomeOnboardingPage /></GuestRoute>} />
       <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
       <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
+      <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+      <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
+      <Route path="/force-change-password" element={<GuestRoute><ForceChangePasswordPage /></GuestRoute>} />
       
       {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
       <Route 
@@ -71,8 +87,13 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="wallet" element={<WalletsPage />} />
         <Route path="investments" element={<InvestmentsPage />} />
-        <Route path="investments/reales" element={<AdminInvestmentsPage />} />
-        <Route path="roles" element={<AdminRolesPage />} />
+        <Route path="audit" element={<RequirePermission permission="admin.investments.requests"><AdminInvestmentsPage /></RequirePermission>} />
+        <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
+        <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />
+        <Route path="periods" element={<RequirePermission permission="admin.periods.manage"><AdminPeriodsPage /></RequirePermission>} />
+        <Route path="packages" element={<RequirePermission permission="admin.packages.manage"><AdminPackagesPage /></RequirePermission>} />
+        <Route path="investors" element={<RequirePermission permission="admin.investors.manage"><AdminInvestorsPage /></RequirePermission>} />
+        <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
         <Route path="system-events" element={<SystemEventsPage />} />
       </Route>
 

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Nav } from '../../landing_v2/components/Nav';
-import { SharedFooter } from '../../landing_v2/components/SharedFooter';
+import { Nav as Navbar } from '../../landing_v2/components/Nav';
+import { Footer } from '../../landing_v2/components/Footer';
 
 interface AuthLayoutProps {
   children: React.ReactNode;

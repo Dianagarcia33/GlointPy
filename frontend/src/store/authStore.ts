@@ -6,6 +6,7 @@ export interface User {
   name: string;
   email: string;
   is_active: boolean;
+  is_superuser?: boolean;
   roles_list?: string[];
   permissions?: string[];
 }

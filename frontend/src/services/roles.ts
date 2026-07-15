@@ -14,6 +14,7 @@ export interface Role {
   display_name: string;
   description: string | null;
   is_active: boolean;
+  is_system_role?: string;
   permissions: Permission[];
   created_at?: string;
   updated_at?: string;
@@ -21,31 +22,29 @@ export interface Role {
 
 export interface RoleCreate {
   name: string;
-  display_name: string;
   description?: string;
   is_active?: boolean;
-  permissions: number[]; // Array of Permission IDs
+  permission_ids: number[]; // Array of Permission IDs
 }
 
 export interface RoleUpdate {
   name?: string;
-  display_name?: string;
   description?: string;
   is_active?: boolean;
-  permissions?: number[]; // Array of Permission IDs
+  permission_ids?: number[]; // Array of Permission IDs
 }
 
 export const rolesService = {
   getAllRoles: async (): Promise<Role[]> => {
-    return await fetchApi('/roles/');
+    return await fetchApi('/roles');
   },
 
   getAllPermissions: async (): Promise<Permission[]> => {
-    return await fetchApi('/roles/permissions');
+    return await fetchApi('/permissions');
   },
 
   createRole: async (data: RoleCreate): Promise<Role> => {
-    return await fetchApi('/roles/', {
+    return await fetchApi('/roles', {
       method: 'POST',
       body: JSON.stringify(data),
     });

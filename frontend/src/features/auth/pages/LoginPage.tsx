@@ -10,7 +10,6 @@ export const LoginPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [acceptedTerms, setAcceptedTerms] = useState(false);
     
     const navigate = useNavigate();
     const loginAction = useAuthStore((state) => state.login);
@@ -27,17 +26,38 @@ export const LoginPage = () => {
             });
         },
         onSuccess: (data) => {
+            const user = data.user;
+            if (user) {
+                // Map nested roles -> permissions to a flat array of strings
+                const perms = new Set<string>();
+                const rolesList = new Set<string>();
+                if (user.roles) {
+                    user.roles.forEach((r: any) => {
+                        rolesList.add(r.name);
+                        if (r.permissions) {
+                            r.permissions.forEach((p: any) => perms.add(p.name));
+                        }
+                    });
+                }
+                user.permissions = Array.from(perms);
+                user.roles_list = Array.from(rolesList);
+            }
+
             loginAction(
-                data.user || { id: 1, name: email.split('@')[0], email, is_active: true }, 
+                user || { id: 1, name: email.split('@')[0], email, is_active: true }, 
                 data.access_token
             );
             navigate('/dashboard');
         },
+        onError: (error: any) => {
+            if (error.message === 'MUST_CHANGE_PASSWORD') {
+                navigate('/force-change-password', { state: { email, currentPassword: password } });
+            }
+        }
     });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!acceptedTerms) return;
         if (email && password) {
             loginMutation.mutate({ email, password });
         }
@@ -46,10 +66,10 @@ export const LoginPage = () => {
     return (
         <AuthLayout 
             title="Iniciar Sesión" 
-            subtitle="Accede a tu cuenta para gestionar tu liquidez y hacer crecer tu negocio."
+            subtitle="Accede a tu cuenta en el ecosistema GLOINT y descubre nuevas oportunidades para tu negocio."
             icon={<LockKeyhole className="w-7 h-7" />}
         >
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} method="post" className="space-y-5">
                 <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
                     <div className="relative group">
@@ -58,6 +78,9 @@ export const LoginPage = () => {
                         </div>
                         <input
                             type="email"
+                            id="email"
+                            name="email"
+                            autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
@@ -70,9 +93,9 @@ export const LoginPage = () => {
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <label className="block text-sm font-bold text-slate-700">Contraseña</label>
-                        <a href="#" className="text-xs font-semibold text-brand-500 hover:text-brand-600 transition-colors">
+                        <Link to="/forgot-password" className="text-xs font-semibold text-brand-500 hover:text-brand-600 transition-colors">
                             ¿Olvidaste tu contraseña?
-                        </a>
+                        </Link>
                     </div>
                     <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -80,6 +103,9 @@ export const LoginPage = () => {
                         </div>
                         <input
                             type={showPassword ? "text" : "password"}
+                            id="password"
+                            name="password"
+                            autoComplete="current-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
@@ -96,27 +122,7 @@ export const LoginPage = () => {
                     </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                    <div className="flex items-center h-5 mt-0.5">
-                        <input
-                            id="terms"
-                            type="checkbox"
-                            checked={acceptedTerms}
-                            onChange={(e) => setAcceptedTerms(e.target.checked)}
-                            className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 bg-white"
-                            required
-                        />
-                    </div>
-                    <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
-                        Acepto los{' '}
-                        <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
-                            Términos y Condiciones
-                        </Link>
-                        {' '}y Política de Privacidad.
-                    </label>
-                </div>
-
-                {loginMutation.isError && (
+                {loginMutation.isError && loginMutation.error.message !== 'MUST_CHANGE_PASSWORD' && (
                     <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
                         <span>⚠️</span>
                         <span>{loginMutation.error instanceof Error ? loginMutation.error.message : 'Error al iniciar sesión'}</span>

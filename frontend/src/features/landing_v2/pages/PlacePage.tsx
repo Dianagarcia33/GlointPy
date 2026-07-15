@@ -178,7 +178,7 @@ export function PlacePage() {
             >
               Explorar catálogo
             </button>
-            <button onClick={() => { navigate('/nosotros'); window.scrollTo({ top: 0 }); }} className="px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90" style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "rgba(255,255,255,0.06)" }}>Ver GLOINT Investment</button>
+            <button onClick={() => { navigate('/about'); window.scrollTo({ top: 0 }); }} className="px-8 py-4 rounded-xl font-bold transition-all hover:opacity-90" style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#fff", background: "rgba(255,255,255,0.06)" }}>Ver GLOINT Investment</button>
           </div>
         </div>
       </section>

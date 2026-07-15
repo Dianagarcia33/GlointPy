@@ -11,8 +11,10 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el código fuente
+# Copiar el código fuente y archivos de migración
 COPY src/ ./src/
+COPY alembic/ ./alembic/
+COPY alembic.ini .
 
 # Exponer el puerto
 EXPOSE 8000
