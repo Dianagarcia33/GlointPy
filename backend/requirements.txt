@@ -20,3 +20,4 @@ greenlet
 boto3
 opencv-python-headless
 resend
+aiofiles==23.2.1
