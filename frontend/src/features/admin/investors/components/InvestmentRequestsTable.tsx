@@ -406,68 +406,55 @@ export const InvestmentRequestsTable = () => {
 
               {selectedRequestToReview.extra_data && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {selectedRequestToReview.extra_data.personal_info && (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Información Personal</h4>
-                      <div className="space-y-2 text-sm">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Información Adicional</h4>
+                    <div className="space-y-2 text-sm">
+                      {selectedRequestToReview.extra_data.tipo_documento && (
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Documento:</span>
-                          <span className="font-medium">{selectedRequestToReview.extra_data.personal_info.tipo_documento} {selectedRequestToReview.extra_data.personal_info.numero_documento}</span>
+                          <span className="text-slate-500">Tipo Documento:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.tipo_documento}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Teléfono:</span>
-                          <span className="font-medium">{selectedRequestToReview.extra_data.personal_info.telefono}</span>
-                        </div>
+                      )}
+                      {selectedRequestToReview.extra_data.ciudad && (
                         <div className="flex justify-between">
                           <span className="text-slate-500">Ciudad:</span>
-                          <span className="font-medium">{selectedRequestToReview.extra_data.personal_info.ciudad}, {selectedRequestToReview.extra_data.personal_info.pais}</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.ciudad}</span>
                         </div>
+                      )}
+                      {selectedRequestToReview.extra_data.fecha_nacimiento && (
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Dirección:</span>
-                          <span className="font-medium">{selectedRequestToReview.extra_data.personal_info.direccion}</span>
+                          <span className="text-slate-500">Fecha Nacimiento:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.fecha_nacimiento}</span>
                         </div>
-                      </div>
+                      )}
+                      {selectedRequestToReview.extra_data.contract_period_id && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Periodo de Contrato (ID):</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.contract_period_id}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-
-                  {selectedRequestToReview.extra_data.bank_info && (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Información Bancaria</h4>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Banco:</span>
-                          <span className="font-medium">{selectedRequestToReview.extra_data.bank_info.banco}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Tipo de Cuenta:</span>
-                          <span className="font-medium">{selectedRequestToReview.extra_data.bank_info.tipo_cuenta}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Número de Cuenta:</span>
-                          <span className="font-medium">{selectedRequestToReview.extra_data.bank_info.numero_cuenta}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {selectedRequestToReview.extra_data && selectedRequestToReview.extra_data.kyc_docs && Object.keys(selectedRequestToReview.extra_data.kyc_docs).length > 0 && (
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos KYC Adjuntos</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(selectedRequestToReview.extra_data.kyc_docs).map(([key, path]) => (
-                      <a 
-                        key={key} 
-                        href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${path}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs bg-brand-50 hover:bg-brand-100 text-brand-700 px-3 py-2 rounded-lg font-medium transition-colors border border-brand-200"
-                      >
-                        {key}
-                      </a>
-                    ))}
                   </div>
+
+                  {selectedRequestToReview.extra_data.kyc_docs && Array.isArray(selectedRequestToReview.extra_data.kyc_docs) && selectedRequestToReview.extra_data.kyc_docs.length > 0 && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos KYC Adjuntos</h4>
+                      <div className="flex flex-col gap-2">
+                        {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => (
+                          <a 
+                            key={index} 
+                            href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${path.startsWith('/') ? path : '/' + path}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs bg-white hover:bg-brand-50 text-brand-700 px-3 py-2 rounded-lg font-medium transition-colors border border-slate-200 hover:border-brand-300 flex items-center justify-between"
+                          >
+                            <span className="truncate max-w-[200px]">Documento {index + 1}</span>
+                            <span className="text-[10px] text-slate-400">Ver</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
