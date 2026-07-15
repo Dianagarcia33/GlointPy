@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getInvestmentRequests, InvestmentRequest } from '../../../../services/investment_requests';
-import { Loader2, Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
+import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const InvestmentRequestsTableSkeleton = () => {
@@ -44,6 +44,37 @@ export const InvestmentRequestsTable = () => {
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleApprove = async (id: number) => {
+    try {
+      setIsProcessing(true);
+      await approveInvestmentRequest(id);
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error al aprobar');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectingId || !rejectionReason.trim()) return;
+    try {
+      setIsProcessing(true);
+      await rejectInvestmentRequest(rejectingId, rejectionReason);
+      setRejectingId(null);
+      setRejectionReason('');
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error al rechazar');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const toggleRow = (id: number) => {
     setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -142,6 +173,9 @@ export const InvestmentRequestsTable = () => {
                 <th className="px-6 py-4">Monto</th>
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Fecha Solicitud</th>
+                <Can permission="admin.investments.manage">
+                  <th className="px-6 py-4 text-right">Acciones</th>
+                </Can>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -149,7 +183,7 @@ export const InvestmentRequestsTable = () => {
                 <InvestmentRequestsTableSkeleton />
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay solicitudes de inversión registradas.</p>
@@ -193,12 +227,36 @@ export const InvestmentRequestsTable = () => {
                       <td className="px-6 py-4 text-xs text-slate-500">
                         {request.created_at ? new Date(request.created_at).toLocaleDateString() : '-'}
                       </td>
+                      <Can permission="admin.investments.manage">
+                        <td className="px-6 py-4 text-right">
+                          {request.status === 'pending' && (
+                            <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={() => handleApprove(request.id)}
+                                disabled={isProcessing}
+                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                title="Aprobar"
+                              >
+                                <CheckCircle className="w-5 h-5" />
+                              </button>
+                              <button 
+                                onClick={() => setRejectingId(request.id)}
+                                disabled={isProcessing}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Rechazar"
+                              >
+                                <XCircle className="w-5 h-5" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </Can>
                     </tr>
                     
                     {/* Expanded Details Row */}
                     {expandedRows[request.id] && (
                       <tr className="bg-slate-50/50">
-                        <td colSpan={7} className="px-6 py-4 border-t border-slate-100">
+                        <td colSpan={8} className="px-6 py-4 border-t border-slate-100">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
                             
                             {/* Fechas */}
@@ -288,6 +346,37 @@ export const InvestmentRequestsTable = () => {
           </div>
         </div>
       </div>
+
+      {/* Rejection Modal */}
+      {rejectingId && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Rechazar Solicitud</h3>
+            <p className="text-sm text-slate-500 mb-4">Ingresa el motivo por el cual rechazas esta solicitud. El usuario podrá ver este motivo.</p>
+            <textarea
+              className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-none h-24 mb-4"
+              placeholder="Ej: El comprobante no es legible"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setRejectingId(null); setRejectionReason(''); }}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={isProcessing || !rejectionReason.trim()}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Rechazo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

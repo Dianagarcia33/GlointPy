@@ -225,3 +225,83 @@ class InvestmentRequestService:
             success_count = 0
             
         return {"success": success_count, "errors": errors}
+
+    @staticmethod
+    async def approve_request(db: AsyncSession, request_id: int, user_id: int) -> InvestmentRequest:
+        import random
+        from src.models.investor import Investor
+        from src.models.period import Period
+        from fastapi import HTTPException
+
+        # 1. Fetch request
+        result = await db.execute(
+            select(InvestmentRequest)
+            .where(InvestmentRequest.id == request_id)
+        )
+        req = result.scalars().first()
+        if not req:
+            raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+
+        if req.status == InvestmentRequestStatus.approved:
+            raise HTTPException(status_code=400, detail="La solicitud ya fue aprobada")
+
+        # 2. Update request status
+        req.status = InvestmentRequestStatus.approved
+        req.reviewed_by = user_id
+        req.reviewed_at = datetime.utcnow()
+
+        # 3. Create Investor automatically
+        if not req.investor_id:
+            period_id = None
+            if req.extra_data and isinstance(req.extra_data, dict):
+                period_id = req.extra_data.get("contract_period_id")
+
+            if not period_id:
+                # Get the first period as fallback
+                period_res = await db.execute(select(Period).limit(1))
+                period = period_res.scalars().first()
+                if period:
+                    period_id = period.id
+                else:
+                    raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
+
+            code = f"INV-{req.user_id}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{random.randint(10, 99)}"
+            
+            investor = Investor(
+                assigned_code=code,
+                user_id=req.user_id,
+                package_id=req.paquete_inversion_id,
+                period_id=period_id,
+                start_date=datetime.utcnow()
+            )
+            db.add(investor)
+            await db.flush()
+            
+            req.investor_id = investor.id
+            
+        await db.commit()
+        await db.refresh(req)
+        return req
+
+    @staticmethod
+    async def reject_request(db: AsyncSession, request_id: int, user_id: int, reason: str) -> InvestmentRequest:
+        from fastapi import HTTPException
+        result = await db.execute(
+            select(InvestmentRequest)
+            .where(InvestmentRequest.id == request_id)
+        )
+        req = result.scalars().first()
+        if not req:
+            raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+
+        if req.status == InvestmentRequestStatus.rejected:
+            raise HTTPException(status_code=400, detail="La solicitud ya fue rechazada")
+
+        req.status = InvestmentRequestStatus.rejected
+        req.rejection_reason = reason
+        req.reviewed_by = user_id
+        req.reviewed_at = datetime.utcnow()
+
+        await db.commit()
+        await db.refresh(req)
+        return req

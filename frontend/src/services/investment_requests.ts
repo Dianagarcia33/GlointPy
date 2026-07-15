@@ -45,3 +45,16 @@ export const bulkUploadInvestmentRequests = async (file: File) => {
   
   return response;
 };
+
+export const approveInvestmentRequest = async (id: number) => {
+  return await fetchApi(`/investment-requests/${id}/approve`, {
+    method: 'POST',
+  });
+};
+
+export const rejectInvestmentRequest = async (id: number, reason: string) => {
+  return await fetchApi(`/investment-requests/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ rejection_reason: reason })
+  });
+};
