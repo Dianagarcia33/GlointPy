@@ -1,7 +1,8 @@
-export const formatCurrency = (amount: number) => {
+export const formatCurrency = (amount: number, showDecimals: boolean = false) => {
     return new Intl.NumberFormat('es-CO', {
         style: 'currency',
         currency: 'COP',
-        maximumFractionDigits: 0
+        minimumFractionDigits: showDecimals ? 2 : 0,
+        maximumFractionDigits: showDecimals ? 2 : 0
     }).format(amount);
 };

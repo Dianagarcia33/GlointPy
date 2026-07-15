@@ -3,26 +3,29 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchApi } from '../../../services/api';
 import { formatCurrency } from '../../../utils/format';
 import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle } from 'lucide-react';
+import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
 
 export const InvestmentDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [inv, setInv] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+
+    const loadDetails = async () => {
+        try {
+            const data = await fetchApi(`/investments/${id}`);
+            setInv(data);
+        } catch (err) {
+            console.error("Error loading investment:", err);
+            alert("Error al cargar los detalles de la inversión");
+            navigate('/dashboard');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const loadDetails = async () => {
-            try {
-                const data = await fetchApi(`/investments/${id}`);
-                setInv(data);
-            } catch (err) {
-                console.error("Error loading investment:", err);
-                alert("Error al cargar los detalles de la inversión");
-                navigate('/dashboard');
-            } finally {
-                setLoading(false);
-            }
-        };
         loadDetails();
     }, [id, navigate]);
 
@@ -41,25 +44,23 @@ export const InvestmentDetailPage = () => {
         ? { label: 'Activo', classes: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
         : { label: 'Finalizado', classes: 'bg-slate-100 text-slate-600 border-slate-200' };
 
-    const handleWithdrawCapital = async () => {
-        if (!window.confirm(`¿Estás seguro que deseas solicitar el retiro de ${formatCurrency(inv.capital_disponible)} de tu capital liberado?`)) return;
-        
-        try {
-            const res = await fetchApi(`/investments/${inv.id}/withdraw-capital`, { method: 'POST' });
-            alert(res.message);
-            // Refresh
-            const data = await fetchApi(`/investments/${id}`);
-            setInv(data);
-        } catch (err: any) {
-            alert(err.message || "Error al solicitar el retiro");
-        }
-    };
-
     const progressPct = inv.dias_contrato > 0 ? Math.min(100, Math.max(0, (inv.dias_transcurridos / inv.dias_contrato) * 100)) : 0;
     const daysLeft = Math.max(0, inv.dias_contrato - inv.dias_transcurridos);
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-12">
+            <CapitalWithdrawalModal
+                isOpen={isWithdrawModalOpen}
+                onClose={() => setIsWithdrawModalOpen(false)}
+                onSuccess={() => {
+                    setIsWithdrawModalOpen(false);
+                    alert("¡Retiro solicitado con éxito!");
+                    loadDetails();
+                }}
+                investmentId={inv.id}
+                montoDisponible={inv.capital_disponible}
+                bankInfo={inv.bank_info}
+            />
             {/* Header / Back */}
             <div className="flex items-center gap-4 cursor-pointer text-slate-500 hover:text-slate-800 transition-colors" onClick={() => navigate(-1)}>
                 <ArrowLeft className="w-5 h-5" />
@@ -118,7 +119,7 @@ export const InvestmentDetailPage = () => {
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-slate-600 font-medium">Rendimiento Diario</span>
-                                    <span className="font-bold text-emerald-600">+{formatCurrency(inv.liquidacion_diaria_rendimiento)}</span>
+                                    <span className="font-bold text-emerald-600">+{formatCurrency(inv.liquidacion_diaria_rendimiento, true)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm pt-2 border-t border-slate-100">
                                     <span className="text-slate-900 font-bold">Total Retorno Estimado</span>
@@ -167,7 +168,7 @@ export const InvestmentDetailPage = () => {
                             </div>
 
                             <button 
-                                onClick={handleWithdrawCapital}
+                                onClick={() => setIsWithdrawModalOpen(true)}
                                 disabled={inv.capital_disponible <= 0}
                                 className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
                                     inv.capital_disponible > 0 

@@ -226,6 +226,19 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         .order_by(desc(ContractHistory.created_at))
     )
     history_records = h_res.scalars().all()
+    
+    from src.models.user_bank_account import UserBankAccount
+    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
+    bank = bank_res.scalars().first()
+    bank_info = None
+    if bank:
+        bank_info = {
+            "banco": bank.banco,
+            "tipo_cuenta": bank.tipo_cuenta,
+            "numero_cuenta": bank.numero_cuenta
+        }
+
+    # History
     history = []
     for h in history_records:
         history.append({
@@ -323,20 +336,27 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "can_upgrade": can_upgrade,
         "movements": movements,
         "history": history,
-        "projection": projection_table
+        "projection": projection_table,
+        "bank_info": bank_info
     }
     return inv
 
 
-@router.post("/{investment_id}/withdraw-capital")
-async def withdraw_investment_capital(investment_id: int, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+class WithdrawCapitalConfirmRequest(BaseModel):
+    code: str
+
+@router.post("/{investment_id}/withdraw-capital/send-code")
+async def send_investment_withdrawal_code(investment_id: int, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
-    Withdraw available released capital for an investment to a registered bank account.
+    Send a 6-digit verification code to the user's email for capital withdrawal.
     """
+    from src.models.user_bank_account import UserBankAccount
+    from src.models.withdrawal_verification_code import WithdrawalVerificationCode
+    from src.services.email_service import EmailService
     from dateutil.relativedelta import relativedelta
-    from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
-    from src.models.bank_account import BankAccount
-    from fastapi import HTTPException
+    from src.models.withdrawal import Withdrawal
+    import random
+    from datetime import timedelta
     
     # 1. Fetch Investor
     inv_res = await db.execute(
@@ -349,7 +369,7 @@ async def withdraw_investment_capital(investment_id: int, current_user = Depends
         raise HTTPException(status_code=404, detail="Inversión no encontrada")
         
     # 2. Check Bank Account
-    bank_res = await db.execute(select(BankAccount).where(BankAccount.user_id == current_user.id, BankAccount.is_active == True))
+    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
     bank_account = bank_res.scalars().first()
     
     if not bank_account:
@@ -388,7 +408,161 @@ async def withdraw_investment_capital(investment_id: int, current_user = Depends
     if capital_disponible <= 0:
         raise HTTPException(status_code=400, detail="No tienes capital disponible para retirar en este momento.")
         
-    # 4. Create Withdrawal (Tax 3.2%)
+    # Invalidate previous codes
+    await db.execute(
+        WithdrawalVerificationCode.__table__.update()
+        .where(WithdrawalVerificationCode.user_id == current_user.id)
+        .where(WithdrawalVerificationCode.is_used == False)
+        .values(is_used=True)
+    )
+    
+    code = f"{random.randint(100000, 999999)}"
+    expires_at = datetime.utcnow() + timedelta(minutes=10)
+    
+    new_code = WithdrawalVerificationCode(
+        user_id=current_user.id,
+        code=code,
+        expires_at=expires_at,
+        is_used=False
+    )
+    db.add(new_code)
+    await db.commit()
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Código de Verificación - Retiro de Capital</title>
+        <style>
+            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 0; background-color: #f7f9fc; }}
+            .container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+            .header {{ background-color: #6366f1; padding: 30px; text-align: center; }}
+            .header h1 {{ margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }}
+            .content {{ padding: 40px 30px; }}
+            .code-box {{ background-color: #f0fdf4; border: 2px dashed #22c55e; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0; }}
+            .code {{ font-size: 36px; font-weight: bold; color: #166534; letter-spacing: 5px; margin: 0; }}
+            .footer {{ background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; }}
+            .footer p {{ margin: 0; color: #64748b; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Retiro de Capital - Gloint</h1>
+            </div>
+            <div class="content">
+                <p>Hola <strong>{current_user.nombre}</strong>,</p>
+                <p>Has solicitado retirar capital disponible de tu inversión <strong>#{inv_record.id}</strong>.</p>
+                <p>Para confirmar y procesar esta solicitud, por favor ingresa el siguiente código de 6 dígitos en la plataforma:</p>
+                <div class="code-box">
+                    <p class="code">{code}</p>
+                </div>
+                <p style="font-size: 14px; color: #64748b; text-align: center;">Este código expirará en 10 minutos por razones de seguridad.</p>
+                <p style="margin-top: 30px;">Si no has solicitado este retiro, por favor ignora este correo y contacta a soporte inmediatamente.</p>
+            </div>
+            <div class="footer">
+                <p>&copy; {datetime.now().year} Gloint. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    await EmailService.send_email(
+        to_email=current_user.email,
+        subject="Código de Verificación - Retiro de Capital Gloint",
+        html_content=html_content
+    )
+    
+    return {"message": "Código enviado al correo"}
+
+
+@router.post("/{investment_id}/withdraw-capital")
+async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalConfirmRequest, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Verify code and withdraw available released capital for an investment to a registered bank account.
+    """
+    from dateutil.relativedelta import relativedelta
+    from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
+    from src.models.user_bank_account import UserBankAccount
+    from src.models.withdrawal_verification_code import WithdrawalVerificationCode
+    from fastapi import HTTPException
+    from datetime import datetime, timedelta
+    
+    # 1. Check Verification Code
+    code_res = await db.execute(
+        select(WithdrawalVerificationCode)
+        .where(
+            WithdrawalVerificationCode.user_id == current_user.id,
+            WithdrawalVerificationCode.code == req.code,
+            WithdrawalVerificationCode.is_used == False
+        )
+    )
+    verification = code_res.scalars().first()
+    
+    if not verification:
+        raise HTTPException(status_code=400, detail="Código inválido o ya utilizado")
+        
+    # Check expiration (make both naive or both aware to compare safely)
+    expires_at = verification.expires_at.replace(tzinfo=None) if verification.expires_at.tzinfo else verification.expires_at
+    if expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="El código de verificación ha expirado")
+        
+    # Mark code as used
+    verification.is_used = True
+    
+    # 2. Fetch Investor
+    inv_res = await db.execute(
+        select(Investor)
+        .options(selectinload(Investor.package), selectinload(Investor.period))
+        .where(Investor.id == investment_id, Investor.user_id == current_user.id)
+    )
+    inv_record = inv_res.scalars().first()
+    if not inv_record:
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+        
+    # 3. Check Bank Account
+    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
+    bank_account = bank_res.scalars().first()
+    
+    if not bank_account:
+        raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa configurada. Por favor, añádela en tu perfil.")
+        
+    # 4. Calculate Available Capital
+    today = date.today()
+    fecha_ingreso = inv_record.start_date
+    dias_contrato = 0
+    dias_transcurridos = 0
+    if fecha_ingreso and inv_record.period:
+        fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
+        dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+        diffTime = (today - fecha_ingreso.date()).days
+        dias_transcurridos = diffTime if diffTime > 0 else 0
+
+    monto = float(inv_record.package.value) if inv_record.package else 0
+    capital_diario = monto / dias_contrato if dias_contrato > 0 else 0
+    bloques_cumplidos = dias_transcurridos // 60
+    capital_liberado = (capital_diario * 60) * bloques_cumplidos
+    
+    if capital_liberado > monto:
+        capital_liberado = monto
+        
+    w_res = await db.execute(select(Withdrawal).where(Withdrawal.investor_id == investment_id))
+    withdrawals = w_res.scalars().all()
+    
+    capital_retirado = 0
+    for w in withdrawals:
+        w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else w.tipo
+        if w_tipo.lower() == "capital" and w.estado.lower() in ["pendiente", "aprobado", "procesado"]:
+            capital_retirado += float(w.monto)
+            
+    capital_disponible = capital_liberado - capital_retirado
+    
+    if capital_disponible <= 0:
+        raise HTTPException(status_code=400, detail="No tienes capital disponible para retirar en este momento.")
+        
+    # 5. Create Withdrawal (Tax 3.2%)
     tax = capital_disponible * 0.032
     net_amount = capital_disponible - tax
     
