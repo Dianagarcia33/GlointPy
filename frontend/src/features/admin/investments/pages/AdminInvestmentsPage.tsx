@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon } from 'lucide-react';
-import { usersService, User } from '../../../../services/users';
+import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package } from 'lucide-react';
+import { auditService, AuditUser } from '../../../../services/audit';
 
 export const AdminInvestmentsPage: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AuditUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -16,7 +16,7 @@ export const AdminInvestmentsPage: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const usersData = await usersService.getUsers({
+      const usersData = await auditService.getUsers({
         page,
         limit,
         search: search || undefined,
@@ -81,51 +81,90 @@ export const AdminInvestmentsPage: React.FC = () => {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-600">
+              <table className="w-full text-left text-sm text-slate-600 border-collapse">
                 <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
                   <tr>
                     <th className="px-6 py-4">Usuario</th>
-                    <th className="px-6 py-4">Contacto</th>
-                    <th className="px-6 py-4">Estado</th>
-                    <th className="px-6 py-4 text-center">Acción de Auditoría</th>
+                    <th className="px-6 py-4">Billetera</th>
+                    <th className="px-6 py-4">Inversiones (Cruces)</th>
+                    <th className="px-6 py-4 text-center">Acción</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-200">
                   {users.map(user => (
-                    <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
-                              <UserIcon className="w-4 h-4 text-brand-600" />
+                    <React.Fragment key={user.id}>
+                      {/* Fila principal del Usuario */}
+                      <tr className="bg-white hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4 align-top">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0 mt-1">
+                                <UserIcon className="w-4 h-4 text-brand-600" />
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-800">{user.name}</div>
+                              <div className="text-xs text-slate-500 font-mono mt-0.5">{user.email}</div>
+                              {user.document_id && <div className="text-[11px] text-slate-400 mt-0.5">Doc: {user.document_id}</div>}
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-semibold text-slate-800">{user.name}</div>
-                            {user.document_id && <div className="text-xs text-slate-500">Doc: {user.document_id}</div>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm">{user.email}</div>
-                        {user.phone_number && <div className="text-xs text-slate-500">{user.phone_number}</div>}
-                      </td>
-                      <td className="px-6 py-4">
-                        {user.is_active ? (
-                          <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-medium">Activo</span>
-                        ) : (
-                          <span className="text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded text-[10px] font-medium">Inactivo</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <button className="text-xs font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors">
-                          Auditar Datos
-                        </button>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-6 py-4 align-top">
+                          {user.wallet ? (
+                            <div>
+                              <div className="font-semibold text-slate-800">
+                                {Number(user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                              </div>
+                              <div className={`text-[10px] mt-1 font-semibold uppercase ${user.wallet.status === 'active' ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {user.wallet.status}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">Sin billetera</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 align-top">
+                          {user.investments && user.investments.length > 0 ? (
+                            <div className="space-y-3">
+                              {user.investments.map((inv: any) => (
+                                <div key={inv.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="text-xs font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                                      Código: {inv.assigned_code}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      Inicio: {new Date(inv.start_date).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4 text-xs text-slate-600">
+                                    <div className="flex items-center gap-1.5">
+                                      <Package className="w-3.5 h-3.5 text-brand-500" />
+                                      <span className="font-medium">{inv.package?.name || 'Paquete?'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <Calendar className="w-3.5 h-3.5 text-brand-500" />
+                                      <span>{inv.period?.days} días</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-slate-400 italic py-2">
+                              No registra inversiones
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center align-top">
+                          <button className="text-xs font-medium text-brand-600 hover:text-white px-4 py-2 border border-brand-200 bg-brand-50 hover:bg-brand-600 rounded-lg transition-all shadow-sm">
+                            Auditar a Fondo
+                          </button>
+                        </td>
+                      </tr>
+                    </React.Fragment>
                   ))}
                   {users.length === 0 && (
                     <tr>
                       <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                        No se encontraron usuarios.
+                        No se encontraron registros para auditar.
                       </td>
                     </tr>
                   )}
