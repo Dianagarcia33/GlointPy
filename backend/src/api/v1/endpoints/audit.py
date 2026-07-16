@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -17,6 +17,9 @@ from src.schemas.period import PeriodResponse
 from src.schemas.investor import InvestorBase
 from src.schemas.contract_history import ContractHistoryResponse
 from src.schemas.withdrawal import WithdrawalResponse
+from src.schemas.yield_calc import CalculateYieldRequest, YieldCalculationResult, PayYieldRequest
+from src.services.yield_calculator import calculate_investment_yield
+from src.models.wallet import Wallet, WalletTransaction
 from pydantic import computed_field
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
@@ -104,3 +107,68 @@ async def get_audit_users(
         "limit": limit,
         "data": data
     }
+
+@router.post("/investments/{investment_id}/calculate-yield", response_model=YieldCalculationResult, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def preview_investment_yield(
+    investment_id: int,
+    request: CalculateYieldRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(Investor).where(Investor.id == investment_id).options(
+        selectinload(Investor.package),
+        selectinload(Investor.period),
+        selectinload(Investor.withdrawals)
+    )
+    result = await db.execute(query)
+    investment = result.scalar_one_or_none()
+    
+    if not investment:
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+        
+    calc_result = calculate_investment_yield(investment, request.start_date, request.end_date)
+    return calc_result
+
+@router.post("/investments/{investment_id}/pay-yield", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def pay_investment_yield(
+    investment_id: int,
+    request: PayYieldRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(Investor).where(Investor.id == investment_id).options(
+        selectinload(Investor.package),
+        selectinload(Investor.period),
+        selectinload(Investor.withdrawals),
+        selectinload(Investor.user).selectinload(User.wallet)
+    )
+    result = await db.execute(query)
+    investment = result.scalar_one_or_none()
+    
+    if not investment:
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+        
+    calc_result = calculate_investment_yield(investment, request.start_date, request.end_date)
+    
+    if calc_result.total_yield <= 0:
+        raise HTTPException(status_code=400, detail="El rendimiento calculado es 0 o negativo")
+        
+    wallet = investment.user.wallet
+    if not wallet:
+        raise HTTPException(status_code=400, detail="El usuario no tiene una billetera activa")
+        
+    # Update balance
+    wallet.balance += calc_result.total_yield
+    
+    # Create transaction
+    transaction = WalletTransaction(
+        wallet_id=wallet.id,
+        amount=calc_result.total_yield,
+        type="ingreso",
+        reference_type="rendimiento_inversion",
+        reference_id=investment.id,
+        description=f"Rendimiento de inversión {investment.assigned_code} del {calc_result.effective_start_date} al {calc_result.effective_end_date}",
+        balance_after=wallet.balance
+    )
+    db.add(transaction)
+    
+    await db.commit()
+    return {"message": "Pago de rendimiento procesado exitosamente", "amount_paid": calc_result.total_yield}

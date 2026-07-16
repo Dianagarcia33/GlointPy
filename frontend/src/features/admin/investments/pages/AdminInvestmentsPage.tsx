@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { auditService, AuditUser } from '../../../../services/audit';
+import { AuditInvestmentModal } from '../components/AuditInvestmentModal';
 
 export const AdminInvestmentsPage: React.FC = () => {
   const [users, setUsers] = useState<AuditUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Expanded rows state
+  // Expanded rows & Modal state
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
+  const [selectedInvestmentForAudit, setSelectedInvestmentForAudit] = useState<any | null>(null);
 
   // Pagination & Filters
   const [page, setPage] = useState(1);
@@ -204,7 +206,10 @@ export const AdminInvestmentsPage: React.FC = () => {
                                             <div className="text-[10px] text-brand-600 font-semibold mt-1">Historiales: {inv.contract_histories ? inv.contract_histories.length : 0}</div>
                                           </td>
                                           <td className="px-4 py-3 align-middle text-center border-b border-slate-100">
-                                            <button className="text-[10px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 rounded border border-brand-200 transition-colors">
+                                            <button 
+                                              onClick={() => setSelectedInvestmentForAudit(inv)}
+                                              className="text-[10px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 rounded border border-brand-200 transition-colors"
+                                            >
                                               Auditar Inversión
                                             </button>
                                           </td>
@@ -278,27 +283,38 @@ export const AdminInvestmentsPage: React.FC = () => {
             </div>
             
             {/* Pagination Controls */}
-            <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
+            <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <div className="text-sm text-slate-500">
-                Mostrando <span className="font-medium text-slate-700">{users.length}</span> de <span className="font-medium text-slate-700">{total}</span> usuarios
+                Mostrando <span className="font-medium text-slate-800">{users.length}</span> de <span className="font-medium text-slate-800">{total}</span> usuarios
               </div>
               <div className="flex gap-2">
-                <button 
-                  disabled={page === 1}
+                <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                  disabled={page === 1}
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Anterior
                 </button>
-                <button 
-                  disabled={page * limit >= total}
+                <button
                   onClick={() => setPage(p => p + 1)}
-                  className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                  disabled={page * limit >= total}
+                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Siguiente
                 </button>
               </div>
             </div>
+
+            {/* Modals */}
+            <AuditInvestmentModal 
+              isOpen={!!selectedInvestmentForAudit}
+              onClose={() => setSelectedInvestmentForAudit(null)}
+              investment={selectedInvestmentForAudit}
+              onSuccess={() => {
+                setSelectedInvestmentForAudit(null);
+                fetchData(); // Reload data to show updated wallet balance
+              }}
+            />
           </>
         )}
       </div>

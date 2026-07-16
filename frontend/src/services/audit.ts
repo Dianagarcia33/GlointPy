@@ -19,3 +19,41 @@ export const auditService = {
         return await fetchApi(url);
     }
 };
+
+export interface YieldSegment {
+  start_date: string;
+  end_date: string;
+  days: number;
+  active_capital: number;
+  daily_yield: number;
+  segment_yield: number;
+  note: string;
+}
+
+export interface YieldCalculationResult {
+  investment_id: number;
+  requested_start_date: string;
+  requested_end_date: string;
+  effective_start_date: string | null;
+  effective_end_date: string | null;
+  total_days: number;
+  total_yield: number;
+  segments: YieldSegment[];
+}
+
+export interface CalculateYieldPayload {
+  start_date: string;
+  end_date: string;
+}
+
+Object.assign(auditService, {
+  calculateYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<YieldCalculationResult> => {
+    const response = await api.post(`/audit/investments/${investmentId}/calculate-yield`, payload);
+    return response.data;
+  },
+  
+  payYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<{ message: string, amount_paid: number }> => {
+    const response = await api.post(`/audit/investments/${investmentId}/pay-yield`, payload);
+    return response.data;
+  }
+});
