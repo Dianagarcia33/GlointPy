@@ -220,6 +220,9 @@ export const InvestmentRequestsTable = () => {
                           <div className="space-y-0.5">
                             <div className="font-semibold text-slate-800">{request.user.name}</div>
                             <div className="text-xs text-slate-500">{request.user.email}</div>
+                            {request.user.document_id && (
+                              <div className="text-xs text-slate-500">Doc: {request.user.document_id}</div>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-400">Usuario #{request.user_id}</span>
@@ -269,6 +272,19 @@ export const InvestmentRequestsTable = () => {
                         <td colSpan={8} className="px-6 py-4 border-t border-slate-100">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
                             
+                            {/* Usuario */}
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Información del Usuario</h4>
+                              <div className="grid grid-cols-2 gap-2 text-slate-600">
+                                <span className="text-slate-400">Nombre:</span>
+                                <span>{request.user?.name || 'N/A'}</span>
+                                <span className="text-slate-400">Correo:</span>
+                                <span>{request.user?.email || 'N/A'}</span>
+                                <span className="text-slate-400">Documento:</span>
+                                <span>{request.user?.document_id || 'N/A'}</span>
+                              </div>
+                            </div>
+
                             {/* Fechas */}
                             <div className="space-y-3">
                               <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Seguimiento</h4>
@@ -404,6 +420,9 @@ export const InvestmentRequestsTable = () => {
                 <div>
                   <span className="text-xs text-slate-500 block">Usuario</span>
                   <span className="font-semibold text-slate-800">{selectedRequestToReview.user?.name || `ID: ${selectedRequestToReview.user_id}`}</span>
+                  {selectedRequestToReview.user?.document_id && (
+                    <span className="text-xs text-slate-500 block mt-1">Doc: {selectedRequestToReview.user.document_id}</span>
+                  )}
                 </div>
                 <div>
                   <span className="text-xs text-slate-500 block">Monto Solicitado</span>
