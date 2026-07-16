@@ -48,12 +48,16 @@ export interface CalculateYieldPayload {
 
 Object.assign(auditService, {
   calculateYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<YieldCalculationResult> => {
-    const response = await api.post(`/audit/investments/${investmentId}/calculate-yield`, payload);
-    return response.data;
+    return await fetchApi(`/audit/investments/${investmentId}/calculate-yield`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
   },
   
   payYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<{ message: string, amount_paid: number }> => {
-    const response = await api.post(`/audit/investments/${investmentId}/pay-yield`, payload);
-    return response.data;
+    return await fetchApi(`/audit/investments/${investmentId}/pay-yield`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
   }
 });
