@@ -176,38 +176,76 @@ export const AdminInvestmentsPage: React.FC = () => {
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
                                     {user.investments.map(inv => (
-                                      <tr key={inv.id} className="hover:bg-slate-50/50">
-                                        <td className="px-4 py-3 align-top">
-                                          <div className="font-bold text-slate-800">{inv.assigned_code}</div>
-                                          <div className="text-[10px] text-slate-400 mt-0.5">Creado: {new Date(inv.created_at).toLocaleDateString()}</div>
-                                        </td>
-                                        <td className="px-4 py-3 align-top">
-                                          <div className="font-medium text-slate-800">
-                                            {inv.package ? Number(inv.package.value).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }) : 'N/A'}
-                                          </div>
-                                          {inv.package?.granted_shares > 0 && <div className="text-[10px] text-brand-600 mt-0.5">+{inv.package.granted_shares} acciones</div>}
-                                        </td>
-                                        <td className="px-4 py-3 align-top">
-                                          <div className="font-medium text-slate-800">
-                                            {inv.period ? `${inv.period.days} días` : 'N/A'}
-                                          </div>
-                                          {inv.period && <div className="text-[10px] text-slate-500 mt-0.5">{inv.period.percentage}% de rend.</div>}
-                                        </td>
-                                        <td className="px-4 py-3 align-top">
-                                          <div className="text-[10px] text-slate-500"><span className="font-semibold">Inicio:</span> {inv.start_date ? new Date(inv.start_date).toLocaleDateString() : 'N/A'}</div>
-                                          <div className="text-[10px] text-slate-500 mt-0.5"><span className="font-semibold">Fin (Est.):</span> {inv.end_date ? new Date(inv.end_date).toLocaleDateString() : 'N/A'}</div>
-                                        </td>
-                                        <td className="px-4 py-3 align-top max-w-[200px]">
-                                          {inv.referred_by && <div className="text-[10px] text-slate-500"><span className="font-semibold">Referido por:</span> {inv.referred_by}</div>}
-                                          {inv.observations && <div className="text-[10px] text-slate-500 mt-0.5 italic truncate" title={inv.observations}><span className="font-semibold not-italic">Obs:</span> {inv.observations}</div>}
-                                          <div className="text-[10px] text-brand-600 font-semibold mt-1">Historiales: {inv.contract_histories ? inv.contract_histories.length : 0}</div>
-                                        </td>
-                                        <td className="px-4 py-3 align-middle text-center">
-                                          <button className="text-[10px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 rounded border border-brand-200 transition-colors">
-                                            Auditar Inversión
-                                          </button>
-                                        </td>
-                                      </tr>
+                                      <React.Fragment key={inv.id}>
+                                        <tr className="hover:bg-slate-50/50">
+                                          <td className="px-4 py-3 align-top border-b border-slate-100">
+                                            <div className="font-bold text-slate-800">{inv.assigned_code}</div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5">Creado: {new Date(inv.created_at).toLocaleDateString()}</div>
+                                          </td>
+                                          <td className="px-4 py-3 align-top border-b border-slate-100">
+                                            <div className="font-medium text-slate-800">
+                                              {inv.package ? Number(inv.package.value).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }) : 'N/A'}
+                                            </div>
+                                            {inv.package?.granted_shares > 0 && <div className="text-[10px] text-brand-600 mt-0.5">+{inv.package.granted_shares} acciones</div>}
+                                          </td>
+                                          <td className="px-4 py-3 align-top border-b border-slate-100">
+                                            <div className="font-medium text-slate-800">
+                                              {inv.period ? `${inv.period.days} días` : 'N/A'}
+                                            </div>
+                                            {inv.period && <div className="text-[10px] text-slate-500 mt-0.5">{inv.period.percentage}% de rend.</div>}
+                                          </td>
+                                          <td className="px-4 py-3 align-top border-b border-slate-100">
+                                            <div className="text-[10px] text-slate-500"><span className="font-semibold">Inicio:</span> {inv.start_date ? new Date(inv.start_date).toLocaleDateString() : 'N/A'}</div>
+                                            <div className="text-[10px] text-slate-500 mt-0.5"><span className="font-semibold">Fin (Est.):</span> {inv.end_date ? new Date(inv.end_date).toLocaleDateString() : 'N/A'}</div>
+                                          </td>
+                                          <td className="px-4 py-3 align-top max-w-[200px] border-b border-slate-100">
+                                            {inv.referred_by && <div className="text-[10px] text-slate-500"><span className="font-semibold">Referido por:</span> {inv.referred_by}</div>}
+                                            {inv.observations && <div className="text-[10px] text-slate-500 mt-0.5 italic truncate" title={inv.observations}><span className="font-semibold not-italic">Obs:</span> {inv.observations}</div>}
+                                            <div className="text-[10px] text-brand-600 font-semibold mt-1">Historiales: {inv.contract_histories ? inv.contract_histories.length : 0}</div>
+                                          </td>
+                                          <td className="px-4 py-3 align-middle text-center border-b border-slate-100">
+                                            <button className="text-[10px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 rounded border border-brand-200 transition-colors">
+                                              Auditar Inversión
+                                            </button>
+                                          </td>
+                                        </tr>
+                                        {/* Retiros de Capital para esta inversión */}
+                                        {inv.withdrawals && inv.withdrawals.filter((w: any) => w.tipo === 'capital').length > 0 && (
+                                          <tr className="bg-slate-50/30">
+                                            <td colSpan={6} className="px-4 py-3 border-b border-slate-100">
+                                              <div className="pl-4 border-l-2 border-amber-300">
+                                                <h4 className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                                                  Retiros de Capital ({inv.withdrawals.filter((w: any) => w.tipo === 'capital').length})
+                                                </h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                  {inv.withdrawals.filter((w: any) => w.tipo === 'capital').map((w: any) => (
+                                                    <div key={w.id} className="bg-white border border-slate-200 rounded p-2.5 text-[10px] shadow-sm hover:shadow transition-shadow">
+                                                      <div className="flex justify-between items-center mb-1.5">
+                                                        <span className="font-semibold text-slate-700">{new Date(w.fecha_solicitud).toLocaleDateString()}</span>
+                                                        <span className={`px-1.5 py-0.5 rounded font-medium uppercase text-[9px] ${w.estado === 'procesado' || w.estado === 'aprobado' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : w.estado === 'rechazado' || w.estado === 'cancelado' ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                                                          {w.estado}
+                                                        </span>
+                                                      </div>
+                                                      <div className="flex justify-between items-end">
+                                                        <div className="text-slate-500">
+                                                          <div className="font-semibold text-slate-800 text-xs">{Number(w.monto_neto).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</div>
+                                                          <div className="mt-0.5 truncate max-w-[120px]" title={w.metodo_pago ? `${w.metodo_pago} - ${w.banco || ''} ${w.numero_cuenta || ''}` : ''}>
+                                                            {w.metodo_pago ? `${w.metodo_pago} - ${w.banco || ''}` : 'Sin método de pago'}
+                                                          </div>
+                                                        </div>
+                                                        <button className="text-brand-600 hover:text-brand-700 font-medium bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded transition-colors">
+                                                          Ver
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </React.Fragment>
                                     ))}
                                   </tbody>
                                 </table>

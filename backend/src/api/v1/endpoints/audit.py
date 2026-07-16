@@ -16,6 +16,7 @@ from src.schemas.package import PackageResponse
 from src.schemas.period import PeriodResponse
 from src.schemas.investor import InvestorBase
 from src.schemas.contract_history import ContractHistoryResponse
+from src.schemas.withdrawal import WithdrawalResponse
 from pydantic import computed_field
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
@@ -27,6 +28,7 @@ class SimpleInvestorAuditResponse(InvestorBase):
     package: Optional[PackageResponse] = None
     period: Optional[PeriodResponse] = None
     contract_histories: Optional[list[ContractHistoryResponse]] = None
+    withdrawals: Optional[list[WithdrawalResponse]] = None
 
     @computed_field
     @property
@@ -83,12 +85,13 @@ async def get_audit_users(
     
     offset = (page - 1) * limit
     
-    # Load wallet and investments with their packages, periods, and contract histories
+    # Load wallet and investments with their packages, periods, contract histories, and withdrawals
     query = query.options(
         selectinload(User.wallet),
         selectinload(User.investments).selectinload(Investor.package),
         selectinload(User.investments).selectinload(Investor.period),
-        selectinload(User.investments).selectinload(Investor.contract_histories)
+        selectinload(User.investments).selectinload(Investor.contract_histories),
+        selectinload(User.investments).selectinload(Investor.withdrawals)
     )
     
     query = query.order_by(User.id.desc()).offset(offset).limit(limit)
