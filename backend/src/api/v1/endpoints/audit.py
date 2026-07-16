@@ -20,6 +20,7 @@ from src.schemas.withdrawal import WithdrawalResponse
 from src.schemas.yield_calc import CalculateYieldRequest, YieldCalculationResult, PayYieldRequest, UserYieldCalculationResult, PayUserYieldRequest
 from src.services.yield_calculator import calculate_investment_yield
 from src.models.wallet import Wallet, WalletTransaction
+from src.models.withdrawal import Withdrawal
 from pydantic import computed_field
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
@@ -94,7 +95,7 @@ async def get_audit_users(
         selectinload(User.investments).selectinload(Investor.package),
         selectinload(User.investments).selectinload(Investor.period),
         selectinload(User.investments).selectinload(Investor.contract_histories),
-        selectinload(User.investments).selectinload(Investor.withdrawals)
+        selectinload(User.investments).selectinload(Investor.withdrawals).selectinload(Withdrawal.user)
     )
     
     query = query.order_by(User.id.desc()).offset(offset).limit(limit)
