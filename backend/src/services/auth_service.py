@@ -27,13 +27,18 @@ class AuthService:
         if user.locked_until and user.locked_until > datetime.datetime.utcnow():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Correo o contraseña incorrectos",
+                detail="Tu cuenta está bloqueada temporalmente por múltiples intentos fallidos. Intenta de nuevo más tarde.",
             )
             
         if not verify_password(login_data.password, user.password_hash):
             user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
             if user.failed_login_attempts >= 5:
                 user.locked_until = datetime.datetime.utcnow() + timedelta(minutes=15)
+                await db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Tu cuenta ha sido bloqueada temporalmente por múltiples intentos fallidos. Intenta de nuevo en 15 minutos.",
+                )
             await db.commit()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
