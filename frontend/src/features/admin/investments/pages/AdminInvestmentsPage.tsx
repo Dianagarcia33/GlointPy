@@ -54,7 +54,7 @@ export const AdminInvestmentsPage: React.FC = () => {
   const handleCreateWallet = async (userId: number) => {
     setIsCreatingWallet(userId);
     try {
-      await auditService.createWallet(userId);
+      await (auditService as any).createWallet(userId);
       await fetchData(); // Refresh the data to show the new wallet
     } catch (err: any) {
       alert(err.message || 'Error al crear la billetera');
