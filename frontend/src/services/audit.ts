@@ -41,6 +41,14 @@ export interface YieldCalculationResult {
   segments: YieldSegment[];
 }
 
+export interface UserYieldCalculationResult {
+  user_id: number;
+  requested_start_date: string;
+  requested_end_date: string;
+  total_yield: number;
+  investments_yields: YieldCalculationResult[];
+}
+
 export interface CalculateYieldPayload {
   start_date: string;
   end_date: string;
@@ -56,6 +64,20 @@ Object.assign(auditService, {
   
   payYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<{ message: string, amount_paid: number }> => {
     return await fetchApi(`/audit/investments/${investmentId}/pay-yield`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+  
+  calculateUserYields: async (userId: number, payload: CalculateYieldPayload): Promise<UserYieldCalculationResult> => {
+    return await fetchApi(`/audit/users/${userId}/calculate-yields`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+  
+  payUserYields: async (userId: number, payload: CalculateYieldPayload): Promise<{ message: string, amount_paid: number }> => {
+    return await fetchApi(`/audit/users/${userId}/pay-yields`, {
       method: 'POST',
       body: JSON.stringify(payload)
     });

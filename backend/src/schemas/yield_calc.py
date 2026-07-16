@@ -28,3 +28,13 @@ class YieldCalculationResult(BaseModel):
     
 class PayYieldRequest(CalculateYieldRequest):
     pass
+
+class UserYieldCalculationResult(BaseModel):
+    user_id: int
+    requested_start_date: date
+    requested_end_date: date
+    total_yield: Decimal
+    investments_yields: List[YieldCalculationResult]
+
+class PayUserYieldRequest(CalculateYieldRequest):
+    pass
