@@ -441,6 +441,12 @@ export const InvestmentRequestsTable = () => {
                           <span className="font-medium">{selectedRequestToReview.extra_data.tipo_documento}</span>
                         </div>
                       )}
+                      {(selectedRequestToReview.extra_data.numero_documento || selectedRequestToReview.extra_data.documento || selectedRequestToReview.user?.document_id) && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Documento:</span>
+                          <span className="font-medium">{selectedRequestToReview.extra_data.numero_documento || selectedRequestToReview.extra_data.documento || selectedRequestToReview.user?.document_id}</span>
+                        </div>
+                      )}
                       {selectedRequestToReview.extra_data.ciudad && (
                         <div className="flex justify-between">
                           <span className="text-slate-500">Ciudad:</span>
