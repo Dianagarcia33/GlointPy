@@ -194,11 +194,10 @@ async def preview_user_yields(
     total_yield = 0
     
     for investment in user.investments:
-        if investment.estado == 'activo' or investment.estado == 'finalizado':
-            calc_result = calculate_investment_yield(investment, request.start_date, request.end_date)
-            if calc_result.total_yield > 0 or len(calc_result.segments) > 0:
-                investments_yields.append(calc_result)
-                total_yield += calc_result.total_yield
+        calc_result = calculate_investment_yield(investment, request.start_date, request.end_date)
+        if calc_result.total_yield > 0 or len(calc_result.segments) > 0:
+            investments_yields.append(calc_result)
+            total_yield += calc_result.total_yield
             
     return UserYieldCalculationResult(
         user_id=user_id,
@@ -233,24 +232,23 @@ async def pay_user_yields(
     total_yield = 0
     
     for investment in user.investments:
-        if investment.estado == 'activo' or investment.estado == 'finalizado':
-            calc_result = calculate_investment_yield(investment, request.start_date, request.end_date)
-            if calc_result.total_yield > 0:
-                investments_yields.append(calc_result)
-                total_yield += calc_result.total_yield
-                
-                # Create a transaction for EACH investment
-                transaction = WalletTransaction(
-                    wallet_id=user.wallet.id,
-                    amount=calc_result.total_yield,
-                    type="ingreso",
-                    reference_type="rendimiento_inversion",
-                    reference_id=investment.id,
-                    description=f"Rendimiento del {calc_result.effective_start_date} al {calc_result.effective_end_date} (Inv. {investment.assigned_code})",
-                    # We will update balance incrementally or once at the end.
-                    balance_after=0 # Placeholder, we will fix below
-                )
-                db.add(transaction)
+        calc_result = calculate_investment_yield(investment, request.start_date, request.end_date)
+        if calc_result.total_yield > 0:
+            investments_yields.append(calc_result)
+            total_yield += calc_result.total_yield
+            
+            # Create a transaction for EACH investment
+            transaction = WalletTransaction(
+                wallet_id=user.wallet.id,
+                amount=calc_result.total_yield,
+                type="ingreso",
+                reference_type="rendimiento_inversion",
+                reference_id=investment.id,
+                description=f"Rendimiento del {calc_result.effective_start_date} al {calc_result.effective_end_date} (Inv. {investment.assigned_code})",
+                # We will update balance incrementally or once at the end.
+                balance_after=0 # Placeholder, we will fix below
+            )
+            db.add(transaction)
                 
     if total_yield <= 0:
         raise HTTPException(status_code=400, detail="No hay rendimientos para pagar en este ciclo")
