@@ -96,14 +96,19 @@ def calculate_investment_yield(
         seg_start = segment_dates[i]
         # End of this segment is either the day before the next segment_start, or eff_end
         if i + 1 < len(segment_dates):
-            seg_end = segment_dates[i+1] - timedelta(days=1)
+            seg_end = segment_dates[i+1]
         else:
             seg_end = eff_end
             
         if seg_start > seg_end:
             continue
             
-        days_in_seg = (seg_end - seg_start).days + 1
+        days_in_seg = (seg_end - seg_start).days
+        if days_in_seg == 0 and len(segment_dates) == 1:
+            # If the user selects the exact same day for start and end, and there's no other segments, 
+            # we can either return 0 or 1. Usually today - today = 0 yield.
+            pass
+            
         active_cap = get_active_capital_at(seg_start)
         
         # Calculate daily yield
@@ -121,6 +126,9 @@ def calculate_investment_yield(
             rendimiento_mensual = active_cap * pct
             rendimiento_total = rendimiento_mensual * months
             daily_yield = rendimiento_total / p_days
+            
+        if days_in_seg == 0 and len(segment_dates) > 1:
+            continue
             
         seg_yield = daily_yield * Decimal(str(days_in_seg))
         
