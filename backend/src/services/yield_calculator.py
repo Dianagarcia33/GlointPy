@@ -27,7 +27,15 @@ def calculate_investment_yield(
             segments=[]
         )
         
-    contract_end_date = inv_start + timedelta(days=investment.period.days)
+    total_contract_days = investment.period.days
+    
+    # Subtract days from applied accelerations
+    if hasattr(investment, 'accelerations') and investment.accelerations:
+        for acc in investment.accelerations:
+            if acc.applied:
+                total_contract_days -= float(acc.days_to_reduce)
+                
+    contract_end_date = inv_start + timedelta(days=int(total_contract_days))
     
     # Effective dates logic
     eff_start = max(requested_start_date, inv_start)

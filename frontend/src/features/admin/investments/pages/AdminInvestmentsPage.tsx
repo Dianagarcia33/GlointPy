@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, FileText, Calculator } from 'lucide-react';
 import { auditService, AuditUser } from '../../../../services/audit';
 import { UserYieldAuditBox } from '../components/UserYieldAuditBox';
+import { UserWalletHistoryBox } from '../components/UserWalletHistoryBox';
 
 export const AdminInvestmentsPage: React.FC = () => {
   const [users, setUsers] = useState<AuditUser[]>([]);
@@ -278,6 +279,8 @@ export const AdminInvestmentsPage: React.FC = () => {
                                 endDate={cycleEndDate}
                                 onSuccess={() => fetchData()}
                               />
+                              
+                              <UserWalletHistoryBox userId={user.id} />
                             </div>
                           </td>
                         </tr>

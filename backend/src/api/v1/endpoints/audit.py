@@ -182,7 +182,8 @@ async def preview_user_yields(
     query = select(User).where(User.id == user_id).options(
         selectinload(User.investments).selectinload(Investor.package),
         selectinload(User.investments).selectinload(Investor.period),
-        selectinload(User.investments).selectinload(Investor.withdrawals)
+        selectinload(User.investments).selectinload(Investor.withdrawals),
+        selectinload(User.investments).selectinload(Investor.accelerations)
     )
     result = await db.execute(query)
     user = result.scalar_one_or_none()
@@ -217,7 +218,8 @@ async def pay_user_yields(
         selectinload(User.wallet),
         selectinload(User.investments).selectinload(Investor.package),
         selectinload(User.investments).selectinload(Investor.period),
-        selectinload(User.investments).selectinload(Investor.withdrawals)
+        selectinload(User.investments).selectinload(Investor.withdrawals),
+        selectinload(User.investments).selectinload(Investor.accelerations)
     )
     result = await db.execute(query)
     user = result.scalar_one_or_none()
@@ -268,3 +270,20 @@ async def pay_user_yields(
     await db.commit()
     
     return {"message": "Pago consolidado procesado exitosamente", "amount_paid": total_yield}
+
+@router.get("/users/{user_id}/wallet-transactions", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def get_user_wallet_transactions(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(User).where(User.id == user_id).options(
+        selectinload(User.wallet).selectinload(Wallet.transactions)
+    )
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+    
+    if not user or not user.wallet:
+        return []
+        
+    transactions = sorted(user.wallet.transactions, key=lambda x: x.created_at, reverse=True)
+    return transactions

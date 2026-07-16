@@ -54,6 +54,18 @@ export interface CalculateYieldPayload {
   end_date: string;
 }
 
+export interface WalletTransaction {
+  id: number;
+  wallet_id: number;
+  amount: number;
+  type: 'ingreso' | 'egreso';
+  reference_type: string;
+  reference_id?: number;
+  description?: string;
+  balance_after: number;
+  created_at: string;
+}
+
 Object.assign(auditService, {
   calculateYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<YieldCalculationResult> => {
     return await fetchApi(`/audit/investments/${investmentId}/calculate-yield`, {
@@ -81,5 +93,9 @@ Object.assign(auditService, {
       method: 'POST',
       body: JSON.stringify(payload)
     });
+  },
+  
+  getWalletTransactions: async (userId: number): Promise<WalletTransaction[]> => {
+    return await fetchApi(`/audit/users/${userId}/wallet-transactions`);
   }
 });
