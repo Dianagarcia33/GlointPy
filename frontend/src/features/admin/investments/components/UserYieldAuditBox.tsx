@@ -103,7 +103,7 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
                     {invYield.segments.map((seg, sIdx) => (
                       <div key={sIdx} className="flex justify-between items-center text-xs text-slate-600 bg-slate-50 p-2 rounded">
                         <div className="flex items-center gap-2">
-                          <span>{new Date(seg.start_date).toLocaleDateString()} <ArrowRight className="inline w-3 h-3" /> {new Date(seg.end_date).toLocaleDateString()}</span>
+                          <span>{new Date(seg.start_date + 'T12:00:00').toLocaleDateString()} <ArrowRight className="inline w-3 h-3" /> {new Date(seg.end_date + 'T12:00:00').toLocaleDateString()}</span>
                           <span className="text-slate-400 italic">({seg.note})</span>
                         </div>
                         <div className="font-mono">
