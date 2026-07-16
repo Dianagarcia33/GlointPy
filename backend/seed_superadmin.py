@@ -51,7 +51,11 @@ async def seed_superadmin():
             await db.commit()
             print(f"Usuario SuperAdmin creado exitosamente. Email: {admin_email} | Password: Admin123!")
         else:
-            print("El usuario admin ya existe en la base de datos.")
+            print(f"Usuario admin ({admin_email}) ya existe. Restaurando contraseña a Admin123!...")
+            admin_user.password_hash = get_password_hash("Admin123!")
+            admin_user.must_change_password = True
+            await db.commit()
+            print("Contraseña restaurada exitosamente.")
 
 if __name__ == "__main__":
     print("Iniciando seeder...")
