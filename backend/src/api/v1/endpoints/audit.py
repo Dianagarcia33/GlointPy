@@ -14,15 +14,26 @@ from src.schemas.user import UserResponse
 from src.schemas.wallet import WalletResponse
 from src.schemas.package import PackageResponse
 from src.schemas.period import PeriodResponse
+from src.schemas.investor import InvestorBase
+from src.schemas.contract_history import ContractHistoryResponse
+from pydantic import computed_field
+from dateutil.relativedelta import relativedelta
 from datetime import datetime
 
-class SimpleInvestorAuditResponse(BaseModel):
+class SimpleInvestorAuditResponse(InvestorBase):
     id: int
-    assigned_code: str
-    start_date: Optional[datetime] = None
     package: Optional[PackageResponse] = None
     period: Optional[PeriodResponse] = None
-    
+    contract_histories: Optional[list[ContractHistoryResponse]] = None
+
+    @computed_field
+    @property
+    def end_date(self) -> datetime:
+        base_date = self.start_date or datetime.utcnow()
+        if not self.period:
+            return base_date
+        return base_date + relativedelta(days=self.period.days)
+
     model_config = ConfigDict(from_attributes=True)
 
 class AuditUserResponse(BaseModel):
@@ -70,11 +81,12 @@ async def get_audit_users(
     
     offset = (page - 1) * limit
     
-    # Load wallet and investments with their packages and periods
+    # Load wallet and investments with their packages, periods, and contract histories
     query = query.options(
         selectinload(User.wallet),
         selectinload(User.investments).selectinload(Investor.package),
-        selectinload(User.investments).selectinload(Investor.period)
+        selectinload(User.investments).selectinload(Investor.period),
+        selectinload(User.investments).selectinload(Investor.contract_histories)
     )
     
     query = query.order_by(User.id.desc()).offset(offset).limit(limit)
