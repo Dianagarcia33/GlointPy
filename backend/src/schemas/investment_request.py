@@ -28,6 +28,7 @@ class SimpleUserResponse(BaseModel):
     id: int
     name: Optional[str] = None
     email: Optional[str] = None
+    document_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class SimplePackageResponse(BaseModel):
