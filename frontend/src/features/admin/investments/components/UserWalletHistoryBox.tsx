@@ -10,7 +10,7 @@ export const UserWalletHistoryBox: React.FC<{ userId: number }> = ({ userId }) =
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const data = await auditService.getWalletTransactions(userId);
+        const data = await (auditService as any).getWalletTransactions(userId);
         setTransactions(data);
       } catch (err: any) {
         setError(err.message || 'Error al cargar el historial de la billetera');
