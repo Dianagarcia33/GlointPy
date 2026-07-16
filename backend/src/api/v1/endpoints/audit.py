@@ -288,3 +288,28 @@ async def get_user_wallet_transactions(
         
     transactions = sorted(user.wallet.transactions, key=lambda x: x.created_at, reverse=True)
     return transactions
+
+@router.post("/users/{user_id}/create-wallet", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def create_user_wallet(
+    user_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(User).where(User.id == user_id).options(selectinload(User.wallet))
+    result = await db.execute(query)
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    if user.wallet:
+        raise HTTPException(status_code=400, detail="El usuario ya tiene una billetera")
+        
+    new_wallet = Wallet(
+        user_id=user.id,
+        balance=0,
+        status="active"
+    )
+    db.add(new_wallet)
+    await db.commit()
+    
+    return {"message": "Billetera creada exitosamente"}

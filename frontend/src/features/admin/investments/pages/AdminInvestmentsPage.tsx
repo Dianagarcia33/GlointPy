@@ -11,6 +11,7 @@ export const AdminInvestmentsPage: React.FC = () => {
   
   // Expanded rows state
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
+  const [isCreatingWallet, setIsCreatingWallet] = useState<number | null>(null);
 
   // Global Cycle Filters
   const [cycleStartDate, setCycleStartDate] = useState('');
@@ -48,6 +49,18 @@ export const AdminInvestmentsPage: React.FC = () => {
     if (newSet.has(userId)) newSet.delete(userId);
     else newSet.add(userId);
     setExpandedUsers(newSet);
+  };
+
+  const handleCreateWallet = async (userId: number) => {
+    setIsCreatingWallet(userId);
+    try {
+      await auditService.createWallet(userId);
+      await fetchData(); // Refresh the data to show the new wallet
+    } catch (err: any) {
+      alert(err.message || 'Error al crear la billetera');
+    } finally {
+      setIsCreatingWallet(null);
+    }
   };
 
   return (
@@ -156,7 +169,20 @@ export const AdminInvestmentsPage: React.FC = () => {
                               </div>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400 italic">Sin billetera</span>
+                            <div className="flex flex-col items-start">
+                              <span className="text-xs text-slate-400 italic mb-2">Sin billetera</span>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCreateWallet(user.id);
+                                }}
+                                disabled={isCreatingWallet === user.id}
+                                className="text-[10px] font-medium text-brand-600 bg-brand-50 hover:bg-brand-100 px-2 py-1 rounded transition-colors disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {isCreatingWallet === user.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                                Crear Billetera
+                              </button>
+                            </div>
                           )}
                         </td>
                         <td className="px-6 py-4 align-top">

@@ -97,5 +97,11 @@ Object.assign(auditService, {
   
   getWalletTransactions: async (userId: number): Promise<WalletTransaction[]> => {
     return await fetchApi(`/audit/users/${userId}/wallet-transactions`);
+  },
+  
+  createWallet: async (userId: number): Promise<{ message: string }> => {
+    return await fetchApi(`/audit/users/${userId}/create-wallet`, {
+      method: 'POST'
+    });
   }
 });
