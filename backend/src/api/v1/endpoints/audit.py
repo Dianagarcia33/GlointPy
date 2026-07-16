@@ -11,12 +11,29 @@ from src.api.deps import RequirePermission
 from src.models.user import User
 from src.models.investor import Investor
 from src.schemas.user import UserResponse
-from src.schemas.investor import InvestorResponse
 from src.schemas.wallet import WalletResponse
+from src.schemas.package import PackageResponse
+from src.schemas.period import PeriodResponse
+from datetime import datetime
 
-class AuditUserResponse(UserResponse):
+class SimpleInvestorAuditResponse(BaseModel):
+    id: int
+    assigned_code: str
+    start_date: Optional[datetime] = None
+    package: Optional[PackageResponse] = None
+    period: Optional[PeriodResponse] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class AuditUserResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    document_id: Optional[str] = None
+    phone_number: Optional[str] = None
+    is_active: bool
     wallet: Optional[WalletResponse] = None
-    investments: List[InvestorResponse] = []
+    investments: List[SimpleInvestorAuditResponse] = []
     
     model_config = ConfigDict(from_attributes=True)
 
