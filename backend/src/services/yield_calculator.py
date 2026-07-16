@@ -130,9 +130,9 @@ def calculate_investment_yield(
             start_date=seg_start,
             end_date=seg_end,
             days=days_in_seg,
-            active_capital=active_cap.quantize(Decimal("0.01")),
-            daily_yield=daily_yield.quantize(Decimal("0.01")),
-            segment_yield=seg_yield.quantize(Decimal("0.01")),
+            active_capital=active_cap,
+            daily_yield=daily_yield,
+            segment_yield=seg_yield,
             note=note
         ))
         
@@ -146,6 +146,6 @@ def calculate_investment_yield(
         effective_start_date=eff_start,
         effective_end_date=eff_end,
         total_days=total_days,
-        total_yield=total_yield.quantize(Decimal("0.01")),
+        total_yield=total_yield,
         segments=segments
     )

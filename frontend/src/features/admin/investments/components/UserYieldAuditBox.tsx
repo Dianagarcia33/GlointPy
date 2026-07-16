@@ -96,7 +96,7 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
                   <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
                     <div className="font-medium text-slate-800">Contrato #{invYield.investment_id}</div>
                     <div className="font-bold text-brand-700">
-                      Subtotal: {Number(invYield.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                      Subtotal: {Number(invYield.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 10 })}
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -107,7 +107,7 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
                           <span className="text-slate-400 italic">({seg.note})</span>
                         </div>
                         <div className="font-mono">
-                          {seg.days}d × {Number(seg.daily_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} = {Number(seg.segment_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                          {seg.days}d × {Number(seg.daily_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 10 })} = {Number(seg.segment_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 10 })}
                         </div>
                       </div>
                     ))}
@@ -130,7 +130,7 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
                 <div>
                   <div className="text-sm text-brand-600 font-medium">Gran Total a Transferir</div>
                   <div className="text-2xl font-bold text-brand-800">
-                    {Number(result.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                    {Number(result.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 10 })}
                   </div>
                 </div>
                 <button
