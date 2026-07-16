@@ -33,7 +33,7 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
     setResult(null);
     
     try {
-      const calcResult = await auditService.calculateUserYields(userId, {
+      const calcResult = await (auditService as any).calculateUserYields(userId, {
         start_date: startDate,
         end_date: endDate
       });
@@ -52,7 +52,7 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
     setError(null);
     
     try {
-      await auditService.payUserYields(userId, {
+      await (auditService as any).payUserYields(userId, {
         start_date: startDate,
         end_date: endDate
       });
