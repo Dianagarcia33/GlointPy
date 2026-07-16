@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package } from 'lucide-react';
+import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { auditService, AuditUser } from '../../../../services/audit';
 
 export const AdminInvestmentsPage: React.FC = () => {
@@ -7,6 +7,9 @@ export const AdminInvestmentsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Expanded rows state
+  const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
+
   // Pagination & Filters
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -33,6 +36,13 @@ export const AdminInvestmentsPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [page, search]);
+
+  const toggleExpand = (userId: number) => {
+    const newSet = new Set(expandedUsers);
+    if (newSet.has(userId)) newSet.delete(userId);
+    else newSet.add(userId);
+    setExpandedUsers(newSet);
+  };
 
   return (
     <div className="space-y-6">
@@ -84,9 +94,10 @@ export const AdminInvestmentsPage: React.FC = () => {
               <table className="w-full text-left text-sm text-slate-600 border-collapse">
                 <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
                   <tr>
+                    <th className="px-6 py-4 w-10"></th>
                     <th className="px-6 py-4">Usuario</th>
                     <th className="px-6 py-4">Billetera</th>
-                    <th className="px-6 py-4">Inversiones (Cruces)</th>
+                    <th className="px-6 py-4">Resumen Inversiones</th>
                     <th className="px-6 py-4 text-center">Acción</th>
                   </tr>
                 </thead>
@@ -94,7 +105,13 @@ export const AdminInvestmentsPage: React.FC = () => {
                   {users.map(user => (
                     <React.Fragment key={user.id}>
                       {/* Fila principal del Usuario */}
-                      <tr className="bg-white hover:bg-slate-50/50 transition-colors">
+                      <tr 
+                        className={`bg-white hover:bg-slate-50/50 transition-colors cursor-pointer ${expandedUsers.has(user.id) ? 'bg-slate-50' : ''}`}
+                        onClick={() => toggleExpand(user.id)}
+                      >
+                        <td className="px-4 py-4 text-slate-400">
+                          {expandedUsers.has(user.id) ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                        </td>
                         <td className="px-6 py-4 align-top">
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center shrink-0 mt-1">
@@ -122,78 +139,93 @@ export const AdminInvestmentsPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 align-top">
-                          {user.investments && user.investments.length > 0 ? (
-                            <div className="space-y-3">
-                              {user.investments.map((inv: any) => (
-                                <div key={inv.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm mb-3 last:mb-0">
-                                  <div className="flex justify-between items-start mb-2">
-                                    <div className="text-xs font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
-                                      {inv.assigned_code}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 text-right">
-                                      <div>Creado: {new Date(inv.created_at).toLocaleDateString()}</div>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs text-slate-600 mt-2 bg-white p-2 rounded border border-slate-100">
-                                    <div className="flex flex-col">
-                                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Paquete</span>
-                                      <span className="font-medium text-slate-800">
-                                        {inv.package ? Number(inv.package.value).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }) : 'N/A'}
-                                      </span>
-                                      {inv.package?.granted_shares > 0 && <span className="text-[10px] text-brand-600">+{inv.package.granted_shares} acciones</span>}
-                                    </div>
-                                    <div className="flex flex-col">
-                                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Periodo</span>
-                                      <span className="font-medium text-slate-800">
-                                        {inv.period ? `${inv.period.days} días (${inv.period.percentage}%)` : 'N/A'}
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Inicio</span>
-                                      <span className="font-medium text-slate-800">
-                                        {inv.start_date ? new Date(inv.start_date).toLocaleDateString() : 'N/A'}
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Fin (Estimado)</span>
-                                      <span className="font-medium text-slate-800">
-                                        {inv.end_date ? new Date(inv.end_date).toLocaleDateString() : 'N/A'}
-                                      </span>
-                                    </div>
-                                    {inv.referred_by && (
-                                      <div className="flex flex-col col-span-2">
-                                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Referido por</span>
-                                        <span className="font-medium text-slate-800">{inv.referred_by}</span>
-                                      </div>
-                                    )}
-                                    {inv.observations && (
-                                      <div className="flex flex-col col-span-2 mt-1 pt-1 border-t border-slate-100">
-                                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Observaciones</span>
-                                        <span className="font-medium italic">{inv.observations}</span>
-                                      </div>
-                                    )}
-                                    {inv.contract_histories && inv.contract_histories.length > 0 && (
-                                      <div className="flex flex-col col-span-2 mt-1 pt-1 border-t border-slate-100">
-                                        <span className="text-[10px] text-brand-600 font-semibold uppercase">Historiales de Contrato: {inv.contract_histories.length}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-xs text-slate-400 italic py-2">
-                              No registra inversiones
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="w-4 h-4 text-brand-500" />
+                            <span className="text-sm font-medium text-slate-700">
+                              {user.investments ? user.investments.length : 0} {user.investments?.length === 1 ? 'Inversión' : 'Inversiones'}
+                            </span>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 text-center align-top">
+                        <td className="px-6 py-4 text-center align-top" onClick={(e) => e.stopPropagation()}>
                           <button className="text-xs font-medium text-brand-600 hover:text-white px-4 py-2 border border-brand-200 bg-brand-50 hover:bg-brand-600 rounded-lg transition-all shadow-sm">
-                            Auditar a Fondo
+                            Auditar Usuario Completo
                           </button>
                         </td>
                       </tr>
+
+                      {/* Fila expandida con las inversiones */}
+                      {expandedUsers.has(user.id) && user.investments && user.investments.length > 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-0 bg-slate-50/80 border-b border-slate-200">
+                            <div className="px-14 py-6">
+                              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                <FileText className="w-4 h-4 text-brand-600" />
+                                Detalle de Inversiones
+                              </h3>
+                              <div className="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-sm">
+                                <table className="w-full text-left text-xs">
+                                  <thead className="bg-slate-100 text-slate-600 uppercase tracking-wider font-semibold">
+                                    <tr>
+                                      <th className="px-4 py-3 border-b">Código</th>
+                                      <th className="px-4 py-3 border-b">Paquete</th>
+                                      <th className="px-4 py-3 border-b">Periodo</th>
+                                      <th className="px-4 py-3 border-b">Fechas</th>
+                                      <th className="px-4 py-3 border-b">Extras</th>
+                                      <th className="px-4 py-3 border-b text-center">Acción</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {user.investments.map(inv => (
+                                      <tr key={inv.id} className="hover:bg-slate-50/50">
+                                        <td className="px-4 py-3 align-top">
+                                          <div className="font-bold text-slate-800">{inv.assigned_code}</div>
+                                          <div className="text-[10px] text-slate-400 mt-0.5">Creado: {new Date(inv.created_at).toLocaleDateString()}</div>
+                                        </td>
+                                        <td className="px-4 py-3 align-top">
+                                          <div className="font-medium text-slate-800">
+                                            {inv.package ? Number(inv.package.value).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }) : 'N/A'}
+                                          </div>
+                                          {inv.package?.granted_shares > 0 && <div className="text-[10px] text-brand-600 mt-0.5">+{inv.package.granted_shares} acciones</div>}
+                                        </td>
+                                        <td className="px-4 py-3 align-top">
+                                          <div className="font-medium text-slate-800">
+                                            {inv.period ? `${inv.period.days} días` : 'N/A'}
+                                          </div>
+                                          {inv.period && <div className="text-[10px] text-slate-500 mt-0.5">{inv.period.percentage}% de rend.</div>}
+                                        </td>
+                                        <td className="px-4 py-3 align-top">
+                                          <div className="text-[10px] text-slate-500"><span className="font-semibold">Inicio:</span> {inv.start_date ? new Date(inv.start_date).toLocaleDateString() : 'N/A'}</div>
+                                          <div className="text-[10px] text-slate-500 mt-0.5"><span className="font-semibold">Fin (Est.):</span> {inv.end_date ? new Date(inv.end_date).toLocaleDateString() : 'N/A'}</div>
+                                        </td>
+                                        <td className="px-4 py-3 align-top max-w-[200px]">
+                                          {inv.referred_by && <div className="text-[10px] text-slate-500"><span className="font-semibold">Referido por:</span> {inv.referred_by}</div>}
+                                          {inv.observations && <div className="text-[10px] text-slate-500 mt-0.5 italic truncate" title={inv.observations}><span className="font-semibold not-italic">Obs:</span> {inv.observations}</div>}
+                                          <div className="text-[10px] text-brand-600 font-semibold mt-1">Historiales: {inv.contract_histories ? inv.contract_histories.length : 0}</div>
+                                        </td>
+                                        <td className="px-4 py-3 align-middle text-center">
+                                          <button className="text-[10px] font-medium text-brand-600 hover:text-brand-700 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 rounded border border-brand-200 transition-colors">
+                                            Auditar Inversión
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      
+                      {expandedUsers.has(user.id) && (!user.investments || user.investments.length === 0) && (
+                        <tr>
+                          <td colSpan={5} className="p-0 bg-slate-50/80 border-b border-slate-200">
+                            <div className="px-14 py-6 text-center text-sm text-slate-500 italic">
+                              Este usuario no registra ninguna inversión actualmente.
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     </React.Fragment>
                   ))}
                   {users.length === 0 && (
