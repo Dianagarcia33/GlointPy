@@ -22,6 +22,8 @@ from datetime import datetime
 
 class SimpleInvestorAuditResponse(InvestorBase):
     id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     package: Optional[PackageResponse] = None
     period: Optional[PeriodResponse] = None
     contract_histories: Optional[list[ContractHistoryResponse]] = None

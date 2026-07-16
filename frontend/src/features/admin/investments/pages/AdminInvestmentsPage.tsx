@@ -125,24 +125,59 @@ export const AdminInvestmentsPage: React.FC = () => {
                           {user.investments && user.investments.length > 0 ? (
                             <div className="space-y-3">
                               {user.investments.map((inv: any) => (
-                                <div key={inv.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm">
+                                <div key={inv.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm mb-3 last:mb-0">
                                   <div className="flex justify-between items-start mb-2">
                                     <div className="text-xs font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
-                                      Código: {inv.assigned_code}
+                                      {inv.assigned_code}
                                     </div>
-                                    <div className="text-[10px] text-slate-400">
-                                      Inicio: {new Date(inv.start_date).toLocaleDateString()}
+                                    <div className="text-[10px] text-slate-400 text-right">
+                                      <div>Creado: {new Date(inv.created_at).toLocaleDateString()}</div>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-4 text-xs text-slate-600">
-                                    <div className="flex items-center gap-1.5">
-                                      <Package className="w-3.5 h-3.5 text-brand-500" />
-                                      <span className="font-medium">{inv.package?.name || 'Paquete?'}</span>
+                                  
+                                  <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs text-slate-600 mt-2 bg-white p-2 rounded border border-slate-100">
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Paquete</span>
+                                      <span className="font-medium text-slate-800">
+                                        {inv.package ? Number(inv.package.value).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }) : 'N/A'}
+                                      </span>
+                                      {inv.package?.granted_shares > 0 && <span className="text-[10px] text-brand-600">+{inv.package.granted_shares} acciones</span>}
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <Calendar className="w-3.5 h-3.5 text-brand-500" />
-                                      <span>{inv.period?.days} días</span>
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Periodo</span>
+                                      <span className="font-medium text-slate-800">
+                                        {inv.period ? `${inv.period.days} días (${inv.period.percentage}%)` : 'N/A'}
+                                      </span>
                                     </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Inicio</span>
+                                      <span className="font-medium text-slate-800">
+                                        {inv.start_date ? new Date(inv.start_date).toLocaleDateString() : 'N/A'}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[10px] text-slate-400 font-semibold uppercase">Fin (Estimado)</span>
+                                      <span className="font-medium text-slate-800">
+                                        {inv.end_date ? new Date(inv.end_date).toLocaleDateString() : 'N/A'}
+                                      </span>
+                                    </div>
+                                    {inv.referred_by && (
+                                      <div className="flex flex-col col-span-2">
+                                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Referido por</span>
+                                        <span className="font-medium text-slate-800">{inv.referred_by}</span>
+                                      </div>
+                                    )}
+                                    {inv.observations && (
+                                      <div className="flex flex-col col-span-2 mt-1 pt-1 border-t border-slate-100">
+                                        <span className="text-[10px] text-slate-400 font-semibold uppercase">Observaciones</span>
+                                        <span className="font-medium italic">{inv.observations}</span>
+                                      </div>
+                                    )}
+                                    {inv.contract_histories && inv.contract_histories.length > 0 && (
+                                      <div className="flex flex-col col-span-2 mt-1 pt-1 border-t border-slate-100">
+                                        <span className="text-[10px] text-brand-600 font-semibold uppercase">Historiales de Contrato: {inv.contract_histories.length}</span>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               ))}
