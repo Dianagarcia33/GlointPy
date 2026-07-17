@@ -20,6 +20,8 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
   const [periodId, setPeriodId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
   const [startDate, setStartDate] = useState('');
+  
+  const [userSearch, setUserSearch] = useState('');
 
   const [users, setUsers] = useState<User[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -161,19 +163,47 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
                 </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 relative">
               <label className="text-sm font-medium text-slate-700">Usuario *</label>
-              <select
-                value={userId}
-                onChange={(e) => setUserId(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
-                required
-              >
-                <option value="">Seleccione un usuario</option>
-                {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                ))}
-              </select>
+              {userId ? (
+                  <div className="flex items-center justify-between w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                      <span className="text-emerald-800 text-sm font-medium">
+                          {users.find(u => u.id === userId)?.name || 'Usuario Seleccionado'}
+                      </span>
+                      <button type="button" onClick={() => setUserId('')} className="text-xs text-emerald-600 hover:text-emerald-700 font-bold">Cambiar</button>
+                  </div>
+              ) : (
+                  <div className="relative">
+                      <input 
+                          type="text"
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          onFocus={() => { if (!userSearch) setUserSearch(' '); setTimeout(() => setUserSearch(''), 10); }}
+                          placeholder="Buscar por nombre o correo..."
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
+                      />
+                      {userSearch.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                              {users.filter(u => 
+                                  u.name.toLowerCase().includes(userSearch.toLowerCase().trim()) || 
+                                  u.email.toLowerCase().includes(userSearch.toLowerCase().trim())
+                              ).map(u => (
+                                  <div 
+                                      key={u.id} 
+                                      onClick={() => { setUserId(u.id); setUserSearch(''); }}
+                                      className="px-3 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-sm"
+                                  >
+                                      <div className="font-medium text-slate-800">{u.name}</div>
+                                      <div className="text-xs text-slate-500">{u.email}</div>
+                                  </div>
+                              ))}
+                              {users.filter(u => u.name.toLowerCase().includes(userSearch.toLowerCase().trim()) || u.email.toLowerCase().includes(userSearch.toLowerCase().trim())).length === 0 && (
+                                  <div className="px-3 py-2 text-sm text-slate-500 text-center">No hay resultados</div>
+                              )}
+                          </div>
+                      )}
+                  </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
