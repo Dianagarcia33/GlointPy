@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from datetime import date, datetime
 from pydantic import BaseModel
 from src.core.database import get_db
-from src.api.deps import get_current_user
+from src.api.deps import get_current_user, RequirePermission
 from src.models.investment_request import InvestmentRequest
 from src.models.contract_history import ContractHistory
 from src.models.investor import Investor
