@@ -4,6 +4,7 @@ import { X, Search, User, CreditCard, Landmark, Loader2, UploadCloud, CheckCircl
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { investmentsService } from '../../../../services/investments';
 import { useAuthStore } from '../../../../store/authStore';
+import { compressImage } from '../../../../utils/imageCompression';
 
 interface CreateInvestmentModalProps {
     isOpen: boolean;
@@ -133,7 +134,11 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
         
         try {
             setUploadingKyc(type);
-            const res = await investmentsService.uploadKycDocument(file);
+            let fileToUpload = file;
+            if (file.type.startsWith('image/')) {
+                fileToUpload = await compressImage(file);
+            }
+            const res = await investmentsService.uploadKycDocument(fileToUpload);
             if (type === 'comprobante_path') {
                 setFormData(prev => ({ ...prev, comprobante_path: res.path }));
             } else {
