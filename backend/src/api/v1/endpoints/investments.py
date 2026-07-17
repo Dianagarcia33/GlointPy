@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -597,3 +597,69 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         raise HTTPException(status_code=500, detail=str(e))
         
     return {"message": "Retiro de capital solicitado exitosamente", "monto": capital_disponible}
+
+import os
+import uuid
+
+@router.post("/requests")
+async def create_investment_request(
+    paquete_inversion_id: int = Form(...),
+    monto: float = Form(...),
+    periodo_contrato: int = Form(...),
+    monto_billetera_usado: float = Form(0.0),
+    codigo_referido: str = Form(None),
+    comprobantes: list[UploadFile] = File(default=[]),
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+    
+    UPLOAD_DIR = "uploads/comprobantes"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    
+    comprobante_path = None
+    extra_paths = []
+    
+    if comprobantes:
+        for i, file in enumerate(comprobantes):
+            if file.filename:
+                file_ext = os.path.splitext(file.filename)[1] if os.path.splitext(file.filename)[1] else ".png"
+                filename = f"{uuid.uuid4()}{file_ext}"
+                file_path = os.path.join(UPLOAD_DIR, filename)
+                
+                content = await file.read()
+                with open(file_path, "wb") as f:
+                    f.write(content)
+                    
+                path_str = f"/{file_path}"
+                if i == 0:
+                    comprobante_path = path_str
+                else:
+                    extra_paths.append(path_str)
+                    
+    extra_data = {}
+    if extra_paths:
+        extra_data["comprobantes_adicionales"] = extra_paths
+    if monto_billetera_usado > 0:
+        extra_data["monto_billetera_usado"] = monto_billetera_usado
+    if codigo_referido:
+        extra_data["codigo_referido"] = codigo_referido
+        
+    new_request = InvestmentRequest(
+        user_id=current_user.id,
+        paquete_inversion_id=paquete_inversion_id,
+        monto=monto,
+        comprobante_path=comprobante_path,
+        status=InvestmentRequestStatus.pending,
+        extra_data=extra_data if extra_data else None
+    )
+    
+    db.add(new_request)
+    try:
+        await db.commit()
+        await db.refresh(new_request)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    return {"message": "Solicitud creada exitosamente", "id": new_request.id}
