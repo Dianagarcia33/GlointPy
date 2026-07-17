@@ -82,6 +82,11 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                 </div>
 
                 <div className="p-6">
+                    <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 shrink-0" />
+                        <p>Actualmente no nos encontramos en fechas de retiro habilitadas.</p>
+                    </div>
+
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex gap-3 text-sm border border-red-100">
                             <AlertCircle className="w-5 h-5 shrink-0" />
@@ -131,8 +136,8 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
 
                             <button 
                                 onClick={handleSendCode}
-                                disabled={loading || !bankInfo}
-                                className="w-full py-3.5 rounded-xl font-bold text-sm bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md shadow-brand-500/20"
+                                disabled={true}
+                                className="w-full py-3.5 rounded-xl font-bold text-sm bg-slate-200 text-slate-400 cursor-not-allowed transition-colors"
                             >
                                 {loading ? 'Enviando...' : 'Solicitar Código por Correo'}
                             </button>

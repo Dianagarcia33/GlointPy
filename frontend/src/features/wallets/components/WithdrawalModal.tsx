@@ -193,12 +193,10 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
 
                     {step === 'amount' && (
                         <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
-                            {!canWithdraw && !isLoadingData && (
-                                <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
-                                    <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
-                                    <p>Actualmente no nos encontramos en fechas de retiro habilitadas. Por favor consulta el cronograma oficial.</p>
-                                </div>
-                            )}
+                            <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
+                                <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
+                                <p>Actualmente no nos encontramos en fechas de retiro habilitadas.</p>
+                            </div>
 
                             {!bankDetails && canWithdraw && (
                                 <div className="p-4 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium border border-amber-200 flex items-start gap-3">
@@ -335,8 +333,8 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                     {step === 'amount' ? (
                         <button 
                             onClick={handleSendCode}
-                            disabled={sendCodeMutation.isPending || montoNumber < 5000 || montoNumber > balance || !bankDetails || !canWithdraw || isLoadingData}
-                            className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:active:scale-100 shadow-brand-500/20"
+                            disabled={true}
+                            className="px-6 py-2.5 bg-slate-300 text-slate-500 font-bold rounded-xl flex items-center gap-2 cursor-not-allowed shadow-md"
                         >
                             {sendCodeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                             Continuar
