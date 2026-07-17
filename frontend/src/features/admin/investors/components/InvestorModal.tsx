@@ -62,7 +62,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       const loadDependencies = async () => {
           try {
               const [usersData, packagesData, periodsData] = await Promise.all([
-                  usersService.getUsers({ limit: 1000 }), // adjust as needed
+                  usersService.getUsers({ limit: 100 }), // Max allowed by backend is 100
                   packagesService.getPackages(),
                   periodsService.getPeriods()
               ]);
@@ -77,6 +77,22 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       loadDependencies();
     }
   }, [isOpen, investor]);
+
+  // Dynamic user search
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handler = setTimeout(async () => {
+        try {
+            const res = await usersService.getUsers({ search: userSearch.trim(), limit: 100 });
+            setUsers(res.data);
+        } catch (err) {
+            console.error("Error searching users", err);
+        }
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [userSearch, isOpen]);
 
   if (!isOpen) return null;
 
