@@ -7,9 +7,11 @@ import { fetchApi } from '../../../services/api';
 interface NewInvestmentModalProps {
     isOpen: boolean;
     onClose: () => void;
+    currentPackageId?: number; // Added to support upgrades
+    isUpgrade?: boolean;
 }
 
-export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps) => {
+export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrade = false }: NewInvestmentModalProps) => {
     const queryClient = useQueryClient();
     
     // UI State
@@ -128,7 +130,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                 <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <div>
                         <h2 className="text-xl font-bold text-slate-800">
-                            {step === 1 ? 'Nueva Inversión' : step === 2 ? 'Detalles de Pago' : '¡Inversión Registrada!'}
+                            {step === 1 ? (isUpgrade ? 'Aumento de Capital' : 'Nueva Inversión') : step === 2 ? 'Detalles de Pago' : (isUpgrade ? '¡Solicitud de Aumento Registrada!' : '¡Inversión Registrada!')}
                         </h2>
                         <p className="text-xs text-slate-500 mt-1">
                             {step === 1 ? 'Configura tu plan y descubre tu rentabilidad' : step === 2 ? 'Adjunta tus soportes y código de referido' : 'Tu solicitud ha sido procesada con éxito'}
@@ -164,7 +166,7 @@ export const NewInvestmentModal = ({ isOpen, onClose }: NewInvestmentModalProps)
                                         disabled={loadingPackages}
                                     >
                                         <option value="">-- Selecciona un paquete --</option>
-                                        {packages?.map((pkg: any) => (
+                                        {packages?.filter((pkg: any) => !currentPackageId || pkg.id !== currentPackageId).map((pkg: any) => (
                                             <option key={pkg.id} value={pkg.id}>
                                                 {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.granted_shares} Acciones)
                                             </option>

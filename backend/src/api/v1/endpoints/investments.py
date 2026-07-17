@@ -245,8 +245,8 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     for h in history_records:
         history.append({
             "id": h.id,
-            "cambio_tipo": h.change_type,
-            "observacion": h.details,
+            "cambio_tipo": h.motivo,
+            "observacion": h.observaciones,
             "fecha": h.created_at.isoformat() if h.created_at else None
         })
 
