@@ -121,6 +121,10 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
             formData.append('codigo_referido', referralCode.trim());
         }
         
+        if (isUpgrade) {
+            formData.append('is_upgrade', 'true');
+        }
+        
         if (files && files.length > 0) {
             for (let i = 0; i < files.length; i++) {
                 let fileToUpload = files[i];
