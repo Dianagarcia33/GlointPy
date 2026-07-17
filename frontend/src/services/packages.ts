@@ -23,7 +23,7 @@ export interface PackageUpdate {
 
 export const packagesService = {
     getPackages: async (): Promise<Package[]> => {
-        return await fetchApi('/packages/');
+        return await fetchApi('/packages');
     },
 
     getPackage: async (id: number): Promise<Package> => {
@@ -31,7 +31,7 @@ export const packagesService = {
     },
 
     createPackage: async (data: PackageCreate): Promise<Package> => {
-        return await fetchApi('/packages/', {
+        return await fetchApi('/packages', {
             method: 'POST',
             body: JSON.stringify(data)
         });
