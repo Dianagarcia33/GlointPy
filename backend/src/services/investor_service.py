@@ -108,8 +108,29 @@ class InvestorService:
             
         start_date = investor.start_date or datetime.utcnow()
 
+        assigned_code = investor.assigned_code
+        if not assigned_code:
+            # Auto-generate consecutive IG code
+            last_code_res = await db.execute(
+                select(Investor.assigned_code)
+                .where(Investor.assigned_code.like("IG%"))
+                .order_by(Investor.id.desc())
+                .limit(1)
+            )
+            last_code = last_code_res.scalar()
+            if last_code:
+                import re
+                match = re.search(r'\d+', last_code)
+                if match:
+                    next_num = int(match.group()) + 1
+                    assigned_code = f"IG{next_num}"
+                else:
+                    assigned_code = "IG1000"
+            else:
+                assigned_code = "IG1000"
+
         db_investor = Investor(
-            assigned_code=investor.assigned_code,
+            assigned_code=assigned_code,
             referred_by=investor.referred_by,
             user_id=investor.user_id,
             package_id=investor.package_id,

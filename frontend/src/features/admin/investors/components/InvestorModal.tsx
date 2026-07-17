@@ -98,7 +98,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!assignedCode || !userId || !packageId || !periodId) {
+    if ((investor && !assignedCode) || !userId || !packageId || !periodId) {
       setError('Por favor completa los campos requeridos');
       return;
     }
@@ -107,7 +107,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     setError(null);
 
     const payload = {
-        assigned_code: assignedCode,
+        assigned_code: assignedCode || undefined,
         referred_by: referredBy || undefined,
         user_id: Number(userId),
         package_id: Number(packageId),
@@ -154,18 +154,18 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Código Asignado *</label>
-                <input
-                    type="text"
-                    value={assignedCode}
-                    onChange={(e) => setAssignedCode(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
-                    placeholder="Ej. INV-001"
-                    required
-                />
-                </div>
+            <div className={`grid grid-cols-1 ${investor ? 'sm:grid-cols-2' : ''} gap-4`}>
+                {investor && (
+                  <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Código Asignado *</label>
+                  <input
+                      type="text"
+                      value={assignedCode}
+                      readOnly
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 cursor-not-allowed"
+                  />
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Referido (Código de otra inversión)</label>

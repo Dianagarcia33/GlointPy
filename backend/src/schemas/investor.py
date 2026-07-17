@@ -8,7 +8,7 @@ from src.schemas.period import PeriodResponse
 from src.schemas.contract_history import ContractHistoryResponse
 
 class InvestorBase(BaseModel):
-    assigned_code: str
+    assigned_code: Optional[str] = None
     referred_by: Optional[str] = None
     user_id: int
     package_id: int
