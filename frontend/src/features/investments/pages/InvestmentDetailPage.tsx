@@ -68,6 +68,7 @@ export const InvestmentDetailPage = () => {
                 onClose={() => setIsUpgradeModalOpen(false)} 
                 isUpgrade={true}
                 currentPackageId={inv.paquete?.id}
+                currentPeriodId={inv.periodo?.id}
             />
             {/* Header / Back */}
             <div className="flex items-center gap-4 cursor-pointer text-slate-500 hover:text-slate-800 transition-colors" onClick={() => navigate(-1)}>

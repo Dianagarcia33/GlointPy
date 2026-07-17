@@ -331,6 +331,10 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
             "paquete_accion_adquirido": str(inv_record.package.value) if inv_record.package else "0",
             "acciones_otorgadas": inv_record.package.granted_shares if inv_record.package else 0
         } if inv_record.package else None,
+        "periodo": {
+            "id": inv_record.period.id,
+            "months": inv_record.period.months
+        } if getattr(inv_record, "period", None) else None,
         
         "capital_liberado": capital_liberado,
         "capital_retirado": capital_retirado,
