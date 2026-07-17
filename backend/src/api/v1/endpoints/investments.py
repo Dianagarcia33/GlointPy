@@ -670,3 +670,41 @@ async def create_investment_request(
         raise HTTPException(status_code=500, detail=str(e))
         
     return {"message": "Solicitud creada exitosamente", "id": new_request.id}
+
+@router.get("/admin/search-user")
+async def admin_search_user(query: str, current_user = Depends(RequirePermission("admin.investments.manage")), db: AsyncSession = Depends(get_db)):
+    """
+    Search users by name, email, or document for admin investment creation.
+    """
+    from src.models.user import User
+    from sqlalchemy import or_
+    
+    if len(query) < 3:
+        return []
+        
+    search_term = f"%{query}%"
+    res = await db.execute(
+        select(User).where(
+            or_(
+                User.name.ilike(search_term),
+                User.email.ilike(search_term),
+                User.document_id.ilike(search_term)
+            )
+        ).limit(10)
+    )
+    users = res.scalars().all()
+    
+    return [
+        {
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "documento": u.document_id,
+            "numero_celular": getattr(u, "phone", ""),
+            "ciudad": getattr(u, "city", ""),
+            "banco": "",
+            "tipo_cuenta": "Ahorros",
+            "numero_cuenta": ""
+        }
+        for u in users
+    ]

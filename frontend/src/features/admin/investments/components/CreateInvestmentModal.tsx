@@ -271,7 +271,7 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                 <div className="flex-none flex items-center justify-between p-4 md:p-5 border-b border-slate-100 bg-white">
                     <div>
                         <h2 className="text-xl font-bold text-slate-900">Crear Solicitud de Inversión</h2>
-                        <p className="text-sm text-slate-500 mt-0.5">Registra una inversión a nombre de un cliente</p>
+                        <p className="text-sm text-slate-500 mt-0.5">Registra una inversión a nombre de un inversionista</p>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors">
                         <X className="w-5 h-5" />
@@ -285,7 +285,7 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                         <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm relative">
                             <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 mb-3 border-b border-slate-100 pb-2">
                                 <Search className="w-5 h-5 text-brand-600" />
-                                Buscar Cliente
+                                Buscar Inversionista
                             </h3>
                             
                             {userId ? (
@@ -293,7 +293,7 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                                     <div className="flex items-center gap-3">
                                         <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                                         <div>
-                                            <p className="font-semibold text-emerald-800">Cliente Seleccionado</p>
+                                            <p className="font-semibold text-emerald-800">Inversionista Seleccionado</p>
                                             <p className="text-sm text-emerald-600">{formData.name} ({formData.email})</p>
                                         </div>
                                     </div>
@@ -351,7 +351,7 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
                                                 </ul>
                                             ) : (
                                                 <div className="p-4 text-center text-slate-500 text-sm">
-                                                    No se encontraron clientes. Si es nuevo, llena los datos abajo.
+                                                    No se encontraron inversionistas. Si es nuevo, llena los datos abajo.
                                                 </div>
                                             )}
                                         </div>
