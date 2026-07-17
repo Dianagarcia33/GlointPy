@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Link, Wallet } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
+import { compressImage } from '../../../utils/imageCompression';
 
 interface NewInvestmentModalProps {
     isOpen: boolean;
@@ -97,7 +98,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
     const maxWalletAllowed = wallet ? wallet.balance : 0;
     const amountToPay = packageAmount - (useWallet ? walletAmount : 0);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!selectedPackage || !selectedPeriod) return;
         
         const formData = new FormData();
@@ -115,7 +116,11 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
         
         if (files && files.length > 0) {
             for (let i = 0; i < files.length; i++) {
-                formData.append('comprobantes', files[i]);
+                let fileToUpload = files[i];
+                if (fileToUpload.type.startsWith('image/')) {
+                    fileToUpload = await compressImage(fileToUpload);
+                }
+                formData.append('comprobantes', fileToUpload);
             }
         }
         
