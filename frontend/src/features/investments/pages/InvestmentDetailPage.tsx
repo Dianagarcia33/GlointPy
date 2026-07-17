@@ -4,6 +4,7 @@ import { fetchApi } from '../../../services/api';
 import { formatCurrency } from '../../../utils/format';
 import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle } from 'lucide-react';
 import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
+import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
 
 export const InvestmentDetailPage = () => {
     const { id } = useParams();
@@ -11,6 +12,7 @@ export const InvestmentDetailPage = () => {
     const [inv, setInv] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+    const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
     const loadDetails = async () => {
         try {
@@ -60,6 +62,12 @@ export const InvestmentDetailPage = () => {
                 investmentId={inv.id}
                 montoDisponible={inv.capital_disponible}
                 bankInfo={inv.bank_info}
+            />
+            <NewInvestmentModal 
+                isOpen={isUpgradeModalOpen} 
+                onClose={() => setIsUpgradeModalOpen(false)} 
+                isUpgrade={true}
+                currentPackageId={inv.paquete?.id}
             />
             {/* Header / Back */}
             <div className="flex items-center gap-4 cursor-pointer text-slate-500 hover:text-slate-800 transition-colors" onClick={() => navigate(-1)}>
@@ -181,7 +189,10 @@ export const InvestmentDetailPage = () => {
                             </button>
 
                             {inv.can_upgrade && (
-                                <button className="w-full mt-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors">
+                                <button 
+                                    onClick={() => setIsUpgradeModalOpen(true)}
+                                    className="w-full mt-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                >
                                     <PlusCircle className="w-4 h-4" />
                                     Aumento de Capital
                                 </button>
