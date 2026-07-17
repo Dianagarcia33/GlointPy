@@ -51,6 +51,13 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
         enabled: isOpen && step === 2,
     });
 
+    React.useEffect(() => {
+        if (isUpgrade && currentPackageId && packages) {
+            const pkg = packages.find((p: any) => p.id === currentPackageId);
+            if (pkg) setSelectedPackage(pkg);
+        }
+    }, [isUpgrade, currentPackageId, packages, isOpen]);
+
     const handleFinalClose = () => {
         setStep(1);
         setSelectedPackage(null);
@@ -158,9 +165,10 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
                                         {loadingPackages && <Loader2 className="w-3 h-3 text-brand-500 animate-spin" />}
                                     </label>
                                     <select 
-                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 transition-all appearance-none"
+                                        className={`w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 transition-all appearance-none ${isUpgrade ? 'opacity-70 cursor-not-allowed' : ''}`}
                                         value={selectedPackage?.id || ""}
                                         onChange={(e) => {
+                                            if (isUpgrade) return;
                                             const val = e.target.value;
                                             if (!val) setSelectedPackage(null);
                                             else {
@@ -168,10 +176,10 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
                                                 setSelectedPackage(pkg);
                                             }
                                         }}
-                                        disabled={loadingPackages}
+                                        disabled={loadingPackages || isUpgrade}
                                     >
                                         <option value="">-- Selecciona un paquete --</option>
-                                        {packages?.filter((pkg: any) => !currentPackageId || pkg.id !== currentPackageId).map((pkg: any) => (
+                                        {packages?.filter((pkg: any) => !isUpgrade || pkg.id === currentPackageId).map((pkg: any) => (
                                             <option key={pkg.id} value={pkg.id}>
                                                 {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.granted_shares} Acciones)
                                             </option>
