@@ -8,11 +8,12 @@ import { compressImage } from '../../../utils/imageCompression';
 interface NewInvestmentModalProps {
     isOpen: boolean;
     onClose: () => void;
-    currentPackageId?: number; // Added to support upgrades
+    currentPackageId?: number;
+    currentPeriodId?: number;
     isUpgrade?: boolean;
 }
 
-export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrade = false }: NewInvestmentModalProps) => {
+export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentPeriodId, isUpgrade = false }: NewInvestmentModalProps) => {
     const queryClient = useQueryClient();
     
     // UI State
@@ -52,11 +53,11 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
     });
 
     React.useEffect(() => {
-        if (isUpgrade && currentPackageId && packages) {
-            const pkg = packages.find((p: any) => p.id === currentPackageId);
-            if (pkg) setSelectedPackage(pkg);
+        if (isUpgrade && currentPeriodId && periods) {
+            const period = periods.find((p: any) => p.id === currentPeriodId);
+            if (period) setSelectedPeriod(period);
         }
-    }, [isUpgrade, currentPackageId, packages, isOpen]);
+    }, [isUpgrade, currentPeriodId, periods, isOpen]);
 
     const handleFinalClose = () => {
         setStep(1);
@@ -169,10 +170,9 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
                                         {loadingPackages && <Loader2 className="w-3 h-3 text-brand-500 animate-spin" />}
                                     </label>
                                     <select 
-                                        className={`w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 transition-all appearance-none ${isUpgrade ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 transition-all appearance-none"
                                         value={selectedPackage?.id || ""}
                                         onChange={(e) => {
-                                            if (isUpgrade) return;
                                             const val = e.target.value;
                                             if (!val) setSelectedPackage(null);
                                             else {
@@ -180,10 +180,10 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
                                                 setSelectedPackage(pkg);
                                             }
                                         }}
-                                        disabled={loadingPackages || isUpgrade}
+                                        disabled={loadingPackages}
                                     >
                                         <option value="">-- Selecciona un paquete --</option>
-                                        {packages?.filter((pkg: any) => !isUpgrade || pkg.id === currentPackageId).map((pkg: any) => (
+                                        {packages?.filter((pkg: any) => !isUpgrade || pkg.id !== currentPackageId).map((pkg: any) => (
                                             <option key={pkg.id} value={pkg.id}>
                                                 {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.granted_shares} Acciones)
                                             </option>
@@ -198,9 +198,10 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
                                         {loadingPeriods && <Loader2 className="w-3 h-3 text-emerald-500 animate-spin" />}
                                     </label>
                                     <select 
-                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-emerald-500 transition-all appearance-none"
+                                        className={`w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-emerald-500 transition-all appearance-none ${isUpgrade ? 'opacity-70 cursor-not-allowed' : ''}`}
                                         value={selectedPeriod?.id || ""}
                                         onChange={(e) => {
+                                            if (isUpgrade) return;
                                             const val = e.target.value;
                                             if (!val) setSelectedPeriod(null);
                                             else {
@@ -208,10 +209,10 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, isUpgrad
                                                 setSelectedPeriod(period);
                                             }
                                         }}
-                                        disabled={loadingPeriods}
+                                        disabled={loadingPeriods || isUpgrade}
                                     >
                                         <option value="">-- Selecciona un periodo --</option>
-                                        {periods?.map((period: any) => (
+                                        {periods?.filter((period: any) => !isUpgrade || period.id === currentPeriodId).map((period: any) => (
                                             <option key={period.id} value={period.id}>
                                                 {period.months} Meses ({period.percentage}% Rendimiento)
                                             </option>
