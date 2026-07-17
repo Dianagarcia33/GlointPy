@@ -229,7 +229,14 @@ export const InvestmentRequestsTable = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 font-medium text-slate-700">
-                        {request.package?.value ? `Paquete $${request.package.value.toLocaleString('es-CO')}` : `Paquete #${request.paquete_inversion_id}`}
+                        <div className="flex flex-col gap-1 items-start">
+                            <span>{request.package?.value ? `Paquete $${request.package.value.toLocaleString('es-CO')}` : `Paquete #${request.paquete_inversion_id}`}</span>
+                            {request.extra_data?.es_aumento_capital && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800">
+                                Aumento de Capital
+                              </span>
+                            )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 font-semibold text-brand-700">
                         ${request.monto.toLocaleString('es-CO')} COP
