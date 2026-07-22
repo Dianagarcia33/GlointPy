@@ -275,111 +275,127 @@ export const InvestmentRequestsTable = () => {
                     
                     {/* Expanded Details Row */}
                     {expandedRows[request.id] && (
-                      <tr className="bg-slate-50/50">
-                        <td colSpan={8} className="px-6 py-4 border-t border-slate-100">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                      <tr className="bg-slate-50/70">
+                        <td colSpan={8} className="px-6 py-5 border-t border-slate-200">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
                             
-                            {/* Usuario */}
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Información del Usuario</h4>
-                              <div className="grid grid-cols-2 gap-2 text-slate-600">
-                                <span className="text-slate-400">Nombre:</span>
-                                <span>{request.user?.name || 'N/A'}</span>
-                                <span className="text-slate-400">Correo:</span>
-                                <span>{request.user?.email || 'N/A'}</span>
-                                <span className="text-slate-400">Documento:</span>
-                                <span>{request.user?.document_id || 'N/A'}</span>
-                              </div>
-                            </div>
-
-                            {/* Fechas */}
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Seguimiento</h4>
-                              <div className="grid grid-cols-2 gap-2 text-slate-600">
-                                <span className="text-slate-400">Actualizado:</span>
-                                <span>{request.updated_at ? new Date(request.updated_at).toLocaleDateString() : '-'}</span>
-                                <span className="text-slate-400">Revisado Por:</span>
-                                <span>{request.reviewed_by ? `Admin #${request.reviewed_by}` : 'N/A'}</span>
-                                <span className="text-slate-400">Fecha Revisión:</span>
-                                <span>{request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString() : 'N/A'}</span>
-                              </div>
-                            </div>
-
-                            {/* Referencias */}
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Referencias</h4>
-                              <div className="grid grid-cols-2 gap-2 text-slate-600">
-                                <span className="text-slate-400">ID Inversionista:</span>
-                                <span>{request.investor_id ? `#${request.investor_id}` : 'N/A'}</span>
-                                <span className="text-slate-400">ID Prospecto:</span>
-                                <span>{request.prospecto_id ? `#${request.prospecto_id}` : 'N/A'}</span>
-                                <span className="text-slate-400">Comprobante:</span>
-                                <span>
-                                  {request.comprobante_path ? (
-                                    <a href={request.comprobante_path} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">Ver Archivo</a>
-                                  ) : 'Sin adjunto'}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Datos Extra y Rechazo */}
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Información Adicional</h4>
-                              {request.rejection_reason && (
-                                <div className="mb-2 p-2 bg-red-50 text-red-700 rounded-lg text-xs border border-red-100">
-                                  <strong>Motivo Rechazo:</strong> {request.rejection_reason}
-                                </div>
-                              )}
-                              
-                              <div className="text-slate-600">
-                                <span className="text-slate-700 font-semibold block mb-2">Datos Adicionales:</span>
+                            {/* Columna 1: Información Adicional y Parámetros */}
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                              <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-100 pb-2">
+                                Detalles de la Solicitud
+                              </h4>
+                              <div className="space-y-2 text-xs">
                                 {request.extra_data && typeof request.extra_data === 'object' && Object.keys(request.extra_data).length > 0 ? (
-                                  <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2 text-xs shadow-sm max-h-48 overflow-y-auto">
-                                    {Object.entries(request.extra_data).map(([key, val]) => {
-                                      if (val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0)) return null;
+                                  Object.entries(request.extra_data).map(([key, val]) => {
+                                    if (val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0)) return null;
 
-                                      const labels: Record<string, string> = {
-                                        referred_by: 'Código Referido',
-                                        referral_code: 'Código Referido',
-                                        codigo_referido: 'Código Referido',
-                                        ciudad: 'Ciudad',
-                                        fecha_nacimiento: 'Fecha Nacimiento',
-                                        tipo_documento: 'Tipo Documento',
-                                        numero_documento: 'Número Documento',
-                                        contract_period_id: 'ID Periodo',
-                                        es_aumento_capital: 'Aumento de Capital',
-                                        monto_billetera_usado: 'Billetera Usada',
-                                        kyc_docs: 'Documentos KYC',
-                                        comprobantes_adicionales: 'Comprobantes Extra'
-                                      };
+                                    const labels: Record<string, string> = {
+                                      referred_by: 'Código Referido',
+                                      referral_code: 'Código Referido',
+                                      codigo_referido: 'Código Referido',
+                                      ciudad: 'Ciudad',
+                                      fecha_nacimiento: 'Fecha Nacimiento',
+                                      tipo_documento: 'Tipo Documento',
+                                      numero_documento: 'Número Documento',
+                                      contract_period_id: 'ID Periodo Contrato',
+                                      es_aumento_capital: 'Aumento de Capital',
+                                      monto_billetera_usado: 'Billetera Usada',
+                                      kyc_docs: 'Documentos KYC',
+                                      comprobantes_adicionales: 'Comprobantes Extra'
+                                    };
 
-                                      const labelName = labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                    const labelName = labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-                                      let displayVal: React.ReactNode = String(val);
-                                      if (typeof val === 'boolean') {
-                                        displayVal = val ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-medium">Sí</span> : 'No';
-                                      } else if (Array.isArray(val)) {
-                                        displayVal = <span className="text-brand-600 font-medium">{val.length} archivo(s) adjunto(s)</span>;
-                                      } else if (['referred_by', 'referral_code', 'codigo_referido'].includes(key)) {
-                                        displayVal = <span className="px-2 py-0.5 bg-purple-100 text-purple-900 font-bold rounded">{String(val)}</span>;
-                                      }
-
-                                      return (
-                                        <div key={key} className="flex justify-between items-center border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
-                                          <span className="text-slate-500 font-medium">{labelName}:</span>
-                                          <span className="font-semibold text-slate-800 break-all text-right">{displayVal}</span>
-                                        </div>
+                                    let displayVal: React.ReactNode = String(val);
+                                    if (typeof val === 'boolean') {
+                                      displayVal = val ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">Sí</span> : 'No';
+                                    } else if (Array.isArray(val)) {
+                                      displayVal = <span className="text-brand-600 font-bold">{val.length} archivo(s) adjunto(s)</span>;
+                                    } else if (['referred_by', 'referral_code', 'codigo_referido'].includes(key)) {
+                                      displayVal = (
+                                        <span className="px-2.5 py-1 bg-purple-100 text-purple-900 font-bold rounded-lg border border-purple-200 inline-flex items-center gap-1">
+                                          <span>✨</span> {String(val)}
+                                        </span>
                                       );
-                                    })}
-                                  </div>
+                                    }
+
+                                    return (
+                                      <div key={key} className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+                                        <span className="text-slate-500 font-medium">{labelName}:</span>
+                                        <span className="font-semibold text-slate-800 break-all text-right">{displayVal}</span>
+                                      </div>
+                                    );
+                                  })
                                 ) : (
-                                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-xs text-slate-400 italic">
-                                    Sin datos adicionales
-                                  </div>
+                                  <p className="text-slate-400 italic py-2">Sin datos adicionales registrados</p>
                                 )}
                               </div>
                             </div>
-                            
+
+                            {/* Columna 2: Adjuntos y Registro de Revisión */}
+                            <div className="space-y-4">
+                              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-100 pb-2">
+                                  Archivos y Adjuntos
+                                </h4>
+                                <div className="space-y-2 text-xs">
+                                  <div className="flex justify-between items-center py-1">
+                                    <span className="text-slate-500 font-medium">Comprobante de Pago:</span>
+                                    {request.comprobante_path ? (
+                                      <a 
+                                        href={request.comprobante_path} 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        className="px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition-colors border border-brand-200 inline-flex items-center gap-1"
+                                      >
+                                        <span>📄</span> Ver Archivo
+                                      </a>
+                                    ) : (
+                                      <span className="text-slate-400 italic">Sin comprobante</span>
+                                    )}
+                                  </div>
+
+                                  {request.investor_id && (
+                                    <div className="flex justify-between items-center py-1 border-t border-slate-100">
+                                      <span className="text-slate-500 font-medium">ID Inversionista Creado:</span>
+                                      <span className="font-mono font-bold text-slate-800">#{request.investor_id}</span>
+                                    </div>
+                                  )}
+
+                                  {request.prospecto_id && (
+                                    <div className="flex justify-between items-center py-1 border-t border-slate-100">
+                                      <span className="text-slate-500 font-medium">ID Prospecto:</span>
+                                      <span className="font-mono font-bold text-slate-800">#{request.prospecto_id}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Registro de Revisión (Solo en Aprobadas o Rechazadas) */}
+                              {request.status !== 'pending' && (
+                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                  <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-100 pb-2">
+                                    Seguimiento de Revisión
+                                  </h4>
+                                  <div className="space-y-2 text-xs">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-slate-500 font-medium">Revisado Por:</span>
+                                      <span className="font-semibold text-slate-800">{request.reviewed_by ? `Admin #${request.reviewed_by}` : 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-slate-500 font-medium">Fecha Revisión:</span>
+                                      <span className="font-semibold text-slate-800">{request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString('es-CO') : 'N/A'}</span>
+                                    </div>
+                                    {request.rejection_reason && (
+                                      <div className="mt-2 p-2.5 bg-red-50 text-red-700 rounded-lg text-xs border border-red-100">
+                                        <strong>Motivo Rechazo:</strong> {request.rejection_reason}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
                           </div>
                         </td>
                       </tr>
