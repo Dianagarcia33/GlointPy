@@ -338,22 +338,56 @@ export const InvestmentRequestsTable = () => {
                                 <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-100 pb-2">
                                   Archivos y Adjuntos
                                 </h4>
-                                <div className="space-y-2 text-xs">
+                                <div className="space-y-3 text-xs">
                                   <div className="flex justify-between items-center py-1">
                                     <span className="text-slate-500 font-medium">Comprobante de Pago:</span>
                                     {request.comprobante_path ? (
                                       <a 
-                                        href={request.comprobante_path} 
+                                        href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${request.comprobante_path.startsWith('/') ? request.comprobante_path : '/' + request.comprobante_path}`} 
                                         target="_blank" 
                                         rel="noreferrer" 
                                         className="px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition-colors border border-brand-200 inline-flex items-center gap-1"
                                       >
-                                        <span>📄</span> Ver Archivo
+                                        <span>📄</span> Ver Comprobante
                                       </a>
                                     ) : (
                                       <span className="text-slate-400 italic">Sin comprobante</span>
                                     )}
                                   </div>
+
+                                  {/* Documentos KYC con Vista Previa */}
+                                  {request.extra_data?.kyc_docs && Array.isArray(request.extra_data.kyc_docs) && request.extra_data.kyc_docs.length > 0 && (
+                                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                                      <span className="text-slate-500 font-medium block">Documentos de Identidad (KYC):</span>
+                                      <div className="grid grid-cols-3 gap-2">
+                                        {request.extra_data.kyc_docs.map((path: string, idx: number) => {
+                                          const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
+                                          const label = kycLabels[idx] || `Doc ${idx + 1}`;
+                                          const fullUrl = `${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${path.startsWith('/') ? path : '/' + path}`;
+                                          return (
+                                            <a 
+                                              key={idx} 
+                                              href={fullUrl} 
+                                              target="_blank" 
+                                              rel="noreferrer"
+                                              className="group flex flex-col items-center bg-slate-50 p-1.5 rounded-lg border border-slate-200 hover:border-brand-500 transition-all text-center"
+                                              title={label}
+                                            >
+                                              <div className="w-full h-16 bg-white rounded overflow-hidden mb-1 flex items-center justify-center border border-slate-200">
+                                                <img 
+                                                  src={fullUrl} 
+                                                  alt={label} 
+                                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                                                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=Doc'; }}
+                                                />
+                                              </div>
+                                              <span className="text-[10px] font-bold text-slate-700 truncate w-full group-hover:text-brand-600">{label}</span>
+                                            </a>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
 
                                   {request.investor_id && (
                                     <div className="flex justify-between items-center py-1 border-t border-slate-100">
@@ -541,20 +575,33 @@ export const InvestmentRequestsTable = () => {
 
                   {selectedRequestToReview.extra_data.kyc_docs && Array.isArray(selectedRequestToReview.extra_data.kyc_docs) && selectedRequestToReview.extra_data.kyc_docs.length > 0 && (
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos KYC Adjuntos</h4>
-                      <div className="flex flex-col gap-2">
-                        {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => (
-                          <a 
-                            key={index} 
-                            href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${path.startsWith('/') ? path : '/' + path}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-xs bg-white hover:bg-brand-50 text-brand-700 px-3 py-2 rounded-lg font-medium transition-colors border border-slate-200 hover:border-brand-300 flex items-center justify-between"
-                          >
-                            <span className="truncate max-w-[200px]">Documento {index + 1}</span>
-                            <span className="text-[10px] text-slate-400">Ver</span>
-                          </a>
-                        ))}
+                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos de Identidad (KYC)</h4>
+                      <div className="grid grid-cols-3 gap-3">
+                        {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => {
+                          const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
+                          const label = kycLabels[index] || `Documento ${index + 1}`;
+                          const fullUrl = `${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${path.startsWith('/') ? path : '/' + path}`;
+                          return (
+                            <a 
+                              key={index} 
+                              href={fullUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="group flex flex-col items-center bg-white p-2 rounded-xl border border-slate-200 hover:border-brand-500 hover:shadow-md transition-all text-center"
+                            >
+                              <div className="w-full h-24 bg-slate-100 rounded-lg overflow-hidden mb-2 relative flex items-center justify-center border border-slate-100">
+                                <img 
+                                  src={fullUrl} 
+                                  alt={label} 
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Documento'; }}
+                                />
+                              </div>
+                              <span className="text-xs font-bold text-slate-800 group-hover:text-brand-600 truncate w-full">{label}</span>
+                              <span className="text-[10px] text-slate-400 mt-0.5">Ver Grande ↗</span>
+                            </a>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
