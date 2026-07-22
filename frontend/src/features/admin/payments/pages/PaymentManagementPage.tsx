@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText } from 'lucide-react';
+import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
 import { Withdrawal, PaginatedWithdrawals } from '../types';
 import { WithdrawalApprovalModal } from '../components/WithdrawalApprovalModal';
@@ -11,7 +11,16 @@ export const PaymentManagementPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const limit = 20;
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const fetchWithdrawals = async () => {
     try {
@@ -28,6 +37,20 @@ export const PaymentManagementPage: React.FC = () => {
   useEffect(() => {
     fetchWithdrawals();
   }, [page]);
+
+  const handleSyncWalletDebits = async () => {
+    try {
+      setIsSyncing(true);
+      const res = await paymentService.syncWalletDebits();
+      setToast({ message: res.message, type: 'success' });
+      fetchWithdrawals();
+    } catch (error: any) {
+      console.error('Error syncing wallet debits:', error);
+      setToast({ message: error.message || 'Error al sincronizar débitos de billetera', type: 'error' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +84,16 @@ export const PaymentManagementPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-4 right-4 z-[60] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border ${
+          toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
+        } animate-in slide-in-from-bottom-2`}>
+          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <AlertCircle className="w-5 h-5 text-red-600" />}
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -68,6 +101,17 @@ export const PaymentManagementPage: React.FC = () => {
           <p className="text-gray-500 text-sm mt-1">Administra los retiros y pagos solicitados por los usuarios.</p>
         </div>
         <div className="flex items-center space-x-3">
+          <Can permission="admin.withdrawals.manage">
+            <button 
+              onClick={handleSyncWalletDebits}
+              disabled={isSyncing}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+              title="Sincronizar débitos pasados de billetera que no tengan retiro registrado"
+            >
+              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              <span>Sincronizar Billeteras</span>
+            </button>
+          </Can>
           <button 
             onClick={fetchWithdrawals}
             className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
@@ -77,6 +121,7 @@ export const PaymentManagementPage: React.FC = () => {
           </button>
         </div>
       </div>
+
 
       {/* Filters and Search */}
       <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">

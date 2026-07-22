@@ -455,6 +455,52 @@ async def admin_adjust_wallet(
         balance_after=wallet.balance
     )
     db.add(tx)
+
+    # Si fue un débito (diff < 0), creamos automáticamente un registro de Retiro Aprobado
+    if diff < 0:
+        from src.models.withdrawal import Withdrawal, WithdrawalStatus, WithdrawalType
+        from src.models.user_bank_account import UserBankAccount
+        from src.models.investor import Investor
+        from datetime import date, datetime
+
+        monto_abs = abs(Decimal(str(diff)))
+        impuesto = (monto_abs * Decimal("0.032")).quantize(Decimal("0.01"))
+        monto_neto = monto_abs - impuesto
+
+        investor_res = await db.execute(select(Investor).where(Investor.user_id == wallet.user_id))
+        investor = investor_res.scalars().first()
+        investor_id = investor.id if investor else None
+
+        bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == wallet.user_id, UserBankAccount.is_active == True))
+        bank_account = bank_res.scalars().first()
+
+        withdrawal = Withdrawal(
+            investor_id=investor_id,
+            user_id=wallet.user_id,
+            origen="wallet",
+            tipo=WithdrawalType.RENDIMIENTO,
+            monto=monto_abs,
+            impuesto=impuesto,
+            monto_neto=monto_neto,
+            fecha_solicitud=date.today(),
+            fecha_retiro=date.today(),
+            estado=WithdrawalStatus.APPROVED,
+            metodo_pago="Ajuste Admin Wallet",
+            banco=bank_account.banco if bank_account else None,
+            tipo_cuenta=bank_account.tipo_cuenta if bank_account else None,
+            numero_cuenta=bank_account.numero_cuenta if bank_account else None,
+            observaciones=f"{req.description} (Ajuste por admin: {current_user.name})",
+            aprobado_por=current_user.id,
+            fecha_aprobacion=datetime.utcnow(),
+            procesado_por=current_user.id,
+            fecha_procesamiento=datetime.utcnow()
+        )
+        db.add(withdrawal)
+        await db.flush()
+
+
+        tx.reference_type = "withdrawal"
+        tx.reference_id = withdrawal.id
     
     try:
         await db.commit()
@@ -463,3 +509,4 @@ async def admin_adjust_wallet(
         raise HTTPException(status_code=500, detail=f"Error al ajustar billetera: {str(e)}")
         
     return {"message": "Saldo ajustado correctamente.", "new_balance": wallet.balance}
+

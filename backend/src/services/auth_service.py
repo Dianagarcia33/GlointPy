@@ -205,7 +205,7 @@ class AuthService:
         return user
 
     @staticmethod
-    async def request_password_reset(db: AsyncSession, email: str) -> bool:
+    async def request_password_reset(db: AsyncSession, email: str, background_tasks=None) -> bool:
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalars().first()
         
@@ -215,14 +215,20 @@ class AuthService:
             return True
             
         token = create_password_reset_token(user.email, user.password_hash)
-        # Enviar email
-        EmailService.send_password_reset_email(user.email, token)
+        # Enviar email en segundo plano si background_tasks está disponible
+        if background_tasks:
+            background_tasks.add_task(EmailService.send_password_reset_email, user.email, token)
+        else:
+            EmailService.send_password_reset_email(user.email, token)
         return True
+
 
     @staticmethod
     async def reset_password(db: AsyncSession, token: str, new_password: str) -> bool:
+        print("[RESET_PASSWORD] Inicio de reset_password...", flush=True)
         payload = verify_password_reset_token(token)
         if not payload:
+            print("[RESET_PASSWORD] Token o payload inválido", flush=True)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Token inválido o expirado."
@@ -230,11 +236,13 @@ class AuthService:
             
         email = payload.get("sub")
         hash_fragment = payload.get("hash_fragment")
+        print(f"[RESET_PASSWORD] Usuario identificado: {email}", flush=True)
         
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalars().first()
         
         if not user or not user.is_active:
+            print("[RESET_PASSWORD] Usuario no encontrado o inactivo", flush=True)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Token inválido o expirado."
@@ -243,15 +251,19 @@ class AuthService:
         # Verificar que el hash siga siendo el mismo (el token no se ha invalidado)
         current_hash_fragment = user.password_hash[-10:] if user.password_hash else ""
         if hash_fragment != current_hash_fragment:
+            print(f"[RESET_PASSWORD] Token expirado/utilizado (hash fragment no coincide)", flush=True)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Este enlace ya fue utilizado o es inválido."
             )
             
-        # Cambiar la contraseña
-        user.password_hash = get_password_hash(new_password)
-        # Si tenía el flag de obligatoriedad, lo quitamos
+        print("[RESET_PASSWORD] Hasheando nueva contraseña...", flush=True)
+        from starlette.concurrency import run_in_threadpool
+        user.password_hash = await run_in_threadpool(get_password_hash, new_password)
         user.must_change_password = False
         
+        print("[RESET_PASSWORD] Ejecutando db.commit()...", flush=True)
         await db.commit()
+        print("[RESET_PASSWORD] ¡Contraseña cambiada exitosamente!", flush=True)
         return True
+

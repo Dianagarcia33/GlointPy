@@ -135,3 +135,14 @@ async def bulk_upload_withdrawals(
         "message": f"Successfully imported {len(created)} withdrawals.",
         "count": len(created)
     }
+
+@router.post("/sync-wallet-debits", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def sync_wallet_debits(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Sincroniza retroactivamente todas las transacciones de débito de billetera creando registros de retiro en estado APROBADO.
+    """
+    return await WithdrawalService.sync_wallet_debits(db, current_user.id)
+
