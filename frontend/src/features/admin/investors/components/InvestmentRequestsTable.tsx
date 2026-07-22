@@ -465,14 +465,26 @@ export const InvestmentRequestsTable = () => {
                                      className="text-xs px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition-colors border border-brand-200 inline-flex items-center gap-1"
                                    >
                                      {sarlaftLoading[request.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>🔍</span>}
-                                     {sarlaftLoading[request.id] ? 'Consultando...' : 'Consultar'}
+                                     {sarlaftLoading[request.id] ? 'Consultando...' : sarlaftData[request.id] ? 'Re-Consultar' : 'Consultar'}
                                    </button>
                                  </div>
                                  <div className="text-xs space-y-2">
                                    {sarlaftData[request.id] ? (
                                      <>
-                                       <div className="flex justify-between items-center">
-                                         <span className="text-slate-500 font-medium">Estado / Nivel de Riesgo:</span>
+                                       <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
+                                         <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                                           <span className="text-emerald-600 font-bold">✓</span>
+                                           <span>Usuario Ya Validado Previamente</span>
+                                         </div>
+                                         {sarlaftData[request.id].created_at && (
+                                           <span className="text-[11px] text-slate-400 font-mono">
+                                             {new Date(sarlaftData[request.id].created_at).toLocaleDateString()}
+                                           </span>
+                                         )}
+                                       </div>
+
+                                       <div className="flex justify-between items-center pt-1">
+                                         <span className="text-slate-500 font-medium">Resultado / Nivel de Riesgo:</span>
                                          {sarlaftData[request.id].risk_level === 'CLEAN' ? (
                                            <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md flex items-center gap-1">
                                              ✓ Sin Hallazgos (Limpio)
@@ -490,14 +502,14 @@ export const InvestmentRequestsTable = () => {
                                        
                                        {sarlaftData[request.id].pdf_path && (
                                          <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
-                                           <span className="text-slate-400 text-[11px]">Informe en PDF generado</span>
+                                           <span className="text-slate-400 text-[11px]">Informe PDF disponible</span>
                                            <a 
                                              href={getMediaUrl(sarlaftData[request.id].pdf_path)} 
                                              target="_blank" 
                                              rel="noreferrer" 
                                              className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg transition-colors border border-purple-200 inline-flex items-center gap-1"
                                            >
-                                             <span>📄</span> Descargar Reporte PDF SARLAFT
+                                             <span>📄</span> Ver Reporte PDF SARLAFT
                                            </a>
                                          </div>
                                        )}
