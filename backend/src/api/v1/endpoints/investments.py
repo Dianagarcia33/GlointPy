@@ -151,7 +151,11 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     inv_id = int(investment_id)
     inv_res = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period))
+        .options(
+            selectinload(Investor.package), 
+            selectinload(Investor.period),
+            selectinload(Investor.accelerations)
+        )
         .where(Investor.id == inv_id, Investor.user_id == current_user.id)
     )
     inv_record = inv_res.scalars().first()
@@ -164,10 +168,29 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     fecha_fin = None
     dias_contrato = 0
     dias_transcurridos = 0
+    dias_reducidos_totales = 0.0
+    accelerations_list = []
+
+    if hasattr(inv_record, 'accelerations') and inv_record.accelerations:
+        for acc in inv_record.accelerations:
+            if acc.applied:
+                dias_reducidos_totales += float(acc.days_to_reduce or 0)
+                accelerations_list.append({
+                    "id": acc.id,
+                    "bonus_amount": float(acc.bonus_amount or 0),
+                    "days_to_reduce": round(float(acc.days_to_reduce or 0), 2),
+                    "percentage": float(acc.acceleration_percentage or 5),
+                    "created_at": acc.created_at.isoformat() if acc.created_at else None
+                })
     
     if fecha_ingreso and inv_record.period:
-        fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
-        dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+        fecha_fin_original = fecha_ingreso + relativedelta(months=inv_record.period.months)
+        dias_contrato_original = (fecha_fin_original.date() - fecha_ingreso.date()).days
+        
+        # Descontar los días reducidos por bonos/aceleraciones
+        dias_contrato = max(1, int(dias_contrato_original - dias_reducidos_totales))
+        from datetime import timedelta
+        fecha_fin = fecha_ingreso + timedelta(days=dias_contrato)
         
         diffTime = (today - fecha_ingreso.date()).days
         dias_transcurridos = diffTime if diffTime > 0 else 0
@@ -343,7 +366,9 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "movements": movements,
         "history": history,
         "projection": projection_table,
-        "bank_info": bank_info
+        "bank_info": bank_info,
+        "accelerations": accelerations_list,
+        "dias_reducidos_totales": round(dias_reducidos_totales, 2)
     }
     return inv
 
