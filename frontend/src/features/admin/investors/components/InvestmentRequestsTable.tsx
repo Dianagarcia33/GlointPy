@@ -332,16 +332,51 @@ export const InvestmentRequestsTable = () => {
                               )}
                               
                               <div className="text-slate-600">
-                                <span className="text-slate-400 block mb-1">Datos Extra (JSON):</span>
-                                <div className="bg-white border border-slate-200 p-2 rounded-lg text-xs font-mono break-all text-slate-700 max-h-32 overflow-y-auto">
-                                  {request.extra_data ? (
-                                    typeof request.extra_data === 'object' 
-                                      ? JSON.stringify(request.extra_data, null, 2)
-                                      : request.extra_data
-                                  ) : (
-                                    <span className="text-slate-400 italic">Sin datos extra</span>
-                                  )}
-                                </div>
+                                <span className="text-slate-700 font-semibold block mb-2">Datos Adicionales:</span>
+                                {request.extra_data && typeof request.extra_data === 'object' && Object.keys(request.extra_data).length > 0 ? (
+                                  <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2 text-xs shadow-sm max-h-48 overflow-y-auto">
+                                    {Object.entries(request.extra_data).map(([key, val]) => {
+                                      if (val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0)) return null;
+
+                                      const labels: Record<string, string> = {
+                                        referred_by: 'Código Referido',
+                                        referral_code: 'Código Referido',
+                                        codigo_referido: 'Código Referido',
+                                        ciudad: 'Ciudad',
+                                        fecha_nacimiento: 'Fecha Nacimiento',
+                                        tipo_documento: 'Tipo Documento',
+                                        numero_documento: 'Número Documento',
+                                        contract_period_id: 'ID Periodo',
+                                        es_aumento_capital: 'Aumento de Capital',
+                                        monto_billetera_usado: 'Billetera Usada',
+                                        kyc_docs: 'Documentos KYC',
+                                        comprobantes_adicionales: 'Comprobantes Extra'
+                                      };
+
+                                      const labelName = labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                                      let displayVal: React.ReactNode = String(val);
+                                      if (typeof val === 'boolean') {
+                                        displayVal = val ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-medium">Sí</span> : 'No';
+                                      } else if (Array.isArray(val)) {
+                                        displayVal = <span className="text-brand-600 font-medium">{val.length} archivo(s) adjunto(s)</span>;
+                                      } else if (['referred_by', 'referral_code', 'codigo_referido'].includes(key)) {
+                                        displayVal = <span className="px-2 py-0.5 bg-purple-100 text-purple-900 font-bold rounded">{String(val)}</span>;
+                                      }
+
+                                      return (
+                                        <div key={key} className="flex justify-between items-center border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
+                                          <span className="text-slate-500 font-medium">{labelName}:</span>
+                                          <span className="font-semibold text-slate-800 break-all text-right">{displayVal}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-xs text-slate-400 italic">
+                                    Sin datos adicionales
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
