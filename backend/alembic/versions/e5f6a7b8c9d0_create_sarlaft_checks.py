@@ -45,11 +45,6 @@ def upgrade():
       INDEX `idx_sarlaft_report_id` (`tusdatos_report_id`),
       CONSTRAINT `fk_sarlaft_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-    -- Asegurar que existan si la tabla fue creada previamente
-    ALTER TABLE `sarlaft_checks` ADD COLUMN IF NOT EXISTS `document_number` VARCHAR(50) NULL;
-    ALTER TABLE `sarlaft_checks` ADD COLUMN IF NOT EXISTS `document_type` VARCHAR(20) NULL DEFAULT 'CC';
-    ALTER TABLE `sarlaft_checks` ADD COLUMN IF NOT EXISTS `details` JSON NULL;
     """)
 
 def downgrade():
