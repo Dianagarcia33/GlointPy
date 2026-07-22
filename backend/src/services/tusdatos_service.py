@@ -28,8 +28,9 @@ class TusdatosService:
         """
         url = f"{TUSDATOS_BASE_URL}/api/launch"
         
-        # Limpiar documento de puntos o comas
-        clean_doc = str(doc).replace(".", "").replace(",", "").strip()
+        # Limpiar documento de puntos, comas o guiones
+        raw_doc = str(doc).replace(".", "").replace(",", "").replace("-", "").strip()
+        clean_doc = int(raw_doc) if raw_doc.isdigit() else raw_doc
         
         payload: Dict[str, Any] = {
             "doc": clean_doc,

@@ -25,6 +25,10 @@ class SarlaftCheck(Base):
     tusdatos_corregido_por = Column(BigInteger, ForeignKey("users.id"), nullable=True)
     tusdatos_last_check = Column(DateTime, nullable=True)
 
+    details = Column(JSON, nullable=True)
+    document_number = Column(String(50), nullable=True)
+    document_type = Column(String(20), nullable=True, default="CC")
+
     pdf_path = Column(String(500), nullable=True)
     risk_level = Column(String(50), default="CLEAN")
     has_findings = Column(Boolean, default=False)
