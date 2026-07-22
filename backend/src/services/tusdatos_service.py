@@ -120,13 +120,15 @@ class TusdatosService:
         3. Pollea hasta finalizar (máx 12 reintentos con delay de 5s)
         4. Si finaliza, descarga el JSON y PDF y actualiza el registro en la BD.
         """
+        import json
+
         # Crear registro inicial
         check = SarlaftCheck(
             user_id=user_id,
             investment_request_id=investment_request_id,
-            document_number=str(document_number),
-            document_type=document_type,
-            status="processing"
+            tusdatos_status="processing",
+            status="processing",
+            tusdatos_last_check=datetime.utcnow()
         )
         db.add(check)
         await db.commit()
@@ -138,11 +140,13 @@ class TusdatosService:
 
         if not job_id:
             check.status = "failed"
-            check.details = {"error": launch_res.get("error", "No se recibió jobid de Tusdatos")}
+            check.tusdatos_status = "failed"
+            check.tusdatos_msg = launch_res.get("error", "No se recibió jobid de Tusdatos")
             await db.commit()
             return check
 
         check.job_id = job_id
+        check.tusdatos_job_id = job_id
         await db.commit()
 
         # En ambiente de pruebas o producción, iterar polling
@@ -155,8 +159,12 @@ class TusdatosService:
             if estado == "finalizado":
                 report_id = results.get("id") or job_id
                 check.report_id = report_id
+                check.tusdatos_report_id = report_id
                 check.status = "completed"
+                check.tusdatos_status = "finalizado"
                 check.has_findings = bool(results.get("hallazgo", False))
+                check.tusdatos_last_check = datetime.utcnow()
+                check.tusdatos_msg = "Consulta finalizada exitosamente"
 
                 # Clasificar nivel de riesgo SARLAFT
                 dict_hallazgos = results.get("dict_hallazgos") or {}
@@ -172,6 +180,7 @@ class TusdatosService:
                 else:
                     check.risk_level = "CLEAN"
 
+                check.tusdatos_hallazgos = json.dumps(results.get("hallazgos") or dict_hallazgos)
                 check.details = {
                     "validado": results.get("validado", True),
                     "nombre": results.get("nombre", ""),
@@ -183,17 +192,20 @@ class TusdatosService:
                 pdf_path = await cls.download_report_pdf(report_id)
                 if pdf_path:
                     check.pdf_path = pdf_path
+                    check.tusdatos_evidencia_paths = [pdf_path]
 
                 await db.commit()
                 return check
 
             elif "error" in results or estado == "error":
                 check.status = "failed"
-                check.details = {"error": results.get("error") or results.get("message")}
+                check.tusdatos_status = "error"
+                check.tusdatos_msg = str(results.get("error") or results.get("message"))
                 await db.commit()
                 return check
 
         # Si agotó intentos y sigue en proceso
         check.status = "processing"
+        check.tusdatos_status = "procesando"
         await db.commit()
         return check

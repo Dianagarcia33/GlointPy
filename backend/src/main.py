@@ -17,6 +17,16 @@ app = FastAPI(
     description="API para el sistema de inversiones GlointPy",
     version="1.0.0"
 )
+
+@app.on_event("startup")
+async def on_startup():
+    try:
+        import src.models
+        from src.core.database import engine, Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        print(f"Error auto-creating tables on startup: {e}")
 from fastapi.staticfiles import StaticFiles
 import os
 

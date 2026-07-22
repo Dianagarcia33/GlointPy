@@ -58,29 +58,45 @@ async def get_user_sarlaft_check(user_id: int, current_user = Depends(get_curren
     """
     Obtiene el último resultado de verificación SARLAFT para un usuario.
     """
-    res = await db.execute(
-        select(SarlaftCheck)
-        .where(SarlaftCheck.user_id == user_id)
-        .order_by(SarlaftCheck.id.desc())
-    )
-    check = res.scalars().first()
+    try:
+        res = await db.execute(
+            select(SarlaftCheck)
+            .where(SarlaftCheck.user_id == user_id)
+            .order_by(SarlaftCheck.id.desc())
+        )
+        check = res.scalars().first()
+    except Exception as e:
+        print(f"Error querying sarlaft_checks: {e}")
+        return {"status": "none", "check": None}
     
     if not check:
         return {"status": "none", "check": None}
 
     return {
-        "status": check.status,
+        "status": check.status or check.tusdatos_status,
         "check": {
             "id": check.id,
-            "job_id": check.job_id,
-            "report_id": check.report_id,
+            "job_id": check.job_id or check.tusdatos_job_id,
+            "report_id": check.report_id or check.tusdatos_report_id,
             "document_number": check.document_number,
             "document_type": check.document_type,
-            "status": check.status,
+            "status": check.status or check.tusdatos_status,
             "has_findings": check.has_findings,
             "risk_level": check.risk_level,
             "pdf_path": check.pdf_path,
             "details": check.details,
+            "tusdatos_job_id": check.tusdatos_job_id,
+            "tusdatos_status": check.tusdatos_status,
+            "tusdatos_report_id": check.tusdatos_report_id,
+            "tusdatos_hallazgos": check.tusdatos_hallazgos,
+            "tusdatos_msg": check.tusdatos_msg,
+            "tusdatos_sources": check.tusdatos_sources,
+            "tusdatos_justificacion": check.tusdatos_justificacion,
+            "tusdatos_evidencia_paths": check.tusdatos_evidencia_paths,
+            "tusdatos_hallazgos_corregidos": check.tusdatos_hallazgos_corregidos,
+            "tusdatos_fecha_correccion": check.tusdatos_fecha_correccion.isoformat() if check.tusdatos_fecha_correccion else None,
+            "tusdatos_corregido_por": check.tusdatos_corregido_por,
+            "tusdatos_last_check": check.tusdatos_last_check.isoformat() if check.tusdatos_last_check else None,
             "created_at": check.created_at.isoformat() if check.created_at else None
         }
     }
