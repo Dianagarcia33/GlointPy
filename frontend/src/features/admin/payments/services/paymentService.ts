@@ -41,5 +41,13 @@ export const paymentService = {
       body: JSON.stringify({ motivo_rechazo: reason }),
     });
     return data as Withdrawal;
+  },
+
+  syncWalletDebits: async (): Promise<{ synced_count: number; message: string }> => {
+    const data = await fetchApi('/withdrawals/sync-wallet-debits', {
+      method: 'POST',
+    });
+    return data as { synced_count: number; message: string };
   }
 };
+

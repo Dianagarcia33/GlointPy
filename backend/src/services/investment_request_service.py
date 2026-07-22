@@ -231,6 +231,8 @@ class InvestmentRequestService:
         import random
         from src.models.investor import Investor
         from src.models.period import Period
+        from src.models.acceleration import Acceleration
+        from sqlalchemy.orm import selectinload
         from fastapi import HTTPException
 
         # 1. Fetch request
@@ -249,6 +251,17 @@ class InvestmentRequestService:
         req.status = InvestmentRequestStatus.approved
         req.reviewed_by = user_id
         req.reviewed_at = datetime.utcnow()
+
+        # Extraer código de referido si viene en extra_data
+        referred_code = None
+        if req.extra_data and isinstance(req.extra_data, dict):
+            referred_code = (
+                req.extra_data.get("referred_by") or 
+                req.extra_data.get("referral_code") or 
+                req.extra_data.get("codigo_referido")
+            )
+            if referred_code:
+                referred_code = str(referred_code).strip()
 
         # 3. Create Investor automatically
         if not req.investor_id:
@@ -287,6 +300,7 @@ class InvestmentRequestService:
             
             investor = Investor(
                 assigned_code=code,
+                referred_by=referred_code,
                 user_id=req.user_id,
                 package_id=req.paquete_inversion_id,
                 period_id=period_id,
@@ -296,10 +310,57 @@ class InvestmentRequestService:
             await db.flush()
             
             req.investor_id = investor.id
-            
+
+        # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)
+        if referred_code:
+            # Buscar el contrato del referente por su assigned_code
+            referrer_res = await db.execute(
+                select(Investor)
+                .options(selectinload(Investor.package), selectinload(Investor.period))
+                .where(Investor.assigned_code == referred_code)
+            )
+            referrer_investor = referrer_res.scalars().first()
+
+            if referrer_investor and referrer_investor.package and referrer_investor.period:
+                # Calcular bono del 5% del monto de la nueva inversión aprobada
+                bonus_amount = float(req.monto) * 0.05
+
+                # Calcular rendimiento diario del contrato objetivo del referente
+                ref_package_val = float(referrer_investor.package.value or 0)
+                ref_pct = float(referrer_investor.period.percentage or 0) / 100.0
+                ref_months = float(referrer_investor.period.months or 0)
+                ref_days = float(referrer_investor.period.days or 0)
+
+                if ref_days > 0 and ref_package_val > 0:
+                    rendimiento_mensual = ref_package_val * ref_pct
+                    rendimiento_total = rendimiento_mensual * ref_months
+                    daily_yield = rendimiento_total / ref_days
+
+                    days_to_reduce = (bonus_amount / daily_yield) if daily_yield > 0 else 0.0
+                else:
+                    days_to_reduce = 0.0
+
+                # Crear registro de aceleración (applied = True)
+                acceleration = Acceleration(
+                    investor_id=referrer_investor.id,
+                    investment_request_id=req.id,
+                    contract_period_id=referrer_investor.period_id,
+                    original_days=referrer_investor.period.days,
+                    acceleration_percentage=5.00,
+                    days_to_reduce=days_to_reduce,
+                    bonus_amount=bonus_amount,
+                    applied=True
+                )
+                db.add(acceleration)
+                logger.info(
+                    f"Aceleración aplicada al contrato #{referrer_investor.id} ({referred_code}): "
+                    f"monto_bono={bonus_amount}, días_reducidos={days_to_reduce}"
+                )
+
         await db.commit()
         await db.refresh(req)
         return req
+
 
     @staticmethod
     async def reject_request(db: AsyncSession, request_id: int, user_id: int, reason: str) -> InvestmentRequest:

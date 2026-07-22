@@ -466,6 +466,14 @@ export const InvestmentRequestsTable = () => {
                           <span className="font-medium">{selectedRequestToReview.extra_data.fecha_nacimiento}</span>
                         </div>
                       )}
+                      {(selectedRequestToReview.extra_data.referred_by || selectedRequestToReview.extra_data.referral_code || selectedRequestToReview.extra_data.codigo_referido) && (
+                        <div className="flex justify-between items-center bg-purple-50 p-2 rounded-lg border border-purple-100">
+                          <span className="text-purple-700 font-medium text-xs">Código Referido (Bono 5%):</span>
+                          <span className="font-bold text-purple-900 text-xs px-2 py-0.5 bg-purple-200 rounded">
+                            {selectedRequestToReview.extra_data.referred_by || selectedRequestToReview.extra_data.referral_code || selectedRequestToReview.extra_data.codigo_referido}
+                          </span>
+                        </div>
+                      )}
                       {selectedRequestToReview.extra_data.contract_period_id && (
                         <div className="flex justify-between">
                           <span className="text-slate-500">Periodo de Contrato:</span>

@@ -182,3 +182,96 @@ class WithdrawalService:
         await db.commit()
         await db.refresh(withdrawal)
         return withdrawal
+
+    @staticmethod
+    async def sync_wallet_debits(db: AsyncSession, admin_id: int) -> Dict[str, Any]:
+        """
+        Sincroniza retroactivamente todas las transacciones de débito de billetera que no tengan un registro en la tabla de retiros.
+        """
+        from src.models.wallet import Wallet, WalletTransaction
+        from src.models.user_bank_account import UserBankAccount
+        from src.models.investor import Investor
+        from src.models.withdrawal import WithdrawalType
+        from decimal import Decimal
+        from datetime import date
+
+        tx_query = (
+            select(WalletTransaction, Wallet.user_id)
+            .join(Wallet, Wallet.id == WalletTransaction.wallet_id)
+            .where(
+                WalletTransaction.amount < 0,
+                or_(
+                    WalletTransaction.reference_type == None,
+                    WalletTransaction.reference_type != "withdrawal"
+                )
+            )
+        )
+        tx_result = await db.execute(tx_query)
+        rows = tx_result.all()
+
+        synced_count = 0
+
+        for tx, user_id in rows:
+            monto_abs = abs(Decimal(str(tx.amount)))
+            impuesto = (monto_abs * Decimal("0.032")).quantize(Decimal("0.01"))
+            monto_neto = monto_abs - impuesto
+
+            existing_res = await db.execute(
+                select(Withdrawal).where(
+                    Withdrawal.user_id == user_id,
+                    Withdrawal.monto == monto_abs,
+                    Withdrawal.origen == "wallet"
+                )
+            )
+            existing_w = existing_res.scalars().first()
+
+            if existing_w:
+                tx.reference_type = "withdrawal"
+                tx.reference_id = existing_w.id
+                continue
+
+            investor_res = await db.execute(select(Investor).where(Investor.user_id == user_id))
+            investor = investor_res.scalars().first()
+            investor_id = investor.id if investor else None
+
+            bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == user_id, UserBankAccount.is_active == True))
+            bank_account = bank_res.scalars().first()
+
+            tx_date = tx.created_at.date() if tx.created_at else date.today()
+
+            withdrawal = Withdrawal(
+                investor_id=investor_id,
+                user_id=user_id,
+                origen="wallet",
+                tipo=WithdrawalType.RENDIMIENTO,
+                monto=monto_abs,
+                impuesto=impuesto,
+                monto_neto=monto_neto,
+                fecha_solicitud=tx_date,
+                fecha_retiro=tx_date,
+                estado=WithdrawalStatus.APPROVED,
+                metodo_pago="Ajuste Admin Wallet",
+                banco=bank_account.banco if bank_account else None,
+                tipo_cuenta=bank_account.tipo_cuenta if bank_account else None,
+                numero_cuenta=bank_account.numero_cuenta if bank_account else None,
+                observaciones=tx.description or "Ajuste de billetera sincronizado",
+                aprobado_por=admin_id,
+                fecha_aprobacion=tx.created_at or datetime.utcnow(),
+                procesado_por=admin_id,
+                fecha_procesamiento=tx.created_at or datetime.utcnow(),
+                created_at=tx.created_at or datetime.utcnow()
+            )
+
+            db.add(withdrawal)
+            await db.flush()
+
+            tx.reference_type = "withdrawal"
+            tx.reference_id = withdrawal.id
+            synced_count += 1
+
+        await db.commit()
+        return {
+            "message": f"Sincronización completada exitosamente. Se registraron {synced_count} retiros.",
+            "synced_count": synced_count
+        }
+

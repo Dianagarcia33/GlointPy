@@ -159,7 +159,8 @@ class AuthService:
                 "ciudad": data.ciudad,
                 "fecha_nacimiento": data.fecha_nacimiento,
                 "tipo_documento": data.tipo_documento,
-                "contract_period_id": data.contract_period_id
+                "contract_period_id": data.contract_period_id,
+                "referred_by": getattr(data, "referred_by", None)
             }
         )
         db.add(req)
