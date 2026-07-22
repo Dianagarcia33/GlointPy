@@ -3,6 +3,10 @@ import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentReques
 import { periodsService, Period } from '../../../../services/periods';
 import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
+import { formatCurrency } from '../../../../utils/format';
+import { getMediaUrl } from '../../../../services/api';
+
+const FALLBACK_DOC_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
 
 const InvestmentRequestsTableSkeleton = () => {
   return (
@@ -343,7 +347,7 @@ export const InvestmentRequestsTable = () => {
                                     <span className="text-slate-500 font-medium">Comprobante de Pago:</span>
                                     {request.comprobante_path ? (
                                       <a 
-                                        href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${request.comprobante_path.startsWith('/') ? request.comprobante_path : '/' + request.comprobante_path}`} 
+                                        href={getMediaUrl(request.comprobante_path)} 
                                         target="_blank" 
                                         rel="noreferrer" 
                                         className="px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition-colors border border-brand-200 inline-flex items-center gap-1"
@@ -363,7 +367,7 @@ export const InvestmentRequestsTable = () => {
                                         {request.extra_data.kyc_docs.map((path: string, idx: number) => {
                                           const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
                                           const label = kycLabels[idx] || `Doc ${idx + 1}`;
-                                          const fullUrl = `${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${path.startsWith('/') ? path : '/' + path}`;
+                                          const fullUrl = getMediaUrl(path);
                                           return (
                                             <a 
                                               key={idx} 
@@ -378,7 +382,12 @@ export const InvestmentRequestsTable = () => {
                                                   src={fullUrl} 
                                                   alt={label} 
                                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
-                                                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/100?text=Doc'; }}
+                                                  onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    if (target.src !== FALLBACK_DOC_SVG) {
+                                                      target.src = FALLBACK_DOC_SVG;
+                                                    }
+                                                  }}
                                                 />
                                               </div>
                                               <span className="text-[10px] font-bold text-slate-700 truncate w-full group-hover:text-brand-600">{label}</span>
@@ -580,7 +589,7 @@ export const InvestmentRequestsTable = () => {
                         {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => {
                           const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
                           const label = kycLabels[index] || `Documento ${index + 1}`;
-                          const fullUrl = `${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${path.startsWith('/') ? path : '/' + path}`;
+                          const fullUrl = getMediaUrl(path);
                           return (
                             <a 
                               key={index} 
@@ -594,7 +603,12 @@ export const InvestmentRequestsTable = () => {
                                   src={fullUrl} 
                                   alt={label} 
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
-                                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Documento'; }}
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    if (target.src !== FALLBACK_DOC_SVG) {
+                                      target.src = FALLBACK_DOC_SVG;
+                                    }
+                                  }}
                                 />
                               </div>
                               <span className="text-xs font-bold text-slate-800 group-hover:text-brand-600 truncate w-full">{label}</span>
@@ -615,15 +629,20 @@ export const InvestmentRequestsTable = () => {
                   </div>
                   <div className="p-4 flex justify-center bg-slate-100 min-h-[200px]">
                     <img 
-                      src={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${selectedRequestToReview.comprobante_path}`} 
+                      src={getMediaUrl(selectedRequestToReview.comprobante_path)} 
                       alt="Comprobante" 
                       className="max-h-[400px] object-contain rounded shadow-sm border border-slate-200"
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400?text=No+se+pudo+cargar+la+imagen'; }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.src !== FALLBACK_DOC_SVG) {
+                          target.src = FALLBACK_DOC_SVG;
+                        }
+                      }}
                     />
                   </div>
                   <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-right">
                     <a 
-                      href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${selectedRequestToReview.comprobante_path}`} 
+                      href={getMediaUrl(selectedRequestToReview.comprobante_path)} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-sm text-brand-600 font-medium hover:underline"

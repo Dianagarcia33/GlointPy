@@ -109,8 +109,9 @@ async def upload_file(file: UploadFile = File(...)):
     """
     Sube un archivo públicamente (comprobantes, documentos KYC) y retorna su ruta de acceso.
     """
+    os.makedirs("uploads", exist_ok=True)
     ext = os.path.splitext(file.filename)[1]
-    if ext.lower() not in ['.jpg', '.jpeg', '.png', '.pdf']:
+    if ext.lower() not in ['.jpg', '.jpeg', '.png', '.pdf', '.webp']:
         raise HTTPException(status_code=400, detail="Extensión de archivo no permitida.")
         
     filename = f"{uuid.uuid4()}{ext}"

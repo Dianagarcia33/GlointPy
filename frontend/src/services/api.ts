@@ -2,6 +2,16 @@ import { useAuthStore } from '../store/authStore';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
+export function getMediaUrl(path: string | null | undefined): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  const baseUrl = API_URL.replace(/\/api\/v1\/?$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${baseUrl}${cleanPath}`;
+}
+
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   const token = useAuthStore.getState().accessToken;
   
