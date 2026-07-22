@@ -10,37 +10,39 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'e5f6a7b8c9d0'
-down_revision = 'f23b2c8a14b9'
+down_revision = ('d11111111111', 'b2c3d4e5f6a1')
 branch_labels = None
 depends_on = None
 
 def upgrade():
-    op.create_table(
-        'sarlaft_checks',
-        sa.Column('id', sa.Integer(), nullable=False, primary_key=True, autoincrement=True),
-        sa.Column('user_id', sa.BigInteger(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('investment_request_id', sa.Integer(), sa.ForeignKey('investment_requests.id'), nullable=True),
-        sa.Column('tusdatos_job_id', sa.String(255), nullable=True),
-        sa.Column('tusdatos_status', sa.String(255), nullable=True),
-        sa.Column('tusdatos_report_id', sa.String(255), nullable=True),
-        sa.Column('tusdatos_hallazgos', sa.Text(), nullable=True),
-        sa.Column('tusdatos_msg', sa.String(255), nullable=True),
-        sa.Column('tusdatos_sources', sa.Text(), nullable=True),
-        sa.Column('tusdatos_justificacion', sa.Text(), nullable=True),
-        sa.Column('tusdatos_evidencia_paths', sa.JSON(), nullable=True),
-        sa.Column('tusdatos_hallazgos_corregidos', sa.Boolean(), nullable=False, server_default='0'),
-        sa.Column('tusdatos_fecha_correccion', sa.DateTime(), nullable=True),
-        sa.Column('tusdatos_corregido_por', sa.BigInteger(), sa.ForeignKey('users.id'), nullable=True),
-        sa.Column('tusdatos_last_check', sa.DateTime(), nullable=True),
-        sa.Column('pdf_path', sa.String(500), nullable=True),
-        sa.Column('risk_level', sa.String(50), server_default='CLEAN'),
-        sa.Column('has_findings', sa.Boolean(), server_default='0'),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.func.now(), onupdate=sa.func.now())
-    )
-    op.create_index('idx_sarlaft_user_id', 'sarlaft_checks', ['user_id'])
-    op.create_index('idx_sarlaft_job_id', 'sarlaft_checks', ['tusdatos_job_id'])
-    op.create_index('idx_sarlaft_report_id', 'sarlaft_checks', ['tusdatos_report_id'])
+    op.execute("""
+    CREATE TABLE IF NOT EXISTS `sarlaft_checks` (
+      `id` INT AUTO_INCREMENT PRIMARY KEY,
+      `user_id` BIGINT UNSIGNED NOT NULL,
+      `investment_request_id` INT NULL,
+      `tusdatos_job_id` VARCHAR(255) NULL,
+      `tusdatos_status` VARCHAR(255) NULL,
+      `tusdatos_report_id` VARCHAR(255) NULL,
+      `tusdatos_hallazgos` LONGTEXT NULL,
+      `tusdatos_msg` VARCHAR(255) NULL,
+      `tusdatos_sources` LONGTEXT NULL,
+      `tusdatos_justificacion` TEXT NULL,
+      `tusdatos_evidencia_paths` JSON NULL,
+      `tusdatos_hallazgos_corregidos` TINYINT(1) NOT NULL DEFAULT 0,
+      `tusdatos_fecha_correccion` TIMESTAMP NULL,
+      `tusdatos_corregido_por` BIGINT UNSIGNED NULL,
+      `tusdatos_last_check` TIMESTAMP NULL,
+      `pdf_path` VARCHAR(500) NULL,
+      `risk_level` VARCHAR(50) DEFAULT 'CLEAN',
+      `has_findings` TINYINT(1) DEFAULT 0,
+      `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+      `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX `idx_sarlaft_user_id` (`user_id`),
+      INDEX `idx_sarlaft_job_id` (`tusdatos_job_id`),
+      INDEX `idx_sarlaft_report_id` (`tusdatos_report_id`),
+      CONSTRAINT `fk_sarlaft_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    """)
 
 def downgrade():
     op.drop_index('idx_sarlaft_report_id', table_name='sarlaft_checks')
