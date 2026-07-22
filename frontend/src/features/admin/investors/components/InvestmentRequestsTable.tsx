@@ -5,6 +5,7 @@ import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 
 import { Can } from '../../../../components/security/Can';
 import { formatCurrency } from '../../../../utils/format';
 import { getMediaUrl } from '../../../../services/api';
+import { sarlaftService } from '../../../../services/sarlaft';
 
 const FALLBACK_DOC_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
 
@@ -84,8 +85,46 @@ export const InvestmentRequestsTable = () => {
     }
   };
 
-  const toggleRow = (id: number) => {
-    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  const [sarlaftData, setSarlaftData] = useState<Record<number, any>>({});
+  const [sarlaftLoading, setSarlaftLoading] = useState<Record<number, boolean>>({});
+
+  const toggleRow = (req: InvestmentRequest) => {
+    const isExpanding = !expandedRows[req.id];
+    setExpandedRows(prev => ({ ...prev, [req.id]: isExpanding }));
+
+    if (isExpanding && req.user_id && !sarlaftData[req.id]) {
+      sarlaftService.getCheckByUser(req.user_id).then(res => {
+        if (res.check) {
+          setSarlaftData(prev => ({ ...prev, [req.id]: res.check }));
+        }
+      }).catch(err => console.error("Error cargando SARLAFT", err));
+    }
+  };
+
+  const handleRunSarlaftCheck = async (req: InvestmentRequest) => {
+    if (!req.user_id) return;
+    const docNum = req.extra_data?.numero_documento || req.extra_data?.documento || req.user?.document_id;
+    const docType = req.extra_data?.tipo_documento || 'CC';
+
+    if (!docNum) {
+      alert("No se encontró el número de documento para este usuario");
+      return;
+    }
+
+    try {
+      setSarlaftLoading(prev => ({ ...prev, [req.id]: true }));
+      const result = await sarlaftService.triggerCheck({
+        user_id: req.user_id,
+        document_number: String(docNum),
+        document_type: docType,
+        investment_request_id: req.id
+      });
+      setSarlaftData(prev => ({ ...prev, [req.id]: result.check || result }));
+    } catch (err: any) {
+      alert(err.message || "Error consultando antecedentes SARLAFT");
+    } finally {
+      setSarlaftLoading(prev => ({ ...prev, [req.id]: false }));
+    }
   };
 
   // Pagination & Search state
@@ -210,7 +249,7 @@ export const InvestmentRequestsTable = () => {
                     <tr className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-4">
                         <button
-                          onClick={() => toggleRow(request.id)}
+                          onClick={() => toggleRow(request)}
                           className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400 hover:text-slate-600"
                         >
                           {expandedRows[request.id] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -413,6 +452,61 @@ export const InvestmentRequestsTable = () => {
                                   )}
                                 </div>
                               </div>
+
+                               {/* Verificación SARLAFT (Tusdatos.co) */}
+                               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                 <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                   <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                     <span>🛡️</span> Verificación SARLAFT (Tusdatos.co)
+                                   </h4>
+                                   <button 
+                                     onClick={() => handleRunSarlaftCheck(request)}
+                                     disabled={sarlaftLoading[request.id]}
+                                     className="text-xs px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition-colors border border-brand-200 inline-flex items-center gap-1"
+                                   >
+                                     {sarlaftLoading[request.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>🔍</span>}
+                                     {sarlaftLoading[request.id] ? 'Consultando...' : 'Consultar'}
+                                   </button>
+                                 </div>
+                                 <div className="text-xs space-y-2">
+                                   {sarlaftData[request.id] ? (
+                                     <>
+                                       <div className="flex justify-between items-center">
+                                         <span className="text-slate-500 font-medium">Estado / Nivel de Riesgo:</span>
+                                         {sarlaftData[request.id].risk_level === 'CLEAN' ? (
+                                           <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md flex items-center gap-1">
+                                             ✓ Sin Hallazgos (Limpio)
+                                           </span>
+                                         ) : sarlaftData[request.id].risk_level === 'HIGH' ? (
+                                           <span className="px-2.5 py-0.5 bg-red-100 text-red-800 font-bold rounded-md flex items-center gap-1">
+                                             ⚠ ALERTA ALTO RIESGO
+                                           </span>
+                                         ) : (
+                                           <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 font-bold rounded-md flex items-center gap-1">
+                                             ℹ Hallazgos Informativos / Revisar
+                                           </span>
+                                         )}
+                                       </div>
+                                       
+                                       {sarlaftData[request.id].pdf_path && (
+                                         <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
+                                           <span className="text-slate-400 text-[11px]">Informe en PDF generado</span>
+                                           <a 
+                                             href={getMediaUrl(sarlaftData[request.id].pdf_path)} 
+                                             target="_blank" 
+                                             rel="noreferrer" 
+                                             className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg transition-colors border border-purple-200 inline-flex items-center gap-1"
+                                           >
+                                             <span>📄</span> Descargar Reporte PDF SARLAFT
+                                           </a>
+                                         </div>
+                                       )}
+                                     </>
+                                   ) : (
+                                     <p className="text-slate-400 italic py-1">No se ha ejecutado la consulta SARLAFT en Tusdatos.co para esta cédula.</p>
+                                   )}
+                                 </div>
+                               </div>
 
                               {/* Registro de Revisión (Solo en Aprobadas o Rechazadas) */}
                               {request.status !== 'pending' && (

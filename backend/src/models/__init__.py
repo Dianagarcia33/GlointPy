@@ -11,3 +11,4 @@ from src.models.acceleration import Acceleration
 from src.models.contract_history import ContractHistory
 from src.models.system_event import SystemEvent
 from src.models.withdrawal_verification_code import WithdrawalVerificationCode
+from src.models.sarlaft_check import SarlaftCheck
