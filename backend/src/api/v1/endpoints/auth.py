@@ -75,13 +75,20 @@ async def force_change_password(data: ForceChangePasswordRequest, db: AsyncSessi
         "user": user
     }
 
+from fastapi import BackgroundTasks
+
 @router.post("/forgot-password")
-async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def forgot_password(
+    data: ForgotPasswordRequest, 
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+) -> Any:
     """
     Envía un correo de recuperación de contraseña si el correo existe en la base de datos.
     """
-    await AuthService.request_password_reset(db, data.email)
+    await AuthService.request_password_reset(db, data.email, background_tasks)
     return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
+
 
 @router.post("/reset-password")
 async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
