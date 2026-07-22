@@ -36,3 +36,27 @@ class SarlaftCheck(Base):
     user = relationship("User", foreign_keys=[user_id], backref="sarlaft_checks")
     corregido_por_user = relationship("User", foreign_keys=[tusdatos_corregido_por])
     investment_request = relationship("InvestmentRequest", backref="sarlaft_checks")
+
+    @property
+    def status(self):
+        return self.tusdatos_status
+
+    @status.setter
+    def status(self, value):
+        self.tusdatos_status = value
+
+    @property
+    def job_id(self):
+        return self.tusdatos_job_id
+
+    @job_id.setter
+    def job_id(self, value):
+        self.tusdatos_job_id = value
+
+    @property
+    def report_id(self):
+        return self.tusdatos_report_id
+
+    @report_id.setter
+    def report_id(self, value):
+        self.tusdatos_report_id = value

@@ -127,7 +127,6 @@ class TusdatosService:
             user_id=user_id,
             investment_request_id=investment_request_id,
             tusdatos_status="processing",
-            status="processing",
             tusdatos_last_check=datetime.utcnow()
         )
         db.add(check)
