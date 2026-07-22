@@ -7,7 +7,7 @@ class SarlaftCheck(Base):
     __tablename__ = "sarlaft_checks"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False, index=True)
     investment_request_id = Column(Integer, ForeignKey("investment_requests.id"), nullable=True, index=True)
     
     tusdatos_job_id = Column(String(255), nullable=True, index=True)
