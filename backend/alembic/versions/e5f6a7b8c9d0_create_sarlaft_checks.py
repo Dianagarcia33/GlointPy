@@ -18,7 +18,7 @@ def upgrade():
     op.execute("""
     CREATE TABLE IF NOT EXISTS `sarlaft_checks` (
       `id` INT AUTO_INCREMENT PRIMARY KEY,
-      `user_id` BIGINT UNSIGNED NOT NULL,
+      `user_id` BIGINT NOT NULL,
       `investment_request_id` INT NULL,
       `tusdatos_job_id` VARCHAR(255) NULL,
       `tusdatos_status` VARCHAR(255) NULL,
@@ -30,7 +30,7 @@ def upgrade():
       `tusdatos_evidencia_paths` JSON NULL,
       `tusdatos_hallazgos_corregidos` TINYINT(1) NOT NULL DEFAULT 0,
       `tusdatos_fecha_correccion` TIMESTAMP NULL,
-      `tusdatos_corregido_por` BIGINT UNSIGNED NULL,
+      `tusdatos_corregido_por` BIGINT NULL,
       `tusdatos_last_check` TIMESTAMP NULL,
       `pdf_path` VARCHAR(500) NULL,
       `risk_level` VARCHAR(50) DEFAULT 'CLEAN',
