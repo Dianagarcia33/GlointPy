@@ -34,9 +34,9 @@ export const sarlaftService = {
 
   async triggerCheck(data: {
     user_id: number;
-    document_number: str;
-    document_type?: str;
-    fecha_expedicion?: str;
+    document_number: string;
+    document_type?: string;
+    fecha_expedicion?: string;
     investment_request_id?: number;
   }): Promise<any> {
     return await fetchApi('/sarlaft/check', {
