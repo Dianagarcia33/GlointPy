@@ -1,32 +1,110 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Trophy, Plus, Zap, TrendingUp, DollarSign, Users, Award, ShieldAlert, CheckCircle2, AlertCircle } from 'lucide-react';
-import { commercialService, CommercialSummary, LeaderboardResponse } from '../../../services/commercial';
+import { Trophy, Plus, Zap, TrendingUp, DollarSign, Users, Award, ShieldAlert, CheckCircle2, AlertCircle, Download, Trash2, Filter, ShieldCheck, UserCheck } from 'lucide-react';
+import { useAuthStore } from '../../../store/authStore';
+import { commercialService, CommercialSummary, AdminCommercialSummary, LeaderboardResponse, CommercialSale, CommercialUserOption } from '../../../services/commercial';
 import { RegisterCommercialSaleModal } from '../components/RegisterCommercialSaleModal';
 
 export const CommercialDashboardPage: React.FC = () => {
+  const { user } = useAuthStore();
+  const isAdmin = user?.is_superuser === true || 
+    user?.permissions?.includes('admin.commercial.manage') === true || 
+    user?.permissions?.includes('admin.roles.manage') === true;
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const { data: summary, isLoading: isLoadingSummary, refetch: refetchSummary } = useQuery<CommercialSummary>({
-    queryKey: ['my_commercial_summary'],
-    queryFn: () => commercialService.getMySummary()
-  });
-
-  const { data: leaderboardData, isLoading: isLoadingLeaderboard, refetch: refetchLeaderboard } = useQuery<LeaderboardResponse>({
-    queryKey: ['commercial_leaderboard'],
-    queryFn: () => commercialService.getLeaderboard()
-  });
+  // Filtros del Administrador
+  const [selectedCommercialId, setSelectedCommercialId] = useState<string>('');
+  const [selectedSaleType, setSelectedSaleType] = useState<string>('');
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
 
+  // Queries para Asesor Comercial
+  const { data: summary, refetch: refetchSummary } = useQuery<CommercialSummary>({
+    queryKey: ['my_commercial_summary'],
+    queryFn: () => commercialService.getMySummary(),
+    enabled: !isAdmin
+  });
+
+  // Queries para Administrador
+  const { data: adminSummary, refetch: refetchAdminSummary } = useQuery<AdminCommercialSummary>({
+    queryKey: ['admin_commercial_summary'],
+    queryFn: () => commercialService.getAdminSummary(),
+    enabled: isAdmin
+  });
+
+  const { data: allSales, isLoading: isLoadingAllSales, refetch: refetchAllSales } = useQuery<CommercialSale[]>({
+    queryKey: ['all_commercial_sales', selectedCommercialId, selectedSaleType],
+    queryFn: () => commercialService.getAllSales({
+      commercial_id: selectedCommercialId ? Number(selectedCommercialId) : undefined,
+      sale_type: selectedSaleType || undefined
+    }),
+    enabled: isAdmin
+  });
+
+  const { data: commercialUsers } = useQuery<CommercialUserOption[]>({
+    queryKey: ['commercial_users_list'],
+    queryFn: () => commercialService.getCommercialUsers(),
+    enabled: isAdmin
+  });
+
+  // Shared Query: Leaderboard
+  const { data: leaderboardData, isLoading: isLoadingLeaderboard, refetch: refetchLeaderboard } = useQuery<LeaderboardResponse>({
+    queryKey: ['commercial_leaderboard'],
+    queryFn: () => commercialService.getLeaderboard()
+  });
+
   const handleSuccess = () => {
-    showToast('¡Venta registrada exitosamente! Comisión acreditada a tu Wallet.', 'success');
-    refetchSummary();
+    showToast('¡Venta registrada y adjudicada exitosamente!', 'success');
+    if (isAdmin) {
+      refetchAdminSummary();
+      refetchAllSales();
+    } else {
+      refetchSummary();
+    }
     refetchLeaderboard();
+  };
+
+  const handleDeleteSale = async (saleId: number) => {
+    if (!window.confirm('¿Estás seguro de anular esta venta comercial? Esta acción no se puede deshacer.')) return;
+    try {
+      await commercialService.deleteSale(saleId);
+      showToast('Venta comercial anulada correctamente', 'success');
+      refetchAdminSummary();
+      refetchAllSales();
+      refetchLeaderboard();
+    } catch (err: any) {
+      showToast(err.message || 'Error al anular la venta', 'error');
+    }
+  };
+
+  const exportToCSV = () => {
+    if (!allSales || allSales.length === 0) return;
+    const headers = ['ID Venta', 'Asesor Comercial', 'Documento Cliente', 'Nombre Cliente', 'Tipo Venta', 'Monto Paquete (COP)', 'Comision %', 'Monto Comision (COP)', 'Fecha Venta'];
+    const rows = allSales.map(s => [
+      s.id,
+      `"${s.commercial_name || ''}"`,
+      `"${s.client_document}"`,
+      `"${s.client_name || ''}"`,
+      s.sale_type,
+      s.amount,
+      (s.commission_rate * 100).toFixed(2) + '%',
+      s.commission_amount,
+      s.sale_date
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Reporte_Comercial_Gloint_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const directAccum = summary?.direct_accumulated || 0;
@@ -40,201 +118,410 @@ export const CommercialDashboardPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-brand-100 text-brand-700 rounded-2xl">
-            <Trophy className="w-7 h-7 text-brand-600" />
+          <div className={`p-3 rounded-2xl ${isAdmin ? 'bg-amber-100 text-amber-800' : 'bg-brand-100 text-brand-700'}`}>
+            <Trophy className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Panel Comercial & Ranking</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-slate-800">
+                {isAdmin ? 'Panel de Control Comercial (Administrador)' : 'Panel Comercial & Ranking'}
+              </h1>
+              {isAdmin && (
+                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-[10px] font-extrabold uppercase flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-amber-700" /> Admin
+                </span>
+              )}
+            </div>
             <p className="text-slate-500 text-sm mt-0.5">
-              Gestión de ventas, partición marginal del 3.5% y comisiones en tiempo real
+              {isAdmin 
+                ? 'Supervisión global de facturación, auditoría de comisiones y adjudicación al equipo comercial' 
+                : 'Gestión de ventas, partición marginal del 3.5% y comisiones en tiempo real'}
             </p>
           </div>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-all shadow-md shadow-brand-600/20 text-sm font-semibold cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          Registrar / Adjudicar Venta
-        </button>
-      </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {isAdmin && (
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl transition-all text-xs font-bold border border-slate-200 cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              Exportar CSV
+            </button>
+          )}
 
-      {/* Alerta Estratégica de Proximidad al Tramo del 3.5% ($36M) */}
-      <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
-              <Zap className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-white">Progreso de Tramo Marginal ($36.000.000)</h3>
-              <p className="text-xs text-slate-300">
-                {summary?.has_reached_36m ? (
-                  <span className="text-emerald-400 font-bold">¡Felicidades! Has superado los $36.000.000. Todas tus ventas directas cotizan al 3.5%.</span>
-                ) : (
-                  <span>Te faltan <strong className="text-emerald-400 font-bold">${remaining.toLocaleString('es-CO')} COP</strong> en ventas directas para desbloquear la comisión al 3.5%.</span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          <span className="px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-emerald-400 border border-white/10">
-            Tasa Actual: {(summary?.current_rate ? summary.current_rate * 100 : 3.0).toFixed(1)}%
-          </span>
-        </div>
-
-        {/* Progress bar */}
-        <div className="space-y-1 pt-1">
-          <div className="flex justify-between text-[11px] text-slate-400 font-medium">
-            <span>Acumulado Directo: ${directAccum.toLocaleString('es-CO')} COP</span>
-            <span>Meta Piso 2: ${threshold.toLocaleString('es-CO')} COP</span>
-          </div>
-          <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-brand-500 to-emerald-400 h-2.5 rounded-full transition-all duration-500"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-all shadow-md shadow-brand-600/20 text-sm font-semibold cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            {isAdmin ? 'Adjudicar Venta a Asesor' : 'Registrar Venta'}
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Directas</span>
-          <span className="text-2xl font-extrabold text-slate-800 block">
-            ${directAccum.toLocaleString('es-CO')} COP
-          </span>
-          <span className="text-[11px] text-slate-500">Contratos Nuevos + Reinversiones</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Referidos</span>
-          <span className="text-2xl font-extrabold text-amber-800 block">
-            ${(summary?.referral_accumulated || 0).toLocaleString('es-CO')} COP
-          </span>
-          <span className="text-[11px] text-amber-700 font-medium">Tasa fija del 1.8%</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
-          <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Totales Mes</span>
-          <span className="text-2xl font-extrabold text-brand-700 block">
-            ${(summary?.total_accumulated || 0).toLocaleString('es-CO')} COP
-          </span>
-          <span className="text-[11px] text-slate-500">Consolidado general</span>
-        </div>
-
-        <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 shadow-xs space-y-2">
-          <span className="text-xs text-emerald-800 font-semibold uppercase tracking-wider block">Comisiones Ganadas</span>
-          <span className="text-2xl font-extrabold text-emerald-700 block">
-            +${(summary?.total_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
-          </span>
-          <span className="text-[11px] text-emerald-700 font-medium">Calculadas del mes en curso</span>
-        </div>
-      </div>
-
-      {/* Main Grid: Leaderboard & Recent Sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Ranking / Leaderboard (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-amber-500" />
-              <h2 className="font-bold text-slate-800 text-base">Ranking de Ventas (Leaderboard)</h2>
+      {/* VISTA ADMINISTRADOR */}
+      {isAdmin ? (
+        <>
+          {/* Executive KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Empresa (Mes)</span>
+              <span className="text-2xl font-extrabold text-slate-900 block">
+                ${(adminSummary?.global_sales || 0).toLocaleString('es-CO')} COP
+              </span>
+              <span className="text-[11px] text-slate-500">Facturación acumulada del equipo</span>
             </div>
-            <span className="text-xs text-slate-400 font-medium">Mes en Curso</span>
+
+            <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <span className="text-xs text-emerald-800 font-semibold uppercase tracking-wider block">Comisiones Totales Equipo</span>
+              <span className="text-2xl font-extrabold text-emerald-700 block">
+                ${(adminSummary?.global_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
+              </span>
+              <span className="text-[11px] text-emerald-700 font-medium">Consolidado a liquidar</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Total Cierres Adjudicados</span>
+              <span className="text-2xl font-extrabold text-brand-700 block">
+                {adminSummary?.total_closures || 0}
+              </span>
+              <span className="text-[11px] text-slate-500">Transacciones comerciales</span>
+            </div>
+
+            <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <span className="text-xs text-amber-900 font-semibold uppercase tracking-wider block">Líder de Ventas Mes</span>
+              <span className="text-xl font-extrabold text-amber-950 block truncate">
+                {adminSummary?.leader_name || 'Sin ventas'}
+              </span>
+              <span className="text-[11px] text-amber-800 font-medium">Puesto #1 del Ranking</span>
+            </div>
           </div>
 
-          {isLoadingLeaderboard ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />)}
-            </div>
-          ) : !leaderboardData?.leaderboard?.length ? (
-            <p className="text-center text-xs text-slate-400 py-8">Aún no hay registros en el ranking de ventas de este mes.</p>
-          ) : (
-            <div className="space-y-3">
-              {leaderboardData.leaderboard.map((entry) => (
-                <div
-                  key={entry.commercial_id}
-                  className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 ${
-                    entry.is_me
-                      ? 'bg-brand-50/70 border-brand-300 ring-2 ring-brand-500/20'
-                      : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                      entry.rank === 1 ? 'bg-amber-400 text-amber-950 shadow-sm' :
-                      entry.rank === 2 ? 'bg-slate-300 text-slate-800' :
-                      entry.rank === 3 ? 'bg-amber-700 text-white' :
-                      'bg-slate-200 text-slate-600'
-                    }`}>
-                      #{entry.rank}
-                    </div>
+          {/* Main Grid: Leaderboard & Audit Table */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Leaderboard (1 col) */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                  <h2 className="font-bold text-slate-800 text-base">Ranking del Equipo</h2>
+                </div>
+                <span className="text-xs text-slate-400 font-medium">Mes en Curso</span>
+              </div>
 
-                    <div>
-                      <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                        <span>{entry.commercial_name}</span>
-                        {entry.is_me && <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase">Tú</span>}
+              {isLoadingLeaderboard ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />)}
+                </div>
+              ) : !leaderboardData?.leaderboard?.length ? (
+                <p className="text-center text-xs text-slate-400 py-8">No hay registros en el ranking este mes.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {leaderboardData.leaderboard.map((entry) => (
+                    <div
+                      key={entry.commercial_id}
+                      className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                          entry.rank === 1 ? 'bg-amber-400 text-amber-950' :
+                          entry.rank === 2 ? 'bg-slate-300 text-slate-800' :
+                          entry.rank === 3 ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          #{entry.rank}
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-800 block">{entry.commercial_name}</span>
+                          <span className="text-[11px] text-slate-400">{entry.total_closures} cierres</span>
+                        </div>
                       </div>
-                      <span className="text-xs text-slate-500 font-medium">
-                        {entry.total_closures} {entry.total_closures === 1 ? 'cierre' : 'cierres'} este mes
+
+                      <span className="font-extrabold text-slate-800 text-sm">
+                        ${entry.total_volume.toLocaleString('es-CO')}
                       </span>
                     </div>
-                  </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-                  <div className="text-right">
-                    <span className="font-extrabold text-slate-800 text-base block">
-                      ${entry.total_volume.toLocaleString('es-CO')} COP
-                    </span>
-                    
-                    {/* Next-Target (Indicador de Brecha Operativa) */}
-                    {entry.is_me && entry.next_target_amount > 0 && (
-                      <span className="text-[11px] font-bold text-emerald-700 block mt-0.5">
-                        🎯 Faltan ${entry.next_target_amount.toLocaleString('es-CO')} COP para alcanzar el puesto #{entry.rank - 1}
-                      </span>
+            {/* General Sales Audit Table (2 cols) */}
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-brand-600" />
+                  <h2 className="font-bold text-slate-800 text-base">Auditoría General de Ventas Adjudicadas</h2>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    value={selectedCommercialId}
+                    onChange={(e) => setSelectedCommercialId(e.target.value)}
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                  >
+                    <option value="">Todos los Asesores</option>
+                    {commercialUsers?.map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={selectedSaleType}
+                    onChange={(e) => setSelectedSaleType(e.target.value)}
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                  >
+                    <option value="">Todos los Tipos</option>
+                    <option value="contrato_nuevo">Contrato Nuevo</option>
+                    <option value="reinversion">Reinversión</option>
+                    <option value="referido">Referido</option>
+                  </select>
+                </div>
+              </div>
+
+              {isLoadingAllSales ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}
+                </div>
+              ) : !allSales?.length ? (
+                <p className="text-center text-xs text-slate-400 py-12">No hay ventas registradas con los filtros seleccionados.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/60 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                        <th className="py-2.5 px-3">Asesor</th>
+                        <th className="py-2.5 px-3">Cliente / Doc</th>
+                        <th className="py-2.5 px-3">Tipo</th>
+                        <th className="py-2.5 px-3 text-right">Paquete ($)</th>
+                        <th className="py-2.5 px-3 text-right">Comisión</th>
+                        <th className="py-2.5 px-3 text-center">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {allSales.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-3">
+                            <span className="font-bold text-slate-800 block">{s.commercial_name}</span>
+                            <span className="text-[10px] text-slate-400">{s.sale_date}</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-bold text-slate-700 block">{s.client_document}</span>
+                            {s.client_name && <span className="text-[10px] text-slate-400">{s.client_name}</span>}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              s.sale_type === 'referido' ? 'bg-amber-100 text-amber-800' : 'bg-brand-100 text-brand-800'
+                            }`}>
+                              {s.sale_type.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-800">
+                            ${s.amount.toLocaleString('es-CO')}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <span className="font-mono font-bold text-emerald-700 block">
+                              +${s.commission_amount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                            </span>
+                            <span className="text-[10px] text-slate-400">({(s.commission_rate * 100).toFixed(1)}%)</span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              onClick={() => handleDeleteSale(s.id)}
+                              title="Anular Venta Comercial"
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </>
+      ) : (
+
+        /* VISTA ASESOR COMERCIAL (INDIVIDUAL) */
+        <>
+          {/* Alerta Estratégica de Proximidad a los $36M */}
+          <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">Progreso de Tramo Marginal ($36.000.000)</h3>
+                  <p className="text-xs text-slate-300">
+                    {summary?.has_reached_36m ? (
+                      <span className="text-emerald-400 font-bold">¡Felicidades! Has superado los $36.000.000. Todas tus ventas directas cotizan al 3.5%.</span>
+                    ) : (
+                      <span>Te faltan <strong className="text-emerald-400 font-bold">${remaining.toLocaleString('es-CO')} COP</strong> en ventas directas para desbloquear la comisión al 3.5%.</span>
                     )}
-                  </div>
+                  </p>
                 </div>
-              ))}
+              </div>
+
+              <span className="px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-emerald-400 border border-white/10">
+                Tasa Actual: {(summary?.current_rate ? summary.current_rate * 100 : 3.0).toFixed(1)}%
+              </span>
             </div>
-          )}
-        </div>
 
-        {/* Historial Reciente de Ventas (1 col) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-          <h2 className="font-bold text-slate-800 text-base border-b border-slate-100 pb-3">Mis Últimas Ventas</h2>
-          
-          {!summary?.recent_sales?.length ? (
-            <p className="text-center text-xs text-slate-400 py-8">No has registrado ventas este mes.</p>
-          ) : (
-            <div className="space-y-3">
-              {summary.recent_sales.map((s) => (
-                <div key={s.id} className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-slate-800">Doc: {s.client_document}</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                      s.sale_type === 'referido' ? 'bg-amber-100 text-amber-800' : 'bg-brand-100 text-brand-800'
-                    }`}>
-                      {s.sale_type.replace('_', ' ')}
-                    </span>
-                  </div>
-                  
-                  {s.client_name && <p className="text-slate-500 font-medium text-[11px]">{s.client_name}</p>}
+            <div className="space-y-1 pt-1">
+              <div className="flex justify-between text-[11px] text-slate-400 font-medium">
+                <span>Acumulado Directo: ${directAccum.toLocaleString('es-CO')} COP</span>
+                <span>Meta Piso 2: ${threshold.toLocaleString('es-CO')} COP</span>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-brand-500 to-emerald-400 h-2.5 rounded-full transition-all duration-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
 
-                  <div className="flex justify-between items-center pt-1 border-t border-slate-200/60 font-medium">
-                    <span className="text-slate-600">Venta: ${s.amount.toLocaleString('es-CO')}</span>
-                    <span className="font-bold text-emerald-700">+${s.commission_amount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
-                  </div>
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Directas</span>
+              <span className="text-2xl font-extrabold text-slate-800 block">
+                ${directAccum.toLocaleString('es-CO')} COP
+              </span>
+              <span className="text-[11px] text-slate-500">Contratos Nuevos + Reinversiones</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Referidos</span>
+              <span className="text-2xl font-extrabold text-amber-800 block">
+                ${(summary?.referral_accumulated || 0).toLocaleString('es-CO')} COP
+              </span>
+              <span className="text-[11px] text-amber-700 font-medium">Tasa fija del 1.8%</span>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Totales Mes</span>
+              <span className="text-2xl font-extrabold text-brand-700 block">
+                ${(summary?.total_accumulated || 0).toLocaleString('es-CO')} COP
+              </span>
+              <span className="text-[11px] text-slate-500">Consolidado general</span>
+            </div>
+
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <span className="text-xs text-emerald-800 font-semibold uppercase tracking-wider block">Comisiones Ganadas</span>
+              <span className="text-2xl font-extrabold text-emerald-700 block">
+                +${(summary?.total_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
+              </span>
+              <span className="text-[11px] text-emerald-700 font-medium">Calculadas del mes en curso</span>
+            </div>
+          </div>
+
+          {/* Main Grid: Leaderboard & Recent Sales */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Ranking / Leaderboard */}
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                  <h2 className="font-bold text-slate-800 text-base">Ranking de Ventas (Leaderboard)</h2>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+                <span className="text-xs text-slate-400 font-medium">Mes en Curso</span>
+              </div>
 
-      </div>
+              {isLoadingLeaderboard ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />)}
+                </div>
+              ) : !leaderboardData?.leaderboard?.length ? (
+                <p className="text-center text-xs text-slate-400 py-8">Aún no hay registros en el ranking de ventas de este mes.</p>
+              ) : (
+                <div className="space-y-3">
+                  {leaderboardData.leaderboard.map((entry) => (
+                    <div
+                      key={entry.commercial_id}
+                      className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 ${
+                        entry.is_me
+                          ? 'bg-brand-50/70 border-brand-300 ring-2 ring-brand-500/20'
+                          : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
+                          entry.rank === 1 ? 'bg-amber-400 text-amber-950 shadow-sm' :
+                          entry.rank === 2 ? 'bg-slate-300 text-slate-800' :
+                          entry.rank === 3 ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          #{entry.rank}
+                        </div>
+
+                        <div>
+                          <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <span>{entry.commercial_name}</span>
+                            {entry.is_me && <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase">Tú</span>}
+                          </div>
+                          <span className="text-xs text-slate-500 font-medium">
+                            {entry.total_closures} {entry.total_closures === 1 ? 'cierre' : 'cierres'} este mes
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="font-extrabold text-slate-800 text-base block">
+                          ${entry.total_volume.toLocaleString('es-CO')} COP
+                        </span>
+                        {entry.is_me && entry.next_target_amount > 0 && (
+                          <span className="text-[11px] font-bold text-emerald-700 block mt-0.5">
+                            🎯 Faltan ${entry.next_target_amount.toLocaleString('es-CO')} COP para alcanzar el puesto #{entry.rank - 1}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Historial Reciente */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+              <h2 className="font-bold text-slate-800 text-base border-b border-slate-100 pb-3">Mis Últimas Ventas</h2>
+              
+              {!summary?.recent_sales?.length ? (
+                <p className="text-center text-xs text-slate-400 py-8">No has registrado ventas este mes.</p>
+              ) : (
+                <div className="space-y-3">
+                  {summary.recent_sales.map((s) => (
+                    <div key={s.id} className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-slate-800">Doc: {s.client_document}</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          s.sale_type === 'referido' ? 'bg-amber-100 text-amber-800' : 'bg-brand-100 text-brand-800'
+                        }`}>
+                          {s.sale_type.replace('_', ' ')}
+                        </span>
+                      </div>
+                      {s.client_name && <p className="text-slate-500 font-medium text-[11px]">{s.client_name}</p>}
+                      <div className="flex justify-between items-center pt-1 border-t border-slate-200/60 font-medium">
+                        <span className="text-slate-600">Venta: ${s.amount.toLocaleString('es-CO')}</span>
+                        <span className="font-bold text-emerald-700">+${s.commission_amount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        </>
+      )}
 
       {/* Modal para Registrar / Adjudicar Venta */}
       <RegisterCommercialSaleModal
@@ -242,6 +529,7 @@ export const CommercialDashboardPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleSuccess}
         currentAccumulatedDirect={directAccum}
+        isAdmin={isAdmin}
       />
 
       {/* Toast */}

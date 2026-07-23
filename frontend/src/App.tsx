@@ -100,7 +100,7 @@ function App() {
         <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
         <Route path="system-events" element={<SystemEventsPage />} />
         <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
-        <Route path="commercial" element={<CommercialDashboardPage />} />
+        <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}

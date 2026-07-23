@@ -8,18 +8,23 @@ interface RegisterCommercialSaleModalProps {
   onClose: () => void;
   onSuccess: () => void;
   currentAccumulatedDirect?: number;
+  isAdmin?: boolean;
 }
 
 export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  currentAccumulatedDirect = 0
+  currentAccumulatedDirect = 0,
+  isAdmin = false
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchClientResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isCheckingClient, setIsCheckingClient] = useState(false);
+
+  const [targetCommercialId, setTargetCommercialId] = useState<number | null>(null);
+  const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string }>>([]);
 
   const [clientDocument, setClientDocument] = useState('');
   const [clientName, setClientName] = useState('');
@@ -31,6 +36,17 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [isAmountLocked, setIsAmountLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAdmin && isOpen) {
+      commercialService.getCommercialUsers()
+        .then((res) => {
+          setCommercialUsers(res);
+          if (res.length > 0) setTargetCommercialId(res[0].id);
+        })
+        .catch(() => {});
+    }
+  }, [isAdmin, isOpen]);
 
   useEffect(() => {
     if (searchTerm.trim().length >= 2) {
@@ -136,13 +152,19 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     setError(null);
 
     try {
-      await commercialService.createSale({
+      const payload = {
         client_document: clientDocument.trim(),
         client_name: clientName.trim() || undefined,
         sale_type: saleType,
         amount: numericAmount,
         referrer_code: referrerCode.trim() || undefined
-      });
+      };
+
+      if (isAdmin && targetCommercialId) {
+        await commercialService.createAdminSale(targetCommercialId, payload);
+      } else {
+        await commercialService.createSale(payload);
+      }
 
       onSuccess();
       onClose();
@@ -182,6 +204,27 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
             <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Seleccionar Asesor Comercial (Solo Administradores) */}
+          {isAdmin && (
+            <div className="bg-brand-50/60 p-3.5 border border-brand-200 rounded-xl space-y-1.5">
+              <label className="block text-xs font-bold text-brand-900">
+                👤 Adjudicar Venta a Asesor Comercial *
+              </label>
+              <select
+                value={targetCommercialId || ''}
+                onChange={(e) => setTargetCommercialId(Number(e.target.value))}
+                className="w-full px-3 py-2 bg-white border border-brand-300 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                required
+              >
+                {commercialUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

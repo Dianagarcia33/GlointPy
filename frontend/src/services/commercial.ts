@@ -13,6 +13,7 @@ export interface CommercialClientCheckResponse {
 export interface CommercialSale {
   id: number;
   commercial_id: number;
+  commercial_name?: string;
   client_document: string;
   client_name?: string;
   sale_type: 'contrato_nuevo' | 'reinversion' | 'referido';
@@ -36,6 +37,13 @@ export interface CommercialSummary {
   has_reached_36m: boolean;
   current_rate: number;
   recent_sales: CommercialSale[];
+}
+
+export interface AdminCommercialSummary {
+  global_sales: number;
+  global_commissions: number;
+  total_closures: number;
+  leader_name: string;
 }
 
 export interface SearchClientResult {
@@ -62,6 +70,13 @@ export interface LeaderboardEntry {
 export interface LeaderboardResponse {
   leaderboard: LeaderboardEntry[];
   my_rank?: LeaderboardEntry;
+}
+
+export interface CommercialUserOption {
+  id: number;
+  name: string;
+  email: string;
+  document_id?: string;
 }
 
 export const commercialService = {
@@ -91,8 +106,45 @@ export const commercialService = {
     });
   },
 
+  createAdminSale: async (
+    targetCommercialId: number,
+    data: {
+      client_document: string;
+      client_name?: string;
+      sale_type: 'contrato_nuevo' | 'reinversion' | 'referido';
+      amount: number;
+      referrer_code?: string;
+    }
+  ): Promise<CommercialSale> => {
+    return await fetchApi(`/commercial/admin-sales?target_commercial_id=${targetCommercialId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+
   getMySummary: async (): Promise<CommercialSummary> => {
     return await fetchApi('/commercial/my-summary');
+  },
+
+  getAdminSummary: async (): Promise<AdminCommercialSummary> => {
+    return await fetchApi('/commercial/admin-summary');
+  },
+
+  getAllSales: async (params?: { commercial_id?: number; sale_type?: string }): Promise<CommercialSale[]> => {
+    const query = new URLSearchParams();
+    if (params?.commercial_id) query.append('commercial_id', params.commercial_id.toString());
+    if (params?.sale_type) query.append('sale_type', params.sale_type);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    return await fetchApi(`/commercial/all-sales${queryString}`);
+  },
+
+  deleteSale: async (saleId: number): Promise<void> => {
+    return await fetchApi(`/commercial/sales/${saleId}`, { method: 'DELETE' });
+  },
+
+  getCommercialUsers: async (): Promise<CommercialUserOption[]> => {
+    return await fetchApi('/commercial/commercial-users');
   },
 
   getLeaderboard: async (): Promise<LeaderboardResponse> => {
