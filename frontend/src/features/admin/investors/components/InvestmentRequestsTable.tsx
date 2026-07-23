@@ -328,7 +328,7 @@ export const InvestmentRequestsTable = () => {
                                 Detalles de la Solicitud
                               </h4>
 
-                              {(request.extra_data?.es_aumento_capital || request.investor) && (
+                              {(request.extra_data?.es_aumento_capital || request.extra_data?.is_upgrade) && (
                                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 mb-3">
                                   <h5 className="font-bold text-emerald-900 text-[11px] uppercase tracking-wider flex items-center justify-between border-b border-emerald-200 pb-1.5">
                                     <span>🚀 Comparativa de Aumento de Capital</span>
@@ -696,7 +696,7 @@ export const InvestmentRequestsTable = () => {
                 </div>
               </div>
 
-              {selectedRequestToReview.extra_data?.es_aumento_capital && (
+              {(selectedRequestToReview.extra_data?.es_aumento_capital || selectedRequestToReview.extra_data?.is_upgrade) && (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
                   <h4 className="font-bold text-emerald-900 text-xs uppercase tracking-wider flex items-center gap-1.5 border-b border-emerald-200 pb-2">
                     <span>🚀</span> Solicitud de Aumento de Capital
