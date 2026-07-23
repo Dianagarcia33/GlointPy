@@ -37,6 +37,16 @@ export interface CommercialSummary {
   recent_sales: CommercialSale[];
 }
 
+export interface SearchClientResult {
+  user_id: number;
+  name: string;
+  document_id: string;
+  email: string;
+  assigned_code?: string;
+  is_existing_client: boolean;
+  forced_type?: string;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   commercial_id: number;
@@ -53,6 +63,10 @@ export interface LeaderboardResponse {
 }
 
 export const commercialService = {
+  searchClients: async (q: string): Promise<SearchClientResult[]> => {
+    return await fetchApi(`/commercial/search-clients?q=${encodeURIComponent(q)}`);
+  },
+
   checkClient: async (client_document: string): Promise<CommercialClientCheckResponse> => {
     return await fetchApi('/commercial/check-client', {
       method: 'POST',

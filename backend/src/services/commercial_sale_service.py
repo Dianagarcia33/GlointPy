@@ -3,7 +3,8 @@ from datetime import datetime, date
 from typing import Optional, Tuple, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import extract, func
+from sqlalchemy import extract, func, or_
+from sqlalchemy.orm import selectinload
 
 from src.models.user import User
 from src.models.investor import Investor
@@ -16,9 +17,74 @@ RATE_30 = Decimal("0.030") # 3.0%
 RATE_35 = Decimal("0.035") # 3.5%
 RATE_REFERRAL = Decimal("0.018") # 1.8% Fijo
 
+async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict[str, Any]]:
+    """
+    Busca clientes a medida que el comercial escribe:
+    - Por Nombre (User.name) en la tabla 'users'
+    - Por Cédula/Documento (User.document_id) en la tabla 'users'
+    - Por Código Asignado (Investor.assigned_code) en la tabla 'investors'
+    """
+    term = query_term.strip()
+    if not term or len(term) < 2:
+        return []
+        
+    results = []
+    seen_user_ids = set()
+    
+    # 1. Buscar en Investors por código asignado (assigned_code) ej: IG1974
+    inv_res = await db.execute(
+        select(Investor)
+        .options(selectinload(Investor.user))
+        .where(Investor.assigned_code.ilike(f"%{term}%"))
+        .limit(10)
+    )
+    investors = inv_res.scalars().all()
+    for inv in investors:
+        if inv.user and inv.user.id not in seen_user_ids:
+            seen_user_ids.add(inv.user.id)
+            results.append({
+                "user_id": inv.user.id,
+                "name": inv.user.name,
+                "document_id": inv.user.document_id,
+                "email": inv.user.email,
+                "assigned_code": inv.assigned_code,
+                "is_existing_client": True,
+                "forced_type": "referido"
+            })
+
+    # 2. Buscar en User por nombre o por número de cédula/documento
+    user_res = await db.execute(
+        select(User)
+        .options(selectinload(User.investments))
+        .where(
+            or_(
+                User.name.ilike(f"%{term}%"),
+                User.document_id.ilike(f"%{term}%"),
+                User.email.ilike(f"%{term}%")
+            )
+        )
+        .limit(10)
+    )
+    users = user_res.scalars().all()
+    for u in users:
+        if u.id not in seen_user_ids:
+            seen_user_ids.add(u.id)
+            code = u.investments[0].assigned_code if u.investments else None
+            results.append({
+                "user_id": u.id,
+                "name": u.name,
+                "document_id": u.document_id,
+                "email": u.email,
+                "assigned_code": code,
+                "is_existing_client": True,
+                "forced_type": "referido"
+            })
+            
+    return results
+
 async def check_client_classification(db: AsyncSession, client_document: str) -> Dict[str, Any]:
     """
-    Verifica si el documento del cliente ya existe en el sistema.
+    Verifica si el documento o código del cliente ya existe en el sistema.
     Si ya existe (User o Investor), fuerza el tipo 'referido' y bloquea 'contrato_nuevo' y 'reinversion'.
     """
     doc_clean = client_document.strip()
@@ -28,15 +94,25 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     user = user_res.scalars().first()
     
     # Buscar en inversionistas por código o usuario
-    investor_res = await db.execute(select(Investor).join(User).where(User.document_id == doc_clean))
+    investor_res = await db.execute(
+        select(Investor)
+        .join(User)
+        .where(
+            or_(
+                User.document_id == doc_clean,
+                Investor.assigned_code.ilike(doc_clean)
+            )
+        )
+    )
     investor = investor_res.scalars().first()
     
     client_exists = bool(user or investor)
-    client_name = user.name if user else None
+    client_name = user.name if user else (investor.user.name if investor and investor.user else None)
+    client_doc = user.document_id if user and user.document_id else (investor.user.document_id if investor and investor.user else doc_clean)
     
     if client_exists:
         return {
-            "client_document": doc_clean,
+            "client_document": client_doc,
             "client_exists": True,
             "is_existing_client": True,
             "client_name": client_name,

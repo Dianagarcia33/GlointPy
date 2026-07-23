@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2 } from 'lucide-react';
-import { commercialService, CommercialClientCheckResponse } from '../../../services/commercial';
+import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User } from 'lucide-react';
+import { commercialService, CommercialClientCheckResponse, SearchClientResult } from '../../../services/commercial';
 
 interface RegisterCommercialSaleModalProps {
   isOpen: boolean;
@@ -16,16 +16,51 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   onSuccess,
   currentAccumulatedDirect = 0
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchClientResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isCheckingClient, setIsCheckingClient] = useState(false);
+
   const [clientDocument, setClientDocument] = useState('');
   const [clientName, setClientName] = useState('');
   const [saleType, setSaleType] = useState<'contrato_nuevo' | 'reinversion' | 'referido'>('contrato_nuevo');
   const [amount, setAmount] = useState<string>('');
   const [referrerCode, setReferrerCode] = useState('');
 
-  const [isCheckingClient, setIsCheckingClient] = useState(false);
   const [clientInfo, setClientInfo] = useState<CommercialClientCheckResponse | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchTerm.trim().length >= 2) {
+      setIsSearching(true);
+      const timer = setTimeout(() => {
+        commercialService.searchClients(searchTerm.trim())
+          .then((res) => setSearchResults(res))
+          .catch(() => setSearchResults([]))
+          .finally(() => setIsSearching(false));
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchTerm]);
+
+  const selectSearchResult = (item: SearchClientResult) => {
+    setClientDocument(item.document_id || searchTerm);
+    setClientName(item.name);
+    setClientInfo({
+      client_document: item.document_id || searchTerm,
+      client_exists: true,
+      is_existing_client: true,
+      client_name: item.name,
+      allowed_types: ['referido'],
+      forced_type: 'referido'
+    });
+    setSaleType('referido');
+    setSearchTerm(`${item.name} (${item.document_id || item.assigned_code || ''})`);
+    setSearchResults([]);
+  };
 
   if (!isOpen) return null;
 
@@ -144,31 +179,57 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
             </div>
           )}
 
-          {/* Documento del Cliente */}
-          <div>
+          {/* Buscar Cliente por Nombre, Cédula o Código Asignado (IG1974) */}
+          <div className="relative">
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Documento de Identidad del Cliente *
+              Buscar Cliente (por Nombre, Cédula o Código IG1974) *
             </label>
             <div className="relative">
               <input
                 type="text"
-                value={clientDocument}
-                onChange={(e) => setClientDocument(e.target.value)}
-                onBlur={handleCheckClient}
-                placeholder="Ej. 1098765432"
-                className="w-full pl-3.5 pr-24 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-mono"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setClientDocument(e.target.value);
+                  setClientInfo(null);
+                }}
+                onBlur={() => {
+                  if (clientDocument && !clientInfo) {
+                    handleCheckClient();
+                  }
+                }}
+                placeholder="Escribe Nombre, Cédula o Código (Ej. IG1974, Juan, 1098...)"
+                className="w-full pl-3.5 pr-10 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 required
               />
-              <button
-                type="button"
-                onClick={handleCheckClient}
-                disabled={isCheckingClient || !clientDocument.trim()}
-                className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
-              >
-                {isCheckingClient ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                Validar
-              </button>
+              <div className="absolute right-3 top-2.5 text-slate-400">
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              </div>
             </div>
+
+            {/* Dropdown de Autocompletado */}
+            {searchResults.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden max-h-56 overflow-y-auto divide-y divide-slate-100">
+                {searchResults.map((item) => (
+                  <button
+                    key={`${item.user_id}-${item.assigned_code}`}
+                    type="button"
+                    onClick={() => selectSearchResult(item)}
+                    className="w-full text-left p-3 hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-slate-800 block">{item.name}</span>
+                      <span className="text-[11px] text-slate-500 block">Doc: {item.document_id || 'N/A'} • Email: {item.email}</span>
+                    </div>
+                    {item.assigned_code && (
+                      <span className="px-2 py-0.5 bg-brand-50 text-brand-700 font-bold rounded text-[10px] uppercase shrink-0">
+                        Code: #{item.assigned_code}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Banner de Validación del Cliente */}

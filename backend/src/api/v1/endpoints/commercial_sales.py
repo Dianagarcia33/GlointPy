@@ -18,11 +18,26 @@ from src.schemas.commercial_sale import (
 )
 from src.services.commercial_sale_service import (
     check_client_classification,
+    search_clients_service,
     register_commercial_sale,
     THRESHOLD_36M
 )
 
 router = APIRouter()
+
+@router.get("/search-clients")
+async def search_clients(
+    q: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Busca clientes a medida que el comercial escribe:
+    - Por Nombre (User.name) en la tabla 'users'
+    - Por Cédula/Documento (User.document_id) en la tabla 'users'
+    - Por Código Asignado (Investor.assigned_code) ej. 'IG1974' en la tabla 'investors'
+    """
+    return await search_clients_service(db, q)
 
 @router.post("/check-client", response_model=CommercialClientCheckResponse)
 async def check_client(
