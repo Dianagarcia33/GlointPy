@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Terminal } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Terminal, ShieldCheck, TrendingUp, Users, Wallet, Building2, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { Can } from '../../../components/security/Can';
 import { investmentsService, Investment } from '../../../services/investments';
+import { analyticsService, AdminAnalyticsDashboardData } from '../../../services/analytics';
 import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
+import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
 
 export const DashboardPage = () => {
     const { user } = useAuthStore();
@@ -14,29 +17,24 @@ export const DashboardPage = () => {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
 
-    const isSuperAdmin = user?.is_superuser === true;
+    const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
+
+    // Analytics Query for Admin
+    const { data: adminAnalytics, isLoading: isLoadingAnalytics } = useQuery<AdminAnalyticsDashboardData>({
+        queryKey: ['admin_analytics_dashboard'],
+        queryFn: () => analyticsService.getAdminAnalyticsDashboard(),
+        enabled: isSuperAdmin
+    });
 
     useEffect(() => {
-        if (user?.permissions?.includes('dashboard:view_investments') || user?.permissions?.includes('ver_mis_inversiones')) {
+        if (!isSuperAdmin && (user?.permissions?.includes('dashboard:view_investments') || user?.permissions?.includes('ver_mis_inversiones'))) {
             setLoading(true);
             investmentsService.getMyInvestments()
                 .then(setInvestments)
                 .catch(err => console.error("Error al cargar inversiones:", err))
                 .finally(() => setLoading(false));
         }
-    }, [user]);
-
-    // LOG DE DEPURACIÓN (Se imprime automáticamente en consola)
-    useEffect(() => {
-        if (user) {
-            console.log("========= DATOS DEL USUARIO LOGUEADO =========");
-            console.log("Nombre:", user.name);
-            console.log("Email:", user.email);
-            console.log("Roles Asignados:", user.roles_list);
-            console.log("Permisos Cargados:", user.permissions);
-            console.log("==============================================");
-        }
-    }, [user]);
+    }, [user, isSuperAdmin]);
 
     const parseNumber = (val: any) => {
         const parsed = Number(val);
@@ -52,18 +50,81 @@ export const DashboardPage = () => {
     const totalInvertido = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
     const totalAcciones = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
     const totalRendimiento = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
-    const totalPortafolio = totalInvertido + totalRendimiento; // Valor total esperado
-    
-    // Calcular rentabilidad porcentual global
+    const totalPortafolio = totalInvertido + totalRendimiento;
     const rentabilidadGlobal = totalInvertido > 0 ? (totalRendimiento / totalInvertido) * 100 : 0;
-
-    // Calcular ganancia diaria consolidada (ejemplo usando la suma de liquidaciones diarias)
     const gananciaDiaria = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.liquidacion_diaria_rendimiento ?? 0), 0);
 
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
-            {/* SECCIÓN EXCLUSIVA PARA INVERSIONISTAS */}
-            {!isSuperAdmin && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20 space-y-6">
+            
+            {/* SECCIÓN EXCLUSIVA PARA ADMINISTRADORES / SUPERADMIN */}
+            {isSuperAdmin ? (
+                <div className="space-y-6">
+                    {/* Header Admin */}
+                    <div className="bg-slate-900 text-white rounded-3xl p-8 md:p-10 shadow-xl relative overflow-hidden">
+                        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                        <div className="relative z-10 space-y-2">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
+                                <ShieldCheck className="w-4 h-4 text-emerald-400" /> Panel de Control Ejecutivo 360°
+                            </div>
+                            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+                                Hola, {user?.name?.split(' ')[0]} 👋
+                            </h1>
+                            <p className="text-slate-300 text-sm max-w-xl">
+                                Monitoreo consolidado de captación de capital, distribución por paquetes de inversión y salud de liquidez del ecosistema.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Quick Executive KPI Summary Cards */}
+                    {adminAnalytics?.summary_cards && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
+                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Capital Activo Invertido</span>
+                                <span className="text-2xl font-extrabold text-emerald-700 block">
+                                    ${adminAnalytics.summary_cards.total_invertido.toLocaleString('es-CO')} COP
+                                </span>
+                                <span className="text-[11px] text-slate-500">Contratos vigentes</span>
+                            </div>
+
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
+                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Inversionistas Activos</span>
+                                <span className="text-2xl font-extrabold text-slate-900 block">
+                                    {adminAnalytics.summary_cards.total_inversionistas}
+                                </span>
+                                <span className="text-[11px] text-slate-500">Contratos registrados</span>
+                            </div>
+
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
+                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Saldo en Billeteras</span>
+                                <span className="text-2xl font-extrabold text-indigo-700 block">
+                                    ${adminAnalytics.summary_cards.total_wallets.toLocaleString('es-CO')} COP
+                                </span>
+                                <span className="text-[11px] text-slate-500">Fondos depositados</span>
+                            </div>
+
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
+                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Retiros Liquidados</span>
+                                <span className="text-2xl font-extrabold text-amber-800 block">
+                                    ${adminAnalytics.summary_cards.total_withdrawals.toLocaleString('es-CO')} COP
+                                </span>
+                                <span className="text-[11px] text-amber-700 font-medium">Pagos procesados</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Gráficas Interactivas Recharts */}
+                    {isLoadingAnalytics ? (
+                        <div className="flex justify-center items-center py-20 bg-white rounded-3xl border border-slate-200">
+                            <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
+                        </div>
+                    ) : adminAnalytics ? (
+                        <AdminAnalyticsCharts data={adminAnalytics} />
+                    ) : null}
+                </div>
+            ) : (
+
+                /* SECCIÓN EXCLUSIVA PARA INVERSIONISTAS */
                 <>
                     {/* HERO Y KPIS */}
                     <Can permission="dashboard:view_kpis">
