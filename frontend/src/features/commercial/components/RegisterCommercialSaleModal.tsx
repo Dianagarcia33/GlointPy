@@ -338,7 +338,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <label className="block text-xs font-semibold text-slate-700">
-                Monto de la Venta ($ COP) *
+                Paquete ($ COP) *
               </label>
               {isAmountLocked && (
                 <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
