@@ -8,6 +8,7 @@ import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
 import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
+import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
@@ -132,6 +133,7 @@ export const AdminInvestorsPage = () => {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
   const [userNameToAdjust, setUserNameToAdjust] = useState('');
+  const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
 
   const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -474,6 +476,13 @@ export const AdminInvestorsPage = () => {
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button 
+                              onClick={() => setSelectedInvestorForUpgrade(investor)}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="Solicitar Aumento de Capital"
+                            >
+                              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                            </button>
+                            <button 
                               onClick={() => handleEdit(investor)}
                               className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                               title="Editar"
@@ -790,6 +799,16 @@ export const AdminInvestorsPage = () => {
           <span className="text-sm font-medium">{toast.message}</span>
         </div>
       )}
+
+      <AdminCapitalIncreaseModal
+        isOpen={!!selectedInvestorForUpgrade}
+        onClose={() => setSelectedInvestorForUpgrade(null)}
+        onSuccess={() => {
+          setToast({ message: 'Solicitud de aumento de capital enviada a revisión (pendiente)', type: 'success' });
+          fetchData();
+        }}
+        investor={selectedInvestorForUpgrade}
+      />
 
       <DeleteConfirmationModal
         isOpen={!!investorToDelete}

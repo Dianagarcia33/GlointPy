@@ -640,11 +640,13 @@ async def create_investment_request(
     codigo_referido: str = Form(None),
     is_upgrade: bool = Form(False),
     investor_id: Optional[int] = Form(None),
+    user_id: Optional[int] = Form(None),
     comprobantes: list[UploadFile] = File(default=[]),
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+    from src.models.package import Package
     
     UPLOAD_DIR = "uploads/comprobantes"
     os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -669,6 +671,7 @@ async def create_investment_request(
                 else:
                     extra_paths.append(path_str)
                     
+    target_user_id = user_id or current_user.id
     extra_data = {}
     if extra_paths:
         extra_data["comprobantes_adicionales"] = extra_paths
@@ -678,13 +681,32 @@ async def create_investment_request(
         extra_data["codigo_referido"] = codigo_referido
     if is_upgrade or investor_id:
         extra_data["es_aumento_capital"] = True
-    if investor_id:
-        extra_data["investor_id"] = investor_id
+        extra_data["is_upgrade"] = True
     if periodo_contrato:
         extra_data["contract_period_id"] = periodo_contrato
+
+    if investor_id:
+        extra_data["investor_id"] = investor_id
+        extra_data["previous_contract_id"] = investor_id
+        inv_res = await db.execute(select(Investor).options(selectinload(Investor.package)).where(Investor.id == investor_id))
+        prev_inv = inv_res.scalars().first()
+        if prev_inv:
+            extra_data["previous_package_id"] = prev_inv.package_id
+            if prev_inv.package:
+                extra_data["previous_package_value"] = float(prev_inv.package.value)
+            extra_data["previous_period_id"] = prev_inv.period_id
+            if not user_id:
+                target_user_id = prev_inv.user_id
+
+    if paquete_inversion_id:
+        pkg_res = await db.execute(select(Package).where(Package.id == paquete_inversion_id))
+        target_pkg = pkg_res.scalars().first()
+        if target_pkg:
+            extra_data["new_package_id"] = target_pkg.id
+            extra_data["new_package_value"] = float(target_pkg.value)
         
     new_request = InvestmentRequest(
-        user_id=current_user.id,
+        user_id=target_user_id,
         investor_id=investor_id,
         paquete_inversion_id=paquete_inversion_id,
         monto=monto,
