@@ -63,7 +63,7 @@ export const Navbar: React.FC = () => {
   }, [location]);
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 w-full z-40 transition-all duration-300 ${
+    <nav className={`fixed top-0 left-0 right-0 w-full z-30 transition-all duration-300 ${
       isDashboard
         ? 'py-3 bg-slate-900/95 shadow-sm'
         : isSolid 
