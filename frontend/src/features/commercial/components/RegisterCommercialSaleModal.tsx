@@ -28,6 +28,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [referrerCode, setReferrerCode] = useState('');
 
   const [clientInfo, setClientInfo] = useState<CommercialClientCheckResponse | null>(null);
+  const [isAmountLocked, setIsAmountLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,16 +50,21 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const selectSearchResult = (item: SearchClientResult) => {
     setClientDocument(item.document_id || searchTerm);
     setClientName(item.name);
+    if (item.monto && item.monto > 0) {
+      setAmount(item.monto.toString());
+      setIsAmountLocked(true);
+    }
     setClientInfo({
       client_document: item.document_id || searchTerm,
       client_exists: true,
       is_existing_client: true,
       client_name: item.name,
+      monto: item.monto,
       allowed_types: ['referido'],
       forced_type: 'referido'
     });
     setSaleType('referido');
-    setSearchTerm(`${item.name} (${item.document_id || item.assigned_code || ''})`);
+    setSearchTerm(`${item.name} (${item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || ''})`);
     setSearchResults([]);
   };
 
@@ -74,6 +80,10 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       if (res.is_existing_client) {
         setSaleType('referido');
         if (res.client_name) setClientName(res.client_name);
+        if (res.monto && res.monto > 0) {
+          setAmount(res.monto.toString());
+          setIsAmountLocked(true);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Error al validar el documento del cliente');
@@ -331,17 +341,30 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
           {/* Monto de la Venta */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Monto de la Venta ($ COP) *
-            </label>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700">
+                Monto de la Venta ($ COP) *
+              </label>
+              {isAmountLocked && (
+                <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                  <Lock className="w-3 h-3 text-slate-400" /> Extraído del Paquete del IG
+                </span>
+              )}
+            </div>
+
             <div className="relative">
               <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">$</span>
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                readOnly={isAmountLocked}
                 placeholder="10000000"
-                className="w-full pl-8 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                className={`w-full pl-8 pr-3.5 py-2.5 border rounded-xl text-sm font-bold transition-colors ${
+                  isAmountLocked 
+                    ? 'bg-slate-100 border-slate-200 text-slate-700 font-mono cursor-not-allowed' 
+                    : 'bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                }`}
                 required
               />
             </div>

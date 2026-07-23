@@ -5,6 +5,7 @@ export interface CommercialClientCheckResponse {
   client_exists: boolean;
   is_existing_client: boolean;
   client_name?: string;
+  monto?: number;
   allowed_types: string[];
   forced_type?: string;
 }
@@ -43,6 +44,7 @@ export interface SearchClientResult {
   document_id: string;
   email: string;
   assigned_code?: string;
+  monto?: number;
   is_existing_client: boolean;
   forced_type?: string;
 }

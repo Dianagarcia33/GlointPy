@@ -34,7 +34,10 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
     # 1. Buscar en Investors por código asignado (assigned_code) ej: IG1974
     inv_res = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.user))
+        .options(
+            selectinload(Investor.user),
+            selectinload(Investor.package)
+        )
         .where(Investor.assigned_code.ilike(f"%{term}%"))
         .limit(10)
     )
@@ -42,12 +45,14 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
     for inv in investors:
         if inv.user and inv.user.id not in seen_user_ids:
             seen_user_ids.add(inv.user.id)
+            pkg_val = float(inv.package.value) if inv.package and inv.package.value else 0.0
             results.append({
                 "user_id": inv.user.id,
                 "name": inv.user.name,
                 "document_id": inv.user.document_id,
                 "email": inv.user.email,
                 "assigned_code": inv.assigned_code,
+                "monto": pkg_val,
                 "is_existing_client": True,
                 "forced_type": "referido"
             })
@@ -55,7 +60,9 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
     # 2. Buscar en User por nombre o por número de cédula/documento
     user_res = await db.execute(
         select(User)
-        .options(selectinload(User.investments))
+        .options(
+            selectinload(User.investments).selectinload(Investor.package)
+        )
         .where(
             or_(
                 User.name.ilike(f"%{term}%"),
@@ -69,13 +76,16 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
     for u in users:
         if u.id not in seen_user_ids:
             seen_user_ids.add(u.id)
-            code = u.investments[0].assigned_code if u.investments else None
+            first_inv = u.investments[0] if u.investments else None
+            code = first_inv.assigned_code if first_inv else None
+            pkg_val = float(first_inv.package.value) if first_inv and first_inv.package else 0.0
             results.append({
                 "user_id": u.id,
                 "name": u.name,
                 "document_id": u.document_id,
                 "email": u.email,
                 "assigned_code": code,
+                "monto": pkg_val,
                 "is_existing_client": True,
                 "forced_type": "referido"
             })
@@ -96,7 +106,10 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     # Buscar en inversionistas por código o usuario
     investor_res = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.user))
+        .options(
+            selectinload(Investor.user),
+            selectinload(Investor.package)
+        )
         .join(User)
         .where(
             or_(
@@ -110,6 +123,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     client_exists = bool(user or investor)
     client_name = user.name if user else (investor.user.name if investor and investor.user else None)
     client_doc = user.document_id if user and user.document_id else (investor.user.document_id if investor and investor.user else doc_clean)
+    pkg_val = float(investor.package.value) if investor and investor.package and investor.package.value else 0.0
     
     if client_exists:
         return {
@@ -117,6 +131,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
             "client_exists": True,
             "is_existing_client": True,
             "client_name": client_name,
+            "monto": pkg_val,
             "allowed_types": ["referido"],
             "forced_type": "referido"
         }
@@ -126,6 +141,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
             "client_exists": False,
             "is_existing_client": False,
             "client_name": None,
+            "monto": 0.0,
             "allowed_types": ["contrato_nuevo", "reinversion"],
             "forced_type": None
         }

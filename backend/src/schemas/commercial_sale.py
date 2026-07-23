@@ -12,6 +12,7 @@ class CommercialClientCheckResponse(BaseModel):
     client_exists: bool
     is_existing_client: bool
     client_name: Optional[str] = None
+    monto: Optional[Decimal] = Decimal("0.00")
     allowed_types: List[str] # ["contrato_nuevo", "reinversion"] o ["referido"]
     forced_type: Optional[str] = None # "referido" si existe
 
