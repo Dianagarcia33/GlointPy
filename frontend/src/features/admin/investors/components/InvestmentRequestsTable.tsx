@@ -340,7 +340,7 @@ export const InvestmentRequestsTable = () => {
                                       fecha_nacimiento: 'Fecha Nacimiento',
                                       tipo_documento: 'Tipo Documento',
                                       numero_documento: 'Número Documento',
-                                      contract_period_id: 'ID Periodo Contrato',
+                                      contract_period_id: 'Periodo de Contrato',
                                       es_aumento_capital: 'Aumento de Capital',
                                       monto_billetera_usado: 'Billetera Usada',
                                       kyc_docs: 'Documentos KYC',
@@ -354,6 +354,13 @@ export const InvestmentRequestsTable = () => {
                                       displayVal = val ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">Sí</span> : 'No';
                                     } else if (Array.isArray(val)) {
                                       displayVal = <span className="text-brand-600 font-bold">{val.length} archivo(s) adjunto(s)</span>;
+                                    } else if (key === 'contract_period_id') {
+                                      const p = periods.find(item => item.id === Number(val));
+                                      displayVal = p ? (
+                                        <span className="font-bold text-slate-800 bg-brand-50 px-2 py-0.5 rounded text-brand-700">
+                                          {p.months} Meses ({p.percentage}% mensual - {p.days} días)
+                                        </span>
+                                      ) : `Periodo #${val}`;
                                     } else if (['referred_by', 'referral_code', 'codigo_referido'].includes(key)) {
                                       displayVal = (
                                         <span className="px-2.5 py-1 bg-purple-100 text-purple-900 font-bold rounded-lg border border-purple-200 inline-flex items-center gap-1">
@@ -636,6 +643,41 @@ export const InvestmentRequestsTable = () => {
                   <span className="font-semibold text-brand-700">${selectedRequestToReview.monto.toLocaleString('es-CO')} COP</span>
                 </div>
               </div>
+
+              {selectedRequestToReview.extra_data?.es_aumento_capital && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
+                  <h4 className="font-bold text-emerald-900 text-xs uppercase tracking-wider flex items-center gap-1.5 border-b border-emerald-200 pb-2">
+                    <span>🚀</span> Solicitud de Aumento de Capital
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-white p-3 rounded-lg border border-emerald-100 shadow-sm">
+                      <span className="text-slate-500 block font-medium">Contrato Vigente Actual</span>
+                      <span className="font-bold text-slate-800 text-sm block">
+                        {selectedRequestToReview.investor?.assigned_code || 'Contrato Existente'}
+                      </span>
+                      {selectedRequestToReview.investor?.package?.value && (
+                        <span className="text-slate-600 text-xs font-semibold block mt-1">
+                          Monto Previo: ${selectedRequestToReview.investor.package.value.toLocaleString('es-CO')} COP
+                        </span>
+                      )}
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-emerald-200 shadow-sm">
+                      <span className="text-emerald-700 block font-medium">Nuevo Paquete Solicitado</span>
+                      <span className="font-bold text-emerald-800 text-sm block">
+                        Monto Nuevo: ${selectedRequestToReview.monto.toLocaleString('es-CO')} COP
+                      </span>
+                      {(() => {
+                        const p = periods.find(p => p.id === Number(selectedRequestToReview.extra_data?.contract_period_id));
+                        return p ? (
+                          <span className="text-emerald-700 font-bold block mt-1">
+                            Periodo: {p.months} Meses ({p.percentage}% mensual - {p.days} días)
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {selectedRequestToReview.extra_data && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
