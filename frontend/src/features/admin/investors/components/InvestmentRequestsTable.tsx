@@ -641,7 +641,7 @@ export const InvestmentRequestsTable = () => {
 
       {/* Rejection Modal */}
       {rejectingId && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-800 mb-2">Rechazar Solicitud</h3>
             <p className="text-sm text-slate-500 mb-4">Ingresa el motivo por el cual rechazas esta solicitud. El usuario podrá ver este motivo.</p>
@@ -672,7 +672,7 @@ export const InvestmentRequestsTable = () => {
 
       {/* Approval Modal */}
       {selectedRequestToReview && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-slate-800">Aprobar Solicitud #{selectedRequestToReview.id}</h3>

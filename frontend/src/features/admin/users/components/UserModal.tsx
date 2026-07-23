@@ -93,7 +93,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         <div className="p-6 border-b flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-500">

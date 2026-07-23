@@ -352,7 +352,7 @@ export const AdminUsersPage = () => {
 
       {/* Confirmation Modal for Reset Password */}
       {resettingUser && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4">
             <div className="flex items-center gap-3 text-amber-600">
               <div className="p-2.5 bg-amber-100 rounded-xl">
