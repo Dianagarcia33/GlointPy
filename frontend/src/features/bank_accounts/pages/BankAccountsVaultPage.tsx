@@ -64,14 +64,14 @@ export const BankAccountsVaultPage: React.FC = () => {
       </div>
 
       {/* Security Banner */}
-      <div className="bg-gradient-to-r from-slate-900 to-brand-950 text-white rounded-2xl p-6 shadow-md flex items-start gap-4 border border-slate-800">
-        <div className="p-2.5 bg-white/10 rounded-xl text-brand-400 shrink-0">
+      <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-sm flex items-start gap-4 border border-slate-800">
+        <div className="p-2.5 bg-white/10 rounded-xl text-emerald-400 shrink-0">
           <ShieldCheck className="w-6 h-6" />
         </div>
         <div className="space-y-1">
           <h3 className="font-bold text-sm text-white">Seguridad de la Bóveda Bancaria (Protección OTP)</h3>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Para garantizar la máxima protección de tus fondos, cualquier modificación, adición o eliminación de cuenta bancaria requiere una **Verificación por Código OTP** que enviamos a tu correo registrado.
+          <p className="text-xs text-slate-200 leading-relaxed">
+            Para garantizar la máxima protección de tus fondos, cualquier modificación, adición o eliminación de cuenta bancaria requiere una <strong className="text-emerald-400 font-bold">Verificación por Código OTP</strong> que enviamos a tu correo registrado.
           </p>
         </div>
       </div>
