@@ -148,6 +148,17 @@ class AuthService:
         # Inserción directa en la tabla pivot para asegurar el rol
         await db.execute(insert(user_roles).values(user_id=new_user.id, role_id=role.id))
 
+        from decimal import Decimal
+        from src.models.wallet import Wallet, WalletStatus
+
+        wallet = Wallet(
+            user_id=new_user.id,
+            balance=Decimal("0.00"),
+            currency="COP",
+            status=WalletStatus.ACTIVE
+        )
+        db.add(wallet)
+
         bank_acc = UserBankAccount(
             user_id=new_user.id,
             banco=data.banco,

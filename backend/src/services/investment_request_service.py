@@ -411,6 +411,16 @@ class InvestmentRequestService:
             
             req.investor_id = investor.id
 
+            # Asegurar que el usuario tenga su Wallet creada
+            from decimal import Decimal
+            from src.models.wallet import Wallet, WalletStatus
+            wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == req.user_id))
+            wallet = wallet_res.scalars().first()
+            if not wallet:
+                wallet = Wallet(user_id=req.user_id, balance=Decimal("0.00"), currency="COP", status=WalletStatus.ACTIVE)
+                db.add(wallet)
+                await db.flush()
+
         # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)
         if referred_code:
             # Buscar el contrato del referente por su assigned_code
