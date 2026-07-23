@@ -329,61 +329,102 @@ export const InvestmentRequestsTable = () => {
                                 Detalles de la Solicitud
                               </h4>
 
-                              {(request.extra_data?.es_aumento_capital || request.extra_data?.is_upgrade) && (
-                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 mb-3">
-                                  <h5 className="font-bold text-emerald-900 text-[11px] uppercase tracking-wider flex items-center justify-between border-b border-emerald-200 pb-1.5">
-                                    <span>🚀 Comparativa de Aumento de Capital</span>
-                                    <span className="px-1.5 py-0.5 bg-emerald-200 text-emerald-900 font-bold rounded text-[10px]">
-                                      Aumento Solicitado
-                                    </span>
-                                  </h5>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                    <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-sm">
-                                      <span className="text-slate-500 block font-medium text-[11px]">Contrato Vigente Actual</span>
-                                      <span className="font-bold text-slate-800 text-xs block">
-                                        {request.investor?.assigned_code || `Contrato #${request.investor_id || request.extra_data?.investor_id || 'Vigente'}`}
+                              {(request.extra_data?.es_aumento_capital || request.extra_data?.is_upgrade) && (() => {
+                                const previousPackageValue = Number(request.extra_data?.previous_package_value) || Number(request.investor?.package?.value) || 0;
+                                const targetPackageValue = Number(request.package?.value) || Number(request.extra_data?.new_package_value) || (previousPackageValue + Number(request.monto));
+                                const incrementoNeto = targetPackageValue > previousPackageValue ? (targetPackageValue - previousPackageValue) : Number(request.monto);
+
+                                return (
+                                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 mb-3">
+                                    <h5 className="font-bold text-emerald-900 text-[11px] uppercase tracking-wider flex items-center justify-between border-b border-emerald-200 pb-1.5">
+                                      <span>🚀 Comparativa de Aumento de Capital</span>
+                                      <span className="px-1.5 py-0.5 bg-emerald-200 text-emerald-900 font-bold rounded text-[10px]">
+                                        Aumento Solicitado
                                       </span>
-                                      {request.investor?.package?.value ? (
-                                        <span className="text-slate-700 text-xs font-bold block mt-1">
-                                          Monto Previo: ${request.investor.package.value.toLocaleString('es-CO')} COP
+                                    </h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-sm">
+                                        <span className="text-slate-500 block font-medium text-[11px]">Contrato Vigente Actual</span>
+                                        <span className="font-bold text-slate-800 text-xs block">
+                                          {request.investor?.assigned_code || `Contrato #${request.investor_id || request.extra_data?.previous_contract_id || request.extra_data?.investor_id || 'Vigente'}`}
                                         </span>
-                                      ) : (
-                                        <span className="text-slate-400 italic block mt-1 text-[11px]">Monto Previo: No especificado</span>
-                                      )}
-                                      {request.investor?.period && (
-                                        <span className="text-slate-500 text-[11px] block mt-0.5">
-                                          Periodo Actual: {request.investor.period.months} Meses ({request.investor.period.percentage}% mensual)
+                                        {previousPackageValue > 0 ? (
+                                          <span className="text-slate-700 text-xs font-bold block mt-1">
+                                            Monto Previo: ${previousPackageValue.toLocaleString('es-CO')} COP
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-400 italic block mt-1 text-[11px]">Monto Previo: No especificado</span>
+                                        )}
+                                        {request.investor?.period && (
+                                          <span className="text-slate-500 text-[11px] block mt-0.5">
+                                            Periodo Actual: {request.investor.period.months} Meses ({request.investor.period.percentage}% mensual)
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-sm">
+                                        <span className="text-emerald-700 block font-medium text-[11px]">Nuevo Paquete Solicitado</span>
+                                        <span className="font-bold text-emerald-800 text-xs block">
+                                          Monto Nuevo: ${targetPackageValue.toLocaleString('es-CO')} COP
                                         </span>
-                                      )}
+                                        {(() => {
+                                          const p = periods.find(item => item.id === Number(request.extra_data?.contract_period_id));
+                                          return p ? (
+                                            <span className="text-emerald-700 font-bold block mt-1 text-[11px]">
+                                              Periodo Nuevo: {p.months} Meses ({p.percentage}% mensual - {p.days} días)
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                        {incrementoNeto > 0 && (
+                                          <span className="text-emerald-600 font-extrabold block mt-1 text-[11px]">
+                                            Incremento Neto: +${incrementoNeto.toLocaleString('es-CO')} COP
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
 
-                                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-sm">
-                                      <span className="text-emerald-700 block font-medium text-[11px]">Nuevo Paquete Solicitado</span>
-                                      <span className="font-bold text-emerald-800 text-xs block">
-                                        Monto Nuevo: ${request.monto.toLocaleString('es-CO')} COP
-                                      </span>
-                                      {(() => {
-                                        const p = periods.find(item => item.id === Number(request.extra_data?.contract_period_id));
-                                        return p ? (
-                                          <span className="text-emerald-700 font-bold block mt-1 text-[11px]">
-                                            Periodo Nuevo: {p.months} Meses ({p.percentage}% mensual - {p.days} días)
-                                          </span>
-                                        ) : null;
-                                      })()}
-                                      {request.investor?.package?.value && request.monto > request.investor.package.value && (
-                                        <span className="text-emerald-600 font-extrabold block mt-1 text-[11px]">
-                                          Incremento Neto: +${(request.monto - request.investor.package.value).toLocaleString('es-CO')} COP
-                                        </span>
-                                      )}
-                                    </div>
+                                    {Number(request.extra_data?.monto_billetera_usado) > 0 && (() => {
+                                      const montoBilletera = Number(request.extra_data?.monto_billetera_usado);
+                                      const restante = Math.max(0, incrementoNeto - montoBilletera);
+                                      return (
+                                        <div className="mt-2.5 p-2.5 bg-emerald-100/70 rounded-lg border border-emerald-200 text-xs space-y-1.5">
+                                          <div className="flex justify-between items-center text-emerald-950 font-bold">
+                                            <span className="flex items-center gap-1.5">
+                                              <span>💳</span> Abono con Saldo de Billetera:
+                                            </span>
+                                            <span className="text-emerald-800 font-extrabold text-sm">-${montoBilletera.toLocaleString('es-CO')} COP</span>
+                                          </div>
+                                          <div className="flex justify-between items-center text-slate-700 font-semibold border-t border-emerald-200/80 pt-1.5 text-[11px]">
+                                            <span>Monto Restante por Comprobante/Transferencia:</span>
+                                            <span className="font-extrabold text-slate-900 text-xs">${restante.toLocaleString('es-CO')} COP</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
 
                               <div className="space-y-2 text-xs">
                                 {request.extra_data && typeof request.extra_data === 'object' && Object.keys(request.extra_data).length > 0 ? (
                                   Object.entries(request.extra_data).map(([key, val]) => {
                                     if (val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0)) return null;
+
+                                    const internalKeysToHide = [
+                                      'investor_id',
+                                      'new_package_id',
+                                      'new_package_value',
+                                      'previous_period_id',
+                                      'previous_package_id',
+                                      'previous_contract_id',
+                                      'previous_package_value',
+                                      'contract_period_id',
+                                      'is_upgrade',
+                                      'es_aumento_capital',
+                                      'aumento_de_capital'
+                                    ];
+
+                                    if (internalKeysToHide.includes(key)) return null;
 
                                     const labels: Record<string, string> = {
                                       referred_by: 'Código Referido',
@@ -393,8 +434,6 @@ export const InvestmentRequestsTable = () => {
                                       fecha_nacimiento: 'Fecha Nacimiento',
                                       tipo_documento: 'Tipo Documento',
                                       numero_documento: 'Número Documento',
-                                      contract_period_id: 'Periodo de Contrato',
-                                      es_aumento_capital: 'Aumento de Capital',
                                       monto_billetera_usado: 'Billetera Usada',
                                       kyc_docs: 'Documentos KYC',
                                       comprobantes_adicionales: 'Comprobantes Extra'
@@ -407,17 +446,16 @@ export const InvestmentRequestsTable = () => {
                                       displayVal = val ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">Sí</span> : 'No';
                                     } else if (Array.isArray(val)) {
                                       displayVal = <span className="text-brand-600 font-bold">{val.length} archivo(s) adjunto(s)</span>;
-                                    } else if (key === 'contract_period_id') {
-                                      const p = periods.find(item => item.id === Number(val));
-                                      displayVal = p ? (
-                                        <span className="font-bold text-slate-800 bg-brand-50 px-2 py-0.5 rounded text-brand-700">
-                                          {p.months} Meses ({p.percentage}% mensual - {p.days} días)
-                                        </span>
-                                      ) : `Periodo #${val}`;
                                     } else if (['referred_by', 'referral_code', 'codigo_referido'].includes(key)) {
                                       displayVal = (
                                         <span className="px-2.5 py-1 bg-purple-100 text-purple-900 font-bold rounded-lg border border-purple-200 inline-flex items-center gap-1">
                                           <span>✨</span> {String(val)}
+                                        </span>
+                                      );
+                                    } else if (key === 'monto_billetera_usado') {
+                                      displayVal = (
+                                        <span className="font-bold text-emerald-700">
+                                          ${Number(val).toLocaleString('es-CO')} COP
                                         </span>
                                       );
                                     }

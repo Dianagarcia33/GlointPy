@@ -494,6 +494,9 @@ class InvestmentRequestService:
     @staticmethod
     async def reject_request(db: AsyncSession, request_id: int, user_id: int, reason: str) -> InvestmentRequest:
         from fastapi import HTTPException
+        from decimal import Decimal
+        from src.models.wallet import Wallet, WalletStatus, WalletTransaction
+
         result = await db.execute(
             select(InvestmentRequest)
             .where(InvestmentRequest.id == request_id)
@@ -509,6 +512,33 @@ class InvestmentRequestService:
         req.rejection_reason = reason
         req.reviewed_by = user_id
         req.reviewed_at = datetime.utcnow()
+
+        # Reembolso de dinero de billetera si la solicitud usó saldo de billetera
+        if req.extra_data and isinstance(req.extra_data, dict):
+            monto_billetera = float(req.extra_data.get("monto_billetera_usado") or 0.0)
+            if monto_billetera > 0:
+                wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == req.user_id))
+                wallet = wallet_res.scalars().first()
+                if not wallet:
+                    wallet = Wallet(user_id=req.user_id, balance=Decimal("0.00"), currency="COP", status=WalletStatus.ACTIVE)
+                    db.add(wallet)
+                    await db.flush()
+
+                old_balance = float(wallet.balance or 0.0)
+                new_balance = old_balance + monto_billetera
+                wallet.balance = Decimal(str(new_balance))
+
+                tx = WalletTransaction(
+                    wallet_id=wallet.id,
+                    amount=Decimal(str(monto_billetera)),
+                    type="refund",
+                    reference_type="investment_request_rejection",
+                    reference_id=req.id,
+                    description=f"Reembolso de billetera por rechazo de solicitud #{req.id}",
+                    balance_after=Decimal(str(new_balance))
+                )
+                db.add(tx)
+                logger.info(f"Reembolso de ${monto_billetera} devuelto a la billetera del usuario #{req.user_id} por rechazo de solicitud #{req.id}")
 
         await db.commit()
         await db.refresh(req)

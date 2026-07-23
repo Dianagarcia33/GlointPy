@@ -716,6 +716,34 @@ async def create_investment_request(
     )
     
     db.add(new_request)
+    await db.flush()
+
+    if monto_billetera_usado > 0:
+        from decimal import Decimal
+        from src.models.wallet import Wallet, WalletStatus, WalletTransaction
+        wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == target_user_id))
+        wallet = wallet_res.scalars().first()
+        if not wallet or float(wallet.balance or 0.0) < monto_billetera_usado:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Saldo insuficiente en la billetera del usuario. Disponible: ${float(wallet.balance if wallet else 0.0):,.0f}"
+            )
+        
+        old_bal = float(wallet.balance or 0.0)
+        new_bal = old_bal - monto_billetera_usado
+        wallet.balance = Decimal(str(new_bal))
+        
+        w_tx = WalletTransaction(
+            wallet_id=wallet.id,
+            amount=Decimal(str(-monto_billetera_usado)),
+            type="investment_payment",
+            reference_type="investment_request",
+            reference_id=new_request.id,
+            description=f"Abono de billetera para solicitud de inversión #{new_request.id}",
+            balance_after=Decimal(str(new_bal))
+        )
+        db.add(w_tx)
+
     try:
         await db.commit()
         await db.refresh(new_request)
