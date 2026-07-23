@@ -17,6 +17,21 @@ export interface ContractHistory {
   created_at?: string;
 }
 
+export interface Acceleration {
+  id: number;
+  investor_id: number;
+  investment_request_id: number;
+  contract_period_id?: number;
+  original_days: number;
+  acceleration_percentage: number;
+  days_to_reduce: number;
+  capital_released?: number;
+  new_duration: number;
+  applied: boolean;
+  bonus_amount: number;
+  created_at?: string;
+}
+
 export interface Investor {
   id: number;
   assigned_code: string;
@@ -34,6 +49,8 @@ export interface Investor {
   package?: Package;
   period?: Period;
   contract_histories?: ContractHistory[];
+  accelerations?: Acceleration[];
+  total_acceleration_bonus?: number;
 }
 
 export const getInvestors = async (params?: { page?: number; limit?: number; search?: string; has_history?: boolean }): Promise<{ data: Investor[]; total: number }> => {

@@ -64,7 +64,8 @@ class InvestorService:
             selectinload(Investor.user).selectinload(User.wallet),
             selectinload(Investor.package),
             selectinload(Investor.period),
-            selectinload(Investor.contract_histories)
+            selectinload(Investor.contract_histories),
+            selectinload(Investor.accelerations)
         )
         query = query.order_by(Investor.id.desc()).offset(offset).limit(limit)
         
@@ -88,7 +89,8 @@ class InvestorService:
                 selectinload(Investor.user).selectinload(User.wallet),
                 selectinload(Investor.package),
                 selectinload(Investor.period),
-                selectinload(Investor.contract_histories)
+                selectinload(Investor.contract_histories),
+                selectinload(Investor.accelerations)
             )
             .where(Investor.id == investor_id)
         )

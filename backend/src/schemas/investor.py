@@ -6,6 +6,7 @@ from src.schemas.user import UserResponse, UserWithBankAccountsResponse
 from src.schemas.package import PackageResponse
 from src.schemas.period import PeriodResponse
 from src.schemas.contract_history import ContractHistoryResponse
+from src.schemas.acceleration import AccelerationResponse
 
 class InvestorBase(BaseModel):
     assigned_code: Optional[str] = None
@@ -47,6 +48,14 @@ class InvestorResponse(InvestorBase):
     package: Optional[PackageResponse] = None
     period: Optional[PeriodResponse] = None
     contract_histories: Optional[list[ContractHistoryResponse]] = None
+    accelerations: Optional[list[AccelerationResponse]] = None
+
+    @computed_field
+    @property
+    def total_acceleration_bonus(self) -> float:
+        if not self.accelerations:
+            return 0.0
+        return float(sum(acc.bonus_amount or 0.0 for acc in self.accelerations if acc.applied))
 
     @computed_field
     @property
