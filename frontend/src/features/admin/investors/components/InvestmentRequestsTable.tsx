@@ -327,6 +327,58 @@ export const InvestmentRequestsTable = () => {
                               <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-100 pb-2">
                                 Detalles de la Solicitud
                               </h4>
+
+                              {(request.extra_data?.es_aumento_capital || request.investor) && (
+                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 mb-3">
+                                  <h5 className="font-bold text-emerald-900 text-[11px] uppercase tracking-wider flex items-center justify-between border-b border-emerald-200 pb-1.5">
+                                    <span>🚀 Comparativa de Aumento de Capital</span>
+                                    <span className="px-1.5 py-0.5 bg-emerald-200 text-emerald-900 font-bold rounded text-[10px]">
+                                      Aumento Solicitado
+                                    </span>
+                                  </h5>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                    <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-sm">
+                                      <span className="text-slate-500 block font-medium text-[11px]">Contrato Vigente Actual</span>
+                                      <span className="font-bold text-slate-800 text-xs block">
+                                        {request.investor?.assigned_code || `Contrato #${request.investor_id || request.extra_data?.investor_id || 'Vigente'}`}
+                                      </span>
+                                      {request.investor?.package?.value ? (
+                                        <span className="text-slate-700 text-xs font-bold block mt-1">
+                                          Monto Previo: ${request.investor.package.value.toLocaleString('es-CO')} COP
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-400 italic block mt-1 text-[11px]">Monto Previo: No especificado</span>
+                                      )}
+                                      {request.investor?.period && (
+                                        <span className="text-slate-500 text-[11px] block mt-0.5">
+                                          Periodo Actual: {request.investor.period.months} Meses ({request.investor.period.percentage}% mensual)
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-sm">
+                                      <span className="text-emerald-700 block font-medium text-[11px]">Nuevo Paquete Solicitado</span>
+                                      <span className="font-bold text-emerald-800 text-xs block">
+                                        Monto Nuevo: ${request.monto.toLocaleString('es-CO')} COP
+                                      </span>
+                                      {(() => {
+                                        const p = periods.find(item => item.id === Number(request.extra_data?.contract_period_id));
+                                        return p ? (
+                                          <span className="text-emerald-700 font-bold block mt-1 text-[11px]">
+                                            Periodo Nuevo: {p.months} Meses ({p.percentage}% mensual - {p.days} días)
+                                          </span>
+                                        ) : null;
+                                      })()}
+                                      {request.investor?.package?.value && request.monto > request.investor.package.value && (
+                                        <span className="text-emerald-600 font-extrabold block mt-1 text-[11px]">
+                                          Incremento Neto: +${(request.monto - request.investor.package.value).toLocaleString('es-CO')} COP
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
                               <div className="space-y-2 text-xs">
                                 {request.extra_data && typeof request.extra_data === 'object' && Object.keys(request.extra_data).length > 0 ? (
                                   Object.entries(request.extra_data).map(([key, val]) => {

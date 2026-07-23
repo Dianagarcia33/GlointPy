@@ -20,9 +20,12 @@ class InvestmentRequestService:
     
     @staticmethod
     async def get_investment_requests(db: AsyncSession, page: int = 1, limit: int = 20, search: Optional[str] = None) -> Dict[str, Any]:
+        from src.models.investor import Investor
         query = select(InvestmentRequest).options(
             selectinload(InvestmentRequest.user),
-            selectinload(InvestmentRequest.package)
+            selectinload(InvestmentRequest.package),
+            selectinload(InvestmentRequest.investor).selectinload(Investor.package),
+            selectinload(InvestmentRequest.investor).selectinload(Investor.period)
         )
         
         if search:
@@ -55,15 +58,31 @@ class InvestmentRequestService:
         
         result = await db.execute(query)
         requests = result.scalars().all()
-        
-        logger.info(f"DEBUG: count_query returned total={total}")
-        logger.info(f"DEBUG: query returned {len(requests)} rows")
-        if not requests:
-            # Check raw count via text query just to be absolutely sure
-            from sqlalchemy import text
-            raw_count = await db.execute(text("SELECT COUNT(*) FROM investment_requests"))
-            raw_total = raw_count.scalar()
-            logger.info(f"DEBUG: raw SQL COUNT(*) FROM investment_requests = {raw_total}")
+
+        # Si alguna solicitud no tiene 'investor' cargado pero es aumento de capital, popularlo automáticamente
+        for req in requests:
+            if not req.investor:
+                inv_id = None
+                if req.investor_id:
+                    inv_id = req.investor_id
+                elif req.extra_data and isinstance(req.extra_data, dict) and req.extra_data.get("investor_id"):
+                    inv_id = req.extra_data.get("investor_id")
+
+                if inv_id:
+                    inv_res = await db.execute(
+                        select(Investor)
+                        .options(selectinload(Investor.package), selectinload(Investor.period))
+                        .where(Investor.id == inv_id)
+                    )
+                    req.investor = inv_res.scalars().first()
+                elif req.extra_data and isinstance(req.extra_data, dict) and req.extra_data.get("es_aumento_capital"):
+                    inv_res = await db.execute(
+                        select(Investor)
+                        .options(selectinload(Investor.package), selectinload(Investor.period))
+                        .where(Investor.user_id == req.user_id)
+                        .order_by(Investor.id.desc())
+                    )
+                    req.investor = inv_res.scalars().first()
         
         return {
             "data": requests,
