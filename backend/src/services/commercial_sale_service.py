@@ -239,27 +239,6 @@ async def register_commercial_sale(
         sale_date=today
     )
     db.add(sale)
-    await db.flush()
-    
-    # 4. Acreditar automáticamente a la Wallet del Comercial
-    wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == commercial_id))
-    wallet = wallet_res.scalars().first()
-    if not wallet:
-        wallet = Wallet(user_id=commercial_id, balance=Decimal("0.00"), currency="COP", status="active")
-        db.add(wallet)
-        await db.flush()
-        
-    wallet.balance += comm_amount
-    
-    transaction = WalletTransaction(
-        wallet_id=wallet.id,
-        amount=comm_amount,
-        type="commercial_commission",
-        description=f"Comisión venta comercial #{sale.id} ({final_sale_type.value}) - Cliente {sale.client_document}",
-        reference_id=str(sale.id)
-    )
-    db.add(transaction)
-    
     await db.commit()
     await db.refresh(sale)
     return sale

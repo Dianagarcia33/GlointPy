@@ -130,7 +130,7 @@ export const CommercialDashboardPage: React.FC = () => {
           <span className="text-2xl font-extrabold text-emerald-700 block">
             +${(summary?.total_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
           </span>
-          <span className="text-[11px] text-emerald-700 font-medium">Acreditadas a tu Wallet</span>
+          <span className="text-[11px] text-emerald-700 font-medium">Calculadas del mes en curso</span>
         </div>
       </div>
 

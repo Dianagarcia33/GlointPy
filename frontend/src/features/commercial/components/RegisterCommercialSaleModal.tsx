@@ -131,10 +131,6 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       setError('Por favor ingresa un monto mayor a cero');
       return;
     }
-    if (saleType === 'referido' && !referrerCode.trim() && !clientInfo?.is_existing_client) {
-      setError('Por favor ingresa el código del cliente que realizó la recomendación');
-      return;
-    }
 
     setIsSubmitting(true);
     setError(null);
@@ -326,15 +322,14 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           {saleType === 'referido' && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Código del Cliente Recomendador (Origen) *
+                Código del Cliente Recomendador (Origen) <span className="text-slate-400 font-normal">(Opcional)</span>
               </label>
               <input
                 type="text"
                 value={referrerCode}
                 onChange={(e) => setReferrerCode(e.target.value)}
-                placeholder="Ej. IG1974"
+                placeholder="Ej. IG1974 (opcional)"
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 uppercase font-mono"
-                required
               />
             </div>
           )}
@@ -402,7 +397,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               )}
 
               <div className="flex justify-between items-center text-sm font-bold pt-2 border-t border-slate-200">
-                <span className="text-slate-800">Comisión Directa a Wallet:</span>
+                <span className="text-slate-800">Comisión Directa Calculada:</span>
                 <span className="text-emerald-700 text-base">
                   +${estimatedCommission.toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
                 </span>
