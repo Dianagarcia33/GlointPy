@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Package as PackageIcon, Calendar, Loader2, Upload, AlertCircle, Zap } from 'lucide-react';
+import { X, TrendingUp, Package as PackageIcon, Calendar, Loader2, Upload, AlertCircle, Zap, Wallet } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchApi } from '../../../../services/api';
 import { Investor } from '../../../../services/investors';
@@ -22,6 +22,8 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
   const [selectedPackageId, setSelectedPackageId] = useState<number | ''>('');
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | ''>('');
   const [referralCode, setReferralCode] = useState('');
+  const [useWallet, setUseWallet] = useState(false);
+  const [walletAmount, setWalletAmount] = useState<number>(0);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +45,8 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
       setSelectedPackageId('');
       setSelectedPeriodId(investor.period_id || '');
       setReferralCode('');
+      setUseWallet(false);
+      setWalletAmount(0);
       setReceiptFile(null);
       setError(null);
     }
@@ -51,6 +55,7 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
   if (!isOpen || !investor) return null;
 
   const currentPackageValue = investor.package ? Number(investor.package.value) : 0;
+  const userWalletBalance = investor.user?.wallet ? Number(investor.user.wallet.balance) : 0;
   
   // Only show packages of higher value than the current package
   const availablePackages = packages.filter((p: any) => Number(p.value) > currentPackageValue && p.is_active);
@@ -58,6 +63,8 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
   const selectedTargetPackage = packages.find((p: any) => p.id === Number(selectedPackageId));
   const targetPackageValue = selectedTargetPackage ? Number(selectedTargetPackage.value) : 0;
   const differenceAmount = Math.max(0, targetPackageValue - currentPackageValue);
+  const maxUsableWallet = Math.min(userWalletBalance, differenceAmount);
+  const remainingPayable = Math.max(0, differenceAmount - (useWallet ? walletAmount : 0));
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -89,6 +96,20 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
       setError('El nuevo paquete debe tener un valor superior al paquete actual');
       return;
     }
+    if (useWallet) {
+      if (walletAmount <= 0) {
+        setError('Por favor ingresa un monto válido a utilizar de la billetera');
+        return;
+      }
+      if (walletAmount > userWalletBalance) {
+        setError(`El monto a usar ($${walletAmount.toLocaleString('es-CO')}) excede el saldo de la billetera ($${userWalletBalance.toLocaleString('es-CO')})`);
+        return;
+      }
+      if (walletAmount > differenceAmount) {
+        setError(`El monto a usar de la billetera no puede superar la diferencia del aumento ($${differenceAmount.toLocaleString('es-CO')})`);
+        return;
+      }
+    }
 
     setIsSubmitting(true);
     setError(null);
@@ -101,6 +122,9 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
       formData.append('is_upgrade', 'true');
       formData.append('investor_id', investor.id.toString());
       formData.append('user_id', investor.user_id.toString());
+      if (useWallet && walletAmount > 0) {
+        formData.append('monto_billetera_usado', walletAmount.toString());
+      }
       if (referralCode.trim()) {
         formData.append('codigo_referido', referralCode.trim());
       }
@@ -180,7 +204,15 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
             </label>
             <select
               value={selectedPackageId}
-              onChange={(e) => setSelectedPackageId(e.target.value ? Number(e.target.value) : '')}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : '';
+                setSelectedPackageId(val);
+                const pkg = packages.find((p: any) => p.id === val);
+                const diff = pkg ? Math.max(0, Number(pkg.value) - currentPackageValue) : 0;
+                if (useWallet) {
+                  setWalletAmount(Math.min(userWalletBalance, diff));
+                }
+              }}
               required
               className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
             >
@@ -218,7 +250,71 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
             </select>
           </div>
 
-          {/* Resumen del Diferencial */}
+          {/* Opción Billetera del Usuario */}
+          <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">Saldo en Billetera</span>
+              </div>
+              <span className="text-sm font-bold text-emerald-800">
+                ${userWalletBalance.toLocaleString('es-CO')} COP
+              </span>
+            </div>
+
+            {userWalletBalance > 0 ? (
+              <div className="space-y-2 pt-1 border-t border-emerald-200/60">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={useWallet}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setUseWallet(checked);
+                      if (checked) {
+                        setWalletAmount(maxUsableWallet);
+                      } else {
+                        setWalletAmount(0);
+                      }
+                    }}
+                    className="w-4 h-4 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <span className="text-xs font-semibold text-emerald-900">
+                    Usar dinero de la billetera del usuario como parte de pago
+                  </span>
+                </label>
+
+                {useWallet && (
+                  <div className="pl-6 pt-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max={maxUsableWallet}
+                        value={walletAmount || ''}
+                        onChange={(e) => setWalletAmount(Number(e.target.value) || 0)}
+                        placeholder="Monto a usar..."
+                        className="w-full px-3 py-1.5 border border-emerald-300 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setWalletAmount(maxUsableWallet)}
+                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shrink-0 transition-colors"
+                      >
+                        Máximo (${maxUsableWallet.toLocaleString('es-CO')})
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-emerald-700 italic border-t border-emerald-200/60 pt-2">
+                El usuario no cuenta con saldo disponible en su billetera.
+              </p>
+            )}
+          </div>
+
+          {/* Resumen del Diferencial y Pagos */}
           {selectedTargetPackage && (
             <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-4 space-y-2">
               <div className="flex justify-between items-center text-xs text-amber-900 font-medium">
@@ -230,11 +326,23 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
                 <span className="font-bold">-${currentPackageValue.toLocaleString('es-CO')} COP</span>
               </div>
               <div className="pt-2 border-t border-amber-200/60 flex justify-between items-center">
-                <span className="text-xs font-bold text-amber-950 uppercase tracking-wider">Monto Diferencial a Abonar:</span>
-                <span className="text-lg font-bold text-amber-700">
+                <span className="text-xs font-bold text-amber-950 uppercase tracking-wider">Monto Diferencial del Aumento:</span>
+                <span className="text-base font-bold text-amber-800">
                   ${differenceAmount.toLocaleString('es-CO')} COP
                 </span>
               </div>
+              {useWallet && walletAmount > 0 && (
+                <>
+                  <div className="flex justify-between items-center text-xs text-emerald-800 font-semibold pt-1">
+                    <span>Abono con Billetera:</span>
+                    <span>-${walletAmount.toLocaleString('es-CO')} COP</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-amber-950 font-bold pt-1 border-t border-amber-200/60">
+                    <span>Restante a Pagar / Adjuntar:</span>
+                    <span className="text-sm font-bold text-amber-900">${remainingPayable.toLocaleString('es-CO')} COP</span>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
