@@ -32,6 +32,24 @@ export interface Acceleration {
   created_at?: string;
 }
 
+export interface Withdrawal {
+  id: number;
+  investor_id?: number;
+  user_id: number;
+  origen: string;
+  tipo: string;
+  monto: number;
+  impuesto: number;
+  monto_neto: number;
+  fecha_solicitud: string;
+  fecha_retiro?: string;
+  estado: string;
+  metodo_pago?: string;
+  banco?: string;
+  tipo_cuenta?: string;
+  numero_cuenta?: string;
+}
+
 export interface Investor {
   id: number;
   assigned_code: string;
@@ -50,7 +68,12 @@ export interface Investor {
   period?: Period;
   contract_histories?: ContractHistory[];
   accelerations?: Acceleration[];
+  withdrawals?: Withdrawal[];
   total_acceleration_bonus?: number;
+  daily_yield_amount?: number;
+  daily_capital_amount?: number;
+  has_capital_withdrawal?: boolean;
+  total_capital_withdrawn?: number;
 }
 
 export const getInvestors = async (params?: { page?: number; limit?: number; search?: string; has_history?: boolean }): Promise<{ data: Investor[]; total: number }> => {

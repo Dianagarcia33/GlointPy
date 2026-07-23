@@ -333,7 +333,9 @@ export const AdminInvestorsPage = () => {
                 <th className="px-6 py-4">Código / Ref.</th>
                 <th className="px-6 py-4">Usuario</th>
                 <th className="px-6 py-4">Paquete / Periodo</th>
-                <th className="px-6 py-4">Bonos por Aceleración</th>
+                <th className="px-6 py-4">Rendimientos Diarios</th>
+                <th className="px-6 py-4">Retiros de Capital</th>
+                <th className="px-6 py-4">Bonos Aceleración</th>
                 <th className="px-6 py-4">Fechas</th>
                 <Can permission="admin.investors.manage">
                   <th className="px-6 py-4 text-right">Acciones</th>
@@ -345,7 +347,7 @@ export const AdminInvestorsPage = () => {
                 <InvestorTableSkeleton />
               ) : investors.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay inversionistas registrados.</p>
@@ -411,6 +413,64 @@ export const AdminInvestorsPage = () => {
                         <div className="text-xs text-slate-500 mt-1">
                             {investor.period ? `${investor.period.months}m ${investor.period.days}d (${investor.period.percentage}%)` : ''}
                         </div>
+                      </td>
+
+                      {/* Rendimientos Diarios */}
+                      <td className="px-6 py-4 text-xs space-y-1">
+                        {(() => {
+                          const packageVal = investor.package ? Number(investor.package.value) : 0;
+                          const totalDays = investor.period ? Number(investor.period.days) : 0;
+                          const pct = investor.period ? Number(investor.period.percentage) / 100 : 0;
+                          const months = investor.period ? Number(investor.period.months) : 0;
+                          const totalYield = packageVal * pct * months;
+                          const dailyYield = investor.daily_yield_amount ?? (totalDays > 0 ? totalYield / totalDays : 0);
+                          const dailyCapital = investor.daily_capital_amount ?? (totalDays > 0 ? packageVal / totalDays : 0);
+
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 font-semibold text-emerald-700 text-[11px]" title="Rendimiento Ganancia Diaria">
+                                <Zap className="w-3 h-3 text-emerald-500 shrink-0" />
+                                <span>Rend: ${dailyYield.toLocaleString('es-CO', { maximumFractionDigits: 0 })}/día</span>
+                              </div>
+                              <div className="flex items-center gap-1 font-medium text-slate-600 text-[11px]" title="Liberación Diario de Capital Base">
+                                <span className="text-[10px]">🏦</span>
+                                <span>Cap: ${dailyCapital.toLocaleString('es-CO', { maximumFractionDigits: 0 })}/día</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </td>
+
+                      {/* Retiros de Capital */}
+                      <td className="px-6 py-4 text-xs">
+                        {(() => {
+                          const hasCapitalWithdrawal = investor.has_capital_withdrawal ?? (
+                            investor.withdrawals && investor.withdrawals.some((w: any) => {
+                              const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
+                              const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
+                              return String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase());
+                            })
+                          );
+
+                          const capitalWithdrawnAmount = investor.total_capital_withdrawn ?? (
+                            investor.withdrawals ? investor.withdrawals.reduce((sum: number, w: any) => {
+                              const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
+                              const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
+                              if (String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase())) {
+                                return sum + Number(w.monto || 0);
+                              }
+                              return sum;
+                            }, 0) : 0
+                          );
+
+                          return hasCapitalWithdrawal ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                              💸 Retiro Capital (${capitalWithdrawnAmount.toLocaleString('es-CO')} COP)
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-medium">Sin retiros</span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4">
                         {(() => {

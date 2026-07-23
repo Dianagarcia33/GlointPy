@@ -65,7 +65,8 @@ class InvestorService:
             selectinload(Investor.package),
             selectinload(Investor.period),
             selectinload(Investor.contract_histories),
-            selectinload(Investor.accelerations)
+            selectinload(Investor.accelerations),
+            selectinload(Investor.withdrawals)
         )
         query = query.order_by(Investor.id.desc()).offset(offset).limit(limit)
         

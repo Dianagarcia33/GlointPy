@@ -38,6 +38,8 @@ class SimpleInvestorResponse(InvestorBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+from src.schemas.withdrawal import WithdrawalBase
+
 class InvestorResponse(InvestorBase):
     id: int
     created_at: datetime
@@ -49,6 +51,7 @@ class InvestorResponse(InvestorBase):
     period: Optional[PeriodResponse] = None
     contract_histories: Optional[list[ContractHistoryResponse]] = None
     accelerations: Optional[list[AccelerationResponse]] = None
+    withdrawals: Optional[list[WithdrawalBase]] = None
 
     @computed_field
     @property
@@ -56,6 +59,50 @@ class InvestorResponse(InvestorBase):
         if not self.accelerations:
             return 0.0
         return float(sum(acc.bonus_amount or 0.0 for acc in self.accelerations if acc.applied))
+
+    @computed_field
+    @property
+    def daily_yield_amount(self) -> float:
+        if not self.package or not self.period or not self.period.days:
+            return 0.0
+        monto = float(self.package.value or 0)
+        pct = float(self.period.percentage or 0) / 100.0
+        months = float(self.period.months or 0)
+        rendimiento_total = (monto * pct) * months
+        return float(rendimiento_total / self.period.days) if self.period.days > 0 else 0.0
+
+    @computed_field
+    @property
+    def daily_capital_amount(self) -> float:
+        if not self.package or not self.period or not self.period.days:
+            return 0.0
+        monto = float(self.package.value or 0)
+        return float(monto / self.period.days) if self.period.days > 0 else 0.0
+
+    @computed_field
+    @property
+    def has_capital_withdrawal(self) -> bool:
+        if not self.withdrawals:
+            return False
+        for w in self.withdrawals:
+            w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else str(w.tipo)
+            w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+            if w_tipo.lower() == "capital" and w_estado.lower() in ["pendiente", "aprobado", "procesado"]:
+                return True
+        return False
+
+    @computed_field
+    @property
+    def total_capital_withdrawn(self) -> float:
+        if not self.withdrawals:
+            return 0.0
+        total = 0.0
+        for w in self.withdrawals:
+            w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else str(w.tipo)
+            w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+            if w_tipo.lower() == "capital" and w_estado.lower() in ["pendiente", "aprobado", "procesado"]:
+                total += float(w.monto or 0.0)
+        return total
 
     @computed_field
     @property
