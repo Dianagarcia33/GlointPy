@@ -98,7 +98,7 @@ async def get_admin_analytics_dashboard(
     total_wallets = float(wallets_res.scalar() or 0)
 
     # Total retiros solicitados / pagados
-    withdrawals_res = await db.execute(select(func.coalesce(func.sum(Withdrawal.amount), 0)))
+    withdrawals_res = await db.execute(select(func.coalesce(func.sum(Withdrawal.monto), 0)))
     total_withdrawals = float(withdrawals_res.scalar() or 0)
 
     liquidity_balance = [
