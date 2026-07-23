@@ -74,9 +74,6 @@ export const DashboardPage = () => {
                             <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
                                 Hola, {user?.name?.split(' ')[0]} 👋
                             </h1>
-                            <p className="text-slate-300 text-xs sm:text-sm max-w-xl leading-relaxed">
-                                Monitoreo consolidado de captación de capital, distribución por paquetes de inversión y salud de liquidez del ecosistema.
-                            </p>
                         </div>
                     </div>
 
