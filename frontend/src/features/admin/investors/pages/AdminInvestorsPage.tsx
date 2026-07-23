@@ -333,8 +333,6 @@ export const AdminInvestorsPage = () => {
                 <th className="px-6 py-4">Código / Ref.</th>
                 <th className="px-6 py-4">Usuario</th>
                 <th className="px-6 py-4">Paquete / Periodo</th>
-                <th className="px-6 py-4">Rendimientos Diarios</th>
-                <th className="px-6 py-4">Retiros de Capital</th>
                 <th className="px-6 py-4">Bonos Aceleración</th>
                 <th className="px-6 py-4">Fechas</th>
                 <Can permission="admin.investors.manage">
@@ -347,7 +345,7 @@ export const AdminInvestorsPage = () => {
                 <InvestorTableSkeleton />
               ) : investors.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay inversionistas registrados.</p>
@@ -362,7 +360,7 @@ export const AdminInvestorsPage = () => {
                   <React.Fragment key={investor.id}>
                     <tr className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-4 w-10 text-center">
-                        {investor.user && ((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet) && (
+                        {investor.user && ((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet || investor.period) && (
                           <button 
                             onClick={() => toggleRow(investor.id)}
                             className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
@@ -413,36 +411,6 @@ export const AdminInvestorsPage = () => {
                         <div className="text-xs text-slate-500 mt-1">
                             {investor.period ? `${investor.period.months}m ${investor.period.days}d (${investor.period.percentage}%)` : ''}
                         </div>
-                      </td>
-
-                      {/* Rendimientos Diarios */}
-                      <td className="px-6 py-4 text-xs space-y-1">
-                        {(() => {
-                          const packageVal = investor.package ? Number(investor.package.value) : 0;
-                          const totalDays = investor.period ? Number(investor.period.days) : 0;
-                          const pct = investor.period ? Number(investor.period.percentage) / 100 : 0;
-                          const months = investor.period ? Number(investor.period.months) : 0;
-                          const totalYield = packageVal * pct * months;
-                          const dailyYield = investor.daily_yield_amount ?? (totalDays > 0 ? totalYield / totalDays : 0);
-                          const dailyCapital = investor.daily_capital_amount ?? (totalDays > 0 ? packageVal / totalDays : 0);
-
-                          return (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-1 font-semibold text-emerald-700 text-[11px]" title="Rendimiento Ganancia Diaria">
-                                <Zap className="w-3 h-3 text-emerald-500 shrink-0" />
-                                <span>Rend: ${dailyYield.toLocaleString('es-CO', { maximumFractionDigits: 0 })}/día</span>
-                              </div>
-                              <div className="flex items-center gap-1 font-medium text-slate-600 text-[11px]" title="Liberación Diario de Capital Base">
-                                <span className="text-[10px]">🏦</span>
-                                <span>Cap: ${dailyCapital.toLocaleString('es-CO', { maximumFractionDigits: 0 })}/día</span>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </td>
-
-                      {/* Retiros de Capital */}
-                      <td className="px-6 py-4 text-xs">
                         {(() => {
                           const hasCapitalWithdrawal = investor.has_capital_withdrawal ?? (
                             investor.withdrawals && investor.withdrawals.some((w: any) => {
@@ -464,14 +432,15 @@ export const AdminInvestorsPage = () => {
                           );
 
                           return hasCapitalWithdrawal ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
-                              💸 Retiro Capital (${capitalWithdrawnAmount.toLocaleString('es-CO')} COP)
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 font-medium">Sin retiros</span>
-                          );
+                            <div className="mt-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                                💸 Retiro Capital (${capitalWithdrawnAmount.toLocaleString('es-CO')} COP)
+                              </span>
+                            </div>
+                          ) : null;
                         })()}
                       </td>
+
                       <td className="px-6 py-4">
                         {(() => {
                           const accelerations = investor.accelerations || [];
@@ -562,7 +531,47 @@ export const AdminInvestorsPage = () => {
                     </tr>
                     {expandedRows[investor.id] && investor.user && (
                       <tr className="bg-slate-50/40">
-                        <td colSpan={8} className="px-8 py-4 border-b border-slate-100">
+                        <td colSpan={8} className="px-8 py-4 border-b border-slate-100 space-y-5">
+                          
+                          {/* Tarjetas de Rendimientos Diarios y Liberación */}
+                          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                              <span>📊 Rendimientos Diarios y Liberación de Capital:</span>
+                            </div>
+                            {(() => {
+                              const packageVal = investor.package ? Number(investor.package.value) : 0;
+                              const totalDays = investor.period ? Number(investor.period.days) : 0;
+                              const pct = investor.period ? Number(investor.period.percentage) / 100 : 0;
+                              const months = investor.period ? Number(investor.period.months) : 0;
+                              const totalYield = packageVal * pct * months;
+                              const dailyYield = investor.daily_yield_amount ?? (totalDays > 0 ? totalYield / totalDays : 0);
+                              const dailyCapital = investor.daily_capital_amount ?? (totalDays > 0 ? packageVal / totalDays : 0);
+
+                              return (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                  <div className="bg-emerald-50/60 border border-emerald-200 rounded-lg p-3">
+                                    <span className="text-[11px] text-emerald-800 font-medium block">Rendimiento Ganancia Diaria</span>
+                                    <span className="font-bold text-emerald-700 text-sm block mt-0.5">
+                                      ⚡ ${dailyYield.toLocaleString('es-CO', { maximumFractionDigits: 0 })} / día
+                                    </span>
+                                  </div>
+                                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                    <span className="text-[11px] text-slate-500 font-medium block">Liberación Diario de Capital Base</span>
+                                    <span className="font-bold text-slate-800 text-sm block mt-0.5">
+                                      🏦 ${dailyCapital.toLocaleString('es-CO', { maximumFractionDigits: 0 })} / día
+                                    </span>
+                                  </div>
+                                  <div className="bg-brand-50/60 border border-brand-200 rounded-lg p-3">
+                                    <span className="text-[11px] text-brand-800 font-medium block">Total Rendimiento Estimado</span>
+                                    <span className="font-bold text-brand-700 text-sm block mt-0.5">
+                                      ${totalYield.toLocaleString('es-CO')} COP
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             
                             {/* Wallet Info Column */}
