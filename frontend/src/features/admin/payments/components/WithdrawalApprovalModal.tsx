@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, XCircle, Building2, User, FileText, Loader2, DollarSign } from 'lucide-react';
 import { Withdrawal } from '../types';
 import { paymentService } from '../services/paymentService';
@@ -87,8 +88,8 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20" style={{ margin: 0 }}>
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
@@ -271,6 +272,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

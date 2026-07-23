@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2 } from 'lucide-react';
 import { Investor, createInvestor, updateInvestor } from '../../../../services/investors';
 import { usersService, User } from '../../../../services/users';
@@ -13,6 +14,7 @@ interface InvestorModalProps {
 }
 
 export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, onSaved, investor }) => {
+  if (!isOpen) return null;
   const [assignedCode, setAssignedCode] = useState('');
   const [referredBy, setReferredBy] = useState('');
   const [userId, setUserId] = useState<number | ''>('');
@@ -131,8 +133,8 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800">
@@ -297,6 +299,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

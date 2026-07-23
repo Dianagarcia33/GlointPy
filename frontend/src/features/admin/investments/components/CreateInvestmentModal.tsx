@@ -266,7 +266,7 @@ export const CreateInvestmentModal: React.FC<CreateInvestmentModalProps> = ({ is
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/50 backdrop-blur-sm overflow-hidden" style={{ margin: 0 }}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 pt-20 bg-slate-900/50 backdrop-blur-sm overflow-hidden" style={{ margin: 0 }}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl flex flex-col" style={{ maxHeight: 'calc(100vh - 1rem)' }}>
                 <div className="flex-none flex items-center justify-between p-4 md:p-5 border-b border-slate-100 bg-white">
                     <div>

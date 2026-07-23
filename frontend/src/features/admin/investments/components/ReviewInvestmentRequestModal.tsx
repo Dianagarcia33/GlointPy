@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, XCircle, User, CreditCard, Banknote, Calendar, Phone, Mail, Loader2, FileText, AlertCircle } from 'lucide-react';
 import { AdminInvestmentRequest, investmentsService } from '../../../../services/investments';
 import { API_URL } from '../../../../services/api';
@@ -12,6 +13,7 @@ interface ReviewInvestmentRequestModalProps {
 }
 
 export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModalProps> = ({ isOpen, onClose, request, onSuccess }) => {
+    if (!isOpen || !request) return null;
     const [isLoading, setIsLoading] = useState(false);
     const [suggestedCode, setSuggestedCode] = useState('');
     const [formData, setFormData] = useState({
@@ -91,8 +93,8 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm overflow-y-auto" style={{ margin: 0 }}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col my-8">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl shrink-0">
@@ -365,6 +367,7 @@ export const ReviewInvestmentRequestModal: React.FC<ReviewInvestmentRequestModal
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
