@@ -100,4 +100,10 @@ export const usersService = {
       body: formData,
     });
   },
+
+  resetPassword: async (id: number): Promise<{ message: string; user_id: number }> => {
+    return await fetchApi(`/users/${id}/reset-password`, {
+      method: 'POST',
+    });
+  },
 };

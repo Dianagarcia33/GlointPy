@@ -110,6 +110,25 @@ class UserService:
         return await UserService.get_user_by_id(db, user.id)
 
     @staticmethod
+    async def reset_user_password(db: AsyncSession, user_id: int) -> dict:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        user.password_hash = get_password_hash("123456789")
+        user.must_change_password = True
+        user.failed_login_attempts = 0
+        user.locked_until = None
+
+        await db.commit()
+        await db.refresh(user)
+        return {
+            "message": "Contraseña restablecida exitosamente a la clave temporal '123456789'",
+            "user_id": user.id
+        }
+
+    @staticmethod
     async def update_user_admin(db: AsyncSession, user_id: int, user_data: dict) -> User:
         user = await UserService.get_user_by_id(db, user_id)
         
