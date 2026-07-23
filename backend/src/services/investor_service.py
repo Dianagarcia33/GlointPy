@@ -158,10 +158,77 @@ class InvestorService:
 
     @staticmethod
     async def update_investor(db: AsyncSession, investor_id: int, investor: InvestorUpdate) -> Investor:
-        db_investor = await InvestorService.get_investor(db, investor_id)
+        from src.models.acceleration import Acceleration
+        from src.models.investment_request import InvestmentRequest
+        from sqlalchemy import or_
 
+        db_investor = await InvestorService.get_investor(db, investor_id)
+        if not db_investor:
+            raise HTTPException(status_code=404, detail="Inversionista no encontrado")
+
+        old_referred_by = (db_investor.referred_by or "").strip()
         update_data = investor.model_dump(exclude_unset=True)
-        
+        new_referred_by = (update_data.get("referred_by") or "").strip() if "referred_by" in update_data else old_referred_by
+
+        # Si el referido ha cambiado o se ha removido
+        if "referred_by" in update_data and new_referred_by != old_referred_by:
+            # 1. Si tenía un referido previo, eliminar las aceleraciones asociadas generadas a ese referente
+            if old_referred_by:
+                old_referrer_res = await db.execute(
+                    select(Investor).where(Investor.assigned_code == old_referred_by)
+                )
+                old_referrer_inv = old_referrer_res.scalars().first()
+                if old_referrer_inv:
+                    accs_res = await db.execute(
+                        select(Acceleration).where(
+                            Acceleration.investor_id == old_referrer_inv.id
+                        )
+                    )
+                    old_accs = accs_res.scalars().all()
+                    for acc in old_accs:
+                        # Si coincide el monto del bono (5%) o fue generado para este usuario
+                        pkg_val = float(db_investor.package.value or 0) if db_investor.package else 0.0
+                        expected_bonus = pkg_val * 0.05
+                        if abs(float(acc.bonus_amount or 0) - expected_bonus) < 1.0 or acc.investment_request_id is not None:
+                            await db.delete(acc)
+
+            # 2. Si se ingresó un nuevo código de referido válido, crear la aceleración
+            if new_referred_by:
+                new_referrer_res = await db.execute(
+                    select(Investor)
+                    .options(selectinload(Investor.package), selectinload(Investor.period))
+                    .where(Investor.assigned_code == new_referred_by)
+                )
+                new_referrer_inv = new_referrer_res.scalars().first()
+
+                if new_referrer_inv and new_referrer_inv.package and new_referrer_inv.period:
+                    pkg_val = float(db_investor.package.value or 0) if db_investor.package else 0.0
+                    bonus_amount = pkg_val * 0.05
+
+                    ref_package_val = float(new_referrer_inv.package.value or 0)
+                    ref_pct = float(new_referrer_inv.period.percentage or 0) / 100.0
+                    ref_months = float(new_referrer_inv.period.months or 0)
+                    ref_days = float(new_referrer_inv.period.days or 0)
+
+                    if ref_days > 0 and ref_package_val > 0:
+                        rendimiento_mensual = ref_package_val * ref_pct
+                        rendimiento_total = rendimiento_mensual * ref_months
+                        daily_yield = rendimiento_total / ref_days
+                        days_to_reduce = (bonus_amount / daily_yield) if daily_yield > 0 else 0.0
+                    else:
+                        days_to_reduce = 0.0
+
+                    new_acc = Acceleration(
+                        investor_id=new_referrer_inv.id,
+                        contract_period_id=new_referrer_inv.period_id,
+                        original_days=new_referrer_inv.period.days,
+                        acceleration_percentage=5.00,
+                        days_to_reduce=days_to_reduce,
+                        bonus_amount=bonus_amount,
+                        applied=True
+                    )
+                    db.add(new_acc)
+
         for field, value in update_data.items():
             setattr(db_investor, field, value)
 

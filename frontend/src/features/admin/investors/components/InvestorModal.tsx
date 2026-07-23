@@ -256,16 +256,64 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
                 </div>
             </div>
 
+            {investor && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-2 flex justify-between items-center">
+                  <span>Detalle Completo de la Inversión #{investor.assigned_code}</span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] rounded-md font-bold uppercase">
+                    Contrato Vigente
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block font-medium text-[11px]">Paquete Seleccionado</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {investor.package ? `$${Number(investor.package.value).toLocaleString('es-CO')} COP` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block font-medium text-[11px]">Periodo de Contrato</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {investor.period ? `${investor.period.months} Meses (${investor.period.percentage}%)` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block font-medium text-[11px]">Rendimiento Estimado</span>
+                    <span className="font-bold text-emerald-700 text-sm">
+                      {investor.package && investor.period ? (
+                        `$${(Number(investor.package.value) * (Number(investor.period.percentage) / 100) * investor.period.months).toLocaleString('es-CO')} COP`
+                      ) : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Fecha de Ingreso *</label>
+              <label className="text-sm font-medium text-slate-700 flex items-center justify-between">
+                <span>Fecha de Ingreso *</span>
+                {investor && <span className="text-xs text-amber-600 font-bold">🔒 No editable</span>}
+              </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
+                disabled={!!investor}
+                readOnly={!!investor}
+                className={`w-full px-3 py-2 border rounded-lg transition-colors ${
+                  investor 
+                    ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed font-medium' 
+                    : 'bg-slate-50 border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                }`}
                 required
               />
-              <p className="text-xs text-slate-500">La fecha de fin se calculará automáticamente en el sistema basándose en el periodo.</p>
+              {investor ? (
+                <p className="text-xs text-amber-600 font-medium">
+                  La fecha de ingreso no puede modificarse una vez firmado y registrado el contrato.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500">La fecha de fin se calculará automáticamente en el sistema basándose en el periodo.</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
