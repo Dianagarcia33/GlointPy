@@ -87,3 +87,10 @@ async def bulk_upload_users(file: UploadFile = File(...), db: AsyncSession = Dep
         
     result = await UserService.bulk_create_users(db, csv_text)
     return result
+
+@router.post("/{user_id}/reset-password", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def reset_user_password(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Restablece la contraseña de un usuario a la clave temporal '123456789' y fuerza el cambio de contraseña al ingresar.
+    """
+    return await UserService.reset_user_password(db, user_id)

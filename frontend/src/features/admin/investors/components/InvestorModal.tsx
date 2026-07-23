@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Loader2 } from 'lucide-react';
 import { Investor, createInvestor, updateInvestor } from '../../../../services/investors';
 import { usersService, User } from '../../../../services/users';
@@ -13,6 +14,7 @@ interface InvestorModalProps {
 }
 
 export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, onSaved, investor }) => {
+  if (!isOpen) return null;
   const [assignedCode, setAssignedCode] = useState('');
   const [referredBy, setReferredBy] = useState('');
   const [userId, setUserId] = useState<number | ''>('');
@@ -20,6 +22,8 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
   const [periodId, setPeriodId] = useState<number | ''>('');
   const [observations, setObservations] = useState('');
   const [startDate, setStartDate] = useState('');
+  
+  const [userSearch, setUserSearch] = useState('');
 
   const [users, setUsers] = useState<User[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -60,7 +64,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       const loadDependencies = async () => {
           try {
               const [usersData, packagesData, periodsData] = await Promise.all([
-                  usersService.getUsers({ limit: 1000 }), // adjust as needed
+                  usersService.getUsers({ limit: 100 }), // Max allowed by backend is 100
                   packagesService.getPackages(),
                   periodsService.getPeriods()
               ]);
@@ -76,11 +80,27 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     }
   }, [isOpen, investor]);
 
+  // Dynamic user search
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handler = setTimeout(async () => {
+        try {
+            const res = await usersService.getUsers({ search: userSearch.trim(), limit: 100 });
+            setUsers(res.data);
+        } catch (err) {
+            console.error("Error searching users", err);
+        }
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [userSearch, isOpen]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!assignedCode || !userId || !packageId || !periodId) {
+    if ((investor && !assignedCode) || !userId || !packageId || !periodId) {
       setError('Por favor completa los campos requeridos');
       return;
     }
@@ -89,7 +109,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     setError(null);
 
     const payload = {
-        assigned_code: assignedCode,
+        assigned_code: assignedCode || undefined,
         referred_by: referredBy || undefined,
         user_id: Number(userId),
         package_id: Number(packageId),
@@ -113,8 +133,8 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800">
@@ -136,18 +156,18 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">Código Asignado *</label>
-                <input
-                    type="text"
-                    value={assignedCode}
-                    onChange={(e) => setAssignedCode(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
-                    placeholder="Ej. INV-001"
-                    required
-                />
-                </div>
+            <div className={`grid grid-cols-1 ${investor ? 'sm:grid-cols-2' : ''} gap-4`}>
+                {investor && (
+                  <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">Código Asignado *</label>
+                  <input
+                      type="text"
+                      value={assignedCode}
+                      readOnly
+                      className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 cursor-not-allowed"
+                  />
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Referido (Código de otra inversión)</label>
@@ -161,19 +181,47 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
                 </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 relative">
               <label className="text-sm font-medium text-slate-700">Usuario *</label>
-              <select
-                value={userId}
-                onChange={(e) => setUserId(Number(e.target.value))}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
-                required
-              >
-                <option value="">Seleccione un usuario</option>
-                {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                ))}
-              </select>
+              {userId ? (
+                  <div className="flex items-center justify-between w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                      <span className="text-emerald-800 text-sm font-medium">
+                          {users.find(u => u.id === userId)?.name || 'Usuario Seleccionado'}
+                      </span>
+                      <button type="button" onClick={() => setUserId('')} className="text-xs text-emerald-600 hover:text-emerald-700 font-bold">Cambiar</button>
+                  </div>
+              ) : (
+                  <div className="relative">
+                      <input 
+                          type="text"
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          onFocus={() => { if (!userSearch) setUserSearch(' '); setTimeout(() => setUserSearch(''), 10); }}
+                          placeholder="Buscar por nombre o correo..."
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
+                      />
+                      {userSearch.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto">
+                              {users.filter(u => 
+                                  u.name.toLowerCase().includes(userSearch.toLowerCase().trim()) || 
+                                  u.email.toLowerCase().includes(userSearch.toLowerCase().trim())
+                              ).map(u => (
+                                  <div 
+                                      key={u.id} 
+                                      onClick={() => { setUserId(u.id); setUserSearch(''); }}
+                                      className="px-3 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 text-sm"
+                                  >
+                                      <div className="font-medium text-slate-800">{u.name}</div>
+                                      <div className="text-xs text-slate-500">{u.email}</div>
+                                  </div>
+                              ))}
+                              {users.filter(u => u.name.toLowerCase().includes(userSearch.toLowerCase().trim()) || u.email.toLowerCase().includes(userSearch.toLowerCase().trim())).length === 0 && (
+                                  <div className="px-3 py-2 text-sm text-slate-500 text-center">No hay resultados</div>
+                              )}
+                          </div>
+                      )}
+                  </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -208,16 +256,64 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
                 </div>
             </div>
 
+            {investor && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-2 flex justify-between items-center">
+                  <span>Detalle Completo de la Inversión #{investor.assigned_code}</span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] rounded-md font-bold uppercase">
+                    Contrato Vigente
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block font-medium text-[11px]">Paquete Seleccionado</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {investor.package ? `$${Number(investor.package.value).toLocaleString('es-CO')} COP` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block font-medium text-[11px]">Periodo de Contrato</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {investor.period ? `${investor.period.months} Meses (${investor.period.percentage}%)` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block font-medium text-[11px]">Rendimiento Estimado</span>
+                    <span className="font-bold text-emerald-700 text-sm">
+                      {investor.package && investor.period ? (
+                        `$${(Number(investor.package.value) * (Number(investor.period.percentage) / 100) * investor.period.months).toLocaleString('es-CO')} COP`
+                      ) : 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Fecha de Ingreso *</label>
+              <label className="text-sm font-medium text-slate-700 flex items-center justify-between">
+                <span>Fecha de Ingreso *</span>
+                {investor && <span className="text-xs text-amber-600 font-bold">🔒 No editable</span>}
+              </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
+                disabled={!!investor}
+                readOnly={!!investor}
+                className={`w-full px-3 py-2 border rounded-lg transition-colors ${
+                  investor 
+                    ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed font-medium' 
+                    : 'bg-slate-50 border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                }`}
                 required
               />
-              <p className="text-xs text-slate-500">La fecha de fin se calculará automáticamente en el sistema basándose en el periodo.</p>
+              {investor ? (
+                <p className="text-xs text-amber-600 font-medium">
+                  La fecha de ingreso no puede modificarse una vez firmado y registrado el contrato.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500">La fecha de fin se calculará automáticamente en el sistema basándose en el periodo.</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -251,6 +347,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

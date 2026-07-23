@@ -126,12 +126,20 @@ class AuthService:
             db.add(role)
             await db.flush()
 
+        dob = None
+        if data.fecha_nacimiento:
+            try:
+                dob = datetime.strptime(data.fecha_nacimiento, "%Y-%m-%d")
+            except Exception:
+                dob = None
+
         new_user = User(
             name=data.name,
             email=data.email,
             password_hash=get_password_hash(data.password),
             document_id=data.documento,
             phone_number=data.numero_celular,
+            date_of_birth=dob
         )
         
         db.add(new_user)
@@ -139,6 +147,17 @@ class AuthService:
 
         # Inserción directa en la tabla pivot para asegurar el rol
         await db.execute(insert(user_roles).values(user_id=new_user.id, role_id=role.id))
+
+        from decimal import Decimal
+        from src.models.wallet import Wallet, WalletStatus
+
+        wallet = Wallet(
+            user_id=new_user.id,
+            balance=Decimal("0.00"),
+            currency="COP",
+            status=WalletStatus.ACTIVE
+        )
+        db.add(wallet)
 
         bank_acc = UserBankAccount(
             user_id=new_user.id,
@@ -155,11 +174,18 @@ class AuthService:
             monto=data.monto,
             comprobante_path=data.comprobante_path,
             extra_data={
-                "kyc_docs": data.kyc_docs,
-                "ciudad": data.ciudad,
-                "fecha_nacimiento": data.fecha_nacimiento,
+                "nombre_completo": data.name,
                 "tipo_documento": data.tipo_documento,
-                "contract_period_id": data.contract_period_id
+                "documento": data.documento,
+                "fecha_nacimiento": data.fecha_nacimiento,
+                "numero_celular": data.numero_celular,
+                "ciudad": data.ciudad,
+                "banco": data.banco,
+                "tipo_cuenta": data.tipo_cuenta,
+                "numero_cuenta": data.numero_cuenta,
+                "kyc_docs": data.kyc_docs,
+                "contract_period_id": data.contract_period_id,
+                "referred_by": getattr(data, "referred_by", None)
             }
         )
         db.add(req)

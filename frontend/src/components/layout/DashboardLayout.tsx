@@ -9,12 +9,12 @@ export const DashboardLayout = () => {
     return (
         <div className="h-screen bg-slate-100 flex flex-col relative font-inter text-slate-900 overflow-hidden">
             {/* Top Navigation */}
-            <div className="relative z-50">
+            <div className="relative z-30">
                 <Navbar />
             </div>
             
             {/* Contenedor principal debajo de la Navbar */}
-            <div className="flex-1 flex pt-16 mt-2 relative z-10 overflow-hidden">
+            <div className="flex-1 flex pt-16 mt-2 relative z-0 overflow-hidden">
                 
                 {/* Menú Lateral para pantallas medianas o grandes */}
                 <div className="hidden md:block border-r border-slate-200 bg-white">

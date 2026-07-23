@@ -62,7 +62,8 @@ export const InvestorRegistrationFlow = () => {
         paquete_id: '',
         monto: '',
         periodo_id: '',
-        comprobante_path: ''
+        comprobante_path: '',
+        referred_by: ''
     });
 
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -329,7 +330,8 @@ export const InvestorRegistrationFlow = () => {
             paquete_id: parseInt(formData.paquete_id),
             contract_period_id: parseInt(formData.periodo_id),
             kyc_docs: kycPaths,
-            fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null
+            fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null,
+            referred_by: formData.referred_by ? formData.referred_by.trim() : null
         };
 
         registerMutation.mutate(payload);
@@ -718,6 +720,19 @@ export const InvestorRegistrationFlow = () => {
                                             <option key={p.id} value={p.id}>{p.name} ({p.months} meses al {p.percentage}%)</option>
                                         ))}
                                     </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Código de Referido (Opcional)</label>
+                                    <input 
+                                        type="text" 
+                                        name="referred_by" 
+                                        value={formData.referred_by} 
+                                        onChange={handleChange} 
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900 placeholder-slate-400 font-mono text-sm" 
+                                        placeholder="Ej: IG100" 
+                                    />
+                                    <p className="text-[11px] text-slate-500 mt-1">Si tienes un código de referido de otro inversionista o de una inversión previa, ingrésalo aquí para otorgar un bono del 5%.</p>
                                 </div>
 
                                 {calc && (

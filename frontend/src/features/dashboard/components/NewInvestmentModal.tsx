@@ -10,10 +10,11 @@ interface NewInvestmentModalProps {
     onClose: () => void;
     currentPackageId?: number;
     currentPeriodId?: number;
+    investorId?: number;
     isUpgrade?: boolean;
 }
 
-export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentPeriodId, isUpgrade = false }: NewInvestmentModalProps) => {
+export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentPeriodId, investorId, isUpgrade = false }: NewInvestmentModalProps) => {
     const queryClient = useQueryClient();
     
     // UI State
@@ -124,6 +125,9 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         
         if (isUpgrade) {
             formData.append('is_upgrade', 'true');
+        }
+        if (investorId) {
+            formData.append('investor_id', investorId.toString());
         }
         
         if (files && files.length > 0) {

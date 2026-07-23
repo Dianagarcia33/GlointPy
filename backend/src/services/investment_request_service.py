@@ -20,9 +20,12 @@ class InvestmentRequestService:
     
     @staticmethod
     async def get_investment_requests(db: AsyncSession, page: int = 1, limit: int = 20, search: Optional[str] = None) -> Dict[str, Any]:
+        from src.models.investor import Investor
         query = select(InvestmentRequest).options(
             selectinload(InvestmentRequest.user),
-            selectinload(InvestmentRequest.package)
+            selectinload(InvestmentRequest.package),
+            selectinload(InvestmentRequest.investor).selectinload(Investor.package),
+            selectinload(InvestmentRequest.investor).selectinload(Investor.period)
         )
         
         if search:
@@ -55,15 +58,31 @@ class InvestmentRequestService:
         
         result = await db.execute(query)
         requests = result.scalars().all()
-        
-        logger.info(f"DEBUG: count_query returned total={total}")
-        logger.info(f"DEBUG: query returned {len(requests)} rows")
-        if not requests:
-            # Check raw count via text query just to be absolutely sure
-            from sqlalchemy import text
-            raw_count = await db.execute(text("SELECT COUNT(*) FROM investment_requests"))
-            raw_total = raw_count.scalar()
-            logger.info(f"DEBUG: raw SQL COUNT(*) FROM investment_requests = {raw_total}")
+
+        # Si alguna solicitud no tiene 'investor' cargado pero es aumento de capital, popularlo automáticamente
+        for req in requests:
+            if not req.investor:
+                inv_id = None
+                if req.investor_id:
+                    inv_id = req.investor_id
+                elif req.extra_data and isinstance(req.extra_data, dict) and req.extra_data.get("investor_id"):
+                    inv_id = req.extra_data.get("investor_id")
+
+                if inv_id:
+                    inv_res = await db.execute(
+                        select(Investor)
+                        .options(selectinload(Investor.package), selectinload(Investor.period))
+                        .where(Investor.id == inv_id)
+                    )
+                    req.investor = inv_res.scalars().first()
+                elif req.extra_data and isinstance(req.extra_data, dict) and req.extra_data.get("es_aumento_capital"):
+                    inv_res = await db.execute(
+                        select(Investor)
+                        .options(selectinload(Investor.package), selectinload(Investor.period))
+                        .where(Investor.user_id == req.user_id)
+                        .order_by(Investor.id.desc())
+                    )
+                    req.investor = inv_res.scalars().first()
         
         return {
             "data": requests,
@@ -231,6 +250,8 @@ class InvestmentRequestService:
         import random
         from src.models.investor import Investor
         from src.models.period import Period
+        from src.models.acceleration import Acceleration
+        from sqlalchemy.orm import selectinload
         from fastapi import HTTPException
 
         # 1. Fetch request
@@ -250,22 +271,134 @@ class InvestmentRequestService:
         req.reviewed_by = user_id
         req.reviewed_at = datetime.utcnow()
 
-        # 3. Create Investor automatically
-        if not req.investor_id:
-            period_id = None
-            if req.extra_data and isinstance(req.extra_data, dict):
-                period_id = req.extra_data.get("contract_period_id")
+        # Extraer código de referido si viene en extra_data
+        referred_code = None
+        if req.extra_data and isinstance(req.extra_data, dict):
+            referred_code = (
+                req.extra_data.get("referred_by") or 
+                req.extra_data.get("referral_code") or 
+                req.extra_data.get("codigo_referido")
+            )
+            if referred_code:
+                referred_code = str(referred_code).strip()
 
-            if not period_id:
-                # Get the first period as fallback
-                period_res = await db.execute(select(Period).limit(1))
-                period = period_res.scalars().first()
-                if period:
-                    period_id = period.id
-                else:
-                    raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
+        # 3. Determinar si es un Aumento de Capital o Inversión Nueva
+        is_upgrade = False
+        if req.extra_data and isinstance(req.extra_data, dict):
+            is_upgrade = bool(req.extra_data.get("es_aumento_capital") or req.extra_data.get("is_upgrade"))
 
-            # Obtener el ultimo codigo asignado que empiece con IG
+        existing_investor = None
+        if req.investor_id:
+            inv_res = await db.execute(
+                select(Investor)
+                .options(
+                    selectinload(Investor.package),
+                    selectinload(Investor.period),
+                    selectinload(Investor.withdrawals),
+                    selectinload(Investor.accelerations)
+                )
+                .where(Investor.id == req.investor_id)
+            )
+            existing_investor = inv_res.scalars().first()
+
+        if not existing_investor and (is_upgrade or req.investor_id):
+            inv_res = await db.execute(
+                select(Investor)
+                .options(
+                    selectinload(Investor.package),
+                    selectinload(Investor.period),
+                    selectinload(Investor.withdrawals),
+                    selectinload(Investor.accelerations)
+                )
+                .where(Investor.user_id == req.user_id)
+                .order_by(Investor.id.desc())
+            )
+            existing_investor = inv_res.scalars().first()
+
+        period_id = None
+        if req.extra_data and isinstance(req.extra_data, dict):
+            period_id = req.extra_data.get("contract_period_id")
+
+        if not period_id:
+            period_res = await db.execute(select(Period).limit(1))
+            period = period_res.scalars().first()
+            if period:
+                period_id = period.id
+            else:
+                raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
+
+        if existing_investor and (is_upgrade or req.investor_id):
+            # --- FLUJO DE AUMENTO DE CAPITAL ---
+            from decimal import Decimal
+            from datetime import timedelta
+            from src.models.wallet import Wallet, WalletStatus, WalletTransaction
+            from src.models.contract_history import ContractHistory
+            from src.services.yield_calculator import calculate_investment_yield
+
+            today = datetime.utcnow().date()
+            start_d = existing_investor.start_date.date() if existing_investor.start_date else today
+
+            # 1. Liquidar rendimientos generados hasta hoy
+            yield_res = calculate_investment_yield(existing_investor, start_d, today)
+            accrued_yield = float(yield_res.total_yield or 0.0)
+
+            # 2. Transferir rendimientos a la Wallet del usuario
+            if accrued_yield > 0:
+                wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == req.user_id))
+                wallet = wallet_res.scalars().first()
+                if not wallet:
+                    wallet = Wallet(user_id=req.user_id, balance=Decimal("0.00"), status=WalletStatus.ACTIVE)
+                    db.add(wallet)
+                    await db.flush()
+
+                old_balance = float(wallet.balance or 0.0)
+                new_balance = old_balance + accrued_yield
+                wallet.balance = Decimal(str(new_balance))
+
+                tx = WalletTransaction(
+                    wallet_id=wallet.id,
+                    amount=Decimal(str(accrued_yield)),
+                    type="yield",
+                    reference_type="investment_upgrade",
+                    reference_id=existing_investor.id,
+                    description=f"Rendimiento liquidado por aumento de capital (Contrato #{existing_investor.id})",
+                    balance_after=Decimal(str(new_balance))
+                )
+                db.add(tx)
+
+            # 3. Guardar snapshot en ContractHistory
+            old_days = existing_investor.period.days if existing_investor.period else 365
+            fecha_fin_prev = start_d + timedelta(days=int(old_days))
+            old_pkg_val = float(existing_investor.package.value or 0) if existing_investor.package else float(req.monto)
+            old_pct = f"{existing_investor.period.percentage}%" if existing_investor.period else "0%"
+
+            history = ContractHistory(
+                investor_id=existing_investor.id,
+                paquete_inversion_id=existing_investor.package_id,
+                contract_period_id=existing_investor.period_id,
+                fecha_inicio=start_d,
+                fecha_fin=fecha_fin_prev,
+                dias_contrato=int(old_days),
+                total_contrato=Decimal(str(old_pkg_val)),
+                tasa_interes=old_pct,
+                rendimiento_total_generado=Decimal(str(accrued_yield)),
+                rendimiento_total_pagado=Decimal(str(accrued_yield)),
+                motivo="Aumento de capital",
+                observaciones=f"Actualización de contrato de paquete #{existing_investor.package_id} a paquete #{req.paquete_inversion_id}"
+            )
+            db.add(history)
+
+            # 4. Actualizar contrato existente
+            existing_investor.package_id = req.paquete_inversion_id
+            if period_id:
+                existing_investor.period_id = period_id
+            existing_investor.start_date = datetime.utcnow()
+
+            req.investor_id = existing_investor.id
+            logger.info(f"Contrato #{existing_investor.id} actualizado por Aumento de Capital. Rendimientos liquidados a la wallet: {accrued_yield}")
+
+        else:
+            # --- FLUJO DE INVERSIÓN INICIAL (NUEVO CONTRATO) ---
             investors_codes = await db.execute(
                 select(Investor.assigned_code)
                 .where(Investor.assigned_code.like("IG%"))
@@ -275,7 +408,6 @@ class InvestmentRequestService:
             max_num = 0
             for c in codes:
                 try:
-                    # Remover 'IG' y convertir a entero
                     num = int(c[2:].strip())
                     if num > max_num:
                         max_num = num
@@ -287,6 +419,7 @@ class InvestmentRequestService:
             
             investor = Investor(
                 assigned_code=code,
+                referred_by=referred_code,
                 user_id=req.user_id,
                 package_id=req.paquete_inversion_id,
                 period_id=period_id,
@@ -296,14 +429,74 @@ class InvestmentRequestService:
             await db.flush()
             
             req.investor_id = investor.id
-            
+
+            # Asegurar que el usuario tenga su Wallet creada
+            from decimal import Decimal
+            from src.models.wallet import Wallet, WalletStatus
+            wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == req.user_id))
+            wallet = wallet_res.scalars().first()
+            if not wallet:
+                wallet = Wallet(user_id=req.user_id, balance=Decimal("0.00"), currency="COP", status=WalletStatus.ACTIVE)
+                db.add(wallet)
+                await db.flush()
+
+        # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)
+        if referred_code:
+            # Buscar el contrato del referente por su assigned_code
+            referrer_res = await db.execute(
+                select(Investor)
+                .options(selectinload(Investor.package), selectinload(Investor.period))
+                .where(Investor.assigned_code == referred_code)
+            )
+            referrer_investor = referrer_res.scalars().first()
+
+            if referrer_investor and referrer_investor.package and referrer_investor.period:
+                # Calcular bono del 5% del monto de la nueva inversión aprobada
+                bonus_amount = float(req.monto) * 0.05
+
+                # Calcular rendimiento diario del contrato objetivo del referente
+                ref_package_val = float(referrer_investor.package.value or 0)
+                ref_pct = float(referrer_investor.period.percentage or 0) / 100.0
+                ref_months = float(referrer_investor.period.months or 0)
+                ref_days = float(referrer_investor.period.days or 0)
+
+                if ref_days > 0 and ref_package_val > 0:
+                    rendimiento_mensual = ref_package_val * ref_pct
+                    rendimiento_total = rendimiento_mensual * ref_months
+                    daily_yield = rendimiento_total / ref_days
+
+                    days_to_reduce = (bonus_amount / daily_yield) if daily_yield > 0 else 0.0
+                else:
+                    days_to_reduce = 0.0
+
+                # Crear registro de aceleración (applied = True)
+                acceleration = Acceleration(
+                    investor_id=referrer_investor.id,
+                    investment_request_id=req.id,
+                    contract_period_id=referrer_investor.period_id,
+                    original_days=referrer_investor.period.days,
+                    acceleration_percentage=5.00,
+                    days_to_reduce=days_to_reduce,
+                    bonus_amount=bonus_amount,
+                    applied=True
+                )
+                db.add(acceleration)
+                logger.info(
+                    f"Aceleración aplicada al contrato #{referrer_investor.id} ({referred_code}): "
+                    f"monto_bono={bonus_amount}, días_reducidos={days_to_reduce}"
+                )
+
         await db.commit()
         await db.refresh(req)
         return req
 
+
     @staticmethod
     async def reject_request(db: AsyncSession, request_id: int, user_id: int, reason: str) -> InvestmentRequest:
         from fastapi import HTTPException
+        from decimal import Decimal
+        from src.models.wallet import Wallet, WalletStatus, WalletTransaction
+
         result = await db.execute(
             select(InvestmentRequest)
             .where(InvestmentRequest.id == request_id)
@@ -319,6 +512,33 @@ class InvestmentRequestService:
         req.rejection_reason = reason
         req.reviewed_by = user_id
         req.reviewed_at = datetime.utcnow()
+
+        # Reembolso de dinero de billetera si la solicitud usó saldo de billetera
+        if req.extra_data and isinstance(req.extra_data, dict):
+            monto_billetera = float(req.extra_data.get("monto_billetera_usado") or 0.0)
+            if monto_billetera > 0:
+                wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == req.user_id))
+                wallet = wallet_res.scalars().first()
+                if not wallet:
+                    wallet = Wallet(user_id=req.user_id, balance=Decimal("0.00"), currency="COP", status=WalletStatus.ACTIVE)
+                    db.add(wallet)
+                    await db.flush()
+
+                old_balance = float(wallet.balance or 0.0)
+                new_balance = old_balance + monto_billetera
+                wallet.balance = Decimal(str(new_balance))
+
+                tx = WalletTransaction(
+                    wallet_id=wallet.id,
+                    amount=Decimal(str(monto_billetera)),
+                    type="refund",
+                    reference_type="investment_request_rejection",
+                    reference_id=req.id,
+                    description=f"Reembolso de billetera por rechazo de solicitud #{req.id}",
+                    balance_after=Decimal(str(new_balance))
+                )
+                db.add(tx)
+                logger.info(f"Reembolso de ${monto_billetera} devuelto a la billetera del usuario #{req.user_id} por rechazo de solicitud #{req.id}")
 
         await db.commit()
         await db.refresh(req)

@@ -67,6 +67,7 @@ export const InvestmentDetailPage = () => {
                 isOpen={isUpgradeModalOpen} 
                 onClose={() => setIsUpgradeModalOpen(false)} 
                 isUpgrade={true}
+                investorId={inv.id}
                 currentPackageId={inv.paquete?.id}
                 currentPeriodId={inv.periodo?.id}
             />
@@ -209,6 +210,40 @@ export const InvestmentDetailPage = () => {
 
                     {/* Right column: Movements and History */}
                     <div className="lg:col-span-2 space-y-8">
+                        {/* Accelerations & Referral Bonuses */}
+                        {inv.accelerations && inv.accelerations.length > 0 && (
+                            <div className="bg-purple-50/60 p-6 rounded-2xl border border-purple-200/80">
+                                <div className="flex justify-between items-center mb-4 border-b border-purple-200/50 pb-3">
+                                    <h3 className="text-sm font-bold text-purple-900 uppercase tracking-widest flex items-center gap-2">
+                                        <Zap className="w-4 h-4 text-purple-600" />
+                                        Aceleraciones por Bonos de Referido (5%)
+                                    </h3>
+                                    <span className="text-xs font-bold bg-purple-200 text-purple-800 px-2.5 py-1 rounded-full">
+                                        -{inv.dias_reducidos_totales || 0} días en total
+                                    </span>
+                                </div>
+                                <div className="space-y-3">
+                                    {inv.accelerations.map((acc: any) => (
+                                        <div key={acc.id} className="p-4 rounded-xl border border-purple-100 bg-white shadow-sm flex justify-between items-center">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-purple-100 text-purple-700 rounded-lg">
+                                                    <Zap className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-900 text-sm">Bono de Aceleración 5%</p>
+                                                    <p className="text-xs text-slate-500">Monto equivalente: <strong className="text-emerald-600">{formatCurrency(acc.bonus_amount)}</strong></p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-bold text-purple-700 text-sm">-{acc.days_to_reduce} días</span>
+                                                <p className="text-[11px] text-slate-400 mt-0.5">{formatDate(acc.created_at)}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Contract History */}
                         {inv.history && inv.history.length > 0 && (
                             <div>

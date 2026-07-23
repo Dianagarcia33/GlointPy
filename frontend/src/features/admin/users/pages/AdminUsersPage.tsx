@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 export const AdminUsersPage = () => {
@@ -16,16 +17,46 @@ export const AdminUsersPage = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
 
+  const [resettingUser, setResettingUser] = useState<User | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  const handleConfirmResetPassword = async () => {
+    if (!resettingUser) return;
+    try {
+      setIsResetting(true);
+      await usersService.resetPassword(resettingUser.id);
+      alert(`¡Contraseña restablecida exitosamente para ${resettingUser.name}! La nueva contraseña temporal es 123456789.`);
+      setResettingUser(null);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error al restablecer la contraseña.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const fetchData = async () => {
-    setIsLoading(true);
+    setIsTableLoading(true);
     try {
       const usersData = await usersService.getUsers({
         page,
@@ -40,10 +71,12 @@ export const AdminUsersPage = () => {
       setUsers(usersData.data);
       setTotal(usersData.total);
       setRoles(rolesData);
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Error al cargar los usuarios.');
     } finally {
-      setIsLoading(false);
+      setIsTableLoading(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -70,7 +103,7 @@ export const AdminUsersPage = () => {
     fetchData();
   };
 
-  if (isLoading) {
+  if (isInitialLoading) {
       return (
           <div className="flex justify-center items-center h-64">
               <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
@@ -126,12 +159,14 @@ export const AdminUsersPage = () => {
             type="text" 
             placeholder="Buscar por nombre, correo o documento..." 
             className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
+          {isTableLoading && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+            </div>
+          )}
         </div>
         <div className="w-full md:w-48">
           <select 
@@ -260,13 +295,23 @@ export const AdminUsersPage = () => {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <Can permission="admin.users.manage">
-                      <button 
-                        onClick={() => handleEdit(user)} 
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                        <span className="hidden lg:inline">Editar</span>
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => handleEdit(user)} 
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-colors border border-brand-200"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span className="hidden lg:inline">Editar</span>
+                        </button>
+                        <button 
+                          onClick={() => setResettingUser(user)} 
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition-colors border border-amber-300 bg-amber-50"
+                          title="Restablecer Contraseña Temporal a 123456789"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span className="hidden lg:inline">Restablecer Clave</span>
+                        </button>
+                      </div>
                     </Can>
                   </td>
                 </tr>
@@ -305,6 +350,47 @@ export const AdminUsersPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for Reset Password */}
+      {resettingUser && createPortal(
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20" style={{ margin: 0 }}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-600">
+              <div className="p-2.5 bg-amber-100 rounded-xl">
+                <KeyRound className="w-6 h-6 text-amber-700" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Restablecer Contraseña</h3>
+                <p className="text-xs text-slate-500">Usuario: <strong className="text-slate-800">{resettingUser.name}</strong></p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-2 text-amber-900">
+              <p>• La contraseña se cambiará temporalmente a: <strong className="font-mono text-amber-950 font-bold bg-amber-200/80 px-2 py-0.5 rounded text-xs">123456789</strong></p>
+              <p>• Se forzará el cambio obligatorio de contraseña cuando el usuario inicie sesión.</p>
+              <p>• Se restablecerán los intentos fallidos de inicio de sesión.</p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setResettingUser(null)}
+                disabled={isResetting}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmResetPassword}
+                disabled={isResetting}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Restablecimiento'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       <UserModal 
         isOpen={isModalOpen}

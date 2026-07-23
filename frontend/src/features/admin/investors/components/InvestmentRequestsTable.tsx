@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
 import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
+import { formatCurrency } from '../../../../utils/format';
+import { getMediaUrl } from '../../../../services/api';
+import { sarlaftService } from '../../../../services/sarlaft';
+
+const FALLBACK_DOC_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
 
 const InvestmentRequestsTableSkeleton = () => {
   return (
@@ -80,8 +86,46 @@ export const InvestmentRequestsTable = () => {
     }
   };
 
-  const toggleRow = (id: number) => {
-    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  const [sarlaftData, setSarlaftData] = useState<Record<number, any>>({});
+  const [sarlaftLoading, setSarlaftLoading] = useState<Record<number, boolean>>({});
+
+  const toggleRow = (req: InvestmentRequest) => {
+    const isExpanding = !expandedRows[req.id];
+    setExpandedRows(prev => ({ ...prev, [req.id]: isExpanding }));
+
+    if (isExpanding && req.user_id && !sarlaftData[req.id]) {
+      sarlaftService.getCheckByUser(req.user_id).then(res => {
+        if (res.check) {
+          setSarlaftData(prev => ({ ...prev, [req.id]: res.check }));
+        }
+      }).catch(err => console.error("Error cargando SARLAFT", err));
+    }
+  };
+
+  const handleRunSarlaftCheck = async (req: InvestmentRequest) => {
+    if (!req.user_id) return;
+    const docNum = req.extra_data?.numero_documento || req.extra_data?.documento || req.user?.document_id;
+    const docType = req.extra_data?.tipo_documento || 'CC';
+
+    if (!docNum) {
+      alert("No se encontró el número de documento para este usuario");
+      return;
+    }
+
+    try {
+      setSarlaftLoading(prev => ({ ...prev, [req.id]: true }));
+      const result = await sarlaftService.triggerCheck({
+        user_id: req.user_id,
+        document_number: String(docNum),
+        document_type: docType,
+        investment_request_id: req.id
+      });
+      setSarlaftData(prev => ({ ...prev, [req.id]: result.check || result }));
+    } catch (err: any) {
+      alert(err.message || "Error consultando antecedentes SARLAFT");
+    } finally {
+      setSarlaftLoading(prev => ({ ...prev, [req.id]: false }));
+    }
   };
 
   // Pagination & Search state
@@ -206,7 +250,7 @@ export const InvestmentRequestsTable = () => {
                     <tr className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-4">
                         <button
-                          onClick={() => toggleRow(request.id)}
+                          onClick={() => toggleRow(request)}
                           className="p-1 hover:bg-slate-200 rounded-md transition-colors text-slate-400 hover:text-slate-600"
                         >
                           {expandedRows[request.id] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -275,76 +319,330 @@ export const InvestmentRequestsTable = () => {
                     
                     {/* Expanded Details Row */}
                     {expandedRows[request.id] && (
-                      <tr className="bg-slate-50/50">
-                        <td colSpan={8} className="px-6 py-4 border-t border-slate-100">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                      <tr className="bg-slate-50/70">
+                        <td colSpan={8} className="px-6 py-5 border-t border-slate-200">
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-sm">
                             
-                            {/* Usuario */}
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Información del Usuario</h4>
-                              <div className="grid grid-cols-2 gap-2 text-slate-600">
-                                <span className="text-slate-400">Nombre:</span>
-                                <span>{request.user?.name || 'N/A'}</span>
-                                <span className="text-slate-400">Correo:</span>
-                                <span>{request.user?.email || 'N/A'}</span>
-                                <span className="text-slate-400">Documento:</span>
-                                <span>{request.user?.document_id || 'N/A'}</span>
+                            {/* Columna 1: Información Adicional y Parámetros */}
+                            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                              <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-100 pb-2">
+                                Detalles de la Solicitud
+                              </h4>
+
+                              {(request.extra_data?.es_aumento_capital || request.extra_data?.is_upgrade) && (() => {
+                                const previousPackageValue = Number(request.extra_data?.previous_package_value) || Number(request.investor?.package?.value) || 0;
+                                const targetPackageValue = Number(request.package?.value) || Number(request.extra_data?.new_package_value) || (previousPackageValue + Number(request.monto));
+                                const incrementoNeto = targetPackageValue > previousPackageValue ? (targetPackageValue - previousPackageValue) : Number(request.monto);
+
+                                return (
+                                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 mb-3">
+                                    <h5 className="font-bold text-emerald-900 text-[11px] uppercase tracking-wider flex items-center justify-between border-b border-emerald-200 pb-1.5">
+                                      <span>🚀 Comparativa de Aumento de Capital</span>
+                                      <span className="px-1.5 py-0.5 bg-emerald-200 text-emerald-900 font-bold rounded text-[10px]">
+                                        Aumento Solicitado
+                                      </span>
+                                    </h5>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                      <div className="bg-white p-2.5 rounded-lg border border-emerald-100 shadow-sm">
+                                        <span className="text-slate-500 block font-medium text-[11px]">Contrato Vigente Actual</span>
+                                        <span className="font-bold text-slate-800 text-xs block">
+                                          {request.investor?.assigned_code || `Contrato #${request.investor_id || request.extra_data?.previous_contract_id || request.extra_data?.investor_id || 'Vigente'}`}
+                                        </span>
+                                        {previousPackageValue > 0 ? (
+                                          <span className="text-slate-700 text-xs font-bold block mt-1">
+                                            Monto Previo: ${previousPackageValue.toLocaleString('es-CO')} COP
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-400 italic block mt-1 text-[11px]">Monto Previo: No especificado</span>
+                                        )}
+                                        {request.investor?.period && (
+                                          <span className="text-slate-500 text-[11px] block mt-0.5">
+                                            Periodo Actual: {request.investor.period.months} Meses ({request.investor.period.percentage}% mensual)
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-sm">
+                                        <span className="text-emerald-700 block font-medium text-[11px]">Nuevo Paquete Solicitado</span>
+                                        <span className="font-bold text-emerald-800 text-xs block">
+                                          Monto Nuevo: ${targetPackageValue.toLocaleString('es-CO')} COP
+                                        </span>
+                                        {(() => {
+                                          const p = periods.find(item => item.id === Number(request.extra_data?.contract_period_id));
+                                          return p ? (
+                                            <span className="text-emerald-700 font-bold block mt-1 text-[11px]">
+                                              Periodo Nuevo: {p.months} Meses ({p.percentage}% mensual - {p.days} días)
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                        {incrementoNeto > 0 && (
+                                          <span className="text-emerald-600 font-extrabold block mt-1 text-[11px]">
+                                            Incremento Neto: +${incrementoNeto.toLocaleString('es-CO')} COP
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {Number(request.extra_data?.monto_billetera_usado) > 0 && (() => {
+                                      const montoBilletera = Number(request.extra_data?.monto_billetera_usado);
+                                      const restante = Math.max(0, incrementoNeto - montoBilletera);
+                                      return (
+                                        <div className="mt-2.5 p-2.5 bg-emerald-100/70 rounded-lg border border-emerald-200 text-xs space-y-1.5">
+                                          <div className="flex justify-between items-center text-emerald-950 font-bold">
+                                            <span className="flex items-center gap-1.5">
+                                              <span>💳</span> Abono con Saldo de Billetera:
+                                            </span>
+                                            <span className="text-emerald-800 font-extrabold text-sm">-${montoBilletera.toLocaleString('es-CO')} COP</span>
+                                          </div>
+                                          <div className="flex justify-between items-center text-slate-700 font-semibold border-t border-emerald-200/80 pt-1.5 text-[11px]">
+                                            <span>Monto Restante por Comprobante/Transferencia:</span>
+                                            <span className="font-extrabold text-slate-900 text-xs">${restante.toLocaleString('es-CO')} COP</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                );
+                              })()}
+
+                              <div className="space-y-2 text-xs">
+                                {request.extra_data && typeof request.extra_data === 'object' && Object.keys(request.extra_data).length > 0 ? (
+                                  Object.entries(request.extra_data).map(([key, val]) => {
+                                    if (val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0)) return null;
+
+                                    const internalKeysToHide = [
+                                      'investor_id',
+                                      'new_package_id',
+                                      'new_package_value',
+                                      'previous_period_id',
+                                      'previous_package_id',
+                                      'previous_contract_id',
+                                      'previous_package_value',
+                                      'contract_period_id',
+                                      'is_upgrade',
+                                      'es_aumento_capital',
+                                      'aumento_de_capital'
+                                    ];
+
+                                    if (internalKeysToHide.includes(key)) return null;
+
+                                    const labels: Record<string, string> = {
+                                      referred_by: 'Código Referido',
+                                      referral_code: 'Código Referido',
+                                      codigo_referido: 'Código Referido',
+                                      ciudad: 'Ciudad',
+                                      fecha_nacimiento: 'Fecha Nacimiento',
+                                      tipo_documento: 'Tipo Documento',
+                                      numero_documento: 'Número Documento',
+                                      monto_billetera_usado: 'Billetera Usada',
+                                      kyc_docs: 'Documentos KYC',
+                                      comprobantes_adicionales: 'Comprobantes Extra'
+                                    };
+
+                                    const labelName = labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+                                    let displayVal: React.ReactNode = String(val);
+                                    if (typeof val === 'boolean') {
+                                      displayVal = val ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">Sí</span> : 'No';
+                                    } else if (Array.isArray(val)) {
+                                      displayVal = <span className="text-brand-600 font-bold">{val.length} archivo(s) adjunto(s)</span>;
+                                    } else if (['referred_by', 'referral_code', 'codigo_referido'].includes(key)) {
+                                      displayVal = (
+                                        <span className="px-2.5 py-1 bg-purple-100 text-purple-900 font-bold rounded-lg border border-purple-200 inline-flex items-center gap-1">
+                                          <span>✨</span> {String(val)}
+                                        </span>
+                                      );
+                                    } else if (key === 'monto_billetera_usado') {
+                                      displayVal = (
+                                        <span className="font-bold text-emerald-700">
+                                          ${Number(val).toLocaleString('es-CO')} COP
+                                        </span>
+                                      );
+                                    }
+
+                                    return (
+                                      <div key={key} className="flex justify-between items-center py-1 border-b border-slate-100 last:border-0">
+                                        <span className="text-slate-500 font-medium">{labelName}:</span>
+                                        <span className="font-semibold text-slate-800 break-all text-right">{displayVal}</span>
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <p className="text-slate-400 italic py-2">Sin datos adicionales registrados</p>
+                                )}
                               </div>
                             </div>
 
-                            {/* Fechas */}
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Seguimiento</h4>
-                              <div className="grid grid-cols-2 gap-2 text-slate-600">
-                                <span className="text-slate-400">Actualizado:</span>
-                                <span>{request.updated_at ? new Date(request.updated_at).toLocaleDateString() : '-'}</span>
-                                <span className="text-slate-400">Revisado Por:</span>
-                                <span>{request.reviewed_by ? `Admin #${request.reviewed_by}` : 'N/A'}</span>
-                                <span className="text-slate-400">Fecha Revisión:</span>
-                                <span>{request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString() : 'N/A'}</span>
-                              </div>
-                            </div>
+                            {/* Columna 2: Adjuntos y Registro de Revisión */}
+                            <div className="space-y-4">
+                              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-100 pb-2">
+                                  Archivos y Adjuntos
+                                </h4>
+                                <div className="space-y-3 text-xs">
+                                  <div className="flex justify-between items-center py-1">
+                                    <span className="text-slate-500 font-medium">Comprobante de Pago:</span>
+                                    {request.comprobante_path ? (
+                                      <a 
+                                        href={getMediaUrl(request.comprobante_path)} 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        className="px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition-colors border border-brand-200 inline-flex items-center gap-1"
+                                      >
+                                        <span>📄</span> Ver Comprobante
+                                      </a>
+                                    ) : (
+                                      <span className="text-slate-400 italic">Sin comprobante</span>
+                                    )}
+                                  </div>
 
-                            {/* Referencias */}
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Referencias</h4>
-                              <div className="grid grid-cols-2 gap-2 text-slate-600">
-                                <span className="text-slate-400">ID Inversionista:</span>
-                                <span>{request.investor_id ? `#${request.investor_id}` : 'N/A'}</span>
-                                <span className="text-slate-400">ID Prospecto:</span>
-                                <span>{request.prospecto_id ? `#${request.prospecto_id}` : 'N/A'}</span>
-                                <span className="text-slate-400">Comprobante:</span>
-                                <span>
-                                  {request.comprobante_path ? (
-                                    <a href={request.comprobante_path} target="_blank" rel="noreferrer" className="text-brand-600 hover:underline">Ver Archivo</a>
-                                  ) : 'Sin adjunto'}
-                                </span>
-                              </div>
-                            </div>
+                                  {/* Documentos KYC con Vista Previa */}
+                                  {request.extra_data?.kyc_docs && Array.isArray(request.extra_data.kyc_docs) && request.extra_data.kyc_docs.length > 0 && (
+                                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                                      <span className="text-slate-500 font-medium block">Documentos de Identidad (KYC):</span>
+                                      <div className="grid grid-cols-3 gap-2">
+                                        {request.extra_data.kyc_docs.map((path: string, idx: number) => {
+                                          const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
+                                          const label = kycLabels[idx] || `Doc ${idx + 1}`;
+                                          const fullUrl = getMediaUrl(path);
+                                          return (
+                                            <a 
+                                              key={idx} 
+                                              href={fullUrl} 
+                                              target="_blank" 
+                                              rel="noreferrer"
+                                              className="group flex flex-col items-center bg-slate-50 p-1.5 rounded-lg border border-slate-200 hover:border-brand-500 transition-all text-center"
+                                              title={label}
+                                            >
+                                              <div className="w-full h-16 bg-white rounded overflow-hidden mb-1 flex items-center justify-center border border-slate-200">
+                                                <img 
+                                                  src={fullUrl} 
+                                                  alt={label} 
+                                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                                                  onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    if (target.src !== FALLBACK_DOC_SVG) {
+                                                      target.src = FALLBACK_DOC_SVG;
+                                                    }
+                                                  }}
+                                                />
+                                              </div>
+                                              <span className="text-[10px] font-bold text-slate-700 truncate w-full group-hover:text-brand-600">{label}</span>
+                                            </a>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
 
-                            {/* Datos Extra y Rechazo */}
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2">Información Adicional</h4>
-                              {request.rejection_reason && (
-                                <div className="mb-2 p-2 bg-red-50 text-red-700 rounded-lg text-xs border border-red-100">
-                                  <strong>Motivo Rechazo:</strong> {request.rejection_reason}
-                                </div>
-                              )}
-                              
-                              <div className="text-slate-600">
-                                <span className="text-slate-400 block mb-1">Datos Extra (JSON):</span>
-                                <div className="bg-white border border-slate-200 p-2 rounded-lg text-xs font-mono break-all text-slate-700 max-h-32 overflow-y-auto">
-                                  {request.extra_data ? (
-                                    typeof request.extra_data === 'object' 
-                                      ? JSON.stringify(request.extra_data, null, 2)
-                                      : request.extra_data
-                                  ) : (
-                                    <span className="text-slate-400 italic">Sin datos extra</span>
+                                  {request.investor_id && (
+                                    <div className="flex justify-between items-center py-1 border-t border-slate-100">
+                                      <span className="text-slate-500 font-medium">ID Inversionista Creado:</span>
+                                      <span className="font-mono font-bold text-slate-800">#{request.investor_id}</span>
+                                    </div>
+                                  )}
+
+                                  {request.prospecto_id && (
+                                    <div className="flex justify-between items-center py-1 border-t border-slate-100">
+                                      <span className="text-slate-500 font-medium">ID Prospecto:</span>
+                                      <span className="font-mono font-bold text-slate-800">#{request.prospecto_id}</span>
+                                    </div>
                                   )}
                                 </div>
                               </div>
+
+                               {/* Verificación SARLAFT (Tusdatos.co) */}
+                               <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                 <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                   <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                     <span>🛡️</span> Verificación SARLAFT (Tusdatos.co)
+                                   </h4>
+                                   <button 
+                                     onClick={() => handleRunSarlaftCheck(request)}
+                                     disabled={sarlaftLoading[request.id]}
+                                     className="text-xs px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition-colors border border-brand-200 inline-flex items-center gap-1"
+                                   >
+                                     {sarlaftLoading[request.id] ? <Loader2 className="w-3 h-3 animate-spin" /> : <span>🔍</span>}
+                                     {sarlaftLoading[request.id] ? 'Consultando...' : sarlaftData[request.id] ? 'Re-Consultar' : 'Consultar'}
+                                   </button>
+                                 </div>
+                                 <div className="text-xs space-y-2">
+                                   {sarlaftData[request.id] ? (
+                                     <>
+                                       <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
+                                         <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                                           <span className="text-emerald-600 font-bold">✓</span>
+                                           <span>Usuario Ya Validado Previamente</span>
+                                         </div>
+                                         {sarlaftData[request.id].created_at && (
+                                           <span className="text-[11px] text-slate-400 font-mono">
+                                             {new Date(sarlaftData[request.id].created_at).toLocaleDateString()}
+                                           </span>
+                                         )}
+                                       </div>
+
+                                       <div className="flex justify-between items-center pt-1">
+                                         <span className="text-slate-500 font-medium">Resultado / Nivel de Riesgo:</span>
+                                         {sarlaftData[request.id].risk_level === 'CLEAN' ? (
+                                           <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-md flex items-center gap-1">
+                                             ✓ Sin Hallazgos (Limpio)
+                                           </span>
+                                         ) : sarlaftData[request.id].risk_level === 'HIGH' ? (
+                                           <span className="px-2.5 py-0.5 bg-red-100 text-red-800 font-bold rounded-md flex items-center gap-1">
+                                             ⚠ ALERTA ALTO RIESGO
+                                           </span>
+                                         ) : (
+                                           <span className="px-2.5 py-0.5 bg-amber-100 text-amber-800 font-bold rounded-md flex items-center gap-1">
+                                             ℹ Hallazgos Informativos / Revisar
+                                           </span>
+                                         )}
+                                       </div>
+                                       
+                                       {sarlaftData[request.id].pdf_path && (
+                                         <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
+                                           <span className="text-slate-400 text-[11px]">Informe PDF disponible</span>
+                                           <a 
+                                             href={getMediaUrl(sarlaftData[request.id].pdf_path)} 
+                                             target="_blank" 
+                                             rel="noreferrer" 
+                                             className="px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg transition-colors border border-purple-200 inline-flex items-center gap-1"
+                                           >
+                                             <span>📄</span> Ver Reporte PDF SARLAFT
+                                           </a>
+                                         </div>
+                                       )}
+                                     </>
+                                   ) : (
+                                     <p className="text-slate-400 italic py-1">No se ha ejecutado la consulta SARLAFT en Tusdatos.co para esta cédula.</p>
+                                   )}
+                                 </div>
+                               </div>
+
+                              {/* Registro de Revisión (Solo en Aprobadas o Rechazadas) */}
+                              {request.status !== 'pending' && (
+                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                                  <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider border-b border-slate-100 pb-2">
+                                    Seguimiento de Revisión
+                                  </h4>
+                                  <div className="space-y-2 text-xs">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-slate-500 font-medium">Revisado Por:</span>
+                                      <span className="font-semibold text-slate-800">{request.reviewed_by ? `Admin #${request.reviewed_by}` : 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-slate-500 font-medium">Fecha Revisión:</span>
+                                      <span className="font-semibold text-slate-800">{request.reviewed_at ? new Date(request.reviewed_at).toLocaleDateString('es-CO') : 'N/A'}</span>
+                                    </div>
+                                    {request.rejection_reason && (
+                                      <div className="mt-2 p-2.5 bg-red-50 text-red-700 rounded-lg text-xs border border-red-100">
+                                        <strong>Motivo Rechazo:</strong> {request.rejection_reason}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            
+
                           </div>
                         </td>
                       </tr>
@@ -381,8 +679,8 @@ export const InvestmentRequestsTable = () => {
       </div>
 
       {/* Rejection Modal */}
-      {rejectingId && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {rejectingId && createPortal(
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20" style={{ margin: 0 }}>
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-800 mb-2">Rechazar Solicitud</h3>
             <p className="text-sm text-slate-500 mb-4">Ingresa el motivo por el cual rechazas esta solicitud. El usuario podrá ver este motivo.</p>
@@ -408,13 +706,14 @@ export const InvestmentRequestsTable = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Approval Modal */}
-      {selectedRequestToReview && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+      {selectedRequestToReview && createPortal(
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20" style={{ margin: 0 }}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-slate-800">Aprobar Solicitud #{selectedRequestToReview.id}</h3>
               <button onClick={() => setSelectedRequestToReview(null)} className="p-1 hover:bg-slate-100 rounded-full">
@@ -423,20 +722,6 @@ export const InvestmentRequestsTable = () => {
             </div>
             
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <div>
-                  <span className="text-xs text-slate-500 block">Usuario</span>
-                  <span className="font-semibold text-slate-800">{selectedRequestToReview.user?.name || `ID: ${selectedRequestToReview.user_id}`}</span>
-                  {selectedRequestToReview.user?.document_id && (
-                    <span className="text-xs text-slate-500 block mt-1">Doc: {selectedRequestToReview.user.document_id}</span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-xs text-slate-500 block">Monto Solicitado</span>
-                  <span className="font-semibold text-brand-700">${selectedRequestToReview.monto.toLocaleString('es-CO')} COP</span>
-                </div>
-              </div>
-
               {selectedRequestToReview.extra_data && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -466,6 +751,14 @@ export const InvestmentRequestsTable = () => {
                           <span className="font-medium">{selectedRequestToReview.extra_data.fecha_nacimiento}</span>
                         </div>
                       )}
+                      {(selectedRequestToReview.extra_data.referred_by || selectedRequestToReview.extra_data.referral_code || selectedRequestToReview.extra_data.codigo_referido) && (
+                        <div className="flex justify-between items-center bg-purple-50 p-2 rounded-lg border border-purple-100">
+                          <span className="text-purple-700 font-medium text-xs">Código Referido (Bono 5%):</span>
+                          <span className="font-bold text-purple-900 text-xs px-2 py-0.5 bg-purple-200 rounded">
+                            {selectedRequestToReview.extra_data.referred_by || selectedRequestToReview.extra_data.referral_code || selectedRequestToReview.extra_data.codigo_referido}
+                          </span>
+                        </div>
+                      )}
                       {selectedRequestToReview.extra_data.contract_period_id && (
                         <div className="flex justify-between">
                           <span className="text-slate-500">Periodo de Contrato:</span>
@@ -482,20 +775,38 @@ export const InvestmentRequestsTable = () => {
 
                   {selectedRequestToReview.extra_data.kyc_docs && Array.isArray(selectedRequestToReview.extra_data.kyc_docs) && selectedRequestToReview.extra_data.kyc_docs.length > 0 && (
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos KYC Adjuntos</h4>
-                      <div className="flex flex-col gap-2">
-                        {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => (
-                          <a 
-                            key={index} 
-                            href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}${path.startsWith('/') ? path : '/' + path}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-xs bg-white hover:bg-brand-50 text-brand-700 px-3 py-2 rounded-lg font-medium transition-colors border border-slate-200 hover:border-brand-300 flex items-center justify-between"
-                          >
-                            <span className="truncate max-w-[200px]">Documento {index + 1}</span>
-                            <span className="text-[10px] text-slate-400">Ver</span>
-                          </a>
-                        ))}
+                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos de Identidad (KYC)</h4>
+                      <div className="grid grid-cols-3 gap-3">
+                        {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => {
+                          const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
+                          const label = kycLabels[index] || `Documento ${index + 1}`;
+                          const fullUrl = getMediaUrl(path);
+                          return (
+                            <a 
+                              key={index} 
+                              href={fullUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="group flex flex-col items-center bg-white p-2 rounded-xl border border-slate-200 hover:border-brand-500 hover:shadow-md transition-all text-center"
+                            >
+                              <div className="w-full h-24 bg-slate-100 rounded-lg overflow-hidden mb-2 relative flex items-center justify-center border border-slate-100">
+                                <img 
+                                  src={fullUrl} 
+                                  alt={label} 
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    if (target.src !== FALLBACK_DOC_SVG) {
+                                      target.src = FALLBACK_DOC_SVG;
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <span className="text-xs font-bold text-slate-800 group-hover:text-brand-600 truncate w-full">{label}</span>
+                              <span className="text-[10px] text-slate-400 mt-0.5">Ver Grande ↗</span>
+                            </a>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -509,15 +820,20 @@ export const InvestmentRequestsTable = () => {
                   </div>
                   <div className="p-4 flex justify-center bg-slate-100 min-h-[200px]">
                     <img 
-                      src={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${selectedRequestToReview.comprobante_path}`} 
+                      src={getMediaUrl(selectedRequestToReview.comprobante_path)} 
                       alt="Comprobante" 
                       className="max-h-[400px] object-contain rounded shadow-sm border border-slate-200"
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400?text=No+se+pudo+cargar+la+imagen'; }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.src !== FALLBACK_DOC_SVG) {
+                          target.src = FALLBACK_DOC_SVG;
+                        }
+                      }}
                     />
                   </div>
                   <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-right">
                     <a 
-                      href={`${import.meta.env.VITE_API_URL?.replace('/api/v1', '') || ''}/${selectedRequestToReview.comprobante_path}`} 
+                      href={getMediaUrl(selectedRequestToReview.comprobante_path)} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-sm text-brand-600 font-medium hover:underline"
@@ -550,7 +866,8 @@ export const InvestmentRequestsTable = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

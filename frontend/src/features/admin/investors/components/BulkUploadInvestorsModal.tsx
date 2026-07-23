@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, UploadCloud, Loader2, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
 import { bulkUploadInvestors } from '../../../../services/investors';
 
@@ -13,6 +14,8 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
   onClose,
   onUploaded
 }) => {
+  if (!isOpen) return null;
+
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
@@ -127,8 +130,8 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
     document.body.removeChild(link);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
@@ -288,6 +291,7 @@ export const BulkUploadInvestorsModal: React.FC<BulkUploadInvestorsModalProps> =
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

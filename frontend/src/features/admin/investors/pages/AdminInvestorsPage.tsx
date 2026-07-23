@@ -8,7 +8,8 @@ import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
 import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
+import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
@@ -132,6 +133,7 @@ export const AdminInvestorsPage = () => {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
   const [userNameToAdjust, setUserNameToAdjust] = useState('');
+  const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
 
   const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -331,6 +333,7 @@ export const AdminInvestorsPage = () => {
                 <th className="px-6 py-4">Código / Ref.</th>
                 <th className="px-6 py-4">Usuario</th>
                 <th className="px-6 py-4">Paquete / Periodo</th>
+                <th className="px-6 py-4">Bonos Aceleración</th>
                 <th className="px-6 py-4">Fechas</th>
                 <Can permission="admin.investors.manage">
                   <th className="px-6 py-4 text-right">Acciones</th>
@@ -342,7 +345,7 @@ export const AdminInvestorsPage = () => {
                 <InvestorTableSkeleton />
               ) : investors.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay inversionistas registrados.</p>
@@ -357,7 +360,7 @@ export const AdminInvestorsPage = () => {
                   <React.Fragment key={investor.id}>
                     <tr className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-4 w-10 text-center">
-                        {investor.user && ((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet) && (
+                        {investor.user && ((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet || investor.period) && (
                           <button 
                             onClick={() => toggleRow(investor.id)}
                             className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors"
@@ -408,6 +411,54 @@ export const AdminInvestorsPage = () => {
                         <div className="text-xs text-slate-500 mt-1">
                             {investor.period ? `${investor.period.months}m ${investor.period.days}d (${investor.period.percentage}%)` : ''}
                         </div>
+                        {(() => {
+                          const hasCapitalWithdrawal = investor.has_capital_withdrawal ?? (
+                            investor.withdrawals && investor.withdrawals.some((w: any) => {
+                              const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
+                              const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
+                              return String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase());
+                            })
+                          );
+
+                          const capitalWithdrawnAmount = investor.total_capital_withdrawn ?? (
+                            investor.withdrawals ? investor.withdrawals.reduce((sum: number, w: any) => {
+                              const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
+                              const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
+                              if (String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase())) {
+                                return sum + Number(w.monto || 0);
+                              }
+                              return sum;
+                            }, 0) : 0
+                          );
+
+                          return hasCapitalWithdrawal ? (
+                            <div className="mt-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
+                                💸 Retiro Capital (${capitalWithdrawnAmount.toLocaleString('es-CO')} COP)
+                              </span>
+                            </div>
+                          ) : null;
+                        })()}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {(() => {
+                          const accelerations = investor.accelerations || [];
+                          const totalBonus = investor.total_acceleration_bonus ?? accelerations.reduce((sum, a) => sum + (Number(a.bonus_amount) || 0), 0);
+                          return accelerations.length > 0 || totalBonus > 0 ? (
+                            <div className="inline-flex flex-col">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
+                                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+                                +${totalBonus.toLocaleString('es-CO')} COP
+                              </span>
+                              <span className="text-[10px] text-slate-500 mt-1 font-medium pl-0.5">
+                                {accelerations.length} {accelerations.length === 1 ? 'bono aplicado' : 'bonos aplicados'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-medium">$0 COP</span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-xs space-y-2">
                           <div className="space-y-1">
@@ -454,6 +505,13 @@ export const AdminInvestorsPage = () => {
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button 
+                              onClick={() => setSelectedInvestorForUpgrade(investor)}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="Solicitar Aumento de Capital"
+                            >
+                              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                            </button>
+                            <button 
                               onClick={() => handleEdit(investor)}
                               className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
                               title="Editar"
@@ -473,7 +531,47 @@ export const AdminInvestorsPage = () => {
                     </tr>
                     {expandedRows[investor.id] && investor.user && (
                       <tr className="bg-slate-50/40">
-                        <td colSpan={7} className="px-8 py-4 border-b border-slate-100">
+                        <td colSpan={8} className="px-8 py-4 border-b border-slate-100 space-y-5">
+                          
+                          {/* Tarjetas de Rendimientos Diarios y Liberación */}
+                          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-2">
+                              <span>📊 Rendimientos Diarios y Liberación de Capital:</span>
+                            </div>
+                            {(() => {
+                              const packageVal = investor.package ? Number(investor.package.value) : 0;
+                              const totalDays = investor.period ? Number(investor.period.days) : 0;
+                              const pct = investor.period ? Number(investor.period.percentage) / 100 : 0;
+                              const months = investor.period ? Number(investor.period.months) : 0;
+                              const totalYield = packageVal * pct * months;
+                              const dailyYield = investor.daily_yield_amount ?? (totalDays > 0 ? totalYield / totalDays : 0);
+                              const dailyCapital = investor.daily_capital_amount ?? (totalDays > 0 ? packageVal / totalDays : 0);
+
+                              return (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                  <div className="bg-emerald-50/60 border border-emerald-200 rounded-lg p-3">
+                                    <span className="text-[11px] text-emerald-800 font-medium block">Rendimiento Ganancia Diaria</span>
+                                    <span className="font-bold text-emerald-700 text-sm block mt-0.5">
+                                      ⚡ ${dailyYield.toLocaleString('es-CO', { maximumFractionDigits: 0 })} / día
+                                    </span>
+                                  </div>
+                                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                    <span className="text-[11px] text-slate-500 font-medium block">Liberación Diario de Capital Base</span>
+                                    <span className="font-bold text-slate-800 text-sm block mt-0.5">
+                                      🏦 ${dailyCapital.toLocaleString('es-CO', { maximumFractionDigits: 0 })} / día
+                                    </span>
+                                  </div>
+                                  <div className="bg-brand-50/60 border border-brand-200 rounded-lg p-3">
+                                    <span className="text-[11px] text-brand-800 font-medium block">Total Rendimiento Estimado</span>
+                                    <span className="font-bold text-brand-700 text-sm block mt-0.5">
+                                      ${totalYield.toLocaleString('es-CO')} COP
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             
                             {/* Wallet Info Column */}
@@ -602,6 +700,66 @@ export const AdminInvestorsPage = () => {
                             )}
                           </div>
                           
+                          {/* Accelerations Section */}
+                          <div className="mt-6 space-y-2 border-t border-slate-100 pt-4">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                              Bonos por Aceleración de Contrato:
+                            </div>
+                            {investor.accelerations && investor.accelerations.length > 0 ? (
+                              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left text-xs text-slate-600">
+                                    <thead className="bg-amber-50/50 border-b border-slate-100 text-slate-600 uppercase text-[10px]">
+                                      <tr>
+                                        <th className="px-4 py-3">ID</th>
+                                        <th className="px-4 py-3">Solicitud Orig.</th>
+                                        <th className="px-4 py-3 text-right">Monto Bono</th>
+                                        <th className="px-4 py-3 text-center">% Aceleración</th>
+                                        <th className="px-4 py-3 text-center">Días Reducidos</th>
+                                        <th className="px-4 py-3 text-center">Estado</th>
+                                        <th className="px-4 py-3">Fecha Aplicado</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {investor.accelerations.map((acc) => (
+                                        <tr key={acc.id} className="hover:bg-amber-50/20">
+                                          <td className="px-4 py-3 font-mono text-slate-400">#{acc.id}</td>
+                                          <td className="px-4 py-3 font-mono text-slate-600">
+                                            #{acc.investment_request_id}
+                                          </td>
+                                          <td className="px-4 py-3 text-right font-bold text-amber-700">
+                                            +${(Number(acc.bonus_amount) || 0).toLocaleString('es-CO')} COP
+                                          </td>
+                                          <td className="px-4 py-3 text-center font-semibold text-slate-700">
+                                            {acc.acceleration_percentage}%
+                                          </td>
+                                          <td className="px-4 py-3 text-center font-medium text-slate-600">
+                                            {acc.days_to_reduce ? Number(acc.days_to_reduce).toFixed(1) : 0} días
+                                          </td>
+                                          <td className="px-4 py-3 text-center">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                                              acc.applied ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                            }`}>
+                                              {acc.applied ? 'APLICADO' : 'PENDIENTE'}
+                                            </span>
+                                          </td>
+                                          <td className="px-4 py-3 text-slate-500 font-medium">
+                                            {acc.created_at ? new Date(acc.created_at).toLocaleDateString() : '-'}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-white border border-slate-200 border-dashed rounded-lg p-4 text-center text-xs text-slate-500">
+                                No hay bonos por aceleración registrados para esta inversión.
+                              </div>
+                            )}
+                          </div>
+                          
                         </td>
                       </tr>
                     )}
@@ -710,6 +868,16 @@ export const AdminInvestorsPage = () => {
           <span className="text-sm font-medium">{toast.message}</span>
         </div>
       )}
+
+      <AdminCapitalIncreaseModal
+        isOpen={!!selectedInvestorForUpgrade}
+        onClose={() => setSelectedInvestorForUpgrade(null)}
+        onSuccess={() => {
+          setToast({ message: 'Solicitud de aumento de capital enviada a revisión (pendiente)', type: 'success' });
+          fetchData();
+        }}
+        investor={selectedInvestorForUpgrade}
+      />
 
       <DeleteConfirmationModal
         isOpen={!!investorToDelete}

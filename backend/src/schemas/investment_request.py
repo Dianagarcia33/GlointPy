@@ -36,10 +36,27 @@ class SimplePackageResponse(BaseModel):
     value: Optional[float] = None
     model_config = ConfigDict(from_attributes=True)
 
+class SimplePeriodResponse(BaseModel):
+    id: int
+    percentage: Optional[float] = None
+    months: Optional[int] = None
+    days: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class SimpleInvestorResponse(BaseModel):
+    id: int
+    assigned_code: Optional[str] = None
+    package_id: Optional[int] = None
+    period_id: Optional[int] = None
+    package: Optional[SimplePackageResponse] = None
+    period: Optional[SimplePeriodResponse] = None
+    model_config = ConfigDict(from_attributes=True)
+
 class InvestmentRequestResponse(InvestmentRequestBase):
     id: int
     user: Optional[SimpleUserResponse] = None
     package: Optional[SimplePackageResponse] = None
+    investor: Optional[SimpleInvestorResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 

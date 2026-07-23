@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, DollarSign, Loader2, Info } from 'lucide-react';
 import { adjustWalletBalance } from '../../../../services/wallets';
 
@@ -21,6 +22,7 @@ export const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
   wallet,
   userName
 }) => {
+  if (!isOpen || !wallet) return null;
   const [action, setAction] = useState<'add' | 'subtract' | 'set'>('add');
   const [amount, setAmount] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -65,8 +67,8 @@ export const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20 animate-in fade-in duration-200" style={{ margin: 0 }}>
       <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-xl flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <div>
@@ -226,6 +228,7 @@ export const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

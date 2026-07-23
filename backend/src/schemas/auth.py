@@ -35,6 +35,8 @@ class InvestorRegisterRequest(BaseModel):
     kyc_docs: list[str]
     fecha_nacimiento: Optional[str] = None
     comprobante_path: str
+    referred_by: Optional[str] = None
+
 
 class ForceChangePasswordRequest(BaseModel):
     email: EmailStr

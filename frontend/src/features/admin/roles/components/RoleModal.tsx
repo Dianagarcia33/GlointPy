@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Role, RoleCreate, RoleUpdate, Permission } from '../../../../services/roles';
 import { X, Check, Shield } from 'lucide-react';
 
@@ -78,8 +79,8 @@ export const RoleModal: React.FC<RoleModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] overflow-y-auto pt-20" style={{ margin: 0 }}>
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={onClose}>
           <div className="absolute inset-0 bg-slate-900/75 backdrop-blur-sm"></div>
@@ -194,6 +195,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -1,4 +1,5 @@
 
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -6,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from datetime import date, datetime
 from pydantic import BaseModel
 from src.core.database import get_db
-from src.api.deps import get_current_user
+from src.api.deps import get_current_user, RequirePermission
 from src.models.investment_request import InvestmentRequest
 from src.models.contract_history import ContractHistory
 from src.models.investor import Investor
@@ -151,7 +152,11 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     inv_id = int(investment_id)
     inv_res = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period))
+        .options(
+            selectinload(Investor.package), 
+            selectinload(Investor.period),
+            selectinload(Investor.accelerations)
+        )
         .where(Investor.id == inv_id, Investor.user_id == current_user.id)
     )
     inv_record = inv_res.scalars().first()
@@ -164,10 +169,29 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     fecha_fin = None
     dias_contrato = 0
     dias_transcurridos = 0
+    dias_reducidos_totales = 0.0
+    accelerations_list = []
+
+    if hasattr(inv_record, 'accelerations') and inv_record.accelerations:
+        for acc in inv_record.accelerations:
+            if acc.applied:
+                dias_reducidos_totales += float(acc.days_to_reduce or 0)
+                accelerations_list.append({
+                    "id": acc.id,
+                    "bonus_amount": float(acc.bonus_amount or 0),
+                    "days_to_reduce": round(float(acc.days_to_reduce or 0), 2),
+                    "percentage": float(acc.acceleration_percentage or 5),
+                    "created_at": acc.created_at.isoformat() if acc.created_at else None
+                })
     
     if fecha_ingreso and inv_record.period:
-        fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
-        dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+        fecha_fin_original = fecha_ingreso + relativedelta(months=inv_record.period.months)
+        dias_contrato_original = (fecha_fin_original.date() - fecha_ingreso.date()).days
+        
+        # Descontar los días reducidos por bonos/aceleraciones
+        dias_contrato = max(1, int(dias_contrato_original - dias_reducidos_totales))
+        from datetime import timedelta
+        fecha_fin = fecha_ingreso + timedelta(days=dias_contrato)
         
         diffTime = (today - fecha_ingreso.date()).days
         dias_transcurridos = diffTime if diffTime > 0 else 0
@@ -343,7 +367,9 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "movements": movements,
         "history": history,
         "projection": projection_table,
-        "bank_info": bank_info
+        "bank_info": bank_info,
+        "accelerations": accelerations_list,
+        "dias_reducidos_totales": round(dias_reducidos_totales, 2)
     }
     return inv
 
@@ -613,11 +639,14 @@ async def create_investment_request(
     monto_billetera_usado: float = Form(0.0),
     codigo_referido: str = Form(None),
     is_upgrade: bool = Form(False),
+    investor_id: Optional[int] = Form(None),
+    user_id: Optional[int] = Form(None),
     comprobantes: list[UploadFile] = File(default=[]),
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+    from src.models.package import Package
     
     UPLOAD_DIR = "uploads/comprobantes"
     os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -642,6 +671,7 @@ async def create_investment_request(
                 else:
                     extra_paths.append(path_str)
                     
+    target_user_id = user_id or current_user.id
     extra_data = {}
     if extra_paths:
         extra_data["comprobantes_adicionales"] = extra_paths
@@ -649,11 +679,35 @@ async def create_investment_request(
         extra_data["monto_billetera_usado"] = monto_billetera_usado
     if codigo_referido:
         extra_data["codigo_referido"] = codigo_referido
-    if is_upgrade:
+    if is_upgrade or investor_id:
         extra_data["es_aumento_capital"] = True
+        extra_data["is_upgrade"] = True
+    if periodo_contrato:
+        extra_data["contract_period_id"] = periodo_contrato
+
+    if investor_id:
+        extra_data["investor_id"] = investor_id
+        extra_data["previous_contract_id"] = investor_id
+        inv_res = await db.execute(select(Investor).options(selectinload(Investor.package)).where(Investor.id == investor_id))
+        prev_inv = inv_res.scalars().first()
+        if prev_inv:
+            extra_data["previous_package_id"] = prev_inv.package_id
+            if prev_inv.package:
+                extra_data["previous_package_value"] = float(prev_inv.package.value)
+            extra_data["previous_period_id"] = prev_inv.period_id
+            if not user_id:
+                target_user_id = prev_inv.user_id
+
+    if paquete_inversion_id:
+        pkg_res = await db.execute(select(Package).where(Package.id == paquete_inversion_id))
+        target_pkg = pkg_res.scalars().first()
+        if target_pkg:
+            extra_data["new_package_id"] = target_pkg.id
+            extra_data["new_package_value"] = float(target_pkg.value)
         
     new_request = InvestmentRequest(
-        user_id=current_user.id,
+        user_id=target_user_id,
+        investor_id=investor_id,
         paquete_inversion_id=paquete_inversion_id,
         monto=monto,
         comprobante_path=comprobante_path,
@@ -662,6 +716,34 @@ async def create_investment_request(
     )
     
     db.add(new_request)
+    await db.flush()
+
+    if monto_billetera_usado > 0:
+        from decimal import Decimal
+        from src.models.wallet import Wallet, WalletStatus, WalletTransaction
+        wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == target_user_id))
+        wallet = wallet_res.scalars().first()
+        if not wallet or float(wallet.balance or 0.0) < monto_billetera_usado:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Saldo insuficiente en la billetera del usuario. Disponible: ${float(wallet.balance if wallet else 0.0):,.0f}"
+            )
+        
+        old_bal = float(wallet.balance or 0.0)
+        new_bal = old_bal - monto_billetera_usado
+        wallet.balance = Decimal(str(new_bal))
+        
+        w_tx = WalletTransaction(
+            wallet_id=wallet.id,
+            amount=Decimal(str(-monto_billetera_usado)),
+            type="investment_payment",
+            reference_type="investment_request",
+            reference_id=new_request.id,
+            description=f"Abono de billetera para solicitud de inversión #{new_request.id}",
+            balance_after=Decimal(str(new_bal))
+        )
+        db.add(w_tx)
+
     try:
         await db.commit()
         await db.refresh(new_request)
@@ -670,3 +752,41 @@ async def create_investment_request(
         raise HTTPException(status_code=500, detail=str(e))
         
     return {"message": "Solicitud creada exitosamente", "id": new_request.id}
+
+@router.get("/admin/search-user")
+async def admin_search_user(query: str, current_user = Depends(RequirePermission("admin.investments.manage")), db: AsyncSession = Depends(get_db)):
+    """
+    Search users by name, email, or document for admin investment creation.
+    """
+    from src.models.user import User
+    from sqlalchemy import or_
+    
+    if len(query) < 3:
+        return []
+        
+    search_term = f"%{query}%"
+    res = await db.execute(
+        select(User).where(
+            or_(
+                User.name.ilike(search_term),
+                User.email.ilike(search_term),
+                User.document_id.ilike(search_term)
+            )
+        ).limit(10)
+    )
+    users = res.scalars().all()
+    
+    return [
+        {
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "documento": u.document_id,
+            "numero_celular": getattr(u, "phone", ""),
+            "ciudad": getattr(u, "city", ""),
+            "banco": "",
+            "tipo_cuenta": "Ahorros",
+            "numero_cuenta": ""
+        }
+        for u in users
+    ]
