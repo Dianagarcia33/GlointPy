@@ -17,6 +17,7 @@ export interface InvestmentRequest {
   updated_at?: string;
   user?: any;
   package?: any;
+  investor?: any;
 }
 
 export interface PaginatedInvestmentRequests {
