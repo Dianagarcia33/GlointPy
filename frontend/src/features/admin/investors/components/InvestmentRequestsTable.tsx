@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
 import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
@@ -640,8 +641,8 @@ export const InvestmentRequestsTable = () => {
       </div>
 
       {/* Rejection Modal */}
-      {rejectingId && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      {rejectingId && createPortal(
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20" style={{ margin: 0 }}>
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
             <h3 className="text-lg font-bold text-slate-800 mb-2">Rechazar Solicitud</h3>
             <p className="text-sm text-slate-500 mb-4">Ingresa el motivo por el cual rechazas esta solicitud. El usuario podrá ver este motivo.</p>
@@ -667,13 +668,14 @@ export const InvestmentRequestsTable = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Approval Modal */}
-      {selectedRequestToReview && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+      {selectedRequestToReview && createPortal(
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20" style={{ margin: 0 }}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-slate-800">Aprobar Solicitud #{selectedRequestToReview.id}</h3>
               <button onClick={() => setSelectedRequestToReview(null)} className="p-1 hover:bg-slate-100 rounded-full">
@@ -682,55 +684,6 @@ export const InvestmentRequestsTable = () => {
             </div>
             
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                <div>
-                  <span className="text-xs text-slate-500 block">Usuario</span>
-                  <span className="font-semibold text-slate-800">{selectedRequestToReview.user?.name || `ID: ${selectedRequestToReview.user_id}`}</span>
-                  {selectedRequestToReview.user?.document_id && (
-                    <span className="text-xs text-slate-500 block mt-1">Doc: {selectedRequestToReview.user.document_id}</span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-xs text-slate-500 block">Monto Solicitado</span>
-                  <span className="font-semibold text-brand-700">${selectedRequestToReview.monto.toLocaleString('es-CO')} COP</span>
-                </div>
-              </div>
-
-              {(selectedRequestToReview.extra_data?.es_aumento_capital || selectedRequestToReview.extra_data?.is_upgrade) && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
-                  <h4 className="font-bold text-emerald-900 text-xs uppercase tracking-wider flex items-center gap-1.5 border-b border-emerald-200 pb-2">
-                    <span>🚀</span> Solicitud de Aumento de Capital
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="bg-white p-3 rounded-lg border border-emerald-100 shadow-sm">
-                      <span className="text-slate-500 block font-medium">Contrato Vigente Actual</span>
-                      <span className="font-bold text-slate-800 text-sm block">
-                        {selectedRequestToReview.investor?.assigned_code || 'Contrato Existente'}
-                      </span>
-                      {selectedRequestToReview.investor?.package?.value && (
-                        <span className="text-slate-600 text-xs font-semibold block mt-1">
-                          Monto Previo: ${selectedRequestToReview.investor.package.value.toLocaleString('es-CO')} COP
-                        </span>
-                      )}
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-emerald-200 shadow-sm">
-                      <span className="text-emerald-700 block font-medium">Nuevo Paquete Solicitado</span>
-                      <span className="font-bold text-emerald-800 text-sm block">
-                        Monto Nuevo: ${selectedRequestToReview.monto.toLocaleString('es-CO')} COP
-                      </span>
-                      {(() => {
-                        const p = periods.find(p => p.id === Number(selectedRequestToReview.extra_data?.contract_period_id));
-                        return p ? (
-                          <span className="text-emerald-700 font-bold block mt-1">
-                            Periodo: {p.months} Meses ({p.percentage}% mensual - {p.days} días)
-                          </span>
-                        ) : null;
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {selectedRequestToReview.extra_data && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -875,7 +828,8 @@ export const InvestmentRequestsTable = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

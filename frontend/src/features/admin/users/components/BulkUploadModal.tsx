@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { usersService } from '../../../../services/users';
 import { Download, UploadCloud, X, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
@@ -9,6 +10,7 @@ interface BulkUploadModalProps {
 }
 
 export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onUploaded }) => {
+  if (!isOpen) return null;
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
@@ -107,9 +109,9 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pt-20" style={{ margin: 0 }}>
+      <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
         <div className="p-6 border-b flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold text-slate-800">Carga Masiva de Usuarios</h2>
@@ -120,8 +122,8 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
           </button>
         </div>
 
-        <div className="overflow-y-auto p-6">
-          {!result && (
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          {!result ? (
             <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
                 <AlertCircle className="w-5 h-5 text-blue-600 shrink-0" />
@@ -181,9 +183,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
                 </div>
               </div>
             </div>
-          )}
-
-          {result && (
+          ) : (
             <div className="space-y-4">
               <div className="p-6 bg-slate-50 rounded-xl border border-slate-200 text-center">
                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm mb-4">
@@ -256,6 +256,7 @@ export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClos
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User, usersService, UserCreate, UserUpdate } from '../../../../services/users';
 import { Role } from '../../../../services/roles';
 
@@ -92,8 +93,8 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" style={{ margin: 0 }}>
       <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         <div className="p-6 border-b flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-500">
@@ -109,123 +110,110 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
 
         <div className="overflow-y-auto p-6 flex-1">
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
               {error}
             </div>
           )}
 
-          <form id="user-form" onSubmit={handleSubmit} className="space-y-6">
+          <form id="user-form" onSubmit={handleSubmit} className="space-y-4">
+            <div className="font-semibold text-slate-700 text-xs uppercase tracking-wider border-b pb-2">Información Personal</div>
             
-            {/* Información Personal */}
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800 mb-3 uppercase tracking-wider">Información Personal</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-slate-800"
-                    placeholder="Ej. Juan Pérez"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Correo Electrónico</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-slate-800"
-                    placeholder="correo@ejemplo.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Documento de Identidad</label>
-                  <input
-                    type="text"
-                    name="document_id"
-                    value={formData.document_id || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-slate-800"
-                    placeholder="Cédula, Pasaporte..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
-                  <input
-                    type="text"
-                    name="phone_number"
-                    value={formData.phone_number || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-slate-800"
-                    placeholder="+57 300..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Fecha de Nacimiento</label>
-                  <input
-                    type="date"
-                    name="date_of_birth"
-                    value={formData.date_of_birth || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all text-slate-800"
-                  />
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre Completo *</label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  value={formData.name || ''}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Correo Electrónico *</label>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  value={formData.email || ''}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Documento de Identidad</label>
+                <input
+                  type="text"
+                  name="document_id"
+                  value={formData.document_id || ''}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
+                <input
+                  type="text"
+                  name="phone_number"
+                  value={formData.phone_number || ''}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Nacimiento</label>
+                <input
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth || ''}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                />
               </div>
             </div>
 
-            <hr className="border-slate-100" />
+            <div className="font-semibold text-slate-700 text-xs uppercase tracking-wider border-b pb-2 pt-2">Roles y Accesos</div>
 
-            {/* Roles y Accesos */}
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800 mb-3 uppercase tracking-wider">Roles y Accesos</h3>
-              
-              <div className="mb-4">
-                <label className="flex items-center gap-2 cursor-pointer p-3 border rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={formData.is_active}
-                    onChange={handleChange}
-                    className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-slate-800 block">Usuario Activo</span>
-                    <span className="text-xs text-slate-500">Si se desmarca, el usuario no podrá iniciar sesión.</span>
-                  </div>
-                </label>
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-semibold text-slate-700 block">Usuario Activo</span>
+                  <span className="text-xs text-slate-500">Si se desmarca, el usuario no podrá iniciar sesión.</span>
+                </div>
+                <input
+                  type="checkbox"
+                  name="is_active"
+                  checked={formData.is_active ?? true}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
+                />
               </div>
 
-              <div className="bg-slate-50 border rounded-lg p-4">
-                <label className="block text-sm font-medium text-slate-700 mb-3">Roles Asignados</label>
-                {assignableRoles.length === 0 ? (
-                  <p className="text-sm text-slate-500 italic bg-white p-3 rounded border border-dashed">No hay roles administrativos configurados.</p>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {assignableRoles.map(role => (
-                      <label key={role.id} className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${formData.role_ids?.includes(role.id) ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-                        <input
-                          type="checkbox"
-                          checked={formData.role_ids?.includes(role.id)}
-                          onChange={() => handleRoleToggle(role.id)}
-                          className="mt-1 w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-slate-800 block">{role.display_name}</span>
-                          <span className="text-xs text-slate-500">{role.description}</span>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Roles Asignados</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-slate-200 rounded-lg">
+                  {roles.map((role) => (
+                    <label key={role.id} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer text-xs border border-transparent hover:border-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={(formData.role_ids || []).includes(role.id)}
+                        onChange={() => handleRoleToggle(role.id)}
+                        className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
+                      />
+                      <div>
+                        <div className="font-semibold text-slate-700">{role.display_name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{role.name}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
-            
           </form>
         </div>
 
@@ -233,8 +221,8 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
             disabled={isSaving}
+            className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-all"
           >
             Cancelar
           </button>
@@ -248,6 +236,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
