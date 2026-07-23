@@ -41,6 +41,10 @@ export const DashboardPage = () => {
         return isNaN(parsed) ? 0 : parsed;
     };
 
+    const formatShortCOP = (val: number) => {
+        return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP`;
+    };
+
     const activeInvestments = investments.filter(inv => inv.status === 'approved');
     const filteredInvestments = investments.filter(inv => {
         if (activeTab === 'pending') return inv.status === 'pending' || inv.status === 'rejected';
@@ -55,22 +59,22 @@ export const DashboardPage = () => {
     const gananciaDiaria = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.liquidacion_diaria_rendimiento ?? 0), 0);
 
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20 space-y-6">
+        <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
             {/* SECCIÓN EXCLUSIVA PARA ADMINISTRADORES / SUPERADMIN */}
             {isSuperAdmin ? (
-                <div className="space-y-6">
+                <div className="space-y-6 w-full min-w-0">
                     {/* Header Admin */}
-                    <div className="bg-slate-900 text-white rounded-3xl p-8 md:p-10 shadow-xl relative overflow-hidden">
+                    <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden">
                         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
                         <div className="relative z-10 space-y-2">
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
                                 <ShieldCheck className="w-4 h-4 text-emerald-400" /> Panel de Control Ejecutivo 360°
                             </div>
-                            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
                                 Hola, {user?.name?.split(' ')[0]} 👋
                             </h1>
-                            <p className="text-slate-300 text-sm max-w-xl">
+                            <p className="text-slate-300 text-xs sm:text-sm max-w-xl leading-relaxed">
                                 Monitoreo consolidado de captación de capital, distribución por paquetes de inversión y salud de liquidez del ecosistema.
                             </p>
                         </div>
@@ -78,35 +82,35 @@ export const DashboardPage = () => {
 
                     {/* Quick Executive KPI Summary Cards */}
                     {adminAnalytics?.summary_cards && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full min-w-0">
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Capital Activo Invertido</span>
-                                <span className="text-2xl font-extrabold text-emerald-700 block">
-                                    ${adminAnalytics.summary_cards.total_invertido.toLocaleString('es-CO')} COP
+                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate" title={formatShortCOP(adminAnalytics.summary_cards.total_invertido)}>
+                                    {formatShortCOP(adminAnalytics.summary_cards.total_invertido)}
                                 </span>
                                 <span className="text-[11px] text-slate-500">Contratos vigentes</span>
                             </div>
 
-                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Inversionistas Activos</span>
-                                <span className="text-2xl font-extrabold text-slate-900 block">
+                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-900 block tracking-tight">
                                     {adminAnalytics.summary_cards.total_inversionistas}
                                 </span>
                                 <span className="text-[11px] text-slate-500">Contratos registrados</span>
                             </div>
 
-                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Saldo en Billeteras</span>
-                                <span className="text-2xl font-extrabold text-indigo-700 block">
-                                    ${adminAnalytics.summary_cards.total_wallets.toLocaleString('es-CO')} COP
+                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate" title={formatShortCOP(adminAnalytics.summary_cards.total_wallets)}>
+                                    {formatShortCOP(adminAnalytics.summary_cards.total_wallets)}
                                 </span>
                                 <span className="text-[11px] text-slate-500">Fondos depositados</span>
                             </div>
 
-                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1">
+                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Retiros Liquidados</span>
-                                <span className="text-2xl font-extrabold text-amber-800 block">
-                                    ${adminAnalytics.summary_cards.total_withdrawals.toLocaleString('es-CO')} COP
+                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate" title={formatShortCOP(adminAnalytics.summary_cards.total_withdrawals)}>
+                                    {formatShortCOP(adminAnalytics.summary_cards.total_withdrawals)}
                                 </span>
                                 <span className="text-[11px] text-amber-700 font-medium">Pagos procesados</span>
                             </div>

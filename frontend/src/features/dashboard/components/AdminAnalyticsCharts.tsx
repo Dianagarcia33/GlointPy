@@ -24,30 +24,37 @@ const COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#6366F1'
 
 export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data }) => {
   const formatCurrency = (val: number) => {
-    return `$${val.toLocaleString('es-CO')} COP`;
+    return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP`;
+  };
+
+  const formatShortAxis = (val: number) => {
+    if (val >= 1000000000) return `$${(val / 1000000000).toFixed(1)}B`;
+    if (val >= 1000000) return `$${(val / 1000000).toFixed(0)}M`;
+    if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
+    return `$${val}`;
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0">
       
       {/* Top Grid: Crecimiento de Captación + Distribución por Paquetes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full min-w-0">
         
-        {/* Gráfica 1: Crecimiento Mensual de Captación (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        {/* Gráfica 1: Crecimiento Mensual de Captación (2 cols en xl) */}
+        <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 min-w-0 overflow-hidden">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
+              <TrendingUp className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <h3 className="font-bold text-slate-800 text-base">Crecimiento de Captación ($ COP)</h3>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Crecimiento de Captación ($ COP)</h3>
                 <p className="text-xs text-slate-400">Tendencia mensual de ingresos por inversiones</p>
               </div>
             </div>
           </div>
 
-          <div className="h-64 w-full pt-2">
+          <div className="h-64 sm:h-72 w-full pt-2 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.monthly_growth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={data.monthly_growth} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10B981" stopOpacity={0.4}/>
@@ -55,7 +62,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={(val) => `$${(val / 1000000).toFixed(0)}M`} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                <YAxis width={65} tickFormatter={formatShortAxis} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                 <Area type="monotone" dataKey="capital_captado" name="Capital Captado" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorCapital)" />
               </AreaChart>
@@ -63,27 +70,27 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
           </div>
         </div>
 
-        {/* Gráfica 2: Distribución por Paquetes de Inversión (1 col) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        {/* Gráfica 2: Distribución por Paquetes de Inversión (1 col en xl) */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 min-w-0 overflow-hidden">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <PieIcon className="w-5 h-5 text-brand-600" />
+              <PieIcon className="w-5 h-5 text-brand-600 shrink-0" />
               <div>
-                <h3 className="font-bold text-slate-800 text-base">Paquetes de Inversión</h3>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Paquetes de Inversión</h3>
                 <p className="text-xs text-slate-400">Distribución de contratos contratados</p>
               </div>
             </div>
           </div>
 
-          <div className="h-64 w-full flex items-center justify-center">
+          <div className="h-64 sm:h-72 w-full flex items-center justify-center min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data.package_distribution}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
+                  cy="45%"
+                  innerRadius={50}
+                  outerRadius={75}
                   paddingAngle={4}
                   dataKey="value"
                 >
@@ -95,7 +102,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
                   `${value} contratos (${formatCurrency(item.payload.total_monto)})`,
                   item.payload.name
                 ]} />
-                <Legend iconType="circle" layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '11px' }} />
+                <Legend iconType="circle" layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -104,25 +111,25 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
       </div>
 
       {/* Bottom Grid: Balance de Liquidez + Proporción por Tipo de Venta */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full min-w-0">
         
         {/* Gráfica 3: Balance de Liquidez (Ecosistema) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 min-w-0 overflow-hidden">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-indigo-600" />
+              <BarChart3 className="w-5 h-5 text-indigo-600 shrink-0" />
               <div>
-                <h3 className="font-bold text-slate-800 text-base">Balance de Liquidez ($ COP)</h3>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Balance de Liquidez ($ COP)</h3>
                 <p className="text-xs text-slate-400">Comparativa de Fondos en el Ecosistema</p>
               </div>
             </div>
           </div>
 
-          <div className="h-60 w-full pt-2">
+          <div className="h-60 sm:h-64 w-full pt-2 min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.liquidity_balance} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <XAxis dataKey="category" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={(val) => `$${(val / 1000000).toFixed(0)}M`} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+              <BarChart data={data.liquidity_balance} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
+                <XAxis dataKey="category" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                <YAxis width={65} tickFormatter={formatShortAxis} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(val: any) => formatCurrency(Number(val))} />
                 <Bar dataKey="amount" name="Monto COP" radius={[8, 8, 0, 0]}>
                   {data.liquidity_balance.map((entry, index) => (
@@ -135,24 +142,24 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
         </div>
 
         {/* Gráfica 4: Venta Comercial por Tipos (Contratos Nuevos vs Reinversiones vs Referidos) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 min-w-0 overflow-hidden">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <Layers className="w-5 h-5 text-purple-600" />
+              <Layers className="w-5 h-5 text-purple-600 shrink-0" />
               <div>
-                <h3 className="font-bold text-slate-800 text-base">Composición por Tipo de Venta</h3>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Composición por Tipo de Venta</h3>
                 <p className="text-xs text-slate-400">Contratos Nuevos, Reinversiones y Referidos</p>
               </div>
             </div>
           </div>
 
-          <div className="h-60 w-full flex items-center justify-center">
+          <div className="h-60 sm:h-64 w-full flex items-center justify-center min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data.sales_by_type}
                   cx="50%"
-                  cy="50%"
+                  cy="45%"
                   outerRadius={75}
                   dataKey="value"
                 >
