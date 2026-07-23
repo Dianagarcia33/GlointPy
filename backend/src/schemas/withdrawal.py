@@ -35,6 +35,8 @@ class WithdrawalBase(BaseModel):
     fecha_procesamiento: Optional[datetime] = None
     comprobante_pago: Optional[str] = None
     receipt_path: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class WithdrawalCreate(WithdrawalBase):
     id: Optional[int] = None
@@ -53,8 +55,8 @@ class WithdrawalUpdate(BaseModel):
 
 class WithdrawalResponse(WithdrawalBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     user: Optional[SimpleUserResponse] = None
 
