@@ -638,6 +638,7 @@ async def create_investment_request(
     monto_billetera_usado: float = Form(0.0),
     codigo_referido: str = Form(None),
     is_upgrade: bool = Form(False),
+    investor_id: Optional[int] = Form(None),
     comprobantes: list[UploadFile] = File(default=[]),
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -674,11 +675,16 @@ async def create_investment_request(
         extra_data["monto_billetera_usado"] = monto_billetera_usado
     if codigo_referido:
         extra_data["codigo_referido"] = codigo_referido
-    if is_upgrade:
+    if is_upgrade or investor_id:
         extra_data["es_aumento_capital"] = True
+    if investor_id:
+        extra_data["investor_id"] = investor_id
+    if periodo_contrato:
+        extra_data["contract_period_id"] = periodo_contrato
         
     new_request = InvestmentRequest(
         user_id=current_user.id,
+        investor_id=investor_id,
         paquete_inversion_id=paquete_inversion_id,
         monto=monto,
         comprobante_path=comprobante_path,

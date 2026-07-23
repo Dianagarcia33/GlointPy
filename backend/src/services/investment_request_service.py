@@ -263,22 +263,123 @@ class InvestmentRequestService:
             if referred_code:
                 referred_code = str(referred_code).strip()
 
-        # 3. Create Investor automatically
-        if not req.investor_id:
-            period_id = None
-            if req.extra_data and isinstance(req.extra_data, dict):
-                period_id = req.extra_data.get("contract_period_id")
+        # 3. Determinar si es un Aumento de Capital o Inversión Nueva
+        is_upgrade = False
+        if req.extra_data and isinstance(req.extra_data, dict):
+            is_upgrade = bool(req.extra_data.get("es_aumento_capital") or req.extra_data.get("is_upgrade"))
 
-            if not period_id:
-                # Get the first period as fallback
-                period_res = await db.execute(select(Period).limit(1))
-                period = period_res.scalars().first()
-                if period:
-                    period_id = period.id
-                else:
-                    raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
+        existing_investor = None
+        if req.investor_id:
+            inv_res = await db.execute(
+                select(Investor)
+                .options(
+                    selectinload(Investor.package),
+                    selectinload(Investor.period),
+                    selectinload(Investor.withdrawals),
+                    selectinload(Investor.accelerations)
+                )
+                .where(Investor.id == req.investor_id)
+            )
+            existing_investor = inv_res.scalars().first()
 
-            # Obtener el ultimo codigo asignado que empiece con IG
+        if not existing_investor and (is_upgrade or req.investor_id):
+            inv_res = await db.execute(
+                select(Investor)
+                .options(
+                    selectinload(Investor.package),
+                    selectinload(Investor.period),
+                    selectinload(Investor.withdrawals),
+                    selectinload(Investor.accelerations)
+                )
+                .where(Investor.user_id == req.user_id)
+                .order_by(Investor.id.desc())
+            )
+            existing_investor = inv_res.scalars().first()
+
+        period_id = None
+        if req.extra_data and isinstance(req.extra_data, dict):
+            period_id = req.extra_data.get("contract_period_id")
+
+        if not period_id:
+            period_res = await db.execute(select(Period).limit(1))
+            period = period_res.scalars().first()
+            if period:
+                period_id = period.id
+            else:
+                raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
+
+        if existing_investor and (is_upgrade or req.investor_id):
+            # --- FLUJO DE AUMENTO DE CAPITAL ---
+            from decimal import Decimal
+            from datetime import timedelta
+            from src.models.wallet import Wallet, WalletStatus, WalletTransaction
+            from src.models.contract_history import ContractHistory
+            from src.services.yield_calculator import calculate_investment_yield
+
+            today = datetime.utcnow().date()
+            start_d = existing_investor.start_date.date() if existing_investor.start_date else today
+
+            # 1. Liquidar rendimientos generados hasta hoy
+            yield_res = calculate_investment_yield(existing_investor, start_d, today)
+            accrued_yield = float(yield_res.total_yield or 0.0)
+
+            # 2. Transferir rendimientos a la Wallet del usuario
+            if accrued_yield > 0:
+                wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == req.user_id))
+                wallet = wallet_res.scalars().first()
+                if not wallet:
+                    wallet = Wallet(user_id=req.user_id, balance=Decimal("0.00"), status=WalletStatus.ACTIVE)
+                    db.add(wallet)
+                    await db.flush()
+
+                old_balance = float(wallet.balance or 0.0)
+                new_balance = old_balance + accrued_yield
+                wallet.balance = Decimal(str(new_balance))
+
+                tx = WalletTransaction(
+                    wallet_id=wallet.id,
+                    amount=Decimal(str(accrued_yield)),
+                    type="yield",
+                    reference_type="investment_upgrade",
+                    reference_id=existing_investor.id,
+                    description=f"Rendimiento liquidado por aumento de capital (Contrato #{existing_investor.id})",
+                    balance_after=Decimal(str(new_balance))
+                )
+                db.add(tx)
+
+            # 3. Guardar snapshot en ContractHistory
+            old_days = existing_investor.period.days if existing_investor.period else 365
+            fecha_fin_prev = start_d + timedelta(days=int(old_days))
+            old_pkg_val = float(existing_investor.package.value or 0) if existing_investor.package else float(req.monto)
+            old_pct = f"{existing_investor.period.percentage}%" if existing_investor.period else "0%"
+
+            history = ContractHistory(
+                investor_id=existing_investor.id,
+                paquete_inversion_id=existing_investor.package_id,
+                contract_period_id=existing_investor.period_id,
+                fecha_inicio=start_d,
+                fecha_fin=fecha_fin_prev,
+                dias_contrato=int(old_days),
+                total_contrato=Decimal(str(old_pkg_val)),
+                tasa_interes=old_pct,
+                rendimiento_total_generado=Decimal(str(accrued_yield)),
+                rendimiento_total_pagado=Decimal(str(accrued_yield)),
+                motivo="Aumento de capital",
+                observaciones=f"Actualización de contrato de paquete #{existing_investor.package_id} a paquete #{req.paquete_inversion_id}"
+            )
+            db.add(history)
+
+            # 4. Actualizar contrato existente
+            existing_investor.package_id = req.paquete_inversion_id
+            if period_id:
+                existing_investor.period_id = period_id
+            existing_investor.start_date = datetime.utcnow()
+
+            req.investor_id = existing_investor.id
+            logger.info(f"Contrato #{existing_investor.id} actualizado por Aumento de Capital. Rendimientos liquidados a la wallet: {accrued_yield}")
+
+        else:
+            # --- FLUJO DE INVERSIÓN INICIAL (NUEVO CONTRATO) ---
             investors_codes = await db.execute(
                 select(Investor.assigned_code)
                 .where(Investor.assigned_code.like("IG%"))
@@ -288,7 +389,6 @@ class InvestmentRequestService:
             max_num = 0
             for c in codes:
                 try:
-                    # Remover 'IG' y convertir a entero
                     num = int(c[2:].strip())
                     if num > max_num:
                         max_num = num

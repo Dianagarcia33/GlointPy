@@ -67,6 +67,7 @@ export const InvestmentDetailPage = () => {
                 isOpen={isUpgradeModalOpen} 
                 onClose={() => setIsUpgradeModalOpen(false)} 
                 isUpgrade={true}
+                investorId={inv.id}
                 currentPackageId={inv.paquete?.id}
                 currentPeriodId={inv.periodo?.id}
             />
