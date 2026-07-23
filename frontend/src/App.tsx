@@ -31,6 +31,7 @@ import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvest
 import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
+import { CommercialDashboardPage } from "./features/commercial/pages/CommercialDashboardPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
@@ -99,6 +100,7 @@ function App() {
         <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
         <Route path="system-events" element={<SystemEventsPage />} />
         <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
+        <Route path="commercial" element={<CommercialDashboardPage />} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}

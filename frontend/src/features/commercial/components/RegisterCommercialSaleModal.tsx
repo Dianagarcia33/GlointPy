@@ -1,0 +1,363 @@
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2 } from 'lucide-react';
+import { commercialService, CommercialClientCheckResponse } from '../../../services/commercial';
+
+interface RegisterCommercialSaleModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  currentAccumulatedDirect?: number;
+}
+
+export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  currentAccumulatedDirect = 0
+}) => {
+  const [clientDocument, setClientDocument] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [saleType, setSaleType] = useState<'contrato_nuevo' | 'reinversion' | 'referido'>('contrato_nuevo');
+  const [amount, setAmount] = useState<string>('');
+  const [referrerCode, setReferrerCode] = useState('');
+
+  const [isCheckingClient, setIsCheckingClient] = useState(false);
+  const [clientInfo, setClientInfo] = useState<CommercialClientCheckResponse | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen) return null;
+
+  const handleCheckClient = async () => {
+    if (!clientDocument.trim()) return;
+    setIsCheckingClient(true);
+    setError(null);
+    try {
+      const res = await commercialService.checkClient(clientDocument.trim());
+      setClientInfo(res);
+      if (res.is_existing_client) {
+        setSaleType('referido');
+        if (res.client_name) setClientName(res.client_name);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al validar el documento del cliente');
+    } finally {
+      setIsCheckingClient(false);
+    }
+  };
+
+  const numericAmount = Number(amount) || 0;
+  const THRESHOLD = 36000000;
+
+  // Cálculo en vivo de la partición marginal o referido
+  let estimatedCommission = 0;
+  let tramoA = 0;
+  let tramoB = 0;
+  let effectiveRate = 0.03;
+
+  if (saleType === 'referido') {
+    effectiveRate = 0.018;
+    estimatedCommission = numericAmount * 0.018;
+  } else {
+    if (currentAccumulatedDirect >= THRESHOLD) {
+      tramoB = numericAmount;
+      effectiveRate = 0.035;
+      estimatedCommission = numericAmount * 0.035;
+    } else if (currentAccumulatedDirect + numericAmount <= THRESHOLD) {
+      tramoA = numericAmount;
+      effectiveRate = 0.030;
+      estimatedCommission = numericAmount * 0.030;
+    } else {
+      tramoA = THRESHOLD - currentAccumulatedDirect;
+      tramoB = numericAmount - tramoA;
+      estimatedCommission = (tramoA * 0.030) + (tramoB * 0.035);
+      effectiveRate = numericAmount > 0 ? estimatedCommission / numericAmount : 0.030;
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientDocument.trim()) {
+      setError('Por favor ingresa el documento del cliente');
+      return;
+    }
+    if (numericAmount <= 0) {
+      setError('Por favor ingresa un monto mayor a cero');
+      return;
+    }
+    if (saleType === 'referido' && !referrerCode.trim() && !clientInfo?.is_existing_client) {
+      setError('Por favor ingresa el código del cliente que realizó la recomendación');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await commercialService.createSale({
+        client_document: clientDocument.trim(),
+        client_name: clientName.trim() || undefined,
+        sale_type: saleType,
+        amount: numericAmount,
+        referrer_code: referrerCode.trim() || undefined
+      });
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Error al adjudicar la venta comercial');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        
+        {/* Modal Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-brand-100 text-brand-700 rounded-xl">
+              <Calculator className="w-5 h-5 text-brand-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Registrar / Adjudicar Venta</h3>
+              <p className="text-xs text-slate-500">Clasificación Obligatoria • Comisiones Marginales</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form Content */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+          {error && (
+            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Documento del Cliente */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Documento de Identidad del Cliente *
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={clientDocument}
+                onChange={(e) => setClientDocument(e.target.value)}
+                onBlur={handleCheckClient}
+                placeholder="Ej. 1098765432"
+                className="w-full pl-3.5 pr-24 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-mono"
+                required
+              />
+              <button
+                type="button"
+                onClick={handleCheckClient}
+                disabled={isCheckingClient || !clientDocument.trim()}
+                className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
+              >
+                {isCheckingClient ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                Validar
+              </button>
+            </div>
+          </div>
+
+          {/* Banner de Validación del Cliente */}
+          {clientInfo && (
+            clientInfo.is_existing_client ? (
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                  <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Cliente Existente en Plataforma</span>
+                </div>
+                <p className="text-amber-800 leading-relaxed">
+                  Por regla de negocio, esta venta se ha clasificado automáticamente como <strong className="font-extrabold text-amber-950">REFERIDO (1.8% Fijo)</strong>. Las opciones de Contrato Nuevo y Reinversión están bloqueadas.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs flex items-center gap-2 text-emerald-800 font-medium">
+                <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Cliente Nuevo en el Sistema • Opciones unlocked (3.0% / 3.5%)</span>
+              </div>
+            )
+          )}
+
+          {/* Nombre del Cliente */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Nombre Completo del Cliente
+            </label>
+            <input
+              type="text"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              placeholder="Ej. Juan Pérez"
+              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+            />
+          </div>
+
+          {/* Clasificación de la Venta */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Clasificación Comercial de la Venta *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setSaleType('contrato_nuevo')}
+                disabled={clientInfo?.is_existing_client}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  saleType === 'contrato_nuevo'
+                    ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                } ${clientInfo?.is_existing_client ? 'opacity-40 cursor-not-allowed' : ''}`}
+              >
+                📄 Contrato Nuevo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSaleType('reinversion')}
+                disabled={clientInfo?.is_existing_client}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  saleType === 'reinversion'
+                    ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                } ${clientInfo?.is_existing_client ? 'opacity-40 cursor-not-allowed' : ''}`}
+              >
+                🔄 Reinversión
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSaleType('referido')}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  saleType === 'referido'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                👥 Referido (1.8%)
+              </button>
+            </div>
+          </div>
+
+          {/* Código del Recomendador en caso de Referido */}
+          {saleType === 'referido' && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Código del Cliente Recomendador (Origen) *
+              </label>
+              <input
+                type="text"
+                value={referrerCode}
+                onChange={(e) => setReferrerCode(e.target.value)}
+                placeholder="Ej. IG1974"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 uppercase font-mono"
+                required
+              />
+            </div>
+          )}
+
+          {/* Monto de la Venta */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Monto de la Venta ($ COP) *
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">$</span>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="10000000"
+                className="w-full pl-8 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Previsualización en Vivo del Cálculo Marginal */}
+          {numericAmount > 0 && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200 pb-1.5">
+                Previsualización del Cálculo de Comisión:
+              </span>
+              
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600">Tasa Efectiva Aplicada:</span>
+                <span className="font-extrabold text-brand-600 text-sm">
+                  {(effectiveRate * 100).toFixed(2)}%
+                </span>
+              </div>
+
+              {saleType !== 'referido' && (tramoA > 0 || tramoB > 0) && (
+                <div className="space-y-1 text-[11px] bg-white p-2.5 rounded-lg border border-slate-200/70 mt-1">
+                  {tramoA > 0 && (
+                    <div className="flex justify-between text-slate-600">
+                      <span>Tramo Base (3.0% hasta $36M):</span>
+                      <span className="font-mono font-bold">${tramoA.toLocaleString('es-CO')} COP</span>
+                    </div>
+                  )}
+                  {tramoB > 0 && (
+                    <div className="flex justify-between text-emerald-700 font-semibold">
+                      <span>Tramo Excedente (3.5% superando $36M):</span>
+                      <span className="font-mono font-bold">${tramoB.toLocaleString('es-CO')} COP</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-between items-center text-sm font-bold pt-2 border-t border-slate-200">
+                <span className="text-slate-800">Comisión Directa a Wallet:</span>
+                <span className="text-emerald-700 text-base">
+                  +${estimatedCommission.toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Buttons */}
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || numericAmount <= 0}
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Adjudicar Venta
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>,
+    document.body
+  );
+};
