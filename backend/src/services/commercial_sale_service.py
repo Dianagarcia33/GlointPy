@@ -96,6 +96,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     # Buscar en inversionistas por código o usuario
     investor_res = await db.execute(
         select(Investor)
+        .options(selectinload(Investor.user))
         .join(User)
         .where(
             or_(
