@@ -16,9 +16,12 @@ export const AdminUsersPage = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isTableLoading, setIsTableLoading] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -26,6 +29,15 @@ export const AdminUsersPage = () => {
 
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   const handleConfirmResetPassword = async () => {
     if (!resettingUser) return;
@@ -43,7 +55,7 @@ export const AdminUsersPage = () => {
   };
 
   const fetchData = async () => {
-    setIsLoading(true);
+    setIsTableLoading(true);
     try {
       const usersData = await usersService.getUsers({
         page,
@@ -58,10 +70,12 @@ export const AdminUsersPage = () => {
       setUsers(usersData.data);
       setTotal(usersData.total);
       setRoles(rolesData);
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Error al cargar los usuarios.');
     } finally {
-      setIsLoading(false);
+      setIsTableLoading(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -88,7 +102,7 @@ export const AdminUsersPage = () => {
     fetchData();
   };
 
-  if (isLoading) {
+  if (isInitialLoading) {
       return (
           <div className="flex justify-center items-center h-64">
               <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
@@ -144,12 +158,14 @@ export const AdminUsersPage = () => {
             type="text" 
             placeholder="Buscar por nombre, correo o documento..." 
             className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
+          {isTableLoading && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+            </div>
+          )}
         </div>
         <div className="w-full md:w-48">
           <select 
