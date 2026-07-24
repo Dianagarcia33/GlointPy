@@ -338,15 +338,15 @@ export const AdminInvestorsPage = () => {
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
-                <th className="px-4 py-4 w-10"></th>
-                <th className="px-6 py-4">ID</th>
-                <th className="px-6 py-4">Código / Ref.</th>
-                <th className="px-6 py-4">Usuario</th>
-                <th className="px-6 py-4">Paquete / Periodo</th>
-                <th className="px-6 py-4">Bonos Aceleración</th>
-                <th className="px-6 py-4">Fechas</th>
+                <th className="px-3 py-3 w-8"></th>
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Código / Ref.</th>
+                <th className="px-4 py-3">Usuario</th>
+                <th className="px-4 py-3">Paquete / Periodo</th>
+                <th className="px-4 py-3">Bonos Aceleración</th>
+                <th className="px-4 py-3">Fechas</th>
                 <Can permission="admin.investors.manage">
-                  <th className="px-6 py-4 text-center">Acciones</th>
+                  <th className="px-4 py-3 text-center whitespace-nowrap min-w-[280px]">Acciones</th>
                 </Can>
               </tr>
             </thead>
@@ -383,16 +383,16 @@ export const AdminInvestorsPage = () => {
                           </button>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                      <td className="px-4 py-3.5 font-mono text-xs text-slate-500">
                         #{investor.id}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         <div className="font-semibold text-slate-800">{investor.assigned_code}</div>
                         {investor.referred_by && (
                             <div className="text-xs text-slate-500">Ref: {investor.referred_by}</div>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         {investor.user ? (
                             <div className="space-y-0.5">
                                 <div className="font-semibold text-slate-800">{investor.user.name}</div>
@@ -414,7 +414,7 @@ export const AdminInvestorsPage = () => {
                             <span className="text-slate-400">Desconocido</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-brand-50 text-brand-700">
                           {investor.package ? `$${investor.package.value.toLocaleString('es-CO')} COP` : 'Desconocido'}
                         </span>
@@ -451,7 +451,7 @@ export const AdminInvestorsPage = () => {
                         })()}
                       </td>
 
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         {(() => {
                           const accelerations = investor.accelerations || [];
                           const totalBonus = investor.total_acceleration_bonus ?? accelerations.reduce((sum, a) => sum + (Number(a.bonus_amount) || 0), 0);
@@ -470,7 +470,7 @@ export const AdminInvestorsPage = () => {
                           );
                         })()}
                       </td>
-                      <td className="px-6 py-4 text-xs space-y-2">
+                      <td className="px-4 py-3.5 text-xs space-y-2">
                           <div className="space-y-1">
                             <div className="flex justify-between w-40">
                                 <span className="text-slate-500">Ingreso:</span>
@@ -512,7 +512,7 @@ export const AdminInvestorsPage = () => {
                           })()}
                       </td>
                       <Can permission="admin.investors.manage">
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap min-w-[280px]">
                           <div className="flex items-center justify-center gap-2">
                             <button 
                               onClick={() => setSelectedInvestorForUpgrade(investor)}
