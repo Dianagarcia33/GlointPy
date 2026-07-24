@@ -1,4 +1,4 @@
-import { api } from './api';
+import { fetchApi } from './api';
 
 export interface DocumentTemplate {
     id: number;
@@ -32,26 +32,30 @@ export interface DocumentTemplateUpdate {
 
 export const templatesService = {
     getTemplates: async (): Promise<DocumentTemplate[]> => {
-        const response = await api.get<DocumentTemplate[]>('/templates');
-        return response.data;
+        return await fetchApi('/templates');
     },
 
     getTemplate: async (id: number): Promise<DocumentTemplate> => {
-        const response = await api.get<DocumentTemplate>(`/templates/${id}`);
-        return response.data;
+        return await fetchApi(`/templates/${id}`);
     },
 
     createTemplate: async (data: DocumentTemplateCreate): Promise<DocumentTemplate> => {
-        const response = await api.post<DocumentTemplate>('/templates', data);
-        return response.data;
+        return await fetchApi('/templates', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
     },
 
     updateTemplate: async (id: number, data: DocumentTemplateUpdate): Promise<DocumentTemplate> => {
-        const response = await api.put<DocumentTemplate>(`/templates/${id}`, data);
-        return response.data;
+        return await fetchApi(`/templates/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
     },
 
     deleteTemplate: async (id: number): Promise<void> => {
-        await api.delete(`/templates/${id}`);
+        await fetchApi(`/templates/${id}`, {
+            method: 'DELETE'
+        });
     }
 };
