@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { PotentialReferral, PotentialReferralCreate, PotentialReferralUpdate, potentialReferralsService } from '../../../services/potential_referrals';
-import { X, Loader2, UserPlus, Phone, Mail, FileText, CheckCircle } from 'lucide-react';
+import { X, Loader2, UserPlus, Phone, Mail, FileText, CheckCircle, Tag } from 'lucide-react';
 
 interface ReferralModalProps {
     isOpen: boolean;
@@ -25,9 +25,25 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
     const [email, setEmail] = useState('');
     const [estado, setEstado] = useState('pendiente');
     const [notas, setNotas] = useState('');
+    const [codigoReferido, setCodigoReferido] = useState('');
+    const [myCodes, setMyCodes] = useState<string[]>([]);
     
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Carga de códigos asignados de las inversiones del usuario logueado
+    useEffect(() => {
+        if (isOpen && !isAdmin) {
+            potentialReferralsService.getMyCodes()
+                .then((codes: string[]) => {
+                    setMyCodes(codes || []);
+                    if (codes && codes.length > 0 && !referral) {
+                        setCodigoReferido(codes[0]);
+                    }
+                })
+                .catch((err: any) => console.error("Error al cargar códigos de inversión del usuario", err));
+        }
+    }, [isOpen, isAdmin, referral]);
 
     useEffect(() => {
         if (referral) {
@@ -36,15 +52,19 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             setEmail(referral.email || '');
             setEstado(referral.estado || 'pendiente');
             setNotas(referral.notas || '');
+            setCodigoReferido(referral.codigo_referido || '');
         } else {
             setNombre('');
             setTelefono('');
             setEmail('');
             setEstado('pendiente');
             setNotas('');
+            if (myCodes.length > 0) {
+                setCodigoReferido(myCodes[0]);
+            }
         }
         setError(null);
-    }, [referral, isOpen]);
+    }, [referral, isOpen, myCodes]);
 
     if (!isOpen) return null;
 
@@ -86,6 +106,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                     nombre: nombre.trim(),
                     telefono: telefono.trim(),
                     email: email.trim() || null,
+                    codigo_referido: codigoReferido.trim() || null,
                     notas: notas.trim() || null,
                 };
                 await potentialReferralsService.createMyReferral(payload);
@@ -174,6 +195,37 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                         </div>
                     </div>
 
+                    {/* Selector de Código Asignado de las Inversiones del Inversionista */}
+                    {!isAdmin && !referral && (
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-700">Código de Inversión / Referido *</label>
+                            {myCodes.length > 0 ? (
+                                <div className="relative">
+                                    <select
+                                        value={codigoReferido}
+                                        onChange={(e) => setCodigoReferido(e.target.value)}
+                                        className="w-full pl-4 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-mono font-bold text-slate-900 cursor-pointer"
+                                        required
+                                    >
+                                        {myCodes.map(code => (
+                                            <option key={code} value={code}>{code}</option>
+                                        ))}
+                                    </select>
+                                    <Tag className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+                                </div>
+                            ) : (
+                                <input
+                                    type="text"
+                                    value={codigoReferido}
+                                    onChange={(e) => setCodigoReferido(e.target.value)}
+                                    placeholder="Ej. IG1000"
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-mono font-bold text-slate-900"
+                                    required
+                                />
+                            )}
+                        </div>
+                    )}
+
                     {isAdmin && (
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-700">Estado del Referido</label>
@@ -222,7 +274,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                         type="submit"
                         form="referral-form"
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 cursor-pointer font-montserrat"
                     >
                         {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                         Guardar Referido

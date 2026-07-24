@@ -36,6 +36,10 @@ export const potentialReferralsService = {
         return await fetchApi('/potential-referrals/me');
     },
 
+    getMyCodes: async (): Promise<string[]> => {
+        return await fetchApi('/potential-referrals/my-codes');
+    },
+
     createMyReferral: async (data: PotentialReferralCreate): Promise<PotentialReferral> => {
         return await fetchApi('/potential-referrals/me', {
             method: 'POST',
