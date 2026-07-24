@@ -16,6 +16,13 @@ async def get_my_potential_referrals(
 ):
     return await PotentialReferralService.get_by_user_id(db, current_user.id)
 
+@router.get("/my-codes", response_model=List[str], dependencies=[Depends(RequirePermission("referrals:view"))])
+async def get_my_referral_codes(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return await PotentialReferralService.get_my_codes(db, current_user.id)
+
 @router.post("/me", response_model=PotentialReferralResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("referrals:view"))])
 async def create_my_potential_referral(
     data: PotentialReferralCreate,
