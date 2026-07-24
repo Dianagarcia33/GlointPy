@@ -37,6 +37,7 @@ PERMISSIONS = [
     {"name": "sarlaft:check", "description": "Realizar consultas Sarlaft", "module": "sarlaft"},
     {"name": "beneficiaries:view", "description": "Ver y gestionar beneficiarios", "module": "beneficiaries"},
     {"name": "referrals:view", "description": "Ver y gestionar referidos potenciales", "module": "referrals"},
+    {"name": "admin.referrals.manage", "description": "Gestionar referidos potenciales comerciales", "module": "referrals"},
 ]
 
 async def seed_permissions_db(db):

@@ -216,7 +216,7 @@ export const Sidebar = () => {
                     </NavLink>
                 </Can>
 
-                <Can permission="admin.users.manage">
+                <Can permission="admin.referrals.manage">
                     <NavLink
                         to="/dashboard/admin-referrals"
                         className={({ isActive }) => `

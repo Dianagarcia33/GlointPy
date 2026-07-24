@@ -24,7 +24,7 @@ async def create_my_potential_referral(
 ):
     return await PotentialReferralService.create_by_user(db, current_user.id, data)
 
-@router.get("/admin", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+@router.get("/admin", dependencies=[Depends(RequirePermission("admin.referrals.manage"))])
 async def get_all_potential_referrals_admin(
     search: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
