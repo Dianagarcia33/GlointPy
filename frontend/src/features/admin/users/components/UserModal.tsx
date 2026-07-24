@@ -24,6 +24,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
   
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
   const assignableRoles = roles.filter(r => r.name !== 'inversionista' && r.name !== 'cliente');
 
@@ -51,6 +52,21 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
     }
     setError(null);
   }, [user, isOpen]);
+
+  const handleCreateWalletInModal = async () => {
+    if (!user) return;
+    setIsCreatingWallet(true);
+    try {
+      await usersService.createWallet(user.id);
+      alert(`¡Billetera creada exitosamente para ${user.name}!`);
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Error al crear la billetera');
+    } finally {
+      setIsCreatingWallet(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -90,23 +106,6 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
       setError(err.message || 'Error al guardar el usuario');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
-
-  const handleCreateWalletInModal = async () => {
-    if (!user) return;
-    setIsCreatingWallet(true);
-    try {
-      await usersService.createWallet(user.id);
-      alert(`¡Billetera creada exitosamente para ${user.name}!`);
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Error al crear la billetera');
-    } finally {
-      setIsCreatingWallet(false);
     }
   };
 
