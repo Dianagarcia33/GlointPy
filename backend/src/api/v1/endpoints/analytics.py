@@ -158,7 +158,7 @@ async def get_admin_analytics_dashboard(
     }
 
 
-@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "director.dashboard.view", "admin.users.manage"]))])
+@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage"]))])
 async def get_director_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
