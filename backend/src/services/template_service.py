@@ -1,44 +1,48 @@
-from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Sequence
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from fastapi import HTTPException, status
 from src.models.template import Template
 from src.schemas.template import TemplateCreate, TemplateUpdate
 
 class TemplateService:
     @staticmethod
-    def get_all(db: Session) -> List[Template]:
-        return db.query(Template).order_by(Template.id.desc()).all()
+    async def get_all(db: AsyncSession) -> Sequence[Template]:
+        result = await db.execute(select(Template).order_by(Template.id.desc()))
+        return result.scalars().all()
 
     @staticmethod
-    def get_by_id(db: Session, template_id: int) -> Optional[Template]:
-        return db.query(Template).filter(Template.id == template_id).first()
+    async def get_by_id(db: AsyncSession, template_id: int) -> Template:
+        result = await db.execute(select(Template).where(Template.id == template_id))
+        template = result.scalars().first()
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Plantilla no encontrada"
+            )
+        return template
 
     @staticmethod
-    def create(db: Session, data: TemplateCreate) -> Template:
+    async def create(db: AsyncSession, data: TemplateCreate) -> Template:
         db_template = Template(**data.model_dump())
         db.add(db_template)
-        db.commit()
-        db.refresh(db_template)
+        await db.commit()
+        await db.refresh(db_template)
         return db_template
 
     @staticmethod
-    def update(db: Session, template_id: int, data: TemplateUpdate) -> Optional[Template]:
-        db_template = db.query(Template).filter(Template.id == template_id).first()
-        if not db_template:
-            return None
-        
+    async def update(db: AsyncSession, template_id: int, data: TemplateUpdate) -> Template:
+        db_template = await TemplateService.get_by_id(db, template_id)
         update_data = data.model_dump(exclude_unset=True)
         for field, val in update_data.items():
             setattr(db_template, field, val)
 
-        db.commit()
-        db.refresh(db_template)
+        await db.commit()
+        await db.refresh(db_template)
         return db_template
 
     @staticmethod
-    def delete(db: Session, template_id: int) -> bool:
-        db_template = db.query(Template).filter(Template.id == template_id).first()
-        if not db_template:
-            return False
-        db.delete(db_template)
-        db.commit()
-        return True
+    async def delete(db: AsyncSession, template_id: int) -> None:
+        db_template = await TemplateService.get_by_id(db, template_id)
+        await db.delete(db_template)
+        await db.commit()
