@@ -129,7 +129,7 @@ export const CommercialDashboardPage: React.FC = () => {
   const remaining = summary?.remaining_for_36m || 0;
   const progressPercent = Math.min(100, Math.round((directAccum / threshold) * 100));
 
-  const canSettle = user?.is_superuser === true || user?.permissions?.includes('admin.commercial.manage') === true;
+  const canSettle = user?.is_superuser === true || user?.permissions?.includes('admin.commissions.settle') === true;
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">

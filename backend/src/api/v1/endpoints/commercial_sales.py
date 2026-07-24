@@ -426,7 +426,7 @@ async def get_pending_settlement_breakdown(
         ]
     }
 
-@router.post("/settle", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
+@router.post("/settle", dependencies=[Depends(RequirePermission("admin.commissions.settle"))])
 async def settle_commissions(
     req: SettleCommissionsRequest,
     current_user: User = Depends(get_current_user),

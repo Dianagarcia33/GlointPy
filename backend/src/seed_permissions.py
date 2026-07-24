@@ -15,6 +15,7 @@ PERMISSIONS = [
     # Módulo Comercial
     {"name": "commercial:view", "description": "Acceder y ver el panel comercial", "module": "commercial"},
     {"name": "admin.commercial.manage", "description": "Gestionar, auditar y adjudicar ventas comerciales del equipo", "module": "commercial"},
+    {"name": "admin.commissions.settle", "description": "Liquidar comisiones y registrar comprobantes bancarios de dispersión", "module": "commercial"},
 
     # Módulo Administración
     {"name": "admin.roles.manage", "description": "Gestionar roles y permisos del sistema", "module": "admin"},
