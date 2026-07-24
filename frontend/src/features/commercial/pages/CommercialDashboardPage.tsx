@@ -129,6 +129,8 @@ export const CommercialDashboardPage: React.FC = () => {
   const remaining = summary?.remaining_for_36m || 0;
   const progressPercent = Math.min(100, Math.round((directAccum / threshold) * 100));
 
+  const canSettle = user?.is_superuser === true || user?.permissions?.includes('admin.commercial.manage') === true;
+
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       
@@ -147,24 +149,24 @@ export const CommercialDashboardPage: React.FC = () => {
         </div>
 
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => setIsSettleModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all text-xs font-bold shadow-lg shadow-emerald-600/20 cursor-pointer"
-              >
-                <DollarSign className="w-4 h-4" />
-                Liquidar Comisiones
-              </button>
+          {canSettle && (
+            <button
+              onClick={() => setIsSettleModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all text-xs font-bold shadow-lg shadow-emerald-600/20 cursor-pointer"
+            >
+              <DollarSign className="w-4 h-4" />
+              Liquidar Comisiones
+            </button>
+          )}
 
-              <button
-                onClick={exportToCSV}
-                className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                Exportar CSV
-              </button>
-            </>
+          {isAdmin && (
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              Exportar CSV
+            </button>
           )}
 
           <button
@@ -623,7 +625,7 @@ export const CommercialDashboardPage: React.FC = () => {
       />
 
       {/* Modal para Liquidar Comisiones */}
-      {isAdmin && (
+      {canSettle && (
         <SettleCommissionsModal
           isOpen={isSettleModalOpen}
           onClose={() => setIsSettleModalOpen(false)}
