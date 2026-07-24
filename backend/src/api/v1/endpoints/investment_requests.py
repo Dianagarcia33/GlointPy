@@ -42,19 +42,25 @@ async def bulk_upload_investment_requests(file: UploadFile = File(...), db: Asyn
 from src.api.deps import get_current_user
 from pydantic import BaseModel
 
+class ApproveRequestPayload(BaseModel):
+    commercial_id: Optional[int] = None
+
 class RejectRequestPayload(BaseModel):
     rejection_reason: str
 
 @router.post("/{request_id}/approve", dependencies=[Depends(RequirePermission("admin.investments.manage"))])
 async def approve_investment_request(
     request_id: int,
+    payload: Optional[ApproveRequestPayload] = None,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Approve an investment request and automatically create the Investor.
+    Optionally accepts commercial_id to adjudicate sale volume.
     """
-    return await InvestmentRequestService.approve_request(db, request_id, current_user.id)
+    c_id = payload.commercial_id if payload else None
+    return await InvestmentRequestService.approve_request(db, request_id, current_user.id, override_commercial_id=c_id)
 
 @router.post("/{request_id}/reject", dependencies=[Depends(RequirePermission("admin.investments.manage"))])
 async def reject_investment_request(

@@ -246,7 +246,7 @@ class InvestmentRequestService:
         return {"success": success_count, "errors": errors}
 
     @staticmethod
-    async def approve_request(db: AsyncSession, request_id: int, user_id: int) -> InvestmentRequest:
+    async def approve_request(db: AsyncSession, request_id: int, user_id: int, override_commercial_id: Optional[int] = None) -> InvestmentRequest:
         import random
         from src.models.investor import Investor
         from src.models.period import Period
@@ -486,10 +486,14 @@ class InvestmentRequestService:
                     f"monto_bono={bonus_amount}, días_reducidos={days_to_reduce}"
                 )
 
-        # 5. Adjudicar venta comercial si se seleccionó un Directivo de Inversiones al registrarse
-        c_id = None
-        if req.extra_data and isinstance(req.extra_data, dict):
+        # 5. Adjudicar venta comercial si se seleccionó un Directivo de Inversiones
+        c_id = override_commercial_id
+        if c_id is None and req.extra_data and isinstance(req.extra_data, dict):
             c_id = req.extra_data.get("commercial_id")
+        
+        if c_id is None:
+            user_res = await db.execute(select(User.commercial_id).where(User.id == req.user_id))
+            c_id = user_res.scalar_one_or_none()
         
         if c_id:
             try:

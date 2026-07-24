@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
-import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
+import { commercialService } from '../../../../services/commercial';
+import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { formatCurrency } from '../../../../utils/format';
 import { getMediaUrl } from '../../../../services/api';
@@ -56,12 +57,32 @@ export const InvestmentRequestsTable = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedRequestToReview, setSelectedRequestToReview] = useState<InvestmentRequest | null>(null);
+  const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string; email?: string }>>([]);
+  const [selectedCommercialId, setSelectedCommercialId] = useState<string>('');
+
+  useEffect(() => {
+    commercialService.getPublicAdvisors()
+      .then(res => setCommercialUsers(res))
+      .catch(() => setCommercialUsers([]));
+  }, []);
+
+  useEffect(() => {
+    if (selectedRequestToReview) {
+      const existingCommercialId = selectedRequestToReview.extra_data?.commercial_id;
+      if (existingCommercialId) {
+        setSelectedCommercialId(existingCommercialId.toString());
+      } else {
+        setSelectedCommercialId('');
+      }
+    }
+  }, [selectedRequestToReview]);
 
   const handleApproveConfirm = async () => {
     if (!selectedRequestToReview) return;
     try {
       setIsProcessing(true);
-      await approveInvestmentRequest(selectedRequestToReview.id);
+      const cId = selectedCommercialId ? parseInt(selectedCommercialId) : null;
+      await approveInvestmentRequest(selectedRequestToReview.id, cId);
       setSelectedRequestToReview(null);
       await fetchData();
     } catch (err: any) {
@@ -851,7 +872,36 @@ export const InvestmentRequestsTable = () => {
               )}
             </div>
 
-            <div className="mt-8 flex justify-end gap-3 pt-4 border-t border-slate-100">
+            {/* Directivo de Inversiones / Adjudicación Comercial */}
+            <div className="mt-6 bg-brand-50/60 p-4 border border-brand-200/80 rounded-xl space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-xs font-bold text-brand-900 flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-brand-600" /> Adjudicar Venta Comercial a Directivo de Inversiones
+                </label>
+                {selectedRequestToReview.extra_data?.commercial_id && (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    ✨ Seleccionado por el cliente en su solicitud
+                  </span>
+                )}
+              </div>
+              <select
+                value={selectedCommercialId}
+                onChange={(e) => setSelectedCommercialId(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-brand-200 rounded-lg text-slate-800 text-xs font-semibold focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">Sin Adjudicación / Ninguno (No genera comisión comercial)</option>
+                {commercialUsers.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} ({u.email || 'Sin correo'})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-500">
+                Al aprobar la solicitud, la venta se adjudicará al Directivo de Inversiones seleccionado para sumar a su volumen y comisiones.
+              </p>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-100">
               <button
                 onClick={() => setSelectedRequestToReview(null)}
                 className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors"

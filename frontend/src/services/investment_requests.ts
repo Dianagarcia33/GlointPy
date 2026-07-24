@@ -47,9 +47,10 @@ export const bulkUploadInvestmentRequests = async (file: File) => {
   return response;
 };
 
-export const approveInvestmentRequest = async (id: number) => {
+export const approveInvestmentRequest = async (id: number, commercial_id?: number | null) => {
   return await fetchApi(`/investment-requests/${id}/approve`, {
     method: 'POST',
+    body: JSON.stringify({ commercial_id: commercial_id ? Number(commercial_id) : null })
   });
 };
 
