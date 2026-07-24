@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { periodsService, Period } from '../../../../services/periods';
 import { PeriodModal } from '../components/PeriodModal';
-import { Plus, Edit2, CalendarDays, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, CalendarDays, Loader2, Trash2, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 export const AdminPeriodsPage = () => {
   const [periods, setPeriods] = useState<Period[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<Period | null>(null);
+  
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -39,14 +43,20 @@ export const AdminPeriodsPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este periodo?')) {
-      try {
-        await periodsService.deletePeriod(id);
-        fetchData();
-      } catch (err: any) {
-        alert(err.message || 'Error al eliminar el periodo');
-      }
+  const confirmDelete = async () => {
+    if (!deletingId) return;
+    try {
+      setIsDeleting(true);
+      setError(null);
+      await periodsService.deletePeriod(deletingId);
+      setSuccess('Periodo eliminado correctamente.');
+      setTimeout(() => setSuccess(null), 5000);
+      setDeletingId(null);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar el periodo');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -56,15 +66,25 @@ export const AdminPeriodsPage = () => {
   };
 
   const handleSaved = () => {
+    setSuccess(editingPeriod ? 'Periodo actualizado con éxito.' : 'Nuevo periodo creado con éxito.');
+    setTimeout(() => setSuccess(null), 5000);
     fetchData();
   };
 
   if (isLoading) {
       return (
-          <div className="flex items-center justify-center h-64">
-              <div className="flex flex-col items-center gap-2 text-slate-500">
-                  <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-                  <p className="text-sm font-medium">Cargando periodos...</p>
+          <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-pulse">
+              <div className="bg-slate-900/90 rounded-3xl p-8 h-40 shadow-xl relative overflow-hidden flex flex-col justify-center space-y-3">
+                  <div className="h-5 w-48 bg-slate-800 rounded-full"></div>
+                  <div className="h-8 w-64 bg-slate-800 rounded-xl"></div>
+              </div>
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 h-96 space-y-4">
+                  <div className="h-6 w-48 bg-slate-200 rounded"></div>
+                  <div className="space-y-3 pt-2">
+                      {[1, 2, 3, 4, 5].map(i => (
+                          <div key={i} className="h-12 bg-slate-100 rounded-2xl w-full"></div>
+                      ))}
+                  </div>
               </div>
           </div>
       );
@@ -72,57 +92,80 @@ export const AdminPeriodsPage = () => {
 
   if (error) {
       return (
-          <div className="p-6 bg-red-50 rounded-xl border border-red-100 flex items-start gap-3">
-              <div className="text-red-600 font-medium">
-                  <p>Error al cargar los datos</p>
+          <div className="w-full max-w-7xl mx-auto p-6 bg-red-50 border border-red-200 rounded-3xl flex items-start gap-4 text-red-700 shadow-xs">
+              <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
+              <div>
+                  <h3 className="font-bold font-montserrat text-base">Error al cargar datos</h3>
                   <p className="text-sm mt-1">{error}</p>
-                  <button onClick={fetchData} className="mt-2 text-sm font-semibold hover:underline">Reintentar</button>
+                  <button onClick={fetchData} className="mt-3 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-all cursor-pointer">Reintentar</button>
               </div>
           </div>
       );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gestión de Periodos</h1>
-          <p className="text-slate-500 text-sm mt-1">Administra los plazos y rendimientos ofrecidos</p>
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
+      
+      {success && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-emerald-800 shadow-xs font-medium text-sm animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
+            <span>{success}</span>
+          </div>
+          <button onClick={() => setSuccess(null)} className="p-1 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer">
+            <X className="w-4 h-4 text-emerald-700" />
+          </button>
+        </div>
+      )}
+
+      {/* Header Ejecutivo Principal */}
+      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        <div className="relative z-10 space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
+            <CalendarDays className="w-4 h-4 text-emerald-400" /> Configuración de Tasas & Plazos
+          </div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+            Gestión de Periodos
+          </h1>
+          <p className="text-slate-300 text-sm max-w-xl">
+            Administra los plazos de inversión habilitados, porcentajes de rentabilidad mensual y disponibilidad.
+          </p>
         </div>
         
         <Can permission="admin.periods.manage">
           <button 
             onClick={handleCreate}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
+            className="relative z-10 flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
-            Crear Periodo
+            <span>Crear Periodo</span>
           </button>
         </Can>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
+            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
-                <th className="px-6 py-4">Duración</th>
-                <th className="px-6 py-4">Rendimiento</th>
+                <th className="px-6 py-4">Duración & Plazo</th>
+                <th className="px-6 py-4">Rentabilidad Mensual</th>
                 <th className="px-6 py-4">Estado</th>
                 <Can permission="admin.periods.manage">
-                  <th className="px-6 py-4 text-right">Acciones</th>
+                  <th className="px-6 py-4 text-center">Acciones</th>
                 </Can>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 font-medium">
               {periods.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <CalendarDays className="w-8 h-8 text-slate-300" />
-                      <p>No hay periodos configurados.</p>
-                      <button onClick={handleCreate} className="text-brand-600 font-medium hover:underline text-sm mt-1">
-                        Crea tu primer periodo
+                      <p className="font-semibold text-slate-700">No hay periodos configurados.</p>
+                      <button onClick={handleCreate} className="text-brand-600 font-bold hover:underline text-xs mt-1 cursor-pointer">
+                        + Crea tu primer periodo
                       </button>
                     </div>
                   </td>
@@ -132,50 +175,51 @@ export const AdminPeriodsPage = () => {
                   <tr key={period.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 shrink-0">
+                        <div className="w-10 h-10 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 shrink-0">
                           <CalendarDays className="w-5 h-5" />
                         </div>
                         <div>
-                          <div className="font-semibold text-slate-800">
+                          <div className="font-extrabold text-slate-900 text-sm font-montserrat">
                             {period.months > 0 ? `${period.months} Meses` : ''} 
                             {period.months > 0 && period.days > 0 ? ' y ' : ''}
                             {period.days > 0 ? `${period.days} Días` : ''}
                             {period.months === 0 && period.days === 0 ? '0 Días' : ''}
                           </div>
+                          <div className="text-slate-400 text-xs font-mono mt-0.5">Equivalente: {period.days} días calendario</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-800">
-                        {period.percentage}%
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 font-montserrat">
+                        {period.percentage}% mensual
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${
                         period.is_active 
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${period.is_active ? 'bg-blue-600' : 'bg-slate-400'}`}></span>
+                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${period.is_active ? 'bg-emerald-600' : 'bg-slate-400'}`}></span>
                         {period.is_active ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
                     <Can permission="admin.periods.manage">
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
                           <button 
                             onClick={() => handleEdit(period)}
-                            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-                            title="Editar"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Editar</span>
                           </button>
                           <button 
-                            onClick={() => handleDelete(period.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Eliminar"
+                            onClick={() => setDeletingId(period.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Eliminar</span>
                           </button>
                         </div>
                       </td>
@@ -187,6 +231,37 @@ export const AdminPeriodsPage = () => {
           </table>
         </div>
       </div>
+
+      {/* Modal Confirmación Eliminar */}
+      {deletingId && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-2.5 bg-rose-100 rounded-xl">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-slate-800 text-lg font-montserrat">¿Eliminar Periodo?</h3>
+            </div>
+            <p className="text-xs text-slate-600">Esta acción deshabilitará el plazo configurado para futuras solicitudes de inversión.</p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button 
+                onClick={() => setDeletingId(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md transition-colors cursor-pointer"
+              >
+                {isDeleting ? 'Eliminando...' : 'Sí, Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PeriodModal 
         isOpen={isModalOpen}
