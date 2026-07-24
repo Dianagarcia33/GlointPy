@@ -217,7 +217,6 @@ export const AdminReferralsPage = () => {
                 <th className="px-6 py-4">Código Inversionista</th>
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Registro</th>
-                <th className="px-6 py-4">Notas</th>
                 <th className="px-6 py-4 text-center whitespace-nowrap min-w-[200px]">Acciones</th>
               </tr>
             </thead>
@@ -226,7 +225,7 @@ export const AdminReferralsPage = () => {
                 <ReferralTableSkeleton />
               ) : referrals.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <UserPlus className="w-8 h-8 text-slate-300" />
                       <p>No se encontraron referidos potenciales con los criterios seleccionados.</p>
@@ -256,9 +255,6 @@ export const AdminReferralsPage = () => {
                         <Calendar className="w-3.5 h-3.5 text-slate-400" />
                         {r.created_at ? new Date(r.created_at).toLocaleDateString('es-CO') : 'Sin fecha'}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-500 max-w-xs truncate">
-                      {r.notas || <span className="text-slate-400 italic">Sin notas</span>}
                     </td>
                     <td className="px-6 py-4 text-center whitespace-nowrap min-w-[200px]">
                       <div className="flex items-center justify-center gap-2">
