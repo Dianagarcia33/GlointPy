@@ -36,9 +36,10 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
         if (isOpen) {
             potentialReferralsService.getMyCodes()
                 .then((codes: string[]) => {
-                    setMyCodes(codes || []);
-                    if (codes && codes.length > 0 && !referral) {
-                        setCodigoReferido(codes[0]);
+                    const valid = (codes || []).filter(Boolean);
+                    setMyCodes(valid);
+                    if (valid.length > 0 && (!codigoReferido || !referral)) {
+                        setCodigoReferido(valid[0]);
                     }
                 })
                 .catch((err: any) => console.error("Error al cargar códigos de inversión", err));
@@ -60,7 +61,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             setEstado('pendiente');
             setNotas('');
             if (myCodes.length > 0) {
-                setCodigoReferido(myCodes[0]);
+                setCodigoReferido(prev => prev || myCodes[0]);
             }
         }
         setError(null);

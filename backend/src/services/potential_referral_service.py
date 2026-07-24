@@ -75,20 +75,39 @@ class PotentialReferralService:
         )
         codes = [c for c in res.scalars().all() if c]
 
-        # 2. Si no tiene por user_id, buscar por document_id del usuario
+        # 2. Buscar por document_id o email del usuario si no se encuentran por user_id
         if not codes:
             user_res = await db.execute(select(User).where(User.id == user_id))
             usr = user_res.scalars().first()
-            if usr and usr.document_id:
-                res2 = await db.execute(
-                    select(Investor.assigned_code)
-                    .join(User, Investor.user_id == User.id)
-                    .where(User.document_id == usr.document_id, Investor.assigned_code.isnot(None))
-                    .distinct()
-                )
-                codes = [c for c in res2.scalars().all() if c]
+            if usr:
+                conds = []
+                if usr.document_id:
+                    conds.append(User.document_id == usr.document_id)
+                if usr.email:
+                    conds.append(User.email == usr.email)
+                if conds:
+                    from sqlalchemy import or_
+                    res2 = await db.execute(
+                        select(Investor.assigned_code)
+                        .join(User, Investor.user_id == User.id)
+                        .where(or_(*conds), Investor.assigned_code.isnot(None))
+                        .distinct()
+                    )
+                    codes = [c for c in res2.scalars().all() if c]
 
-        # 3. Si aún no hay códigos (ej. superuser/admin en pruebas), traer todos los códigos asignados de la plataforma
+        # 3. También incluir códigos de referidos registrados previamente
+        ref_codes_res = await db.execute(
+            select(PotentialReferral.codigo_referido)
+            .join(Investor, PotentialReferral.investor_id == Investor.id)
+            .where(Investor.user_id == user_id, PotentialReferral.codigo_referido.isnot(None))
+            .distinct()
+        )
+        prev_codes = [c for c in ref_codes_res.scalars().all() if c]
+        for pc in prev_codes:
+            if pc not in codes:
+                codes.append(pc)
+
+        # 4. Fallback: Traer todos los códigos asignados existentes en la plataforma
         if not codes:
             res_all = await db.execute(
                 select(Investor.assigned_code)
