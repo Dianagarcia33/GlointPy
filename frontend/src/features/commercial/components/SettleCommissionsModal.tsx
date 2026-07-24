@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, DollarSign, CheckCircle2, AlertTriangle, FileText, Loader2, CreditCard } from 'lucide-react';
-import { commercialService, CommercialUserOption, CommercialSale } from '../../../services/commercial';
+import { X, DollarSign, CheckCircle2, AlertTriangle, Loader2, Award, Zap, ShieldCheck } from 'lucide-react';
+import { commercialService, CommercialUserOption, CommercialSale, PendingSettlementBreakdown } from '../../../services/commercial';
 
 interface SettleCommissionsModalProps {
   isOpen: boolean;
@@ -15,10 +15,11 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  commercialUsers,
-  sales
+  commercialUsers
 }) => {
   const [selectedCommercialId, setSelectedCommercialId] = useState<number | null>(null);
+  const [breakdown, setBreakdown] = useState<PendingSettlementBreakdown | null>(null);
+  const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const [referenceCode, setReferenceCode] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,17 +31,24 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
     }
   }, [isOpen, commercialUsers]);
 
+  useEffect(() => {
+    if (isOpen && selectedCommercialId) {
+      setIsLoadingBreakdown(true);
+      commercialService.getPendingSettlementBreakdown(selectedCommercialId)
+        .then((res) => setBreakdown(res))
+        .catch(() => setBreakdown(null))
+        .finally(() => setIsLoadingBreakdown(false));
+    }
+  }, [isOpen, selectedCommercialId]);
+
   if (!isOpen) return null;
 
-  // Filtrar ventas pendientes del comercial seleccionado
-  const pendingSalesForSelected = sales.filter(
-    (s) => s.commercial_id === selectedCommercialId && (s.status === 'pendiente' || !s.status)
-  );
-
-  const pendingAmount = pendingSalesForSelected.reduce(
-    (acc, s) => acc + (s.commission_amount || 0),
-    0
-  );
+  const totalAmount = breakdown?.total_amount || 0;
+  const salesCommission = breakdown?.sales_commission_total || 0;
+  const dailyBonuses = breakdown?.daily_bonuses_total || 0;
+  const floorBonuses = breakdown?.floor_bonuses_total || 0;
+  const welfareBonuses = breakdown?.welfare_bonuses_total || 0;
+  const salesCount = breakdown?.sales_count || 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,8 +56,8 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
       setError('Por favor selecciona un asesor comercial');
       return;
     }
-    if (pendingSalesForSelected.length === 0) {
-      setError('El asesor seleccionado no tiene comisiones pendientes de liquidar');
+    if (totalAmount <= 0) {
+      setError('El asesor seleccionado no tiene comisiones ni bonos pendientes de liquidar');
       return;
     }
 
@@ -65,7 +73,7 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error al liquidar las comisiones');
+      setError(err.message || 'Error al liquidar las comisiones y bonos');
     } finally {
       setIsSubmitting(false);
     }
@@ -82,8 +90,8 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
               <DollarSign className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800 font-montserrat">Liquidar Comisiones Comerciales</h3>
-              <p className="text-xs text-slate-500">Registro de comprobante bancario y cierre de período</p>
+              <h3 className="text-lg font-bold text-slate-800 font-montserrat">Liquidar Comisiones y Bonos</h3>
+              <p className="text-xs text-slate-500">Liquidación Consolidada • Registro de comprobante bancario</p>
             </div>
           </div>
           <button
@@ -122,20 +130,60 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
             </select>
           </div>
 
-          {/* KPI Resumen Pendiente */}
-          <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 space-y-1">
-            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block font-montserrat">
-              Comisiones Pendientes por Liquidar
-            </span>
-            <div className="flex justify-between items-baseline">
-              <span className="text-2xl font-extrabold text-emerald-700 font-mono">
-                ${pendingAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
-              </span>
-              <span className="text-xs font-bold text-emerald-800 bg-white/80 px-2.5 py-1 rounded-full border border-emerald-200 font-mono">
-                {pendingSalesForSelected.length} cierres
-              </span>
+          {/* Desglose Consolidado de Liquidación */}
+          {isLoadingBreakdown ? (
+            <div className="p-6 bg-slate-50 rounded-2xl animate-pulse h-32 flex items-center justify-center">
+              <span className="text-xs text-slate-400 font-medium">Calculando desglose consolidado...</span>
             </div>
-          </div>
+          ) : (
+            <div className="bg-slate-900 text-white rounded-2xl p-5 space-y-3 shadow-md">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-montserrat">Concepto</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 font-montserrat">Monto ($)</span>
+              </div>
+
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Comisiones por Ventas ({salesCount} cierres):</span>
+                  <span className="font-mono font-bold text-white">${salesCommission.toLocaleString('es-CO')}</span>
+                </div>
+
+                {dailyBonuses > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <Zap className="w-3 h-3" /> Bonos Meta Diaria:
+                    </span>
+                    <span className="font-mono font-bold text-emerald-400">+${dailyBonuses.toLocaleString('es-CO')}</span>
+                  </div>
+                )}
+
+                {floorBonuses > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-amber-400 font-semibold flex items-center gap-1">
+                      <Award className="w-3 h-3" /> Bono Piso Cumplido:
+                    </span>
+                    <span className="font-mono font-bold text-amber-400">+${floorBonuses.toLocaleString('es-CO')}</span>
+                  </div>
+                )}
+
+                {welfareBonuses > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-indigo-400 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" /> Bono Bienestar:
+                    </span>
+                    <span className="font-mono font-bold text-indigo-400">+${welfareBonuses.toLocaleString('es-CO')}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-slate-800 flex justify-between items-baseline">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 font-montserrat">TOTAL A LIQUIDAR:</span>
+                <span className="text-2xl font-extrabold text-emerald-400 font-mono">
+                  ${totalAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Referencia Bancaria / Comprobante */}
           <div>
@@ -159,8 +207,8 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Notas opcionales sobre el pago, retenciones o banco de origen..."
+              rows={2}
+              placeholder="Notas opcionales sobre el pago, retenciones o banco..."
               className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             />
           </div>
@@ -176,7 +224,7 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || pendingSalesForSelected.length === 0}
+              disabled={isSubmitting || totalAmount <= 0}
               className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20 font-montserrat"
             >
               {isSubmitting ? (
@@ -185,7 +233,7 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" /> Confirmar Liquidación
+                  <CheckCircle2 className="w-4 h-4" /> Confirmar Liquidación (${totalAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })})
                 </>
               )}
             </button>

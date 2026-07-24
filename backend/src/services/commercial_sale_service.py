@@ -311,4 +311,166 @@ async def register_commercial_sale(
     db.add(sale)
     await db.commit()
     await db.refresh(sale)
+
+    # 4. Evaluar automáticamente Bonos Diarios y Bonos por Piso Mensual
+    try:
+        await evaluate_daily_bonus(db, commercial_id, today)
+        await evaluate_monthly_floor_bonus(db, commercial_id, today.year, today.month)
+    except Exception as e:
+        print(f"Error al evaluar bonos comerciales: {e}")
+
     return sale
+
+
+FLOOR_BONUSES = [
+    (Decimal("200000000.00"), Decimal("3600000.00")),
+    (Decimal("170000000.00"), Decimal("3060000.00")),
+    (Decimal("140000000.00"), Decimal("2520000.00")),
+    (Decimal("100000000.00"), Decimal("1800000.00")),
+    (Decimal("79000000.00"),  Decimal("1422000.00")),
+    (Decimal("54000000.00"),  Decimal("1080000.00")),
+    (Decimal("36000000.00"),  Decimal("720000.00")),
+    (Decimal("18000000.00"),  Decimal("360000.00")),
+]
+
+async def evaluate_daily_bonus(db: AsyncSession, commercial_id: int, target_date: date) -> Optional[CommercialBonus]:
+    """
+    Evaluación de Meta Diaria (cierre de jornada / al registrar venta):
+    - Requiere un mínimo de 5 cierres en el mismo día calendario.
+    - Filtro Antifraude (Consanguinidad de Código): Si 2 o más ventas del día comparten el mismo árbol o código de referido,
+      solo cuenta 1 para el conteo de 5 cierres de la meta.
+    - Meta Mixta (1.5%): Si logra 5 cierres válidos combinando Contrato Nuevo, Reinversión o Referido.
+    - Meta Exclusiva (2.0%): Si logra 5 cierres válidos compuestos únicamente por Contrato Nuevo o Reinversión.
+    """
+    sales_res = await db.execute(
+        select(CommercialSale)
+        .where(
+            CommercialSale.commercial_id == commercial_id,
+            CommercialSale.sale_date == target_date
+        )
+    )
+    daily_sales = sales_res.scalars().all()
+
+    if not daily_sales:
+        return None
+
+    valid_sales_for_count = []
+    seen_ref_trees = set()
+
+    for s in daily_sales:
+        ref_key = (s.referrer_code or s.referrer_client_id or s.client_document).strip() if (s.referrer_code or s.referrer_client_id or s.client_document) else ""
+        if ref_key and ref_key in seen_ref_trees:
+            continue
+        if ref_key:
+            seen_ref_trees.add(ref_key)
+        valid_sales_for_count.append(s)
+
+    if len(valid_sales_for_count) < 5:
+        return None
+
+    is_exclusive = all(
+        s.sale_type in [CommercialSaleType.contrato_nuevo, CommercialSaleType.reinversion]
+        for s in valid_sales_for_count
+    )
+
+    daily_total_amount = sum(Decimal(str(s.amount)) for s in daily_sales)
+    rate = Decimal("0.020") if is_exclusive else Decimal("0.015")
+    bonus_amount = daily_total_amount * rate
+
+    bonus_res = await db.execute(
+        select(CommercialBonus)
+        .where(
+            CommercialBonus.commercial_id == commercial_id,
+            CommercialBonus.bonus_type == CommercialBonusType.meta_diaria,
+            CommercialBonus.earned_date == target_date
+        )
+    )
+    existing_bonus = bonus_res.scalars().first()
+
+    bonus_desc = f"Bono Meta Diaria ({'2.0% Exclusivo' if is_exclusive else '1.5% Mixto'}) - {len(valid_sales_for_count)} cierres válidos"
+
+    if existing_bonus:
+        if existing_bonus.status == CommercialBonusStatus.pendiente:
+            existing_bonus.amount = bonus_amount
+            existing_bonus.details = bonus_desc
+            await db.commit()
+            await db.refresh(existing_bonus)
+        return existing_bonus
+    else:
+        new_bonus = CommercialBonus(
+            commercial_id=commercial_id,
+            bonus_type=CommercialBonusType.meta_diaria,
+            amount=bonus_amount,
+            status=CommercialBonusStatus.pendiente,
+            details=bonus_desc,
+            earned_date=target_date
+        )
+        db.add(new_bonus)
+        await db.commit()
+        await db.refresh(new_bonus)
+        return new_bonus
+
+
+async def evaluate_monthly_floor_bonus(db: AsyncSession, commercial_id: int, year: int, month: int) -> Optional[CommercialBonus]:
+    """
+    Evaluación de Bono por Piso Cumplido (al cierre de mes a las 23:59:59):
+    Suma la producción absoluta del comercial (Contratos Nuevos + Reinversiones + Referidos).
+    Asigna un pago único fijo nominal correspondiente al escalón más alto.
+    """
+    sales_res = await db.execute(
+        select(func.coalesce(func.sum(CommercialSale.amount), 0))
+        .where(
+            CommercialSale.commercial_id == commercial_id,
+            extract('year', CommercialSale.sale_date) == year,
+            extract('month', CommercialSale.sale_date) == month
+        )
+    )
+    total_monthly = Decimal(str(sales_res.scalar() or "0"))
+
+    bonus_amount = Decimal("0.00")
+    tier_desc = ""
+
+    for floor_amount, bonus_val in FLOOR_BONUSES:
+        if total_monthly >= floor_amount:
+            bonus_amount = bonus_val
+            tier_desc = f"Piso de ${float(floor_amount):,.0f} COP"
+            break
+
+    if bonus_amount <= 0:
+        return None
+
+    last_day_date = date(year, month, 28)
+
+    bonus_res = await db.execute(
+        select(CommercialBonus)
+        .where(
+            CommercialBonus.commercial_id == commercial_id,
+            CommercialBonus.bonus_type == CommercialBonusType.piso_cumplido,
+            extract('year', CommercialBonus.earned_date) == year,
+            extract('month', CommercialBonus.earned_date) == month
+        )
+    )
+    existing_bonus = bonus_res.scalars().first()
+
+    bonus_desc = f"Bono por Piso Cumplido ({tier_desc}) - Producción: ${float(total_monthly):,.0f} COP"
+
+    if existing_bonus:
+        if existing_bonus.status == CommercialBonusStatus.pendiente:
+            existing_bonus.amount = bonus_amount
+            existing_bonus.details = bonus_desc
+            await db.commit()
+            await db.refresh(existing_bonus)
+        return existing_bonus
+    else:
+        new_bonus = CommercialBonus(
+            commercial_id=commercial_id,
+            bonus_type=CommercialBonusType.piso_cumplido,
+            amount=bonus_amount,
+            status=CommercialBonusStatus.pendiente,
+            details=bonus_desc,
+            earned_date=last_day_date
+        )
+        db.add(new_bonus)
+        await db.commit()
+        await db.refresh(new_bonus)
+        return new_bonus

@@ -42,6 +42,23 @@ export interface CommissionSettlement {
   created_at: string;
 }
 
+export interface PendingSettlementBreakdown {
+  commercial_id: number;
+  sales_count: number;
+  sales_commission_total: number;
+  daily_bonuses_total: number;
+  floor_bonuses_total: number;
+  welfare_bonuses_total: number;
+  total_amount: number;
+  bonuses: Array<{
+    id: number;
+    bonus_type: string;
+    amount: number;
+    details?: string;
+    earned_date: string;
+  }>;
+}
+
 export interface CommercialSummary {
   direct_accumulated: number;
   referral_accumulated: number;
@@ -164,6 +181,10 @@ export const commercialService = {
 
   getLeaderboard: async (): Promise<LeaderboardResponse> => {
     return await fetchApi('/commercial/leaderboard');
+  },
+
+  getPendingSettlementBreakdown: async (commercialId: number): Promise<PendingSettlementBreakdown> => {
+    return await fetchApi(`/commercial/pending-settlement/${commercialId}`);
   },
 
   settleCommissions: async (data: {

@@ -14,6 +14,7 @@ from src.models.withdrawal_verification_code import WithdrawalVerificationCode
 from src.models.sarlaft_check import SarlaftCheck
 from src.models.commercial_sale import CommercialSale, CommercialSaleType, CommercialSaleStatus
 from src.models.commission_settlement import CommissionSettlement
+from src.models.commercial_bonus import CommercialBonus, CommercialBonusType, CommercialBonusStatus
 from src.models.template import Template
 from src.models.beneficiary import Beneficiary
 from src.models.potential_referral import PotentialReferral, PotentialReferralStatus

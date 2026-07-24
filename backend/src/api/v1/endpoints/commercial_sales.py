@@ -373,6 +373,59 @@ async def get_commercial_leaderboard(
         "my_rank": current_user_rank
     }
 
+@router.get("/pending-settlement/{commercial_id}", dependencies=[Depends(RequirePermission("commercial:view"))])
+async def get_pending_settlement_breakdown(
+    commercial_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna el desglose de comisiones por ventas y bonos pendientes por liquidar.
+    """
+    sales_res = await db.execute(
+        select(CommercialSale)
+        .where(
+            CommercialSale.commercial_id == commercial_id,
+            CommercialSale.status == CommercialSaleStatus.pendiente
+        )
+    )
+    pending_sales = sales_res.scalars().all()
+
+    bonuses_res = await db.execute(
+        select(CommercialBonus)
+        .where(
+            CommercialBonus.commercial_id == commercial_id,
+            CommercialBonus.status == CommercialBonusStatus.pendiente
+        )
+    )
+    pending_bonuses = bonuses_res.scalars().all()
+
+    sales_amount = sum(float(s.commission_amount) for s in pending_sales)
+    daily_bonuses_amount = sum(float(b.amount) for b in pending_bonuses if b.bonus_type == CommercialBonusType.meta_diaria)
+    floor_bonuses_amount = sum(float(b.amount) for b in pending_bonuses if b.bonus_type == CommercialBonusType.piso_cumplido)
+    welfare_bonuses_amount = sum(float(b.amount) for b in pending_bonuses if b.bonus_type == CommercialBonusType.bienestar_trimestral)
+    total_amount = sales_amount + daily_bonuses_amount + floor_bonuses_amount + welfare_bonuses_amount
+
+    return {
+        "commercial_id": commercial_id,
+        "sales_count": len(pending_sales),
+        "sales_commission_total": sales_amount,
+        "daily_bonuses_total": daily_bonuses_amount,
+        "floor_bonuses_total": floor_bonuses_amount,
+        "welfare_bonuses_total": welfare_bonuses_amount,
+        "total_amount": total_amount,
+        "bonuses": [
+            {
+                "id": b.id,
+                "bonus_type": b.bonus_type.value,
+                "amount": float(b.amount),
+                "details": b.details,
+                "earned_date": b.earned_date.isoformat()
+            }
+            for b in pending_bonuses
+        ]
+    }
+
 @router.post("/settle", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def settle_commissions(
     req: SettleCommissionsRequest,
@@ -380,27 +433,37 @@ async def settle_commissions(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Liquida todas las comisiones pendientes de un comercial/directivo.
-    - Cambia status de las ventas a 'liquidado'
+    Liquida todas las comisiones y bonos pendientes de un comercial/directivo.
+    - Cambia status de ventas y bonos a 'liquidado'
     - Genera el registro de comprobante en CommissionSettlement
     """
-    stmt = (
+    sales_res = await db.execute(
         select(CommercialSale)
         .where(
             CommercialSale.commercial_id == req.commercial_id,
             CommercialSale.status == CommercialSaleStatus.pendiente
         )
     )
-    res = await db.execute(stmt)
-    pending_sales = res.scalars().all()
+    pending_sales = sales_res.scalars().all()
 
-    if not pending_sales:
+    bonuses_res = await db.execute(
+        select(CommercialBonus)
+        .where(
+            CommercialBonus.commercial_id == req.commercial_id,
+            CommercialBonus.status == CommercialBonusStatus.pendiente
+        )
+    )
+    pending_bonuses = bonuses_res.scalars().all()
+
+    if not pending_sales and not pending_bonuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No hay comisiones pendientes de liquidar para este asesor."
+            detail="No hay comisiones ni bonos pendientes de liquidar para este asesor."
         )
 
-    total_amount = sum(s.commission_amount for s in pending_sales)
+    sales_total = sum(Decimal(str(s.commission_amount)) for s in pending_sales)
+    bonuses_total = sum(Decimal(str(b.amount)) for b in pending_bonuses)
+    total_amount = sales_total + bonuses_total
     sales_count = len(pending_sales)
 
     settlement = CommissionSettlement(
@@ -418,11 +481,15 @@ async def settle_commissions(
         s.status = CommercialSaleStatus.liquidado
         s.settlement_id = settlement.id
 
+    for b in pending_bonuses:
+        b.status = CommercialBonusStatus.liquidado
+        b.settlement_id = settlement.id
+
     await db.commit()
     await db.refresh(settlement)
 
     return {
-        "message": "Comisiones liquidadas exitosamente",
+        "message": "Comisiones y bonos liquidados exitosamente",
         "settlement_id": settlement.id,
         "total_amount": float(settlement.total_amount),
         "sales_count": sales_count,

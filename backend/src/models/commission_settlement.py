@@ -23,3 +23,4 @@ class CommissionSettlement(Base):
     commercial = relationship("User", foreign_keys=[commercial_id])
     settled_by = relationship("User", foreign_keys=[settled_by_id])
     sales = relationship("CommercialSale", back_populates="settlement")
+    bonuses = relationship("CommercialBonus", back_populates="settlement")
