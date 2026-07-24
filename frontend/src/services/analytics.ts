@@ -46,15 +46,15 @@ export interface DirectorPayoutProjection {
 
 export interface DirectorAnalyticsDashboardData {
   summary_cards: {
-    total_aum: number;
-    rendimiento_mensual_estimado: number;
-    proyectado_30d: number;
-    proyectado_12m: number;
-    solicitudes_pendientes_monto: number;
-    solicitudes_pendientes_count: number;
-    total_contratos_activos: number;
+    total_captado: number;
+    total_comisiones: number;
+    total_clientes: number;
+    total_referidos: number;
+    capital_propio_invertido: number;
+    rendimiento_mensual_propio: number;
+    total_ventas_count: number;
   };
-  payout_projections: DirectorPayoutProjection[];
+  payout_projections: any[];
   package_distribution: any[];
 }
 

@@ -164,88 +164,104 @@ async def get_director_analytics_dashboard(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Retorna analíticas ejecutivas especializadas para el Directivo de Inversiones:
-    - Capital Bajo Gestión (AUM)
-    - Proyecciones de Vencimiento / Liquidación a Futuro
-    - Distribución del Portafolio por Paquetes de Inversión
-    - Pipeline de Solicitudes de Inversión Pendientes y Aprobadas
+    Retorna analíticas ejecutivas personalizadas para el Directivo / Ejecutivo Comercial:
+    - Captación total propia y comisiones generadas (CommercialSales donde commercial_id == current_user.id)
+    - Total de clientes e inversionistas gestionados por el directivo
+    - Histórico mensual de captación y comisiones del directivo
+    - Desglose por tipo de venta propia (Contrato Nuevo, Reinversión, Referidos)
+    - Inversiones personales propias del directivo
     """
     today = date.today()
-
-    # 1. Obtener contratos activos de la tabla Investor
     from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
-    from src.models.period import Period
+    from src.models.potential_referral import PotentialReferral
 
-    active_invs_res = await db.execute(
+    # 1. Ventas comerciales asociadas a este directivo
+    my_sales_res = await db.execute(
+        select(CommercialSale)
+        .where(CommercialSale.commercial_id == current_user.id)
+    )
+    my_sales = my_sales_res.scalars().all()
+
+    # Fallback para SuperAdmin en ambiente de pruebas si aún no tiene ventas asociadas
+    is_personal = len(my_sales) > 0
+    if not is_personal and current_user.is_superuser:
+        all_sales_res = await db.execute(select(CommercialSale))
+        my_sales = all_sales_res.scalars().all()
+
+    total_captado_propio = sum(float(s.amount or 0) for s in my_sales)
+    total_comisiones_propias = sum(float(s.commission_amount or 0) for s in my_sales)
+    unique_clients = len(set(s.client_document for s in my_sales if s.client_document))
+
+    # 2. Contratos propios del usuario como Inversionista
+    my_invs_res = await db.execute(
         select(Investor)
         .options(selectinload(Investor.package), selectinload(Investor.period))
+        .where(Investor.user_id == current_user.id)
     )
-    active_invs = active_invs_res.scalars().all()
+    my_invs = my_invs_res.scalars().all()
+    capital_propio_invertido = sum(float(i.package.value) if i.package and i.package.value else 0 for i in my_invs)
 
-    total_aum = sum(float(i.package.value) if i.package and i.package.value else 0 for i in active_invs)
+    # 3. Referidos del directivo
+    my_refs_res = await db.execute(
+        select(PotentialReferral)
+        .join(Investor, PotentialReferral.investor_id == Investor.id)
+        .where(Investor.user_id == current_user.id)
+    )
+    my_referrals = my_refs_res.scalars().all()
+    total_referidos = len(my_referrals)
 
-    # 2. Rendimientos Mensuales Proyectados
-    rendimiento_mensual_total = 0.0
-    for inv in active_invs:
+    # 4. Rendimiento estimado mensual de sus propias inversiones
+    rendimiento_mensual_propio = 0.0
+    for inv in my_invs:
         if inv.package and inv.period and inv.package.value:
             val = float(inv.package.value)
             pct = float(inv.period.percentage or 0)
-            rendimiento_mensual_total += val * (pct / 100.0)
+            rendimiento_mensual_propio += val * (pct / 100.0)
 
-    proyectado_30d = rendimiento_mensual_total
-    proyectado_12m = rendimiento_mensual_total * 12.0
-
-    # Proyección por meses a futuro (Próximos 6 meses)
+    # 5. Crecimiento mensual de ventas del directivo (Últimos 6 meses)
     months_labels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-    payout_projections = []
-    for i in range(6):
-        future_date = today + relativedelta(months=i)
-        m_name = months_labels[future_date.month - 1]
-        payout_projections.append({
-            "mes": f"{m_name} {future_date.year}",
-            "rentabilidad_proyectada": round(rendimiento_mensual_total, 2),
-            "capital_vigente": round(total_aum, 2)
+    monthly_sales_history = []
+    for i in range(5, -1, -1):
+        target_date = today.replace(day=1) - relativedelta(months=i)
+        y = target_date.year
+        m = target_date.month
+
+        month_sales = [
+            s for s in my_sales 
+            if s.sale_date and s.sale_date.year == y and s.sale_date.month == m
+        ]
+        month_captado = sum(float(s.amount or 0) for s in month_sales)
+        month_comision = sum(float(s.commission_amount or 0) for s in month_sales)
+
+        m_name = months_labels[m - 1]
+        monthly_sales_history.append({
+            "mes": f"{m_name} {y}",
+            "captado": round(month_captado, 2),
+            "comision": round(month_comision, 2)
         })
 
-    # 3. Solicitudes de inversión en pipeline
-    pending_reqs_res = await db.execute(
-        select(InvestmentRequest)
-        .options(selectinload(InvestmentRequest.package))
-        .where(InvestmentRequest.status == InvestmentRequestStatus.pending)
-    )
-    pending_reqs = pending_reqs_res.scalars().all()
-    pending_count = len(pending_reqs)
-    pending_monto = sum(float(r.monto or 0) for r in pending_reqs)
+    # 6. Desglose de Ventas por Tipo (Nuevos, Reinversiones, Referidos)
+    nuevos_monto = sum(float(s.amount or 0) for s in my_sales if s.sale_type == CommercialSaleType.contrato_nuevo)
+    reinversion_monto = sum(float(s.amount or 0) for s in my_sales if s.sale_type == CommercialSaleType.reinversion)
+    referidos_monto = sum(float(s.amount or 0) for s in my_sales if s.sale_type == CommercialSaleType.referido)
 
-    # 4. Distribución por Paquetes (AUM por paquete)
-    pkg_dict: Dict[int, Dict[str, Any]] = {}
-    for inv in active_invs:
-        if inv.package:
-            pid = inv.package.id
-            if pid not in pkg_dict:
-                pkg_dict[pid] = {
-                    "package_id": pid,
-                    "nombre": f"${float(inv.package.value):,.0f} COP" if inv.package.value else "Paquete Custom",
-                    "valor_unitario": float(inv.package.value or 0),
-                    "count": 0,
-                    "total_monto": 0.0
-                }
-            pkg_dict[pid]["count"] += 1
-            pkg_dict[pid]["total_monto"] += float(inv.package.value or 0)
-
-    package_distribution = sorted(list(pkg_dict.values()), key=lambda x: x["valor_unitario"])
+    sales_by_type = [
+        {"nombre": "Contratos Nuevos", "total_monto": nuevos_monto},
+        {"nombre": "Reinversiones", "total_monto": reinversion_monto},
+        {"nombre": "Referidos", "total_monto": referidos_monto}
+    ]
 
     return {
         "summary_cards": {
-            "total_aum": total_aum,
-            "rendimiento_mensual_estimado": rendimiento_mensual_total,
-            "proyectado_30d": proyectado_30d,
-            "proyectado_12m": proyectado_12m,
-            "solicitudes_pendientes_monto": pending_monto,
-            "solicitudes_pendientes_count": pending_count,
-            "total_contratos_activos": len(active_invs)
+            "total_captado": total_captado_propio,
+            "total_comisiones": total_comisiones_propias,
+            "total_clientes": unique_clients,
+            "total_referidos": total_referidos,
+            "capital_propio_invertido": capital_propio_invertido,
+            "rendimiento_mensual_propio": rendimiento_mensual_propio,
+            "total_ventas_count": len(my_sales)
         },
-        "payout_projections": payout_projections,
-        "package_distribution": package_distribution
+        "payout_projections": monthly_sales_history,
+        "package_distribution": sales_by_type
     }
 
