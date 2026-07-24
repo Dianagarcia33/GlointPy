@@ -101,32 +101,6 @@ export const RegisterPage = () => {
                         </div>
                     </div>
 
-                    <div className="bg-brand-50/60 p-4 border border-brand-200/80 rounded-xl space-y-1.5">
-                        <label className="block text-xs font-bold text-brand-900 flex items-center justify-between">
-                            <span>👤 Directivo de Inversiones / Asesor que te atendió</span>
-                            <span className="text-[11px] text-brand-600 font-medium">(Opcional)</span>
-                        </label>
-                        <div className="relative group">
-                            <select
-                                id="commercial_id"
-                                name="commercial_id"
-                                value={commercialId}
-                                onChange={(e) => setCommercialId(e.target.value)}
-                                className="block w-full px-3 py-2.5 bg-white border border-brand-200 rounded-lg text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-brand-500"
-                            >
-                                <option value="">Selecciona tu Directivo de Inversión (Si aplica)...</option>
-                                {commercialUsers.map((u) => (
-                                    <option key={u.id} value={u.id}>
-                                        {u.name} ({u.email})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                            Si fuiste asesorado por un Directivo de Inversión de Gloint, selecciónalo para vincular tu cuenta.
-                        </p>
-                    </div>
-
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
                         <div className="relative group">

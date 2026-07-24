@@ -371,7 +371,7 @@ export const InvestorRegistrationFlow = () => {
         return !!formData.paquete_id && !!formData.monto && !!formData.periodo_id && !!formData.comprobante_path;
     };
 
-    const isStep6Valid = () => {
+    const isStep7Valid = () => {
         return (
             !!formData.email &&
             isValidPassword(formData.password) &&
@@ -379,6 +379,7 @@ export const InvestorRegistrationFlow = () => {
             acceptedTerms
         );
     };
+    const isStep6Valid = isStep7Valid;
 
     // Calculations
     const getCalculations = () => {
@@ -444,7 +445,8 @@ export const InvestorRegistrationFlow = () => {
         { num: 3, label: "Datos" },
         { num: 4, label: "Banco" },
         { num: 5, label: "Inversión" },
-        { num: 6, label: "Acceso" }
+        { num: 6, label: "Asesor" },
+        { num: 7, label: "Acceso" }
     ];
 
     const passwordsMatch = formData.password && confirmPassword ? formData.password === confirmPassword : false;
@@ -534,29 +536,6 @@ export const InvestorRegistrationFlow = () => {
                                         </div>
                                         <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Ana Pérez" />
                                     </div>
-                                </div>
-
-                                <div className="md:col-span-2 bg-brand-50/50 p-3.5 border border-brand-200/80 rounded-xl space-y-1">
-                                    <label className="block text-xs font-bold text-brand-900 flex items-center justify-between">
-                                        <span>👤 Directivo de Inversiones / Asesor Comercial que te atendió</span>
-                                        <span className="text-[11px] text-brand-600 font-medium">(Opcional)</span>
-                                    </label>
-                                    <select
-                                        name="commercial_id"
-                                        value={formData.commercial_id}
-                                        onChange={handleChange}
-                                        className="w-full px-3 py-2 bg-white border border-brand-200 rounded-lg text-slate-800 text-xs font-semibold focus:ring-2 focus:ring-brand-500"
-                                    >
-                                        <option value="">Selecciona tu Directivo de Inversión (Si aplica)...</option>
-                                        {commercialUsers.map(u => (
-                                            <option key={u.id} value={u.id}>
-                                                {u.name} ({u.email})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="text-[11px] text-slate-500">
-                                        Si fuiste asesorado por un Directivo de Inversión de Gloint, selecciónalo para vincular tu contrato.
-                                    </p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Doc. *</label>
@@ -822,8 +801,105 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                 )}
 
-                {/* Step 6: Credentials and Submission */}
+                {/* Step 6: Selección de Directivo de Inversión / Asesor Comercial */}
                 {step === 6 && (
+                    <div className="space-y-6 animate-fadeIn">
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2 border-b border-slate-200 pb-2">
+                                <User className="w-5 h-5 text-brand-600" /> ¿Quién fue tu Directivo de Inversiones?
+                            </h3>
+                            <p className="text-xs text-slate-500 mb-4">
+                                Selecciona el profesional de Gloint que te asesoró en tu proceso de inversión. Si ingresaste de forma independiente, selecciona "Sin Asesor".
+                            </p>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto p-1">
+                                {/* Option 0: Sin Asesor */}
+                                <div
+                                    onClick={() => setFormData(prev => ({ ...prev, commercial_id: '' }))}
+                                    className={`relative cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-3.5 ${
+                                        !formData.commercial_id
+                                            ? 'bg-brand-50/80 border-brand-500 shadow-md ring-2 ring-brand-500/20'
+                                            : 'bg-white border-slate-200 hover:border-brand-300 hover:shadow-sm'
+                                    }`}
+                                >
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                                        !formData.commercial_id ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500'
+                                    }`}>
+                                        🌐
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-sm font-bold text-slate-800 truncate">Sin Asesor / Independiente</h4>
+                                        <p className="text-[11px] text-slate-500 truncate">Llegué por cuenta propia a Gloint</p>
+                                    </div>
+                                    {!formData.commercial_id && (
+                                        <div className="p-1 bg-brand-500 text-white rounded-full">
+                                            <CheckCircle2 className="w-4 h-4" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Advisor Cards */}
+                                {commercialUsers.map((u) => {
+                                    const isSelected = formData.commercial_id === u.id.toString();
+                                    const initials = u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                                    return (
+                                        <div
+                                            key={u.id}
+                                            onClick={() => setFormData(prev => ({ ...prev, commercial_id: u.id.toString() }))}
+                                            className={`relative cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-3.5 ${
+                                                isSelected
+                                                    ? 'bg-brand-50/80 border-brand-500 shadow-md ring-2 ring-brand-500/20'
+                                                    : 'bg-white border-slate-200 hover:border-brand-300 hover:shadow-sm'
+                                            }`}
+                                        >
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
+                                                isSelected
+                                                    ? 'bg-gradient-to-br from-brand-600 to-indigo-600 text-white shadow-sm'
+                                                    : 'bg-slate-100 text-slate-700'
+                                            }`}>
+                                                {initials}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5 mb-0.5">
+                                                    <h4 className="text-sm font-bold text-slate-800 truncate">{u.name}</h4>
+                                                </div>
+                                                <span className="inline-block px-2 py-0.5 bg-amber-100/80 text-amber-800 text-[10px] font-bold rounded-md uppercase tracking-wider">
+                                                    🌟 Directivo de Inversión
+                                                </span>
+                                            </div>
+                                            {isSelected && (
+                                                <div className="p-1 bg-brand-500 text-white rounded-full">
+                                                    <CheckCircle2 className="w-4 h-4" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between pt-4 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => setStep(5)}
+                                className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                            >
+                                Atrás
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setStep(7)}
+                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md hover:bg-brand-700 transition-colors"
+                            >
+                                Siguiente paso
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 7: Credentials and Submission */}
+                {step === 7 && (
                     <form onSubmit={handleFinalSubmit} method="post" className="space-y-6 animate-fadeIn">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
@@ -898,7 +974,7 @@ export const InvestorRegistrationFlow = () => {
                             <div className="flex justify-between pt-4 gap-4">
                                 <button
                                     type="button"
-                                    onClick={() => setStep(5)}
+                                    onClick={() => setStep(6)}
                                     className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
                                     disabled={registerMutation.isPending}
                                 >
