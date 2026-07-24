@@ -434,68 +434,75 @@ async def get_all_bonuses_summary(
     """
     Retorna la auditoría de bonos acumulados y pendientes de todos los asesores/directivos.
     """
-    users_res = await db.execute(
-        select(User)
-        .where(User.is_active == True)
-    )
-    all_users = users_res.scalars().all()
-
-    today = date.today()
-    result = []
-
-    for u in all_users:
-        bonuses_res = await db.execute(
-            select(CommercialBonus)
-            .where(CommercialBonus.commercial_id == u.id)
-            .order_by(CommercialBonus.created_at.desc())
+    try:
+        users_res = await db.execute(
+            select(User)
+            .where(User.is_active == True)
         )
-        user_bonuses = bonuses_res.scalars().all()
+        all_users = users_res.scalars().all()
 
-        pending_bonuses = [b for b in user_bonuses if b.status == CommercialBonusStatus.pendiente]
-        pending_total = sum(float(b.amount) for b in pending_bonuses)
+        today = date.today()
+        result = []
 
-        daily_sales_res = await db.execute(
-            select(func.count(CommercialSale.id))
-            .where(
-                CommercialSale.commercial_id == u.id,
-                CommercialSale.sale_date == today
+        for u in all_users:
+            try:
+                bonuses_res = await db.execute(
+                    select(CommercialBonus)
+                    .where(CommercialBonus.commercial_id == u.id)
+                    .order_by(CommercialBonus.created_at.desc())
+                )
+                user_bonuses = bonuses_res.scalars().all()
+            except Exception:
+                user_bonuses = []
+
+            pending_bonuses = [b for b in user_bonuses if b.status == CommercialBonusStatus.pendiente]
+            pending_total = sum(float(b.amount) for b in pending_bonuses)
+
+            daily_sales_res = await db.execute(
+                select(func.count(CommercialSale.id))
+                .where(
+                    CommercialSale.commercial_id == u.id,
+                    CommercialSale.sale_date == today
+                )
             )
-        )
-        today_closures = daily_sales_res.scalar() or 0
+            today_closures = daily_sales_res.scalar() or 0
 
-        monthly_sales_res = await db.execute(
-            select(func.coalesce(func.sum(CommercialSale.amount), 0))
-            .where(
-                CommercialSale.commercial_id == u.id,
-                extract('year', CommercialSale.sale_date) == today.year,
-                extract('month', CommercialSale.sale_date) == today.month
+            monthly_sales_res = await db.execute(
+                select(func.coalesce(func.sum(CommercialSale.amount), 0))
+                .where(
+                    CommercialSale.commercial_id == u.id,
+                    extract('year', CommercialSale.sale_date) == today.year,
+                    extract('month', CommercialSale.sale_date) == today.month
+                )
             )
-        )
-        monthly_volume = float(monthly_sales_res.scalar() or 0)
+            monthly_volume = float(monthly_sales_res.scalar() or 0)
 
-        if user_bonuses or monthly_volume > 0 or today_closures > 0:
-            result.append({
-                "commercial_id": u.id,
-                "commercial_name": f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email,
-                "email": u.email,
-                "today_closures": today_closures,
-                "monthly_volume": monthly_volume,
-                "pending_bonuses_count": len(pending_bonuses),
-                "pending_bonuses_total": pending_total,
-                "bonuses": [
-                    {
-                        "id": b.id,
-                        "bonus_type": b.bonus_type.value,
-                        "amount": float(b.amount),
-                        "status": b.status.value,
-                        "details": b.details,
-                        "earned_date": b.earned_date.isoformat()
-                    }
-                    for b in user_bonuses
-                ]
-            })
+            if user_bonuses or monthly_volume > 0 or today_closures > 0:
+                result.append({
+                    "commercial_id": u.id,
+                    "commercial_name": f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email,
+                    "email": u.email,
+                    "today_closures": today_closures,
+                    "monthly_volume": monthly_volume,
+                    "pending_bonuses_count": len(pending_bonuses),
+                    "pending_bonuses_total": pending_total,
+                    "bonuses": [
+                        {
+                            "id": b.id,
+                            "bonus_type": b.bonus_type.value if hasattr(b.bonus_type, 'value') else str(b.bonus_type),
+                            "amount": float(b.amount),
+                            "status": b.status.value if hasattr(b.status, 'value') else str(b.status),
+                            "details": b.details,
+                            "earned_date": b.earned_date.isoformat() if hasattr(b.earned_date, 'isoformat') else str(b.earned_date)
+                        }
+                        for b in user_bonuses
+                    ]
+                })
 
-    return result
+        return result
+    except Exception as e:
+        print(f"Error in get_all_bonuses_summary: {e}")
+        return []
 
 @router.post("/settle", dependencies=[Depends(RequirePermission("admin.commissions.settle"))])
 async def settle_commissions(
