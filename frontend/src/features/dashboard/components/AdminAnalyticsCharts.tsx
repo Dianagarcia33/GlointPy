@@ -37,112 +37,113 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
   return (
     <div className="space-y-6 w-full min-w-0">
       
-      {/* Gráfica 1: Crecimiento Mensual de Captación */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 min-w-0 overflow-hidden">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-emerald-600 shrink-0" />
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm sm:text-base">Crecimiento de Captación ($)</h3>
-              <p className="text-xs text-slate-400">Tendencia mensual de ingresos por inversiones</p>
+      {/* Top Grid: Crecimiento de Captación + Distribución por Paquetes */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full min-w-0">
+        
+        {/* Gráfica 1: Crecimiento Mensual de Captación (2 cols en xl) */}
+        <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 min-w-0 overflow-hidden">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Crecimiento de Captación ($)</h3>
+                <p className="text-xs text-slate-400">Tendencia mensual de ingresos por inversiones</p>
+              </div>
             </div>
+          </div>
+
+          <div className="h-64 sm:h-72 w-full pt-2 min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data.monthly_growth} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                <YAxis width={65} tickFormatter={formatShortAxis} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
+                <Area type="monotone" dataKey="capital_captado" name="Capital Captado" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorCapital)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="h-64 sm:h-72 w-full pt-2 min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data.monthly_growth} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorCapital" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10B981" stopOpacity={0.4}/>
-                  <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-              <YAxis width={65} tickFormatter={formatShortAxis} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
-              <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
-              <Area type="monotone" dataKey="capital_captado" name="Capital Captado" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorCapital)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Gráfica 2: Distribución por Paquetes de Inversión (Layout Amplio y Legible) */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs min-w-0 overflow-hidden space-y-4">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <PieIcon className="w-5 h-5 text-brand-600 shrink-0" />
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm sm:text-base">Paquetes de Inversión</h3>
-              <p className="text-xs text-slate-400">Distribución detallada por cantidad de contratos activos</p>
+        {/* Gráfica 2: Distribución por Paquetes de Inversión (1 col en xl, 100% responsive) */}
+        <div className="xl:col-span-1 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-2">
+            <div className="flex items-center gap-2">
+              <PieIcon className="w-5 h-5 text-brand-600 shrink-0" />
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Paquetes de Inversión</h3>
+                <p className="text-xs text-slate-400">Distribución de contratos activos</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {(() => {
-          const activePackages = (data.package_distribution || []).filter(p => p.value > 0);
-          if (activePackages.length === 0) {
+          {(() => {
+            const activePackages = (data.package_distribution || []).filter(p => p.value > 0);
+            if (activePackages.length === 0) {
+              return (
+                <div className="h-60 flex items-center justify-center text-slate-400 text-xs font-medium text-center">
+                  No hay paquetes activos registrados
+                </div>
+              );
+            }
+            const totalContracts = activePackages.reduce((acc, curr) => acc + curr.value, 0);
+
             return (
-              <div className="h-48 flex items-center justify-center text-slate-400 text-xs font-medium text-center">
-                No hay paquetes activos registrados
+              <div className="flex flex-col justify-between h-full space-y-3">
+                {/* Dona Visual */}
+                <div className="h-44 sm:h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={activePackages}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={42}
+                        outerRadius={65}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {activePackages.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: any, name: any, item: any) => [
+                        `${value} contratos (${formatCurrency(item.payload.total_monto)})`,
+                        item.payload.name.replace(/^Paquete\s*/i, '')
+                      ]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Leyenda Compacta Limpia sin la palabra "Paquete" */}
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {activePackages.map((pkg, idx) => {
+                    const cleanName = pkg.name.replace(/^Paquete\s*/i, '');
+                    const pct = totalContracts > 0 ? ((pkg.value / totalContracts) * 100).toFixed(1) : '0';
+                    return (
+                      <div key={pkg.package_id || idx} className="flex items-center justify-between text-xs bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-2xs">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                          <span className="font-extrabold text-slate-800 truncate">{cleanName}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-slate-500 font-medium text-[11px]">{pkg.value} contratos</span>
+                          <span className="font-black text-brand-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 text-[10px]">{pct}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
-          }
-          const totalContracts = activePackages.reduce((acc, curr) => acc + curr.value, 0);
+          })()}
+        </div>
 
-          return (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center pt-2">
-              {/* Dona visual ampliada */}
-              <div className="lg:col-span-5 h-60 w-full flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={activePackages}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={85}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {activePackages.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: any, name: any, item: any) => [
-                      `${value} contratos (${formatCurrency(item.payload.total_monto)})`,
-                      item.payload.name
-                    ]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Lista detallada con barras de porcentaje 100% legibles */}
-              <div className="lg:col-span-7 space-y-3 pl-0 lg:pl-6 border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0">
-                {activePackages.map((pkg, idx) => {
-                  const pct = totalContracts > 0 ? ((pkg.value / totalContracts) * 100).toFixed(1) : '0';
-                  return (
-                    <div key={pkg.package_id || idx} className="space-y-1.5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
-                      <div className="flex justify-between items-center text-xs sm:text-sm font-bold text-slate-800">
-                        <div className="flex items-center gap-2.5 truncate">
-                          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
-                          <span className="text-slate-900 font-extrabold truncate">{pkg.name}</span>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-slate-500 font-semibold">{pkg.value} {pkg.value === 1 ? 'contrato' : 'contratos'}</span>
-                          <span className="font-black text-brand-700 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs">{pct}%</span>
-                        </div>
-                      </div>
-                      <div className="w-full bg-slate-200/70 h-2 rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
       {/* Bottom Grid: Balance de Liquidez + Proporción por Tipo de Venta */}

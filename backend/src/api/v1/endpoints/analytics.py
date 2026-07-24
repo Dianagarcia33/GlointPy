@@ -99,7 +99,7 @@ async def get_admin_analytics_dashboard(
             if pid not in package_counts:
                 val = float(inv.package.value or 0)
                 package_counts[pid] = {
-                    "name": f"Paquete ${val:,.0f}",
+                    "name": f"${val:,.0f}",
                     "value": 0,
                     "package_id": pid,
                     "monto_unitario": val,
