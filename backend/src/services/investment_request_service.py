@@ -486,6 +486,34 @@ class InvestmentRequestService:
                     f"monto_bono={bonus_amount}, días_reducidos={days_to_reduce}"
                 )
 
+        # 5. Adjudicar venta comercial si se seleccionó un Directivo de Inversiones al registrarse
+        c_id = None
+        if req.extra_data and isinstance(req.extra_data, dict):
+            c_id = req.extra_data.get("commercial_id")
+        
+        if c_id:
+            try:
+                from src.services.commercial_sale_service import CommercialSaleService
+                from src.schemas.commercial_sale import CommercialSaleCreate
+                
+                sale_type_str = "referido" if referred_code else ("reinversion" if is_upgrade else "contrato_nuevo")
+                c_sale_create = CommercialSaleCreate(
+                    client_document=str(req.extra_data.get("documento") or f"USER-{req.user_id}"),
+                    client_name=str(req.extra_data.get("nombre_completo") or "Cliente Inversionista"),
+                    sale_type=sale_type_str,
+                    amount=float(req.monto),
+                    referrer_code=referred_code
+                )
+                await CommercialSaleService.create_sale_for_commercial(
+                    db,
+                    commercial_id=int(c_id),
+                    sale_data=c_sale_create,
+                    registered_by_id=user_id
+                )
+                logger.info(f"Venta comercial de ${req.monto} adjudicada automáticamente al Directivo #{c_id}")
+            except Exception as e:
+                logger.error(f"Error al adjudicar venta comercial automática al Directivo #{c_id}: {e}")
+
         await db.commit()
         await db.refresh(req)
         return req

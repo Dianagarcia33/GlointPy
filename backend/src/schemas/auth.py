@@ -36,6 +36,7 @@ class InvestorRegisterRequest(BaseModel):
     fecha_nacimiento: Optional[str] = None
     comprobante_path: str
     referred_by: Optional[str] = None
+    commercial_id: Optional[int] = None
 
 
 class ForceChangePasswordRequest(BaseModel):

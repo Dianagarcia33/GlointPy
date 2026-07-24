@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import imageCompression from 'browser-image-compression';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
+import { commercialService } from '../../../services/commercial';
 import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 import { compressImage } from '../../../utils/imageCompression';
 
@@ -63,8 +64,11 @@ export const InvestorRegistrationFlow = () => {
         monto: '',
         periodo_id: '',
         comprobante_path: '',
-        referred_by: ''
+        referred_by: '',
+        commercial_id: ''
     });
+
+    const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string; email?: string }>>([]);
 
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -72,6 +76,13 @@ export const InvestorRegistrationFlow = () => {
     const [showCustomCity, setShowCustomCity] = useState(false);
     const [showCustomBank, setShowCustomBank] = useState(false);
     const [uploadingComprobante, setUploadingComprobante] = useState(false);
+
+    // Fetch commercial users (Directivos de Inversión)
+    React.useEffect(() => {
+        commercialService.getCommercialUsers()
+            .then(res => setCommercialUsers(res))
+            .catch(() => setCommercialUsers([]));
+    }, []);
 
     // Departments & Cities dynamic fetch
     const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
@@ -331,7 +342,8 @@ export const InvestorRegistrationFlow = () => {
             contract_period_id: parseInt(formData.periodo_id),
             kyc_docs: kycPaths,
             fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null,
-            referred_by: formData.referred_by ? formData.referred_by.trim() : null
+            referred_by: formData.referred_by ? formData.referred_by.trim() : null,
+            commercial_id: formData.commercial_id ? parseInt(formData.commercial_id) : null
         };
 
         registerMutation.mutate(payload);
@@ -522,6 +534,29 @@ export const InvestorRegistrationFlow = () => {
                                         </div>
                                         <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Ana Pérez" />
                                     </div>
+                                </div>
+
+                                <div className="md:col-span-2 bg-brand-50/50 p-3.5 border border-brand-200/80 rounded-xl space-y-1">
+                                    <label className="block text-xs font-bold text-brand-900 flex items-center justify-between">
+                                        <span>👤 Directivo de Inversiones / Asesor Comercial que te atendió</span>
+                                        <span className="text-[11px] text-brand-600 font-medium">(Opcional)</span>
+                                    </label>
+                                    <select
+                                        name="commercial_id"
+                                        value={formData.commercial_id}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 bg-white border border-brand-200 rounded-lg text-slate-800 text-xs font-semibold focus:ring-2 focus:ring-brand-500"
+                                    >
+                                        <option value="">Selecciona tu Directivo de Inversión (Si aplica)...</option>
+                                        {commercialUsers.map(u => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.name} ({u.email})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[11px] text-slate-500">
+                                        Si fuiste asesorado por un Directivo de Inversión de Gloint, selecciónalo para vincular tu contrato.
+                                    </p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Doc. *</label>

@@ -185,7 +185,8 @@ class AuthService:
                 "numero_cuenta": data.numero_cuenta,
                 "kyc_docs": data.kyc_docs,
                 "contract_period_id": data.contract_period_id,
-                "referred_by": getattr(data, "referred_by", None)
+                "referred_by": getattr(data, "referred_by", None),
+                "commercial_id": getattr(data, "commercial_id", None)
             }
         )
         db.add(req)
