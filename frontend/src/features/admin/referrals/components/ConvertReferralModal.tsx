@@ -134,7 +134,8 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                 setKycDocs(prev => ({ ...prev, [type]: res.path }));
             }
         } catch (err: any) {
-            alert('Error al subir el archivo');
+            console.error("Error subiendo archivo:", err);
+            alert(err?.response?.data?.detail || err?.message || 'Error al subir el archivo');
         } finally {
             setUploadingFile(null);
         }
@@ -193,8 +194,8 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
             return;
         }
 
-        if (!formData.contract_period_id || !formData.monto) {
-            setError('Por favor selecciona el periodo del contrato y el monto de inversión.');
+        if (!formData.paquete_id || !formData.contract_period_id) {
+            setError('Por favor selecciona el paquete de inversión y el periodo del contrato.');
             return;
         }
 
@@ -413,7 +414,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                                 <DollarSign className="w-4 h-4 text-brand-600" />
                                 Configuración de la Inversión
                             </h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Paquete de Inversión *</label>
                                     <select 
@@ -426,20 +427,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                                         {paquetes.map((p: any) => (
                                             <option key={p.id} value={p.id}>{p.paquete_accion_adquirido || p.nombre || `$${p.value}`} COP</option>
                                         ))}
-                                        <option value="custom">Otro Monto (Personalizado)</option>
                                     </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Monto Inversión (COP) *</label>
-                                    <input 
-                                        type="number" 
-                                        required 
-                                        disabled={!isCustomMonto && !!formData.paquete_id && formData.paquete_id !== 'custom'} 
-                                        value={formData.monto} 
-                                        onChange={e => setFormData({ ...formData, monto: e.target.value })} 
-                                        placeholder="Ej. 10000000" 
-                                        className="w-full px-3.5 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none transition-all disabled:opacity-60" 
-                                    />
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Periodo de Contrato *</label>
