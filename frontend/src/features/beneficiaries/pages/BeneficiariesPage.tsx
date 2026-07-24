@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Beneficiary, beneficiariesService } from '../../../services/beneficiaries';
 import { BeneficiaryModal } from '../components/BeneficiaryModal';
 import { Plus, Edit2, Trash2, HeartHandshake, Loader2, AlertCircle, CheckCircle, X, Percent, ShieldCheck } from 'lucide-react';
+import { useAuthStore } from '../../../store/authStore';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, beneficiaryName, isDeleting }: any) => {
   if (!isOpen) return null;
@@ -61,6 +63,12 @@ const BeneficiaryTableSkeleton = () => {
 };
 
 export const BeneficiariesPage = () => {
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.permissions?.includes('admin.users.manage') || user?.permissions?.includes('admin.roles.manage');
+
+  if (isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
