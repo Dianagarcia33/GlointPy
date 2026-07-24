@@ -31,9 +31,9 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Carga de códigos asignados de las inversiones del usuario logueado
+    // Cargar siempre los códigos asignados de las inversiones del usuario logueado
     useEffect(() => {
-        if (isOpen && !isAdmin) {
+        if (isOpen) {
             potentialReferralsService.getMyCodes()
                 .then((codes: string[]) => {
                     setMyCodes(codes || []);
@@ -41,9 +41,9 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                         setCodigoReferido(codes[0]);
                     }
                 })
-                .catch((err: any) => console.error("Error al cargar códigos de inversión del usuario", err));
+                .catch((err: any) => console.error("Error al cargar códigos de inversión", err));
         }
-    }, [isOpen, isAdmin, referral]);
+    }, [isOpen, referral]);
 
     useEffect(() => {
         if (referral) {
@@ -78,6 +78,11 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
 
         if (!telefono.trim()) {
             setError('El número de teléfono es obligatorio');
+            return;
+        }
+
+        if (!isAdmin && !referral && !codigoReferido) {
+            setError('Debes seleccionar un código de inversión de la lista');
             return;
         }
 
@@ -196,33 +201,25 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                     </div>
 
                     {/* Selector de Código Asignado de las Inversiones del Inversionista */}
-                    {!isAdmin && !referral && (
+                    {!referral && (
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-700">Código de Inversión / Referido *</label>
-                            {myCodes.length > 0 ? (
-                                <div className="relative">
-                                    <select
-                                        value={codigoReferido}
-                                        onChange={(e) => setCodigoReferido(e.target.value)}
-                                        className="w-full pl-4 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-mono font-bold text-slate-900 cursor-pointer"
-                                        required
-                                    >
-                                        {myCodes.map(code => (
-                                            <option key={code} value={code}>{code}</option>
-                                        ))}
-                                    </select>
-                                    <Tag className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
-                                </div>
-                            ) : (
-                                <input
-                                    type="text"
+                            <label className="text-xs font-bold text-slate-700">
+                                Código de Inversión / Referido <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <select
                                     value={codigoReferido}
                                     onChange={(e) => setCodigoReferido(e.target.value)}
-                                    placeholder="Ej. IG1000"
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-mono font-bold text-slate-900"
+                                    className="w-full pl-4 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-mono font-bold text-slate-900 cursor-pointer"
                                     required
-                                />
-                            )}
+                                >
+                                    <option value="">-- Selecciona el código de tu inversión --</option>
+                                    {myCodes.map(code => (
+                                        <option key={code} value={code}>{code}</option>
+                                    ))}
+                                </select>
+                                <Tag className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+                            </div>
                         </div>
                     )}
 
