@@ -121,7 +121,7 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
           <div className="flex items-center gap-2">
             <Trophy className="w-5 h-5 text-amber-500 shrink-0" />
             <div>
-              <h3 className="font-bold text-slate-800 text-sm sm:text-base font-montserrat">Ranking del Equipo Comercial (Leaderboard)</h3>
+              <h3 className="font-bold text-slate-800 text-sm sm:text-base font-montserrat">Ranking del Equipo Comercial</h3>
               <p className="text-xs text-slate-400">Rendimiento por volumen de ventas en el mes en curso</p>
             </div>
           </div>
@@ -170,14 +170,14 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
         )}
       </div>
 
-      {/* Tabla de Contratos Adjudicados Próximos a Vencer */}
+      {/* Tabla de Contratos Próximos a Vencer */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-rose-500 shrink-0" />
             <div>
               <h3 className="font-bold text-slate-800 text-sm sm:text-base font-montserrat">
-                Contratos Próximos a Vencer (Adjudicados)
+                Contratos Próximos a Vencer
               </h3>
               <p className="text-xs text-slate-400">Seguimiento a vencimientos de contratos adjudicados a asesores comerciales</p>
             </div>

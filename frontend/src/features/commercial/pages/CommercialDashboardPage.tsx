@@ -421,7 +421,7 @@ export const CommercialDashboardPage: React.FC = () => {
               <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-2.5">
                   <Trophy className="w-5 h-5 text-amber-500" />
-                  <h2 className="font-bold text-slate-900 text-base font-montserrat">Ranking de Ventas (Leaderboard)</h2>
+                  <h2 className="font-bold text-slate-900 text-base font-montserrat">Ranking de Ventas</h2>
                 </div>
                 <span className="text-xs text-slate-400 font-medium">Mes en Curso</span>
               </div>
