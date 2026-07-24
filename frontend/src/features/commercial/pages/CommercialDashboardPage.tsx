@@ -113,38 +113,31 @@ export const CommercialDashboardPage: React.FC = () => {
   const progressPercent = Math.min(100, Math.round((directAccum / threshold) * 100));
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-2xl ${isAdmin ? 'bg-amber-100 text-amber-800' : 'bg-brand-100 text-brand-700'}`}>
-            <Trophy className="w-7 h-7" />
+      {/* Header Ejecutivo Principal (Estilo Dashboard / Resto de Módulos) */}
+      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        <div className="relative z-10 space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
+            <Trophy className="w-4 h-4 text-amber-400" />
+            {isAdmin ? 'Supervisión Comercial Ejecutiva 360°' : 'Gestión Comercial & Ranking'}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-slate-800">
-                {isAdmin ? 'Panel de Control Comercial (Administrador)' : 'Panel Comercial & Ranking'}
-              </h1>
-              {isAdmin && (
-                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-[10px] font-extrabold uppercase flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3 text-amber-700" /> Admin
-                </span>
-              )}
-            </div>
-            <p className="text-slate-500 text-sm mt-0.5">
-              {isAdmin 
-                ? 'Supervisión global de facturación, auditoría de comisiones y adjudicación al equipo comercial' 
-                : 'Gestión de ventas, partición marginal del 3.5% y comisiones en tiempo real'}
-            </p>
-          </div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+            {isAdmin ? 'Panel de Control Comercial' : 'Panel Comercial & Ranking'}
+          </h1>
+          <p className="text-slate-300 text-sm max-w-xl">
+            {isAdmin 
+              ? 'Supervisión global de facturación, auditoría de comisiones y adjudicación al equipo comercial' 
+              : 'Gestión de ventas, partición marginal del 3.5% y comisiones en tiempo real'}
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="relative z-10 flex items-center gap-3 shrink-0">
           {isAdmin && (
             <button
               onClick={exportToCSV}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl transition-all text-xs font-bold border border-slate-200 cursor-pointer"
+              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
             >
               <Download className="w-4 h-4" />
               Exportar CSV
@@ -153,10 +146,10 @@ export const CommercialDashboardPage: React.FC = () => {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-all shadow-md shadow-brand-600/20 text-sm font-semibold cursor-pointer shrink-0"
+            className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
-            {isAdmin ? 'Adjudicar Venta a Asesor' : 'Registrar Venta'}
+            {isAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}
           </button>
         </div>
       </div>
@@ -166,33 +159,33 @@ export const CommercialDashboardPage: React.FC = () => {
         <>
           {/* Executive KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Empresa (Mes)</span>
-              <span className="text-2xl font-extrabold text-slate-900 block">
-                ${(adminSummary?.global_sales || 0).toLocaleString('es-CO')} COP
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Ventas Empresa (Mes)</span>
+              <span className="text-2xl font-extrabold text-slate-900 block tracking-tight font-montserrat">
+                ${(adminSummary?.global_sales || 0).toLocaleString('es-CO')}
               </span>
-              <span className="text-[11px] text-slate-500">Facturación acumulada del equipo</span>
+              <span className="text-[11px] text-slate-500 font-medium">Facturación acumulada del equipo</span>
             </div>
 
-            <div className="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-5 shadow-xs space-y-2">
-              <span className="text-xs text-emerald-800 font-semibold uppercase tracking-wider block">Comisiones Totales Equipo</span>
-              <span className="text-2xl font-extrabold text-emerald-700 block">
-                ${(adminSummary?.global_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
+            <div className="bg-emerald-50/80 border border-emerald-200 rounded-3xl p-6 shadow-xs space-y-2">
+              <span className="text-xs text-emerald-800 font-bold uppercase tracking-wider block font-montserrat">Comisiones Totales</span>
+              <span className="text-2xl font-extrabold text-emerald-700 block tracking-tight font-montserrat">
+                ${(adminSummary?.global_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
               </span>
               <span className="text-[11px] text-emerald-700 font-medium">Consolidado a liquidar</span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Total Cierres Adjudicados</span>
-              <span className="text-2xl font-extrabold text-brand-700 block">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Cierres Adjudicados</span>
+              <span className="text-2xl font-extrabold text-brand-700 block tracking-tight font-montserrat">
                 {adminSummary?.total_closures || 0}
               </span>
-              <span className="text-[11px] text-slate-500">Transacciones comerciales</span>
+              <span className="text-[11px] text-slate-500 font-medium">Transacciones comerciales</span>
             </div>
 
-            <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 shadow-xs space-y-2">
-              <span className="text-xs text-amber-900 font-semibold uppercase tracking-wider block">Líder de Ventas Mes</span>
-              <span className="text-xl font-extrabold text-amber-950 block truncate">
+            <div className="bg-amber-50/70 border border-amber-200 rounded-3xl p-6 shadow-xs space-y-2">
+              <span className="text-xs text-amber-900 font-bold uppercase tracking-wider block font-montserrat">Líder del Mes</span>
+              <span className="text-xl font-extrabold text-amber-950 block truncate font-montserrat">
                 {adminSummary?.leader_name || 'Sin ventas'}
               </span>
               <span className="text-[11px] text-amber-800 font-medium">Puesto #1 del Ranking</span>
@@ -203,18 +196,18 @@ export const CommercialDashboardPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Leaderboard (1 col) */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5">
                   <Trophy className="w-5 h-5 text-amber-500" />
-                  <h2 className="font-bold text-slate-800 text-base">Ranking del Equipo</h2>
+                  <h2 className="font-bold text-slate-900 text-base font-montserrat">Ranking del Equipo</h2>
                 </div>
                 <span className="text-xs text-slate-400 font-medium">Mes en Curso</span>
               </div>
 
               {isLoadingLeaderboard ? (
                 <div className="space-y-3">
-                  {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />)}
+                  {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-2xl animate-pulse" />)}
                 </div>
               ) : !leaderboardData?.leaderboard?.length ? (
                 <p className="text-center text-xs text-slate-400 py-8">No hay registros en el ranking este mes.</p>
@@ -223,7 +216,7 @@ export const CommercialDashboardPage: React.FC = () => {
                   {leaderboardData.leaderboard.map((entry) => (
                     <div
                       key={entry.commercial_id}
-                      className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+                      className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
                     >
                       <div className="flex items-center gap-2.5">
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
@@ -239,7 +232,7 @@ export const CommercialDashboardPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <span className="font-extrabold text-slate-800 text-sm">
+                      <span className="font-extrabold text-slate-800 text-sm font-montserrat">
                         ${entry.total_volume.toLocaleString('es-CO')}
                       </span>
                     </div>
@@ -249,11 +242,11 @@ export const CommercialDashboardPage: React.FC = () => {
             </div>
 
             {/* General Sales Audit Table (2 cols) */}
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
+            <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5">
                   <UserCheck className="w-5 h-5 text-brand-600" />
-                  <h2 className="font-bold text-slate-800 text-base">Auditoría General de Ventas Adjudicadas</h2>
+                  <h2 className="font-bold text-slate-900 text-base font-montserrat">Auditoría General de Ventas Adjudicadas</h2>
                 </div>
 
                 {/* Filters */}
@@ -352,37 +345,37 @@ export const CommercialDashboardPage: React.FC = () => {
         /* VISTA ASESOR COMERCIAL (INDIVIDUAL) */
         <>
           {/* Alerta Estratégica de Proximidad a los $36M */}
-          <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800 space-y-3">
+          <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 space-y-4 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
-                  <Zap className="w-5 h-5" />
+                <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl">
+                  <Zap className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-white">Progreso de Tramo Marginal ($36.000.000)</h3>
+                  <h3 className="font-bold text-base text-white font-montserrat">Progreso de Tramo Marginal ($36.000.000)</h3>
                   <p className="text-xs text-slate-300">
                     {summary?.has_reached_36m ? (
                       <span className="text-emerald-400 font-bold">¡Felicidades! Has superado los $36.000.000. Todas tus ventas directas cotizan al 3.5%.</span>
                     ) : (
-                      <span>Te faltan <strong className="text-emerald-400 font-bold">${remaining.toLocaleString('es-CO')} COP</strong> en ventas directas para desbloquear la comisión al 3.5%.</span>
+                      <span>Te faltan <strong className="text-emerald-400 font-bold">${remaining.toLocaleString('es-CO')}</strong> en ventas directas para desbloquear la comisión al 3.5%.</span>
                     )}
                   </p>
                 </div>
               </div>
 
-              <span className="px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-emerald-400 border border-white/10">
+              <span className="px-3.5 py-1 bg-white/10 rounded-full text-xs font-bold text-emerald-400 border border-white/10 backdrop-blur-sm">
                 Tasa Actual: {(summary?.current_rate ? summary.current_rate * 100 : 3.0).toFixed(1)}%
               </span>
             </div>
 
-            <div className="space-y-1 pt-1">
-              <div className="flex justify-between text-[11px] text-slate-400 font-medium">
-                <span>Acumulado Directo: ${directAccum.toLocaleString('es-CO')} COP</span>
-                <span>Meta Piso 2: ${threshold.toLocaleString('es-CO')} COP</span>
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-xs text-slate-400 font-medium">
+                <span>Acumulado Directo: ${directAccum.toLocaleString('es-CO')}</span>
+                <span>Meta Piso 2: ${threshold.toLocaleString('es-CO')}</span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+              <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-brand-500 to-emerald-400 h-2.5 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-brand-500 to-emerald-400 h-3 rounded-full transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -391,34 +384,34 @@ export const CommercialDashboardPage: React.FC = () => {
 
           {/* KPI Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Directas</span>
-              <span className="text-2xl font-extrabold text-slate-800 block">
-                ${directAccum.toLocaleString('es-CO')} COP
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Ventas Directas</span>
+              <span className="text-2xl font-extrabold text-slate-800 block tracking-tight font-montserrat">
+                ${directAccum.toLocaleString('es-CO')}
               </span>
-              <span className="text-[11px] text-slate-500">Contratos Nuevos + Reinversiones</span>
+              <span className="text-[11px] text-slate-500 font-medium">Contratos Nuevos + Reinversiones</span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Referidos</span>
-              <span className="text-2xl font-extrabold text-amber-800 block">
-                ${(summary?.referral_accumulated || 0).toLocaleString('es-CO')} COP
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Ventas Referidos</span>
+              <span className="text-2xl font-extrabold text-amber-800 block tracking-tight font-montserrat">
+                ${(summary?.referral_accumulated || 0).toLocaleString('es-CO')}
               </span>
               <span className="text-[11px] text-amber-700 font-medium">Tasa fija del 1.8%</span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Ventas Totales Mes</span>
-              <span className="text-2xl font-extrabold text-brand-700 block">
-                ${(summary?.total_accumulated || 0).toLocaleString('es-CO')} COP
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Ventas Totales Mes</span>
+              <span className="text-2xl font-extrabold text-brand-700 block tracking-tight font-montserrat">
+                ${(summary?.total_accumulated || 0).toLocaleString('es-CO')}
               </span>
-              <span className="text-[11px] text-slate-500">Consolidado general</span>
+              <span className="text-[11px] text-slate-500 font-medium">Consolidado general</span>
             </div>
 
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 shadow-xs space-y-2">
-              <span className="text-xs text-emerald-800 font-semibold uppercase tracking-wider block">Comisiones Ganadas</span>
-              <span className="text-2xl font-extrabold text-emerald-700 block">
-                +${(summary?.total_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-3xl p-6 shadow-xs space-y-2">
+              <span className="text-xs text-emerald-800 font-bold uppercase tracking-wider block font-montserrat">Comisiones Ganadas</span>
+              <span className="text-2xl font-extrabold text-emerald-700 block tracking-tight font-montserrat">
+                +${(summary?.total_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
               </span>
               <span className="text-[11px] text-emerald-700 font-medium">Calculadas del mes en curso</span>
             </div>
@@ -428,11 +421,11 @@ export const CommercialDashboardPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Ranking / Leaderboard */}
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
+            <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5">
                   <Trophy className="w-5 h-5 text-amber-500" />
-                  <h2 className="font-bold text-slate-800 text-base">Ranking de Ventas (Leaderboard)</h2>
+                  <h2 className="font-bold text-slate-900 text-base font-montserrat">Ranking de Ventas (Leaderboard)</h2>
                 </div>
                 <span className="text-xs text-slate-400 font-medium">Mes en Curso</span>
               </div>
