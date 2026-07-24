@@ -316,13 +316,16 @@ async def get_commercial_users(
     commercial_users = []
     for u in all_users:
         role_names = [r.name.lower() for r in (u.roles or [])]
-        is_directivo_or_comercial = any(
-            keyword in r_name for r_name in role_names
-            for keyword in ["directiv", "comercial", "asesor", "lider", "director", "inversión", "inversion"]
-        ) or u.id in sales_user_ids
+        
+        # Filtro estricto: Debe tener un rol comercial (Directivo, Comercial, Asesor, Director, Líder)
+        # y NO ser un usuario únicamente cliente 'Inversionista'
+        has_commercial_role = any(
+            any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director"])
+            and not any(inv_kw in r_name for inv_kw in ["inversionista", "investor"])
+            for r_name in role_names
+        )
 
-        # Excluir inversionistas puros sin rol comercial
-        if is_directivo_or_comercial or u.is_superuser:
+        if has_commercial_role or u.id in sales_user_ids:
             commercial_users.append({
                 "id": u.id,
                 "name": u.name,
