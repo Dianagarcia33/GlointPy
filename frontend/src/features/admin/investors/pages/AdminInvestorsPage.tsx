@@ -81,25 +81,17 @@ const InvestorTableSkeleton = () => {
               <div className="h-3 w-20 bg-slate-100 rounded"></div>
             </div>
           </td>
-          {/* Fechas */}
-          <td className="px-6 py-4">
-            <div className="space-y-2">
-              <div className="flex justify-between w-40">
-                <div className="h-3 w-12 bg-slate-100 rounded"></div>
-                <div className="h-3 w-16 bg-slate-200 rounded"></div>
-              </div>
-              <div className="flex justify-between w-40">
-                <div className="h-3 w-8 bg-slate-100 rounded"></div>
-                <div className="h-3 w-16 bg-slate-200 rounded"></div>
-              </div>
-            </div>
+          {/* Bonos Aceleración */}
+          <td className="px-4 py-4">
+            <div className="h-5 w-20 bg-slate-200 rounded-lg"></div>
           </td>
           {/* Acciones */}
           <Can permission="admin.investors.manage">
-            <td className="px-6 py-4 text-right">
-              <div className="flex items-center justify-end gap-2">
-                <div className="h-7 w-7 bg-slate-200 rounded-lg"></div>
-                <div className="h-7 w-7 bg-slate-200 rounded-lg"></div>
+            <td className="px-4 py-4 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-7 w-20 bg-slate-200 rounded-xl"></div>
+                <div className="h-7 w-16 bg-slate-200 rounded-xl"></div>
+                <div className="h-7 w-16 bg-slate-200 rounded-xl"></div>
               </div>
             </td>
           </Can>
@@ -344,7 +336,6 @@ export const AdminInvestorsPage = () => {
                 <th className="px-4 py-3">Usuario</th>
                 <th className="px-4 py-3">Paquete / Periodo</th>
                 <th className="px-4 py-3">Bonos Aceleración</th>
-                <th className="px-4 py-3">Fechas</th>
                 <Can permission="admin.investors.manage">
                   <th className="px-4 py-3 text-center whitespace-nowrap min-w-[280px]">Acciones</th>
                 </Can>
@@ -355,7 +346,7 @@ export const AdminInvestorsPage = () => {
                 <InvestorTableSkeleton />
               ) : investors.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay inversionistas registrados.</p>
@@ -470,47 +461,6 @@ export const AdminInvestorsPage = () => {
                           );
                         })()}
                       </td>
-                      <td className="px-4 py-3.5 text-xs space-y-2">
-                          <div className="space-y-1">
-                            <div className="flex justify-between w-40">
-                                <span className="text-slate-500">Ingreso:</span>
-                                <span className="font-medium text-slate-700">
-                                    {new Date(investor.start_date).toLocaleDateString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between w-40">
-                                <span className="text-slate-500">Fin:</span>
-                                <span className="font-medium text-emerald-700">
-                                    {new Date(investor.end_date).toLocaleDateString()}
-                                </span>
-                            </div>
-                          </div>
-                          
-                          {/* Progreso del contrato */}
-                          {(() => {
-                            const now = new Date().getTime();
-                            const start = new Date(investor.start_date).getTime();
-                            const totalDays = investor.period ? investor.period.days : 0;
-                            const elapsedRaw = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-                            const elapsed = Math.max(0, Math.min(elapsedRaw, totalDays));
-                            const progress = totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 0;
-                            
-                            return totalDays > 0 ? (
-                              <div className="w-40 pt-1">
-                                <div className="flex justify-between text-[10px] mb-1">
-                                  <span className="text-slate-500 font-medium">Avance</span>
-                                  <span className="text-brand-600 font-bold">{elapsed} / {totalDays} días</span>
-                                </div>
-                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                  <div 
-                                    className="bg-brand-500 h-1.5 rounded-full transition-all" 
-                                    style={{ width: `${progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                            ) : null;
-                          })()}
-                      </td>
                       <Can permission="admin.investors.manage">
                         <td className="px-4 py-3.5 text-center whitespace-nowrap min-w-[280px]">
                           <div className="flex items-center justify-center gap-2">
@@ -544,7 +494,49 @@ export const AdminInvestorsPage = () => {
                     </tr>
                     {expandedRows[investor.id] && investor.user && (
                       <tr className="bg-slate-50/40">
-                        <td colSpan={8} className="px-8 py-4 border-b border-slate-100 space-y-5">
+                        <td colSpan={7} className="px-8 py-4 border-b border-slate-100 space-y-5">
+                          
+                          {/* Vigencia y Fechas del Contrato */}
+                          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 pb-2 font-montserrat">
+                              <span>📅 Vigencia y Fechas del Contrato:</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs font-semibold">
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold">Fecha de Ingreso</span>
+                                <span className="text-slate-800 font-bold text-sm">{new Date(investor.start_date).toLocaleDateString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold">Fecha Finalización</span>
+                                <span className="text-emerald-700 font-extrabold text-sm">{new Date(investor.end_date).toLocaleDateString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold">Avance del Contrato</span>
+                                {(() => {
+                                  const now = new Date().getTime();
+                                  const start = new Date(investor.start_date).getTime();
+                                  const totalDays = investor.period ? investor.period.days : 0;
+                                  const elapsedRaw = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                                  const elapsed = Math.max(0, Math.min(elapsedRaw, totalDays));
+                                  const progress = totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 0;
+                                  
+                                  return (
+                                    <div className="space-y-1 mt-0.5">
+                                      <div className="flex justify-between text-[10px]">
+                                        <span className="text-brand-600 font-extrabold">{elapsed} / {totalDays} días ({progress}%)</span>
+                                      </div>
+                                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                        <div 
+                                          className="bg-brand-500 h-2 rounded-full transition-all" 
+                                          style={{ width: `${progress}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
                           
                           {/* Tarjetas de Rendimientos Diarios y Liberación */}
                           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
