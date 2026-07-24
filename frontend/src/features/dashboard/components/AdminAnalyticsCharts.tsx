@@ -71,8 +71,8 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
         </div>
 
         {/* Gráfica 2: Distribución por Paquetes de Inversión (1 col en xl) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 min-w-0 overflow-hidden">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs flex flex-col justify-between min-w-0 overflow-hidden">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-2">
             <div className="flex items-center gap-2">
               <PieIcon className="w-5 h-5 text-brand-600 shrink-0" />
               <div>
@@ -82,34 +82,58 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
             </div>
           </div>
 
-          <div className="h-64 sm:h-72 w-full flex items-center justify-center min-w-0">
-            {data.package_distribution && data.package_distribution.filter(p => p.value > 0).length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={data.package_distribution.filter(p => p.value > 0)}
-                    cx="50%"
-                    cy="40%"
-                    innerRadius={45}
-                    outerRadius={70}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {data.package_distribution.filter(p => p.value > 0).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: any, name: any, item: any) => [
-                    `${value} contratos (${formatCurrency(item.payload.total_monto)})`,
-                    item.payload.name
-                  ]} />
-                  <Legend iconType="circle" layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-slate-400 text-xs font-medium text-center">No hay paquetes activos registrados</div>
-            )}
-          </div>
+          {(() => {
+            const activePackages = (data.package_distribution || []).filter(p => p.value > 0);
+            if (activePackages.length === 0) {
+              return (
+                <div className="h-60 flex items-center justify-center text-slate-400 text-xs font-medium text-center">
+                  No hay paquetes activos registrados
+                </div>
+              );
+            }
+            return (
+              <div className="flex flex-col justify-between h-full space-y-3">
+                <div className="h-44 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={activePackages}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={68}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {activePackages.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: any, name: any, item: any) => [
+                        `${value} contratos (${formatCurrency(item.payload.total_monto)})`,
+                        item.payload.name
+                      ]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Leyenda personalizada en Grid estructurado */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100 max-h-32 overflow-y-auto">
+                  {activePackages.map((pkg, idx) => (
+                    <div key={pkg.package_id || idx} className="flex items-center justify-between gap-2 text-xs bg-slate-50 p-2 rounded-xl border border-slate-100 shadow-2xs">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                        <span className="font-bold text-slate-700 truncate">{pkg.name}</span>
+                      </div>
+                      <span className="font-extrabold text-brand-700 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-[11px] shrink-0">
+                        {pkg.value} {pkg.value === 1 ? 'cto' : 'ctos'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
       </div>
