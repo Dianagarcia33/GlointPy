@@ -88,7 +88,7 @@ function App() {
         } 
       >
         <Route index element={<DashboardPage />} />
-        <Route path="wallet" element={<WalletsPage />} />
+        <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
         <Route path="investments" element={<InvestmentsPage />} />
         <Route path="investments/:id" element={<InvestmentDetailPage />} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
@@ -98,8 +98,8 @@ function App() {
         <Route path="packages" element={<RequirePermission permission="admin.packages.manage"><AdminPackagesPage /></RequirePermission>} />
         <Route path="investors" element={<RequirePermission permission="admin.investors.manage"><AdminInvestorsPage /></RequirePermission>} />
         <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
-        <Route path="system-events" element={<SystemEventsPage />} />
-        <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
+        <Route path="system-events" element={<RequirePermission permission="manage_system_events"><SystemEventsPage /></RequirePermission>} />
+        <Route path="bank-accounts" element={<RequirePermission permission="bank_accounts:view"><BankAccountsVaultPage /></RequirePermission>} />
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
       </Route>
 
