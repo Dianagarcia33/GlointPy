@@ -34,7 +34,7 @@ class PotentialReferralResponse(PotentialReferralBase):
 class PotentialReferralConvertRequest(BaseModel):
     name: str
     email: str
-    password: str
+    password: Optional[str] = None
     tipo_documento: str
     documento: str
     numero_celular: str
@@ -43,7 +43,7 @@ class PotentialReferralConvertRequest(BaseModel):
     banco: str
     tipo_cuenta: str
     numero_cuenta: str
-    paquete_id: int
+    paquete_id: Optional[int] = None
     contract_period_id: int
     monto: float
     comprobante_path: Optional[str] = None

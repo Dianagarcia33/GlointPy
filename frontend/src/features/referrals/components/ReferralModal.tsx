@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { PotentialReferral, PotentialReferralCreate, PotentialReferralUpdate, potentialReferralsService } from '../../../services/potential_referrals';
-import { X, Loader2, UserPlus, Phone, Mail, FileText } from 'lucide-react';
+import { X, Loader2, UserPlus, Phone, Mail, FileText, CheckCircle } from 'lucide-react';
 
 interface ReferralModalProps {
     isOpen: boolean;
@@ -177,16 +177,23 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                     {isAdmin && (
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-700">Estado del Referido</label>
-                            <select
-                                value={estado}
-                                onChange={(e) => setEstado(e.target.value)}
-                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-bold text-slate-900"
-                            >
-                                <option value="pendiente">Pendiente</option>
-                                <option value="contactado">Contactado</option>
-                                <option value="registrado">Registrado</option>
-                                <option value="rechazado">Rechazado</option>
-                            </select>
+                            {referral?.estado === 'registrado' ? (
+                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 flex items-center gap-2 font-montserrat">
+                                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <span>Registrado como Usuario e Inversionista (Estado Final)</span>
+                                </div>
+                            ) : (
+                                <select
+                                    value={estado}
+                                    onChange={(e) => setEstado(e.target.value)}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-bold text-slate-900"
+                                >
+                                    <option value="pendiente">Pendiente</option>
+                                    <option value="contactado">Contactado</option>
+                                    <option value="registrado">Registrado (Abrir conversión a Solicitud)</option>
+                                    <option value="rechazado">Rechazado</option>
+                                </select>
+                            )}
                         </div>
                     )}
 

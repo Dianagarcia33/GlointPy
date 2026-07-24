@@ -100,6 +100,12 @@ class PotentialReferralService:
             )
 
         update_data = data.model_dump(exclude_unset=True)
+        if db_ref.estado == "registrado" and update_data.get("estado") and update_data.get("estado") != "registrado":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se puede cambiar el estado de un referido que ya fue registrado como usuario."
+            )
+
         for field, val in update_data.items():
             setattr(db_ref, field, val)
 
@@ -155,8 +161,9 @@ class PotentialReferralService:
         role_res = await db.execute(select(Role).where(Role.name.in_(["Investor", "Inversionista", "Usuario"])))
         role = role_res.scalars().first()
 
-        # 3. Crear Usuario
-        hashed_pwd = get_password_hash(data.password)
+        # 3. Crear Usuario (Usando el documento como contraseña inicial por defecto)
+        raw_password = (data.password or data.documento).strip()
+        hashed_pwd = get_password_hash(raw_password)
         new_user = User(
             name=data.name,
             email=data.email,

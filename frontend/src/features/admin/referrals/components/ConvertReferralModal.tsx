@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { PotentialReferral, potentialReferralsService } from '../../../../services/potential_referrals';
 import { investmentsService } from '../../../../services/investments';
-import { X, Loader2, ArrowRight, CheckCircle2, ShieldCheck, Upload, Landmark, UserCheck, DollarSign } from 'lucide-react';
+import { X, Loader2, User, Landmark, UploadCloud, CheckCircle2, DollarSign } from 'lucide-react';
 
 interface ConvertReferralModalProps {
     isOpen: boolean;
@@ -12,9 +12,9 @@ interface ConvertReferralModalProps {
 }
 
 const CITIES = [
-    'Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena',
-    'Bucaramanga', 'Manizales', 'Pereira', 'Cúcuta', 'Ibagué',
-    'Santa Marta', 'Villavicencio', 'Pasto', 'Montería', 'Neiva', 'Otra'
+    "Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", 
+    "Bucaramanga", "Manizales", "Pereira", "Cúcuta", "Ibagué", 
+    "Villavicencio", "Santa Marta", "Valledupar", "Montería", "Pasto", "Otra"
 ];
 
 export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
@@ -27,10 +27,12 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     const [periodos, setPeriodos] = useState<any[]>([]);
     const [loadingOptions, setLoadingOptions] = useState(false);
 
+    const [showCustomCity, setShowCustomCity] = useState(false);
+    const [isCustomMonto, setIsCustomMonto] = useState(false);
+
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        password: '',
         tipo_documento: 'CC',
         documento: '',
         numero_celular: '',
@@ -46,7 +48,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
         comprobante_path: ''
     });
 
-    const [kycDocs, setKycDocs] = useState({ frontal: '', selfie: '' });
+    const [kycDocs, setKycDocs] = useState({ frontal: '', lateral: '', selfie: '' });
     const [uploadingFile, setUploadingFile] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
             ]).then(([pkgs, prds]) => {
                 setPaquetes(pkgs || []);
                 setPeriodos(prds || []);
-            }).catch(err => console.error("Error al cargar paquetes/periodos", err))
+            }).catch(err => console.error("Error al cargar opciones", err))
             .finally(() => setLoadingOptions(false));
         }
     }, [isOpen]);
@@ -70,7 +72,6 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
             setFormData({
                 name: referral.nombre || '',
                 email: referral.email || '',
-                password: '',
                 tipo_documento: 'CC',
                 documento: '',
                 numero_celular: referral.telefono || '',
@@ -85,24 +86,26 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                 monto: '',
                 comprobante_path: ''
             });
-            setKycDocs({ frontal: '', selfie: '' });
+            setShowCustomCity(false);
+            setIsCustomMonto(false);
+            setKycDocs({ frontal: '', lateral: '', selfie: '' });
             setError(null);
         }
     }, [referral, isOpen]);
 
     if (!isOpen || !referral) return null;
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: 'comprobante_path' | 'frontal' | 'selfie') => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'comprobante_path' | 'frontal' | 'lateral') => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         try {
-            setUploadingFile(fieldName);
+            setUploadingFile(type);
             const res = await investmentsService.uploadKycDocument(file);
-            if (fieldName === 'comprobante_path') {
+            if (type === 'comprobante_path') {
                 setFormData(prev => ({ ...prev, comprobante_path: res.path }));
             } else {
-                setKycDocs(prev => ({ ...prev, [fieldName]: res.path }));
+                setKycDocs(prev => ({ ...prev, [type]: res.path }));
             }
         } catch (err: any) {
             alert('Error al subir el archivo');
@@ -112,6 +115,13 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     };
 
     const handlePaqueteChange = (paqueteIdStr: string) => {
+        if (paqueteIdStr === 'custom') {
+            setIsCustomMonto(true);
+            setFormData(prev => ({ ...prev, paquete_id: 'custom', monto: '' }));
+            return;
+        }
+
+        setIsCustomMonto(false);
         const selected = paquetes.find(p => p.id.toString() === paqueteIdStr);
         const montoVal = selected ? (selected.value || selected.nombre.replace(/[^0-9]/g, '')) : '';
         setFormData(prev => ({
@@ -121,21 +131,44 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
         }));
     };
 
+    // Live Calculations
+    const getCalculations = () => {
+        const monto = parseFloat(formData.monto) || 0;
+        const periodo = periodos.find((p: any) => p.id.toString() === formData.contract_period_id);
+        
+        if (!monto || !periodo) return null;
+
+        const { percentage, months } = periodo;
+        const rendimientoMensual = monto * (percentage / 100);
+        const rendimientoTotal = rendimientoMensual * months;
+        const totalContrato = monto + rendimientoTotal;
+
+        return {
+            porcentaje: percentage,
+            meses: months,
+            rendimientoMensual,
+            rendimientoTotal,
+            totalContrato
+        };
+    };
+
+    const calculations = getCalculations();
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!formData.name || !formData.email || !formData.password || !formData.documento || !formData.numero_celular) {
-            setError('Por favor diligencia todos los datos personales obligatorios.');
+        if (!formData.name || !formData.email || !formData.documento || !formData.numero_celular) {
+            setError('Por favor diligencia todos los datos personales obligatorios del cliente.');
             return;
         }
 
         if (!formData.banco || !formData.numero_cuenta) {
-            setError('Por favor diligencia los datos bancarios obligatorios.');
+            setError('Por favor diligencia la cuenta bancaria del cliente.');
             return;
         }
 
-        if (!formData.paquete_id || !formData.contract_period_id || !formData.monto) {
-            setError('Por favor selecciona el paquete de inversión y periodo del contrato.');
+        if (!formData.contract_period_id || !formData.monto) {
+            setError('Por favor selecciona el periodo del contrato y el monto de inversión.');
             return;
         }
 
@@ -147,7 +180,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
             const payload = {
                 name: formData.name.trim(),
                 email: formData.email.trim(),
-                password: formData.password,
+                password: formData.documento.trim(), // Contraseña por defecto es el documento
                 tipo_documento: formData.tipo_documento,
                 documento: formData.documento.trim(),
                 numero_celular: formData.numero_celular.trim(),
@@ -156,7 +189,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                 banco: formData.banco.trim(),
                 tipo_cuenta: formData.tipo_cuenta,
                 numero_cuenta: formData.numero_cuenta.trim(),
-                paquete_id: parseInt(formData.paquete_id),
+                paquete_id: isCustomMonto ? null : parseInt(formData.paquete_id),
                 contract_period_id: parseInt(formData.contract_period_id),
                 monto: parseFloat(formData.monto),
                 comprobante_path: formData.comprobante_path || null,
@@ -174,311 +207,321 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     };
 
     return createPortal(
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200" style={{ margin: 0 }}>
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] border border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-150" style={{ margin: 0 }}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl flex flex-col" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
                 
-                {/* Header Modal */}
-                <div className="bg-slate-900 text-white p-6 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 bg-brand-500/20 text-brand-400 rounded-2xl border border-brand-500/30">
-                            <UserCheck className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold font-montserrat">Convertir en Solicitud de Inversión</h3>
-                            <p className="text-xs text-slate-300">
-                                Registro completo del usuario y generación de solicitud de inversión para <span className="font-bold text-brand-300">{referral.nombre}</span>
-                            </p>
-                        </div>
+                {/* Modal Header Estandarizado */}
+                <div className="flex-none flex items-center justify-between p-4 md:p-5 border-b border-slate-100 bg-white">
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-900 font-montserrat">Convertir Referido en Solicitud de Inversión</h2>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            Registra la cuenta e inversión inicial para <span className="font-semibold text-slate-800">{referral.nombre}</span>
+                        </p>
                     </div>
-                    <button 
-                        onClick={onClose}
-                        className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                    >
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                <form id="convert-form" onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
-                    
-                    {error && (
-                        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs font-semibold text-red-600 flex items-center gap-2">
-                            <X className="w-4 h-4 text-red-500 shrink-0" />
-                            <span>{error}</span>
-                        </div>
-                    )}
-
-                    {/* Sección 1: Datos Personales */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                            <ShieldCheck className="w-4 h-4 text-brand-600" />
-                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider font-montserrat">1. Datos Personales del Usuario</h4>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Nombre Completo <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20"
-                                    required
-                                />
+                {/* Modal Body */}
+                <div className="flex-1 overflow-y-auto min-h-0 p-4 md:p-5 bg-slate-50/50">
+                    <form id="convert-referral-form" onSubmit={handleSubmit} className="space-y-4 md:space-y-5 max-w-4xl mx-auto">
+                        
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 p-4 rounded-xl text-sm font-semibold text-red-600 flex items-center gap-2">
+                                <X className="w-4 h-4 text-red-500 shrink-0" />
+                                <span>{error}</span>
                             </div>
+                        )}
 
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Correo Electrónico <span className="text-red-500">*</span></label>
-                                <input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                    placeholder="ejemplo@correo.com"
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20"
-                                    required
-                                />
-                            </div>
+                        {/* Bloque 1: Datos Personales */}
+                        <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-xs relative space-y-4">
+                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+                                <User className="w-5 h-5 text-brand-600" />
+                                Datos Personales del Cliente
+                            </h3>
 
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Tipo de Documento <span className="text-red-500">*</span></label>
-                                <select
-                                    value={formData.tipo_documento}
-                                    onChange={e => setFormData({ ...formData, tipo_documento: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20"
-                                >
-                                    <option value="CC">Cédula de Ciudadanía (CC)</option>
-                                    <option value="CE">Cédula de Extranjería (CE)</option>
-                                    <option value="PASAPORTE">Pasaporte</option>
-                                    <option value="NIT">NIT</option>
-                                </select>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Número de Documento <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.documento}
-                                    onChange={e => setFormData({ ...formData, documento: e.target.value })}
-                                    placeholder="Ej. 1098765432"
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20 font-mono"
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Teléfono / Celular <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.numero_celular}
-                                    onChange={e => setFormData({ ...formData, numero_celular: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20 font-mono"
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Contraseña de Acceso Inicial <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.password}
-                                    onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                    placeholder="Ej. Gloint2026*"
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20"
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Ciudad de Residencia <span className="text-red-500">*</span></label>
-                                <select
-                                    value={formData.ciudad}
-                                    onChange={e => setFormData({ ...formData, ciudad: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-brand-500/20"
-                                >
-                                    {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                            </div>
-
-                            {formData.ciudad === 'Otra' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-700">Nombre de la Ciudad <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        value={formData.custom_ciudad}
-                                        onChange={e => setFormData({ ...formData, custom_ciudad: e.target.value })}
-                                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none"
-                                        required
+                                    <label className="text-xs font-semibold text-slate-700">Nombre Completo *</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={formData.name} 
+                                        onChange={e => setFormData({ ...formData, name: e.target.value })} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm text-slate-900 font-medium" 
                                     />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Correo Electrónico *</label>
+                                    <input 
+                                        type="email" 
+                                        required 
+                                        value={formData.email} 
+                                        onChange={e => setFormData({ ...formData, email: e.target.value })} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm text-slate-900" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Tipo Documento *</label>
+                                    <select 
+                                        value={formData.tipo_documento} 
+                                        onChange={e => setFormData({ ...formData, tipo_documento: e.target.value })} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm text-slate-900"
+                                    >
+                                        <option value="CC">Cédula de Ciudadanía (CC)</option>
+                                        <option value="CE">Cédula de Extranjería (CE)</option>
+                                        <option value="PASAPORTE">Pasaporte</option>
+                                        <option value="NIT">NIT</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Número de Documento (Contraseña Inicial) *</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={formData.documento} 
+                                        onChange={e => setFormData({ ...formData, documento: e.target.value })} 
+                                        placeholder="Ej. 1098765432"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm font-mono text-slate-900 font-bold" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Teléfono / Celular *</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={formData.numero_celular} 
+                                        onChange={e => setFormData({ ...formData, numero_celular: e.target.value })} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm font-mono text-slate-900" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Ciudad *</label>
+                                    <select 
+                                        value={formData.ciudad} 
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            setShowCustomCity(val === 'Otra');
+                                            setFormData({ ...formData, ciudad: val });
+                                        }} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm text-slate-900"
+                                    >
+                                        {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+                                {showCustomCity && (
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-semibold text-slate-700">Nombre de la Ciudad *</label>
+                                        <input 
+                                            type="text" 
+                                            required 
+                                            value={formData.custom_ciudad} 
+                                            onChange={e => setFormData({ ...formData, custom_ciudad: e.target.value })} 
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm text-slate-900" 
+                                        />
+                                    </div>
+                                )}
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Fecha de Nacimiento</label>
+                                    <input 
+                                        type="date" 
+                                        value={formData.fecha_nacimiento} 
+                                        onChange={e => setFormData({ ...formData, fecha_nacimiento: e.target.value })} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm text-slate-900" 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bloque 2: Cuenta Bancaria */}
+                        <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+                                <Landmark className="w-5 h-5 text-brand-600" />
+                                Cuenta Bancaria (Bóveda)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Banco *</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={formData.banco} 
+                                        onChange={e => setFormData({ ...formData, banco: e.target.value })} 
+                                        placeholder="Ej. Bancolombia" 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm text-slate-900" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Tipo de Cuenta *</label>
+                                    <select 
+                                        value={formData.tipo_cuenta} 
+                                        onChange={e => setFormData({ ...formData, tipo_cuenta: e.target.value })} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm text-slate-900"
+                                    >
+                                        <option value="Ahorros">Ahorros</option>
+                                        <option value="Corriente">Corriente</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Número de Cuenta *</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={formData.numero_cuenta} 
+                                        onChange={e => setFormData({ ...formData, numero_cuenta: e.target.value })} 
+                                        placeholder="Ej. 123456789" 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm font-mono text-slate-900" 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bloque 3: Datos de la Inversión */}
+                        <div className="bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+                                <DollarSign className="w-5 h-5 text-brand-600" />
+                                Configuración de la Inversión
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Paquete de Inversión *</label>
+                                    <select 
+                                        required 
+                                        value={formData.paquete_id} 
+                                        onChange={e => handlePaqueteChange(e.target.value)} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm font-medium text-slate-900"
+                                    >
+                                        <option value="">Selecciona un paquete...</option>
+                                        {paquetes.map((p: any) => (
+                                            <option key={p.id} value={p.id}>{p.nombre || `$${p.value}`} COP</option>
+                                        ))}
+                                        <option value="custom">Otro Monto (Personalizado)</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Monto Inversión (COP) *</label>
+                                    <input 
+                                        type="number" 
+                                        required 
+                                        disabled={!isCustomMonto && !!formData.paquete_id && formData.paquete_id !== 'custom'} 
+                                        value={formData.monto} 
+                                        onChange={e => setFormData({ ...formData, monto: e.target.value })} 
+                                        placeholder="Ej. 10000000" 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm font-mono text-slate-900 disabled:bg-slate-50" 
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700">Periodo de Contrato *</label>
+                                    <select 
+                                        required 
+                                        value={formData.contract_period_id} 
+                                        onChange={e => setFormData({ ...formData, contract_period_id: e.target.value })} 
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm font-medium text-slate-900"
+                                    >
+                                        <option value="">Selecciona un periodo...</option>
+                                        {periodos.map((p: any) => (
+                                            <option key={p.id} value={p.id}>{p.name || p.nombre || `${p.months} meses`}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Resumen en vivo */}
+                            {calculations && (
+                                <div className="bg-brand-50/60 border border-brand-200 p-4 rounded-xl space-y-2 font-montserrat">
+                                    <div className="flex items-center justify-between text-xs text-brand-900 font-bold border-b border-brand-200/50 pb-2">
+                                        <span>Rendimiento Mensual ({calculations.porcentaje}%):</span>
+                                        <span className="font-mono text-sm">${calculations.rendimientoMensual.toLocaleString('es-CO')} COP</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-brand-900 font-bold">
+                                        <span>Retorno Total Estimado ({calculations.meses} meses):</span>
+                                        <span className="font-mono text-sm text-emerald-600">${calculations.totalContrato.toLocaleString('es-CO')} COP</span>
+                                    </div>
                                 </div>
                             )}
 
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Fecha de Nacimiento</label>
-                                <input
-                                    type="date"
-                                    value={formData.fecha_nacimiento}
-                                    onChange={e => setFormData({ ...formData, fecha_nacimiento: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-semibold text-slate-900 outline-none"
-                                />
+                            {/* Carga de Archivos: Comprobante, Documento Frontal y Documento Lateral */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                                <div className="border border-dashed border-slate-300 p-3 rounded-xl bg-white space-y-2">
+                                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                        <UploadCloud className="w-4 h-4 text-brand-600 shrink-0" />
+                                        Comprobante de Pago
+                                    </label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*,.pdf" 
+                                        onChange={(e) => handleFileUpload(e, 'comprobante_path')} 
+                                        className="block w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" 
+                                    />
+                                    {formData.comprobante_path && (
+                                        <p className="text-[11px] text-emerald-600 flex items-center gap-1 font-semibold">
+                                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Comprobante cargado
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="border border-dashed border-slate-300 p-3 rounded-xl bg-white space-y-2">
+                                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                        <UploadCloud className="w-4 h-4 text-brand-600 shrink-0" />
+                                        Documento Frontal
+                                    </label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*,.pdf" 
+                                        onChange={(e) => handleFileUpload(e, 'frontal')} 
+                                        className="block w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" 
+                                    />
+                                    {kycDocs.frontal && (
+                                        <p className="text-[11px] text-emerald-600 flex items-center gap-1 font-semibold">
+                                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Frontal cargado
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="border border-dashed border-slate-300 p-3 rounded-xl bg-white space-y-2">
+                                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                        <UploadCloud className="w-4 h-4 text-brand-600 shrink-0" />
+                                        Documento Lateral
+                                    </label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*,.pdf" 
+                                        onChange={(e) => handleFileUpload(e, 'lateral')} 
+                                        className="block w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 cursor-pointer" 
+                                    />
+                                    {kycDocs.lateral && (
+                                        <p className="text-[11px] text-emerald-600 flex items-center gap-1 font-semibold">
+                                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Lateral cargado
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </form>
+                </div>
 
-                    {/* Sección 2: Bóveda Bancaria */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                            <Landmark className="w-4 h-4 text-brand-600" />
-                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider font-montserrat">2. Cuenta Bancaria del Usuario (Bóveda)</h4>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Entidad Bancaria <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.banco}
-                                    onChange={e => setFormData({ ...formData, banco: e.target.value })}
-                                    placeholder="Ej. Bancolombia, Davivienda"
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none"
-                                    required
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Tipo de Cuenta <span className="text-red-500">*</span></label>
-                                <select
-                                    value={formData.tipo_cuenta}
-                                    onChange={e => setFormData({ ...formData, tipo_cuenta: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none"
-                                >
-                                    <option value="Ahorros">Cuenta de Ahorros</option>
-                                    <option value="Corriente">Cuenta Corriente</option>
-                                </select>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Número de Cuenta <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text"
-                                    value={formData.numero_cuenta}
-                                    onChange={e => setFormData({ ...formData, numero_cuenta: e.target.value })}
-                                    placeholder="Ej. 1234567890"
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none font-mono"
-                                    required
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Sección 3: Datos de la Inversión */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                            <DollarSign className="w-4 h-4 text-brand-600" />
-                            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider font-montserrat">3. Paquete y Solicitud de Inversión</h4>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Paquete de Inversión <span className="text-red-500">*</span></label>
-                                <select
-                                    value={formData.paquete_id}
-                                    onChange={e => handlePaqueteChange(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none"
-                                    required
-                                >
-                                    <option value="">Selecciona un paquete</option>
-                                    {paquetes.map((p: any) => (
-                                        <option key={p.id} value={p.id}>{p.nombre || `$${p.value || p.value}`} COP</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Periodo del Contrato <span className="text-red-500">*</span></label>
-                                <select
-                                    value={formData.contract_period_id}
-                                    onChange={e => setFormData({ ...formData, contract_period_id: e.target.value })}
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none"
-                                    required
-                                >
-                                    <option value="">Selecciona un periodo</option>
-                                    {periodos.map((prd: any) => (
-                                        <option key={prd.id} value={prd.id}>{prd.name || prd.nombre || `${prd.months} meses`}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-700">Monto Inversión (COP) <span className="text-red-500">*</span></label>
-                                <input
-                                    type="number"
-                                    value={formData.monto}
-                                    onChange={e => setFormData({ ...formData, monto: e.target.value })}
-                                    placeholder="Ej. 5000000"
-                                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none font-mono"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {/* Archivos Adjuntos */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div className="space-y-1.5 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                    <Upload className="w-4 h-4 text-brand-600" /> Comprobante de Pago
-                                </label>
-                                <input 
-                                    type="file" 
-                                    accept="image/*,.pdf" 
-                                    onChange={e => handleFileUpload(e, 'comprobante_path')} 
-                                    className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer" 
-                                />
-                                {formData.comprobante_path && (
-                                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> Comprobante Adjunto
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className="space-y-1.5 p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                                    <Upload className="w-4 h-4 text-brand-600" /> Documento KYC Frontal
-                                </label>
-                                <input 
-                                    type="file" 
-                                    accept="image/*,.pdf" 
-                                    onChange={e => handleFileUpload(e, 'frontal')} 
-                                    className="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer" 
-                                />
-                                {kycDocs.frontal && (
-                                    <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> KYC Frontal Adjunto
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-                {/* Footer Modal */}
-                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
-                    <button
-                        type="button"
-                        onClick={onClose}
+                {/* Footer Modal Estandarizado */}
+                <div className="flex-none flex items-center justify-end gap-3 p-4 md:p-5 border-t border-slate-100 bg-white">
+                    <button 
+                        type="button" 
+                        onClick={onClose} 
                         disabled={isSubmitting}
-                        className="px-5 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-200 transition-all text-sm cursor-pointer"
+                        className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                     >
                         Cancelar
                     </button>
-                    <button
-                        type="submit"
-                        form="convert-form"
+                    <button 
+                        type="submit" 
+                        form="convert-referral-form" 
                         disabled={isSubmitting || !!uploadingFile}
-                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 cursor-pointer font-montserrat"
+                        className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm rounded-xl transition-colors shadow-sm shadow-brand-500/20 flex items-center gap-2 cursor-pointer font-montserrat"
                     >
-                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                        Convertir a Solicitud de Inversión
+                        {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        Convertir y Crear Solicitud
                     </button>
                 </div>
+
             </div>
         </div>,
         document.body
