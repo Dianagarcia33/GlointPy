@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, Integer, DateTime, Boolean, JSON
+from sqlalchemy import Column, BigInteger, String, Integer, DateTime, Boolean, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.core.database import Base
@@ -15,6 +15,9 @@ class User(Base):
     # Identificación
     document_id = Column(String(50), nullable=True, index=True)
     phone_number = Column(String(50), nullable=True)
+    
+    # Directivo de Inversión Asignado
+    commercial_id = Column(BigInteger, ForeignKey('users.id'), nullable=True)
     
     # Campo JSON para dar permisos granulares a un usuario específico
     # sin necesidad de crear un rol. Ej: {"wallets:delete": true, "users:create": false}

@@ -17,6 +17,7 @@ class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
+    commercial_id: Optional[int] = None
 
 class InvestorRegisterRequest(BaseModel):
     name: str

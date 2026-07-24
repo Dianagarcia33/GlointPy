@@ -82,7 +82,8 @@ class AuthService:
         new_user = User(
             name=register_data.name,
             email=register_data.email,
-            password_hash=get_password_hash(register_data.password)
+            password_hash=get_password_hash(register_data.password),
+            commercial_id=register_data.commercial_id
         )
         
         db.add(new_user)

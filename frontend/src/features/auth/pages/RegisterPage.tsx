@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { fetchApi } from '../../../services/api';
+import { commercialService } from '../../../services/commercial';
 import { useAuthStore } from '../../../store/authStore';
-import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole, User } from 'lucide-react';
+import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole, User, UserCheck } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
 import { InvestorRegistrationFlow } from '../components/InvestorRegistrationFlow';
 import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
@@ -16,6 +17,8 @@ export const RegisterPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [commercialId, setCommercialId] = useState<string>('');
+    const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string; email?: string }>>([]);
     
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -26,23 +29,17 @@ export const RegisterPage = () => {
 
     useEffect(() => {
         window.scrollTo(0, 0);
+        commercialService.getCommercialUsers()
+            .then(res => setCommercialUsers(res))
+            .catch(() => setCommercialUsers([]));
     }, []);
 
-    // Placeholder mutation until real endpoint exists.
     const registerMutation = useMutation({
         mutationFn: async (userData: any) => {
-            // Mock delay since endpoint might not exist yet
-            return new Promise((resolve) => setTimeout(() => resolve({
-                access_token: 'mock_token',
-                user: { id: 1, name: userData.name, email: userData.email, is_active: true }
-            }), 1500));
-            
-            /* Real code would be:
             return await fetchApi('/auth/register', {
                 method: 'POST',
                 body: JSON.stringify(userData),
             });
-            */
         },
         onSuccess: (data: any) => {
             loginAction(data.user, data.access_token);
@@ -56,7 +53,13 @@ export const RegisterPage = () => {
         if (password !== confirmPassword) return;
         if (!isValidPassword(password)) return;
         if (name && email && password) {
-            registerMutation.mutate({ name, email, password, role });
+            registerMutation.mutate({
+                name,
+                email,
+                password,
+                role,
+                commercial_id: commercialId ? parseInt(commercialId) : null
+            });
         }
     };
 
@@ -96,6 +99,32 @@ export const RegisterPage = () => {
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div className="bg-brand-50/60 p-4 border border-brand-200/80 rounded-xl space-y-1.5">
+                        <label className="block text-xs font-bold text-brand-900 flex items-center justify-between">
+                            <span>👤 Directivo de Inversiones / Asesor que te atendió</span>
+                            <span className="text-[11px] text-brand-600 font-medium">(Opcional)</span>
+                        </label>
+                        <div className="relative group">
+                            <select
+                                id="commercial_id"
+                                name="commercial_id"
+                                value={commercialId}
+                                onChange={(e) => setCommercialId(e.target.value)}
+                                className="block w-full px-3 py-2.5 bg-white border border-brand-200 rounded-lg text-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-brand-500"
+                            >
+                                <option value="">Selecciona tu Directivo de Inversión (Si aplica)...</option>
+                                {commercialUsers.map((u) => (
+                                    <option key={u.id} value={u.id}>
+                                        {u.name} ({u.email})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                            Si fuiste asesorado por un Directivo de Inversión de Gloint, selecciónalo para vincular tu cuenta.
+                        </p>
                     </div>
 
                     <div>
