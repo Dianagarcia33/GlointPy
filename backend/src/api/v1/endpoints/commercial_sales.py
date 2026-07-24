@@ -480,7 +480,7 @@ async def get_all_bonuses_summary(
             if user_bonuses or monthly_volume > 0 or today_closures > 0:
                 result.append({
                     "commercial_id": u.id,
-                    "commercial_name": f"{u.first_name or ''} {u.last_name or ''}".strip() or u.email,
+                    "commercial_name": u.name or u.email,
                     "email": u.email,
                     "today_closures": today_closures,
                     "monthly_volume": monthly_volume,
