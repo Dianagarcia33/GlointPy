@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Trophy, Plus, Zap, TrendingUp, DollarSign, Users, Award, ShieldAlert, CheckCircle2, AlertCircle, Download, Trash2, Filter, ShieldCheck, UserCheck } from 'lucide-react';
+import { Trophy, Plus, Zap, TrendingUp, DollarSign, Users, Award, ShieldAlert, CheckCircle2, AlertCircle, Download, Trash2, Filter, ShieldCheck, UserCheck, FileCheck, CreditCard } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
-import { commercialService, CommercialSummary, AdminCommercialSummary, LeaderboardResponse, CommercialSale, CommercialUserOption } from '../../../services/commercial';
+import { commercialService, CommercialSummary, AdminCommercialSummary, LeaderboardResponse, CommercialSale, CommercialUserOption, CommissionSettlement } from '../../../services/commercial';
 import { RegisterCommercialSaleModal } from '../components/RegisterCommercialSaleModal';
+import { SettleCommissionsModal } from '../components/SettleCommissionsModal';
 
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -12,6 +13,7 @@ export const CommercialDashboardPage: React.FC = () => {
     user?.permissions?.includes('admin.roles.manage') === true;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Filtros del Administrador
@@ -52,6 +54,12 @@ export const CommercialDashboardPage: React.FC = () => {
     enabled: isAdmin
   });
 
+  // Historial de Liquidaciones
+  const { data: settlements, refetch: refetchSettlements } = useQuery<CommissionSettlement[]>({
+    queryKey: ['commercial_settlements'],
+    queryFn: () => commercialService.getSettlements()
+  });
+
   // Shared Query: Leaderboard
   const { data: leaderboardData, isLoading: isLoadingLeaderboard, refetch: refetchLeaderboard } = useQuery<LeaderboardResponse>({
     queryKey: ['commercial_leaderboard'],
@@ -69,6 +77,14 @@ export const CommercialDashboardPage: React.FC = () => {
     refetchLeaderboard();
   };
 
+  const handleSettleSuccess = () => {
+    showToast('¡Comisiones liquidadas y comprobante registrado correctamente!', 'success');
+    refetchAdminSummary();
+    refetchAllSales();
+    refetchSettlements();
+    if (!isAdmin) refetchSummary();
+  };
+
   const handleDeleteSale = async (saleId: number) => {
     if (!window.confirm('¿Estás seguro de anular esta venta comercial? Esta acción no se puede deshacer.')) return;
     try {
@@ -84,7 +100,7 @@ export const CommercialDashboardPage: React.FC = () => {
 
   const exportToCSV = () => {
     if (!allSales || allSales.length === 0) return;
-    const headers = ['ID Venta', 'Asesor Comercial', 'Documento Cliente', 'Nombre Cliente', 'Tipo Venta', 'Monto Paquete (COP)', 'Comision %', 'Monto Comision (COP)', 'Fecha Venta'];
+    const headers = ['ID Venta', 'Asesor Comercial', 'Documento Cliente', 'Nombre Cliente', 'Tipo Venta', 'Monto Paquete (COP)', 'Comision %', 'Monto Comision (COP)', 'Estado', 'Fecha Venta'];
     const rows = allSales.map(s => [
       s.id,
       `"${s.commercial_name || ''}"`,
@@ -94,6 +110,7 @@ export const CommercialDashboardPage: React.FC = () => {
       s.amount,
       (s.commission_rate * 100).toFixed(2) + '%',
       s.commission_amount,
+      s.status || 'pendiente',
       s.sale_date
     ]);
 
@@ -115,29 +132,39 @@ export const CommercialDashboardPage: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       
-      {/* Header Ejecutivo Principal (Estilo Dashboard / Resto de Módulos) */}
+      {/* Header Ejecutivo Principal */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            {isAdmin ? 'Panel de Control Comercial' : 'Panel Comercial & Ranking'}
+            {isAdmin ? 'Panel de Control Comercial' : 'Panel Comercial & Comisiones'}
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
             {isAdmin 
-              ? 'Supervisión global de facturación, auditoría de comisiones y adjudicación al equipo comercial' 
+              ? 'Supervisión global de facturación, auditoría de comisiones, liquidaciones y adjudicación' 
               : 'Gestión de ventas, partición marginal del 3.5% y comisiones en tiempo real'}
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-3 shrink-0">
+        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
           {isAdmin && (
-            <button
-              onClick={exportToCSV}
-              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              Exportar CSV
-            </button>
+            <>
+              <button
+                onClick={() => setIsSettleModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all text-xs font-bold shadow-lg shadow-emerald-600/20 cursor-pointer"
+              >
+                <DollarSign className="w-4 h-4" />
+                Liquidar Comisiones
+              </button>
+
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                Exportar CSV
+              </button>
+            </>
           )}
 
           <button
@@ -198,7 +225,6 @@ export const CommercialDashboardPage: React.FC = () => {
                   <Trophy className="w-5 h-5 text-amber-500" />
                   <h2 className="font-bold text-slate-900 text-base font-montserrat">Ranking del Equipo</h2>
                 </div>
-                <span className="text-xs text-slate-400 font-medium">Mes en Curso</span>
               </div>
 
               {isLoadingLeaderboard ? (
@@ -206,51 +232,54 @@ export const CommercialDashboardPage: React.FC = () => {
                   {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-2xl animate-pulse" />)}
                 </div>
               ) : !leaderboardData?.leaderboard?.length ? (
-                <p className="text-center text-xs text-slate-400 py-8">No hay registros en el ranking este mes.</p>
+                <p className="text-center text-xs text-slate-400 py-8">No hay ventas en el mes actual.</p>
               ) : (
                 <div className="space-y-2.5">
                   {leaderboardData.leaderboard.map((entry) => (
                     <div
                       key={entry.commercial_id}
-                      className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+                      className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                        entry.rank === 1
+                          ? 'bg-amber-50/60 border-amber-200 shadow-xs'
+                          : 'bg-white border-slate-100 hover:border-slate-200'
+                      }`}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                          entry.rank === 1 ? 'bg-amber-400 text-amber-950' :
-                          entry.rank === 2 ? 'bg-slate-300 text-slate-800' :
-                          entry.rank === 3 ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-600'
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs font-mono shrink-0 ${
+                          entry.rank === 1 ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-700'
                         }`}>
                           #{entry.rank}
-                        </div>
-                        <div>
-                          <span className="font-bold text-slate-800 block">{entry.commercial_name}</span>
-                          <span className="text-[11px] text-slate-400">{entry.total_closures} cierres</span>
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-bold text-slate-900 text-xs block truncate font-montserrat">{entry.commercial_name}</span>
+                          <span className="text-[10px] text-slate-400">{entry.total_closures} cierres</span>
                         </div>
                       </div>
 
-                      <span className="font-extrabold text-slate-800 text-sm font-montserrat">
-                        ${entry.total_volume.toLocaleString('es-CO')}
-                      </span>
+                      <div className="text-right shrink-0">
+                        <span className="font-bold text-emerald-700 text-xs block font-mono">
+                          ${(entry.total_volume || 0).toLocaleString('es-CO')}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* General Sales Audit Table (2 cols) */}
+            {/* Audit Table (2 cols) */}
             <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-2.5">
-                  <UserCheck className="w-5 h-5 text-brand-600" />
-                  <h2 className="font-bold text-slate-900 text-base font-montserrat">Auditoría General de Ventas Adjudicadas</h2>
+                  <ShieldCheck className="w-5 h-5 text-brand-600" />
+                  <h2 className="font-bold text-slate-900 text-base font-montserrat">Auditoría de Ventas Comerciales</h2>
                 </div>
 
-                {/* Filters */}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2">
                   <select
                     value={selectedCommercialId}
                     onChange={(e) => setSelectedCommercialId(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
                   >
                     <option value="">Todos los Asesores</option>
                     {commercialUsers?.map(u => (
@@ -261,7 +290,7 @@ export const CommercialDashboardPage: React.FC = () => {
                   <select
                     value={selectedSaleType}
                     onChange={(e) => setSelectedSaleType(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
                   >
                     <option value="">Todos los Tipos</option>
                     <option value="contrato_nuevo">Contrato Nuevo</option>
@@ -287,6 +316,7 @@ export const CommercialDashboardPage: React.FC = () => {
                         <th className="py-2.5 px-3">Tipo</th>
                         <th className="py-2.5 px-3 text-right">Paquete ($)</th>
                         <th className="py-2.5 px-3 text-right">Comisión</th>
+                        <th className="py-2.5 px-3 text-center">Estado</th>
                         <th className="py-2.5 px-3 text-center">Acción</th>
                       </tr>
                     </thead>
@@ -318,10 +348,17 @@ export const CommercialDashboardPage: React.FC = () => {
                             <span className="text-[10px] text-slate-400">({(s.commission_rate * 100).toFixed(1)}%)</span>
                           </td>
                           <td className="py-3 px-3 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              s.status === 'liquidado' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}>
+                              {s.status || 'pendiente'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
                             <button
                               onClick={() => handleDeleteSale(s.id)}
                               title="Anular Venta Comercial"
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -409,7 +446,7 @@ export const CommercialDashboardPage: React.FC = () => {
               <span className="text-2xl font-extrabold text-emerald-700 block tracking-tight font-montserrat">
                 +${(summary?.total_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
               </span>
-              <span className="text-[11px] text-emerald-700 font-medium">Calculadas del mes en curso</span>
+              <span className="text-[11px] text-emerald-700 font-medium">Acumulado a liquidar</span>
             </div>
           </div>
 
@@ -428,48 +465,42 @@ export const CommercialDashboardPage: React.FC = () => {
 
               {isLoadingLeaderboard ? (
                 <div className="space-y-3">
-                  {[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-100 rounded-xl animate-pulse" />)}
+                  {[1, 2, 3].map(i => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}
                 </div>
               ) : !leaderboardData?.leaderboard?.length ? (
-                <p className="text-center text-xs text-slate-400 py-8">Aún no hay registros en el ranking de ventas de este mes.</p>
+                <p className="text-center text-xs text-slate-400 py-8">No hay registros aún.</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {leaderboardData.leaderboard.map((entry) => (
                     <div
                       key={entry.commercial_id}
-                      className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 ${
+                      className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
                         entry.is_me
-                          ? 'bg-brand-50/70 border-brand-300 ring-2 ring-brand-500/20'
-                          : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60'
+                          ? 'bg-brand-50/70 border-brand-200 shadow-xs'
+                          : 'bg-white border-slate-100 hover:border-slate-200'
                       }`}
                     >
-                      <div className="flex items-center gap-3.5">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
-                          entry.rank === 1 ? 'bg-amber-400 text-amber-950 shadow-sm' :
-                          entry.rank === 2 ? 'bg-slate-300 text-slate-800' :
-                          entry.rank === 3 ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-600'
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs font-mono shrink-0 ${
+                          entry.rank === 1 ? 'bg-amber-500 text-white' : entry.is_me ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-700'
                         }`}>
                           #{entry.rank}
-                        </div>
-
-                        <div>
-                          <div className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                            <span>{entry.commercial_name}</span>
-                            {entry.is_me && <span className="text-[10px] bg-brand-500 text-white px-2 py-0.5 rounded-full font-extrabold uppercase">Tú</span>}
-                          </div>
-                          <span className="text-xs text-slate-500 font-medium">
-                            {entry.total_closures} {entry.total_closures === 1 ? 'cierre' : 'cierres'} este mes
+                        </span>
+                        <div className="min-w-0">
+                          <span className="font-bold text-slate-900 text-xs block truncate font-montserrat">
+                            {entry.commercial_name} {entry.is_me && '(Tú)'}
                           </span>
+                          <span className="text-[10px] text-slate-400">{entry.total_closures} cierres</span>
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <span className="font-extrabold text-slate-800 text-base block">
-                          ${entry.total_volume.toLocaleString('es-CO')} COP
+                      <div className="text-right shrink-0">
+                        <span className="font-bold text-emerald-700 text-xs block font-mono">
+                          ${(entry.total_volume || 0).toLocaleString('es-CO')}
                         </span>
                         {entry.is_me && entry.next_target_amount > 0 && (
-                          <span className="text-[11px] font-bold text-emerald-700 block mt-0.5">
-                            🎯 Faltan ${entry.next_target_amount.toLocaleString('es-CO')} COP para alcanzar el puesto #{entry.rank - 1}
+                          <span className="text-[10px] text-brand-600 font-medium block">
+                            Faltan ${entry.next_target_amount.toLocaleString('es-CO')} para subir
                           </span>
                         )}
                       </div>
@@ -479,28 +510,32 @@ export const CommercialDashboardPage: React.FC = () => {
               )}
             </div>
 
-            {/* Historial Reciente */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
-              <h2 className="font-bold text-slate-800 text-base border-b border-slate-100 pb-3">Mis Últimas Ventas</h2>
-              
+            {/* Mis Últimas Ventas */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <h2 className="font-bold text-slate-900 text-base font-montserrat">Mis Últimos Cierres</h2>
+                <span className="text-xs text-slate-400 font-medium">Recientes</span>
+              </div>
+
               {!summary?.recent_sales?.length ? (
-                <p className="text-center text-xs text-slate-400 py-8">No has registrado ventas este mes.</p>
+                <p className="text-center text-xs text-slate-400 py-8">No has registrado ventas en este período.</p>
               ) : (
                 <div className="space-y-3">
-                  {summary.recent_sales.map((s) => (
-                    <div key={s.id} className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-slate-800">Doc: {s.client_document}</span>
+                  {summary.recent_sales.map((sale) => (
+                    <div key={sale.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-slate-800 font-mono">{sale.client_document}</span>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          s.sale_type === 'referido' ? 'bg-amber-100 text-amber-800' : 'bg-brand-100 text-brand-800'
+                          sale.sale_type === 'referido' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
                         }`}>
-                          {s.sale_type.replace('_', ' ')}
+                          {sale.sale_type.replace('_', ' ')}
                         </span>
                       </div>
-                      {s.client_name && <p className="text-slate-500 font-medium text-[11px]">{s.client_name}</p>}
-                      <div className="flex justify-between items-center pt-1 border-t border-slate-200/60 font-medium">
-                        <span className="text-slate-600">Venta: ${s.amount.toLocaleString('es-CO')}</span>
-                        <span className="font-bold text-emerald-700">+${s.commission_amount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
+                      <div className="flex justify-between items-baseline text-xs pt-1 border-t border-slate-200/50">
+                        <span className="text-slate-500 font-mono">${(sale.amount || 0).toLocaleString('es-CO')}</span>
+                        <span className="font-bold text-emerald-700 font-mono">
+                          +${(sale.commission_amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -512,6 +547,71 @@ export const CommercialDashboardPage: React.FC = () => {
         </>
       )}
 
+      {/* Historial de Liquidaciones Registradas */}
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <FileCheck className="w-5 h-5 text-emerald-600" />
+            <div>
+              <h2 className="font-bold text-slate-900 text-base font-montserrat">Historial de Liquidaciones Registradas</h2>
+              <p className="text-xs text-slate-400">Registro de comprobantes bancarios y comisiones liquidadas</p>
+            </div>
+          </div>
+        </div>
+
+        {!settlements || settlements.length === 0 ? (
+          <div className="text-center py-8 text-xs text-slate-400">
+            No se han registrado liquidaciones de comisiones todavía.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
+                <tr>
+                  <th className="py-3 px-4">Fecha Liquidación</th>
+                  <th className="py-3 px-4">Asesor Beneficiario</th>
+                  <th className="py-3 px-4 text-center">Cierres Liquidados</th>
+                  <th className="py-3 px-4 text-right">Monto Liquidado ($)</th>
+                  <th className="py-3 px-4">Comprobante / Referencia</th>
+                  <th className="py-3 px-4">Liquida / Aprueba</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {settlements.map((st) => (
+                  <tr key={st.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4 font-mono">
+                      {st.created_at ? new Date(st.created_at).toLocaleDateString('es-CO') : 'N/A'}
+                    </td>
+                    <td className="py-3 px-4 font-bold text-slate-800 font-montserrat">
+                      {st.commercial_name}
+                    </td>
+                    <td className="py-3 px-4 text-center font-mono font-bold">
+                      {st.sales_count} cierres
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                      ${(st.total_amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                    </td>
+                    <td className="py-3 px-4">
+                      {st.reference_code ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-mono font-bold text-[11px] border border-slate-200">
+                          <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                          {st.reference_code}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">Sin referencia</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-slate-700">
+                      {st.settled_by_name}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Modal para Registrar Venta Comercial */}
       <RegisterCommercialSaleModal
         isOpen={isModalOpen}
@@ -521,6 +621,17 @@ export const CommercialDashboardPage: React.FC = () => {
         isAdmin={isAdmin}
         showAsesorSelect={false}
       />
+
+      {/* Modal para Liquidar Comisiones */}
+      {isAdmin && (
+        <SettleCommissionsModal
+          isOpen={isSettleModalOpen}
+          onClose={() => setIsSettleModalOpen(false)}
+          onSuccess={handleSettleSuccess}
+          commercialUsers={commercialUsers || []}
+          sales={allSales || []}
+        />
+      )}
 
       {/* Toast */}
       {toast && (

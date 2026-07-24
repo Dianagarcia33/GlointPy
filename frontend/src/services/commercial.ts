@@ -23,8 +23,23 @@ export interface CommercialSale {
   commission_amount: number;
   tramo_a_amount?: number;
   tramo_b_amount?: number;
+  status: 'pendiente' | 'liquidado';
+  settlement_id?: number;
   sale_date: string;
   created_at?: string;
+}
+
+export interface CommissionSettlement {
+  id: number;
+  commercial_id: number;
+  commercial_name?: string;
+  settled_by_id?: number;
+  settled_by_name?: string;
+  total_amount: number;
+  sales_count: number;
+  reference_code?: string;
+  notes?: string;
+  created_at: string;
 }
 
 export interface CommercialSummary {
@@ -149,5 +164,22 @@ export const commercialService = {
 
   getLeaderboard: async (): Promise<LeaderboardResponse> => {
     return await fetchApi('/commercial/leaderboard');
+  },
+
+  settleCommissions: async (data: {
+    commercial_id: number;
+    reference_code?: string;
+    notes?: string;
+  }): Promise<any> => {
+    return await fetchApi('/commercial/settle', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+
+  getSettlements: async (commercial_id?: number): Promise<CommissionSettlement[]> => {
+    const query = commercial_id ? `?commercial_id=${commercial_id}` : '';
+    return await fetchApi(`/commercial/settlements${query}`);
   },
 };

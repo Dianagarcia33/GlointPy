@@ -10,12 +10,15 @@ from sqlalchemy.orm import selectinload
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
-from src.models.commercial_sale import CommercialSale, CommercialSaleType
+from src.models.commercial_sale import CommercialSale, CommercialSaleType, CommercialSaleStatus
+from src.models.commission_settlement import CommissionSettlement
 from src.schemas.commercial_sale import (
     CommercialClientCheckRequest,
     CommercialClientCheckResponse,
     CommercialSaleCreate,
-    CommercialSaleResponse
+    CommercialSaleResponse,
+    SettleCommissionsRequest,
+    SettlementResponse
 )
 from src.services.commercial_sale_service import (
     check_client_classification,
@@ -365,7 +368,105 @@ async def get_commercial_leaderboard(
         if c_id == current_user.id:
             current_user_rank = entry
 
-    return {
         "leaderboard": leaderboard,
         "my_rank": current_user_rank
     }
+
+@router.post("/settle", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
+async def settle_commissions(
+    req: SettleCommissionsRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Liquida todas las comisiones pendientes de un comercial/directivo.
+    - Cambia status de las ventas a 'liquidado'
+    - Genera el registro de comprobante en CommissionSettlement
+    """
+    stmt = (
+        select(CommercialSale)
+        .where(
+            CommercialSale.commercial_id == req.commercial_id,
+            CommercialSale.status == CommercialSaleStatus.pendiente
+        )
+    )
+    res = await db.execute(stmt)
+    pending_sales = res.scalars().all()
+
+    if not pending_sales:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No hay comisiones pendientes de liquidar para este asesor."
+        )
+
+    total_amount = sum(s.commission_amount for s in pending_sales)
+    sales_count = len(pending_sales)
+
+    settlement = CommissionSettlement(
+        commercial_id=req.commercial_id,
+        settled_by_id=current_user.id,
+        total_amount=total_amount,
+        sales_count=sales_count,
+        reference_code=req.reference_code.strip() if req.reference_code else None,
+        notes=req.notes.strip() if req.notes else None
+    )
+    db.add(settlement)
+    await db.flush()
+
+    for s in pending_sales:
+        s.status = CommercialSaleStatus.liquidado
+        s.settlement_id = settlement.id
+
+    await db.commit()
+    await db.refresh(settlement)
+
+    return {
+        "message": "Comisiones liquidadas exitosamente",
+        "settlement_id": settlement.id,
+        "total_amount": float(settlement.total_amount),
+        "sales_count": sales_count,
+        "reference_code": settlement.reference_code
+    }
+
+@router.get("/settlements", response_model=List[SettlementResponse], dependencies=[Depends(RequirePermission("commercial:view"))])
+async def get_settlement_history(
+    commercial_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna el historial de liquidaciones de comisiones registradas.
+    """
+    stmt = (
+        select(CommissionSettlement)
+        .options(
+            selectinload(CommissionSettlement.commercial),
+            selectinload(CommissionSettlement.settled_by)
+        )
+        .order_by(CommissionSettlement.id.desc())
+    )
+
+    is_admin = current_user.is_superuser or (current_user.permissions and "admin.commercial.manage" in current_user.permissions)
+    if not is_admin:
+        stmt = stmt.where(CommissionSettlement.commercial_id == current_user.id)
+    elif commercial_id:
+        stmt = stmt.where(CommissionSettlement.commercial_id == commercial_id)
+
+    res = await db.execute(stmt)
+    settlements = res.scalars().all()
+
+    return [
+        {
+            "id": st.id,
+            "commercial_id": st.commercial_id,
+            "commercial_name": st.commercial.name if st.commercial else f"Comercial #{st.commercial_id}",
+            "settled_by_id": st.settled_by_id,
+            "settled_by_name": st.settled_by.name if st.settled_by else "Sistema",
+            "total_amount": float(st.total_amount),
+            "sales_count": st.sales_count,
+            "reference_code": st.reference_code,
+            "notes": st.notes,
+            "created_at": st.created_at
+        }
+        for st in settlements
+    ]

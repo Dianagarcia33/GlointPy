@@ -10,6 +10,10 @@ class CommercialSaleType(str, enum.Enum):
     reinversion = "reinversion"
     referido = "referido"
 
+class CommercialSaleStatus(str, enum.Enum):
+    pendiente = "pendiente"
+    liquidado = "liquidado"
+
 class CommercialSale(Base):
     __tablename__ = "commercial_sales"
 
@@ -35,9 +39,14 @@ class CommercialSale(Base):
     tramo_a_amount = Column(Numeric(15, 2), default=0.00, nullable=True) # Porción al 3.0%
     tramo_b_amount = Column(Numeric(15, 2), default=0.00, nullable=True) # Porción al 3.5%
     
+    # Estado de liquidación de la comisión
+    status = Column(Enum(CommercialSaleStatus), default=CommercialSaleStatus.pendiente, nullable=False)
+    settlement_id = Column(BigInteger, ForeignKey("commission_settlements.id", ondelete="SET NULL"), nullable=True)
+
     sale_date = Column(Date, default=datetime.utcnow, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     commercial = relationship("User", foreign_keys=[commercial_id])
     referrer = relationship("User", foreign_keys=[referrer_client_id])
+    settlement = relationship("CommissionSettlement", back_populates="sales")
