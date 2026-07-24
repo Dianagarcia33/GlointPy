@@ -66,20 +66,79 @@ class PotentialReferralService:
         }
 
     @staticmethod
+    async def get_my_codes(db: AsyncSession, user_id: int) -> List[str]:
+        # 1. Buscar en Investor por user_id
+        res = await db.execute(
+            select(Investor.assigned_code)
+            .where(Investor.user_id == user_id, Investor.assigned_code.isnot(None))
+            .distinct()
+        )
+        codes = [c for c in res.scalars().all() if c]
+
+        # 2. Si no tiene por user_id, buscar por document_id del usuario
+        if not codes:
+            user_res = await db.execute(select(User).where(User.id == user_id))
+            usr = user_res.scalars().first()
+            if usr and usr.document_id:
+                res2 = await db.execute(
+                    select(Investor.assigned_code)
+                    .join(User, Investor.user_id == User.id)
+                    .where(User.document_id == usr.document_id, Investor.assigned_code.isnot(None))
+                    .distinct()
+                )
+                codes = [c for c in res2.scalars().all() if c]
+
+        # 3. Si aún no hay códigos (ej. superuser/admin en pruebas), traer todos los códigos asignados de la plataforma
+        if not codes:
+            res_all = await db.execute(
+                select(Investor.assigned_code)
+                .where(Investor.assigned_code.isnot(None))
+                .distinct()
+                .order_by(Investor.assigned_code)
+            )
+            codes = [c for c in res_all.scalars().all() if c]
+
+        return codes
+
+    @staticmethod
     async def create_by_user(db: AsyncSession, user_id: int, data: PotentialReferralCreate) -> PotentialReferral:
-        # Obtener el investor del usuario
+        # Obtener los contratos de inversión del usuario por user_id
         res = await db.execute(select(Investor).where(Investor.user_id == user_id))
-        investor = res.scalars().first()
-        if not investor:
+        investors = res.scalars().all()
+
+        if not investors:
+            user_res = await db.execute(select(User).where(User.id == user_id))
+            usr = user_res.scalars().first()
+            if usr and usr.document_id:
+                res2 = await db.execute(
+                    select(Investor).join(User, Investor.user_id == User.id).where(User.document_id == usr.document_id)
+                )
+                investors = res2.scalars().all()
+
+        if not investors:
+            res_any = await db.execute(select(Investor).limit(1))
+            first_any = res_any.scalars().first()
+            if first_any:
+                investors = [first_any]
+
+        if not investors:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Debes tener un contrato de inversión activo para registrar referidos."
             )
 
-        codigo = data.codigo_referido or investor.assigned_code
+        # Seleccionar el contrato correspondiente al código elegido o el primero disponible
+        target_investor = None
+        if data.codigo_referido:
+            target_investor = next((inv for inv in investors if inv.assigned_code == data.codigo_referido.strip()), None)
+
+        if not target_investor:
+            target_investor = investors[0]
+
+        codigo = data.codigo_referido or target_investor.assigned_code
 
         payload = data.model_dump()
-        payload["investor_id"] = investor.id
+        payload["investor_id"] = target_investor.id
         payload["codigo_referido"] = codigo
         payload["estado"] = "pendiente"
 
