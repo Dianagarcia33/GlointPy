@@ -309,6 +309,52 @@ async def get_director_analytics_dashboard(
             "comision": float(m_comm_res.scalar() or 0)
         })
 
+    # 6. Contratos por vencerse adjudicados a asesores (próximos 90 días)
+    expiring_contracts = []
+    invs_res = await db.execute(
+        select(Investor)
+        .options(
+            selectinload(Investor.user),
+            selectinload(Investor.package),
+            selectinload(Investor.period)
+        )
+    )
+    all_invs = invs_res.scalars().all()
+
+    sales_res = await db.execute(
+        select(CommercialSale).options(selectinload(CommercialSale.commercial))
+    )
+    all_sales = sales_res.scalars().all()
+    
+    sales_map = {}
+    for s in all_sales:
+        if s.client_document:
+            sales_map[s.client_document.strip()] = s.commercial.name if s.commercial else f"Asesor #{s.commercial_id}"
+
+    for inv in all_invs:
+        if inv.start_date and inv.period and inv.period.months:
+            start_d = inv.start_date.date() if isinstance(inv.start_date, datetime) else inv.start_date
+            end_d = start_d + relativedelta(months=inv.period.months)
+            days_left = (end_d - today).days
+
+            if -30 <= days_left <= 90:
+                doc = inv.user.document_id if inv.user and inv.user.document_id else ""
+                advisor_name = sales_map.get(doc.strip(), "Sin adjudicar")
+
+                expiring_contracts.append({
+                    "id": inv.id,
+                    "codigo_contrato": inv.assigned_code,
+                    "cliente_nombre": inv.user.name if inv.user else "Cliente N/A",
+                    "cliente_documento": doc,
+                    "asesor_adjudicado": advisor_name,
+                    "monto": float(inv.package.value or 0) if inv.package else 0.0,
+                    "fecha_ingreso": start_d.isoformat(),
+                    "fecha_vencimiento": end_d.isoformat(),
+                    "dias_restantes": days_left
+                })
+
+    expiring_contracts.sort(key=lambda x: x["dias_restantes"])
+
     return {
         "summary_cards": {
             "captacion_mes": captacion_mes,
@@ -319,6 +365,7 @@ async def get_director_analytics_dashboard(
         },
         "payout_projections": monthly_sales_history,
         "package_distribution": sales_by_type,
-        "leaderboard": leaderboard
+        "leaderboard": leaderboard,
+        "expiring_contracts": expiring_contracts
     }
 

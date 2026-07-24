@@ -52,6 +52,18 @@ export interface DirectorLeaderboardItem {
   total_closures: number;
 }
 
+export interface ExpiringContractItem {
+  id: number;
+  codigo_contrato: string;
+  cliente_nombre: string;
+  cliente_documento: string;
+  asesor_adjudicado: string;
+  monto: number;
+  fecha_ingreso: string;
+  fecha_vencimiento: string;
+  dias_restantes: number;
+}
+
 export interface DirectorAnalyticsDashboardData {
   summary_cards: {
     captacion_mes: number;
@@ -63,6 +75,7 @@ export interface DirectorAnalyticsDashboardData {
   payout_projections: DirectorPayoutProjection[];
   package_distribution: any[];
   leaderboard: DirectorLeaderboardItem[];
+  expiring_contracts: ExpiringContractItem[];
 }
 
 export const analyticsService = {

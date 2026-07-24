@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Award, DollarSign, Users, Trophy, TrendingUp, ShoppingBag, Crown } from 'lucide-react';
+import { Award, Trophy, Crown, Clock, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { analyticsService, DirectorAnalyticsDashboardData } from '../../../services/analytics';
 import { DirectorAnalyticsCharts } from './DirectorAnalyticsCharts';
@@ -36,6 +36,7 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
 
   const cards = directorData?.summary_cards;
   const leaderboard = directorData?.leaderboard || [];
+  const expiringContracts = directorData?.expiring_contracts || [];
 
   return (
     <div className="space-y-6 w-full min-w-0">
@@ -51,7 +52,7 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
             Hola, {user?.name?.split(' ')[0]} 👋
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-            Monitoreo consolidado del equipo de ventas, metas de captación, comisiones a liquidar y ranking comercial.
+            Monitoreo de ventas del equipo, comisiones, ranking comercial y vencimientos de contratos adjudicados.
           </p>
         </div>
       </div>
@@ -165,6 +166,88 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
         ) : (
           <div className="text-center py-8 text-xs text-slate-400">
             No hay registros de ventas comerciales en el mes actual.
+          </div>
+        )}
+      </div>
+
+      {/* Tabla de Contratos Adjudicados Próximos a Vencer */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-rose-500 shrink-0" />
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm sm:text-base font-montserrat">
+                Contratos Próximos a Vencer (Adjudicados)
+              </h3>
+              <p className="text-xs text-slate-400">Seguimiento a vencimientos de contratos adjudicados a asesores comerciales</p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full font-mono">
+            {expiringContracts.length} contratos
+          </span>
+        </div>
+
+        {expiringContracts.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
+                <tr>
+                  <th className="py-3 px-4">Código Contrato</th>
+                  <th className="py-3 px-4">Cliente / Inversionista</th>
+                  <th className="py-3 px-4">Asesor Adjudicado</th>
+                  <th className="py-3 px-4 text-right">Valor Contrato ($)</th>
+                  <th className="py-3 px-4 text-center">Fecha Vencimiento</th>
+                  <th className="py-3 px-4 text-center">Estado / Días</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {expiringContracts.map((contract) => {
+                  const isUrgent = contract.dias_restantes <= 15;
+                  const isExpired = contract.dias_restantes < 0;
+                  return (
+                    <tr key={contract.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                        {contract.codigo_contrato}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-800">{contract.cliente_nombre}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{contract.cliente_documento}</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-100 font-montserrat">
+                          {contract.asesor_adjudicado}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                        {formatCardCurrency(contract.monto)}
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono">
+                        {contract.fecha_vencimiento}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        {isExpired ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                            Vencido ({Math.abs(contract.dias_restantes)}d)
+                          </span>
+                        ) : isUrgent ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse">
+                            Vence en {contract.dias_restantes} días
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Vence en {contract.dias_restantes} días
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-xs text-slate-400">
+            No hay contratos adjudicados próximos a vencer en los próximos 90 días.
           </div>
         )}
       </div>
