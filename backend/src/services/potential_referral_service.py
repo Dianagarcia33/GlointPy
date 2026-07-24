@@ -164,12 +164,23 @@ class PotentialReferralService:
         # 3. Crear Usuario (Usando el documento como contraseña inicial por defecto)
         raw_password = (data.password or data.documento).strip()
         hashed_pwd = get_password_hash(raw_password)
+
+        # Parse date of birth if provided
+        dob = None
+        if getattr(data, "fecha_nacimiento", None):
+            try:
+                dob = datetime.strptime(data.fecha_nacimiento, "%Y-%m-%d")
+            except Exception:
+                dob = None
+
         new_user = User(
             name=data.name,
             email=data.email,
-            hashed_password=hashed_pwd,
+            password_hash=hashed_pwd,
             is_active=True,
-            document_id=data.documento
+            document_id=data.documento,
+            phone_number=data.numero_celular,
+            date_of_birth=dob
         )
         db.add(new_user)
         await db.flush()
@@ -196,10 +207,16 @@ class PotentialReferralService:
         db.add(bank_acc)
 
         # 6. Crear Solicitud de Inversión (InvestmentRequest)
+        from src.models.package import Package
+        pkg_id = data.paquete_id
+        if not pkg_id:
+            pkg_res = await db.execute(select(Package.id).limit(1))
+            pkg_id = pkg_res.scalar_one_or_none() or 1
+
         req = InvestmentRequest(
             user_id=new_user.id,
             investor_id=None,
-            paquete_inversion_id=data.paquete_id,
+            paquete_inversion_id=pkg_id,
             monto=Decimal(str(data.monto)),
             comprobante_path=data.comprobante_path,
             status=InvestmentRequestStatus.pending,
