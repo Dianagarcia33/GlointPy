@@ -12,6 +12,7 @@ from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
 from src.models.commercial_sale import CommercialSale, CommercialSaleType, CommercialSaleStatus
 from src.models.commission_settlement import CommissionSettlement
+from src.models.commercial_bonus import CommercialBonus, CommercialBonusType, CommercialBonusStatus
 from src.schemas.commercial_sale import (
     CommercialClientCheckRequest,
     CommercialClientCheckResponse,
