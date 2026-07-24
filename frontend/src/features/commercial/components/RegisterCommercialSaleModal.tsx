@@ -39,7 +39,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const shouldShowAsesorSelect = showAsesorSelect || isAdmin;
+  const shouldShowAsesorSelect = showAsesorSelect && isAdmin;
 
   useEffect(() => {
     if (shouldShowAsesorSelect && isOpen) {

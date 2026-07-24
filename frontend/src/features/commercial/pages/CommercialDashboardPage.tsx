@@ -644,8 +644,8 @@ export const CommercialDashboardPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleSuccess}
         currentAccumulatedDirect={directAccum}
-        isAdmin={isAdmin}
-        showAsesorSelect={false}
+        isAdmin={user?.is_superuser === true || user?.permissions?.includes('admin.roles.manage') === true}
+        showAsesorSelect={user?.is_superuser === true || user?.permissions?.includes('admin.roles.manage') === true}
       />
 
       {/* Modal para Liquidar Comisiones */}
