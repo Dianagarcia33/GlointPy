@@ -454,28 +454,20 @@ export const InvestorRegistrationFlow = () => {
     return (
         <div className="w-full">
             
-            {/* Steps Progress Indicator */}
-            <div className="mb-8 max-w-xl mx-auto">
-                <div className="flex items-center justify-between relative">
-                    <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-200 -translate-y-1/2 z-0"></div>
-                    {stepsInfo.map((s) => (
-                        <div key={s.num} className="flex flex-col items-center z-10 relative bg-white px-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
-                                step === s.num
-                                    ? 'bg-brand-600 text-white ring-4 ring-brand-100'
-                                    : step > s.num
-                                    ? 'bg-emerald-500 text-white'
-                                    : 'bg-slate-200 text-slate-500'
-                            }`}>
-                                {step > s.num ? '✓' : s.num}
-                            </div>
-                            <span className={`text-[10px] font-semibold mt-1 transition-all duration-300 ${
-                                step === s.num ? 'text-brand-600' : 'text-slate-500'
-                            }`}>
-                                {s.label}
-                            </span>
-                        </div>
-                    ))}
+            {/* Modern Progress Bar Header */}
+            <div className="mb-8 bg-slate-50/80 border border-slate-200/80 p-4 rounded-2xl shadow-sm">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800 mb-2">
+                    <span className="flex items-center gap-2 text-brand-700 font-extrabold uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-brand-500 animate-ping"></span>
+                        Paso {step} de 7: {stepsInfo[step - 1]?.label}
+                    </span>
+                    <span className="text-slate-500 font-semibold">{Math.round((step / 7) * 100)}% Completado</span>
+                </div>
+                <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden p-0.5">
+                    <div 
+                        className="bg-gradient-to-r from-brand-500 via-indigo-500 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out shadow-sm" 
+                        style={{ width: `${(step / 7) * 100}%` }}
+                    />
                 </div>
             </div>
 
@@ -812,28 +804,30 @@ export const InvestorRegistrationFlow = () => {
                                 Selecciona el profesional de Gloint que te asesoró en tu proceso de inversión. Si ingresaste de forma independiente, selecciona "Sin Asesor".
                             </p>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[420px] overflow-y-auto p-1">
+                            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
                                 {/* Option 0: Sin Asesor */}
                                 <div
                                     onClick={() => setFormData(prev => ({ ...prev, commercial_id: '' }))}
-                                    className={`relative cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-3.5 ${
+                                    className={`relative cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-4 ${
                                         !formData.commercial_id
-                                            ? 'bg-brand-50/80 border-brand-500 shadow-md ring-2 ring-brand-500/20'
-                                            : 'bg-white border-slate-200 hover:border-brand-300 hover:shadow-sm'
+                                            ? 'bg-brand-50/90 border-brand-500 shadow-md ring-2 ring-brand-500/20'
+                                            : 'bg-slate-50/60 border-slate-200 hover:border-brand-300 hover:bg-white'
                                     }`}
                                 >
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
-                                        !formData.commercial_id ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-500'
-                                    }`}>
-                                        🌐
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="text-sm font-bold text-slate-800 truncate">Sin Asesor / Independiente</h4>
-                                        <p className="text-[11px] text-slate-500 truncate">Llegué por cuenta propia a Gloint</p>
+                                    <div className="flex items-center gap-3.5">
+                                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 ${
+                                            !formData.commercial_id ? 'bg-brand-600 text-white' : 'bg-slate-200 text-slate-600'
+                                        }`}>
+                                            🌐
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-900">Sin Asesor / Ingreso Independiente</h4>
+                                            <p className="text-xs text-slate-500">Llegué por cuenta propia a la plataforma de Gloint</p>
+                                        </div>
                                     </div>
                                     {!formData.commercial_id && (
-                                        <div className="p-1 bg-brand-500 text-white rounded-full">
-                                            <CheckCircle2 className="w-4 h-4" />
+                                        <div className="p-1 bg-brand-500 text-white rounded-full shrink-0">
+                                            <CheckCircle2 className="w-5 h-5" />
                                         </div>
                                     )}
                                 </div>
@@ -847,30 +841,33 @@ export const InvestorRegistrationFlow = () => {
                                         <div
                                             key={u.id}
                                             onClick={() => setFormData(prev => ({ ...prev, commercial_id: u.id.toString() }))}
-                                            className={`relative cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center gap-3.5 ${
+                                            className={`relative cursor-pointer p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-4 ${
                                                 isSelected
-                                                    ? 'bg-brand-50/80 border-brand-500 shadow-md ring-2 ring-brand-500/20'
-                                                    : 'bg-white border-slate-200 hover:border-brand-300 hover:shadow-sm'
+                                                    ? 'bg-brand-50/90 border-brand-500 shadow-md ring-2 ring-brand-500/20'
+                                                    : 'bg-slate-50/60 border-slate-200 hover:border-brand-300 hover:bg-white'
                                             }`}
                                         >
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
-                                                isSelected
-                                                    ? 'bg-gradient-to-br from-brand-600 to-indigo-600 text-white shadow-sm'
-                                                    : 'bg-slate-100 text-slate-700'
-                                            }`}>
-                                                {initials}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-1.5 mb-0.5">
-                                                    <h4 className="text-sm font-bold text-slate-800 truncate">{u.name}</h4>
+                                            <div className="flex items-center gap-3.5 min-w-0">
+                                                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 ${
+                                                    isSelected
+                                                        ? 'bg-gradient-to-br from-brand-600 to-indigo-600 text-white shadow-sm'
+                                                        : 'bg-slate-200 text-slate-700'
+                                                }`}>
+                                                    {initials}
                                                 </div>
-                                                <span className="inline-block px-2 py-0.5 bg-amber-100/80 text-amber-800 text-[10px] font-bold rounded-md uppercase tracking-wider">
-                                                    🌟 Directivo de Inversión
-                                                </span>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                                        <h4 className="text-sm font-bold text-slate-900">{u.name}</h4>
+                                                        <span className="px-2 py-0.5 bg-amber-100/90 text-amber-800 text-[10px] font-extrabold rounded-md uppercase tracking-wider">
+                                                            🌟 Directivo
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                                                </div>
                                             </div>
                                             {isSelected && (
-                                                <div className="p-1 bg-brand-500 text-white rounded-full">
-                                                    <CheckCircle2 className="w-4 h-4" />
+                                                <div className="p-1 bg-brand-500 text-white rounded-full shrink-0">
+                                                    <CheckCircle2 className="w-5 h-5" />
                                                 </div>
                                             )}
                                         </div>
