@@ -368,6 +368,7 @@ async def get_commercial_leaderboard(
         if c_id == current_user.id:
             current_user_rank = entry
 
+    return {
         "leaderboard": leaderboard,
         "my_rank": current_user_rank
     }
