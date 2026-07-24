@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User } from 'lucide-react';
 import { commercialService, CommercialClientCheckResponse, SearchClientResult } from '../../../services/commercial';
+import { useAuthStore } from '../../../store/authStore';
 
 interface RegisterCommercialSaleModalProps {
   isOpen: boolean;
@@ -20,6 +21,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   isAdmin = false,
   showAsesorSelect = false
 }) => {
+  const { user } = useAuthStore();
+  const isTrueAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.roles.manage') === true;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchClientResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -39,7 +43,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const shouldShowAsesorSelect = showAsesorSelect && isAdmin;
+  const shouldShowAsesorSelect = isTrueAdmin;
 
   useEffect(() => {
     if (shouldShowAsesorSelect && isOpen) {
@@ -166,7 +170,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         referrer_code: referrerCode.trim() || undefined
       };
 
-      if (isAdmin && showAsesorSelect && targetCommercialId) {
+      if (isTrueAdmin && targetCommercialId) {
         await commercialService.createAdminSale(targetCommercialId, payload);
       } else {
         await commercialService.createSale(payload);

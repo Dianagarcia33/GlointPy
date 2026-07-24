@@ -298,11 +298,39 @@ async def get_commercial_users(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Retorna el listado de usuarios para asignación en el modal de Administrador.
+    Retorna únicamente el listado de usuarios con rol de Directivo de Inversión / Comercial
+    para asignación en el modal del Administrador.
     """
-    res = await db.execute(select(User).where(User.is_active == True).order_by(User.name.asc()))
-    users = res.scalars().all()
-    return [{"id": u.id, "name": u.name, "email": u.email, "document_id": u.document_id} for u in users]
+    stmt = (
+        select(User)
+        .options(selectinload(User.roles))
+        .where(User.is_active == True)
+        .order_by(User.name.asc())
+    )
+    res = await db.execute(stmt)
+    all_users = res.scalars().all()
+
+    sales_users_res = await db.execute(select(CommercialSale.commercial_id).distinct())
+    sales_user_ids = set(sales_users_res.scalars().all())
+
+    commercial_users = []
+    for u in all_users:
+        role_names = [r.name.lower() for r in (u.roles or [])]
+        is_directivo_or_comercial = any(
+            keyword in r_name for r_name in role_names
+            for keyword in ["directiv", "comercial", "asesor", "lider", "director", "inversión", "inversion"]
+        ) or u.id in sales_user_ids
+
+        # Excluir inversionistas puros sin rol comercial
+        if is_directivo_or_comercial or u.is_superuser:
+            commercial_users.append({
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "document_id": u.document_id
+            })
+
+    return commercial_users
 
 @router.get("/leaderboard", dependencies=[Depends(RequirePermission("commercial:view"))])
 async def get_commercial_leaderboard(
