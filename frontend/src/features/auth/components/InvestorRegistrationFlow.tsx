@@ -812,7 +812,7 @@ export const InvestorRegistrationFlow = () => {
                                 Selecciona el profesional de Gloint que te asesoró en tu proceso de inversión. Si ingresaste de forma independiente, selecciona "Sin Asesor".
                             </p>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto p-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-h-[420px] overflow-y-auto p-1">
                                 {/* Option 0: Sin Asesor */}
                                 <div
                                     onClick={() => setFormData(prev => ({ ...prev, commercial_id: '' }))}

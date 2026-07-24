@@ -7,9 +7,10 @@ interface AuthLayoutProps {
   title: string;
   subtitle: string;
   icon?: React.ReactNode;
+  maxWidthClass?: string;
 }
 
-export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, icon }) => {
+export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, icon, maxWidthClass = "max-w-md" }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-inter relative">
       
@@ -30,7 +31,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
 
       <main className="flex-grow flex items-center justify-center px-4 pt-10 pb-12 relative z-10">
         {/* Centered Overlapping Card */}
-        <div className="w-full max-w-md bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-8 md:p-10 relative z-20 mt-16">
+        <div className={`w-full ${maxWidthClass} bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-6 sm:p-10 relative z-20 mt-12 transition-all duration-300`}>
           {/* Titles */}
           <div className="text-center mb-8">
             {icon && (
