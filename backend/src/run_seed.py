@@ -35,6 +35,7 @@ PERMISSIONS = [
     {"name": "bank_accounts:manage", "description": "Gestionar cuentas bancarias en la bóveda", "module": "bank_accounts"},
     {"name": "manage_system_events", "description": "Gestionar eventos del sistema", "module": "system_events"},
     {"name": "sarlaft:check", "description": "Realizar consultas Sarlaft", "module": "sarlaft"},
+    {"name": "beneficiaries:view", "description": "Ver y gestionar beneficiarios", "module": "beneficiaries"},
     {"name": "referrals:view", "description": "Ver y gestionar referidos potenciales", "module": "referrals"},
 ]
 
@@ -77,7 +78,7 @@ async def seed_permissions_db(db):
             print(f"🔑 Permisos asignados al rol: {role.name}")
         elif "investor" in r_name or "inversionista" in r_name:
             investor_perms = [
-                "referrals:view", "wallets:view", "wallets:view_balance", 
+                "beneficiaries:view", "referrals:view", "wallets:view", "wallets:view_balance", 
                 "wallets:view_history", "wallets:request_withdrawal", 
                 "wallets:new_investment", "dashboard:view_kpis", 
                 "dashboard:view_quick_actions", "dashboard:view_investments", 
