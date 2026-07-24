@@ -28,9 +28,14 @@ import { AdminUsersPage } from "./features/admin/users/pages/AdminUsersPage";
 import { AdminPeriodsPage } from "./features/admin/periods/pages/AdminPeriodsPage";
 import { AdminPackagesPage } from "./features/admin/packages/pages/AdminPackagesPage";
 import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvestorsPage";
+import { AdminTemplatesPage } from "./features/admin/templates/pages/AdminTemplatesPage";
 import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
+import { CommercialDashboardPage } from "./features/commercial/pages/CommercialDashboardPage";
+import { BeneficiariesPage } from "./features/beneficiaries/pages/BeneficiariesPage";
+import { ReferralsPage } from "./features/referrals/pages/ReferralsPage";
+import { AdminReferralsPage } from "./features/admin/referrals/pages/AdminReferralsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
@@ -87,7 +92,7 @@ function App() {
         } 
       >
         <Route index element={<DashboardPage />} />
-        <Route path="wallet" element={<WalletsPage />} />
+        <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
         <Route path="investments" element={<InvestmentsPage />} />
         <Route path="investments/:id" element={<InvestmentDetailPage />} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
@@ -97,8 +102,13 @@ function App() {
         <Route path="packages" element={<RequirePermission permission="admin.packages.manage"><AdminPackagesPage /></RequirePermission>} />
         <Route path="investors" element={<RequirePermission permission="admin.investors.manage"><AdminInvestorsPage /></RequirePermission>} />
         <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
-        <Route path="system-events" element={<SystemEventsPage />} />
+        <Route path="system-events" element={<RequirePermission permission="manage_system_events"><SystemEventsPage /></RequirePermission>} />
         <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
+        <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
+        <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
+        <Route path="beneficiaries" element={<BeneficiariesPage />} />
+        <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
+        <Route path="admin-referrals" element={<RequirePermission permission="admin.users.manage"><AdminReferralsPage /></RequirePermission>} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}

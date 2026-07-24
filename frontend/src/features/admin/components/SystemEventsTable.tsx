@@ -29,46 +29,48 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
 
   if (isLoading) {
     return (
-      <div className="p-8 text-center text-slate-500">
-        <RotateCw className="w-6 h-6 animate-spin mx-auto mb-2 text-brand-500" />
-        <p>Cargando eventos...</p>
+      <div className="p-8 space-y-4 animate-pulse">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-14 bg-slate-100/80 rounded-2xl w-full" />
+        ))}
       </div>
     );
   }
 
   if (events.length === 0) {
     return (
-      <div className="p-8 text-center text-slate-500">
-        <AlertCircle className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-        <p>No hay eventos del sistema configurados.</p>
+      <div className="p-12 text-center text-slate-500">
+        <AlertCircle className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+        <p className="font-medium text-slate-600">No hay eventos del sistema configurados.</p>
+        <p className="text-xs text-slate-400 mt-1">Crea un nuevo evento para definir ventanas de tiempo o periodos recurrentes.</p>
       </div>
     );
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse">
+      <table className="w-full text-left border-collapse text-xs">
         <thead>
-          <tr className="bg-slate-50 border-b border-slate-200">
-            <th className="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase">Tipo / Estado</th>
-            <th className="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase">Descripción</th>
-            <th className="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase">Configuración de Tiempo</th>
-            <th className="px-6 py-4 text-xs font-semibold tracking-wider text-slate-500 uppercase text-right">Acciones</th>
+          <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider font-montserrat">
+            <th className="px-6 py-4">Tipo / Estado</th>
+            <th className="px-6 py-4">Descripción</th>
+            <th className="px-6 py-4">Configuración de Tiempo</th>
+            <th className="px-6 py-4 text-center">Acciones</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200">
+        <tbody className="divide-y divide-slate-100 font-medium">
           {events.map((event) => (
-            <tr key={event.id} className="hover:bg-slate-50/50 transition-colors">
+            <tr key={event.id} className="hover:bg-slate-50/80 transition-colors">
               <td className="px-6 py-4">
-                <div className="flex flex-col">
-                  <span className="font-medium text-slate-900 capitalize">{event.type.replace('_', ' ')}</span>
-                  <div className="mt-1">
+                <div className="flex flex-col gap-1">
+                  <span className="font-extrabold text-slate-900 capitalize text-sm">{event.type.replace(/_/g, ' ')}</span>
+                  <div>
                     {event.is_active ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
                         Activo
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">
                         Inactivo
                       </span>
                     )}
@@ -76,48 +78,50 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
                 </div>
               </td>
               <td className="px-6 py-4">
-                <p className="text-sm text-slate-600">{event.description || 'Sin descripción'}</p>
+                <p className="text-slate-600 font-medium leading-relaxed max-w-xs">{event.description || 'Sin descripción'}</p>
               </td>
               <td className="px-6 py-4">
                 {event.is_recurring ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <RotateCw className="w-4 h-4 text-blue-500" />
-                    <span>
+                  <div className="flex items-center gap-2 text-slate-700 bg-blue-50/80 border border-blue-100 px-3 py-1.5 rounded-xl w-fit">
+                    <RotateCw className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="font-bold text-blue-950">
                       Día {event.recurrence_start_day} al {event.recurrence_end_day} de cada mes
                     </span>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1 text-sm text-slate-600">
+                  <div className="flex flex-col gap-1.5 text-slate-600">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-emerald-500" />
+                      <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>
-                        Inicio: {event.start_date ? format(new Date(event.start_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}
+                        Inicio: <strong className="text-slate-800">{event.start_date ? format(new Date(event.start_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}</strong>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-rose-500" />
+                      <Clock className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                       <span>
-                        Fin: {event.end_date ? format(new Date(event.end_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}
+                        Fin: <strong className="text-slate-800">{event.end_date ? format(new Date(event.end_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}</strong>
                       </span>
                     </div>
                   </div>
                 )}
               </td>
-              <td className="px-6 py-4 text-right">
-                <div className="flex items-center justify-end gap-2">
+              <td className="px-6 py-4 text-center">
+                <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={() => onEdit(event)}
-                    className="p-2 text-slate-400 hover:text-brand-500 hover:bg-brand-50 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
                     title="Editar evento"
                   >
-                    <Edit2 className="w-4 h-4" />
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Editar</span>
                   </button>
                   <button
                     onClick={() => handleDelete(event.id)}
-                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
                     title="Eliminar evento"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar</span>
                   </button>
                 </div>
               </td>

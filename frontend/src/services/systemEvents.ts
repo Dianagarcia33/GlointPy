@@ -27,11 +27,11 @@ export interface SystemEventCreate {
 
 export const systemEventsService = {
   getAllEvents: async (): Promise<SystemEvent[]> => {
-    return await fetchApi('/admin-system-events/');
+    return await fetchApi('/admin-system-events');
   },
   
   createEvent: async (data: SystemEventCreate): Promise<SystemEvent> => {
-    return await fetchApi('/admin-system-events/', {
+    return await fetchApi('/admin-system-events', {
       method: 'POST',
       body: JSON.stringify(data)
     });

@@ -12,3 +12,7 @@ from src.models.contract_history import ContractHistory
 from src.models.system_event import SystemEvent
 from src.models.withdrawal_verification_code import WithdrawalVerificationCode
 from src.models.sarlaft_check import SarlaftCheck
+from src.models.commercial_sale import CommercialSale, CommercialSaleType
+from src.models.template import Template
+from src.models.beneficiary import Beneficiary
+from src.models.potential_referral import PotentialReferral, PotentialReferralStatus

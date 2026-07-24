@@ -203,7 +203,7 @@ export const investmentsService = {
   uploadKycDocument: async (file: File): Promise<{path: string}> => {
     const formData = new FormData();
     formData.append('file', file);
-    return await fetchApi('/investments/admin/upload-kyc', {
+    return await fetchApi('/auth/public/upload-file', {
       method: 'POST',
       body: formData
     });

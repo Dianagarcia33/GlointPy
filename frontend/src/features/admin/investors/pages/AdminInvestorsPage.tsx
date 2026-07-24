@@ -81,25 +81,17 @@ const InvestorTableSkeleton = () => {
               <div className="h-3 w-20 bg-slate-100 rounded"></div>
             </div>
           </td>
-          {/* Fechas */}
-          <td className="px-6 py-4">
-            <div className="space-y-2">
-              <div className="flex justify-between w-40">
-                <div className="h-3 w-12 bg-slate-100 rounded"></div>
-                <div className="h-3 w-16 bg-slate-200 rounded"></div>
-              </div>
-              <div className="flex justify-between w-40">
-                <div className="h-3 w-8 bg-slate-100 rounded"></div>
-                <div className="h-3 w-16 bg-slate-200 rounded"></div>
-              </div>
-            </div>
+          {/* Bonos Aceleración */}
+          <td className="px-4 py-4">
+            <div className="h-5 w-20 bg-slate-200 rounded-lg"></div>
           </td>
           {/* Acciones */}
           <Can permission="admin.investors.manage">
-            <td className="px-6 py-4 text-right">
-              <div className="flex items-center justify-end gap-2">
-                <div className="h-7 w-7 bg-slate-200 rounded-lg"></div>
-                <div className="h-7 w-7 bg-slate-200 rounded-lg"></div>
+            <td className="px-4 py-4 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-7 w-20 bg-slate-200 rounded-xl"></div>
+                <div className="h-7 w-16 bg-slate-200 rounded-xl"></div>
+                <div className="h-7 w-16 bg-slate-200 rounded-xl"></div>
               </div>
             </td>
           </Can>
@@ -231,33 +223,43 @@ export const AdminInvestorsPage = () => {
 
   if (error) {
       return (
-          <div className="p-6 bg-red-50 rounded-xl border border-red-100 flex items-start gap-3">
-              <div className="text-red-600 font-medium">
-                  <p>Error al cargar los datos</p>
+          <div className="w-full max-w-7xl mx-auto p-6 bg-red-50 border border-red-200 rounded-3xl flex items-start gap-4 text-red-700 shadow-xs">
+              <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
+              <div>
+                  <h3 className="font-bold font-montserrat text-base">Error al cargar inversionistas</h3>
                   <p className="text-sm mt-1">{error}</p>
-                  <button onClick={fetchData} className="mt-2 text-sm font-semibold hover:underline">Reintentar</button>
+                  <button onClick={fetchData} className="mt-3 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-all cursor-pointer">Reintentar</button>
               </div>
           </div>
       );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Gestión de Inversionistas</h1>
-          <p className="text-slate-500 text-sm mt-1">Administra las inversiones y sus solicitudes</p>
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
+      
+      {/* Header Ejecutivo Principal */}
+      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        <div className="relative z-10 space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
+            <Users className="w-4 h-4 text-emerald-400" /> Control de Contratos & Inversiones
+          </div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+            Gestión de Inversionistas
+          </h1>
+          <p className="text-slate-300 text-sm max-w-xl">
+            Administra los contratos activos, rendimientos proyectados, aumentos de capital y solicitudes de inversión.
+          </p>
         </div>
         
         <Can permission="admin.investors.manage">
-          <div className="flex gap-2 relative">
-
+          <div className="relative z-10 flex items-center gap-3 shrink-0">
             <button 
               onClick={handleCreate}
-              className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors shadow-sm text-sm font-medium"
+              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
-              Crear Inversionista
+              <span>Crear Inversión</span>
             </button>
           </div>
         </Can>
@@ -268,7 +270,7 @@ export const AdminInvestorsPage = () => {
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('investments')}
-            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-extrabold text-sm font-montserrat transition-colors cursor-pointer ${
               activeTab === 'investments'
                 ? 'border-brand-500 text-brand-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
@@ -278,7 +280,7 @@ export const AdminInvestorsPage = () => {
           </button>
           <button
             onClick={() => setActiveTab('requests')}
-            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-extrabold text-sm font-montserrat transition-colors cursor-pointer ${
               activeTab === 'requests'
                 ? 'border-brand-500 text-brand-600'
                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
@@ -294,12 +296,12 @@ export const AdminInvestorsPage = () => {
       ) : (
         <>
           {/* Filters Bar */}
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
+          <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
             <div className="flex-1 w-full relative">
               <input 
                 type="text" 
-                placeholder="Buscar por código, nombre, correo o documento del usuario..." 
-                className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                placeholder="Buscar por código, nombre, correo o documento..." 
+                className="w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                 value={searchInput}
                 onChange={(e) => {
                   setSearchInput(e.target.value);
@@ -308,7 +310,7 @@ export const AdminInvestorsPage = () => {
             </div>
             <div className="w-full md:w-64">
               <select
-                className="w-full pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all bg-white text-slate-700"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all bg-white text-slate-700"
                 value={hasHistoryFilter === undefined ? "" : hasHistoryFilter.toString()}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -323,20 +325,19 @@ export const AdminInvestorsPage = () => {
             </div>
           </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
+            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
-                <th className="px-4 py-4 w-10"></th>
-                <th className="px-6 py-4">ID</th>
-                <th className="px-6 py-4">Código / Ref.</th>
-                <th className="px-6 py-4">Usuario</th>
-                <th className="px-6 py-4">Paquete / Periodo</th>
-                <th className="px-6 py-4">Bonos Aceleración</th>
-                <th className="px-6 py-4">Fechas</th>
+                <th className="px-3 py-3 w-8"></th>
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Código / Ref.</th>
+                <th className="px-4 py-3">Usuario</th>
+                <th className="px-4 py-3">Paquete / Periodo</th>
+                <th className="px-4 py-3">Bonos Aceleración</th>
                 <Can permission="admin.investors.manage">
-                  <th className="px-6 py-4 text-right">Acciones</th>
+                  <th className="px-4 py-3 text-center whitespace-nowrap min-w-[280px]">Acciones</th>
                 </Can>
               </tr>
             </thead>
@@ -345,7 +346,7 @@ export const AdminInvestorsPage = () => {
                 <InvestorTableSkeleton />
               ) : investors.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users className="w-8 h-8 text-slate-300" />
                       <p>No hay inversionistas registrados.</p>
@@ -373,16 +374,16 @@ export const AdminInvestorsPage = () => {
                           </button>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                      <td className="px-4 py-3.5 font-mono text-xs text-slate-500">
                         #{investor.id}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         <div className="font-semibold text-slate-800">{investor.assigned_code}</div>
                         {investor.referred_by && (
                             <div className="text-xs text-slate-500">Ref: {investor.referred_by}</div>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         {investor.user ? (
                             <div className="space-y-0.5">
                                 <div className="font-semibold text-slate-800">{investor.user.name}</div>
@@ -404,7 +405,7 @@ export const AdminInvestorsPage = () => {
                             <span className="text-slate-400">Desconocido</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-brand-50 text-brand-700">
                           {investor.package ? `$${investor.package.value.toLocaleString('es-CO')} COP` : 'Desconocido'}
                         </span>
@@ -441,7 +442,7 @@ export const AdminInvestorsPage = () => {
                         })()}
                       </td>
 
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         {(() => {
                           const accelerations = investor.accelerations || [];
                           const totalBonus = investor.total_acceleration_bonus ?? accelerations.reduce((sum, a) => sum + (Number(a.bonus_amount) || 0), 0);
@@ -460,70 +461,32 @@ export const AdminInvestorsPage = () => {
                           );
                         })()}
                       </td>
-                      <td className="px-6 py-4 text-xs space-y-2">
-                          <div className="space-y-1">
-                            <div className="flex justify-between w-40">
-                                <span className="text-slate-500">Ingreso:</span>
-                                <span className="font-medium text-slate-700">
-                                    {new Date(investor.start_date).toLocaleDateString()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between w-40">
-                                <span className="text-slate-500">Fin:</span>
-                                <span className="font-medium text-emerald-700">
-                                    {new Date(investor.end_date).toLocaleDateString()}
-                                </span>
-                            </div>
-                          </div>
-                          
-                          {/* Progreso del contrato */}
-                          {(() => {
-                            const now = new Date().getTime();
-                            const start = new Date(investor.start_date).getTime();
-                            const totalDays = investor.period ? investor.period.days : 0;
-                            const elapsedRaw = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-                            const elapsed = Math.max(0, Math.min(elapsedRaw, totalDays));
-                            const progress = totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 0;
-                            
-                            return totalDays > 0 ? (
-                              <div className="w-40 pt-1">
-                                <div className="flex justify-between text-[10px] mb-1">
-                                  <span className="text-slate-500 font-medium">Avance</span>
-                                  <span className="text-brand-600 font-bold">{elapsed} / {totalDays} días</span>
-                                </div>
-                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                  <div 
-                                    className="bg-brand-500 h-1.5 rounded-full transition-all" 
-                                    style={{ width: `${progress}%` }}
-                                  />
-                                </div>
-                              </div>
-                            ) : null;
-                          })()}
-                      </td>
                       <Can permission="admin.investors.manage">
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap min-w-[280px]">
+                          <div className="flex items-center justify-center gap-2">
                             <button 
                               onClick={() => setSelectedInvestorForUpgrade(investor)}
-                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-xl transition-all border border-amber-200 bg-amber-50 cursor-pointer"
                               title="Solicitar Aumento de Capital"
                             >
-                              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                              <span>+ Capital</span>
                             </button>
                             <button 
                               onClick={() => handleEdit(investor)}
-                              className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-                              title="Editar"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
+                              title="Editar Inversión"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>Editar</span>
                             </button>
                             <button 
                               onClick={() => handleDelete(investor)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Eliminar"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
+                              title="Eliminar Inversión"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Eliminar</span>
                             </button>
                           </div>
                         </td>
@@ -531,7 +494,49 @@ export const AdminInvestorsPage = () => {
                     </tr>
                     {expandedRows[investor.id] && investor.user && (
                       <tr className="bg-slate-50/40">
-                        <td colSpan={8} className="px-8 py-4 border-b border-slate-100 space-y-5">
+                        <td colSpan={7} className="px-8 py-4 border-b border-slate-100 space-y-5">
+                          
+                          {/* Vigencia y Fechas del Contrato */}
+                          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 pb-2 font-montserrat">
+                              <span>📅 Vigencia y Fechas del Contrato:</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs font-semibold">
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold">Fecha de Ingreso</span>
+                                <span className="text-slate-800 font-bold text-sm">{new Date(investor.start_date).toLocaleDateString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold">Fecha Finalización</span>
+                                <span className="text-emerald-700 font-extrabold text-sm">{new Date(investor.end_date).toLocaleDateString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 block text-[10px] uppercase font-bold">Avance del Contrato</span>
+                                {(() => {
+                                  const now = new Date().getTime();
+                                  const start = new Date(investor.start_date).getTime();
+                                  const totalDays = investor.period ? investor.period.days : 0;
+                                  const elapsedRaw = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                                  const elapsed = Math.max(0, Math.min(elapsedRaw, totalDays));
+                                  const progress = totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 0;
+                                  
+                                  return (
+                                    <div className="space-y-1 mt-0.5">
+                                      <div className="flex justify-between text-[10px]">
+                                        <span className="text-brand-600 font-extrabold">{elapsed} / {totalDays} días ({progress}%)</span>
+                                      </div>
+                                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                        <div 
+                                          className="bg-brand-500 h-2 rounded-full transition-all" 
+                                          style={{ width: `${progress}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
                           
                           {/* Tarjetas de Rendimientos Diarios y Liberación */}
                           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">

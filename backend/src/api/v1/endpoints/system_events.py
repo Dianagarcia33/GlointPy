@@ -10,6 +10,7 @@ from src.api.deps import RequirePermission
 router = APIRouter()
 
 @router.get("", response_model=List[SystemEventResponse], dependencies=[Depends(RequirePermission("manage_system_events"))])
+@router.get("/", response_model=List[SystemEventResponse], dependencies=[Depends(RequirePermission("manage_system_events"))], include_in_schema=False)
 async def list_events(db: AsyncSession = Depends(get_db)):
     """
     Obtiene la lista de todos los eventos del sistema.
@@ -17,6 +18,7 @@ async def list_events(db: AsyncSession = Depends(get_db)):
     return await SystemEventService.get_all_events(db)
 
 @router.post("", response_model=SystemEventResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("manage_system_events"))])
+@router.post("/", response_model=SystemEventResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("manage_system_events"))], include_in_schema=False)
 async def create_event(event_in: SystemEventCreate, db: AsyncSession = Depends(get_db)):
     """
     Crea un nuevo evento del sistema.

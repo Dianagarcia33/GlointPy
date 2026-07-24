@@ -64,7 +64,7 @@ export interface UserUpdate {
 }
 
 export const usersService = {
-  getUsers: async (params?: { page?: number, limit?: number, search?: string, role_id?: number, is_active?: boolean }): Promise<PaginatedUsers> => {
+  getUsers: async (params?: { page?: number, limit?: number, search?: string, role_id?: number, is_active?: boolean, has_wallet?: boolean }): Promise<PaginatedUsers> => {
     const queryParams = new URLSearchParams();
     if (params) {
       if (params.page !== undefined) queryParams.append('page', params.page.toString());
@@ -72,6 +72,7 @@ export const usersService = {
       if (params.search) queryParams.append('search', params.search);
       if (params.role_id !== undefined) queryParams.append('role_id', params.role_id.toString());
       if (params.is_active !== undefined) queryParams.append('is_active', params.is_active.toString());
+      if (params.has_wallet !== undefined) queryParams.append('has_wallet', params.has_wallet.toString());
     }
     const queryString = queryParams.toString();
     const url = `/users${queryString ? `?${queryString}` : ''}`;
@@ -103,6 +104,12 @@ export const usersService = {
 
   resetPassword: async (id: number): Promise<{ message: string; user_id: number }> => {
     return await fetchApi(`/users/${id}/reset-password`, {
+      method: 'POST',
+    });
+  },
+
+  createWallet: async (userId: number): Promise<{ message: string; wallet_id: number; user_id: number }> => {
+    return await fetchApi(`/users/${userId}/create-wallet`, {
       method: 'POST',
     });
   },
