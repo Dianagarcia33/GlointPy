@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 from decimal import Decimal
 from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -88,9 +89,26 @@ async def get_admin_analytics_dashboard(
         })
 
     # 3. Balance de Liquidez Ecosistema
-    # Total invertido activo
-    investors_all = await db.execute(select(Investor).options(selectinload(Investor.package)))
-    active_invs = investors_all.scalars().all()
+    # Total invertido activo (excluye contratos vencidos/finalizados)
+    investors_all = await db.execute(
+        select(Investor).options(
+            selectinload(Investor.package),
+            selectinload(Investor.period),
+            selectinload(Investor.accelerations)
+        )
+    )
+    all_invs = investors_all.scalars().all()
+    active_invs = []
+    for inv in all_invs:
+        fecha_ingreso = inv.start_date
+        if fecha_ingreso and inv.period:
+            aceleracion_dias = sum(float(acc.days_accelerated or 0) for acc in (inv.accelerations or []))
+            fecha_fin = fecha_ingreso + relativedelta(months=inv.period.months) - timedelta(days=aceleracion_dias)
+            if fecha_fin.date() < today:
+                # Contrato vencido/finalizado -> no sumar como activo
+                continue
+        active_invs.append(inv)
+
     total_invertido = sum(float(i.package.value) if i.package and i.package.value else 0 for i in active_invs)
 
     # Total disponible en Wallets
