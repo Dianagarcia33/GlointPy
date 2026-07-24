@@ -42,7 +42,7 @@ export const DashboardPage = () => {
     };
 
     const formatShortCOP = (val: number) => {
-        return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP`;
+        return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
     };
 
     const activeInvestments = investments.filter(inv => inv.status === 'approved');

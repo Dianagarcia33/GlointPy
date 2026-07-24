@@ -24,7 +24,7 @@ const COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#6366F1'
 
 export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data }) => {
   const formatCurrency = (val: number) => {
-    return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP`;
+    return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
   };
 
   const formatShortAxis = (val: number) => {
@@ -46,7 +46,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-emerald-600 shrink-0" />
               <div>
-                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Crecimiento de Captación ($ COP)</h3>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Crecimiento de Captación ($)</h3>
                 <p className="text-xs text-slate-400">Tendencia mensual de ingresos por inversiones</p>
               </div>
             </div>
@@ -119,7 +119,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
             <div className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-indigo-600 shrink-0" />
               <div>
-                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Balance de Liquidez ($ COP)</h3>
+                <h3 className="font-bold text-slate-800 text-sm sm:text-base">Balance de Liquidez ($)</h3>
                 <p className="text-xs text-slate-400">Comparativa de Fondos en el Ecosistema</p>
               </div>
             </div>
@@ -131,7 +131,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
                 <XAxis dataKey="category" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <YAxis width={65} tickFormatter={formatShortAxis} tick={{ fontSize: 11, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(val: any) => formatCurrency(Number(val))} />
-                <Bar dataKey="amount" name="Monto COP" radius={[8, 8, 0, 0]}>
+                <Bar dataKey="amount" name="Monto ($)" radius={[8, 8, 0, 0]}>
                   {data.liquidity_balance.map((entry, index) => (
                     <Cell key={`cell-liq-${index}`} fill={entry.color} />
                   ))}
