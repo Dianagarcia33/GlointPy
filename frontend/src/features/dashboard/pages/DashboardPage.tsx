@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Terminal, ShieldCheck, TrendingUp, Users, Wallet, Building2, Loader2 } from 'lucide-react';
+import { ShieldCheck, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { Can } from '../../../components/security/Can';
 import { investmentsService, Investment } from '../../../services/investments';
@@ -10,6 +10,115 @@ import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
+
+/* SKELETON LOADERS */
+const AdminDashboardSkeleton = () => (
+    <div className="space-y-6 w-full min-w-0 animate-pulse">
+        {/* Header Skeleton */}
+        <div className="bg-slate-900/90 rounded-3xl p-6 sm:p-8 md:p-10 h-40 shadow-xl relative overflow-hidden flex flex-col justify-center space-y-3">
+            <div className="h-5 w-48 bg-slate-800 rounded-full"></div>
+            <div className="h-8 w-64 bg-slate-800 rounded-xl"></div>
+        </div>
+
+        {/* Executive Summary Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full">
+            {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
+                    <div className="h-3 w-32 bg-slate-200 rounded"></div>
+                    <div className="h-7 w-40 bg-slate-300 rounded-lg"></div>
+                    <div className="h-3 w-24 bg-slate-100 rounded"></div>
+                </div>
+            ))}
+        </div>
+
+        {/* Main Charts Skeleton */}
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full">
+                <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 h-80 space-y-4">
+                    <div className="h-5 w-48 bg-slate-200 rounded"></div>
+                    <div className="h-56 bg-slate-100/70 rounded-xl"></div>
+                </div>
+                <div className="xl:col-span-1 bg-white rounded-2xl border border-slate-200 p-6 h-80 space-y-4">
+                    <div className="h-5 w-40 bg-slate-200 rounded"></div>
+                    <div className="h-56 bg-slate-100/70 rounded-xl"></div>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full">
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 h-72 space-y-4">
+                    <div className="h-5 w-48 bg-slate-200 rounded"></div>
+                    <div className="h-48 bg-slate-100/70 rounded-xl"></div>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 h-72 space-y-4">
+                    <div className="h-5 w-48 bg-slate-200 rounded"></div>
+                    <div className="h-48 bg-slate-100/70 rounded-xl"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+const InvestorDashboardSkeleton = () => (
+    <div className="space-y-8 w-full min-w-0 animate-pulse">
+        {/* Hero Card Skeleton */}
+        <div className="bg-slate-900 rounded-3xl p-8 md:p-10 h-72 shadow-2xl flex flex-col justify-between">
+            <div className="space-y-3">
+                <div className="h-5 w-64 bg-slate-800 rounded-full"></div>
+                <div className="h-3 w-40 bg-slate-800 rounded"></div>
+                <div className="h-12 w-80 bg-slate-800 rounded-2xl"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-800">
+                <div className="h-10 bg-slate-800/80 rounded-xl"></div>
+                <div className="h-10 bg-slate-800/80 rounded-xl"></div>
+                <div className="h-10 bg-slate-800/80 rounded-xl"></div>
+            </div>
+        </div>
+
+        {/* KPIs Grid Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+                    <div className="flex justify-between">
+                        <div className="w-10 h-10 bg-slate-100 rounded-xl"></div>
+                        <div className="w-12 h-5 bg-slate-100 rounded-lg"></div>
+                    </div>
+                    <div className="h-3 w-28 bg-slate-200 rounded"></div>
+                    <div className="h-7 w-36 bg-slate-300 rounded-lg"></div>
+                </div>
+            ))}
+        </div>
+
+        {/* Quick Actions Skeleton */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+                <div key={i} className="bg-white p-6 rounded-3xl border border-slate-200 h-36 flex flex-col justify-center items-center space-y-3">
+                    <div className="w-12 h-12 bg-slate-100 rounded-2xl"></div>
+                    <div className="h-4 w-24 bg-slate-200 rounded"></div>
+                </div>
+            ))}
+        </div>
+
+        {/* Investments Cards Skeleton */}
+        <div className="space-y-4">
+            <div className="h-6 w-48 bg-slate-200 rounded-lg"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="bg-white rounded-3xl border border-slate-200 p-6 h-80 space-y-4">
+                        <div className="flex justify-between">
+                            <div className="w-10 h-10 bg-slate-100 rounded-xl"></div>
+                            <div className="w-16 h-6 bg-slate-100 rounded-lg"></div>
+                        </div>
+                        <div className="h-4 w-32 bg-slate-200 rounded"></div>
+                        <div className="h-3 w-full bg-slate-100 rounded-full"></div>
+                        <div className="space-y-2 pt-4">
+                            <div className="h-4 w-full bg-slate-100 rounded"></div>
+                            <div className="h-4 w-full bg-slate-100 rounded"></div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
 
 export const DashboardPage = () => {
     const { user } = useAuthStore();
@@ -63,114 +172,97 @@ export const DashboardPage = () => {
             
             {/* SECCIÓN EXCLUSIVA PARA ADMINISTRADORES / SUPERADMIN */}
             {isSuperAdmin ? (
-                <div className="space-y-6 w-full min-w-0">
-                    {/* Header Admin */}
-                    <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden">
-                        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                        <div className="relative z-10 space-y-2">
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-                                <ShieldCheck className="w-4 h-4 text-emerald-400" /> Panel de Control Ejecutivo 360°
-                            </div>
-                            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-                                Hola, {user?.name?.split(' ')[0]} 👋
-                            </h1>
-                        </div>
-                    </div>
-
-                    {/* Quick Executive KPI Summary Cards */}
-                    {adminAnalytics?.summary_cards && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full min-w-0">
-                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Capital Activo Invertido</span>
-                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
-                                    {formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}
-                                </span>
-                                <span className="text-[11px] text-slate-500">Contratos vigentes</span>
-                            </div>
-
-                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Inversionistas Activos</span>
-                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-900 block tracking-tight">
-                                    {adminAnalytics.summary_cards.total_inversionistas}
-                                </span>
-                                <span className="text-[11px] text-slate-500">Contratos registrados</span>
-                            </div>
-
-                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Saldo en Billeteras</span>
-                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}>
-                                    {formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}
-                                </span>
-                                <span className="text-[11px] text-slate-500">Fondos depositados</span>
-                            </div>
-
-                            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Retiros Liquidados</span>
-                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}>
-                                    {formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}
-                                </span>
-                                <span className="text-[11px] text-amber-700 font-medium">Pagos procesados</span>
+                isLoadingAnalytics ? (
+                    <AdminDashboardSkeleton />
+                ) : (
+                    <div className="space-y-6 w-full min-w-0">
+                        {/* Header Admin */}
+                        <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden">
+                            <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                            <div className="relative z-10 space-y-2">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
+                                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Panel de Control Ejecutivo 360°
+                                </div>
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+                                    Hola, {user?.name?.split(' ')[0]} 👋
+                                </h1>
                             </div>
                         </div>
-                    )}
 
-                    {/* Gráficas Interactivas Recharts */}
-                    {isLoadingAnalytics ? (
-                        <div className="flex justify-center items-center py-20 bg-white rounded-3xl border border-slate-200">
-                            <Loader2 className="w-8 h-8 text-brand-600 animate-spin" />
-                        </div>
-                    ) : adminAnalytics ? (
-                        <AdminAnalyticsCharts data={adminAnalytics} />
-                    ) : null}
-                </div>
-            ) : (
+                        {/* Quick Executive KPI Summary Cards */}
+                        {adminAnalytics?.summary_cards && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full min-w-0">
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Capital Activo Invertido</span>
+                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
+                                        {formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500">Contratos vigentes</span>
+                                </div>
 
-                /* SECCIÓN EXCLUSIVA PARA INVERSIONISTAS */
-                <>
-                    {/* HERO Y KPIS */}
-                    <Can permission="dashboard:view_kpis">
-                        {!loading ? (
-                            <>
-                                <HeroCard 
-                                    userName={user?.name?.split(' ')[0] || ''}
-                                    totalPortfolio={totalPortafolio}
-                                    investedCapital={totalInvertido}
-                                    accumulatedProfit={totalRendimiento}
-                                    profitabilityPercent={rentabilidadGlobal}
-                                    dailyProfit={gananciaDiaria}
-                                />
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Inversionistas Activos</span>
+                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-900 block tracking-tight">
+                                        {adminAnalytics.summary_cards.total_inversionistas}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500">Contratos registrados</span>
+                                </div>
 
-                                <DashboardKPIs 
-                                    investedCapital={totalInvertido}
-                                    currentValue={totalPortafolio}
-                                    accumulatedProfit={totalRendimiento}
-                                    acquiredShares={totalAcciones}
-                                />
-                            </>
-                        ) : (
-                            <div className="space-y-8 animate-pulse mb-8">
-                                <div className="bg-slate-900 rounded-3xl p-8 md:p-10 h-64 shadow-xl"></div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-slate-200/50 rounded-3xl"></div>)}
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Saldo en Billeteras</span>
+                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}>
+                                        {formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500">Fondos depositados</span>
+                                </div>
+
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Retiros Liquidados</span>
+                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}>
+                                        {formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}
+                                    </span>
+                                    <span className="text-[11px] text-amber-700 font-medium">Pagos procesados</span>
                                 </div>
                             </div>
                         )}
-                    </Can>
 
-                    {/* ACCIONES RÁPIDAS */}
-                    <Can permission="dashboard:view_quick_actions">
-                        {!loading ? (
+                        {/* Gráficas Interactivas Recharts */}
+                        {adminAnalytics && <AdminAnalyticsCharts data={adminAnalytics} />}
+                    </div>
+                )
+            ) : (
+
+                /* SECCIÓN EXCLUSIVA PARA INVERSIONISTAS */
+                loading ? (
+                    <InvestorDashboardSkeleton />
+                ) : (
+                    <>
+                        {/* HERO Y KPIS */}
+                        <Can permission="dashboard:view_kpis">
+                            <HeroCard 
+                                userName={user?.name?.split(' ')[0] || ''}
+                                totalPortfolio={totalPortafolio}
+                                investedCapital={totalInvertido}
+                                accumulatedProfit={totalRendimiento}
+                                profitabilityPercent={rentabilidadGlobal}
+                                dailyProfit={gananciaDiaria}
+                            />
+
+                            <DashboardKPIs 
+                                investedCapital={totalInvertido}
+                                currentValue={totalPortafolio}
+                                accumulatedProfit={totalRendimiento}
+                                acquiredShares={totalAcciones}
+                            />
+                        </Can>
+
+                        {/* ACCIONES RÁPIDAS */}
+                        <Can permission="dashboard:view_quick_actions">
                             <QuickActions />
-                        ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-pulse">
-                                {[1, 2, 3, 4].map(i => <div key={i} className="h-40 bg-slate-200/50 rounded-3xl"></div>)}
-                            </div>
-                        )}
-                    </Can>
-                    
-                    {/* MIS INVERSIONES */}
-                    <Can permission="dashboard:view_investments">
-                        {!loading ? (
+                        </Can>
+                        
+                        {/* MIS INVERSIONES */}
+                        <Can permission="dashboard:view_investments">
                             <div className="mb-10">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                                     <div>
@@ -218,17 +310,9 @@ export const DashboardPage = () => {
                                     </div>
                                 )}
                             </div>
-                        ) : (
-                            <div className="animate-pulse">
-                                <div className="h-6 w-48 bg-slate-200/50 rounded mb-2"></div>
-                                <div className="h-4 w-64 bg-slate-200/50 rounded mb-6"></div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {[1, 2, 3].map(i => <div key={i} className="h-80 bg-slate-200/50 rounded-3xl"></div>)}
-                                </div>
-                            </div>
-                        )}
-                    </Can>
-                </>
+                        </Can>
+                    </>
+                )
             )}
         </div>
     );
