@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from datetime import datetime
 from src.models.potential_referral import PotentialReferral
 from src.models.investor import Investor
+from src.models.user import User
 from src.schemas.potential_referral import PotentialReferralCreate, PotentialReferralUpdate
 
 class PotentialReferralService:
