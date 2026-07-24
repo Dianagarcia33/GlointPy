@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Award, Trophy, Crown, Clock, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { analyticsService, DirectorAnalyticsDashboardData } from '../../../services/analytics';
+import { commercialService, CommercialSummary } from '../../../services/commercial';
 import { DirectorAnalyticsCharts } from './DirectorAnalyticsCharts';
+import { CommercialBonusGoalsWidget } from '../../commercial/components/CommercialBonusGoalsWidget';
 
 interface DirectorDashboardViewProps {
   isLoading?: boolean;
@@ -15,6 +17,11 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
   const { data: directorData, isLoading } = useQuery<DirectorAnalyticsDashboardData>({
     queryKey: ['director_analytics_dashboard'],
     queryFn: () => analyticsService.getDirectorAnalyticsDashboard()
+  });
+
+  const { data: summary } = useQuery<CommercialSummary>({
+    queryKey: ['commercial_my_summary'],
+    queryFn: () => commercialService.getMySummary()
   });
 
   const formatCardCurrency = (val: number) => {
@@ -56,6 +63,12 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
           </p>
         </div>
       </div>
+
+      {/* Widget de Metas y Bonos en Curso del Directivo */}
+      <CommercialBonusGoalsWidget
+        summary={summary}
+        dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
+      />
 
       {/* KPI Cards Comerciales Ejecutivas */}
       {cards && (

@@ -180,9 +180,15 @@ export const CommercialDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* VISTA ADMINISTRADOR */}
+      {/* VISTA ADMINISTRADOR / DIRECTIVO */}
       {isAdmin ? (
         <>
+          {/* Widget de Metas y Bonos en Curso */}
+          <CommercialBonusGoalsWidget
+            summary={summary}
+            dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
+          />
+
           {/* Executive KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
