@@ -83,28 +83,32 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
           </div>
 
           <div className="h-64 sm:h-72 w-full flex items-center justify-center min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data.package_distribution}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {data.package_distribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: any, name: any, item: any) => [
-                  `${value} contratos (${formatCurrency(item.payload.total_monto)})`,
-                  item.payload.name
-                ]} />
-                <Legend iconType="circle" layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
-              </PieChart>
-            </ResponsiveContainer>
+            {data.package_distribution && data.package_distribution.filter(p => p.value > 0).length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data.package_distribution.filter(p => p.value > 0)}
+                    cx="50%"
+                    cy="40%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {data.package_distribution.filter(p => p.value > 0).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any, name: any, item: any) => [
+                    `${value} contratos (${formatCurrency(item.payload.total_monto)})`,
+                    item.payload.name
+                  ]} />
+                  <Legend iconType="circle" layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-slate-400 text-xs font-medium text-center">No hay paquetes activos registrados</div>
+            )}
           </div>
         </div>
 

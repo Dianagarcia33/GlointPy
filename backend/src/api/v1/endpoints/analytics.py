@@ -69,27 +69,7 @@ async def get_admin_analytics_dashboard(
             "ventas_comerciales": comm_val
         })
 
-    # 2. Distribución por Paquetes de Inversión
-    packages_res = await db.execute(select(Package))
-    packages = packages_res.scalars().all()
-
-    package_distribution = []
-    for pkg in packages:
-        count_res = await db.execute(
-            select(func.count(Investor.id)).where(Investor.package_id == pkg.id)
-        )
-        c = count_res.scalar() or 0
-        val = float(pkg.value or 0)
-        package_distribution.append({
-            "name": f"Paquete ${val:,.0f}",
-            "value": c,
-            "package_id": pkg.id,
-            "monto_unitario": val,
-            "total_monto": c * val
-        })
-
-    # 3. Balance de Liquidez Ecosistema
-    # Total invertido activo (excluye contratos vencidos/finalizados)
+    # 2. Obtener Contratos Activos Vigentes (excluye vencidos/finalizados)
     investors_all = await db.execute(
         select(Investor).options(
             selectinload(Investor.package),
@@ -110,6 +90,25 @@ async def get_admin_analytics_dashboard(
         active_invs.append(inv)
 
     total_invertido = sum(float(i.package.value) if i.package and i.package.value else 0 for i in active_invs)
+
+    # 3. Distribución por Paquetes de Inversión (solo paquetes con contratos activos)
+    package_counts = {}
+    for inv in active_invs:
+        if inv.package:
+            pid = inv.package.id
+            if pid not in package_counts:
+                val = float(inv.package.value or 0)
+                package_counts[pid] = {
+                    "name": f"Paquete ${val:,.0f}",
+                    "value": 0,
+                    "package_id": pid,
+                    "monto_unitario": val,
+                    "total_monto": 0.0
+                }
+            package_counts[pid]["value"] += 1
+            package_counts[pid]["total_monto"] += float(inv.package.value or 0)
+
+    package_distribution = sorted(list(package_counts.values()), key=lambda x: x["monto_unitario"])
 
     # Total disponible en Wallets
     wallets_res = await db.execute(select(func.coalesce(func.sum(Wallet.balance), 0)))
