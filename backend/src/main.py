@@ -24,9 +24,21 @@ async def on_startup():
         import src.models
         from src.core.database import engine, Base, async_session_maker
         from src.run_seed import seed_permissions_db
+        from sqlalchemy import text
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+            # Migración ligera de columnas en commercial_sales si la tabla ya existía previamente
+            try:
+                await conn.execute(text("ALTER TABLE commercial_sales ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'pendiente'"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE commercial_sales ADD COLUMN settlement_id BIGINT NULL"))
+            except Exception:
+                pass
 
         async with async_session_maker() as db:
             await seed_permissions_db(db)
