@@ -30,3 +30,21 @@ class PotentialReferralResponse(PotentialReferralBase):
 
     class Config:
         from_attributes = True
+
+class PotentialReferralConvertRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    tipo_documento: str
+    documento: str
+    numero_celular: str
+    ciudad: str
+    fecha_nacimiento: Optional[str] = None
+    banco: str
+    tipo_cuenta: str
+    numero_cuenta: str
+    paquete_id: int
+    contract_period_id: int
+    monto: float
+    comprobante_path: Optional[str] = None
+    kyc_docs: Optional[dict] = None

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { PotentialReferral, potentialReferralsService } from '../../../../services/potential_referrals';
 import { ReferralModal } from '../../../referrals/components/ReferralModal';
-import { Edit2, Trash2, UserPlus, Loader2, AlertCircle, CheckCircle, X, Search, Filter, Calendar } from 'lucide-react';
+import { ConvertReferralModal } from '../components/ConvertReferralModal';
+import { Edit2, Trash2, UserPlus, Loader2, AlertCircle, CheckCircle, X, Search, Filter, Calendar, ArrowRightLeft } from 'lucide-react';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, referralName, isDeleting }: any) => {
   if (!isOpen) return null;
@@ -72,6 +73,10 @@ export const AdminReferralsPage = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingReferral, setEditingReferral] = useState<PotentialReferral | null>(null);
+  
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [convertingReferral, setConvertingReferral] = useState<PotentialReferral | null>(null);
+
   const [referralToDelete, setReferralToDelete] = useState<PotentialReferral | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -257,6 +262,16 @@ export const AdminReferralsPage = () => {
                     </td>
                     <td className="px-6 py-4 text-center whitespace-nowrap min-w-[200px]">
                       <div className="flex items-center justify-center gap-2">
+                        {r.estado !== 'registrado' && (
+                          <button
+                            onClick={() => { setConvertingReferral(r); setIsConvertModalOpen(true); }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-xl transition-all border border-emerald-200 cursor-pointer"
+                            title="Convertir en Solicitud de Inversión"
+                          >
+                            <ArrowRightLeft className="w-3.5 h-3.5" />
+                            <span>Convertir</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleEdit(r)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
@@ -290,6 +305,17 @@ export const AdminReferralsPage = () => {
         onSaved={fetchData}
         referral={editingReferral}
         isAdmin={true}
+      />
+
+      {/* Modal Convertir en Solicitud de Inversión */}
+      <ConvertReferralModal
+        isOpen={isConvertModalOpen}
+        onClose={() => setIsConvertModalOpen(false)}
+        onConverted={() => {
+          setToast({ message: `Referido "${convertingReferral?.nombre}" convertido exitosamente en Solicitud de Inversión.`, type: 'success' });
+          fetchData();
+        }}
+        referral={convertingReferral}
       />
 
       {/* Modal de Confirmación de Eliminación */}

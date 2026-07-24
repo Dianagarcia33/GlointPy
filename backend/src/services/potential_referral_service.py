@@ -119,3 +119,107 @@ class PotentialReferralService:
 
         await db.delete(db_ref)
         await db.commit()
+
+    @staticmethod
+    async def convert_to_investment_request(
+        db: AsyncSession, 
+        referral_id: int, 
+        data: Any
+    ) -> Dict[str, Any]:
+        from decimal import Decimal
+        from sqlalchemy import insert
+        from src.models.user import User
+        from src.models.security import Role, user_roles
+        from src.models.wallet import Wallet, WalletStatus
+        from src.models.user_bank_account import UserBankAccount
+        from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+        from src.core.security import get_password_hash
+
+        res = await db.execute(select(PotentialReferral).where(PotentialReferral.id == referral_id))
+        referral = res.scalars().first()
+        if not referral:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Referido potencial no encontrado"
+            )
+
+        # 1. Validar correo duplicado
+        user_check = await db.execute(select(User).where(User.email == data.email))
+        if user_check.scalars().first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El correo electrónico ingresado ya está registrado en el sistema."
+            )
+
+        # 2. Obtener rol de Inversionista/Usuario
+        role_res = await db.execute(select(Role).where(Role.name.in_(["Investor", "Inversionista", "Usuario"])))
+        role = role_res.scalars().first()
+
+        # 3. Crear Usuario
+        hashed_pwd = get_password_hash(data.password)
+        new_user = User(
+            name=data.name,
+            email=data.email,
+            hashed_password=hashed_pwd,
+            is_active=True,
+            document_id=data.documento
+        )
+        db.add(new_user)
+        await db.flush()
+
+        if role:
+            await db.execute(insert(user_roles).values(user_id=new_user.id, role_id=role.id))
+
+        # 4. Crear Billetera
+        wallet = Wallet(
+            user_id=new_user.id,
+            balance=Decimal("0.00"),
+            currency="COP",
+            status=WalletStatus.ACTIVE
+        )
+        db.add(wallet)
+
+        # 5. Crear Cuenta Bancaria (Bóveda)
+        bank_acc = UserBankAccount(
+            user_id=new_user.id,
+            banco=data.banco,
+            tipo_cuenta=data.tipo_cuenta,
+            numero_cuenta=data.numero_cuenta
+        )
+        db.add(bank_acc)
+
+        # 6. Crear Solicitud de Inversión (InvestmentRequest)
+        req = InvestmentRequest(
+            user_id=new_user.id,
+            investor_id=None,
+            paquete_inversion_id=data.paquete_id,
+            monto=Decimal(str(data.monto)),
+            comprobante_path=data.comprobante_path,
+            status=InvestmentRequestStatus.pending,
+            extra_data={
+                "nombre_completo": data.name,
+                "tipo_documento": data.tipo_documento,
+                "documento": data.documento,
+                "fecha_nacimiento": data.fecha_nacimiento,
+                "numero_celular": data.numero_celular,
+                "ciudad": data.ciudad,
+                "banco": data.banco,
+                "tipo_cuenta": data.tipo_cuenta,
+                "numero_cuenta": data.numero_cuenta,
+                "kyc_docs": data.kyc_docs,
+                "contract_period_id": data.contract_period_id,
+                "referred_by": referral.codigo_referido
+            }
+        )
+        db.add(req)
+
+        # 7. Actualizar el referido potencial a 'registrado'
+        referral.estado = "registrado"
+
+        await db.commit()
+
+        return {
+            "message": "Referido convertido exitosamente en solicitud de inversión",
+            "request_id": req.id,
+            "user_id": new_user.id
+        }

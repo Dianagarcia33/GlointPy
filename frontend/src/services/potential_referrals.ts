@@ -66,5 +66,12 @@ export const potentialReferralsService = {
         await fetchApi(`/potential-referrals/${id}`, {
             method: 'DELETE'
         });
+    },
+
+    convertReferralToRequest: async (id: number, data: any): Promise<any> => {
+        return await fetchApi(`/potential-referrals/${id}/convert`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
     }
 };

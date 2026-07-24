@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
-from src.schemas.potential_referral import PotentialReferralCreate, PotentialReferralUpdate, PotentialReferralResponse
+from src.schemas.potential_referral import PotentialReferralCreate, PotentialReferralUpdate, PotentialReferralResponse, PotentialReferralConvertRequest
 from src.services.potential_referral_service import PotentialReferralService
 
 router = APIRouter(prefix="/potential-referrals", tags=["potential-referrals"])
@@ -52,3 +52,12 @@ async def delete_potential_referral(
 ):
     await PotentialReferralService.delete(db, referral_id)
     return None
+
+@router.post("/{referral_id}/convert", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission(["admin.referrals.manage", "admin.users.manage", "admin.roles.manage"]))])
+async def convert_potential_referral(
+    referral_id: int,
+    data: PotentialReferralConvertRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return await PotentialReferralService.convert_to_investment_request(db, referral_id, data)
