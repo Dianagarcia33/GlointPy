@@ -68,7 +68,7 @@ export const InvestmentRequestsTable = () => {
 
   useEffect(() => {
     if (selectedRequestToReview) {
-      const existingCommercialId = selectedRequestToReview.extra_data?.commercial_id;
+      const existingCommercialId = selectedRequestToReview.extra_data?.commercial_id || (selectedRequestToReview.user as any)?.commercial_id;
       if (existingCommercialId) {
         setSelectedCommercialId(existingCommercialId.toString());
       } else {

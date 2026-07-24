@@ -497,22 +497,24 @@ class InvestmentRequestService:
         
         if c_id:
             try:
-                from src.services.commercial_sale_service import CommercialSaleService
+                from src.services.commercial_sale_service import register_commercial_sale
                 from src.schemas.commercial_sale import CommercialSaleCreate
                 
                 sale_type_str = "referido" if referred_code else ("reinversion" if is_upgrade else "contrato_nuevo")
+                doc_val = str((req.extra_data or {}).get("documento") or (req.user and req.user.document_id) or f"USER-{req.user_id}")
+                name_val = str((req.extra_data or {}).get("nombre_completo") or (req.user and req.user.name) or "Cliente Inversionista")
+                
                 c_sale_create = CommercialSaleCreate(
-                    client_document=str(req.extra_data.get("documento") or f"USER-{req.user_id}"),
-                    client_name=str(req.extra_data.get("nombre_completo") or "Cliente Inversionista"),
+                    client_document=doc_val,
+                    client_name=name_val,
                     sale_type=sale_type_str,
                     amount=float(req.monto),
                     referrer_code=referred_code
                 )
-                await CommercialSaleService.create_sale_for_commercial(
+                await register_commercial_sale(
                     db,
                     commercial_id=int(c_id),
-                    sale_data=c_sale_create,
-                    registered_by_id=user_id
+                    sale_data=c_sale_create
                 )
                 logger.info(f"Venta comercial de ${req.monto} adjudicada automáticamente al Directivo #{c_id}")
             except Exception as e:
