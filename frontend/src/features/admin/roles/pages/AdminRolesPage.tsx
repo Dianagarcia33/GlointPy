@@ -203,21 +203,23 @@ export const AdminRolesPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <Can permission="admin.roles.manage">
-                                            <div className="flex items-center justify-center gap-1">
+                                            <div className="flex items-center justify-center gap-2">
                                                 <button
                                                     onClick={() => handleEditRole(role)}
-                                                    className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
                                                     title="Editar Rol"
                                                 >
-                                                    <Edit2 className="w-4 h-4" />
+                                                    <Edit2 className="w-3.5 h-3.5" />
+                                                    <span>Editar</span>
                                                 </button>
                                                 {role.is_system_role !== "1" && (
                                                     <button
                                                         onClick={() => handleDeleteRole(role)}
-                                                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
                                                         title="Eliminar Rol"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                        <span>Eliminar</span>
                                                     </button>
                                                 )}
                                             </div>

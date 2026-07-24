@@ -365,7 +365,7 @@ export const AdminUsersPage = () => {
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
-                          <span className="hidden lg:inline">Editar</span>
+                          <span>Editar</span>
                         </button>
                         <button 
                           onClick={() => setResettingUser(user)} 
@@ -373,7 +373,7 @@ export const AdminUsersPage = () => {
                           title="Restablecer Contraseña Temporal a 123456789"
                         >
                           <KeyRound className="w-3.5 h-3.5" />
-                          <span className="hidden lg:inline">Restablecer Clave</span>
+                          <span>Restablecer Clave</span>
                         </button>
                       </div>
                     </Can>

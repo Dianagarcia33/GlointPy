@@ -55,7 +55,7 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
             <th className="px-6 py-4">Tipo / Estado</th>
             <th className="px-6 py-4">Descripción</th>
             <th className="px-6 py-4">Configuración de Tiempo</th>
-            <th className="px-6 py-4 text-right">Acciones</th>
+            <th className="px-6 py-4 text-center">Acciones</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 font-medium">
@@ -105,21 +105,23 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
                   </div>
                 )}
               </td>
-              <td className="px-6 py-4 text-right">
-                <div className="flex items-center justify-end gap-1">
+              <td className="px-6 py-4 text-center">
+                <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={() => onEdit(event)}
-                    className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
                     title="Editar evento"
                   >
-                    <Edit2 className="w-4 h-4" />
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Editar</span>
                   </button>
                   <button
                     onClick={() => handleDelete(event.id)}
-                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
                     title="Eliminar evento"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar</span>
                   </button>
                 </div>
               </td>
