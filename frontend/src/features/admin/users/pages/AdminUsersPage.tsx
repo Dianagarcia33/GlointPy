@@ -4,7 +4,7 @@ import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 export const AdminUsersPage = () => {
@@ -41,16 +41,20 @@ export const AdminUsersPage = () => {
     return () => clearTimeout(handler);
   }, [searchInput]);
 
+  const [success, setSuccess] = useState<string | null>(null);
+
   const handleConfirmResetPassword = async () => {
     if (!resettingUser) return;
     try {
       setIsResetting(true);
+      setError(null);
       await usersService.resetPassword(resettingUser.id);
-      alert(`¡Contraseña restablecida exitosamente para ${resettingUser.name}! La nueva contraseña temporal es 123456789.`);
+      setSuccess(`¡Contraseña restablecida exitosamente para ${resettingUser.name}! La nueva clave temporal es 123456789.`);
+      setTimeout(() => setSuccess(null), 6000);
       setResettingUser(null);
       fetchData();
     } catch (err: any) {
-      alert(err.message || 'Error al restablecer la contraseña.');
+      setError(err.message || 'Error al restablecer la contraseña.');
     } finally {
       setIsResetting(false);
     }
@@ -58,11 +62,13 @@ export const AdminUsersPage = () => {
 
   const handleCreateWallet = async (userId: number, userName: string) => {
     try {
+      setError(null);
       await usersService.createWallet(userId);
-      alert(`¡Billetera creada exitosamente para ${userName}!`);
+      setSuccess(`¡Billetera creada exitosamente para ${userName}!`);
+      setTimeout(() => setSuccess(null), 5000);
       fetchData();
     } catch (err: any) {
-      alert(err.message || 'Error al crear la billetera');
+      setError(err.message || 'Error al crear la billetera');
     }
   };
 
@@ -150,7 +156,18 @@ export const AdminUsersPage = () => {
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
-      
+      {success && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-emerald-800 shadow-xs font-medium text-sm animate-in fade-in duration-200">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
+            <span>{success}</span>
+          </div>
+          <button onClick={() => setSuccess(null)} className="p-1 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer">
+            <X className="w-4 h-4 text-emerald-700" />
+          </button>
+        </div>
+      )}
+
       {/* Header Ejecutivo Principal */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>

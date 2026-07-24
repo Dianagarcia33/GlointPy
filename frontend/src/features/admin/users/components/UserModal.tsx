@@ -58,7 +58,6 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
     setIsCreatingWallet(true);
     try {
       await usersService.createWallet(user.id);
-      alert(`¡Billetera creada exitosamente para ${user.name}!`);
       onSaved();
       onClose();
     } catch (err: any) {
