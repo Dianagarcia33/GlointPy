@@ -28,6 +28,7 @@ import { AdminUsersPage } from "./features/admin/users/pages/AdminUsersPage";
 import { AdminPeriodsPage } from "./features/admin/periods/pages/AdminPeriodsPage";
 import { AdminPackagesPage } from "./features/admin/packages/pages/AdminPackagesPage";
 import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvestorsPage";
+import { AdminTemplatesPage } from "./features/admin/templates/pages/AdminTemplatesPage";
 import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
@@ -101,6 +102,7 @@ function App() {
         <Route path="system-events" element={<RequirePermission permission="manage_system_events"><SystemEventsPage /></RequirePermission>} />
         <Route path="bank-accounts" element={<RequirePermission permission="bank_accounts:view"><BankAccountsVaultPage /></RequirePermission>} />
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
+        <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}
