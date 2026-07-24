@@ -68,7 +68,6 @@ export const RegisterPage = () => {
             title="Crear Cuenta" 
             subtitle="Únete al ecosistema empresarial de inversión, comercio digital y tecnología."
             icon={<User className="w-7 h-7" />}
-            maxWidthClass="max-w-2xl"
         >
             {roleName && (
                 <div className="mb-6 flex justify-center">

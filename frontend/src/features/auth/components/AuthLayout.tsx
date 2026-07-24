@@ -10,7 +10,7 @@ interface AuthLayoutProps {
   maxWidthClass?: string;
 }
 
-export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, icon, maxWidthClass = "max-w-2xl" }) => {
+export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, icon, maxWidthClass = "max-w-md" }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-inter relative">
       
