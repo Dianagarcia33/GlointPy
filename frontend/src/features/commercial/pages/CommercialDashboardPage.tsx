@@ -5,6 +5,7 @@ import { useAuthStore } from '../../../store/authStore';
 import { commercialService, CommercialSummary, AdminCommercialSummary, LeaderboardResponse, CommercialSale, CommercialUserOption, CommissionSettlement } from '../../../services/commercial';
 import { RegisterCommercialSaleModal } from '../components/RegisterCommercialSaleModal';
 import { SettleCommissionsModal } from '../components/SettleCommissionsModal';
+import { CommercialBonusGoalsWidget } from '../components/CommercialBonusGoalsWidget';
 
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -416,6 +417,12 @@ export const CommercialDashboardPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Widget de Metas y Bonos en Curso */}
+          <CommercialBonusGoalsWidget
+            summary={summary}
+            dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
+          />
 
           {/* KPI Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
