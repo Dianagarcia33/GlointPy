@@ -101,7 +101,7 @@ function App() {
         <Route path="investors" element={<RequirePermission permission="admin.investors.manage"><AdminInvestorsPage /></RequirePermission>} />
         <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
         <Route path="system-events" element={<RequirePermission permission="manage_system_events"><SystemEventsPage /></RequirePermission>} />
-        <Route path="bank-accounts" element={<RequirePermission permission="bank_accounts:view"><BankAccountsVaultPage /></RequirePermission>} />
+        <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<BeneficiariesPage />} />
