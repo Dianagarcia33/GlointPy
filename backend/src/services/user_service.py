@@ -19,9 +19,11 @@ class UserService:
         limit: int = 20, 
         search: str = None, 
         role_id: int = None, 
-        is_active: bool = None
+        is_active: bool = None,
+        has_wallet: bool = None
     ) -> dict:
         from sqlalchemy import or_, func
+        from src.models.wallet import Wallet
         
         query = select(User)
         
@@ -40,6 +42,12 @@ class UserService:
             
         if role_id is not None:
             query = query.join(User.roles).where(Role.id == role_id)
+            
+        if has_wallet is not None:
+            if has_wallet:
+                query = query.join(User.wallet)
+            else:
+                query = query.outerjoin(User.wallet).where(Wallet.id == None)
             
         # Contar total
         count_query = select(func.count()).select_from(query.subquery())
@@ -78,6 +86,28 @@ class UserService:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         return user
+
+    @staticmethod
+    async def create_wallet_for_user(db: AsyncSession, user_id: int) -> dict:
+        from src.models.wallet import Wallet, WalletStatus
+        user = await UserService.get_user_by_id(db, user_id)
+        if user.wallet:
+            raise HTTPException(status_code=400, detail="El usuario ya posee una billetera activa.")
+        
+        new_wallet = Wallet(
+            user_id=user.id,
+            balance=0,
+            currency="COP",
+            status=WalletStatus.ACTIVE
+        )
+        db.add(new_wallet)
+        await db.commit()
+        await db.refresh(new_wallet)
+        return {
+            "message": "Billetera creada exitosamente",
+            "wallet_id": new_wallet.id,
+            "user_id": user.id
+        }
 
     @staticmethod
     async def create_user_admin(db: AsyncSession, user_data: dict) -> User:

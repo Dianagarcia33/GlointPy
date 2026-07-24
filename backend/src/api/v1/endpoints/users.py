@@ -21,12 +21,20 @@ async def list_users(
     search: Optional[str] = None,
     role_id: Optional[int] = None,
     is_active: Optional[bool] = None,
+    has_wallet: Optional[bool] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """
     Obtiene la lista de todos los usuarios paginada (para panel admin).
     """
-    return await UserService.get_all_users(db, page, limit, search, role_id, is_active)
+    return await UserService.get_all_users(db, page, limit, search, role_id, is_active, has_wallet)
+
+@router.post("/{user_id}/create-wallet", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def create_user_wallet(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Crea una billetera para un usuario que no tenga una asignada.
+    """
+    return await UserService.create_wallet_for_user(db, user_id)
 
 @router.post("", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def create_user(user_in: UserCreateAdmin, db: AsyncSession = Depends(get_db)):

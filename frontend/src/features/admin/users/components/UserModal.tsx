@@ -93,6 +93,23 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
     }
   };
 
+  const [isCreatingWallet, setIsCreatingWallet] = useState(false);
+
+  const handleCreateWalletInModal = async () => {
+    if (!user) return;
+    setIsCreatingWallet(true);
+    try {
+      await usersService.createWallet(user.id);
+      alert(`¡Billetera creada exitosamente para ${user.name}!`);
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Error al crear la billetera');
+    } finally {
+      setIsCreatingWallet(false);
+    }
+  };
+
   return createPortal(
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200" style={{ margin: 0 }}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -128,6 +145,40 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-600 flex items-center gap-2">
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Sección Estado de Billetera (Al editar) */}
+          {user && (
+            <div className="space-y-2">
+              {user.wallet ? (
+                <div className="bg-emerald-50/80 p-4 rounded-xl border border-emerald-200 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-emerald-900 block font-montserrat">Billetera Activa</span>
+                    <span className="text-xs text-emerald-800">
+                      Saldo disponible: <strong className="font-montserrat font-extrabold">{Number(user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: user.wallet.currency || 'COP', minimumFractionDigits: 0 })}</strong>
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-1 bg-emerald-200/60 text-emerald-900 rounded-full text-[10px] font-bold uppercase border border-emerald-300">
+                    {user.wallet.status}
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-amber-50/80 p-4 rounded-xl border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-amber-950 block font-montserrat">Este usuario no posee Billetera</span>
+                    <span className="text-xs text-amber-800">Puedes asignarle una billetera inmediatamente para permitir transacciones y rendimientos.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCreateWalletInModal}
+                    disabled={isCreatingWallet}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all cursor-pointer shrink-0 shadow-md shadow-emerald-600/20"
+                  >
+                    {isCreatingWallet ? 'Creando...' : '+ Crear Billetera'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

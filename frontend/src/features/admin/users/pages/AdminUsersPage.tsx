@@ -21,6 +21,7 @@ export const AdminUsersPage = () => {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
+  const [walletFilter, setWalletFilter] = useState<string>('');
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isTableLoading, setIsTableLoading] = useState(false);
   
@@ -55,6 +56,16 @@ export const AdminUsersPage = () => {
     }
   };
 
+  const handleCreateWallet = async (userId: number, userName: string) => {
+    try {
+      await usersService.createWallet(userId);
+      alert(`¡Billetera creada exitosamente para ${userName}!`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error al crear la billetera');
+    }
+  };
+
   const fetchData = async () => {
     setIsTableLoading(true);
     try {
@@ -64,6 +75,7 @@ export const AdminUsersPage = () => {
         search: search || undefined,
         role_id: roleFilter ? parseInt(roleFilter) : undefined,
         is_active: activeFilter === 'true' ? true : activeFilter === 'false' ? false : undefined,
+        has_wallet: walletFilter === 'true' ? true : walletFilter === 'false' ? false : undefined,
       });
       
       const rolesData = await rolesService.getAllRoles();
@@ -82,7 +94,7 @@ export const AdminUsersPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [page, search, roleFilter, activeFilter]);
+  }, [page, search, roleFilter, activeFilter, walletFilter]);
 
   const handleCreate = () => {
     setEditingUser(null);
@@ -210,6 +222,20 @@ export const AdminUsersPage = () => {
             <option value="false">Inactivo</option>
           </select>
         </div>
+        <div className="w-full md:w-48">
+          <select 
+            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            value={walletFilter}
+            onChange={(e) => {
+              setWalletFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Todas las billeteras</option>
+            <option value="true">Con Billetera</option>
+            <option value="false">Sin Billetera</option>
+          </select>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
@@ -263,7 +289,15 @@ export const AdminUsersPage = () => {
                             </div>
                           </>
                         ) : (
-                          <div className="text-slate-400 italic">Sin billetera</div>
+                          <div className="space-y-1">
+                            <div className="text-slate-400 italic">Sin billetera</div>
+                            <button
+                              onClick={() => handleCreateWallet(user.id, user.name)}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 transition-all cursor-pointer"
+                            >
+                              + Crear Billetera
+                            </button>
+                          </div>
                         )}
                       </div>
                       
