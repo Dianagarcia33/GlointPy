@@ -1,10 +1,9 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Award, DollarSign, Users, UserPlus, TrendingUp, FileText } from 'lucide-react';
+import { Award, DollarSign, Users, Trophy, TrendingUp, ShoppingBag, Crown } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { analyticsService, DirectorAnalyticsDashboardData } from '../../../services/analytics';
 import { DirectorAnalyticsCharts } from './DirectorAnalyticsCharts';
-import { Link } from 'react-router-dom';
 
 interface DirectorDashboardViewProps {
   isLoading?: boolean;
@@ -36,92 +35,139 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
   }
 
   const cards = directorData?.summary_cards;
+  const leaderboard = directorData?.leaderboard || [];
 
   return (
     <div className="space-y-6 w-full min-w-0">
       
-      {/* Header Ejecutivo del Directivo de Inversiones */}
+      {/* Header Ejecutivo de Dirección Comercial */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm font-montserrat">
-            <Award className="w-4 h-4 text-brand-400" /> Panel Directivo Comercial & Inversiones
+            <Award className="w-4 h-4 text-brand-400" /> Dirección Comercial & Ventas
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
             Hola, {user?.name?.split(' ')[0]} 👋
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 max-w-xl">
-            Estadísticas y rendimiento de tu gestión comercial, captación de capital y comisiones acumuladas.
+            Monitoreo consolidado del equipo de ventas, metas de captación, comisiones a liquidar y ranking comercial.
           </p>
-        </div>
-
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <Link
-            to="/dashboard/referrals"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-xl shadow-md shadow-brand-500/20 transition-all font-montserrat"
-          >
-            <UserPlus className="w-4 h-4" /> Mis Referidos
-          </Link>
         </div>
       </div>
 
-      {/* KPI Cards Personales del Directivo */}
+      {/* KPI Cards Comerciales Ejecutivas */}
       {cards && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full min-w-0">
           
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
-              Mi Captación Total ($)
+              Captación Equipo (Mes)
             </span>
-            <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate font-mono" title={formatCardCurrency(cards.total_captado)}>
-              {formatCardCurrency(cards.total_captado)}
+            <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate font-mono" title={formatCardCurrency(cards.captacion_mes)}>
+              {formatCardCurrency(cards.captacion_mes)}
             </span>
             <span className="text-[11px] text-slate-500 font-semibold">
-              {cards.total_ventas_count || 0} ventas registradas
+              Ventas comerciales del mes
             </span>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
-              Mis Comisiones Ganadas
+              Comisiones a Liquidar
             </span>
-            <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate font-mono" title={formatCardCurrency(cards.total_comisiones)}>
-              {formatCardCurrency(cards.total_comisiones)}
+            <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate font-mono" title={formatCardCurrency(cards.comisiones_mes)}>
+              {formatCardCurrency(cards.comisiones_mes)}
             </span>
             <span className="text-[11px] text-slate-500 font-semibold">
-              Comisiones acumuladas
+              Total comisiones del equipo
             </span>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
-              Mis Clientes Activos
+              Cierres del Mes
             </span>
             <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-900 block tracking-tight truncate font-mono">
-              {cards.total_clientes || 0}
+              {cards.cierres_mes || 0}
             </span>
             <span className="text-[11px] text-slate-500 font-semibold">
-              Inversionistas directos
+              Contratos adjudicados
             </span>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
-              Mi Red de Referidos
+              Asesor Líder del Mes
             </span>
-            <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-600 block tracking-tight truncate font-mono">
-              {cards.total_referidos || 0}
+            <span className="text-sm sm:text-base font-extrabold text-amber-600 block tracking-tight truncate font-montserrat" title={cards.leader_name}>
+              {cards.leader_name}
             </span>
             <span className="text-[11px] text-slate-500 font-semibold">
-              Potenciales registrados
+              Mayor volumen de captación
             </span>
           </div>
 
         </div>
       )}
 
-      {/* Gráficas Ejecutivas Personales */}
+      {/* Gráficas Comerciales */}
       {directorData && <DirectorAnalyticsCharts data={directorData} />}
+
+      {/* Leaderboard / Ranking del Equipo Comercial */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-500 shrink-0" />
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm sm:text-base font-montserrat">Ranking del Equipo Comercial (Leaderboard)</h3>
+              <p className="text-xs text-slate-400">Rendimiento por volumen de ventas en el mes en curso</p>
+            </div>
+          </div>
+        </div>
+
+        {leaderboard.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
+                <tr>
+                  <th className="py-3 px-4">Posición</th>
+                  <th className="py-3 px-4">Asesor / Comercial</th>
+                  <th className="py-3 px-4 text-center">Cierres</th>
+                  <th className="py-3 px-4 text-right">Volumen Captado ($)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                {leaderboard.map((row) => (
+                  <tr key={row.commercial_id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        {row.rank === 1 && <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />}
+                        <span className={`font-mono font-bold ${row.rank === 1 ? 'text-amber-600 text-sm' : 'text-slate-700'}`}>
+                          #{row.rank}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 font-bold text-slate-800 font-montserrat">
+                      {row.commercial_name}
+                    </td>
+                    <td className="py-3 px-4 text-center font-mono font-semibold">
+                      {row.total_closures}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">
+                      {formatCardCurrency(row.total_volume)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-xs text-slate-400">
+            No hay registros de ventas comerciales en el mes actual.
+          </div>
+        )}
+      </div>
 
     </div>
   );

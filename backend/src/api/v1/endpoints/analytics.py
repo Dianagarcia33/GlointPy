@@ -158,67 +158,129 @@ async def get_admin_analytics_dashboard(
     }
 
 
-@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage"]))])
+@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage", "admin.commercial.manage", "commercial:view"]))])
 async def get_director_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Retorna analíticas ejecutivas personalizadas para el Directivo / Ejecutivo Comercial:
-    - Captación total propia y comisiones generadas (CommercialSales donde commercial_id == current_user.id)
-    - Total de clientes e inversionistas gestionados por el directivo
-    - Histórico mensual de captación y comisiones del directivo
-    - Desglose por tipo de venta propia (Contrato Nuevo, Reinversión, Referidos)
-    - Inversiones personales propias del directivo
+    Retorna analíticas comerciales ejecutivas para la Dirección de Inversiones / Jefe de Ventas:
+    - Captación total del equipo comercial en el mes y acumulado
+    - Comisiones totales a liquidar al equipo
+    - Total de cierres adjudicados
+    - Asesor líder de ventas del mes
+    - Ranking de asesores (Leaderboard)
+    - Desglose por tipo de venta (Contratos nuevos, reinversiones, referidos)
+    - Evolución mensual de captación del equipo
     """
     today = date.today()
-    from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
-    from src.models.potential_referral import PotentialReferral
+    year = today.year
+    month = today.month
 
-    # 1. Ventas comerciales asociadas a este directivo
-    my_sales_res = await db.execute(
-        select(CommercialSale)
-        .where(CommercialSale.commercial_id == current_user.id)
+    # 1. Total Captación y Comisiones Globales del Equipo (Mes Actual)
+    month_sales_res = await db.execute(
+        select(func.coalesce(func.sum(CommercialSale.amount), 0))
+        .where(
+            extract('year', CommercialSale.sale_date) == year,
+            extract('month', CommercialSale.sale_date) == month
+        )
     )
-    my_sales = my_sales_res.scalars().all()
+    captacion_mes = float(month_sales_res.scalar() or 0)
 
-    # Fallback para SuperAdmin en ambiente de pruebas si aún no tiene ventas asociadas
-    is_personal = len(my_sales) > 0
-    if not is_personal and current_user.is_superuser:
-        all_sales_res = await db.execute(select(CommercialSale))
-        my_sales = all_sales_res.scalars().all()
-
-    total_captado_propio = sum(float(s.amount or 0) for s in my_sales)
-    total_comisiones_propias = sum(float(s.commission_amount or 0) for s in my_sales)
-    unique_clients = len(set(s.client_document for s in my_sales if s.client_document))
-
-    # 2. Contratos propios del usuario como Inversionista
-    my_invs_res = await db.execute(
-        select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period))
-        .where(Investor.user_id == current_user.id)
+    month_comm_res = await db.execute(
+        select(func.coalesce(func.sum(CommercialSale.commission_amount), 0))
+        .where(
+            extract('year', CommercialSale.sale_date) == year,
+            extract('month', CommercialSale.sale_date) == month
+        )
     )
-    my_invs = my_invs_res.scalars().all()
-    capital_propio_invertido = sum(float(i.package.value) if i.package and i.package.value else 0 for i in my_invs)
+    comisiones_mes = float(month_comm_res.scalar() or 0)
 
-    # 3. Referidos del directivo
-    my_refs_res = await db.execute(
-        select(PotentialReferral)
-        .join(Investor, PotentialReferral.investor_id == Investor.id)
-        .where(Investor.user_id == current_user.id)
+    count_res = await db.execute(
+        select(func.count(CommercialSale.id))
+        .where(
+            extract('year', CommercialSale.sale_date) == year,
+            extract('month', CommercialSale.sale_date) == month
+        )
     )
-    my_referrals = my_refs_res.scalars().all()
-    total_referidos = len(my_referrals)
+    cierres_mes = int(count_res.scalar() or 0)
 
-    # 4. Rendimiento estimado mensual de sus propias inversiones
-    rendimiento_mensual_propio = 0.0
-    for inv in my_invs:
-        if inv.package and inv.period and inv.package.value:
-            val = float(inv.package.value)
-            pct = float(inv.period.percentage or 0)
-            rendimiento_mensual_propio += val * (pct / 100.0)
+    # Captación histórica total acumulada por el equipo
+    total_sales_res = await db.execute(select(func.coalesce(func.sum(CommercialSale.amount), 0)))
+    captacion_historica = float(total_sales_res.scalar() or 0)
 
-    # 5. Crecimiento mensual de ventas del directivo (Últimos 6 meses)
+    # 2. Asesor Líder del Mes
+    leader_res = await db.execute(
+        select(
+            CommercialSale.commercial_id,
+            func.sum(CommercialSale.amount).label("vol")
+        )
+        .where(
+            extract('year', CommercialSale.sale_date) == year,
+            extract('month', CommercialSale.sale_date) == month
+        )
+        .group_by(CommercialSale.commercial_id)
+        .order_by(desc(func.sum(CommercialSale.amount)))
+        .limit(1)
+    )
+    leader_row = leader_res.first()
+    leader_name = "Sin ventas en el mes"
+    if leader_row:
+        u_res = await db.execute(select(User).where(User.id == leader_row.commercial_id))
+        u = u_res.scalars().first()
+        if u:
+            leader_name = u.name
+
+    # 3. Leaderboard / Ranking de Asesores del Mes
+    sales_stmt = (
+        select(
+            CommercialSale.commercial_id,
+            func.sum(CommercialSale.amount).label("total_volume"),
+            func.count(CommercialSale.id).label("total_closures")
+        )
+        .where(
+            extract('year', CommercialSale.sale_date) == year,
+            extract('month', CommercialSale.sale_date) == month
+        )
+        .group_by(CommercialSale.commercial_id)
+        .order_by(desc(func.sum(CommercialSale.amount)))
+    )
+    rank_res = await db.execute(sales_stmt)
+    rank_rows = rank_res.all()
+
+    leaderboard = []
+    for idx, r in enumerate(rank_rows, start=1):
+        u_res = await db.execute(select(User).where(User.id == r.commercial_id))
+        u = u_res.scalars().first()
+        leaderboard.append({
+            "rank": idx,
+            "commercial_id": r.commercial_id,
+            "commercial_name": u.name if u else f"Asesor #{r.commercial_id}",
+            "total_volume": float(r.total_volume or 0),
+            "total_closures": int(r.total_closures or 0)
+        })
+
+    # 4. Desglose de Ventas por Tipo (Nuevos, Reinversiones, Referidos)
+    nuevos_res = await db.execute(
+        select(func.coalesce(func.sum(CommercialSale.amount), 0))
+        .where(CommercialSale.sale_type == CommercialSaleType.contrato_nuevo)
+    )
+    reinversion_res = await db.execute(
+        select(func.coalesce(func.sum(CommercialSale.amount), 0))
+        .where(CommercialSale.sale_type == CommercialSaleType.reinversion)
+    )
+    referido_res = await db.execute(
+        select(func.coalesce(func.sum(CommercialSale.amount), 0))
+        .where(CommercialSale.sale_type == CommercialSaleType.referido)
+    )
+
+    sales_by_type = [
+        {"nombre": "Contratos Nuevos", "total_monto": float(nuevos_res.scalar() or 0)},
+        {"nombre": "Reinversiones", "total_monto": float(reinversion_res.scalar() or 0)},
+        {"nombre": "Referidos", "total_monto": float(referido_res.scalar() or 0)}
+    ]
+
+    # 5. Evolución Mensual de Captación del Equipo (Últimos 6 meses)
     months_labels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
     monthly_sales_history = []
     for i in range(5, -1, -1):
@@ -226,42 +288,37 @@ async def get_director_analytics_dashboard(
         y = target_date.year
         m = target_date.month
 
-        month_sales = [
-            s for s in my_sales 
-            if s.sale_date and s.sale_date.year == y and s.sale_date.month == m
-        ]
-        month_captado = sum(float(s.amount or 0) for s in month_sales)
-        month_comision = sum(float(s.commission_amount or 0) for s in month_sales)
-
+        m_sales_res = await db.execute(
+            select(func.coalesce(func.sum(CommercialSale.amount), 0))
+            .where(
+                extract('year', CommercialSale.sale_date) == y,
+                extract('month', CommercialSale.sale_date) == m
+            )
+        )
+        m_comm_res = await db.execute(
+            select(func.coalesce(func.sum(CommercialSale.commission_amount), 0))
+            .where(
+                extract('year', CommercialSale.sale_date) == y,
+                extract('month', CommercialSale.sale_date) == m
+            )
+        )
         m_name = months_labels[m - 1]
         monthly_sales_history.append({
             "mes": f"{m_name} {y}",
-            "captado": round(month_captado, 2),
-            "comision": round(month_comision, 2)
+            "captado": float(m_sales_res.scalar() or 0),
+            "comision": float(m_comm_res.scalar() or 0)
         })
-
-    # 6. Desglose de Ventas por Tipo (Nuevos, Reinversiones, Referidos)
-    nuevos_monto = sum(float(s.amount or 0) for s in my_sales if s.sale_type == CommercialSaleType.contrato_nuevo)
-    reinversion_monto = sum(float(s.amount or 0) for s in my_sales if s.sale_type == CommercialSaleType.reinversion)
-    referidos_monto = sum(float(s.amount or 0) for s in my_sales if s.sale_type == CommercialSaleType.referido)
-
-    sales_by_type = [
-        {"nombre": "Contratos Nuevos", "total_monto": nuevos_monto},
-        {"nombre": "Reinversiones", "total_monto": reinversion_monto},
-        {"nombre": "Referidos", "total_monto": referidos_monto}
-    ]
 
     return {
         "summary_cards": {
-            "total_captado": total_captado_propio,
-            "total_comisiones": total_comisiones_propias,
-            "total_clientes": unique_clients,
-            "total_referidos": total_referidos,
-            "capital_propio_invertido": capital_propio_invertido,
-            "rendimiento_mensual_propio": rendimiento_mensual_propio,
-            "total_ventas_count": len(my_sales)
+            "captacion_mes": captacion_mes,
+            "comisiones_mes": comisiones_mes,
+            "cierres_mes": cierres_mes,
+            "captacion_historica": captacion_historica,
+            "leader_name": leader_name
         },
         "payout_projections": monthly_sales_history,
-        "package_distribution": sales_by_type
+        "package_distribution": sales_by_type,
+        "leaderboard": leaderboard
     }
 

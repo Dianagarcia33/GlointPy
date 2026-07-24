@@ -40,22 +40,29 @@ export interface AdminAnalyticsDashboardData {
 
 export interface DirectorPayoutProjection {
   mes: string;
-  rentabilidad_proyectada: number;
-  capital_vigente: number;
+  captado: number;
+  comision: number;
+}
+
+export interface DirectorLeaderboardItem {
+  rank: number;
+  commercial_id: number;
+  commercial_name: string;
+  total_volume: number;
+  total_closures: number;
 }
 
 export interface DirectorAnalyticsDashboardData {
   summary_cards: {
-    total_captado: number;
-    total_comisiones: number;
-    total_clientes: number;
-    total_referidos: number;
-    capital_propio_invertido: number;
-    rendimiento_mensual_propio: number;
-    total_ventas_count: number;
+    captacion_mes: number;
+    comisiones_mes: number;
+    cierres_mes: number;
+    captacion_historica: number;
+    leader_name: string;
   };
-  payout_projections: any[];
+  payout_projections: DirectorPayoutProjection[];
   package_distribution: any[];
+  leaderboard: DirectorLeaderboardItem[];
 }
 
 export const analyticsService = {

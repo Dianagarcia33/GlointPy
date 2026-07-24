@@ -35,19 +35,19 @@ export const DirectorAnalyticsCharts: React.FC<DirectorAnalyticsChartsProps> = (
   return (
     <div className="space-y-6 w-full min-w-0">
       
-      {/* Grid Superior: Crecimiento de Captación + Desglose por Tipo de Venta */}
+      {/* Grid Superior: Crecimiento de Captación del Equipo + Desglose por Tipo de Venta */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 w-full min-w-0">
         
-        {/* Gráfica 1: Histórico de Captación y Comisiones Propias (2 cols) */}
+        {/* Gráfica 1: Histórico de Captación y Comisiones del Equipo (2 cols) */}
         <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs space-y-4 min-w-0 overflow-hidden">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-brand-600 shrink-0" />
               <div>
                 <h3 className="font-bold text-slate-800 text-sm sm:text-base font-montserrat">
-                  Histórico Mensual de Captación ($)
+                  Captación del Equipo Comercial ($)
                 </h3>
-                <p className="text-xs text-slate-400">Evolución de ventas y comisiones alcanzadas</p>
+                <p className="text-xs text-slate-400">Evolución mensual de ventas y comisiones generadas</p>
               </div>
             </div>
             <span className="hidden sm:inline-flex text-[11px] font-extrabold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-full border border-brand-200 font-montserrat">
@@ -71,7 +71,7 @@ export const DirectorAnalyticsCharts: React.FC<DirectorAnalyticsChartsProps> = (
                 <XAxis dataKey="mes" stroke="#94A3B8" fontSize={11} tickLine={false} />
                 <YAxis stroke="#94A3B8" fontSize={11} tickFormatter={formatShortAxis} tickLine={false} axisLine={false} />
                 <Tooltip
-                  formatter={(val: any, name: any) => [formatCurrency(Number(val) || 0), name === "captado" ? "Capital Captado" : "Comisión Ganada"]}
+                  formatter={(val: any, name: any) => [formatCurrency(Number(val) || 0), name === "captado" ? "Capital Captado" : "Comisión Generada"]}
                   contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '12px', color: '#FFF', fontSize: '12px' }}
                 />
                 <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', paddingBottom: '10px' }} />
@@ -125,49 +125,8 @@ export const DirectorAnalyticsCharts: React.FC<DirectorAnalyticsChartsProps> = (
           </div>
 
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between text-xs text-slate-600">
-            <span className="font-semibold">Captación Comercial Propia:</span>
-            <span className="font-bold text-slate-900 font-mono">{formatCurrency(data.summary_cards.total_captado)}</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Fila Inferior: Inversiones Personales del Directivo */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
-        
-        {/* Mis Inversiones Personales */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block font-montserrat">
-              Mi Capital Invertido Personal
-            </span>
-            <span className="text-xl sm:text-2xl font-extrabold text-emerald-600 block tracking-tight font-mono">
-              {formatCurrency(data.summary_cards.capital_propio_invertido)}
-            </span>
-            <span className="text-xs text-slate-400">
-              Contratos propios vigentes en la plataforma
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-            <Wallet className="w-6 h-6 text-emerald-600" />
-          </div>
-        </div>
-
-        {/* Rendimiento Mensual Personal */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex items-center justify-between">
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block font-montserrat">
-              Mi Rendimiento Mensual Propio
-            </span>
-            <span className="text-xl sm:text-2xl font-extrabold text-indigo-600 block tracking-tight font-mono">
-              {formatCurrency(data.summary_cards.rendimiento_mensual_propio)}
-            </span>
-            <span className="text-xs text-slate-400">
-              Liquidación mensual estimada de mis contratos
-            </span>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0">
-            <DollarSign className="w-6 h-6 text-indigo-600" />
+            <span className="font-semibold">Captación Histórica Acumulada:</span>
+            <span className="font-bold text-slate-900 font-mono">{formatCurrency(data.summary_cards.captacion_historica)}</span>
           </div>
         </div>
 
