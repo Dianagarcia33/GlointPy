@@ -41,7 +41,7 @@ export const DashboardPage = () => {
         return isNaN(parsed) ? 0 : parsed;
     };
 
-    const formatShortCOP = (val: number) => {
+    const formatCardCurrency = (val: number) => {
         return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
     };
 
@@ -82,8 +82,8 @@ export const DashboardPage = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full min-w-0">
                             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Capital Activo Invertido</span>
-                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate" title={formatShortCOP(adminAnalytics.summary_cards.total_invertido)}>
-                                    {formatShortCOP(adminAnalytics.summary_cards.total_invertido)}
+                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
+                                    {formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}
                                 </span>
                                 <span className="text-[11px] text-slate-500">Contratos vigentes</span>
                             </div>
@@ -98,16 +98,16 @@ export const DashboardPage = () => {
 
                             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Saldo en Billeteras</span>
-                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate" title={formatShortCOP(adminAnalytics.summary_cards.total_wallets)}>
-                                    {formatShortCOP(adminAnalytics.summary_cards.total_wallets)}
+                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}>
+                                    {formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}
                                 </span>
                                 <span className="text-[11px] text-slate-500">Fondos depositados</span>
                             </div>
 
                             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                 <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Retiros Liquidados</span>
-                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate" title={formatShortCOP(adminAnalytics.summary_cards.total_withdrawals)}>
-                                    {formatShortCOP(adminAnalytics.summary_cards.total_withdrawals)}
+                                <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}>
+                                    {formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}
                                 </span>
                                 <span className="text-[11px] text-amber-700 font-medium">Pagos procesados</span>
                             </div>
