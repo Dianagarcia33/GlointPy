@@ -95,13 +95,15 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     try {
       const res = await commercialService.checkClient(clientDocument.trim());
       setClientInfo(res);
-      if (res.is_existing_client) {
-        setSaleType('referido');
-        if (res.client_name) setClientName(res.client_name);
-        if (res.monto && res.monto > 0) {
-          setAmount(res.monto.toString());
-          setIsAmountLocked(true);
-        }
+      if (res.forced_type) {
+        setSaleType(res.forced_type as any);
+      } else if (res.allowed_types && res.allowed_types.length > 0) {
+        setSaleType(res.allowed_types[0] as any);
+      }
+      if (res.client_name) setClientName(res.client_name);
+      if (res.monto && res.monto > 0) {
+        setAmount(res.monto.toString());
+        setIsAmountLocked(true);
       }
     } catch (err: any) {
       setError(err.message || 'Error al validar el documento del cliente');
@@ -326,12 +328,12 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('contrato_nuevo')}
-                disabled={clientInfo?.is_existing_client}
+                disabled={clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('contrato_nuevo'))}
                 className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
                   saleType === 'contrato_nuevo'
                     ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                } ${clientInfo?.is_existing_client ? 'opacity-40 cursor-not-allowed' : ''}`}
+                } ${clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('contrato_nuevo')) ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 📄 Contrato Nuevo
               </button>
@@ -339,12 +341,12 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('reinversion')}
-                disabled={clientInfo?.is_existing_client}
+                disabled={clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('reinversion'))}
                 className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
                   saleType === 'reinversion'
                     ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                } ${clientInfo?.is_existing_client ? 'opacity-40 cursor-not-allowed' : ''}`}
+                } ${clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('reinversion')) ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 🔄 Reinversión
               </button>
@@ -358,7 +360,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                 }`}
               >
-                👥 Referido (1.8%)
+                👥 Referido
               </button>
             </div>
           </div>
