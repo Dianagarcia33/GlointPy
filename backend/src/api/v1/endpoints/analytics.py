@@ -156,3 +156,96 @@ async def get_admin_analytics_dashboard(
             "total_withdrawals": total_withdrawals
         }
     }
+
+
+@router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "director.dashboard.view", "admin.users.manage"]))])
+async def get_director_analytics_dashboard(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna analíticas ejecutivas especializadas para el Directivo de Inversiones:
+    - Capital Bajo Gestión (AUM)
+    - Proyecciones de Vencimiento / Liquidación a Futuro
+    - Distribución del Portafolio por Paquetes de Inversión
+    - Pipeline de Solicitudes de Inversión Pendientes y Aprobadas
+    """
+    today = date.today()
+
+    # 1. Obtener contratos activos de la tabla Investor
+    from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+    from src.models.period import Period
+
+    active_invs_res = await db.execute(
+        select(Investor)
+        .options(selectinload(Investor.package), selectinload(Investor.period))
+    )
+    active_invs = active_invs_res.scalars().all()
+
+    total_aum = sum(float(i.package.value) if i.package and i.package.value else 0 for i in active_invs)
+
+    # 2. Rendimientos Mensuales Proyectados
+    rendimiento_mensual_total = 0.0
+    for inv in active_invs:
+        if inv.package and inv.period and inv.package.value:
+            val = float(inv.package.value)
+            pct = float(inv.period.percentage or 0)
+            rendimiento_mensual_total += val * (pct / 100.0)
+
+    proyectado_30d = rendimiento_mensual_total
+    proyectado_12m = rendimiento_mensual_total * 12.0
+
+    # Proyección por meses a futuro (Próximos 6 meses)
+    months_labels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    payout_projections = []
+    for i in range(6):
+        future_date = today + relativedelta(months=i)
+        m_name = months_labels[future_date.month - 1]
+        payout_projections.append({
+            "mes": f"{m_name} {future_date.year}",
+            "rentabilidad_proyectada": round(rendimiento_mensual_total, 2),
+            "capital_vigente": round(total_aum, 2)
+        })
+
+    # 3. Solicitudes de inversión en pipeline
+    pending_reqs_res = await db.execute(
+        select(InvestmentRequest)
+        .options(selectinload(InvestmentRequest.package))
+        .where(InvestmentRequest.status == InvestmentRequestStatus.pending)
+    )
+    pending_reqs = pending_reqs_res.scalars().all()
+    pending_count = len(pending_reqs)
+    pending_monto = sum(float(r.monto or 0) for r in pending_reqs)
+
+    # 4. Distribución por Paquetes (AUM por paquete)
+    pkg_dict: Dict[int, Dict[str, Any]] = {}
+    for inv in active_invs:
+        if inv.package:
+            pid = inv.package.id
+            if pid not in pkg_dict:
+                pkg_dict[pid] = {
+                    "package_id": pid,
+                    "nombre": f"${float(inv.package.value):,.0f} COP" if inv.package.value else "Paquete Custom",
+                    "valor_unitario": float(inv.package.value or 0),
+                    "count": 0,
+                    "total_monto": 0.0
+                }
+            pkg_dict[pid]["count"] += 1
+            pkg_dict[pid]["total_monto"] += float(inv.package.value or 0)
+
+    package_distribution = sorted(list(pkg_dict.values()), key=lambda x: x["valor_unitario"])
+
+    return {
+        "summary_cards": {
+            "total_aum": total_aum,
+            "rendimiento_mensual_estimado": rendimiento_mensual_total,
+            "proyectado_30d": proyectado_30d,
+            "proyectado_12m": proyectado_12m,
+            "solicitudes_pendientes_monto": pending_monto,
+            "solicitudes_pendientes_count": pending_count,
+            "total_contratos_activos": len(active_invs)
+        },
+        "payout_projections": payout_projections,
+        "package_distribution": package_distribution
+    }
+

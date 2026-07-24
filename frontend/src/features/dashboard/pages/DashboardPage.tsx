@@ -10,6 +10,7 @@ import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
+import { DirectorDashboardView } from '../components/DirectorDashboardView';
 
 /* SKELETON LOADERS */
 const AdminDashboardSkeleton = () => (
@@ -126,24 +127,26 @@ export const DashboardPage = () => {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
 
+    const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
+    const isDirectorOnly = !isSuperAdmin && (user?.permissions?.includes('director.dashboard.view') === true || user?.permissions?.includes('admin.referrals.manage') === true);
 
     // Analytics Query for Admin
     const { data: adminAnalytics, isLoading: isLoadingAnalytics } = useQuery<AdminAnalyticsDashboardData>({
         queryKey: ['admin_analytics_dashboard'],
         queryFn: () => analyticsService.getAdminAnalyticsDashboard(),
-        enabled: isSuperAdmin
+        enabled: isSuperAdmin && adminViewMode === 'admin'
     });
 
     useEffect(() => {
-        if (!isSuperAdmin && (user?.permissions?.includes('dashboard:view_investments') || user?.permissions?.includes('ver_mis_inversiones'))) {
+        if (!isSuperAdmin && !isDirectorOnly && (user?.permissions?.includes('dashboard:view_investments') || user?.permissions?.includes('ver_mis_inversiones'))) {
             setLoading(true);
             investmentsService.getMyInvestments()
                 .then(setInvestments)
                 .catch(err => console.error("Error al cargar inversiones:", err))
                 .finally(() => setLoading(false));
         }
-    }, [user, isSuperAdmin]);
+    }, [user, isSuperAdmin, isDirectorOnly]);
 
     const parseNumber = (val: any) => {
         const parsed = Number(val);
@@ -170,24 +173,53 @@ export const DashboardPage = () => {
     return (
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
-            {/* SECCIÓN EXCLUSIVA PARA ADMINISTRADORES / SUPERADMIN */}
-            {isSuperAdmin ? (
-                isLoadingAnalytics ? (
-                    <AdminDashboardSkeleton />
-                ) : (
-                    <div className="space-y-6 w-full min-w-0">
-                        {/* Header Admin */}
-                        <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden">
-                            <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                            <div className="relative z-10 space-y-2">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-                                    <ShieldCheck className="w-4 h-4 text-emerald-400" /> Panel de Control Ejecutivo 360°
+            {/* VISTA DIRECTIVO DE INVERSIONES SOLO */}
+            {isDirectorOnly ? (
+                <DirectorDashboardView />
+            ) : isSuperAdmin ? (
+                <div className="space-y-6 w-full min-w-0">
+                    {/* Admin Mode Switcher Tabs */}
+                    <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
+                        <button
+                            onClick={() => setAdminViewMode('admin')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                                adminViewMode === 'admin' 
+                                    ? 'bg-slate-900 text-white shadow-sm' 
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Panel Control 360°
+                        </button>
+                        <button
+                            onClick={() => setAdminViewMode('director')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                                adminViewMode === 'director' 
+                                    ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/20' 
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Directivo de Inversiones
+                        </button>
+                    </div>
+
+                    {adminViewMode === 'director' ? (
+                        <DirectorDashboardView />
+                    ) : isLoadingAnalytics ? (
+                        <AdminDashboardSkeleton />
+                    ) : (
+                        <div className="space-y-6 w-full min-w-0">
+                            {/* Header Admin */}
+                            <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden">
+                                <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                                <div className="relative z-10 space-y-2">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
+                                        <ShieldCheck className="w-4 h-4 text-emerald-400" /> Panel de Control Ejecutivo 360°
+                                    </div>
+                                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+                                        Hola, {user?.name?.split(' ')[0]} 👋
+                                    </h1>
                                 </div>
-                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-                                    Hola, {user?.name?.split(' ')[0]} 👋
-                                </h1>
                             </div>
-                        </div>
 
                         {/* Quick Executive KPI Summary Cards */}
                         {adminAnalytics?.summary_cards && (
@@ -226,10 +258,11 @@ export const DashboardPage = () => {
                             </div>
                         )}
 
-                        {/* Gráficas Interactivas Recharts */}
-                        {adminAnalytics && <AdminAnalyticsCharts data={adminAnalytics} />}
-                    </div>
-                )
+                            {/* Gráficas Interactivas Recharts */}
+                            {adminAnalytics && <AdminAnalyticsCharts data={adminAnalytics} />}
+                        </div>
+                    )}
+                </div>
             ) : (
 
                 /* SECCIÓN EXCLUSIVA PARA INVERSIONISTAS */

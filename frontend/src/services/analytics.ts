@@ -38,8 +38,32 @@ export interface AdminAnalyticsDashboardData {
   };
 }
 
+export interface DirectorPayoutProjection {
+  mes: string;
+  rentabilidad_proyectada: number;
+  capital_vigente: number;
+}
+
+export interface DirectorAnalyticsDashboardData {
+  summary_cards: {
+    total_aum: number;
+    rendimiento_mensual_estimado: number;
+    proyectado_30d: number;
+    proyectado_12m: number;
+    solicitudes_pendientes_monto: number;
+    solicitudes_pendientes_count: number;
+    total_contratos_activos: number;
+  };
+  payout_projections: DirectorPayoutProjection[];
+  package_distribution: any[];
+}
+
 export const analyticsService = {
   getAdminAnalyticsDashboard: async (): Promise<AdminAnalyticsDashboardData> => {
     return await fetchApi('/analytics/admin-dashboard');
+  },
+
+  getDirectorAnalyticsDashboard: async (): Promise<DirectorAnalyticsDashboardData> => {
+    return await fetchApi('/analytics/director-dashboard');
   },
 };

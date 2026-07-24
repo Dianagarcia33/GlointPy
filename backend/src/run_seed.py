@@ -23,6 +23,7 @@ PERMISSIONS = [
     {"name": "admin.payments.manage", "description": "Gestionar sección de pagos", "module": "payments"},
     {"name": "admin.withdrawals.manage", "description": "Gestionar y aprobar retiros", "module": "payments"},
     {"name": "admin.audits.manage", "description": "Auditoría y cálculo de rendimientos", "module": "audit"},
+    {"name": "director.dashboard.view", "description": "Visualización del Dashboard Directivo de Inversiones", "module": "dashboard"},
     {"name": "dashboard:view_kpis", "description": "Ver KPIs en Dashboard", "module": "dashboard"},
     {"name": "dashboard:view_quick_actions", "description": "Ver acciones rápidas en Dashboard", "module": "dashboard"},
     {"name": "dashboard:view_investments", "description": "Ver mis inversiones", "module": "dashboard"},
