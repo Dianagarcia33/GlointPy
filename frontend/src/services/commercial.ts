@@ -59,6 +59,24 @@ export interface PendingSettlementBreakdown {
   }>;
 }
 
+export interface CommercialBonusSummaryItem {
+  commercial_id: number;
+  commercial_name: string;
+  email: string;
+  today_closures: number;
+  monthly_volume: number;
+  pending_bonuses_count: number;
+  pending_bonuses_total: number;
+  bonuses: Array<{
+    id: number;
+    bonus_type: string;
+    amount: number;
+    status: string;
+    details?: string;
+    earned_date: string;
+  }>;
+}
+
 export interface CommercialSummary {
   direct_accumulated: number;
   referral_accumulated: number;
@@ -185,6 +203,10 @@ export const commercialService = {
 
   getPendingSettlementBreakdown: async (commercialId: number): Promise<PendingSettlementBreakdown> => {
     return await fetchApi(`/commercial/pending-settlement/${commercialId}`);
+  },
+
+  getBonusesSummary: async (): Promise<CommercialBonusSummaryItem[]> => {
+    return await fetchApi('/commercial/bonuses-summary');
   },
 
   settleCommissions: async (data: {

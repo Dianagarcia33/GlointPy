@@ -9,15 +9,17 @@ interface SettleCommissionsModalProps {
   onSuccess: () => void;
   commercialUsers: CommercialUserOption[];
   sales: CommercialSale[];
+  initialCommercialId?: number | null;
 }
 
 export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  commercialUsers
+  commercialUsers,
+  initialCommercialId
 }) => {
-  const [selectedCommercialId, setSelectedCommercialId] = useState<number | null>(null);
+  const [selectedCommercialId, setSelectedCommercialId] = useState<number | null>(initialCommercialId || null);
   const [breakdown, setBreakdown] = useState<PendingSettlementBreakdown | null>(null);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const [referenceCode, setReferenceCode] = useState('');
@@ -26,10 +28,14 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && commercialUsers.length > 0 && !selectedCommercialId) {
-      setSelectedCommercialId(commercialUsers[0].id);
+    if (isOpen) {
+      if (initialCommercialId) {
+        setSelectedCommercialId(initialCommercialId);
+      } else if (commercialUsers.length > 0 && !selectedCommercialId) {
+        setSelectedCommercialId(commercialUsers[0].id);
+      }
     }
-  }, [isOpen, commercialUsers]);
+  }, [isOpen, initialCommercialId, commercialUsers]);
 
   useEffect(() => {
     if (isOpen && selectedCommercialId) {

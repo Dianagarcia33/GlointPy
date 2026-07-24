@@ -39,16 +39,18 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const shouldShowAsesorSelect = showAsesorSelect || isAdmin;
+
   useEffect(() => {
-    if (isAdmin && showAsesorSelect && isOpen) {
+    if (shouldShowAsesorSelect && isOpen) {
       commercialService.getCommercialUsers()
         .then((res) => {
           setCommercialUsers(res);
-          if (res.length > 0) setTargetCommercialId(res[0].id);
+          if (res.length > 0 && !targetCommercialId) setTargetCommercialId(res[0].id);
         })
         .catch(() => {});
     }
-  }, [isAdmin, showAsesorSelect, isOpen]);
+  }, [shouldShowAsesorSelect, isOpen]);
 
   useEffect(() => {
     if (searchTerm.trim().length >= 2) {
@@ -211,11 +213,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
             </div>
           )}
 
-          {/* Seleccionar Asesor Comercial (Solo si showAsesorSelect es true) */}
-          {isAdmin && showAsesorSelect && (
+          {/* Seleccionar Asesor Comercial / Directivo de Inversión */}
+          {shouldShowAsesorSelect && (
             <div className="bg-brand-50/60 p-3.5 border border-brand-200 rounded-xl space-y-1.5">
               <label className="block text-xs font-bold text-brand-900">
-                👤 Adjudicar Venta a Asesor Comercial *
+                👤 Adjudicar Venta a Asesor / Directivo de Inversión *
               </label>
               <select
                 value={targetCommercialId || ''}

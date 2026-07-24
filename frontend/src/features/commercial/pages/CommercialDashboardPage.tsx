@@ -6,6 +6,7 @@ import { commercialService, CommercialSummary, AdminCommercialSummary, Leaderboa
 import { RegisterCommercialSaleModal } from '../components/RegisterCommercialSaleModal';
 import { SettleCommissionsModal } from '../components/SettleCommissionsModal';
 import { CommercialBonusGoalsWidget } from '../components/CommercialBonusGoalsWidget';
+import { AdminCommercialBonusesTable } from '../components/AdminCommercialBonusesTable';
 
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -15,6 +16,7 @@ export const CommercialDashboardPage: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [selectedCommercialForSettle, setSelectedCommercialForSettle] = useState<number | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Filtros del Administrador
@@ -381,6 +383,15 @@ export const CommercialDashboardPage: React.FC = () => {
             </div>
 
           </div>
+
+          {/* Tabla de Auditoría y Liquidación de Bonos del Equipo */}
+          <AdminCommercialBonusesTable
+            onSettleAdvisor={(cId) => {
+              setSelectedCommercialForSettle(cId);
+              setIsSettleModalOpen(true);
+            }}
+            canSettle={canSettle}
+          />
         </>
       ) : (
 
@@ -645,6 +656,7 @@ export const CommercialDashboardPage: React.FC = () => {
           onSuccess={handleSettleSuccess}
           commercialUsers={commercialUsers || []}
           sales={allSales || []}
+          initialCommercialId={selectedCommercialForSettle}
         />
       )}
 
