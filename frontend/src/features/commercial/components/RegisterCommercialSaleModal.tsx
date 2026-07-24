@@ -9,6 +9,7 @@ interface RegisterCommercialSaleModalProps {
   onSuccess: () => void;
   currentAccumulatedDirect?: number;
   isAdmin?: boolean;
+  showAsesorSelect?: boolean;
 }
 
 export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalProps> = ({
@@ -16,7 +17,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   onClose,
   onSuccess,
   currentAccumulatedDirect = 0,
-  isAdmin = false
+  isAdmin = false,
+  showAsesorSelect = false
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchClientResult[]>([]);
@@ -38,7 +40,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAdmin && isOpen) {
+    if (isAdmin && showAsesorSelect && isOpen) {
       commercialService.getCommercialUsers()
         .then((res) => {
           setCommercialUsers(res);
@@ -46,7 +48,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         })
         .catch(() => {});
     }
-  }, [isAdmin, isOpen]);
+  }, [isAdmin, showAsesorSelect, isOpen]);
 
   useEffect(() => {
     if (searchTerm.trim().length >= 2) {
@@ -160,7 +162,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         referrer_code: referrerCode.trim() || undefined
       };
 
-      if (isAdmin && targetCommercialId) {
+      if (isAdmin && showAsesorSelect && targetCommercialId) {
         await commercialService.createAdminSale(targetCommercialId, payload);
       } else {
         await commercialService.createSale(payload);
@@ -186,7 +188,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <Calculator className="w-5 h-5 text-brand-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Registrar / Adjudicar Venta</h3>
+              <h3 className="text-lg font-bold text-slate-800">Registrar Venta Comercial</h3>
               <p className="text-xs text-slate-500">Clasificación Obligatoria • Comisiones Marginales</p>
             </div>
           </div>
@@ -207,8 +209,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
             </div>
           )}
 
-          {/* Seleccionar Asesor Comercial (Solo Administradores) */}
-          {isAdmin && (
+          {/* Seleccionar Asesor Comercial (Solo si showAsesorSelect es true) */}
+          {isAdmin && showAsesorSelect && (
             <div className="bg-brand-50/60 p-3.5 border border-brand-200 rounded-xl space-y-1.5">
               <label className="block text-xs font-bold text-brand-900">
                 👤 Adjudicar Venta a Asesor Comercial *

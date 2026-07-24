@@ -512,13 +512,14 @@ export const CommercialDashboardPage: React.FC = () => {
         </>
       )}
 
-      {/* Modal para Registrar / Adjudicar Venta */}
+      {/* Modal para Registrar Venta Comercial */}
       <RegisterCommercialSaleModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleSuccess}
         currentAccumulatedDirect={directAccum}
         isAdmin={isAdmin}
+        showAsesorSelect={false}
       />
 
       {/* Toast */}
