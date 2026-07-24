@@ -5,6 +5,7 @@ import { Investor, createInvestor, updateInvestor } from '../../../../services/i
 import { usersService, User } from '../../../../services/users';
 import { packagesService, Package } from '../../../../services/packages';
 import { periodsService, Period } from '../../../../services/periods';
+import { useAuthStore } from '../../../../store/authStore';
 
 interface InvestorModalProps {
   isOpen: boolean;
@@ -14,6 +15,11 @@ interface InvestorModalProps {
 }
 
 export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, onSaved, investor }) => {
+  const { user } = useAuthStore();
+  const isAdmin = user?.is_superuser === true || 
+    user?.permissions?.includes('admin.investors.manage') === true || 
+    user?.permissions?.includes('admin.roles.manage') === true;
+
   if (!isOpen) return null;
   const [assignedCode, setAssignedCode] = useState('');
   const [referredBy, setReferredBy] = useState('');
@@ -292,25 +298,37 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700 flex items-center justify-between">
                 <span>Fecha de Ingreso *</span>
-                {investor && <span className="text-xs text-amber-600 font-bold">🔒 No editable</span>}
+                {investor && (
+                  isAdmin ? (
+                    <span className="text-xs text-emerald-600 font-bold">✏️ Editable (Admin)</span>
+                  ) : (
+                    <span className="text-xs text-amber-600 font-bold">🔒 No editable</span>
+                  )
+                )}
               </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                disabled={!!investor}
-                readOnly={!!investor}
+                disabled={investor ? !isAdmin : false}
+                readOnly={investor ? !isAdmin : false}
                 className={`w-full px-3 py-2 border rounded-lg transition-colors ${
-                  investor 
+                  investor && !isAdmin 
                     ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed font-medium' 
-                    : 'bg-slate-50 border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                    : 'bg-slate-50 border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium'
                 }`}
                 required
               />
               {investor ? (
-                <p className="text-xs text-amber-600 font-medium">
-                  La fecha de ingreso no puede modificarse una vez firmado y registrado el contrato.
-                </p>
+                isAdmin ? (
+                  <p className="text-xs text-emerald-600 font-medium">
+                    Como Administrador, tienes permiso para modificar la fecha de inicio del contrato.
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-600 font-medium">
+                    La fecha de inicio del contrato no se puede modificar.
+                  </p>
+                )
               ) : (
                 <p className="text-xs text-slate-500">La fecha de fin se calculará automáticamente en el sistema basándose en el periodo.</p>
               )}
