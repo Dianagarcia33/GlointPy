@@ -79,7 +79,7 @@ export const InvestorRegistrationFlow = () => {
 
     // Fetch commercial users (Directivos de Inversión)
     React.useEffect(() => {
-        commercialService.getCommercialUsers()
+        commercialService.getPublicAdvisors()
             .then(res => setCommercialUsers(res))
             .catch(() => setCommercialUsers([]));
     }, []);

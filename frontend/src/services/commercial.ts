@@ -197,6 +197,10 @@ export const commercialService = {
     return await fetchApi('/commercial/commercial-users');
   },
 
+  getPublicAdvisors: async (): Promise<CommercialUserOption[]> => {
+    return await fetchApi('/commercial/public-advisors');
+  },
+
   getLeaderboard: async (): Promise<LeaderboardResponse> => {
     return await fetchApi('/commercial/leaderboard');
   },

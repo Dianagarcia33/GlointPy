@@ -292,6 +292,46 @@ async def delete_commercial_sale(
     await db.delete(sale)
     await db.commit()
 
+@router.get("/public-advisors")
+async def get_public_advisors(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint público para listar Directivos de Inversión / Asesores
+    en los formularios de registro de nuevos usuarios sin requerir token.
+    """
+    stmt = (
+        select(User)
+        .options(selectinload(User.roles))
+        .where(User.is_active == True)
+        .order_by(User.name.asc())
+    )
+    res = await db.execute(stmt)
+    all_users = res.scalars().all()
+
+    sales_users_res = await db.execute(select(CommercialSale.commercial_id).distinct())
+    sales_user_ids = set(sales_users_res.scalars().all())
+
+    commercial_users = []
+    for u in all_users:
+        role_names = [r.name.lower() for r in (u.roles or [])]
+        
+        has_commercial_role = any(
+            any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director"])
+            and not any(inv_kw in r_name for inv_kw in ["inversionista", "investor"])
+            for r_name in role_names
+        )
+
+        if has_commercial_role or u.id in sales_user_ids:
+            commercial_users.append({
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "document_id": u.document_id
+            })
+
+    return commercial_users
+
 @router.get("/commercial-users", dependencies=[Depends(RequirePermission("commercial:view"))])
 async def get_commercial_users(
     current_user: User = Depends(get_current_user),

@@ -29,7 +29,7 @@ export const RegisterPage = () => {
 
     useEffect(() => {
         window.scrollTo(0, 0);
-        commercialService.getCommercialUsers()
+        commercialService.getPublicAdvisors()
             .then(res => setCommercialUsers(res))
             .catch(() => setCommercialUsers([]));
     }, []);
