@@ -155,22 +155,13 @@ export const AdminUsersPage = () => {
         </div>
         
         <Can permission="admin.users.manage">
-          <div className="relative z-10 flex items-center gap-3 shrink-0">
-            <button 
-              onClick={() => setIsBulkModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
-            >
-              <UploadCloud className="w-4 h-4" />
-              Carga Masiva
-            </button>
-            <button 
-              onClick={handleCreate}
-              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              Crear Usuario
-            </button>
-          </div>
+          <button 
+            onClick={handleCreate}
+            className="relative z-10 flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Crear Usuario</span>
+          </button>
         </Can>
       </div>
       
