@@ -128,15 +128,14 @@ export const DashboardPage = () => {
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
 
     const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
-    const isSuperAdmin = user?.is_superuser === true || 
-        user?.permissions?.includes('admin.audits.manage') === true ||
-        user?.permissions?.includes('admin.users.manage') === true ||
-        user?.permissions?.includes('admin.roles.manage') === true ||
-        user?.permissions?.includes('admin.investments.manage') === true;
+    const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
         
     const isDirectorOnly = !isSuperAdmin && (
         user?.permissions?.includes('director.dashboard.view') === true || 
-        user?.permissions?.includes('admin.referrals.manage') === true
+        user?.permissions?.includes('admin.referrals.manage') === true ||
+        user?.permissions?.includes('admin.investments.manage') === true ||
+        user?.permissions?.includes('admin.users.manage') === true ||
+        user?.permissions?.includes('admin.roles.manage') === true
     );
 
     // Analytics Query for Admin
