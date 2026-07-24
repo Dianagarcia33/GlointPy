@@ -119,10 +119,6 @@ export const CommercialDashboardPage: React.FC = () => {
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <Trophy className="w-4 h-4 text-amber-400" />
-            {isAdmin ? 'Supervisión Comercial Ejecutiva 360°' : 'Gestión Comercial & Ranking'}
-          </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
             {isAdmin ? 'Panel de Control Comercial' : 'Panel Comercial & Ranking'}
           </h1>
