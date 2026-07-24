@@ -126,7 +126,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({ data
                         <span className="font-bold text-slate-700 truncate">{pkg.name}</span>
                       </div>
                       <span className="font-extrabold text-brand-700 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-[11px] shrink-0">
-                        {pkg.value} {pkg.value === 1 ? 'cto' : 'ctos'}
+                        {pkg.value} {pkg.value === 1 ? 'contrato' : 'contratos'}
                       </span>
                     </div>
                   ))}
