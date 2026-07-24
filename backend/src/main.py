@@ -22,11 +22,16 @@ app = FastAPI(
 async def on_startup():
     try:
         import src.models
-        from src.core.database import engine, Base
+        from src.core.database import engine, Base, async_session_maker
+        from src.run_seed import seed_permissions_db
+
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+        async with async_session_maker() as db:
+            await seed_permissions_db(db)
     except Exception as e:
-        print(f"Error auto-creating tables on startup: {e}")
+        print(f"Error on startup database initialization/seeding: {e}")
 from fastapi.staticfiles import StaticFiles
 import os
 

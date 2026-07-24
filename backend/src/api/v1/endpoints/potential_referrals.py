@@ -9,14 +9,14 @@ from src.services.potential_referral_service import PotentialReferralService
 
 router = APIRouter(prefix="/potential-referrals", tags=["potential-referrals"])
 
-@router.get("/me", response_model=List[PotentialReferralResponse])
+@router.get("/me", response_model=List[PotentialReferralResponse], dependencies=[Depends(RequirePermission("referrals:view"))])
 async def get_my_potential_referrals(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     return await PotentialReferralService.get_by_user_id(db, current_user.id)
 
-@router.post("/me", response_model=PotentialReferralResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/me", response_model=PotentialReferralResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("referrals:view"))])
 async def create_my_potential_referral(
     data: PotentialReferralCreate,
     db: AsyncSession = Depends(get_db),

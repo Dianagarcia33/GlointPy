@@ -52,21 +52,23 @@ export const Sidebar = () => {
                             <span className="flex-1 text-[13px] font-medium">Beneficiarios</span>
                         </NavLink>
 
-                        <NavLink
-                            to="/dashboard/referrals"
-                            className={({ isActive }) => `
-                                group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
-                                ${isActive 
-                                    ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30 pointer-events-none' 
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                                }
-                            `}
-                        >
-                            <span className={`flex-shrink-0 transition-colors duration-200 group-hover:scale-110`}>
-                                <UserPlus className="w-[18px] h-[18px]" />
-                            </span>
-                            <span className="flex-1 text-[13px] font-medium">Referidos</span>
-                        </NavLink>
+                        <Can permission="referrals:view">
+                            <NavLink
+                                to="/dashboard/referrals"
+                                className={({ isActive }) => `
+                                    group px-3 py-2.5 rounded-xl no-underline flex items-center gap-3 transition-all duration-200
+                                    ${isActive 
+                                        ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/30 pointer-events-none' 
+                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                    }
+                                `}
+                            >
+                                <span className={`flex-shrink-0 transition-colors duration-200 group-hover:scale-110`}>
+                                    <UserPlus className="w-[18px] h-[18px]" />
+                                </span>
+                                <span className="flex-1 text-[13px] font-medium font-sans">Referidos</span>
+                            </NavLink>
+                        </Can>
                     </>
                 )}
 

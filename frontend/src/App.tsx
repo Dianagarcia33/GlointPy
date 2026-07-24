@@ -106,7 +106,7 @@ function App() {
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<BeneficiariesPage />} />
-        <Route path="referrals" element={<ReferralsPage />} />
+        <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}

@@ -35,36 +35,57 @@ PERMISSIONS = [
     {"name": "bank_accounts:manage", "description": "Gestionar cuentas bancarias en la bóveda", "module": "bank_accounts"},
     {"name": "manage_system_events", "description": "Gestionar eventos del sistema", "module": "system_events"},
     {"name": "sarlaft:check", "description": "Realizar consultas Sarlaft", "module": "sarlaft"},
+    {"name": "referrals:view", "description": "Ver y gestionar referidos potenciales", "module": "referrals"},
 ]
 
-async def main():
-    async with async_session_maker() as db:
-        print("🔍 Registrando permisos en la base de datos...")
-        all_perms_map = {}
+async def seed_permissions_db(db):
+    print("🔍 Registrando permisos en la base de datos...")
+    all_perms_map = {}
 
-        for p_data in PERMISSIONS:
-            res = await db.execute(select(Permission).where(Permission.name == p_data["name"]))
-            existing = res.scalars().first()
-            if not existing:
-                new_p = Permission(**p_data)
-                db.add(new_p)
-                await db.flush()
-                print(f"✨ Permiso creado: {p_data['name']}")
-                all_perms_map[p_data["name"]] = new_p
-            else:
-                existing.description = p_data["description"]
-                existing.module = p_data["module"]
-                all_perms_map[p_data["name"]] = existing
+    for p_data in PERMISSIONS:
+        res = await db.execute(select(Permission).where(Permission.name == p_data["name"]))
+        existing = res.scalars().first()
+        if not existing:
+            new_p = Permission(**p_data)
+            db.add(new_p)
+            await db.flush()
+            print(f"✨ Permiso creado: {p_data['name']}")
+            all_perms_map[p_data["name"]] = new_p
+        else:
+            existing.description = p_data["description"]
+            existing.module = p_data["module"]
+            all_perms_map[p_data["name"]] = existing
 
-        await db.commit()
+    await db.commit()
 
-        roles_res = await db.execute(select(Role))
-        roles = roles_res.scalars().all()
+    roles_res = await db.execute(select(Role))
+    roles = roles_res.scalars().all()
 
-        for role in roles:
-            r_name = role.name.lower()
-            if "super" in r_name or "admin" in r_name:
-                for p_name, perm in all_perms_map.items():
+    for role in roles:
+        r_name = role.name.lower()
+        if "super" in r_name or "admin" in r_name:
+            for p_name, perm in all_perms_map.items():
+                check = await db.execute(select(role_permissions).where(
+                    (role_permissions.c.role_id == role.id) & 
+                    (role_permissions.c.permission_id == perm.id)
+                ))
+                if not check.first():
+                    await db.execute(insert(role_permissions).values(
+                        role_id=role.id,
+                        permission_id=perm.id
+                    ))
+            print(f"🔑 Permisos asignados al rol: {role.name}")
+        elif "investor" in r_name or "inversionista" in r_name:
+            investor_perms = [
+                "referrals:view", "wallets:view", "wallets:view_balance", 
+                "wallets:view_history", "wallets:request_withdrawal", 
+                "wallets:new_investment", "dashboard:view_kpis", 
+                "dashboard:view_quick_actions", "dashboard:view_investments", 
+                "dashboard:view_requests"
+            ]
+            for p_name in investor_perms:
+                if p_name in all_perms_map:
+                    perm = all_perms_map[p_name]
                     check = await db.execute(select(role_permissions).where(
                         (role_permissions.c.role_id == role.id) & 
                         (role_permissions.c.permission_id == perm.id)
@@ -74,10 +95,14 @@ async def main():
                             role_id=role.id,
                             permission_id=perm.id
                         ))
-                print(f"🔑 Todos los permisos asignados al rol: {role.name}")
+            print(f"🔑 Permisos de Inversionista asignados a: {role.name}")
 
-        await db.commit()
-        print("✅ PERMISOS REGISTRADOS Y ASIGNADOS EXITOSAMENTE.")
+    await db.commit()
+    print("✅ PERMISOS REGISTRADOS Y ASIGNADOS EXITOSAMENTE.")
+
+async def main():
+    async with async_session_maker() as db:
+        await seed_permissions_db(db)
 
 if __name__ == "__main__":
     asyncio.run(main())
