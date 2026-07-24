@@ -19,7 +19,7 @@ from src.models.commercial_sale import CommercialSale, CommercialSaleType
 
 router = APIRouter()
 
-@router.get("/admin-dashboard", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+@router.get("/admin-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage", "director.dashboard.view"]))])
 async def get_admin_analytics_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
