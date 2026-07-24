@@ -203,22 +203,22 @@ export const InvestmentRequestsTable = () => {
   return (
     <div className="space-y-6">
       {/* Filters Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
         <div className="flex-1 w-full relative">
           <input 
             type="text" 
             placeholder="Buscar por nombre o correo del usuario..." 
-            className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+            className="w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200 uppercase text-xs tracking-wider">
+            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-4 py-4 w-10"></th>
                 <th className="px-6 py-4">ID</th>
@@ -228,7 +228,7 @@ export const InvestmentRequestsTable = () => {
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Fecha Solicitud</th>
                 <Can permission="admin.investments.manage">
-                  <th className="px-6 py-4 text-right">Acciones</th>
+                  <th className="px-6 py-4 text-center">Acciones</th>
                 </Can>
               </tr>
             </thead>
@@ -292,24 +292,26 @@ export const InvestmentRequestsTable = () => {
                         {request.created_at ? new Date(request.created_at).toLocaleDateString() : '-'}
                       </td>
                       <Can permission="admin.investments.manage">
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-center">
                           {request.status === 'pending' && (
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-center gap-2">
                               <button 
                                 onClick={() => setSelectedRequestToReview(request)}
                                 disabled={isProcessing}
-                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                                title="Aprobar"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-200 bg-emerald-50 cursor-pointer disabled:opacity-50"
+                                title="Aprobar Solicitud"
                               >
-                                <CheckCircle className="w-5 h-5" />
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                <span>Aprobar</span>
                               </button>
                               <button 
                                 onClick={() => setRejectingId(request.id)}
                                 disabled={isProcessing}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Rechazar"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer disabled:opacity-50"
+                                title="Rechazar Solicitud"
                               >
-                                <XCircle className="w-5 h-5" />
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Rechazar</span>
                               </button>
                             </div>
                           )}
