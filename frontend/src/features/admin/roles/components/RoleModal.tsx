@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Role, RoleCreate, RoleUpdate, Permission } from '../../../../services/roles';
-import { X, Check, Shield } from 'lucide-react';
+import { X, Shield, Info } from 'lucide-react';
 
 interface RoleModalProps {
   isOpen: boolean;
@@ -41,13 +41,17 @@ export const RoleModal: React.FC<RoleModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) {
+      setError('El nombre del rol es obligatorio');
+      return;
+    }
     setError(null);
     setIsSubmitting(true);
 
     try {
       const data = {
-        name,
-        description,
+        name: name.trim(),
+        description: description.trim(),
         permission_ids: selectedPermissions,
         is_active: true
       };
@@ -69,9 +73,30 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     );
   };
 
+  const handleToggleModule = (modulePermissions: Permission[]) => {
+    const moduleIds = modulePermissions.map(p => p.id);
+    const allSelected = moduleIds.every(id => selectedPermissions.includes(id));
+
+    if (allSelected) {
+      // Desmarcar todo el módulo
+      setSelectedPermissions(prev => prev.filter(id => !moduleIds.includes(id)));
+    } else {
+      // Marcar todo el módulo
+      setSelectedPermissions(prev => Array.from(new Set([...prev, ...moduleIds])));
+    }
+  };
+
+  const handleSelectAllGlobally = () => {
+    if (selectedPermissions.length === allPermissions.length) {
+      setSelectedPermissions([]);
+    } else {
+      setSelectedPermissions(allPermissions.map(p => p.id));
+    }
+  };
+
   // Agrupar permisos por módulo
   const groupedPermissions = allPermissions.reduce((acc, curr) => {
-    const mod = curr.module || 'General';
+    const mod = (curr.module || 'General').toUpperCase();
     if (!acc[mod]) acc[mod] = [];
     acc[mod].push(curr);
     return acc;
@@ -80,120 +105,179 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] overflow-y-auto pt-20" style={{ margin: 0 }}>
-      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={onClose}>
-          <div className="absolute inset-0 bg-slate-900/75 backdrop-blur-sm"></div>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
+        
+        {/* Header Fijo */}
+        <div className="px-6 py-5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-brand-500/20 text-emerald-400 rounded-2xl border border-white/10">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold font-montserrat tracking-tight">
+                {role ? 'Editar Rol y Permisos' : 'Crear Nuevo Rol'}
+              </h2>
+              <p className="text-xs text-slate-400">
+                Define el nombre del rol y asigna los permisos por módulo
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        {/* Contenido Scrolleable */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-6 overflow-y-auto flex-1 space-y-6 custom-scrollbar">
+            
+            {error && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-semibold flex items-center gap-2">
+                <Info className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{error}</span>
+              </div>
+            )}
 
-        <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
-          <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-slate-200">
-              <div className="sm:flex sm:items-start">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-brand-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <Shield className="h-6 w-6 text-brand-600" aria-hidden="true" />
-                </div>
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left flex-grow">
-                  <h3 className="text-lg leading-6 font-semibold text-slate-900">
-                    {role ? 'Editar Rol' : 'Crear Nuevo Rol'}
-                  </h3>
-                  
-                  {error && (
-                    <div className="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100">
-                      {error}
-                    </div>
-                  )}
+            {/* Datos Básicos del Rol */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-200/80">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 font-montserrat">
+                  Nombre Interno del Rol <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-2xs font-mono"
+                  placeholder="ej: super_admin"
+                />
+              </div>
 
-                  <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Nombre Interno <span className="text-slate-400 font-normal">(ej. super_admin)</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                        placeholder="nombre_rol"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        rows={2}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                        placeholder="Breve descripción del rol..."
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-8">
-                    <h4 className="text-md font-semibold text-slate-800 mb-4 border-b border-slate-200 pb-2">Asignación de Permisos</h4>
-                    
-                    {allPermissions.length === 0 ? (
-                      <p className="text-sm text-slate-500">No hay permisos disponibles para asignar.</p>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-96 overflow-y-auto pr-2">
-                        {(Object.entries(groupedPermissions) as [string, Permission[]][]).map(([module, perms]) => (
-                          <div key={module} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <h5 className="font-semibold text-brand-700 mb-3 capitalize text-sm">{module}</h5>
-                            <div className="space-y-3">
-                              {perms.map((perm: Permission) => (
-                                <label key={perm.id} className="flex items-start gap-3 cursor-pointer group">
-                                  <div className="relative flex items-center justify-center mt-0.5">
-                                    <input
-                                      type="checkbox"
-                                      className="peer sr-only"
-                                      checked={selectedPermissions.includes(perm.id)}
-                                      onChange={() => handleTogglePermission(perm.id)}
-                                    />
-                                    <div className="w-5 h-5 border-2 border-slate-300 rounded peer-checked:bg-brand-500 peer-checked:border-brand-500 transition-colors"></div>
-                                    <Check className="absolute w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={3} />
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="text-sm font-medium text-slate-700 group-hover:text-brand-600 transition-colors">
-                                      {perm.action || perm.name}
-                                    </div>
-                                    {perm.description && (
-                                      <div className="text-xs text-slate-500 mt-0.5">{perm.description}</div>
-                                    )}
-                                  </div>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 font-montserrat">
+                  Descripción
+                </label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-2xs"
+                  placeholder="Descripción de responsabilidades..."
+                />
               </div>
             </div>
-            <div className="bg-slate-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse rounded-b-2xl border-t border-slate-200">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-brand-600 text-base font-medium text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
-              >
-                {isSubmitting ? 'Guardando...' : 'Guardar Rol'}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-lg border border-slate-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-              >
-                Cancelar
-              </button>
+
+            {/* Sección de Asignación de Permisos */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 font-montserrat uppercase tracking-wider">
+                    Matriz de Permisos ({selectedPermissions.length} / {allPermissions.length} seleccionados)
+                  </h3>
+                  <p className="text-xs text-slate-500">Selecciona o desmarca los accesos permitidos para este rol</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSelectAllGlobally}
+                  className="text-xs font-bold text-brand-600 hover:text-brand-700 bg-brand-50 px-3 py-1.5 rounded-xl border border-brand-200 transition-all cursor-pointer shrink-0"
+                >
+                  {selectedPermissions.length === allPermissions.length ? 'Desmarcar Todos' : 'Seleccionar Todos'}
+                </button>
+              </div>
+
+              {allPermissions.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs font-medium bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
+                  No hay permisos registrados en el sistema.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(Object.entries(groupedPermissions) as [string, Permission[]][]).map(([module, perms]) => {
+                    const isModuleFullySelected = perms.every(p => selectedPermissions.includes(p.id));
+
+                    return (
+                      <div key={module} className="bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                        <div className="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
+                          <span className="font-extrabold text-slate-800 text-xs uppercase tracking-wider font-montserrat flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-brand-500"></span>
+                            Módulo: {module}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleModule(perms)}
+                            className="text-[11px] font-bold text-slate-600 hover:text-brand-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200 transition-all cursor-pointer"
+                          >
+                            {isModuleFullySelected ? 'Desmarcar Módulo' : 'Marcar Módulo'}
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          {perms.map((perm: Permission) => {
+                            const isChecked = selectedPermissions.includes(perm.id);
+                            return (
+                              <label
+                                key={perm.id}
+                                className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                                  isChecked
+                                    ? 'bg-brand-50/80 border-brand-300 ring-1 ring-brand-500/20'
+                                    : 'bg-white border-slate-200/80 hover:bg-slate-100/60'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleTogglePermission(perm.id)}
+                                  className="mt-0.5 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer shrink-0"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-bold text-slate-900 truncate">
+                                    {perm.action || perm.name}
+                                  </div>
+                                  {perm.description && (
+                                    <p className="text-[11px] text-slate-500 mt-0.5 leading-tight">{perm.description}</p>
+                                  )}
+                                  <span className="inline-block mt-1 font-mono text-[10px] text-brand-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                    {perm.name}
+                                  </span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </form>
-        </div>
+
+          </div>
+
+          {/* Footer Fijo */}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0 rounded-b-3xl">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 bg-white text-slate-700 border border-slate-300 rounded-2xl hover:bg-slate-100 transition-all text-xs font-bold cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-md shadow-brand-500/30 text-xs font-bold cursor-pointer disabled:opacity-50"
+            >
+              {isSubmitting ? 'Guardando...' : 'Guardar Rol'}
+            </button>
+          </div>
+        </form>
+
       </div>
     </div>,
     document.body
