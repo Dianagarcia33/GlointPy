@@ -108,14 +108,14 @@ export const BulkUploadPackagesModal: React.FC<BulkUploadPackagesModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b flex justify-between items-center">
+    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200" style={{ margin: 0 }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Carga Masiva de Paquetes</h2>
-            <p className="text-sm text-slate-500 mt-1">Sube un archivo CSV para crear múltiples paquetes a la vez.</p>
+            <h3 className="text-lg font-bold text-slate-800 font-montserrat">Carga Masiva de Paquetes</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Sube un archivo CSV para registrar múltiples paquetes simultáneamente.</p>
           </div>
-          <button onClick={handleClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">
+          <button onClick={handleClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
