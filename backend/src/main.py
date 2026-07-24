@@ -40,6 +40,11 @@ async def on_startup():
             except Exception:
                 pass
 
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN commercial_id BIGINT NULL"))
+            except Exception:
+                pass
+
         async with async_session_maker() as db:
             await seed_permissions_db(db)
     except Exception as e:
