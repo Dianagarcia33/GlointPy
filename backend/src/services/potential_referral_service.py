@@ -1,4 +1,4 @@
-from typing import Sequence, Dict, Any, Optional
+from typing import Sequence, Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import or_, func
