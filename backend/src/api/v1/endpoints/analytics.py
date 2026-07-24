@@ -102,7 +102,7 @@ async def get_admin_analytics_dashboard(
     for inv in all_invs:
         fecha_ingreso = inv.start_date
         if fecha_ingreso and inv.period:
-            aceleracion_dias = sum(float(acc.days_accelerated or 0) for acc in (inv.accelerations or []))
+            aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', getattr(acc, 'days_accelerated', 0)) or 0) for acc in (inv.accelerations or []))
             fecha_fin = fecha_ingreso + relativedelta(months=inv.period.months) - timedelta(days=aceleracion_dias)
             if fecha_fin.date() < today:
                 # Contrato vencido/finalizado -> no sumar como activo
