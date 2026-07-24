@@ -20,7 +20,6 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     user?.permissions?.includes('admin.investors.manage') === true || 
     user?.permissions?.includes('admin.roles.manage') === true;
 
-  if (!isOpen) return null;
   const [assignedCode, setAssignedCode] = useState('');
   const [referredBy, setReferredBy] = useState('');
   const [userId, setUserId] = useState<number | ''>('');
