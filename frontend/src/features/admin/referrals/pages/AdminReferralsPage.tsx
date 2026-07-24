@@ -305,6 +305,10 @@ export const AdminReferralsPage = () => {
         onSaved={fetchData}
         referral={editingReferral}
         isAdmin={true}
+        onTriggerConvert={(r) => {
+          setConvertingReferral(r);
+          setIsConvertModalOpen(true);
+        }}
       />
 
       {/* Modal Convertir en Solicitud de Inversión */}

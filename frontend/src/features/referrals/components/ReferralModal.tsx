@@ -9,6 +9,7 @@ interface ReferralModalProps {
     onSaved: () => void;
     referral?: PotentialReferral | null;
     isAdmin?: boolean;
+    onTriggerConvert?: (referral: PotentialReferral) => void;
 }
 
 export const ReferralModal: React.FC<ReferralModalProps> = ({ 
@@ -16,7 +17,8 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
     onClose, 
     onSaved, 
     referral,
-    isAdmin = false 
+    isAdmin = false,
+    onTriggerConvert
 }) => {
     const [nombre, setNombre] = useState('');
     const [telefono, setTelefono] = useState('');
@@ -56,6 +58,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
 
         if (!telefono.trim()) {
             setError('El número de teléfono es obligatorio');
+            return;
+        }
+
+        // Si el admin selecciona el estado 'registrado', se debe abrir la conversión completa
+        if (isAdmin && estado === 'registrado' && referral && onTriggerConvert) {
+            onClose();
+            onTriggerConvert(referral);
             return;
         }
 
