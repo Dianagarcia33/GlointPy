@@ -15,3 +15,4 @@ from src.models.sarlaft_check import SarlaftCheck
 from src.models.commercial_sale import CommercialSale, CommercialSaleType
 from src.models.template import Template
 from src.models.beneficiary import Beneficiary
+from src.models.potential_referral import PotentialReferral, PotentialReferralStatus

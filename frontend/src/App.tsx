@@ -34,6 +34,7 @@ import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
 import { CommercialDashboardPage } from "./features/commercial/pages/CommercialDashboardPage";
 import { BeneficiariesPage } from "./features/beneficiaries/pages/BeneficiariesPage";
+import { ReferralsPage } from "./features/referrals/pages/ReferralsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
@@ -105,6 +106,7 @@ function App() {
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<BeneficiariesPage />} />
+        <Route path="referrals" element={<ReferralsPage />} />
       </Route>
 
       {/* Redirección por defecto si la ruta no existe */}

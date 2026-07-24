@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries
+from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals
 
 api_router = APIRouter()
 
@@ -22,3 +22,4 @@ api_router.include_router(commercial_sales.router, prefix="/commercial", tags=["
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(templates.router, prefix="", tags=["templates"])
 api_router.include_router(beneficiaries.router, prefix="", tags=["beneficiaries"])
+api_router.include_router(potential_referrals.router, prefix="", tags=["potential-referrals"])
