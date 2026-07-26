@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any
 
@@ -13,12 +13,13 @@ from src.models.user import User
 router = APIRouter()
 
 @router.post("/login", response_model=Token)
-async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def login(login_data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Inicia sesión (Login). 
     Recibe email y password, devuelve un Access Token.
     """
-    user = await AuthService.authenticate_user(db, login_data)
+    user = await AuthService.authenticate_user(db, login_data, request=request)
+
     
     # Generar token
     access_token = create_access_token(subject=user.id)
