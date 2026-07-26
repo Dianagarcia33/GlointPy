@@ -36,9 +36,11 @@ import { CommercialDashboardPage } from "./features/commercial/pages/CommercialD
 import { BeneficiariesPage } from "./features/beneficiaries/pages/BeneficiariesPage";
 import { ReferralsPage } from "./features/referrals/pages/ReferralsPage";
 import { AdminReferralsPage } from "./features/admin/referrals/pages/AdminReferralsPage";
+import { ChatPage } from "./features/chat/pages/ChatPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
+
 
 // Componente para proteger rutas (si no está logueado, lo manda al login)
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -109,7 +111,9 @@ function App() {
         <Route path="beneficiaries" element={<BeneficiariesPage />} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
         <Route path="admin-referrals" element={<RequirePermission permission="admin.users.manage"><AdminReferralsPage /></RequirePermission>} />
+        <Route path="chat" element={<RequirePermission permission="chat:view"><ChatPage /></RequirePermission>} />
       </Route>
+
 
       {/* Redirección por defecto si la ruta no existe */}
       <Route path="*" element={<Navigate to="/" replace />} />

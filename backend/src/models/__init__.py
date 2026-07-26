@@ -18,3 +18,5 @@ from src.models.commercial_bonus import CommercialBonus, CommercialBonusType, Co
 from src.models.template import Template
 from src.models.beneficiary import Beneficiary
 from src.models.potential_referral import PotentialReferral, PotentialReferralStatus
+from src.models.chat import ChatRoom, ChatParticipant, ChatMessage
+
