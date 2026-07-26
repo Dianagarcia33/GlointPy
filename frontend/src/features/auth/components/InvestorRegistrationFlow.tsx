@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone } from 'lucide-react';
+import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone, ShieldCheck } from 'lucide-react';
+
 import { Link, useNavigate } from 'react-router-dom';
 import imageCompression from 'browser-image-compression';
 import { useAuthStore } from '../../../store/authStore';
@@ -481,10 +482,18 @@ export const InvestorRegistrationFlow = () => {
                 {/* Step 1: Upload Documents */}
                 {step === 1 && (
                     <div className="space-y-6 animate-fadeIn">
-                        <div className="text-center mb-6">
+                        <div className="text-center mb-4">
                             <h3 className="text-lg font-bold text-slate-900">Carga tu Documento y Selfie</h3>
                             <p className="text-sm text-slate-500">Sube tus fotos para verificar tu identidad.</p>
                         </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-left mb-6">
+                            <ShieldCheck className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div className="text-xs text-amber-900 leading-relaxed">
+                                <strong>Aviso de Seguridad en Pruebas:</strong> Durante esta fase de demostración y pruebas, se recomienda utilizar imágenes de prueba. Los archivos cargados son almacenados con nombres aleatorios de alta entropía (UUID v4) y validación estricta de extensiones.
+                            </div>
+                        </div>
+
                         
                         <div className="grid grid-cols-1 gap-4">
                             <FileUploadZone label="Foto Frontal del Documento" file={frontImage} onChange={setFrontImage} />
