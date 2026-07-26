@@ -192,10 +192,33 @@ export const RegisterPage = () => {
                         </div>
                     )}
 
+                    <div className="flex items-start gap-3 my-4 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div className="flex items-center h-5 mt-0.5">
+                            <input
+                                id="terms"
+                                type="checkbox"
+                                checked={acceptedTerms}
+                                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 bg-white cursor-pointer"
+                                required
+                            />
+                        </div>
+                        <label htmlFor="terms" className="text-xs text-slate-600 leading-snug cursor-pointer">
+                            Acepto los{' '}
+                            <Link to="/terminos" target="_blank" className="font-bold text-brand-600 hover:text-brand-700 underline">
+                                Términos y Condiciones
+                            </Link>
+                            {' '}y la{' '}
+                            <Link to="/privacidad" target="_blank" className="font-bold text-brand-600 hover:text-brand-700 underline">
+                                Política de Privacidad
+                            </Link>.
+                        </label>
+                    </div>
+
                     <button
                         type="submit"
-                        disabled={registerMutation.isPending || !isValidPassword(password) || password !== confirmPassword}
-                        className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
+                        disabled={registerMutation.isPending || !acceptedTerms || !isValidPassword(password) || password !== confirmPassword}
+                        className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
                     >
                         {registerMutation.isPending ? (
                             <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
@@ -205,26 +228,8 @@ export const RegisterPage = () => {
                             <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                         )}
                     </button>
-                    <div className="flex items-start gap-3 mt-2">
-                        <div className="flex items-center h-5 mt-0.5">
-                            <input
-                                id="terms"
-                                type="checkbox"
-                                checked={acceptedTerms}
-                                onChange={(e) => setAcceptedTerms(e.target.checked)}
-                                className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 bg-white"
-                                required
-                            />
-                        </div>
-                        <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
-                            Acepto los{' '}
-                            <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600 transition-colors">
-                                Términos y Condiciones
-                            </Link>
-                            {' '}y Política de Privacidad.
-                        </label>
-                    </div>
                 </form>
+
             )}
 
 
