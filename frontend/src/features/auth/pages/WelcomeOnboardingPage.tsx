@@ -8,6 +8,7 @@ type Role = 'client' | 'investor' | null;
 export const WelcomeOnboardingPage = () => {
     const [selectedRole, setSelectedRole] = useState<Role>(null);
     const [showSarlaftModal, setShowSarlaftModal] = useState(false);
+    const [hasAcceptedConsent, setHasAcceptedConsent] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -16,13 +17,15 @@ export const WelcomeOnboardingPage = () => {
 
     const handleRoleSelect = (role: Role) => {
         setSelectedRole(role);
+        setHasAcceptedConsent(false);
         setShowSarlaftModal(true);
     };
 
     const handleAcceptSarlaft = () => {
         setShowSarlaftModal(false);
-        navigate(`/register?role=${selectedRole}`);
+        navigate(`/register?role=${selectedRole}&consent=1`);
     };
+
 
     return (
         <div className="min-h-screen bg-slate-50 font-inter text-slate-900 flex flex-col selection:bg-brand-500/20">
@@ -167,17 +170,48 @@ export const WelcomeOnboardingPage = () => {
                                 )}
                             </ul>
 
-                            <button 
-                                onClick={handleAcceptSarlaft}
-                                className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-brand-500/20 transition-all active:scale-[0.98]"
-                            >
-                                Entendido y Aceptar <ArrowRight className="w-4 h-4" />
-                            </button>
-                        </div>
+                            <div className="mb-6 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
 
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input 
+                                        type="checkbox"
+                                        checked={hasAcceptedConsent}
+                                        onChange={(e) => setHasAcceptedConsent(e.target.checked)}
+                                        className="w-4 h-4 mt-1 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
+                                    />
+                                    <span className="text-xs text-slate-600 leading-relaxed">
+                                        He leído y acepto expresamente las autorizaciones descritas anteriormente y conozco la{' '}
+                                        <Link to="/privacidad" target="_blank" className="font-semibold text-brand-600 underline hover:text-brand-700">
+                                            Política de Tratamiento de Datos
+                                        </Link>
+                                        {' '}y los{' '}
+                                        <Link to="/terminos" target="_blank" className="font-semibold text-brand-600 underline hover:text-brand-700">
+                                            Términos y Condiciones
+                                        </Link>.
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => setShowSarlaftModal(false)}
+                                    className="w-1/3 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-all text-sm"
+                                >
+                                    Rechazar
+                                </button>
+                                <button 
+                                    onClick={handleAcceptSarlaft}
+                                    disabled={!hasAcceptedConsent}
+                                    className="w-2/3 flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold shadow-md shadow-brand-500/20 transition-all text-sm active:scale-[0.98]"
+                                >
+                                    Aceptar y Continuar <ArrowRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
+
         </div>
     );
 };
