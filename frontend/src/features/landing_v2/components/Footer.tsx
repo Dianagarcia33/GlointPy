@@ -11,14 +11,17 @@ import {
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 
+import { CONTACT_INFO } from "../../../constants/contactInfo";
+
 export function Footer() {
   const navigate = useNavigate();
 
   const go = (p: string) => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); };
-  const whatsappLink = "https://wa.me/573209573995";
-  const whatsappDisplay = "+57 320 957 3995";
-  const emailDisplay = "atencionalcliente@gloint.com.co";
-  const addressDisplay = "Calle 31 # 14 - 31 oficina 201";
+  const whatsappLink = CONTACT_INFO.whatsappLink;
+  const whatsappDisplay = CONTACT_INFO.phone;
+  const emailDisplay = CONTACT_INFO.email;
+  const addressDisplay = CONTACT_INFO.fullAddress;
+
 
   return (
     <footer style={{ background: "#080e1b" }} className="pt-16 pb-8">

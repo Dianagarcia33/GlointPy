@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Clock, Mail } from 'lucide-react';
+import { CONTACT_INFO } from '../../constants/contactInfo';
+
 
 const logo = "/logo.png";
 
@@ -60,18 +62,19 @@ export const Footer: React.FC = () => {
               <ul className="space-y-4">
                 <li className="flex items-start gap-3">
                   <MapPin className="w-5 h-5 text-slate-500 mt-0.5" />
-                  <span className="text-sm text-slate-400">Bogotá, Colombia</span>
+                  <span className="text-sm text-slate-400">{CONTACT_INFO.fullAddress}</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Mail className="w-5 h-5 text-slate-500" />
-                  <a href="mailto:info@gloint.com" className="text-sm text-slate-400 hover:text-white transition-colors">
-                    info@gloint.com
+                  <a href={`mailto:${CONTACT_INFO.email}`} className="text-sm text-slate-400 hover:text-white transition-colors">
+                    {CONTACT_INFO.email}
                   </a>
                 </li>
                 <li className="flex items-start gap-3">
                   <Clock className="w-5 h-5 text-slate-500 mt-0.5" />
-                  <span className="text-sm text-slate-400">Lun - Vie, 8:00 AM - 6:00 PM</span>
+                  <span className="text-sm text-slate-400">{CONTACT_INFO.hours}</span>
                 </li>
+
               </ul>
             </div>
           </div>

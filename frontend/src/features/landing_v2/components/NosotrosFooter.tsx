@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
+import { CONTACT_INFO } from "../../../constants/contactInfo";
+
 
 export function NosotrosFooter() {
   const navigate = useNavigate();
@@ -56,9 +58,10 @@ export function NosotrosFooter() {
               ))}
             </ul>
             <div className="mt-6 space-y-2">
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><Mail size={13} style={{ color: GOLD }} /> contacto@gloint.com</div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><Phone size={13} style={{ color: GOLD }} /> +57 320 957 3995</div>
-              <div className="flex items-center gap-2 text-slate-500 text-xs"><MapPin size={13} style={{ color: GOLD }} /> Colombia</div>
+              <div className="flex items-center gap-2 text-slate-500 text-xs"><Mail size={13} style={{ color: GOLD }} /> <a href={`mailto:${CONTACT_INFO.email}`} className="hover:underline">{CONTACT_INFO.email}</a></div>
+              <div className="flex items-center gap-2 text-slate-500 text-xs"><Phone size={13} style={{ color: GOLD }} /> <a href={CONTACT_INFO.whatsappLink} target="_blank" rel="noopener noreferrer" className="hover:underline">{CONTACT_INFO.phone}</a></div>
+              <div className="flex items-center gap-2 text-slate-500 text-xs"><MapPin size={13} style={{ color: GOLD }} /> {CONTACT_INFO.fullAddress}</div>
+
             </div>
           </div>
         </div>

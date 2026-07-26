@@ -31,8 +31,9 @@ async def main():
         {
             "id": 3,
             "name": 'Directivo de Inversiones',
-            "email": 'directivo@gloint.com',
+            "email": 'directivo@gloint.com.co',
             "password_hash": default_password_hash,
+
             "must_change_password": True,
             "is_active": True,
             "permissions_override": None,

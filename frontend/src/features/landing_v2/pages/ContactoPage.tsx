@@ -12,6 +12,8 @@ import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 import { SharedFooter } from "../components/SharedFooter";
 
+import { CONTACT_INFO } from "../../../constants/contactInfo";
+
 export function ContactoPage() {
   const [form, setForm] = useState({ nombre: "", email: "", telefono: "", asunto: "", mensaje: "" });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -26,11 +28,12 @@ export function ContactoPage() {
     setSent(true);
   };
 
-  const whatsappLink = "https://wa.me/573209573995";
-  const whatsappDisplay = "+57 320 957 3995";
-  const emailDisplay = "atencionalcliente@gloint.com.co";
-  const addressDisplay = "Calle 31 # 14 - 31 oficina 201";
-  const hoursDisplay = "Lunes a viernes de 8:00 am - 5:30 pm";
+  const whatsappLink = CONTACT_INFO.whatsappLink;
+  const whatsappDisplay = CONTACT_INFO.phone;
+  const emailDisplay = CONTACT_INFO.email;
+  const addressDisplay = CONTACT_INFO.fullAddress;
+  const hoursDisplay = CONTACT_INFO.hours;
+
 
   return (
     <>
