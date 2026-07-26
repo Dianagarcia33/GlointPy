@@ -154,9 +154,10 @@ export const LoginPage = () => {
                     </Link>
                 </p>
                 <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
-                    <LockKeyhole className="w-3 h-3" />
-                    Encriptación AES-256 de grado bancario
+                    <LockKeyhole className="w-3 h-3 text-slate-400" />
+                    Conexión segura y cifrado de datos SSL
                 </div>
+
             </div>
         </AuthLayout>
     );
