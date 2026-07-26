@@ -106,6 +106,9 @@ export const LoginPage = () => {
                             id="password"
                             name="password"
                             autoComplete="current-password"
+                            spellCheck={false}
+                            autoCapitalize="off"
+                            autoCorrect="off"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="block w-full pl-12 pr-12 py-3.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
@@ -116,9 +119,11 @@ export const LoginPage = () => {
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
                             className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                         >
                             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                         </button>
+
                     </div>
                 </div>
 
