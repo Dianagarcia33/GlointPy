@@ -433,10 +433,27 @@ export const InvestorRegistrationFlow = () => {
                     </>
                 )}
             </div>
-            <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                if (e.target.files && e.target.files[0]) onChange(e.target.files[0]);
-            }} />
+            <input 
+                type="file" 
+                className="hidden" 
+                accept="image/jpeg,image/png,image/webp,application/pdf" 
+                onChange={(e) => {
+                    const selected = e.target.files?.[0];
+                    if (!selected) return;
+                    if (selected.size > 10 * 1024 * 1024) {
+                        alert("El archivo excede el tamaño máximo permitido de 10MB.");
+                        return;
+                    }
+                    const ext = selected.name.split('.').pop()?.toLowerCase();
+                    if (!['jpg', 'jpeg', 'png', 'webp', 'pdf'].includes(ext || '')) {
+                        alert("Formato de archivo no permitido. Solo se aceptan imágenes JPG, PNG, WEBP o PDF.");
+                        return;
+                    }
+                    onChange(selected);
+                }} 
+            />
         </label>
+
     );
 
     const stepsInfo = [
