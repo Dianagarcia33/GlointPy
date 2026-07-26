@@ -105,7 +105,9 @@ export const WelcomeOnboardingPage = () => {
                         <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <ShieldCheck className="w-6 h-6 text-brand-500" />
-                                <h3 className="font-bold text-slate-900">Validación de Identidad</h3>
+                                <h3 className="font-bold text-slate-900">
+                                    {selectedRole === 'investor' ? 'Validación de Identidad (SARLAFT)' : 'Tratamiento de Datos Personales'}
+                                </h3>
                             </div>
                             <button 
                                 onClick={() => setShowSarlaftModal(false)}
@@ -120,7 +122,10 @@ export const WelcomeOnboardingPage = () => {
                             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 mb-6">
                                 <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                                 <p className="text-sm text-amber-800 leading-relaxed">
-                                    Por cumplimiento normativo (SARLAFT/SAGRILAFT), la ley colombiana exige verificar la identidad de todos los usuarios financieros.
+                                    {selectedRole === 'investor'
+                                        ? 'Por cumplimiento normativo (SARLAFT/SAGRILAFT), la ley colombiana exige verificar la identidad de todos los usuarios inversionistas.'
+                                        : 'En cumplimiento de la Ley 1581 de 2012 (Hábeas Data), requerimos tu autorización para la gestión segura de tus datos personales.'
+                                    }
                                 </p>
                             </div>
 
@@ -129,18 +134,37 @@ export const WelcomeOnboardingPage = () => {
                             </p>
 
                             <ul className="space-y-3 mb-8">
-                                <li className="flex items-start gap-2 text-sm text-slate-600">
-                                    <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
-                                    <span>Realizar consultas en listas restrictivas nacionales e internacionales.</span>
-                                </li>
-                                <li className="flex items-start gap-2 text-sm text-slate-600">
-                                    <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
-                                    <span>Verificar información en centrales de riesgo financiero.</span>
-                                </li>
-                                <li className="flex items-start gap-2 text-sm text-slate-600">
-                                    <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
-                                    <span>Consultar bases de datos públicas sobre antecedentes.</span>
-                                </li>
+                                {selectedRole === 'investor' ? (
+                                    <>
+                                        <li className="flex items-start gap-2 text-sm text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
+                                            <span>Realizar consultas en listas restrictivas nacionales e internacionales.</span>
+                                        </li>
+                                        <li className="flex items-start gap-2 text-sm text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
+                                            <span>Verificar información en centrales de riesgo financiero.</span>
+                                        </li>
+                                        <li className="flex items-start gap-2 text-sm text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
+                                            <span>Consultar bases de datos públicas sobre antecedentes.</span>
+                                        </li>
+                                    </>
+                                ) : (
+                                    <>
+                                        <li className="flex items-start gap-2 text-sm text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
+                                            <span>Tratamiento y almacenamiento seguro de tus datos de contacto.</span>
+                                        </li>
+                                        <li className="flex items-start gap-2 text-sm text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
+                                            <span>Asignación de un Asesor Comercial para atención corporativa personalizada.</span>
+                                        </li>
+                                        <li className="flex items-start gap-2 text-sm text-slate-600">
+                                            <CheckCircle2 className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
+                                            <span>Garantizar la confidencialidad de la información según nuestras Políticas de Privacidad.</span>
+                                        </li>
+                                    </>
+                                )}
                             </ul>
 
                             <button 
@@ -150,6 +174,7 @@ export const WelcomeOnboardingPage = () => {
                                 Entendido y Aceptar <ArrowRight className="w-4 h-4" />
                             </button>
                         </div>
+
                     </div>
                 </div>
             )}
