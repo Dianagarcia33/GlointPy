@@ -70,21 +70,29 @@ export const ChatPage: React.FC = () => {
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || null;
 
   return (
-    <div className="h-[calc(100vh-6rem)] flex rounded-2xl border border-slate-200/80 overflow-hidden bg-white shadow-sm">
-      <ConversationList
-        rooms={rooms}
-        selectedRoomId={selectedRoomId}
-        onSelectRoom={(id) => setSelectedRoomId(id)}
-        onStartNewChat={() => setIsModalOpen(true)}
-        currentUserId={user?.id}
-      />
+    <div className="h-[calc(100vh-10.5rem)] min-h-[480px] flex rounded-2xl border border-slate-200/80 overflow-hidden bg-white shadow-sm">
+      {/* Panel de Lista de Conversaciones */}
+      <div className={`w-full md:w-80 flex-shrink-0 ${selectedRoomId ? 'hidden md:flex' : 'flex'} h-full`}>
+        <ConversationList
+          rooms={rooms}
+          selectedRoomId={selectedRoomId}
+          onSelectRoom={(id) => setSelectedRoomId(id)}
+          onStartNewChat={() => setIsModalOpen(true)}
+          currentUserId={user?.id}
+        />
+      </div>
 
-      <ChatWindow
-        room={selectedRoom}
-        currentUserId={user?.id || 0}
-        canSend={canSendChat}
-      />
+      {/* Ventana Principal de Chat */}
+      <div className={`flex-1 ${selectedRoomId ? 'flex' : 'hidden md:flex'} flex-col h-full overflow-hidden`}>
+        <ChatWindow
+          room={selectedRoom}
+          currentUserId={user?.id || 0}
+          canSend={canSendChat}
+          onBack={() => setSelectedRoomId(null)}
+        />
+      </div>
 
+      {/* Modal para iniciar chat */}
       <NewChatModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
