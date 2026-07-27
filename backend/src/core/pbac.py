@@ -38,8 +38,13 @@ class PBACEngine:
     @staticmethod
     def has_permission(user: User, required_permission: str) -> bool:
         """Verifica si el usuario tiene un permiso específico."""
-        # Un SuperAdmin podría tener bypass automático aquí si lo definimos
-        # if any(role.name == "SuperAdmin" for role in user.roles): return True
+        # 1. Bypass para SuperAdministradores y Administradores del sistema
+        if hasattr(user, 'roles') and user.roles:
+            for role in user.roles:
+                role_name = getattr(role, 'name', '').lower()
+                if 'super' in role_name or 'admin' in role_name:
+                    return True
         
+        # 2. Verificar lista de permisos calculada del usuario
         user_perms = PBACEngine.get_user_permissions(user)
         return required_permission in user_perms
