@@ -1,11 +1,22 @@
+import sys
+import os
 import asyncio
 from decimal import Decimal
 from datetime import datetime, timedelta
-from sqlalchemy.future import select
+from sqlalchemy.future import select, and_
 
-from src.core.database import async_session_maker
-from src.models.crm import CRMProject, CRMLead, CRMActivity, CRMProjectStatus, CRMLeadStage, CRMActivityType
-from src.models.user import User
+# Asegurar que el PATH incluya la raíz para importaciones de 'src'
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+try:
+    from src.core.database import async_session_maker
+    from src.models.crm import CRMProject, CRMLead, CRMActivity, CRMProjectStatus, CRMLeadStage, CRMActivityType
+    from src.models.user import User
+except ModuleNotFoundError:
+    from core.database import async_session_maker
+    from models.crm import CRMProject, CRMLead, CRMActivity, CRMProjectStatus, CRMLeadStage, CRMActivityType
+    from models.user import User
 
 async def seed_crm():
     print("🌱 Sembrando datos de prueba para el módulo CRM...")
@@ -207,5 +218,4 @@ async def seed_crm():
         print("✨ ¡Seeder de CRM ejecutado con éxito!")
 
 if __name__ == "__main__":
-    from sqlalchemy import and_
     asyncio.run(seed_crm())
