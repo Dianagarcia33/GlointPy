@@ -3,11 +3,24 @@ import os
 import sys
 from dotenv import load_dotenv
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Asegurar importación correcta
+file_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(file_dir, ".."))
+
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+if file_dir not in sys.path:
+    sys.path.insert(0, file_dir)
+
 load_dotenv(".env")
 
-from src.core.database import async_session_maker
-from src.models.security import Permission, Role, role_permissions
+try:
+    from src.core.database import async_session_maker
+    from src.models.security import Permission, Role, role_permissions
+except ModuleNotFoundError:
+    from core.database import async_session_maker
+    from models.security import Permission, Role, role_permissions
+
 from sqlalchemy.future import select
 from sqlalchemy import insert
 
@@ -15,7 +28,6 @@ PERMISSIONS = [
     # Módulo Comercial
     {"name": "commercial:view", "description": "Acceder y ver el panel comercial", "module": "commercial"},
     {"name": "admin.commercial.manage", "description": "Gestionar, auditar y adjudicar ventas comerciales del equipo", "module": "commercial"},
-    {"name": "admin.commissions.settle", "description": "Liquidar comisiones y registrar comprobantes bancarios de dispersión", "module": "commercial"},
 
     # Módulo Administración
     {"name": "admin.roles.manage", "description": "Gestionar roles y permisos del sistema", "module": "admin"},
@@ -27,7 +39,6 @@ PERMISSIONS = [
     {"name": "admin.payments.manage", "description": "Gestionar sección de pagos", "module": "payments"},
     {"name": "admin.withdrawals.manage", "description": "Gestionar y aprobar retiros", "module": "payments"},
     {"name": "admin.audits.manage", "description": "Auditoría y cálculo de rendimientos", "module": "audit"},
-    {"name": "director.dashboard.view", "description": "Visualización del Dashboard Directivo de Inversiones", "module": "dashboard"},
 
     # Dashboard Inversionista
     {"name": "dashboard:view_kpis", "description": "Ver KPIs en Dashboard", "module": "dashboard"},
@@ -80,14 +91,18 @@ async def seed_permissions():
 
         await db.commit()
 
-        # Asignar automáticamente los permisos a roles existentes
+        # Asignar automáticamente los permisos a todos los roles
         roles_res = await db.execute(select(Role))
         roles = roles_res.scalars().all()
 
         for role in roles:
             role_name_lower = role.name.lower()
-            if "super" in role_name_lower or "admin" in role_name_lower:
-                for p_name, perm in all_perms_map.items():
+            is_admin_role = "super" in role_name_lower or "admin" in role_name_lower
+
+            for p_name, perm in all_perms_map.items():
+                is_crm_perm = p_name in ["crm:view", "crm:leads:manage", "crm:projects:manage", "commercial:view", "chat:view", "chat:send"]
+                
+                if is_admin_role or is_crm_perm:
                     check = await db.execute(select(role_permissions).where(
                         (role_permissions.c.role_id == role.id) & 
                         (role_permissions.c.permission_id == perm.id)
@@ -97,7 +112,7 @@ async def seed_permissions():
                             role_id=role.id,
                             permission_id=perm.id
                         ))
-                print(f"🔑 Todos los permisos asignados a: {role.name}")
+            print(f"🔑 Permisos asignados a: {role.name}")
 
         await db.commit()
         print("✅ Permisos sincronizados y asignados correctamente.")

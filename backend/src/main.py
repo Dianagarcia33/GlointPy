@@ -73,6 +73,7 @@ os.makedirs("uploads", exist_ok=True)
 # Rutas de la API
 # Montar la carpeta uploads para servir archivos estáticos (imágenes y comprobantes)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="api_v1_uploads")
 
 # Aquí se agregarán los nuevos endpoints migradas gradualmente
 from src.api.v1.api import api_router

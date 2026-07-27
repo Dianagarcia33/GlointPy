@@ -128,7 +128,7 @@ async def upload_chat_file(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    file_url = f"/uploads/chat/{unique_filename}"
+    file_url = f"/api/v1/uploads/chat/{unique_filename}"
     file_name = file.filename or "archivo_adjunto"
     file_type = file.content_type or "application/octet-stream"
 

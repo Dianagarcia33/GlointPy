@@ -7,8 +7,13 @@ export function getMediaUrl(path: string | null | undefined): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
-  const baseUrl = API_URL.replace(/\/api\/v1\/?$/, '');
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const baseUrl = API_URL.replace(/\/api\/v1\/?$/, '');
+
+  if (cleanPath.startsWith('/uploads/')) {
+    return `${baseUrl}/api/v1${cleanPath}`;
+  }
+
   return `${baseUrl}${cleanPath}`;
 }
 
