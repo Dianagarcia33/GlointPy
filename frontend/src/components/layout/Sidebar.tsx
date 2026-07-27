@@ -17,7 +17,8 @@ import {
     HeartHandshake, 
     UserPlus, 
     MessageSquare,
-    FolderKanban
+    FolderKanban,
+    Mail
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
