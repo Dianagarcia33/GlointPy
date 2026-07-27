@@ -16,7 +16,8 @@ import {
     Trophy, 
     HeartHandshake, 
     UserPlus, 
-    MessageSquare 
+    MessageSquare,
+    FolderKanban
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
@@ -116,6 +117,15 @@ export const Sidebar = () => {
                         </span>
                         <span className="flex-1 text-[13px]">Panel Comercial</span>
                     </NavLink>
+
+                    <Can permission="crm:view">
+                        <NavLink to="/dashboard/crm" className={navLinkClass}>
+                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                <FolderKanban className="w-[18px] h-[18px]" />
+                            </span>
+                            <span className="flex-1 text-[13px]">CRM / Proyectos</span>
+                        </NavLink>
+                    </Can>
                 </Can>
 
                 {/* 🛡️ SECCIÓN ADMINISTRACIÓN */}

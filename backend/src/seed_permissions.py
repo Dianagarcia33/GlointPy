@@ -51,6 +51,12 @@ PERMISSIONS = [
     {"name": "chat:view", "description": "Acceder y ver el módulo de chat en tiempo real", "module": "chat"},
     {"name": "chat:send", "description": "Enviar mensajes en las conversaciones del chat", "module": "chat"},
     {"name": "admin.chat.manage", "description": "Administrar y moderar todas las salas de chat", "module": "chat"},
+
+    # Módulo CRM por Proyectos
+    {"name": "crm:view", "description": "Acceder y ver el módulo CRM de proyectos y prospectos", "module": "crm"},
+    {"name": "crm:leads:manage", "description": "Crear, editar y mover prospectos y actividades en el CRM", "module": "crm"},
+    {"name": "crm:projects:manage", "description": "Crear y administrar proyectos de inversión en el CRM", "module": "crm"},
+    {"name": "admin.crm.manage", "description": "Administración global de prospectos, proyectos y métricas del CRM", "module": "crm"},
 ]
 
 async def seed_permissions():
