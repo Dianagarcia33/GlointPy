@@ -44,6 +44,11 @@ PERMISSIONS = [
     # Fechas y Sarlaft
     {"name": "manage_system_events", "description": "Gestionar eventos del sistema", "module": "system_events"},
     {"name": "sarlaft:check", "description": "Realizar consultas Sarlaft", "module": "sarlaft"},
+
+    # Módulo Chat
+    {"name": "chat:view", "description": "Acceder y ver el módulo de chat en tiempo real", "module": "chat"},
+    {"name": "chat:send", "description": "Enviar mensajes en las conversaciones del chat", "module": "chat"},
+    {"name": "admin.chat.manage", "description": "Administrar y moderar todas las salas de chat", "module": "chat"},
 ]
 
 async def seed_permissions():
