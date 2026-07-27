@@ -1,5 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, BigInteger
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.core.database import Base
@@ -7,7 +6,7 @@ from src.core.database import Base
 class ChatRoom(Base):
     __tablename__ = "chat_rooms"
 
-    id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
     name = Column(String(255), nullable=True)
     type = Column(String(50), nullable=False, default="direct")  # 'direct', 'support', 'group'
     is_active = Column(Boolean, nullable=False, default=True)
@@ -21,9 +20,9 @@ class ChatRoom(Base):
 class ChatParticipant(Base):
     __tablename__ = "chat_participants"
 
-    id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, index=True)
-    room_id = Column(BIGINT(unsigned=True), ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(BIGINT(unsigned=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    room_id = Column(BigInteger, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
 
     room = relationship("ChatRoom", back_populates="participants")
@@ -33,13 +32,12 @@ class ChatParticipant(Base):
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
-    id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, index=True)
-    room_id = Column(BIGINT(unsigned=True), ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
-    sender_id = Column(BIGINT(unsigned=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    room_id = Column(BigInteger, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     room = relationship("ChatRoom", back_populates="messages")
     sender = relationship("User")
-

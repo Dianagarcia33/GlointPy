@@ -17,7 +17,7 @@ depends_on = None
 def upgrade() -> None:
     op.execute("""
     CREATE TABLE IF NOT EXISTS `chat_rooms` (
-      `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+      `id` bigint NOT NULL AUTO_INCREMENT,
       `name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
       `type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'direct',
       `is_active` tinyint(1) NOT NULL DEFAULT '1',
@@ -29,9 +29,9 @@ def upgrade() -> None:
 
     op.execute("""
     CREATE TABLE IF NOT EXISTS `chat_participants` (
-      `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-      `room_id` bigint unsigned NOT NULL,
-      `user_id` bigint unsigned NOT NULL,
+      `id` bigint NOT NULL AUTO_INCREMENT,
+      `room_id` bigint NOT NULL,
+      `user_id` bigint NOT NULL,
       `joined_at` datetime DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (`id`),
       KEY `ix_chat_participants_room_id` (`room_id`),
@@ -43,9 +43,9 @@ def upgrade() -> None:
 
     op.execute("""
     CREATE TABLE IF NOT EXISTS `chat_messages` (
-      `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-      `room_id` bigint unsigned NOT NULL,
-      `sender_id` bigint unsigned NOT NULL,
+      `id` bigint NOT NULL AUTO_INCREMENT,
+      `room_id` bigint NOT NULL,
+      `sender_id` bigint NOT NULL,
       `content` text COLLATE utf8mb4_unicode_ci NOT NULL,
       `is_read` tinyint(1) NOT NULL DEFAULT '0',
       `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
