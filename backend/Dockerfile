@@ -16,6 +16,8 @@ COPY src/ ./src/
 COPY alembic/ ./alembic/
 COPY scripts/ ./scripts/
 COPY alembic.ini .
+COPY seed_permissions.py .
+COPY seed_crm.py .
 
 # Exponer el puerto
 EXPOSE 8000
