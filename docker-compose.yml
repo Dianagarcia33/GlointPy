@@ -24,10 +24,14 @@ services:
       - ./backend/.env
     environment:
       - DATABASE_URL=sqlite:///./gloint.db
-      # Aquí inyectaremos después credenciales de MySQL
+    volumes:
+      - uploads_data:/app/uploads
     restart: unless-stopped
     networks:
       - gloint_network
+
+volumes:
+  uploads_data:
 
 networks:
   gloint_network:
