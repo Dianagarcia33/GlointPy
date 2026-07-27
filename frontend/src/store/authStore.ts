@@ -8,6 +8,7 @@ export interface User {
   is_active: boolean;
   is_superuser?: boolean;
   roles_list?: string[];
+  roles?: any[];
   permissions?: string[];
 }
 
