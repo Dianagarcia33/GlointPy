@@ -53,7 +53,7 @@ export const ChatPage: React.FC = () => {
   // Si el usuario no posee el permiso PBAC `chat:view`
   if (!canViewChat) {
     return (
-      <div className="h-[calc(100vh-6rem)] flex items-center justify-center p-6">
+      <div className="h-[calc(100vh-14.5rem)] flex items-center justify-center p-6">
         <div className="bg-white border border-slate-200 p-8 rounded-2xl max-w-md text-center shadow-lg">
           <div className="w-14 h-14 bg-rose-50 border border-rose-200 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <ShieldAlert className="w-7 h-7" />
@@ -70,7 +70,7 @@ export const ChatPage: React.FC = () => {
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || null;
 
   return (
-    <div className="h-[calc(100vh-10.5rem)] min-h-[480px] flex rounded-2xl border border-slate-200/80 overflow-hidden bg-white shadow-sm">
+    <div className="h-[calc(100vh-14.5rem)] min-h-[420px] flex rounded-2xl border border-slate-200/80 overflow-hidden bg-white shadow-sm">
       {/* Panel de Lista de Conversaciones */}
       <div className={`w-full md:w-80 flex-shrink-0 ${selectedRoomId ? 'hidden md:flex' : 'flex'} h-full`}>
         <ConversationList
