@@ -1,13 +1,19 @@
-import sys
 import os
+import sys
 import asyncio
 from decimal import Decimal
 from datetime import datetime, timedelta
-from sqlalchemy.future import select, and_
 
-# Asegurar que el PATH incluya la raíz para importaciones de 'src'
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+# Asegurar que el PATH incluya la raíz del backend (/app) primero
+file_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(file_dir, ".."))
+
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+if file_dir not in sys.path:
+    sys.path.insert(0, file_dir)
+
+from sqlalchemy.future import select, and_
 
 try:
     from src.core.database import async_session_maker
