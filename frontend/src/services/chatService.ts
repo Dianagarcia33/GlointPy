@@ -60,6 +60,12 @@ export const chatService = {
     });
   },
 
+  markAsRead: async (roomId: number): Promise<{ message: string }> => {
+    return fetchApi(`/chat/rooms/${roomId}/read`, {
+      method: 'POST'
+    });
+  },
+
   getWebSocketUrl: (roomId: number): string => {
     const token = useAuthStore.getState().accessToken;
     let wsBaseUrl = API_URL.replace(/^http/, 'ws');

@@ -97,8 +97,19 @@ async def get_room_messages(
             detail="No eres participante de esta sala de chat"
         )
 
-    messages = await ChatService.get_room_messages(db, room_id)
+    messages = await ChatService.get_room_messages(db, room_id, user_id=current_user.id)
     return messages
+
+
+@router.post("/rooms/{room_id}/read", dependencies=[Depends(RequirePermission("chat:view"))])
+async def mark_room_as_read(
+    room_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Marca todos los mensajes de una sala como leídos."""
+    await ChatService.mark_room_as_read(db, room_id, current_user.id)
+    return {"message": "Mensajes marcados como leídos"}
 
 @router.post("/upload", dependencies=[Depends(RequirePermission("chat:send"))])
 async def upload_chat_file(

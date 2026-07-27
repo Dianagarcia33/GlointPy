@@ -36,6 +36,14 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  const handleSelectRoom = (roomId: number) => {
+    setSelectedRoomId(roomId);
+    setRooms((prev) =>
+      prev.map((r) => (r.id === roomId ? { ...r, unread_count: 0 } : r))
+    );
+    chatService.markAsRead(roomId).catch(() => {});
+  };
+
   useEffect(() => {
     fetchRooms();
   }, [canViewChat]);
@@ -76,7 +84,7 @@ export const ChatPage: React.FC = () => {
         <ConversationList
           rooms={rooms}
           selectedRoomId={selectedRoomId}
-          onSelectRoom={(id) => setSelectedRoomId(id)}
+          onSelectRoom={(id) => handleSelectRoom(id)}
           onStartNewChat={() => setIsModalOpen(true)}
           currentUserId={user?.id}
         />

@@ -38,9 +38,26 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
   const { messages, isConnected, error, sendMessage } = useChatWebSocket(room ? room.id : null);
 
+  const initialLoadRef = useRef<boolean>(true);
+  const currentRoomIdRef = useRef<number | null>(null);
+
+  // Resetear flag de carga inicial cuando cambia la sala
+  useEffect(() => {
+    if (room?.id !== currentRoomIdRef.current) {
+      currentRoomIdRef.current = room ? room.id : null;
+      initialLoadRef.current = true;
+    }
+  }, [room?.id]);
+
   // Auto-scroll al final del chat
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!messagesEndRef.current) return;
+    if (initialLoadRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+      initialLoadRef.current = false;
+    } else {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   // Manejar selección de archivo

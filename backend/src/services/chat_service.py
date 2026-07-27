@@ -163,8 +163,17 @@ class ChatService:
         return rooms_data
 
     @staticmethod
-    async def get_room_messages(db: AsyncSession, room_id: int, limit: int = 50) -> List[dict]:
-        """Obtiene el historial de mensajes de una sala de chat."""
+    async def get_room_messages(db: AsyncSession, room_id: int, user_id: Optional[int] = None, limit: int = 50) -> List[dict]:
+        """Obtiene el historial de mensajes de una sala de chat y marca como leídos los mensajes recibidos."""
+        if user_id:
+            from sqlalchemy import update
+            await db.execute(
+                update(ChatMessage)
+                .where(and_(ChatMessage.room_id == room_id, ChatMessage.sender_id != user_id, ChatMessage.is_read == False))
+                .values(is_read=True)
+            )
+            await db.commit()
+
         stmt = (
             select(ChatMessage)
             .options(selectinload(ChatMessage.sender))
@@ -190,6 +199,18 @@ class ChatService:
             }
             for m in messages
         ]
+
+    @staticmethod
+    async def mark_room_as_read(db: AsyncSession, room_id: int, user_id: int) -> bool:
+        """Marcar todos los mensajes recibidos de una sala como leídos por el usuario."""
+        from sqlalchemy import update
+        await db.execute(
+            update(ChatMessage)
+            .where(and_(ChatMessage.room_id == room_id, ChatMessage.sender_id != user_id, ChatMessage.is_read == False))
+            .values(is_read=True)
+        )
+        await db.commit()
+        return True
 
     @staticmethod
     async def save_message(
