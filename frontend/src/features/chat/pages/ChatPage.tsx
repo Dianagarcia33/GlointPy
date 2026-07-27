@@ -53,14 +53,14 @@ export const ChatPage: React.FC = () => {
   // Si el usuario no posee el permiso PBAC `chat:view`
   if (!canViewChat) {
     return (
-      <div className="h-[calc(100vh-5rem)] flex items-center justify-center p-6">
-        <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-md text-center shadow-xl">
-          <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="h-[calc(100vh-6rem)] flex items-center justify-center p-6">
+        <div className="bg-white border border-slate-200 p-8 rounded-2xl max-w-md text-center shadow-lg">
+          <div className="w-14 h-14 bg-rose-50 border border-rose-200 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <ShieldAlert className="w-7 h-7" />
           </div>
-          <h2 className="text-white font-bold text-xl mb-2">Acceso Restringido</h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            No posees el permiso requerido (<code className="text-indigo-400">chat:view</code>) para utilizar el módulo de Chat en tiempo real. Por favor, solicita acceso al administrador de la plataforma.
+          <h2 className="text-slate-900 font-bold font-outfit text-xl mb-2">Acceso Restringido</h2>
+          <p className="text-slate-600 text-sm leading-relaxed">
+            No posees el permiso requerido (<code className="text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded font-mono text-xs">chat:view</code>) para utilizar el módulo de Chat en tiempo real. Por favor, solicita acceso al administrador de la plataforma.
           </p>
         </div>
       </div>
@@ -70,7 +70,7 @@ export const ChatPage: React.FC = () => {
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || null;
 
   return (
-    <div className="h-[calc(100vh-5rem)] flex rounded-2xl border border-slate-800 overflow-hidden bg-slate-950/60 shadow-2xl">
+    <div className="h-[calc(100vh-6rem)] flex rounded-2xl border border-slate-200/80 overflow-hidden bg-white shadow-sm">
       <ConversationList
         rooms={rooms}
         selectedRoomId={selectedRoomId}
