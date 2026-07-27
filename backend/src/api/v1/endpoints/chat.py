@@ -2,11 +2,13 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from jose import jwt, JWTError
 
 from src.core.database import get_db, async_session_maker
 from src.core.config import settings
 from src.models.user import User
+from src.models.security import Role
 from src.core.pbac import PBACEngine
 from src.api.dependencies.auth_deps import get_current_user, RequirePermission
 from src.services.chat_service import ChatService, manager
@@ -92,20 +94,26 @@ async def websocket_chat_endpoint(
     token: str = Query(...)
 ):
     """Endpoint en tiempo real para transmisión de mensajes mediante WebSockets con guardas PBAC."""
+    await websocket.accept()
+
     # 1. Autenticar JWT desde query token
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if not user_id:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido")
             return
     except JWTError:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido")
         return
 
-    # 2. Cargar usuario y verificar permiso PBAC `chat:view`
+    # 2. Cargar usuario con sus roles y permisos precargados (evita lazy-loading asíncrono)
     async with async_session_maker() as db:
-        user_res = await db.execute(select(User).where(User.id == int(user_id)))
+        user_res = await db.execute(
+            select(User)
+            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .where(User.id == int(user_id))
+        )
         user = user_res.scalars().first()
 
         if not user or not user.is_active or not PBACEngine.has_permission(user, "chat:view"):
@@ -118,24 +126,27 @@ async def websocket_chat_endpoint(
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="No eres participante de esta sala")
             return
 
-    # 3. Conectar cliente al manager
-    await manager.connect(websocket, room_id, user.id)
+    # 3. Registrar cliente en el manager
+    if room_id not in manager.room_connections:
+        manager.room_connections[room_id] = set()
+    manager.room_connections[room_id].add(websocket)
+
+    if user.id not in manager.user_connections:
+        manager.user_connections[user.id] = set()
+    manager.user_connections[user.id].add(websocket)
 
     try:
         while True:
-            # Recibir mensaje de texto enviado por el frontend
             data_text = await websocket.receive_text()
             if not data_text.strip():
                 continue
 
-            # Verificar permiso chat:send antes de procesar el envío
             if not PBACEngine.has_permission(user, "chat:send"):
                 await websocket.send_json({
                     "error": "No tienes permiso para enviar mensajes (chat:send)"
                 })
                 continue
 
-            # Guardar en MySQL y retransmitir en tiempo real
             async with async_session_maker() as db:
                 saved_msg = await ChatService.save_message(db, room_id, user.id, data_text)
                 await manager.broadcast_to_room(room_id, saved_msg)
