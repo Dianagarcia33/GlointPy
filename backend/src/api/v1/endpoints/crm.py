@@ -8,7 +8,8 @@ from src.models.user import User
 from src.core.pbac import PBACEngine
 from src.api.dependencies.auth_deps import get_current_user, RequirePermission
 from src.services.crm_service import CRMService
-from src.services.commercial_sales_service import CommercialSalesService
+from src.schemas.commercial_sale import CommercialSaleCreate
+from src.services.commercial_sale_service import register_commercial_sale
 
 router = APIRouter(prefix="/crm", tags=["CRM"])
 
@@ -179,20 +180,16 @@ async def convert_lead_to_sale(
 
     # 2. Registrar venta comercial
     commercial_id = lead.commercial_id or current_user.id
-    sale_data = {
-        "commercial_id": commercial_id,
-        "client_document": lead.document_id,
-        "client_name": lead.name,
-        "sale_type": data.sale_type,
-        "referrer_client_id": data.referrer_client_id,
-        "referrer_code": data.referrer_code,
-        "amount": float(lead.estimated_amount),
-        "commission_rate": data.commission_rate,
-        "sale_date": None  # toma la fecha de hoy por defecto
-    }
+    sale_schema = CommercialSaleCreate(
+        client_document=lead.document_id,
+        client_name=lead.name,
+        sale_type=data.sale_type,
+        amount=lead.estimated_amount,
+        referrer_code=data.referrer_code
+    )
 
     try:
-        sale = await CommercialSalesService.register_sale(db, sale_data)
+        sale = await register_commercial_sale(db, sale_schema, commercial_id)
         return {
             "message": "¡Prospecto convertido exitosamente a Cierre Ganado y Venta Comercial registrada!",
             "sale_id": sale.id,
