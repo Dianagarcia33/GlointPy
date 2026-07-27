@@ -126,7 +126,7 @@ export const crmService = {
 
   addLeadActivity: async (leadId: number, data: {
     type: string;
-    title: str;
+    title: string;
     description?: string;
     due_date?: string;
   }): Promise<{ id: number }> => {
