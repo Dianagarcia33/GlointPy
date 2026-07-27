@@ -45,6 +45,21 @@ async def on_startup():
             except Exception:
                 pass
 
+            try:
+                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_url VARCHAR(500) NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_name VARCHAR(255) NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_type VARCHAR(50) NULL"))
+            except Exception:
+                pass
+
         async with async_session_maker() as db:
             await seed_permissions_db(db)
     except Exception as e:

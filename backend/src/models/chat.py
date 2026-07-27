@@ -37,6 +37,9 @@ class ChatMessage(Base):
     sender_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, nullable=False, default=False)
+    file_url = Column(String(500), nullable=True)
+    file_name = Column(String(255), nullable=True)
+    file_type = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     room = relationship("ChatRoom", back_populates="messages")

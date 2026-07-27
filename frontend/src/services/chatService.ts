@@ -8,13 +8,15 @@ export interface ChatUser {
   is_online?: boolean;
 }
 
-
 export interface ChatMessage {
   id: number;
   room_id: number;
   sender_id: number;
   sender_name: string;
   content: string;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
   is_read: boolean;
   created_at: string;
 }
@@ -45,6 +47,17 @@ export const chatService = {
 
   getRoomMessages: async (roomId: number): Promise<ChatMessage[]> => {
     return fetchApi(`/chat/rooms/${roomId}/messages`);
+  },
+
+  uploadFile: async (roomId: number, file: File, content?: string): Promise<ChatMessage> => {
+    const formData = new FormData();
+    formData.append('room_id', roomId.toString());
+    formData.append('file', file);
+    if (content) formData.append('content', content);
+    return fetchApi('/chat/upload', {
+      method: 'POST',
+      body: formData
+    });
   },
 
   getWebSocketUrl: (roomId: number): string => {

@@ -1,5 +1,8 @@
+import os
+import uuid
+import shutil
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -96,6 +99,55 @@ async def get_room_messages(
 
     messages = await ChatService.get_room_messages(db, room_id)
     return messages
+
+@router.post("/upload", dependencies=[Depends(RequirePermission("chat:send"))])
+async def upload_chat_file(
+    room_id: int = Form(...),
+    content: Optional[str] = Form(""),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Sube un archivo/imagen adjunta en el chat, lo guarda y transmite el mensaje en tiempo real."""
+    is_part = await ChatService.is_participant(db, room_id, current_user.id)
+    if not is_part and not PBACEngine.has_permission(current_user, "admin.chat.manage"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No eres participante de esta sala de chat"
+        )
+
+    # Crear carpeta de destino
+    upload_dir = os.path.join("uploads", "chat")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Generar nombre único de archivo
+    file_ext = os.path.splitext(file.filename)[1] if file.filename else ""
+    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    file_url = f"/uploads/chat/{unique_filename}"
+    file_name = file.filename or "archivo_adjunto"
+    file_type = file.content_type or "application/octet-stream"
+
+    msg_content = content.strip() if content and content.strip() else f"📎 Adjunto: {file_name}"
+
+    saved_msg = await ChatService.save_message(
+        db=db,
+        room_id=room_id,
+        sender_id=current_user.id,
+        content=msg_content,
+        file_url=file_url,
+        file_name=file_name,
+        file_type=file_type
+    )
+
+    # Broadcast en tiempo real a todos los clientes en la sala
+    await manager.broadcast_to_room(room_id, saved_msg)
+
+    return saved_msg
 
 
 @router.websocket("/ws/{room_id}")

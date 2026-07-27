@@ -152,6 +152,9 @@ class ChatService:
                     "content": last_msg.content,
                     "sender_id": last_msg.sender_id,
                     "sender_name": last_msg.sender.name if last_msg.sender else "Desconocido",
+                    "file_url": getattr(last_msg, "file_url", None),
+                    "file_name": getattr(last_msg, "file_name", None),
+                    "file_type": getattr(last_msg, "file_type", None),
                     "created_at": last_msg.created_at.isoformat() if last_msg.created_at else None,
                     "is_read": last_msg.is_read
                 } if last_msg else None
@@ -179,6 +182,9 @@ class ChatService:
                 "sender_id": m.sender_id,
                 "sender_name": m.sender.name if m.sender else "Usuario",
                 "content": m.content,
+                "file_url": getattr(m, "file_url", None),
+                "file_name": getattr(m, "file_name", None),
+                "file_type": getattr(m, "file_type", None),
                 "is_read": m.is_read,
                 "created_at": m.created_at.isoformat() if m.created_at else None
             }
@@ -186,12 +192,23 @@ class ChatService:
         ]
 
     @staticmethod
-    async def save_message(db: AsyncSession, room_id: int, sender_id: int, content: str) -> dict:
+    async def save_message(
+        db: AsyncSession, 
+        room_id: int, 
+        sender_id: int, 
+        content: str,
+        file_url: Optional[str] = None,
+        file_name: Optional[str] = None,
+        file_type: Optional[str] = None
+    ) -> dict:
         """Guarda un mensaje en MySQL y lo prepara para retransmisión por WebSockets."""
         msg = ChatMessage(
             room_id=room_id,
             sender_id=sender_id,
             content=content,
+            file_url=file_url,
+            file_name=file_name,
+            file_type=file_type,
             is_read=False
         )
         db.add(msg)
@@ -212,6 +229,9 @@ class ChatService:
             "sender_id": sender_id,
             "sender_name": sender.name if sender else "Usuario",
             "content": content,
+            "file_url": file_url,
+            "file_name": file_name,
+            "file_type": file_type,
             "is_read": False,
             "created_at": created_at_val
         }
