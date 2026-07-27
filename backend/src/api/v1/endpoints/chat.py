@@ -29,9 +29,10 @@ async def get_chat_eligible_users(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Obtiene la lista de usuarios elegibles para iniciar un chat."""
+    """Obtiene la lista de usuarios elegibles para iniciar un chat (excluye el rol de Inversionista)."""
     stmt = (
         select(User)
+        .options(selectinload(User.roles))
         .where(User.id != current_user.id)
         .where(User.is_active == True)
         .order_by(User.name)
@@ -39,15 +40,25 @@ async def get_chat_eligible_users(
     res = await db.execute(stmt)
     users = res.scalars().all()
     
-    return [
-        {
-            "id": u.id,
-            "name": u.name,
-            "email": u.email,
-            "is_online": manager.is_user_online(u.id)
-        }
-        for u in users
-    ]
+    eligible_users = []
+    for u in users:
+        role_names = [r.name.lower() for r in (u.roles or [])]
+        
+        # Excluir si el usuario tiene únicamente roles de Inversionista / Investor
+        is_investor = len(role_names) > 0 and all(
+            any(inv_kw in r_name for inv_kw in ["inversionista", "investor"])
+            for r_name in role_names
+        )
+
+        if not is_investor:
+            eligible_users.append({
+                "id": u.id,
+                "name": u.name,
+                "email": u.email,
+                "is_online": manager.is_user_online(u.id)
+            })
+
+    return eligible_users
 
 @router.post("/rooms/direct", dependencies=[Depends(RequirePermission("chat:send"))])
 async def get_or_create_direct_room(
