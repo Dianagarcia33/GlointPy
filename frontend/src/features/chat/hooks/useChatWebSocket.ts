@@ -37,7 +37,7 @@ export function useChatWebSocket(roomId: number | null) {
   useEffect(() => {
     if (!roomId) return;
 
-    let reconnectTimer: NodeJS.Timeout;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
 
     const connect = () => {
       const wsUrl = chatService.getWebSocketUrl(roomId);
