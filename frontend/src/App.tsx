@@ -38,6 +38,7 @@ import { ReferralsPage } from "./features/referrals/pages/ReferralsPage";
 import { AdminReferralsPage } from "./features/admin/referrals/pages/AdminReferralsPage";
 import { ChatPage } from "./features/chat/pages/ChatPage";
 import { CRMPage } from "./features/crm/pages/CRMPage";
+import { CRMInboxPage } from "./features/crm/pages/CRMInboxPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
@@ -114,6 +115,7 @@ function App() {
         <Route path="admin-referrals" element={<RequirePermission permission="admin.users.manage"><AdminReferralsPage /></RequirePermission>} />
         <Route path="chat" element={<RequirePermission permission="chat:view"><ChatPage /></RequirePermission>} />
         <Route path="crm" element={<RequirePermission permission="crm:view"><CRMPage /></RequirePermission>} />
+        <Route path="crm/inbox" element={<RequirePermission permission="crm:view"><CRMInboxPage /></RequirePermission>} />
       </Route>
 
 

@@ -14,9 +14,11 @@ import {
   MessageSquare, 
   Send,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 import { crmService, CRMLead, CRMActivity, CRMLeadStage } from '../../../services/crmService';
+import { crmEmailService, CRMEmail } from '../../../services/crmEmailService';
 
 interface LeadDetailModalProps {
   lead: CRMLead | null;
@@ -31,21 +33,27 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   onClose,
   onUpdate
 }) => {
+  const [activeRightTab, setActiveRightTab] = useState<'activities' | 'emails'>('activities');
+  
+  // Actividades
   const [activities, setActivities] = useState<CRMActivity[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
-  
-  // Formulario nueva actividad
   const [actType, setActType] = useState<'nota' | 'llamada' | 'reunion' | 'tarea'>('nota');
   const [actTitle, setActTitle] = useState('');
   const [actDesc, setActDesc] = useState('');
   const [addingAct, setAddingAct] = useState(false);
 
-  // Modificar etapa
+  // Correos
+  const [leadEmails, setLeadEmails] = useState<CRMEmail[]>([]);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  // Etapa
   const [currentStage, setCurrentStage] = useState<CRMLeadStage>('lead_entrante');
   const [lossReason, setLossReason] = useState('');
   const [updatingStage, setUpdatingStage] = useState(false);
-
-  // Convertir a Venta
   const [converting, setConverting] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -54,6 +62,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     if (lead && isOpen) {
       setCurrentStage(lead.stage);
       fetchActivities(lead.id);
+      fetchLeadEmails(lead.id);
     }
   }, [lead, isOpen]);
 
@@ -66,6 +75,18 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       console.error('Error al cargar actividades:', err);
     } finally {
       setLoadingActivities(false);
+    }
+  };
+
+  const fetchLeadEmails = async (leadId: number) => {
+    try {
+      setLoadingEmails(true);
+      const data = await crmEmailService.getLeadEmails(leadId);
+      setLeadEmails(data);
+    } catch (err: any) {
+      console.error('Error al cargar correos del prospecto:', err);
+    } finally {
+      setLoadingEmails(false);
     }
   };
 
@@ -112,6 +133,38 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       showToast(err.message || 'Error al registrar actividad', 'error');
     } finally {
       setAddingAct(false);
+    }
+  };
+
+  const handleSendEmailToLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lead.email) {
+      alert('Este prospecto no tiene registrado un correo electrónico.');
+      return;
+    }
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      showToast('Ingresa el asunto y cuerpo del mensaje', 'error');
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      await crmEmailService.sendEmail({
+        recipient_email: lead.email,
+        subject: emailSubject.trim(),
+        body_html: `<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #334155;">${emailBody.replace(/\n/g, '<br/>')}</div>`,
+        lead_id: lead.id,
+        project_id: lead.project_id
+      });
+      setEmailSubject('');
+      setEmailBody('');
+      fetchLeadEmails(lead.id);
+      fetchActivities(lead.id);
+      showToast('¡Correo comercial enviado y registrado en el historial!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Error al enviar correo', 'error');
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -245,77 +298,168 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Columna Derecha: Timeline & Actividades (2 cols) */}
+          {/* Columna Derecha: Pestañas Actividades vs Correos (2 cols) */}
           <div className="p-6 md:col-span-2 space-y-4 flex flex-col h-full bg-slate-50/50">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-montserrat">Historial & Actividades</h4>
-
-            {/* Formulario Agregar Nota/Actividad */}
-            <form onSubmit={handleAddActivity} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
-              <div className="flex items-center gap-2">
-                <select
-                  value={actType}
-                  onChange={(e: any) => setActType(e.target.value)}
-                  className="bg-slate-100 text-xs font-bold text-slate-700 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none font-montserrat"
-                >
-                  <option value="nota">📝 Nota</option>
-                  <option value="llamada">📞 Llamada</option>
-                  <option value="reunion">🤝 Reunión</option>
-                  <option value="tarea">📌 Tarea</option>
-                </select>
-                <input
-                  type="text"
-                  placeholder="Título de la nota o tarea..."
-                  value={actTitle}
-                  onChange={(e) => setActTitle(e.target.value)}
-                  className="flex-1 bg-slate-50 text-xs text-slate-900 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 font-sans"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Detalles adicionales u observaciones (opcional)..."
-                  value={actDesc}
-                  onChange={(e) => setActDesc(e.target.value)}
-                  className="flex-1 bg-slate-50 text-xs text-slate-900 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 font-sans"
-                />
-                <button
-                  type="submit"
-                  disabled={addingAct || !actTitle.trim()}
-                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 disabled:opacity-40 font-montserrat cursor-pointer"
-                >
-                  {addingAct ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  <span>Guardar</span>
-                </button>
-              </div>
-            </form>
-
-            {/* Timeline de Actividades */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-              {loadingActivities ? (
-                <div className="p-8 text-center text-xs text-slate-400 font-sans">Cargando actividades...</div>
-              ) : activities.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400 font-sans">No hay actividades registradas aún.</div>
-              ) : (
-                activities.map((a) => (
-                  <div key={a.id} className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-start gap-3">
-                    <div className="p-2 rounded-xl bg-brand-50 text-brand-600 font-bold text-xs flex-shrink-0">
-                      {a.type === 'llamada' ? '📞' : a.type === 'reunion' ? '🤝' : a.type === 'tarea' ? '📌' : '📝'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h5 className="text-xs font-bold text-slate-900 font-montserrat">{a.title}</h5>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(a.created_at).toLocaleDateString()} {new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      {a.description && <p className="text-xs text-slate-600 mt-1 leading-relaxed font-sans">{a.description}</p>}
-                      <span className="text-[10px] text-slate-400 block mt-1 font-semibold">Por: {a.user_name}</span>
-                    </div>
-                  </div>
-                ))
-              )}
+            {/* Header de Pestañas Derechas */}
+            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+              <button
+                onClick={() => setActiveRightTab('activities')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all font-montserrat ${
+                  activeRightTab === 'activities' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-200/60'
+                }`}
+              >
+                Actividades & Timeline
+              </button>
+              <button
+                onClick={() => setActiveRightTab('emails')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all font-montserrat flex items-center gap-1.5 ${
+                  activeRightTab === 'emails' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-200/60'
+                }`}
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Correos ({leadEmails.length})</span>
+              </button>
             </div>
+
+            {/* Pestaña: Actividades */}
+            {activeRightTab === 'activities' ? (
+              <>
+                {/* Formulario Agregar Nota/Actividad */}
+                <form onSubmit={handleAddActivity} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={actType}
+                      onChange={(e: any) => setActType(e.target.value)}
+                      className="bg-slate-100 text-xs font-bold text-slate-700 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none font-montserrat"
+                    >
+                      <option value="nota">📝 Nota</option>
+                      <option value="llamada">📞 Llamada</option>
+                      <option value="reunion">🤝 Reunión</option>
+                      <option value="tarea">📌 Tarea</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Título de la nota o tarea..."
+                      value={actTitle}
+                      onChange={(e) => setActTitle(e.target.value)}
+                      className="flex-1 bg-slate-50 text-xs text-slate-900 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 font-sans"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Detalles adicionales u observaciones (opcional)..."
+                      value={actDesc}
+                      onChange={(e) => setActDesc(e.target.value)}
+                      className="flex-1 bg-slate-50 text-xs text-slate-900 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 font-sans"
+                    />
+                    <button
+                      type="submit"
+                      disabled={addingAct || !actTitle.trim()}
+                      className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 disabled:opacity-40 font-montserrat cursor-pointer"
+                    >
+                      {addingAct ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      <span>Guardar</span>
+                    </button>
+                  </div>
+                </form>
+
+                {/* Timeline de Actividades */}
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                  {loadingActivities ? (
+                    <div className="p-8 text-center text-xs text-slate-400 font-sans">Cargando actividades...</div>
+                  ) : activities.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-400 font-sans">No hay actividades registradas aún.</div>
+                  ) : (
+                    activities.map((a) => (
+                      <div key={a.id} className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-start gap-3">
+                        <div className="p-2 rounded-xl bg-brand-50 text-brand-600 font-bold text-xs flex-shrink-0">
+                          {a.type === 'llamada' ? '📞' : a.type === 'reunion' ? '🤝' : a.type === 'tarea' ? '📌' : '📝'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-xs font-bold text-slate-900 font-montserrat">{a.title}</h5>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {new Date(a.created_at).toLocaleDateString()} {new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          {a.description && <p className="text-xs text-slate-600 mt-1 leading-relaxed font-sans">{a.description}</p>}
+                          <span className="text-[10px] text-slate-400 block mt-1 font-semibold">Por: {a.user_name}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : (
+              /* Pestaña: Correos */
+              <div className="space-y-4 flex flex-col h-full">
+                {/* Formulario Enviar Correo al Lead */}
+                <form onSubmit={handleSendEmailToLead} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Asunto del Correo</label>
+                    <input
+                      type="text"
+                      placeholder="Propuesta de inversión y dossier de rentabilidad..."
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-brand-500 font-montserrat font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Mensaje para {lead.email || lead.name}</label>
+                    <textarea
+                      rows={3}
+                      placeholder="Escribe el contenido del correo..."
+                      value={emailBody}
+                      onChange={(e) => setEmailBody(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-brand-500 font-sans resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={sendingEmail || !lead.email}
+                      className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-40 font-montserrat cursor-pointer shadow-sm shadow-brand-500/20"
+                    >
+                      {sendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      <span>Enviar Correo</span>
+                    </button>
+                  </div>
+                </form>
+
+                {/* Historial de Correos del Lead */}
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                  {loadingEmails ? (
+                    <div className="p-8 text-center text-xs text-slate-400 font-sans">Cargando historial de correos...</div>
+                  ) : leadEmails.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-400 font-sans">No hay correos enviados a este prospecto aún.</div>
+                  ) : (
+                    leadEmails.map((em) => (
+                      <div key={em.id} className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-xs font-bold text-slate-900 font-montserrat">{em.subject}</h5>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {new Date(em.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <div
+                          className="text-xs text-slate-700 leading-relaxed font-sans line-clamp-3"
+                          dangerouslySetInnerHTML={{ __html: em.body_html }}
+                        />
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100 font-semibold">
+                          <span>Para: {em.recipient_email}</span>
+                          <span className="text-emerald-600 font-bold font-montserrat">✓ {em.status}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

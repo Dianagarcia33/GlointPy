@@ -126,6 +126,15 @@ export const Sidebar = () => {
                             <span className="flex-1 text-[13px]">CRM / Proyectos</span>
                         </NavLink>
                     </Can>
+
+                    <Can permission="crm:view">
+                        <NavLink to="/dashboard/crm/inbox" className={navLinkClass}>
+                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                <Mail className="w-[18px] h-[18px]" />
+                            </span>
+                            <span className="flex-1 text-[13px]">Bandeja de Correos</span>
+                        </NavLink>
+                    </Can>
                 </Can>
 
                 {/* 🛡️ SECCIÓN ADMINISTRACIÓN */}

@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     RESEND_API_KEY: Optional[str] = None
     SENDER_EMAIL: str = "soporte@gloint.com.co"
     
+    # IMAP Settings (Recepción cPanel)
+    IMAP_HOST: str = "host81.latinoamericahosting.com"
+    IMAP_PORT: int = 993
+    IMAP_USER: Optional[str] = None
+    IMAP_PASSWORD: Optional[str] = None
+
     # Frontend URL for emails
     FRONTEND_URL: str = "http://localhost:5173"
 

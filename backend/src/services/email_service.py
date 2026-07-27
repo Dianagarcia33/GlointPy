@@ -63,6 +63,37 @@ class EmailService:
             return False
 
     @staticmethod
+    def send_crm_custom_email(
+        to_email: str, 
+        subject: str, 
+        html_content: str, 
+        from_name: str = "GLOINT Comercial",
+        reply_to_email: str = None
+    ) -> bool:
+        if not settings.RESEND_API_KEY:
+            print("WARNING: RESEND_API_KEY is not set. Skipping CRM email dispatch.")
+            print(f"Mock Email to {to_email} | Subject: {subject}")
+            return True
+
+        resend.api_key = settings.RESEND_API_KEY
+        
+        email_payload = {
+            "from": f"{from_name} <{settings.SENDER_EMAIL}>",
+            "to": to_email,
+            "subject": subject,
+            "html": html_content
+        }
+        if reply_to_email:
+            email_payload["reply_to"] = reply_to_email
+
+        try:
+            resend.Emails.send(email_payload)
+            return True
+        except Exception as e:
+            print(f"Error al enviar correo CRM vía Resend: {e}")
+            return False
+
+    @staticmethod
     def send_withdrawal_verification_code(to_email: str, code: str):
         if not settings.RESEND_API_KEY:
             print("WARNING: RESEND_API_KEY is not set. Skipping email send.")
