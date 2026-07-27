@@ -15,8 +15,13 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
+    # Eliminar tablas en caso de que existan previamente con tipos no coincidentes
+    op.execute("DROP TABLE IF EXISTS `chat_messages`;")
+    op.execute("DROP TABLE IF EXISTS `chat_participants`;")
+    op.execute("DROP TABLE IF EXISTS `chat_rooms`;")
+
     op.execute("""
-    CREATE TABLE IF NOT EXISTS `chat_rooms` (
+    CREATE TABLE `chat_rooms` (
       `id` bigint NOT NULL AUTO_INCREMENT,
       `name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
       `type` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'direct',
@@ -28,7 +33,7 @@ def upgrade() -> None:
     """)
 
     op.execute("""
-    CREATE TABLE IF NOT EXISTS `chat_participants` (
+    CREATE TABLE `chat_participants` (
       `id` bigint NOT NULL AUTO_INCREMENT,
       `room_id` bigint NOT NULL,
       `user_id` bigint NOT NULL,
@@ -42,7 +47,7 @@ def upgrade() -> None:
     """)
 
     op.execute("""
-    CREATE TABLE IF NOT EXISTS `chat_messages` (
+    CREATE TABLE `chat_messages` (
       `id` bigint NOT NULL AUTO_INCREMENT,
       `room_id` bigint NOT NULL,
       `sender_id` bigint NOT NULL,
