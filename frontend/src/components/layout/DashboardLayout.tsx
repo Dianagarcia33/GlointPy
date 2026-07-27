@@ -25,21 +25,15 @@ export const DashboardLayout = () => {
                 </div>
 
                 {/* Área de contenido dinámico */}
-                {isChatPage ? (
-                    <main className="flex-1 flex flex-col overflow-hidden relative">
-                        <Outlet />
-                    </main>
-                ) : (
-                    <main className="flex-1 flex flex-col overflow-y-auto relative">
-                        <div className="p-6 lg:p-8 flex-1">
-                            <div className="max-w-7xl mx-auto w-full pb-8">
-                                <Outlet />
-                            </div>
+                <main className="flex-1 flex flex-col overflow-hidden relative">
+                    <div className={`flex-1 flex flex-col overflow-hidden ${isChatPage ? 'p-3 lg:p-4' : 'p-6 lg:p-8 overflow-y-auto'}`}>
+                        <div className={`w-full flex-1 flex flex-col overflow-hidden ${isChatPage ? 'max-w-none' : 'max-w-7xl mx-auto pb-8'}`}>
+                            <Outlet />
                         </div>
-                        
-                        <DashboardFooter />
-                    </main>
-                )}
+                    </div>
+                    
+                    <DashboardFooter />
+                </main>
             </div>
         </div>
     );

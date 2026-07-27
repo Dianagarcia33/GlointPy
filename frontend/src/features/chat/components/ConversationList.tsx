@@ -23,7 +23,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   );
 
   return (
-    <div className="w-full md:w-80 bg-slate-50/70 border-r border-slate-200/80 flex flex-col h-full">
+    <div className="w-full h-full bg-slate-50/70 border-r border-slate-200/80 flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-slate-200/80 bg-white flex items-center justify-between">
         <div className="flex items-center gap-2 text-slate-900 font-bold font-outfit text-base">

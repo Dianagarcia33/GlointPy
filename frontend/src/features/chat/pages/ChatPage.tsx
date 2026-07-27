@@ -70,7 +70,7 @@ export const ChatPage: React.FC = () => {
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) || null;
 
   return (
-    <div className="w-full h-full flex bg-white overflow-hidden">
+    <div className="w-full h-full flex rounded-2xl border border-slate-200/80 overflow-hidden bg-white shadow-xs">
       {/* Panel de Lista de Conversaciones */}
       <div className={`w-full md:w-96 flex-shrink-0 ${selectedRoomId ? 'hidden md:flex' : 'flex'} h-full`}>
         <ConversationList
