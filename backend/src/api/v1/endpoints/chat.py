@@ -158,11 +158,16 @@ async def websocket_chat_endpoint(
                 })
                 continue
 
-            async with async_session_maker() as db:
-                saved_msg = await ChatService.save_message(db, room_id, user.id, data_text)
-                await manager.broadcast_to_room(room_id, saved_msg)
+            try:
+                async with async_session_maker() as db:
+                    saved_msg = await ChatService.save_message(db, room_id, user.id, data_text)
+                    await manager.broadcast_to_room(room_id, saved_msg)
+            except Exception as msg_err:
+                print(f"⚠️ Error procesando mensaje en sala {room_id}: {msg_err}")
+                await websocket.send_json({"error": "No se pudo guardar el mensaje. Intenta nuevamente."})
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id, user.id)
     except Exception as e:
+        print(f"⚠️ Conexión WebSocket cerrada: {e}")
         manager.disconnect(websocket, room_id, user.id)

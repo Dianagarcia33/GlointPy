@@ -37,43 +37,54 @@ export function useChatWebSocket(roomId: number | null) {
   useEffect(() => {
     if (!roomId) return;
 
-    const wsUrl = chatService.getWebSocketUrl(roomId);
-    const ws = new WebSocket(wsUrl);
-    socketRef.current = ws;
+    let reconnectTimer: NodeJS.Timeout;
 
-    ws.onopen = () => {
-      setIsConnected(true);
-      setError(null);
-    };
+    const connect = () => {
+      const wsUrl = chatService.getWebSocketUrl(roomId);
+      const ws = new WebSocket(wsUrl);
+      socketRef.current = ws;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'new_message') {
-          setMessages((prev) => [...prev, data]);
-        } else if (data.error) {
-          setError(data.error);
+      ws.onopen = () => {
+        setIsConnected(true);
+        setError(null);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'new_message') {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === data.id)) return prev;
+              return [...prev, data];
+            });
+          } else if (data.error) {
+            setError(data.error);
+          }
+        } catch (err) {
+          console.error('Error al decodificar mensaje WebSocket:', err);
         }
-      } catch (err) {
-        console.error('Error al decodificar mensaje WebSocket:', err);
-      }
+      };
+
+      ws.onerror = () => {
+        setIsConnected(false);
+      };
+
+      ws.onclose = (event) => {
+        setIsConnected(false);
+        if (event.code === 1008) {
+          setError('Acceso denegado: permiso chat:view requerido');
+        } else if (event.code !== 1000) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
     };
 
-    ws.onerror = (err) => {
-      setError('Error en la conexión en tiempo real');
-      setIsConnected(false);
-    };
-
-    ws.onclose = (event) => {
-      setIsConnected(false);
-      if (event.code === 1008) {
-        setError('Acceso denegado: permiso chat:view requerido');
-      }
-    };
+    connect();
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close();
+      clearTimeout(reconnectTimer);
+      if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) {
+        socketRef.current.close(1000);
       }
     };
   }, [roomId]);

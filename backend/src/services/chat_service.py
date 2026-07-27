@@ -196,10 +196,14 @@ class ChatService:
         )
         db.add(msg)
         await db.commit()
+        await db.refresh(msg)
 
         # Cargar sender
         res = await db.execute(select(User).where(User.id == sender_id))
         sender = res.scalars().first()
+
+        from datetime import datetime
+        created_at_val = msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat()
 
         return {
             "type": "new_message",
@@ -209,7 +213,7 @@ class ChatService:
             "sender_name": sender.name if sender else "Usuario",
             "content": content,
             "is_read": False,
-            "created_at": msg.created_at.isoformat() if msg.created_at else None
+            "created_at": created_at_val
         }
 
     @staticmethod
