@@ -60,35 +60,35 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-200">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
               <UserPlus className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 font-outfit">Nuevo Prospecto / Lead</h2>
+              <h2 className="text-lg font-bold text-slate-900 font-montserrat">Nuevo Prospecto / Lead</h2>
               <p className="text-xs text-slate-500">Registra un interesado en el pipeline del proyecto</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {error && (
-          <div className="p-3 mb-4 bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl">
+          <div className="p-3 mb-4 bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-2xl">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Proyecto de Inversión *</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Proyecto de Inversión *</label>
             <select
               value={projectId}
               onChange={(e) => setProjectId(Number(e.target.value))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500 font-medium"
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-brand-500 font-montserrat"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -100,30 +100,30 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo *</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Nombre Completo *</label>
               <input
                 type="text"
                 placeholder="ej: Betzy Maria Garcia"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500 font-montserrat font-bold"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Cédula / Documento</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Cédula / Documento</label>
               <input
                 type="text"
                 placeholder="1098765432"
                 value={documentId}
                 onChange={(e) => setDocumentId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500 font-mono font-bold"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Teléfono / WhatsApp</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Teléfono / WhatsApp</label>
               <div className="relative">
                 <Phone className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input
@@ -131,13 +131,13 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
                   placeholder="+57 300 123 4567"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500 font-mono"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Correo Electrónico</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Correo Electrónico</label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input
@@ -145,7 +145,7 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
                   placeholder="cliente@ejemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500 font-sans"
                 />
               </div>
             </div>
@@ -153,7 +153,7 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Monto Estimado de Inversión (COP)</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Monto Estimado (COP)</label>
               <div className="relative">
                 <DollarSign className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input
@@ -161,17 +161,17 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
                   placeholder="20000000"
                   value={estimatedAmount}
                   onChange={(e) => setEstimatedAmount(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500 font-mono font-bold"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Canal de Origen</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Canal de Origen</label>
               <select
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-brand-500 font-montserrat"
               >
                 <option value="Directo">Prospección Directa</option>
                 <option value="Referido">Referido de Inversionista</option>
@@ -181,18 +181,18 @@ export const CreateLeadModal: React.FC<CreateLeadModalProps> = ({
             </div>
           </div>
 
-          <div className="pt-3 flex justify-end gap-3 border-t border-slate-100">
+          <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              className="px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all font-montserrat cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2.5 text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl transition-all shadow-sm shadow-brand-500/20 flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-3 text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-2xl transition-all shadow-md shadow-brand-500/20 flex items-center gap-2 disabled:opacity-50 font-montserrat cursor-pointer"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>Registrar Prospecto</span>

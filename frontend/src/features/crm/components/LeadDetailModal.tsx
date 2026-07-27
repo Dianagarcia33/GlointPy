@@ -121,7 +121,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       return;
     }
 
-    if (!window.confirm(`¿Confirmas la conversión del prospecto "${lead.name}" a Cierre Ganado y Registro de Venta Comercial por $${lead.estimated_amount.toLocaleString()} COP?`)) {
+    if (!window.confirm(`¿Confirmas la conversión del prospecto "${lead.name}" a Cierre Ganado y Registro de Venta Comercial por $${lead.estimated_amount.toLocaleString('es-CO')} COP?`)) {
       return;
     }
 
@@ -152,28 +152,28 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       <div className="bg-white rounded-3xl max-w-3xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
         
         {/* Header */}
-        <div className="p-5 bg-slate-900 text-white flex items-center justify-between shadow-md">
+        <div className="p-6 bg-slate-900 text-white flex items-center justify-between shadow-md">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center font-extrabold text-white text-lg shadow-sm font-outfit">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center font-extrabold text-white text-lg shadow-sm font-montserrat">
               {lead.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-xl font-bold font-outfit">{lead.name}</h2>
-              <div className="flex items-center gap-2 text-xs text-slate-300 mt-0.5">
-                <span>Monto Estimado: <strong>${lead.estimated_amount.toLocaleString()} COP</strong></span>
+              <h2 className="text-xl font-bold font-montserrat">{lead.name}</h2>
+              <div className="flex items-center gap-2 text-xs text-slate-300 mt-0.5 font-sans">
+                <span>Monto Estimado: <strong className="font-mono text-emerald-400">${lead.estimated_amount.toLocaleString('es-CO')} COP</strong></span>
                 <span>•</span>
                 <span>Origen: {lead.source || 'Directo'}</span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Toast Notificación */}
         {toast && (
-          <div className={`p-3 text-xs font-semibold text-center ${toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
+          <div className={`p-3 text-xs font-semibold text-center font-montserrat ${toast.type === 'success' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
             {toast.message}
           </div>
         )}
@@ -182,19 +182,19 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200 bg-slate-50/30">
           
           {/* Columna Izquierda: Datos & Etapa (1 col) */}
-          <div className="p-5 space-y-5 bg-white">
+          <div className="p-6 space-y-6 bg-white">
             {/* Botón de Acción Principal: Convertir a Venta */}
             {lead.stage !== 'cierre_ganado' ? (
               <button
                 onClick={handleConvertToSale}
                 disabled={converting}
-                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-2xl shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-95 font-montserrat cursor-pointer"
               >
                 {converting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trophy className="w-4 h-4" />}
                 <span>Convertir a Venta Comercial</span>
               </button>
             ) : (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center text-emerald-800 font-bold text-xs flex items-center justify-center gap-2">
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-center text-emerald-800 font-bold text-xs flex items-center justify-center gap-2 font-montserrat">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 <span>¡Cierre Ganado y Convertido!</span>
               </div>
@@ -202,16 +202,16 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
 
             {/* Selector de Etapa */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 font-outfit">Etapa del Pipeline</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 font-montserrat">Etapa del Pipeline</label>
               <div className="space-y-1.5">
                 {stagesList.map((st) => (
                   <button
                     key={st.key}
                     onClick={() => handleStageChange(st.key)}
                     disabled={updatingStage}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between border transition-all ${
+                    className={`w-full text-left px-3.5 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-between border transition-all font-montserrat cursor-pointer ${
                       currentStage === st.key 
-                        ? 'border-brand-500 ring-2 ring-brand-500/20 bg-brand-50/50 text-slate-900 font-bold' 
+                        ? 'border-brand-500 ring-2 ring-brand-500/20 bg-brand-50/50 text-slate-900' 
                         : 'border-slate-200 hover:bg-slate-50 text-slate-600'
                     }`}
                   >
@@ -223,39 +223,39 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
             </div>
 
             {/* Datos de Contacto */}
-            <div className="space-y-3 pt-3 border-t border-slate-100">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider font-outfit">Datos de Contacto</h4>
+            <div className="space-y-3 pt-4 border-t border-slate-100">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-montserrat">Datos de Contacto</h4>
               
-              <div className="flex items-center gap-2.5 text-xs text-slate-600">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700">
                 <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span>{lead.phone || 'Sin teléfono'}</span>
+                <span className="font-semibold">{lead.phone || 'Sin teléfono'}</span>
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-slate-600">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700">
                 <Mail className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span>{lead.email || 'Sin correo'}</span>
+                <span className="font-semibold">{lead.email || 'Sin correo'}</span>
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-slate-600">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700">
                 <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span>Cédula: {lead.document_id || 'Sin registrar'}</span>
+                <span className="font-semibold">Cédula: {lead.document_id || 'Sin registrar'}</span>
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-slate-600">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700">
                 <User className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span>Asesor: <strong>{lead.commercial_name}</strong></span>
+                <span>Asesor: <strong className="font-montserrat">{lead.commercial_name}</strong></span>
               </div>
             </div>
           </div>
 
           {/* Columna Derecha: Timeline & Actividades (2 cols) */}
-          <div className="p-5 md:col-span-2 space-y-4 flex flex-col h-full bg-slate-50/50">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-outfit">Historial & Actividades</h4>
+          <div className="p-6 md:col-span-2 space-y-4 flex flex-col h-full bg-slate-50/50">
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-montserrat">Historial & Actividades</h4>
 
             {/* Formulario Agregar Nota/Actividad */}
-            <form onSubmit={handleAddActivity} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+            <form onSubmit={handleAddActivity} className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
               <div className="flex items-center gap-2">
                 <select
                   value={actType}
                   onChange={(e: any) => setActType(e.target.value)}
-                  className="bg-slate-100 text-xs font-bold text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none"
+                  className="bg-slate-100 text-xs font-bold text-slate-700 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none font-montserrat"
                 >
                   <option value="nota">📝 Nota</option>
                   <option value="llamada">📞 Llamada</option>
@@ -267,7 +267,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                   placeholder="Título de la nota o tarea..."
                   value={actTitle}
                   onChange={(e) => setActTitle(e.target.value)}
-                  className="flex-1 bg-slate-50 text-xs text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:border-brand-500"
+                  className="flex-1 bg-slate-50 text-xs text-slate-900 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 font-sans"
                 />
               </div>
 
@@ -277,12 +277,12 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                   placeholder="Detalles adicionales u observaciones (opcional)..."
                   value={actDesc}
                   onChange={(e) => setActDesc(e.target.value)}
-                  className="flex-1 bg-slate-50 text-xs text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:border-brand-500"
+                  className="flex-1 bg-slate-50 text-xs text-slate-900 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 font-sans"
                 />
                 <button
                   type="submit"
                   disabled={addingAct || !actTitle.trim()}
-                  className="px-4 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1 disabled:opacity-40"
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 disabled:opacity-40 font-montserrat cursor-pointer"
                 >
                   {addingAct ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   <span>Guardar</span>
@@ -291,26 +291,26 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
             </form>
 
             {/* Timeline de Actividades */}
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
               {loadingActivities ? (
-                <div className="p-8 text-center text-xs text-slate-400">Cargando actividades...</div>
+                <div className="p-8 text-center text-xs text-slate-400 font-sans">Cargando actividades...</div>
               ) : activities.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400">No hay actividades registradas aún.</div>
+                <div className="p-8 text-center text-xs text-slate-400 font-sans">No hay actividades registradas aún.</div>
               ) : (
                 activities.map((a) => (
-                  <div key={a.id} className="p-3 bg-white rounded-xl border border-slate-200/80 shadow-xs flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-brand-50 text-brand-600 font-bold text-xs flex-shrink-0">
+                  <div key={a.id} className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-brand-50 text-brand-600 font-bold text-xs flex-shrink-0">
                       {a.type === 'llamada' ? '📞' : a.type === 'reunion' ? '🤝' : a.type === 'tarea' ? '📌' : '📝'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <h5 className="text-xs font-bold text-slate-900 font-outfit">{a.title}</h5>
-                        <span className="text-[10px] text-slate-400">
+                        <h5 className="text-xs font-bold text-slate-900 font-montserrat">{a.title}</h5>
+                        <span className="text-[10px] text-slate-400 font-mono">
                           {new Date(a.created_at).toLocaleDateString()} {new Date(a.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
-                      {a.description && <p className="text-xs text-slate-600 mt-1 leading-relaxed">{a.description}</p>}
-                      <span className="text-[10px] text-slate-400 block mt-1">Por: {a.user_name}</span>
+                      {a.description && <p className="text-xs text-slate-600 mt-1 leading-relaxed font-sans">{a.description}</p>}
+                      <span className="text-[10px] text-slate-400 block mt-1 font-semibold">Por: {a.user_name}</span>
                     </div>
                   </div>
                 ))
