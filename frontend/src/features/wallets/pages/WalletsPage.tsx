@@ -213,41 +213,24 @@ export const WalletsPage = () => {
                     </div>
                 </div>
 
-                {/* Historial de Movimientos */}
+                {/* Historial de Movimientos y Solicitudes de Retiro */}
                 <Can permission="wallets:view_history">
-                    <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-slate-100 rounded-xl">
-                                    <ArrowRightLeft className="w-5 h-5 text-slate-700" />
+                    <div className="space-y-8">
+                        {/* Tabla 1: Transacciones y Movimientos */}
+                        <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-brand-50 text-brand-600 rounded-xl">
+                                        <ArrowRightLeft className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900 font-montserrat">Historial de Transacciones</h2>
+                                        <p className="text-xs text-slate-500 mt-0.5">Ingresos de rendimientos, comisiones y movimientos de la billetera</p>
+                                    </div>
                                 </div>
-                                <h2 className="text-xl font-bold text-slate-900 font-montserrat">Historial de Movimientos</h2>
                             </div>
-                        </div>
 
-                        <div className="flex gap-4 border-b border-slate-200 mb-6 px-4">
-                            <button
-                                onClick={() => setActiveTab('movements')}
-                                className={`pb-4 px-2 font-bold font-montserrat transition-colors relative ${activeTab === 'movements' ? 'text-brand-500' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                Transacciones
-                                {activeTab === 'movements' && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-500 rounded-t-full"></div>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('withdrawals')}
-                                className={`pb-4 px-2 font-bold font-montserrat transition-colors relative ${activeTab === 'withdrawals' ? 'text-brand-500' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                Solicitudes de Retiro
-                                {activeTab === 'withdrawals' && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-500 rounded-t-full"></div>
-                                )}
-                            </button>
-                        </div>
-
-                        {activeTab === 'movements' ? (
-                            movements.length > 0 ? (
+                            {movements.length > 0 ? (
                                 <div className="space-y-3">
                                     {movements.map((mov) => {
                                         const status = getStatusConfig(mov.estado);
@@ -318,9 +301,24 @@ export const WalletsPage = () => {
                                 <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
                                     <p className="text-slate-500 font-medium">No hay transacciones recientes en tu billetera.</p>
                                 </div>
-                            )
-                        ) : (
-                            withdrawals.length > 0 ? (
+                            )}
+                        </div>
+
+                        {/* Tabla 2: Solicitudes de Retiro (Debajo de la tabla de movimientos) */}
+                        <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+                                        <ArrowUpToLine className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900 font-montserrat">Solicitudes de Retiro</h2>
+                                        <p className="text-xs text-slate-500 mt-0.5">Estado de tus solicitudes de desembolso bancario</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {withdrawals.length > 0 ? (
                                 <div className="space-y-3">
                                     {withdrawals.map((mov) => {
                                         const status = getStatusConfig(mov.estado);
@@ -331,7 +329,7 @@ export const WalletsPage = () => {
                                                 className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/30 transition-all group gap-4"
                                             >
                                                 <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => setSelectedMovement(mov)}>
-                                                    <div className="p-3 rounded-xl flex-shrink-0 bg-brand-50 text-brand-600">
+                                                    <div className="p-3 rounded-xl flex-shrink-0 bg-amber-50 text-amber-600">
                                                         <ArrowUpToLine className="w-5 h-5" />
                                                     </div>
                                                     <div>
@@ -382,8 +380,8 @@ export const WalletsPage = () => {
                                 <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
                                     <p className="text-slate-500 font-medium">No tienes solicitudes de retiro.</p>
                                 </div>
-                            )
-                        )}
+                            )}
+                        </div>
                     </div>
                 </Can>
                     </>
