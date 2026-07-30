@@ -574,7 +574,7 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         raise HTTPException(status_code=404, detail="Inversión no encontrada")
         
     # 3. Check Bank Account
-    if req.bank_account_id:
+    if req.bank_account_id is not None and req.bank_account_id > 0:
         bank_res = await db.execute(
             select(UserBankAccount).where(
                 UserBankAccount.id == req.bank_account_id,
@@ -588,7 +588,7 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
             select(UserBankAccount).where(
                 UserBankAccount.user_id == current_user.id,
                 UserBankAccount.is_active == True
-            )
+            ).order_by(UserBankAccount.id.desc())
         )
         bank_account = bank_res.scalars().first()
     
