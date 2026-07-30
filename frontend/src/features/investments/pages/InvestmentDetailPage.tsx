@@ -61,6 +61,8 @@ export const InvestmentDetailPage = () => {
                 }}
                 investmentId={inv.id}
                 montoDisponible={inv.capital_disponible}
+                canWithdrawCapital={inv.can_withdraw_capital}
+                withdrawalDateMessage={inv.withdrawal_date_message}
                 bankInfo={inv.bank_info}
             />
             <NewInvestmentModal 

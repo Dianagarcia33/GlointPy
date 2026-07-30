@@ -9,6 +9,8 @@ interface CapitalWithdrawalModalProps {
     onSuccess: () => void;
     investmentId: number;
     montoDisponible: number;
+    canWithdrawCapital?: boolean;
+    withdrawalDateMessage?: string | null;
     bankInfo: {
         banco: string;
         tipo_cuenta: string;
@@ -22,6 +24,8 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
     onSuccess,
     investmentId,
     montoDisponible,
+    canWithdrawCapital = true,
+    withdrawalDateMessage,
     bankInfo
 }) => {
     const [step, setStep] = useState<1 | 2>(1);
@@ -82,10 +86,12 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                 </div>
 
                 <div className="p-6">
-                    <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 shrink-0" />
-                        <p>Actualmente no nos encontramos en fechas de retiro habilitadas.</p>
-                    </div>
+                    {!canWithdrawCapital && (
+                        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
+                            <AlertCircle className="w-5 h-5 shrink-0" />
+                            <p>{withdrawalDateMessage || "Actualmente no nos encontramos en fechas de retiro habilitadas."}</p>
+                        </div>
+                    )}
 
                     {error && (
                         <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex gap-3 text-sm border border-red-100">
@@ -98,15 +104,15 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                         <div className="space-y-6">
                             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Monto Bruto</span>
-                                    <span className="font-semibold text-slate-900">{formatCurrency(montoDisponible)}</span>
+                                    <span className="text-slate-500 font-medium">Capital Liberado Disponible</span>
+                                    <span className="font-bold text-slate-900">{formatCurrency(montoDisponible)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500">Impuesto (3.2%)</span>
+                                    <span className="text-slate-500 font-medium">Retención/Impuestos (3.2%)</span>
                                     <span className="font-semibold text-red-500">-{formatCurrency(tax)}</span>
                                 </div>
-                                <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
-                                    <span className="font-bold text-slate-900 uppercase text-xs tracking-wider">Recibirás (Neto)</span>
+                                <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
+                                    <span className="font-bold text-slate-900">Monto Neto a Recibir</span>
                                     <span className="text-2xl font-bold text-brand-600">{formatCurrency(netAmount)}</span>
                                 </div>
                             </div>
@@ -136,8 +142,12 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
 
                             <button 
                                 onClick={handleSendCode}
-                                disabled={true}
-                                className="w-full py-3.5 rounded-xl font-bold text-sm bg-slate-200 text-slate-400 cursor-not-allowed transition-colors"
+                                disabled={!canWithdrawCapital || !bankInfo || montoDisponible <= 0 || loading}
+                                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all shadow-md ${
+                                    (!canWithdrawCapital || !bankInfo || montoDisponible <= 0 || loading)
+                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                                        : 'bg-brand-500 hover:bg-brand-600 text-white shadow-brand-500/20'
+                                }`}
                             >
                                 {loading ? 'Enviando...' : 'Solicitar Código por Correo'}
                             </button>

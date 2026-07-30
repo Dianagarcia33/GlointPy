@@ -14,10 +14,11 @@ from src.services.system_event_service import SystemEventService
 from typing import Optional, Tuple
 
 async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optional[str]]:
+    from sqlalchemy import func
     withdrawal_types = ["withdrawal", "withdrawals", "retiro", "retiros", "fechas_retiro"]
     
     events_res = await db.execute(
-        select(SystemEvent).where(SystemEvent.type.in_(withdrawal_types))
+        select(SystemEvent).where(func.lower(SystemEvent.type).in_(withdrawal_types))
     )
     all_withdrawal_events = events_res.scalars().all()
     
