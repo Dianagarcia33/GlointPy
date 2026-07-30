@@ -25,7 +25,8 @@ from src.schemas.yield_calc import (
     PayUserYieldRequest,
     BulkYieldUserSummary,
     BulkYieldCalculationResult,
-    BulkPayYieldResult
+    BulkPayYieldResult,
+    UpdateAccelerationDateRequest
 )
 from src.services.yield_calculator import calculate_investment_yield
 from src.models.wallet import Wallet, WalletTransaction
