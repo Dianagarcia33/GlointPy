@@ -12,6 +12,8 @@ from src.models.investment_request import InvestmentRequest
 from src.models.contract_history import ContractHistory
 from src.models.investor import Investor
 
+from src.api.v1.endpoints.wallets import check_withdrawal_dates_active
+
 router = APIRouter()
 
 @router.get("/me")
@@ -363,6 +365,8 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "capital_liberado": capital_liberado,
         "capital_retirado": capital_retirado,
         "capital_disponible": capital_disponible,
+        "can_withdraw_capital": (await check_withdrawal_dates_active(db))[0] and (capital_disponible > 0),
+        "withdrawal_date_message": (await check_withdrawal_dates_active(db))[1],
         "can_upgrade": can_upgrade,
         "movements": movements,
         "history": history,
@@ -390,6 +394,11 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
     import random
     from datetime import timedelta
     
+    # 0. Check Withdrawal Dates Window
+    can_withdraw_window, date_msg = await check_withdrawal_dates_active(db)
+    if not can_withdraw_window:
+        raise HTTPException(status_code=400, detail=date_msg or "Actualmente no nos encontramos en fechas de retiro de capital autorizadas.")
+
     # 1. Fetch Investor
     inv_res = await db.execute(
         select(Investor)
@@ -526,6 +535,11 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
     from fastapi import HTTPException
     from datetime import datetime, timedelta
     
+    # 0. Check Withdrawal Dates Window
+    can_withdraw_window, date_msg = await check_withdrawal_dates_active(db)
+    if not can_withdraw_window:
+        raise HTTPException(status_code=400, detail=date_msg or "Actualmente no nos encontramos en fechas de retiro de capital autorizadas.")
+
     # 1. Check Verification Code
     code_res = await db.execute(
         select(WithdrawalVerificationCode)
