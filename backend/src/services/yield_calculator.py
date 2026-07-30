@@ -157,12 +157,19 @@ def calculate_investment_yield(
         total_yield += seg_yield
         total_days += days_in_seg
         
-    # Calculate acceleration bonus in money ($ COP)
+    # Calculate acceleration bonus in money ($ COP) ONLY for bonuses earned/applied within the requested cycle range
     acceleration_bonus = Decimal("0.00")
     if hasattr(investment, 'accelerations') and investment.accelerations:
         for acc in investment.accelerations:
             if acc.applied:
-                acceleration_bonus += Decimal(str(acc.bonus_amount or 0.0))
+                acc_dt = acc.created_at
+                acc_date = acc_dt.date() if isinstance(acc_dt, datetime) else (acc_dt if isinstance(acc_dt, date) else None)
+                if acc_date:
+                    if requested_start_date <= acc_date <= requested_end_date:
+                        acceleration_bonus += Decimal(str(acc.bonus_amount or 0.0))
+                else:
+                    acceleration_bonus += Decimal(str(acc.bonus_amount or 0.0))
+
 
 
     return YieldCalculationResult(
