@@ -17,14 +17,20 @@ logger = logging.getLogger(__name__)
 class WithdrawalService:
     
     @staticmethod
-    async def get_withdrawals(db: AsyncSession, page: int = 1, limit: int = 20, search: Optional[str] = None) -> Dict[str, Any]:
-        query = select(Withdrawal).options(
-            selectinload(Withdrawal.user)
-        )
+    async def get_withdrawals(
+        db: AsyncSession, 
+        page: int = 1, 
+        limit: int = 20, 
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> Dict[str, Any]:
+        filters = []
         
         if search:
             search_pattern = f"%{search}%"
-            query = query.join(Withdrawal.user).filter(
+            filters.append(
                 or_(
                     User.name.ilike(search_pattern),
                     User.email.ilike(search_pattern),
@@ -32,15 +38,33 @@ class WithdrawalService:
                 )
             )
             
+        if status and status.lower() != 'todos':
+            filters.append(func.lower(Withdrawal.estado) == status.lower())
+            
+        if start_date:
+            try:
+                sd = datetime.strptime(start_date, "%Y-%m-%d").date()
+                filters.append(Withdrawal.fecha_solicitud >= sd)
+            except Exception:
+                pass
+
+        if end_date:
+            try:
+                ed = datetime.strptime(end_date, "%Y-%m-%d").date()
+                filters.append(Withdrawal.fecha_solicitud <= ed)
+            except Exception:
+                pass
+
+        query = select(Withdrawal).options(selectinload(Withdrawal.user))
         count_query = select(func.count(Withdrawal.id))
+        
         if search:
-            count_query = count_query.join(Withdrawal.user).filter(
-                or_(
-                    User.name.ilike(search_pattern),
-                    User.email.ilike(search_pattern),
-                    User.document_id.ilike(search_pattern)
-                )
-            )
+            query = query.join(Withdrawal.user)
+            count_query = count_query.join(Withdrawal.user)
+            
+        if filters:
+            query = query.filter(*filters)
+            count_query = count_query.filter(*filters)
             
         total_result = await db.execute(count_query)
         total = total_result.scalar_one_or_none() or 0

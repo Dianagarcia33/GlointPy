@@ -20,18 +20,23 @@ async def get_withdrawals(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    search: str = None,
+    search: str = Query(None),
+    status: str = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get all withdrawals with pagination and search.
-    Requires admin privileges in a real scenario, but for now we let logged-in users view.
+    Get all withdrawals with pagination, search and date/status filtering.
     """
     return await WithdrawalService.get_withdrawals(
         db=db, 
         page=page, 
         limit=limit, 
-        search=search
+        search=search,
+        status=status,
+        start_date=start_date,
+        end_date=end_date
     )
 
 @router.get("/{withdrawal_id}", response_model=WithdrawalResponse)
