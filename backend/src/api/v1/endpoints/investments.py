@@ -380,6 +380,7 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
 
 class WithdrawCapitalConfirmRequest(BaseModel):
     code: str
+    bank_account_id: Optional[int] = None
 
 @router.post("/{investment_id}/withdraw-capital/send-code")
 async def send_investment_withdrawal_code(investment_id: int, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -573,8 +574,23 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         raise HTTPException(status_code=404, detail="Inversión no encontrada")
         
     # 3. Check Bank Account
-    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
-    bank_account = bank_res.scalars().first()
+    if req.bank_account_id:
+        bank_res = await db.execute(
+            select(UserBankAccount).where(
+                UserBankAccount.id == req.bank_account_id,
+                UserBankAccount.user_id == current_user.id,
+                UserBankAccount.is_active == True
+            )
+        )
+        bank_account = bank_res.scalars().first()
+    else:
+        bank_res = await db.execute(
+            select(UserBankAccount).where(
+                UserBankAccount.user_id == current_user.id,
+                UserBankAccount.is_active == True
+            )
+        )
+        bank_account = bank_res.scalars().first()
     
     if not bank_account:
         raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa configurada. Por favor, añádela en tu perfil.")

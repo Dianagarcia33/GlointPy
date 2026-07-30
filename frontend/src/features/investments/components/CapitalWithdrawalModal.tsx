@@ -33,6 +33,33 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
     const [code, setCode] = useState('');
     const [error, setError] = useState('');
 
+    const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+    const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+    const [activeBankInfo, setActiveBankInfo] = useState<any>(bankInfo);
+
+    React.useEffect(() => {
+        if (isOpen) {
+            fetchApi('/wallets/me/balance')
+                .then(res => {
+                    const accounts = res.bank_accounts && res.bank_accounts.length > 0
+                        ? res.bank_accounts
+                        : (res.bank_details ? [res.bank_details] : (bankInfo ? [bankInfo] : []));
+                    
+                    setBankAccounts(accounts);
+                    if (accounts.length > 0) {
+                        setSelectedAccountId(accounts[0].id || null);
+                        setActiveBankInfo(accounts[0]);
+                    }
+                })
+                .catch(err => console.error("Error fetching bank accounts:", err));
+        } else {
+            setStep(1);
+            setCode('');
+            setError('');
+            setSelectedAccountId(null);
+        }
+    }, [isOpen, bankInfo]);
+
     if (!isOpen) return null;
 
     const tax = montoDisponible * 0.032;
@@ -62,7 +89,10 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
         try {
             await fetchApi(`/investments/${investmentId}/withdraw-capital`, { 
                 method: 'POST',
-                body: JSON.stringify({ code })
+                body: JSON.stringify({ 
+                    code,
+                    bank_account_id: selectedAccountId
+                })
             });
             onSuccess();
         } catch (err: any) {
@@ -117,17 +147,34 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                                 </div>
                             </div>
 
-                            <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
-                                <div className="flex gap-3">
+                            <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 space-y-3">
+                                <div className="flex gap-3 items-center">
                                     <div className="p-2 bg-blue-100 text-blue-600 rounded-xl h-fit">
                                         <Building2 className="w-5 h-5" />
                                     </div>
-                                    <div>
+                                    <div className="flex-1">
                                         <p className="text-xs font-bold uppercase tracking-wider text-blue-800 mb-1">Destino del Dinero</p>
-                                        {bankInfo ? (
+                                        {bankAccounts.length > 1 ? (
+                                            <select
+                                                value={selectedAccountId || ''}
+                                                onChange={(e) => {
+                                                    const accId = Number(e.target.value);
+                                                    setSelectedAccountId(accId);
+                                                    const selected = bankAccounts.find(a => a.id === accId);
+                                                    if (selected) setActiveBankInfo(selected);
+                                                }}
+                                                className="w-full bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                                            >
+                                                {bankAccounts.map((acc) => (
+                                                    <option key={acc.id || acc.numero_cuenta} value={acc.id}>
+                                                        {acc.banco} - {acc.tipo_cuenta} (****{String(acc.numero_cuenta).slice(-4)})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : activeBankInfo ? (
                                             <>
-                                                <p className="font-semibold text-slate-900">{bankInfo.banco}</p>
-                                                <p className="text-sm text-slate-600">{bankInfo.tipo_cuenta} ••• {bankInfo.numero_cuenta.slice(-4)}</p>
+                                                <p className="font-semibold text-slate-900">{activeBankInfo.banco}</p>
+                                                <p className="text-sm text-slate-600">{activeBankInfo.tipo_cuenta} ••• {String(activeBankInfo.numero_cuenta).slice(-4)}</p>
                                             </>
                                         ) : (
                                             <p className="text-sm text-red-500 font-medium">No tienes cuenta bancaria registrada.</p>

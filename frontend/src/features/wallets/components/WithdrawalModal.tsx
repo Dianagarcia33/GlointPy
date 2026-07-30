@@ -19,6 +19,8 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
     const [error, setError] = useState<string | null>(null);
     const [balance, setBalance] = useState<number>(0);
     const [bankDetails, setBankDetails] = useState<any>(null);
+    const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+    const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
     const [canWithdraw, setCanWithdraw] = useState<boolean>(true);
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -32,6 +34,16 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                 .then(res => {
                     setBalance(res.balance !== undefined ? res.balance : (propBalance || 0));
                     setBankDetails(res.bank_details || propBankDetails || null);
+                    
+                    const accounts = res.bank_accounts && res.bank_accounts.length > 0
+                        ? res.bank_accounts
+                        : (res.bank_details ? [res.bank_details] : (propBankDetails ? [propBankDetails] : []));
+                    
+                    setBankAccounts(accounts);
+                    if (accounts.length > 0) {
+                        setSelectedAccountId(accounts[0].id || null);
+                    }
+                    
                     setCanWithdraw(res.can_withdraw !== false);
                     setWithdrawalDateMessage(res.withdrawal_date_message || null);
                 })
@@ -43,6 +55,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
             setCode('');
             setStep('amount');
             setError(null);
+            setSelectedAccountId(null);
         }
     }, [isOpen, propBalance, propBankDetails]);
 
@@ -237,14 +250,38 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                                     />
                                 </div>
 
-                                {bankDetails && (
-                                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                                        <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Cuenta de Destino</label>
-                                        <div className="space-y-1">
-                                            <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Banco:</span> {bankDetails.banco}</p>
-                                            <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Tipo:</span> {bankDetails.tipo_cuenta}</p>
-                                            <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700">Número:</span> {bankDetails.numero_cuenta}</p>
-                                        </div>
+                                {bankAccounts.length > 0 && (
+                                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
+                                        <label className="block text-xs font-bold text-blue-700 uppercase tracking-wider">
+                                            Seleccionar Cuenta de Destino
+                                        </label>
+                                        
+                                        {bankAccounts.length > 1 ? (
+                                            <select
+                                                value={selectedAccountId || ''}
+                                                onChange={(e) => {
+                                                    const accId = Number(e.target.value);
+                                                    setSelectedAccountId(accId);
+                                                    const selected = bankAccounts.find(a => a.id === accId);
+                                                    if (selected) setBankDetails(selected);
+                                                }}
+                                                className="w-full bg-white border border-blue-200 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                                            >
+                                                {bankAccounts.map((acc) => (
+                                                    <option key={acc.id || acc.numero_cuenta} value={acc.id}>
+                                                        {acc.banco} - {acc.tipo_cuenta} (****{String(acc.numero_cuenta).slice(-4)})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : null}
+
+                                        {bankDetails && (
+                                            <div className="space-y-1 text-xs pt-1 border-t border-blue-100">
+                                                <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700 font-bold">Banco:</span> {bankDetails.banco}</p>
+                                                <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700 font-bold">Tipo de Cuenta:</span> {bankDetails.tipo_cuenta}</p>
+                                                <p className="text-sm text-blue-900 font-medium"><span className="text-blue-700 font-bold">Número de Cuenta:</span> {bankDetails.numero_cuenta}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
