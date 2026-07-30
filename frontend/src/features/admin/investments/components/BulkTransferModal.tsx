@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calculator, Send, Loader2, CheckCircle2, AlertTriangle, Users, DollarSign, Search, Gift, TrendingUp } from 'lucide-react';
+import { X, Calculator, Send, Loader2, CheckCircle2, AlertTriangle, Users, DollarSign, Search, Gift, TrendingUp, ChevronDown, ChevronRight, ArrowRight } from 'lucide-react';
 import { auditService, BulkYieldCalculationResult, BulkPayYieldResult } from '../../../../services/audit';
 
 interface BulkTransferModalProps {
@@ -25,9 +25,17 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
   const [result, setResult] = useState<BulkYieldCalculationResult | null>(null);
   const [payResult, setPayResult] = useState<BulkPayYieldResult | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const toggleExpandUser = (userId: number) => {
+    const newSet = new Set(expandedUsers);
+    if (newSet.has(userId)) newSet.delete(userId);
+    else newSet.add(userId);
+    setExpandedUsers(newSet);
+  };
 
   const handleCalculate = async () => {
     if (!startDate || !endDate) {
@@ -254,8 +262,8 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
                   <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                     <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/50">
                       <div>
-                        <h3 className="font-bold text-slate-800 text-sm">Desglose de Transferencias por Usuario</h3>
-                        <p className="text-xs text-slate-500">Revisa los montos calculados antes de confirmar el desembolso a las billeteras</p>
+                        <h3 className="font-bold text-slate-800 text-sm">Desglose de Transferencias por Usuario (Desplegable)</h3>
+                        <p className="text-xs text-slate-500">Haz clic en cualquier fila para expandir el detalle de sus inversiones y tramos</p>
                       </div>
 
                       <div className="relative w-full sm:w-64">
@@ -270,10 +278,11 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="max-h-72 overflow-y-auto">
+                    <div className="max-h-96 overflow-y-auto">
                       <table className="w-full text-left text-xs text-slate-600">
-                        <thead className="bg-slate-100 text-slate-500 font-semibold sticky top-0 uppercase tracking-wider">
+                        <thead className="bg-slate-100 text-slate-500 font-semibold sticky top-0 uppercase tracking-wider z-10">
                           <tr>
+                            <th className="p-3 w-8"></th>
                             <th className="p-3">Usuario / Inversionista</th>
                             <th className="p-3">Documento</th>
                             <th className="p-3 text-center">Contratos</th>
@@ -283,23 +292,83 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {filteredSummaries.map((u) => (
-                            <tr key={u.user_id} className={`hover:bg-slate-50/70 transition-colors ${u.grand_total > 0 ? 'bg-white' : 'opacity-50'}`}>
-                              <td className="p-3 font-medium text-slate-900">
-                                <div>{u.user_name}</div>
-                                <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
-                              </td>
-                              <td className="p-3 text-slate-500">{u.document_id || 'N/A'}</td>
-                              <td className="p-3 text-center font-bold text-slate-700">{u.investments_count}</td>
-                              <td className="p-3 text-right font-mono font-medium text-slate-800">{formatCOP(u.total_yield)}</td>
-                              <td className="p-3 text-right font-mono font-semibold text-emerald-600">{formatCOP(u.total_acceleration_bonus)}</td>
-                              <td className="p-3 text-right font-mono font-bold text-emerald-700">{formatCOP(u.grand_total)}</td>
-                            </tr>
-                          ))}
+                          {filteredSummaries.map((u) => {
+                            const isExpanded = expandedUsers.has(u.user_id);
+                            return (
+                              <React.Fragment key={u.user_id}>
+                                <tr 
+                                  onClick={() => toggleExpandUser(u.user_id)}
+                                  className={`hover:bg-brand-50/40 transition-colors cursor-pointer ${isExpanded ? 'bg-brand-50/60' : (u.grand_total > 0 ? 'bg-white' : 'opacity-50')}`}
+                                >
+                                  <td className="p-3 text-slate-400">
+                                    {isExpanded ? <ChevronDown className="w-4 h-4 text-brand-600" /> : <ChevronRight className="w-4 h-4" />}
+                                  </td>
+                                  <td className="p-3 font-medium text-slate-900">
+                                    <div>{u.user_name}</div>
+                                    <div className="text-[10px] text-slate-400 font-normal">{u.email}</div>
+                                  </td>
+                                  <td className="p-3 text-slate-500">{u.document_id || 'N/A'}</td>
+                                  <td className="p-3 text-center font-bold text-slate-700">{u.investments_count}</td>
+                                  <td className="p-3 text-right font-mono font-medium text-slate-800">{formatCOP(u.total_yield)}</td>
+                                  <td className="p-3 text-right font-mono font-semibold text-emerald-600">{formatCOP(u.total_acceleration_bonus)}</td>
+                                  <td className="p-3 text-right font-mono font-bold text-emerald-700">{formatCOP(u.grand_total)}</td>
+                                </tr>
+
+                                {/* Sub-tabla Desplegable por Inversión */}
+                                {isExpanded && (
+                                  <tr className="bg-slate-50/80">
+                                    <td colSpan={7} className="p-4 border-y border-brand-100">
+                                      <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-3">
+                                        <div className="font-bold text-xs text-slate-700 flex items-center justify-between pb-2 border-b border-slate-100">
+                                          <span>Desglose por Contratos de {u.user_name}</span>
+                                          <span className="text-brand-600 font-normal text-[11px]">{u.investments_detail?.length || 0} inversiones evaluadas</span>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          {(u.investments_detail || []).map((inv, invIdx) => (
+                                            <div key={invIdx} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                                              <div className="flex justify-between items-center font-bold pb-2 border-b border-slate-200/60 mb-2">
+                                                <span className="text-slate-800">Inversión / Contrato #{inv.investment_id}</span>
+                                                <div className="text-right space-x-3">
+                                                  <span className="text-slate-700">Rendimiento: {formatCOP(inv.total_yield)}</span>
+                                                  {Number(inv.acceleration_bonus || 0) > 0 && (
+                                                    <span className="text-emerald-600">+ Bono Acel: {formatCOP(inv.acceleration_bonus || 0)}</span>
+                                                  )}
+                                                </div>
+                                              </div>
+
+                                              {/* Tramos / Segmentos */}
+                                              <div className="space-y-1 pl-2 border-l-2 border-brand-400">
+                                                {inv.segments.map((seg, sIdx) => (
+                                                  <div key={sIdx} className="flex justify-between items-center text-[11px] text-slate-600">
+                                                    <div className="flex items-center gap-1.5">
+                                                      <span>{new Date(seg.start_date + 'T12:00:00').toLocaleDateString()} <ArrowRight className="inline w-3 h-3 text-slate-400" /> {new Date(seg.end_date + 'T12:00:00').toLocaleDateString()}</span>
+                                                      <span className="text-slate-400 italic font-mono">({seg.note})</span>
+                                                    </div>
+                                                    <div className="font-mono text-slate-700">
+                                                      {seg.days}d × {formatCOP(seg.daily_yield)}/día = <b>{formatCOP(seg.segment_yield)}</b>
+                                                    </div>
+                                                  </div>
+                                                ))}
+
+                                                {inv.segments.length === 0 && (
+                                                  <div className="text-[11px] text-slate-400 italic">Sin rendimiento generado en las fechas seleccionadas.</div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
 
                           {filteredSummaries.length === 0 && (
                             <tr>
-                              <td colSpan={6} className="text-center p-8 text-slate-400">
+                              <td colSpan={7} className="text-center p-8 text-slate-400">
                                 No se encontraron usuarios en la lista de pre-simulación.
                               </td>
                             </tr>
@@ -340,3 +409,4 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
     document.body
   );
 };
+

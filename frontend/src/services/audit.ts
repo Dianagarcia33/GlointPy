@@ -79,6 +79,7 @@ export interface BulkYieldUserSummary {
   total_yield: number;
   total_acceleration_bonus: number;
   grand_total: number;
+  investments_detail?: YieldCalculationResult[];
 }
 
 export interface BulkYieldCalculationResult {

@@ -52,6 +52,8 @@ class BulkYieldUserSummary(BaseModel):
     total_yield: Decimal
     total_acceleration_bonus: Decimal
     grand_total: Decimal
+    investments_detail: Optional[List[YieldCalculationResult]] = []
+
 
 class BulkYieldCalculationResult(BaseModel):
     requested_start_date: date

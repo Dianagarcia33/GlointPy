@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import List, Tuple
 from decimal import Decimal
 from src.models.investor import Investor
@@ -69,8 +69,8 @@ def calculate_investment_yield(
         # If withdrawal happened, capital is reduced starting from that day or the next day?
         # Usually it's reduced from the day it's requested/approved. We'll use fecha_solicitud.
         events.append({
-            "date": w.fecha_solicitud,
-            "amount": w.monto_neto, # Or monto? Typically capital reduction is the full gross 'monto' requested
+            "date": w.fecha_solicitud.date() if isinstance(w.fecha_solicitud, datetime) else w.fecha_solicitud,
+            "amount": getattr(w, 'monto', getattr(w, 'monto_neto', 0)),
             "w_id": w.id
         })
         

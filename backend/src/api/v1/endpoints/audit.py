@@ -380,6 +380,7 @@ async def bulk_calculate_yields(
         user_yield_total = Decimal("0.00")
         user_acc_bonus_total = Decimal("0.00")
         active_investments_count = 0
+        user_investments_detail = []
 
         for investment in user.investments:
             calc_res = calculate_investment_yield(investment, request.start_date, request.end_date)
@@ -387,6 +388,7 @@ async def bulk_calculate_yields(
                 active_investments_count += 1
                 user_yield_total += calc_res.total_yield
                 user_acc_bonus_total += calc_res.acceleration_bonus
+                user_investments_detail.append(calc_res)
 
         user_grand_total = user_yield_total + user_acc_bonus_total
 
@@ -403,12 +405,14 @@ async def bulk_calculate_yields(
                 investments_count=active_investments_count,
                 total_yield=user_yield_total,
                 total_acceleration_bonus=user_acc_bonus_total,
-                grand_total=user_grand_total
+                grand_total=user_grand_total,
+                investments_detail=user_investments_detail
             ))
 
             global_yield_total += user_yield_total
             global_acceleration_bonus_total += user_acc_bonus_total
             global_grand_total += user_grand_total
+
 
     return BulkYieldCalculationResult(
         requested_start_date=request.start_date,
