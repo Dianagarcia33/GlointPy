@@ -31,6 +31,14 @@ async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optiona
             
     return False, "Actualmente no se encuentra habilitada la ventana de retiros. Por favor consulta las fechas de retiro autorizadas en el sistema."
 
+class WalletWithdrawRequest(BaseModel):
+    monto: float
+    code: str
+    bank_account_id: Optional[int] = None
+
+class SendCodeRequest(BaseModel):
+    monto: float
+
 @router.get("/me/balance")
 async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
@@ -40,23 +48,35 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
     wallet = result.scalars().first()
     
     from src.models.user_bank_account import UserBankAccount
-    bank_result = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
-    bank_account = bank_result.scalars().first()
+    bank_result = await db.execute(
+        select(UserBankAccount).where(
+            UserBankAccount.user_id == current_user.id, 
+            UserBankAccount.is_active == True
+        )
+    )
+    user_bank_accounts = bank_result.scalars().all()
     
-    bank_details = None
-    if bank_account:
-        bank_details = {
-            "banco": bank_account.banco,
-            "tipo_cuenta": bank_account.tipo_cuenta,
-            "numero_cuenta": bank_account.numero_cuenta
+    bank_accounts_list = [
+        {
+            "id": acc.id,
+            "banco": acc.banco,
+            "tipo_cuenta": acc.tipo_cuenta,
+            "numero_cuenta": acc.numero_cuenta
         }
+        for acc in user_bank_accounts
+    ]
     
+    bank_details = bank_accounts_list[0] if bank_accounts_list else None
     can_withdraw, withdrawal_msg = await check_withdrawal_dates_active(db)
 
-    if not wallet:
-        return {"balance": 0, "currency": "COP", "bank_details": bank_details, "can_withdraw": can_withdraw, "withdrawal_date_message": withdrawal_msg}
-        
-    return {"balance": wallet.balance, "currency": wallet.currency, "bank_details": bank_details, "can_withdraw": can_withdraw, "withdrawal_date_message": withdrawal_msg}
+    return {
+        "balance": wallet.balance if wallet else 0,
+        "currency": wallet.currency if wallet else "COP",
+        "bank_details": bank_details,
+        "bank_accounts": bank_accounts_list,
+        "can_withdraw": can_withdraw,
+        "withdrawal_date_message": withdrawal_msg
+    }
 
 
 from pydantic import BaseModel
@@ -177,8 +197,24 @@ async def request_withdrawal(
         raise HTTPException(status_code=400, detail="Código de verificación incorrecto o expirado.")
 
     # 1. Check Bank Account
-    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
-    bank_account = bank_res.scalars().first()
+    if req.bank_account_id:
+        bank_res = await db.execute(
+            select(UserBankAccount).where(
+                UserBankAccount.id == req.bank_account_id,
+                UserBankAccount.user_id == current_user.id,
+                UserBankAccount.is_active == True
+            )
+        )
+        bank_account = bank_res.scalars().first()
+    else:
+        bank_res = await db.execute(
+            select(UserBankAccount).where(
+                UserBankAccount.user_id == current_user.id,
+                UserBankAccount.is_active == True
+            )
+        )
+        bank_account = bank_res.scalars().first()
+
     if not bank_account:
         raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa registrada.")
 
