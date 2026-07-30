@@ -231,6 +231,19 @@ class InvestorService:
                     )
                     db.add(new_acc)
 
+        if "assigned_code" in update_data and update_data["assigned_code"]:
+            code_check = await db.execute(
+                select(Investor).where(
+                    Investor.assigned_code == update_data["assigned_code"],
+                    Investor.id != investor_id
+                )
+            )
+            if code_check.scalars().first():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El código asignado '{update_data['assigned_code']}' ya pertenece a otro inversionista."
+                )
+
         for field, value in update_data.items():
             setattr(db_investor, field, value)
 
@@ -238,11 +251,12 @@ class InvestorService:
             await db.commit()
             await db.refresh(db_investor)
             return await InvestorService.get_investor(db, db_investor.id)
-        except IntegrityError:
+        except IntegrityError as e:
             await db.rollback()
+            err_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Assigned code already exists or invalid data provided"
+                detail=f"Error al actualizar inversionista: {err_msg}"
             )
 
     @staticmethod
