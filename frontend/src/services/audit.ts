@@ -32,6 +32,9 @@ export interface YieldSegment {
 
 export interface YieldCalculationResult {
   investment_id: number;
+  assigned_code?: string;
+  package_name?: string;
+  package_value?: number;
   requested_start_date: string;
   requested_end_date: string;
   effective_start_date: string | null;

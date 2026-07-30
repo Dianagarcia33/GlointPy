@@ -328,7 +328,12 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
                                           {(u.investments_detail || []).map((inv, invIdx) => (
                                             <div key={invIdx} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
                                               <div className="flex justify-between items-center font-bold pb-2 border-b border-slate-200/60 mb-2">
-                                                <span className="text-slate-800">Inversión / Contrato #{inv.investment_id}</span>
+                                                <span className="text-slate-800 font-bold">
+                                                  Contrato {inv.assigned_code ? inv.assigned_code : `#${inv.investment_id}`}
+                                                  <span className="font-normal text-slate-600 font-mono text-[11px] ml-2">
+                                                    (Valor: <b>{formatCOP(inv.package_value || 0)}</b>{inv.package_name ? ` - ${inv.package_name}` : ''})
+                                                  </span>
+                                                </span>
                                                 <div className="text-right space-x-3">
                                                   <span className="text-slate-700">Rendimiento: {formatCOP(inv.total_yield)}</span>
                                                   {Number(inv.acceleration_bonus || 0) > 0 && (

@@ -18,6 +18,9 @@ class YieldSegment(BaseModel):
 
 class YieldCalculationResult(BaseModel):
     investment_id: int
+    assigned_code: Optional[str] = None
+    package_name: Optional[str] = None
+    package_value: Optional[Decimal] = Decimal("0.00")
     requested_start_date: date
     requested_end_date: date
     effective_start_date: Optional[date] = None
@@ -26,6 +29,7 @@ class YieldCalculationResult(BaseModel):
     total_yield: Decimal
     acceleration_bonus: Decimal = Decimal("0.00")
     segments: List[YieldSegment]
+
     
 class PayYieldRequest(CalculateYieldRequest):
     pass

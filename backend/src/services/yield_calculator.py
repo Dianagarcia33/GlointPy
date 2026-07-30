@@ -172,8 +172,15 @@ def calculate_investment_yield(
 
 
 
+    pkg_name = investment.package.name if investment.package else None
+    pkg_val = Decimal(str(investment.package.value)) if (investment.package and hasattr(investment.package, 'value')) else Decimal("0.00")
+    assigned_code = getattr(investment, 'assigned_code', None)
+
     return YieldCalculationResult(
         investment_id=investment.id,
+        assigned_code=assigned_code,
+        package_name=pkg_name,
+        package_value=pkg_val,
         requested_start_date=requested_start_date,
         requested_end_date=requested_end_date,
         effective_start_date=eff_start,
@@ -183,4 +190,5 @@ def calculate_investment_yield(
         acceleration_bonus=acceleration_bonus,
         segments=segments
     )
+
 

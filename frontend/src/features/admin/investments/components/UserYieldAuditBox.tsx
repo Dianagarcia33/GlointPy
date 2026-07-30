@@ -94,7 +94,15 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
               {result.investments_yields.map((invYield, idx) => (
                 <div key={idx} className="bg-white border border-slate-200 rounded-lg p-3">
                   <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
-                    <div className="font-medium text-slate-800">Contrato #{invYield.investment_id}</div>
+                    <div>
+                      <div className="font-bold text-slate-900">
+                        Contrato {invYield.assigned_code ? invYield.assigned_code : `#${invYield.investment_id}`}
+                        {invYield.package_name && <span className="ml-2 font-normal text-xs text-brand-600 font-mono">({invYield.package_name})</span>}
+                      </div>
+                      <div className="text-xs text-slate-500 font-medium mt-0.5">
+                        Valor Contrato: <span className="font-semibold text-slate-700">{Number(invYield.package_value || 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</span>
+                      </div>
+                    </div>
                     <div className="font-bold text-brand-700 text-right">
                       <div>Rendimiento: {Number(invYield.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                       {Number(invYield.acceleration_bonus || 0) > 0 && (
