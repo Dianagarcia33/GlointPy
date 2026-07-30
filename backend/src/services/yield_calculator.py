@@ -151,6 +151,9 @@ def calculate_investment_yield(
             segment_yield=seg_yield,
             note=note
         ))
+
+        total_yield += seg_yield
+        total_days += days_in_seg
         
     # Calculate acceleration bonus in money ($ COP)
     acceleration_bonus = Decimal("0.00")
@@ -158,6 +161,7 @@ def calculate_investment_yield(
         for acc in investment.accelerations:
             if acc.applied:
                 acceleration_bonus += Decimal(str(acc.bonus_amount or 0.0))
+
 
     return YieldCalculationResult(
         investment_id=investment.id,
