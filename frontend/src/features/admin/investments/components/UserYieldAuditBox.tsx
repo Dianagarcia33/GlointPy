@@ -95,8 +95,13 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
                 <div key={idx} className="bg-white border border-slate-200 rounded-lg p-3">
                   <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
                     <div className="font-medium text-slate-800">Contrato #{invYield.investment_id}</div>
-                    <div className="font-bold text-brand-700">
-                      Subtotal: {Number(invYield.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 10 })}
+                    <div className="font-bold text-brand-700 text-right">
+                      <div>Rendimiento: {Number(invYield.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                      {Number(invYield.acceleration_bonus || 0) > 0 && (
+                        <div className="text-emerald-600 text-xs font-semibold">
+                          + Bono Aceleración: {Number(invYield.acceleration_bonus).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -107,7 +112,7 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
                           <span className="text-slate-400 italic">({seg.note})</span>
                         </div>
                         <div className="font-mono">
-                          {seg.days}d × {Number(seg.daily_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 10 })} = {Number(seg.segment_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 10 })}
+                          {seg.days}d × {Number(seg.daily_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })} = {Number(seg.segment_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </div>
                       </div>
                     ))}
@@ -127,16 +132,21 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
 
             {result.investments_yields.length > 0 && (
               <div className="mt-4 flex flex-col sm:flex-row justify-between items-center bg-brand-50 border border-brand-200 p-4 rounded-xl gap-4">
-                <div>
-                  <div className="text-sm text-brand-600 font-medium">Gran Total a Transferir</div>
+                <div className="space-y-0.5">
+                  <div className="text-xs text-brand-600 font-semibold uppercase tracking-wider">Gran Total a Transferir a Wallet</div>
                   <div className="text-2xl font-bold text-brand-800">
-                    {Number(result.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 10 })}
+                    {Number(result.grand_total ?? result.total_yield).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </div>
+                  {Number(result.total_acceleration_bonus || 0) > 0 && (
+                    <div className="text-xs font-semibold text-emerald-700">
+                      (Rendimientos: ${Number(result.total_yield).toLocaleString('es-CO')} + Bonos Aceleración: ${Number(result.total_acceleration_bonus).toLocaleString('es-CO')})
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={handlePay}
                   disabled={isPaying}
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-2.5 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-6 py-2.5 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm shrink-0 cursor-pointer"
                 >
                   {isPaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
                   Transferir Total a Wallet

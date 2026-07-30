@@ -38,6 +38,7 @@ export interface YieldCalculationResult {
   effective_end_date: string | null;
   total_days: number;
   total_yield: number;
+  acceleration_bonus?: number;
   segments: YieldSegment[];
 }
 
@@ -46,6 +47,8 @@ export interface UserYieldCalculationResult {
   requested_start_date: string;
   requested_end_date: string;
   total_yield: number;
+  total_acceleration_bonus?: number;
+  grand_total?: number;
   investments_yields: YieldCalculationResult[];
 }
 
@@ -64,6 +67,39 @@ export interface WalletTransaction {
   description?: string;
   balance_after: number;
   created_at: string;
+}
+
+export interface BulkYieldUserSummary {
+  user_id: number;
+  user_name: string;
+  email: string;
+  document_id?: string;
+  has_wallet: boolean;
+  investments_count: number;
+  total_yield: number;
+  total_acceleration_bonus: number;
+  grand_total: number;
+}
+
+export interface BulkYieldCalculationResult {
+  requested_start_date: string;
+  requested_end_date: string;
+  total_users_evaluated: number;
+  total_payable_users: number;
+  global_yield_total: number;
+  global_acceleration_bonus_total: number;
+  global_grand_total: number;
+  users_summaries: BulkYieldUserSummary[];
+}
+
+export interface BulkPayYieldResult {
+  message: string;
+  requested_start_date: string;
+  requested_end_date: string;
+  total_users_paid: number;
+  global_yield_total: number;
+  global_acceleration_bonus_total: number;
+  global_grand_total: number;
 }
 
 Object.assign(auditService, {
@@ -103,5 +139,20 @@ Object.assign(auditService, {
     return await fetchApi(`/audit/users/${userId}/create-wallet`, {
       method: 'POST'
     });
+  },
+
+  bulkCalculateYields: async (payload: CalculateYieldPayload): Promise<BulkYieldCalculationResult> => {
+    return await fetchApi('/audit/bulk-calculate-yields', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+
+  bulkPayYields: async (payload: CalculateYieldPayload): Promise<BulkPayYieldResult> => {
+    return await fetchApi('/audit/bulk-pay-yields', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
   }
 });
+

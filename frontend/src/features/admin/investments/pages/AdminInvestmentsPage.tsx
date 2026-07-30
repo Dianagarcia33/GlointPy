@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, FileText, Calculator } from 'lucide-react';
+import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, FileText, Calculator, Send } from 'lucide-react';
 import { auditService, AuditUser } from '../../../../services/audit';
 import { UserYieldAuditBox } from '../components/UserYieldAuditBox';
 import { UserWalletHistoryBox } from '../components/UserWalletHistoryBox';
+import { BulkTransferModal } from '../components/BulkTransferModal';
 
 export const AdminInvestmentsPage: React.FC = () => {
   const [users, setUsers] = useState<AuditUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Bulk Transfer Modal State
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
   // Expanded rows state
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
   const [isCreatingWallet, setIsCreatingWallet] = useState<number | null>(null);
@@ -65,6 +69,14 @@ export const AdminInvestmentsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <BulkTransferModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        defaultStartDate={cycleStartDate}
+        defaultEndDate={cycleEndDate}
+        onSuccess={() => fetchData()}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -73,6 +85,14 @@ export const AdminInvestmentsPage: React.FC = () => {
           </h1>
           <p className="text-slate-500 mt-1">Supervisa y liquida los rendimientos de las inversiones por usuario.</p>
         </div>
+
+        <button
+          onClick={() => setIsBulkModalOpen(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 text-sm cursor-pointer shrink-0"
+        >
+          <Send className="w-4 h-4" />
+          Transferencia Masiva General
+        </button>
       </div>
 
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">

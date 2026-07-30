@@ -17,7 +17,16 @@ from src.schemas.period import PeriodResponse
 from src.schemas.investor import InvestorBase
 from src.schemas.contract_history import ContractHistoryResponse
 from src.schemas.withdrawal import WithdrawalResponse
-from src.schemas.yield_calc import CalculateYieldRequest, YieldCalculationResult, PayYieldRequest, UserYieldCalculationResult, PayUserYieldRequest
+from src.schemas.yield_calc import (
+    CalculateYieldRequest, 
+    YieldCalculationResult, 
+    PayYieldRequest, 
+    UserYieldCalculationResult, 
+    PayUserYieldRequest,
+    BulkYieldUserSummary,
+    BulkYieldCalculationResult,
+    BulkPayYieldResult
+)
 from src.services.yield_calculator import calculate_investment_yield
 from src.models.wallet import Wallet, WalletTransaction
 from src.models.withdrawal import Withdrawal
@@ -193,19 +202,25 @@ async def preview_user_yields(
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
     investments_yields = []
-    total_yield = 0
+    total_yield = Decimal("0.00")
+    total_acceleration_bonus = Decimal("0.00")
     
     for investment in user.investments:
         calc_result = calculate_investment_yield(investment, request.start_date, request.end_date)
-        if calc_result.total_yield > 0 or len(calc_result.segments) > 0:
+        if calc_result.total_yield > 0 or calc_result.acceleration_bonus > 0 or len(calc_result.segments) > 0:
             investments_yields.append(calc_result)
             total_yield += calc_result.total_yield
+            total_acceleration_bonus += calc_result.acceleration_bonus
             
+    grand_total = total_yield + total_acceleration_bonus
+
     return UserYieldCalculationResult(
         user_id=user_id,
         requested_start_date=request.start_date,
         requested_end_date=request.end_date,
         total_yield=total_yield,
+        total_acceleration_bonus=total_acceleration_bonus,
+        grand_total=grand_total,
         investments_yields=investments_yields
     )
 
@@ -232,36 +247,48 @@ async def pay_user_yields(
         raise HTTPException(status_code=400, detail="El usuario no tiene una billetera activa")
         
     investments_yields = []
-    total_yield = 0
+    total_yield = Decimal("0.00")
+    total_acceleration_bonus = Decimal("0.00")
     
     for investment in user.investments:
         calc_result = calculate_investment_yield(investment, request.start_date, request.end_date)
-        if calc_result.total_yield > 0:
+        if calc_result.total_yield > 0 or calc_result.acceleration_bonus > 0:
             investments_yields.append(calc_result)
             total_yield += calc_result.total_yield
+            total_acceleration_bonus += calc_result.acceleration_bonus
             
-            # Create a transaction for EACH investment
-            transaction = WalletTransaction(
-                wallet_id=user.wallet.id,
-                amount=calc_result.total_yield,
-                type="ingreso",
-                reference_type="rendimiento_inversion",
-                reference_id=investment.id,
-                description=f"Rendimiento del {calc_result.effective_start_date} al {calc_result.effective_end_date} (Inv. {investment.assigned_code})",
-                # We will update balance incrementally or once at the end.
-                balance_after=0 # Placeholder, we will fix below
-            )
-            db.add(transaction)
+            # Create a transaction for EACH investment yield
+            if calc_result.total_yield > 0:
+                transaction = WalletTransaction(
+                    wallet_id=user.wallet.id,
+                    amount=calc_result.total_yield,
+                    type="ingreso",
+                    reference_type="rendimiento_inversion",
+                    reference_id=investment.id,
+                    description=f"Rendimiento del {calc_result.effective_start_date} al {calc_result.effective_end_date} (Inv. {investment.assigned_code})",
+                    balance_after=0
+                )
+                db.add(transaction)
+
+            # Create a transaction for acceleration bonus if present
+            if calc_result.acceleration_bonus > 0:
+                acc_transaction = WalletTransaction(
+                    wallet_id=user.wallet.id,
+                    amount=calc_result.acceleration_bonus,
+                    type="ingreso",
+                    reference_type="bono_aceleracion",
+                    reference_id=investment.id,
+                    description=f"Bono de aceleración de inversión {investment.assigned_code}",
+                    balance_after=0
+                )
+                db.add(acc_transaction)
                 
-    if total_yield <= 0:
-        raise HTTPException(status_code=400, detail="No hay rendimientos para pagar en este ciclo")
+    grand_total = total_yield + total_acceleration_bonus
+    if grand_total <= 0:
+        raise HTTPException(status_code=400, detail="No hay rendimientos ni bonos para pagar en este ciclo")
         
-    # We must update wallet balance and the balance_after for each transaction correctly
     current_balance = user.wallet.balance
     
-    # Actually, we can just let the transactions hold the cumulative balance
-    # But since db.add doesn't guarantee order of auto-increment IDs immediately without flush,
-    # let's just do it sequentially.
     for obj in db.new:
         if isinstance(obj, WalletTransaction):
             current_balance += obj.amount
@@ -270,7 +297,13 @@ async def pay_user_yields(
     user.wallet.balance = current_balance
     await db.commit()
     
-    return {"message": "Pago consolidado procesado exitosamente", "amount_paid": total_yield}
+    return {
+        "message": "Pago consolidado de rendimientos y bonos de aceleración procesado exitosamente",
+        "amount_paid": float(grand_total),
+        "total_yield": float(total_yield),
+        "total_acceleration_bonus": float(total_acceleration_bonus)
+    }
+
 
 @router.get("/users/{user_id}/wallet-transactions", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def get_user_wallet_transactions(
@@ -313,3 +346,178 @@ async def create_user_wallet(
     await db.commit()
     
     return {"message": "Billetera creada exitosamente"}
+
+@router.post("/bulk-calculate-yields", response_model=BulkYieldCalculationResult, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def bulk_calculate_yields(
+    request: CalculateYieldRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Simula y audita en masa el cálculo de rendimientos y bonos de aceleración de TODOS los usuarios activos.
+    """
+    from decimal import Decimal
+
+    query = select(User).options(
+        selectinload(User.wallet),
+        selectinload(User.investments).selectinload(Investor.package),
+        selectinload(User.investments).selectinload(Investor.period),
+        selectinload(User.investments).selectinload(Investor.withdrawals),
+        selectinload(User.investments).selectinload(Investor.accelerations)
+    )
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    users_summaries = []
+    global_yield_total = Decimal("0.00")
+    global_acceleration_bonus_total = Decimal("0.00")
+    global_grand_total = Decimal("0.00")
+    total_payable_users = 0
+
+    for user in users:
+        if not user.investments:
+            continue
+
+        user_yield_total = Decimal("0.00")
+        user_acc_bonus_total = Decimal("0.00")
+        active_investments_count = 0
+
+        for investment in user.investments:
+            calc_res = calculate_investment_yield(investment, request.start_date, request.end_date)
+            if calc_res.total_yield > 0 or calc_res.acceleration_bonus > 0 or len(calc_res.segments) > 0:
+                active_investments_count += 1
+                user_yield_total += calc_res.total_yield
+                user_acc_bonus_total += calc_res.acceleration_bonus
+
+        user_grand_total = user_yield_total + user_acc_bonus_total
+
+        if user_grand_total > 0 or active_investments_count > 0:
+            if user_grand_total > 0:
+                total_payable_users += 1
+
+            users_summaries.append(BulkYieldUserSummary(
+                user_id=user.id,
+                user_name=user.name or user.email.split('@')[0],
+                email=user.email,
+                document_id=user.document_id,
+                has_wallet=user.wallet is not None,
+                investments_count=active_investments_count,
+                total_yield=user_yield_total,
+                total_acceleration_bonus=user_acc_bonus_total,
+                grand_total=user_grand_total
+            ))
+
+            global_yield_total += user_yield_total
+            global_acceleration_bonus_total += user_acc_bonus_total
+            global_grand_total += user_grand_total
+
+    return BulkYieldCalculationResult(
+        requested_start_date=request.start_date,
+        requested_end_date=request.end_date,
+        total_users_evaluated=len(users),
+        total_payable_users=total_payable_users,
+        global_yield_total=global_yield_total,
+        global_acceleration_bonus_total=global_acceleration_bonus_total,
+        global_grand_total=global_grand_total,
+        users_summaries=users_summaries
+    )
+
+
+@router.post("/bulk-pay-yields", response_model=BulkPayYieldResult, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def bulk_pay_yields(
+    request: PayUserYieldRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ejecuta masivamente la transferencia de rendimientos y bonos de aceleración a las wallets de todos los usuarios beneficiarios.
+    """
+    from decimal import Decimal
+
+    query = select(User).options(
+        selectinload(User.wallet),
+        selectinload(User.investments).selectinload(Investor.package),
+        selectinload(User.investments).selectinload(Investor.period),
+        selectinload(User.investments).selectinload(Investor.withdrawals),
+        selectinload(User.investments).selectinload(Investor.accelerations)
+    )
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    total_users_paid = 0
+    global_yield_total = Decimal("0.00")
+    global_acceleration_bonus_total = Decimal("0.00")
+    global_grand_total = Decimal("0.00")
+
+    for user in users:
+        if not user.investments:
+            continue
+
+        user_yield_total = Decimal("0.00")
+        user_acc_bonus_total = Decimal("0.00")
+        transactions_to_add = []
+
+        for investment in user.investments:
+            calc_res = calculate_investment_yield(investment, request.start_date, request.end_date)
+            if calc_res.total_yield > 0 or calc_res.acceleration_bonus > 0:
+                user_yield_total += calc_res.total_yield
+                user_acc_bonus_total += calc_res.acceleration_bonus
+
+                if calc_res.total_yield > 0:
+                    transactions_to_add.append({
+                        "amount": calc_res.total_yield,
+                        "type": "ingreso",
+                        "reference_type": "rendimiento_inversion",
+                        "reference_id": investment.id,
+                        "description": f"Rendimiento del {calc_res.effective_start_date} al {calc_res.effective_end_date} (Inv. {investment.assigned_code})"
+                    })
+
+                if calc_res.acceleration_bonus > 0:
+                    transactions_to_add.append({
+                        "amount": calc_res.acceleration_bonus,
+                        "type": "ingreso",
+                        "reference_type": "bono_aceleracion",
+                        "reference_id": investment.id,
+                        "description": f"Bono de aceleración de inversión {investment.assigned_code}"
+                    })
+
+        user_grand_total = user_yield_total + user_acc_bonus_total
+
+        if user_grand_total > 0 and transactions_to_add:
+            # Ensure wallet exists
+            wallet = user.wallet
+            if not wallet:
+                wallet = Wallet(user_id=user.id, balance=Decimal("0.00"), status="active")
+                db.add(wallet)
+                await db.flush()
+
+            current_balance = wallet.balance
+            for tx_data in transactions_to_add:
+                current_balance += tx_data["amount"]
+                tx = WalletTransaction(
+                    wallet_id=wallet.id,
+                    amount=tx_data["amount"],
+                    type=tx_data["type"],
+                    reference_type=tx_data["reference_type"],
+                    reference_id=tx_data["reference_id"],
+                    description=tx_data["description"],
+                    balance_after=current_balance
+                )
+                db.add(tx)
+
+            wallet.balance = current_balance
+            total_users_paid += 1
+            global_yield_total += user_yield_total
+            global_acceleration_bonus_total += user_acc_bonus_total
+            global_grand_total += user_grand_total
+
+    await db.commit()
+
+    return BulkPayYieldResult(
+        message="Transferencia masiva general ejecutada exitosamente a todas las billeteras",
+        requested_start_date=request.start_date,
+        requested_end_date=request.end_date,
+        total_users_paid=total_users_paid,
+        global_yield_total=global_yield_total,
+        global_acceleration_bonus_total=global_acceleration_bonus_total,
+        global_grand_total=global_grand_total
+    )
+
