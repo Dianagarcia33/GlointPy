@@ -55,9 +55,10 @@ class SystemEventService:
         Check if a specific system event type is currently active, 
         evaluating recurrences and start/end dates using the local timezone.
         """
+        from sqlalchemy import func
         result = await db.execute(
             select(SystemEvent)
-            .where(SystemEvent.type == event_type)
+            .where(func.lower(SystemEvent.type) == event_type.lower())
             .where(SystemEvent.is_active == True)
         )
         events = result.scalars().all()
@@ -83,18 +84,15 @@ class SystemEventService:
 
             # 2. Evaluate Specific Date Range
             if event.start_date and event.end_date:
-                # Ensure the DB dates are localized to our timezone for correct comparison
-                # Assuming the DB stores dates in UTC if timezone-aware, or naive but meant as local.
-                # If they are naive, we treat them as America/Bogota local times.
                 start = event.start_date
                 if start.tzinfo is None:
-                    start = LOCAL_TZ.localize(start)
+                    start = start.replace(tzinfo=LOCAL_TZ)
                 else:
                     start = start.astimezone(LOCAL_TZ)
                     
                 end = event.end_date
                 if end.tzinfo is None:
-                    end = LOCAL_TZ.localize(end)
+                    end = end.replace(tzinfo=LOCAL_TZ)
                 else:
                     end = end.astimezone(LOCAL_TZ)
 

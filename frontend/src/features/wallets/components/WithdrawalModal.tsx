@@ -27,21 +27,16 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
 
     useEffect(() => {
         if (isOpen) {
-            if (propBalance !== undefined && propBankDetails !== undefined) {
-                setBalance(propBalance);
-                setBankDetails(propBankDetails);
-            } else {
-                setIsLoadingData(true);
-                fetchApi('/wallets/me/balance')
-                    .then(res => {
-                        setBalance(res.balance || 0);
-                        setBankDetails(res.bank_details || null);
-                        setCanWithdraw(res.can_withdraw !== false); // Default true if undefined
-                        setWithdrawalDateMessage(res.withdrawal_date_message || null);
-                    })
-                    .catch(err => console.error("Error fetching balance:", err))
-                    .finally(() => setIsLoadingData(false));
-            }
+            setIsLoadingData(true);
+            fetchApi('/wallets/me/balance')
+                .then(res => {
+                    setBalance(res.balance !== undefined ? res.balance : (propBalance || 0));
+                    setBankDetails(res.bank_details || propBankDetails || null);
+                    setCanWithdraw(res.can_withdraw !== false);
+                    setWithdrawalDateMessage(res.withdrawal_date_message || null);
+                })
+                .catch(err => console.error("Error fetching balance:", err))
+                .finally(() => setIsLoadingData(false));
         } else {
             setIsSuccess(false);
             setMonto('');
