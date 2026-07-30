@@ -44,7 +44,10 @@ class UserYieldCalculationResult(BaseModel):
     investments_yields: List[YieldCalculationResult]
 
 class PayUserYieldRequest(CalculateYieldRequest):
-    pass
+    pay_mode: Optional[str] = "all"  # "all", "yields_only", "bonuses_only"
+
+class UpdateAccelerationDateRequest(BaseModel):
+    created_at: str
 
 class BulkYieldUserSummary(BaseModel):
     user_id: int

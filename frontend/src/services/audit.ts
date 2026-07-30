@@ -6,20 +6,6 @@ export interface AuditUser extends User {
     wallet?: any;
 }
 
-export const auditService = {
-    getUsers: async (params?: { page?: number; limit?: number; search?: string }) => {
-        const queryParams = new URLSearchParams();
-        if (params?.page) queryParams.append('page', params.page.toString());
-        if (params?.limit) queryParams.append('limit', params.limit.toString());
-        if (params?.search) queryParams.append('search', params.search);
-        
-        const queryString = queryParams.toString();
-        const url = `/audit/users${queryString ? `?${queryString}` : ''}`;
-        
-        return await fetchApi(url);
-    }
-};
-
 export interface YieldSegment {
   start_date: string;
   end_date: string;
@@ -58,6 +44,7 @@ export interface UserYieldCalculationResult {
 export interface CalculateYieldPayload {
   start_date: string;
   end_date: string;
+  pay_mode?: 'all' | 'yields_only' | 'bonuses_only';
 }
 
 export interface WalletTransaction {
@@ -106,57 +93,76 @@ export interface BulkPayYieldResult {
   global_grand_total: number;
 }
 
-Object.assign(auditService, {
-  calculateYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<YieldCalculationResult> => {
-    return await fetchApi(`/audit/investments/${investmentId}/calculate-yield`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
-  
-  payYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<{ message: string, amount_paid: number }> => {
-    return await fetchApi(`/audit/investments/${investmentId}/pay-yield`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
-  
-  calculateUserYields: async (userId: number, payload: CalculateYieldPayload): Promise<UserYieldCalculationResult> => {
-    return await fetchApi(`/audit/users/${userId}/calculate-yields`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
-  
-  payUserYields: async (userId: number, payload: CalculateYieldPayload): Promise<{ message: string, amount_paid: number }> => {
-    return await fetchApi(`/audit/users/${userId}/pay-yields`, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
-  
-  getWalletTransactions: async (userId: number): Promise<WalletTransaction[]> => {
-    return await fetchApi(`/audit/users/${userId}/wallet-transactions`);
-  },
-  
-  createWallet: async (userId: number): Promise<{ message: string }> => {
-    return await fetchApi(`/audit/users/${userId}/create-wallet`, {
-      method: 'POST'
-    });
-  },
+export const auditService = {
+    getUsers: async (params?: { page?: number; limit?: number; search?: string }) => {
+        const queryParams = new URLSearchParams();
+        if (params?.page) queryParams.append('page', params.page.toString());
+        if (params?.limit) queryParams.append('limit', params.limit.toString());
+        if (params?.search) queryParams.append('search', params.search);
+        
+        const queryString = queryParams.toString();
+        const url = `/audit/users${queryString ? `?${queryString}` : ''}`;
+        
+        return await fetchApi(url);
+    },
 
-  bulkCalculateYields: async (payload: CalculateYieldPayload): Promise<BulkYieldCalculationResult> => {
-    return await fetchApi('/audit/bulk-calculate-yields', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  },
+    calculateYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<YieldCalculationResult> => {
+        return await fetchApi(`/audit/investments/${investmentId}/calculate-yield`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+    
+    payYield: async (investmentId: number, payload: CalculateYieldPayload): Promise<{ message: string, amount_paid: number }> => {
+        return await fetchApi(`/audit/investments/${investmentId}/pay-yield`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+    
+    calculateUserYields: async (userId: number, payload: CalculateYieldPayload): Promise<UserYieldCalculationResult> => {
+        return await fetchApi(`/audit/users/${userId}/calculate-yields`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+    
+    payUserYields: async (userId: number, payload: CalculateYieldPayload): Promise<{ message: string, amount_paid: number }> => {
+        return await fetchApi(`/audit/users/${userId}/pay-yields`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+    
+    getWalletTransactions: async (userId: number): Promise<WalletTransaction[]> => {
+        return await fetchApi(`/audit/users/${userId}/wallet-transactions`);
+    },
+    
+    createWallet: async (userId: number): Promise<{ message: string }> => {
+        return await fetchApi(`/audit/users/${userId}/create-wallet`, {
+            method: 'POST'
+        });
+    },
 
-  bulkPayYields: async (payload: CalculateYieldPayload): Promise<BulkPayYieldResult> => {
-    return await fetchApi('/audit/bulk-pay-yields', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-  }
-});
+    bulkCalculateYields: async (payload: CalculateYieldPayload): Promise<BulkYieldCalculationResult> => {
+        return await fetchApi('/audit/bulk-calculate-yields', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+
+    bulkPayYields: async (payload: CalculateYieldPayload): Promise<BulkPayYieldResult> => {
+        return await fetchApi('/audit/bulk-pay-yields', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    },
+
+    updateAccelerationDate: async (accelerationId: number, createdAt: string): Promise<{ message: string }> => {
+        return await fetchApi(`/audit/accelerations/${accelerationId}/date`, {
+            method: 'PUT',
+            body: JSON.stringify({ created_at: createdAt })
+        });
+    }
+};
 

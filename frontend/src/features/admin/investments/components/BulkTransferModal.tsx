@@ -28,6 +28,8 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
+  const [payMode, setPayMode] = useState<'all' | 'yields_only' | 'bonuses_only'>('all');
+
   if (!isOpen) return null;
 
   const toggleExpandUser = (userId: number) => {
@@ -35,6 +37,13 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
     if (newSet.has(userId)) newSet.delete(userId);
     else newSet.add(userId);
     setExpandedUsers(newSet);
+  };
+
+  const calculateEffectiveGlobalTotal = () => {
+    if (!result) return 0;
+    if (payMode === 'yields_only') return Number(result.global_yield_total || 0);
+    if (payMode === 'bonuses_only') return Number(result.global_acceleration_bonus_total || 0);
+    return Number(result.global_grand_total || 0);
   };
 
   const handleCalculate = async () => {
@@ -61,12 +70,14 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
   };
 
   const handleExecutePay = async () => {
-    if (!result || result.global_grand_total <= 0) {
-      alert('No hay saldos pendientes para transferir en este ciclo.');
+    const totalToPay = calculateEffectiveGlobalTotal();
+    if (!result || totalToPay <= 0) {
+      alert('No hay saldos pendientes para transferir en este ciclo según el modo seleccionado.');
       return;
     }
 
-    const confirmMsg = `¿Confirmas la transferencia MASIVA por un total de ${Number(result.global_grand_total).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} a ${result.total_payable_users} usuarios? Esta acción acreditará de inmediato las billeteras.`;
+    const modeLabel = payMode === 'all' ? 'TODO (Rendimientos + Bonos)' : payMode === 'yields_only' ? 'SOLO RENDIMIENTOS' : 'SOLO BONOS DE ACELERACIÓN';
+    const confirmMsg = `¿Confirmas la transferencia MASIVA [Modo: ${modeLabel}] por un total de ${Number(totalToPay).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} a los usuarios beneficiarios? Esta acción acreditará de inmediato las billeteras.`;
     if (!window.confirm(confirmMsg)) return;
 
     setIsPaying(true);
@@ -75,7 +86,8 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
     try {
       const res = await (auditService as any).bulkPayYields({
         start_date: startDate,
-        end_date: endDate
+        end_date: endDate,
+        pay_mode: payMode
       });
       setPayResult(res);
       if (onSuccess) onSuccess();
@@ -215,6 +227,46 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
               {result && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
                   
+                  {/* Selector de Modo de Transferencia */}
+                  <div className="bg-slate-100 p-2 rounded-2xl flex flex-col sm:flex-row items-center gap-2 text-xs font-semibold">
+                    <span className="text-slate-600 px-3 font-bold uppercase tracking-wider">Modo de Transferencia:</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full flex-1">
+                      <button
+                        type="button"
+                        onClick={() => setPayMode('all')}
+                        className={`py-2 px-4 rounded-xl transition-all text-center cursor-pointer ${
+                          payMode === 'all' 
+                            ? 'bg-brand-600 text-white shadow-md font-bold' 
+                            : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+                        }`}
+                      >
+                        🟢 Todo (Rendimientos + Bonos)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPayMode('yields_only')}
+                        className={`py-2 px-4 rounded-xl transition-all text-center cursor-pointer ${
+                          payMode === 'yields_only' 
+                            ? 'bg-blue-600 text-white shadow-md font-bold' 
+                            : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+                        }`}
+                      >
+                        🔵 Solo Rendimientos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPayMode('bonuses_only')}
+                        className={`py-2 px-4 rounded-xl transition-all text-center cursor-pointer ${
+                          payMode === 'bonuses_only' 
+                            ? 'bg-amber-600 text-white shadow-md font-bold' 
+                            : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+                        }`}
+                      >
+                        🟡 Solo Bonos de Aceleración
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Tarjetas KPI Globales */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center gap-4">
@@ -252,8 +304,8 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
                         <DollarSign className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <p className="text-xs text-emerald-100 font-bold uppercase">GRAN TOTAL MASIVO</p>
-                        <p className="text-xl font-bold text-white font-montserrat">{formatCOP(result.global_grand_total)}</p>
+                        <p className="text-xs text-emerald-100 font-bold uppercase">TOTAL A MASIVO ({payMode === 'all' ? 'TODO' : payMode === 'yields_only' ? 'SOLO REND.' : 'SOLO BONOS'})</p>
+                        <p className="text-xl font-bold text-white font-montserrat">{formatCOP(calculateEffectiveGlobalTotal())}</p>
                       </div>
                     </div>
                   </div>

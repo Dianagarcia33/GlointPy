@@ -257,8 +257,13 @@ async def pay_user_yields(
             total_yield += calc_result.total_yield
             total_acceleration_bonus += calc_result.acceleration_bonus
             
-            # Create a transaction for EACH investment yield
-            if calc_result.total_yield > 0:
+            # Create a transaction for EACH investment yield according to pay_mode
+            pay_mode = request.pay_mode or "all"
+            include_yields = pay_mode in ("all", "yields_only")
+            include_bonuses = pay_mode in ("all", "bonuses_only")
+
+            if include_yields and calc_result.total_yield > 0:
+                total_yield += calc_result.total_yield
                 transaction = WalletTransaction(
                     wallet_id=user.wallet.id,
                     amount=calc_result.total_yield,
@@ -270,8 +275,8 @@ async def pay_user_yields(
                 )
                 db.add(transaction)
 
-            # Create a transaction for acceleration bonus if present
-            if calc_result.acceleration_bonus > 0:
+            if include_bonuses and calc_result.acceleration_bonus > 0:
+                total_acceleration_bonus += calc_result.acceleration_bonus
                 acc_transaction = WalletTransaction(
                     wallet_id=user.wallet.id,
                     amount=calc_result.acceleration_bonus,
@@ -285,7 +290,7 @@ async def pay_user_yields(
                 
     grand_total = total_yield + total_acceleration_bonus
     if grand_total <= 0:
-        raise HTTPException(status_code=400, detail="No hay rendimientos ni bonos para pagar en este ciclo")
+        raise HTTPException(status_code=400, detail="No hay rendimientos ni bonos para pagar en este ciclo según el modo seleccionado")
         
     current_balance = user.wallet.balance
     
@@ -298,11 +303,36 @@ async def pay_user_yields(
     await db.commit()
     
     return {
-        "message": "Pago consolidado de rendimientos y bonos de aceleración procesado exitosamente",
+        "message": "Pago de rendimientos/bonos procesado exitosamente",
         "amount_paid": float(grand_total),
         "total_yield": float(total_yield),
         "total_acceleration_bonus": float(total_acceleration_bonus)
     }
+
+
+@router.put("/accelerations/{acceleration_id}/date", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def update_acceleration_date(
+    acceleration_id: int,
+    req: UpdateAccelerationDateRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    from src.models.acceleration import Acceleration
+    acc_res = await db.execute(
+        select(Acceleration).where(Acceleration.id == acceleration_id)
+    )
+    acc = acc_res.scalars().first()
+    if not acc:
+        raise HTTPException(status_code=404, detail="Bono de aceleración no encontrado")
+        
+    try:
+        new_date = datetime.fromisoformat(req.created_at.replace("Z", "+00:00"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Formato de fecha inválido")
+        
+    acc.created_at = new_date
+    await db.commit()
+    await db.refresh(acc)
+    return {"message": "Fecha del bono de aceleración actualizada exitosamente", "id": acc.id, "created_at": acc.created_at.isoformat()}
 
 
 @router.get("/users/{user_id}/wallet-transactions", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
@@ -436,6 +466,10 @@ async def bulk_pay_yields(
     """
     from decimal import Decimal
 
+    pay_mode = request.pay_mode or "all"
+    include_yields = pay_mode in ("all", "yields_only")
+    include_bonuses = pay_mode in ("all", "bonuses_only")
+
     query = select(User).options(
         selectinload(User.wallet),
         selectinload(User.investments).selectinload(Investor.package),
@@ -461,27 +495,26 @@ async def bulk_pay_yields(
 
         for investment in user.investments:
             calc_res = calculate_investment_yield(investment, request.start_date, request.end_date)
-            if calc_res.total_yield > 0 or calc_res.acceleration_bonus > 0:
+            
+            if include_yields and calc_res.total_yield > 0:
                 user_yield_total += calc_res.total_yield
+                transactions_to_add.append({
+                    "amount": calc_res.total_yield,
+                    "type": "ingreso",
+                    "reference_type": "rendimiento_inversion",
+                    "reference_id": investment.id,
+                    "description": f"Rendimiento del {calc_res.effective_start_date} al {calc_res.effective_end_date} (Inv. {investment.assigned_code})"
+                })
+
+            if include_bonuses and calc_res.acceleration_bonus > 0:
                 user_acc_bonus_total += calc_res.acceleration_bonus
-
-                if calc_res.total_yield > 0:
-                    transactions_to_add.append({
-                        "amount": calc_res.total_yield,
-                        "type": "ingreso",
-                        "reference_type": "rendimiento_inversion",
-                        "reference_id": investment.id,
-                        "description": f"Rendimiento del {calc_res.effective_start_date} al {calc_res.effective_end_date} (Inv. {investment.assigned_code})"
-                    })
-
-                if calc_res.acceleration_bonus > 0:
-                    transactions_to_add.append({
-                        "amount": calc_res.acceleration_bonus,
-                        "type": "ingreso",
-                        "reference_type": "bono_aceleracion",
-                        "reference_id": investment.id,
-                        "description": f"Bono de aceleración de inversión {investment.assigned_code}"
-                    })
+                transactions_to_add.append({
+                    "amount": calc_res.acceleration_bonus,
+                    "type": "ingreso",
+                    "reference_type": "bono_aceleracion",
+                    "reference_id": investment.id,
+                    "description": f"Bono de aceleración de inversión {investment.assigned_code}"
+                })
 
         user_grand_total = user_yield_total + user_acc_bonus_total
 
@@ -516,7 +549,7 @@ async def bulk_pay_yields(
     await db.commit()
 
     return BulkPayYieldResult(
-        message="Transferencia masiva general ejecutada exitosamente a todas las billeteras",
+        message=f"Transferencia masiva ({pay_mode}) ejecutada exitosamente a las billeteras",
         requested_start_date=request.start_date,
         requested_end_date=request.end_date,
         total_users_paid=total_users_paid,
