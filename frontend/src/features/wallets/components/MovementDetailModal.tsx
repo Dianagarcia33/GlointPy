@@ -48,6 +48,40 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
     const metodoPagoNormalized = movement.metodo_pago ? movement.metodo_pago.toLowerCase() : '';
     const isIngreso = ['generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer'].includes(originNormalized) || metodoPagoNormalized === 'wallet';
 
+    const getOriginTranslation = (raw: string): string => {
+        if (!raw) return 'Transacción de Billetera';
+        const norm = raw.toLowerCase().trim().replace(/_/g, ' ');
+        const dict: Record<string, string> = {
+            'yield payout reversal': 'Reversión de Rendimientos',
+            'yield payout reversed': 'Rendimientos Revertidos',
+            'yield payout': 'Pago de Rendimientos',
+            'withdrawal request': 'Solicitud de Retiro',
+            'withdrawal refund': 'Reembolso de Retiro',
+            'transfer sent': 'Transferencia Enviada',
+            'transfer received': 'Transferencia Recibida',
+            'bonus payout': 'Pago de Bono',
+            'investment reservation': 'Reserva de Inversión',
+            'auto yield transfer': 'Pago de Rendimientos',
+            'auto bonus transfer': 'Pago de Bono',
+            'generacion rendimiento': 'Pago de Rendimientos',
+            'rendimiento inversion': 'Pago de Rendimientos',
+            'bono aceleracion': 'Bono de Aceleración',
+            'bono': 'Pago de Bono',
+            'ingreso': 'Ingreso a Billetera',
+            'egreso': 'Egreso de Billetera',
+            'cash': 'Depósito de Saldo'
+        };
+
+        if (dict[norm]) return dict[norm];
+        for (const [key, val] of Object.entries(dict)) {
+            if (norm.includes(key)) return val;
+        }
+        return norm.charAt(0).toUpperCase() + norm.slice(1);
+    };
+
+    const rawOrigin = movement.origen || movement.type || movement.reference_type || '';
+    const displayType = getOriginTranslation(rawOrigin);
+
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -58,10 +92,10 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
                             {isIngreso ? <ArrowDownToLine className="w-6 h-6" /> : <ArrowUpToLine className="w-6 h-6" />}
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold font-montserrat text-slate-900 capitalize">
-                                {movement.origen.replace(/_/g, ' ')}
+                            <h2 className="text-xl font-bold font-montserrat text-slate-900">
+                                {displayType}
                             </h2>
-                            <p className="text-slate-500 text-sm capitalize mt-0.5">{movement.tipo} • ID: #{movement.id}</p>
+                            <p className="text-slate-500 text-sm mt-0.5">{isIngreso ? 'Ingreso' : 'Egreso'} • ID: #{movement.id}</p>
                         </div>
                     </div>
                     <button 

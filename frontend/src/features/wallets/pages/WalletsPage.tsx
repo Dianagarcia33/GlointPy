@@ -14,6 +14,8 @@ export interface Movement {
     user_id: number;
     origen: string;
     tipo: string;
+    type?: string;
+    reference_type?: string;
     monto: number;
     impuesto: number;
     monto_neto: number;
@@ -234,26 +236,47 @@ export const WalletsPage = () => {
                                 <div className="space-y-3">
                                     {movements.map((mov) => {
                                         const status = getStatusConfig(mov.estado);
-                                        const originNormalized = (mov.origen || '').toLowerCase().trim();
+                                        const rawOrigin = mov.origen || mov.type || mov.reference_type || '';
+                                        const originNormalized = rawOrigin.toLowerCase().trim().replace(/_/g, ' ');
                                         const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase().trim() : '';
+
                                         const isIngreso = [
                                             'generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer',
-                                            'yield payout', 'transfer received', 'bonus payout', 'withdrawal refund'
-                                        ].includes(originNormalized) || metodoPagoNormalized === 'wallet';
+                                            'yield payout', 'transfer received', 'bonus payout', 'withdrawal refund',
+                                            'rendimiento_inversion', 'bono_aceleracion', 'generacion rendimiento', 'rendimiento inversion'
+                                        ].includes(rawOrigin.toLowerCase().trim()) || metodoPagoNormalized === 'wallet' || mov.tipo === 'ingreso' || mov.type === 'ingreso';
 
-                                        const typeTranslations: Record<string, string> = {
-                                            'yield payout': 'Pago de Rendimientos',
-                                            'yield payout reversal': 'Reversión de Rendimientos',
-                                            'yield payout reversed': 'Rendimientos Revertidos',
-                                            'withdrawal request': 'Solicitud de Retiro',
-                                            'transfer sent': 'Transferencia Enviada',
-                                            'transfer received': 'Transferencia Recibida',
-                                            'bonus payout': 'Pago de Bono',
-                                            'investment reservation': 'Reserva de Inversión',
-                                            'withdrawal refund': 'Reembolso de Retiro'
+                                        const getOriginTranslation = (raw: string): string => {
+                                            const norm = raw.toLowerCase().trim().replace(/_/g, ' ');
+                                            const dict: Record<string, string> = {
+                                                'yield payout reversal': 'Reversión de Rendimientos',
+                                                'yield payout reversed': 'Rendimientos Revertidos',
+                                                'yield payout': 'Pago de Rendimientos',
+                                                'withdrawal request': 'Solicitud de Retiro',
+                                                'withdrawal refund': 'Reembolso de Retiro',
+                                                'transfer sent': 'Transferencia Enviada',
+                                                'transfer received': 'Transferencia Recibida',
+                                                'bonus payout': 'Pago de Bono',
+                                                'investment reservation': 'Reserva de Inversión',
+                                                'auto yield transfer': 'Pago de Rendimientos',
+                                                'auto bonus transfer': 'Pago de Bono',
+                                                'generacion rendimiento': 'Pago de Rendimientos',
+                                                'rendimiento inversion': 'Pago de Rendimientos',
+                                                'bono aceleracion': 'Bono de Aceleración',
+                                                'bono': 'Pago de Bono',
+                                                'ingreso': 'Ingreso a Billetera',
+                                                'egreso': 'Egreso de Billetera',
+                                                'cash': 'Depósito de Saldo'
+                                            };
+
+                                            if (dict[norm]) return dict[norm];
+                                            for (const [key, val] of Object.entries(dict)) {
+                                                if (norm.includes(key)) return val;
+                                            }
+                                            return norm.charAt(0).toUpperCase() + norm.slice(1);
                                         };
 
-                                        const displayType = typeTranslations[originNormalized] || (mov.origen || '').replace(/_/g, ' ');
+                                        const displayType = getOriginTranslation(rawOrigin);
 
                                         return (
                                             <div 
@@ -266,7 +289,7 @@ export const WalletsPage = () => {
                                                         {isIngreso ? <ArrowDownToLine className="w-5 h-5" /> : <ArrowUpToLine className="w-5 h-5" />}
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-slate-900 capitalize font-montserrat">
+                                                        <p className="font-bold text-slate-900 font-montserrat">
                                                             {displayType}
                                                         </p>
                                                         <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
