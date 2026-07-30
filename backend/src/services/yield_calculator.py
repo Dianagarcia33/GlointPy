@@ -141,6 +141,8 @@ def calculate_investment_yield(
         seg_yield = daily_yield * Decimal(str(days_in_seg))
         
         note = "Capital inicial" if active_cap == Decimal(investment.package.value) else "Capital tras retiros"
+        if seg_end == contract_end_date and contract_end_date < requested_end_date:
+            note += " (Vencimiento de contrato)"
         
         segments.append(YieldSegment(
             start_date=seg_start,
