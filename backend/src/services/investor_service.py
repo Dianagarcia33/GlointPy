@@ -220,8 +220,24 @@ class InvestorService:
                     else:
                         days_to_reduce = 0.0
 
+                    # Obtain a valid investment_request_id to satisfy MySQL non-null table constraints
+                    inv_req_res = await db.execute(
+                        select(InvestmentRequest).where(
+                            or_(
+                                InvestmentRequest.investor_id == db_investor.id,
+                                InvestmentRequest.user_id == db_investor.user_id
+                            )
+                        )
+                    )
+                    req = inv_req_res.scalars().first()
+                    req_id = req.id if req else None
+                    if not req_id:
+                        any_req = await db.execute(select(InvestmentRequest.id).limit(1))
+                        req_id = any_req.scalar()
+
                     new_acc = Acceleration(
                         investor_id=new_referrer_inv.id,
+                        investment_request_id=req_id,
                         contract_period_id=new_referrer_inv.period_id,
                         original_days=new_referrer_inv.period.days,
                         acceleration_percentage=5.00,
