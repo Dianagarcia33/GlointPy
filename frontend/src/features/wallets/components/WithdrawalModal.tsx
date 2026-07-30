@@ -23,6 +23,8 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
+    const [withdrawalDateMessage, setWithdrawalDateMessage] = useState<string | null>(null);
+
     useEffect(() => {
         if (isOpen) {
             if (propBalance !== undefined && propBankDetails !== undefined) {
@@ -35,6 +37,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                         setBalance(res.balance || 0);
                         setBankDetails(res.bank_details || null);
                         setCanWithdraw(res.can_withdraw !== false); // Default true if undefined
+                        setWithdrawalDateMessage(res.withdrawal_date_message || null);
                     })
                     .catch(err => console.error("Error fetching balance:", err))
                     .finally(() => setIsLoadingData(false));
@@ -193,10 +196,12 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
 
                     {step === 'amount' && (
                         <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-6">
-                            <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
-                                <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
-                                <p>Actualmente no nos encontramos en fechas de retiro habilitadas.</p>
-                            </div>
+                            {!canWithdraw && (
+                                <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-200 flex items-start gap-3">
+                                    <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-500" />
+                                    <p>{withdrawalDateMessage || "Actualmente no nos encontramos en fechas de retiro habilitadas."}</p>
+                                </div>
+                            )}
 
                             {!bankDetails && canWithdraw && (
                                 <div className="p-4 bg-amber-50 text-amber-700 rounded-xl text-sm font-medium border border-amber-200 flex items-start gap-3">
@@ -333,8 +338,12 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                     {step === 'amount' ? (
                         <button 
                             onClick={handleSendCode}
-                            disabled={true}
-                            className="px-6 py-2.5 bg-slate-300 text-slate-500 font-bold rounded-xl flex items-center gap-2 cursor-not-allowed shadow-md"
+                            disabled={!canWithdraw || !bankDetails || sendCodeMutation.isPending || montoNumber < 5000 || montoNumber > balance}
+                            className={`px-6 py-2.5 font-bold rounded-xl flex items-center gap-2 transition-all active:scale-95 shadow-md ${
+                                (!canWithdraw || !bankDetails || sendCodeMutation.isPending || montoNumber < 5000 || montoNumber > balance)
+                                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                                    : 'bg-brand-500 hover:bg-brand-600 text-white shadow-brand-500/20'
+                            }`}
                         >
                             {sendCodeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                             Continuar

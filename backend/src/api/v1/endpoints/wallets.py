@@ -9,6 +9,27 @@ from src.models.wallet import Wallet
 
 router = APIRouter()
 
+from src.models.system_event import SystemEvent
+from src.services.system_event_service import SystemEventService
+from typing import Optional, Tuple
+
+async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optional[str]]:
+    withdrawal_types = ["withdrawal", "withdrawals", "retiro", "retiros", "fechas_retiro"]
+    
+    events_res = await db.execute(
+        select(SystemEvent).where(SystemEvent.type.in_(withdrawal_types))
+    )
+    all_withdrawal_events = events_res.scalars().all()
+    
+    if not all_withdrawal_events:
+        return True, None
+
+    for evt_type in withdrawal_types:
+        if await SystemEventService.is_event_active(db, evt_type):
+            return True, None
+            
+    return False, "Actualmente no se encuentra habilitada la ventana de retiros. Por favor consulta las fechas de retiro autorizadas en el sistema."
+
 @router.get("/me/balance")
 async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
@@ -29,10 +50,13 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
             "numero_cuenta": bank_account.numero_cuenta
         }
     
+    can_withdraw, withdrawal_msg = await check_withdrawal_dates_active(db)
+
     if not wallet:
-        return {"balance": 0, "currency": "COP", "bank_details": bank_details, "can_withdraw": True}
+        return {"balance": 0, "currency": "COP", "bank_details": bank_details, "can_withdraw": can_withdraw, "withdrawal_date_message": withdrawal_msg}
         
-    return {"balance": wallet.balance, "currency": wallet.currency, "bank_details": bank_details, "can_withdraw": True}
+    return {"balance": wallet.balance, "currency": wallet.currency, "bank_details": bank_details, "can_withdraw": can_withdraw, "withdrawal_date_message": withdrawal_msg}
+
 
 from pydantic import BaseModel
 class WalletWithdrawRequest(BaseModel):
@@ -58,6 +82,11 @@ async def send_withdrawal_code(
     from decimal import Decimal
     from datetime import datetime, timedelta
     import random
+
+    # 0. Check Withdrawal Dates Window
+    can_withdraw, date_msg = await check_withdrawal_dates_active(db)
+    if not can_withdraw:
+        raise HTTPException(status_code=400, detail=date_msg or "No te encuentras en fechas de retiro autorizadas.")
 
     # 1. Check Bank Account
     bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
@@ -124,6 +153,11 @@ async def request_withdrawal(
     from src.models.investor import Investor
     from decimal import Decimal
     from datetime import datetime, date
+
+    # 0. Check Withdrawal Dates Window
+    can_withdraw, date_msg = await check_withdrawal_dates_active(db)
+    if not can_withdraw:
+        raise HTTPException(status_code=400, detail=date_msg or "No te encuentras en fechas de retiro autorizadas.")
 
     # 0. Verify Code
     code_res = await db.execute(
