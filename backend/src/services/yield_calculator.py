@@ -172,7 +172,7 @@ def calculate_investment_yield(
 
 
 
-    pkg_name = investment.package.name if investment.package else None
+    pkg_name = getattr(investment.package, 'name', None) or (f"Paquete ${int(investment.package.value):,}" if (investment.package and hasattr(investment.package, 'value')) else None)
     pkg_val = Decimal(str(investment.package.value)) if (investment.package and hasattr(investment.package, 'value')) else Decimal("0.00")
     assigned_code = getattr(investment, 'assigned_code', None)
 
