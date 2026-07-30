@@ -192,7 +192,7 @@ async def request_withdrawal(
         raise HTTPException(status_code=400, detail="Código de verificación incorrecto o expirado.")
 
     # 1. Check Bank Account
-    if req.bank_account_id:
+    if req.bank_account_id is not None and req.bank_account_id > 0:
         bank_res = await db.execute(
             select(UserBankAccount).where(
                 UserBankAccount.id == req.bank_account_id,
@@ -206,7 +206,7 @@ async def request_withdrawal(
             select(UserBankAccount).where(
                 UserBankAccount.user_id == current_user.id,
                 UserBankAccount.is_active == True
-            )
+            ).order_by(UserBankAccount.id.desc())
         )
         bank_account = bank_res.scalars().first()
 
