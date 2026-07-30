@@ -91,7 +91,8 @@ class InvestorService:
                 selectinload(Investor.package),
                 selectinload(Investor.period),
                 selectinload(Investor.contract_histories),
-                selectinload(Investor.accelerations)
+                selectinload(Investor.accelerations),
+                selectinload(Investor.withdrawals)
             )
             .where(Investor.id == investor_id)
         )
