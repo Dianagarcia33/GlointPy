@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
+import { NotificationBell } from './NotificationBell';
 
 const logo = "/logo.png";
 
@@ -167,6 +168,9 @@ export const Navbar: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Campana de Notificaciones Push */}
+                <NotificationBell isDark={isDashboard || !isSolid} />
                 
                 {/* User Dropdown */}
                 <div className="relative" ref={userMenuRef}>
