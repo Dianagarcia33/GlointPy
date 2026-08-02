@@ -185,7 +185,7 @@ async def get_my_assigned_investments(
         select(InvestmentRequest)
         .options(
             selectinload(InvestmentRequest.user),
-            selectinload(InvestmentRequest.paquete)
+            selectinload(InvestmentRequest.package)
         )
         .order_by(desc(InvestmentRequest.created_at))
     )
@@ -226,6 +226,7 @@ async def get_my_assigned_investments(
 
         if is_assigned:
             extra = req.extra_data or {}
+            pkg_name = req.package.nombre if req.package else f"Paquete #{req.paquete_inversion_id}"
             
             assigned_requests.append({
                 "id": req.id,
@@ -235,7 +236,7 @@ async def get_my_assigned_investments(
                 "investor_phone": user_obj.phone_number if user_obj else extra.get("numero_celular", "Sin teléfono"),
                 "investor_document": user_obj.document_id if user_obj else extra.get("documento", "Sin documento"),
                 "monto": float(req.monto),
-                "paquete_nombre": req.paquete.nombre if req.paquete else f"Paquete #{req.paquete_inversion_id}",
+                "paquete_nombre": pkg_name,
                 "status": req.status.value if hasattr(req.status, "value") else str(req.status),
                 "rejection_reason": req.rejection_reason,
                 "comprobante_path": req.comprobante_path,
