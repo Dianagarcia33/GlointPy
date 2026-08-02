@@ -226,7 +226,7 @@ async def get_my_assigned_investments(
 
         if is_assigned:
             extra = req.extra_data or {}
-            pkg_name = req.package.nombre if req.package else f"Paquete #{req.paquete_inversion_id}"
+            pkg_name = f"Paquete ${(float(req.package.value)):,.0f} COP" if (req.package and req.package.value is not None) else f"Paquete #{req.paquete_inversion_id}"
             
             assigned_requests.append({
                 "id": req.id,
