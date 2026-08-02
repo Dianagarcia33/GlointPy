@@ -6,6 +6,7 @@ from sqlalchemy import select
 from datetime import datetime
 
 from src.models.device_token import UserDeviceToken
+from src.models.user_notification import UserNotification
 
 logger = logging.getLogger(__name__)
 
@@ -143,8 +144,6 @@ class PushNotificationService:
         """
         Crea un registro de notificación in-app para el usuario en la BD y envía alerta Push.
         """
-        from src.models.user_notification import UserNotification
-        
         notif = UserNotification(
             user_id=user_id,
             title=title,

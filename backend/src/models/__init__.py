@@ -19,4 +19,6 @@ from src.models.template import Template
 from src.models.beneficiary import Beneficiary
 from src.models.potential_referral import PotentialReferral, PotentialReferralStatus
 from src.models.chat import ChatRoom, ChatParticipant, ChatMessage
+from src.models.device_token import UserDeviceToken
+from src.models.user_notification import UserNotification
 
