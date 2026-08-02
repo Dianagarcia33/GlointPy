@@ -170,6 +170,22 @@ class WithdrawalService:
 
         await db.commit()
         await db.refresh(withdrawal)
+
+        # Generar notificación in-app para el usuario
+        try:
+            from src.services.push_notification_service import PushNotificationService
+            formatted_amount = f"${float(withdrawal.monto):,.0f}" if withdrawal.monto else "$0"
+            await PushNotificationService.create_and_send_notification(
+                db=db,
+                user_id=withdrawal.user_id,
+                title="¡Solicitud de Retiro Aprobada!",
+                message=f"Tu solicitud de retiro #{withdrawal.id} por valor de {formatted_amount} COP ha sido aprobada exitosamente.",
+                type="retiro",
+                link="/dashboard/wallet"
+            )
+        except Exception as err:
+            logger.warning(f"Error generando notificación de aprobación de retiro #{withdrawal.id}: {err}")
+
         return withdrawal
 
     @staticmethod
@@ -205,6 +221,22 @@ class WithdrawalService:
 
         await db.commit()
         await db.refresh(withdrawal)
+
+        # Generar notificación in-app para el usuario
+        try:
+            from src.services.push_notification_service import PushNotificationService
+            formatted_amount = f"${float(withdrawal.monto):,.0f}" if withdrawal.monto else "$0"
+            await PushNotificationService.create_and_send_notification(
+                db=db,
+                user_id=withdrawal.user_id,
+                title="Solicitud de Retiro Rechazada",
+                message=f"Tu solicitud de retiro #{withdrawal.id} por valor de {formatted_amount} COP ha sido rechazada. Motivo: {motivo_rechazo}",
+                type="retiro",
+                link="/dashboard/wallet"
+            )
+        except Exception as err:
+            logger.warning(f"Error generando notificación de rechazo de retiro #{withdrawal.id}: {err}")
+
         return withdrawal
 
     @staticmethod

@@ -25,3 +25,20 @@ class SendPushNotificationRequest(BaseModel):
     title: str = Field(..., description="Notification Title")
     body: str = Field(..., description="Notification Message Body")
     data: Optional[Dict[str, str]] = Field(None, description="Optional payload key-value data")
+
+class UserNotificationResponse(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    message: str
+    type: str
+    is_read: bool
+    link: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class UserNotificationListResponse(BaseModel):
+    notifications: list[UserNotificationResponse]
+    unread_count: int

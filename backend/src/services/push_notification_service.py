@@ -130,3 +130,43 @@ class PushNotificationService:
             "failed_count": failed_count,
             "firebase_enabled": _firebase_initialized
         }
+
+    @staticmethod
+    async def create_and_send_notification(
+        db: AsyncSession,
+        user_id: int,
+        title: str,
+        message: str,
+        type: str = "sistema",
+        link: Optional[str] = None
+    ) -> UserNotification:
+        """
+        Crea un registro de notificación in-app para el usuario en la BD y envía alerta Push.
+        """
+        from src.models.user_notification import UserNotification
+        
+        notif = UserNotification(
+            user_id=user_id,
+            title=title,
+            message=message,
+            type=type,
+            link=link,
+            is_read=False
+        )
+        db.add(notif)
+        await db.commit()
+        await db.refresh(notif)
+
+        # Transmitir Push en segundo plano si aplica
+        try:
+            await PushNotificationService.send_push_to_user(
+                db=db,
+                user_id=user_id,
+                title=title,
+                body=message,
+                data={"link": link or "", "type": type}
+            )
+        except Exception as err:
+            logger.warning(f"Push no entregado a usuario {user_id}: {err}")
+
+        return notif

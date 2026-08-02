@@ -53,3 +53,93 @@ async def send_test_notification(
         body=req.body,
         data=req.data
     )
+
+@router.get("/my-notifications", response_model=dict)
+async def get_my_notifications(
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene las notificaciones in-app recibidas por el usuario logueado.
+    """
+    from sqlalchemy import select, func, desc
+    from src.models.user_notification import UserNotification
+    
+    stmt = (
+        select(UserNotification)
+        .where(UserNotification.user_id == current_user.id)
+        .order_by(desc(UserNotification.created_at))
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    notifications = res.scalars().all()
+
+    unread_stmt = (
+        select(func.count(UserNotification.id))
+        .where(UserNotification.user_id == current_user.id)
+        .where(UserNotification.is_read == False)
+    )
+    unread_res = await db.execute(unread_stmt)
+    unread_count = unread_res.scalar() or 0
+
+    return {
+        "notifications": [
+            {
+                "id": n.id,
+                "user_id": n.user_id,
+                "title": n.title,
+                "message": n.message,
+                "type": n.type,
+                "is_read": n.is_read,
+                "link": n.link,
+                "created_at": n.created_at.isoformat() if n.created_at else None
+            }
+            for n in notifications
+        ],
+        "unread_count": unread_count
+    }
+
+@router.post("/mark-read/{notification_id}")
+async def mark_notification_read(
+    notification_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Marca una notificación específica como leída.
+    """
+    from sqlalchemy import select
+    from src.models.user_notification import UserNotification
+    
+    result = await db.execute(
+        select(UserNotification).where(
+            UserNotification.id == notification_id,
+            UserNotification.user_id == current_user.id
+        )
+    )
+    notif = result.scalars().first()
+    if notif:
+        notif.is_read = True
+        await db.commit()
+        return {"success": True}
+    return {"success": False, "message": "Notificación no encontrada."}
+
+@router.post("/mark-all-read")
+async def mark_all_notifications_read(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Marca todas las notificaciones del usuario como leídas.
+    """
+    from sqlalchemy import update
+    from src.models.user_notification import UserNotification
+    
+    await db.execute(
+        update(UserNotification)
+        .where(UserNotification.user_id == current_user.id)
+        .values(is_read=True)
+    )
+    await db.commit()
+    return {"success": True}

@@ -9,6 +9,22 @@ export interface DeviceTokenResponse {
   created_at: string;
 }
 
+export interface UserNotificationItem {
+  id: number;
+  user_id: number;
+  title: string;
+  message: string;
+  type: string;
+  is_read: boolean;
+  link?: string;
+  created_at: string;
+}
+
+export interface UserNotificationsFeedResponse {
+  notifications: UserNotificationItem[];
+  unread_count: number;
+}
+
 export const notificationService = {
   registerToken: async (token: string, deviceType: string = 'web'): Promise<DeviceTokenResponse> => {
     return await fetchApi('/notifications/register-token', {
@@ -28,6 +44,22 @@ export const notificationService = {
     return await fetchApi('/notifications/send-test', {
       method: 'POST',
       body: JSON.stringify({ user_id: userId, title, body })
+    });
+  },
+
+  getMyNotifications: async (limit: number = 20): Promise<UserNotificationsFeedResponse> => {
+    return await fetchApi(`/notifications/my-notifications?limit=${limit}`);
+  },
+
+  markRead: async (notificationId: number): Promise<{ success: boolean }> => {
+    return await fetchApi(`/notifications/mark-read/${notificationId}`, {
+      method: 'POST'
+    });
+  },
+
+  markAllRead: async (): Promise<{ success: boolean }> => {
+    return await fetchApi('/notifications/mark-all-read', {
+      method: 'POST'
     });
   }
 };
