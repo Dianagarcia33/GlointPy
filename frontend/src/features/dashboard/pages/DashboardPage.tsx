@@ -130,8 +130,15 @@ export const DashboardPage = () => {
     const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
         
+    const hasDirectorRole = user?.roles?.some((r: any) => {
+        const name = typeof r === 'string' ? r : (r?.name || '');
+        return ['directiv', 'comercial', 'asesor', 'lider', 'director', 'gerente'].some(kw => name.toLowerCase().includes(kw));
+    });
+
     const isDirectorOnly = !isSuperAdmin && (
+        hasDirectorRole ||
         user?.permissions?.includes('director.dashboard.view') === true || 
+        user?.permissions?.includes('commercial:view') === true ||
         user?.permissions?.includes('admin.referrals.manage') === true ||
         user?.permissions?.includes('admin.investments.manage') === true ||
         user?.permissions?.includes('admin.users.manage') === true ||
