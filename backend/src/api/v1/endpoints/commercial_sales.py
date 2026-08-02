@@ -193,20 +193,38 @@ async def get_my_assigned_investments(
     all_requests = res.scalars().all()
 
     assigned_requests = []
+    need_commit = False
+
     for req in all_requests:
         req_commercial_id = None
         if req.extra_data and isinstance(req.extra_data, dict):
-            raw_cid = req.extra_data.get("commercial_id")
+            raw_cid = (
+                req.extra_data.get("commercial_id") or 
+                req.extra_data.get("asesor_id") or 
+                req.extra_data.get("directivo_id")
+            )
             if raw_cid:
                 try:
                     req_commercial_id = int(raw_cid)
                 except (ValueError, TypeError):
                     pass
 
-        # Pertenece al directivo si el usuario está asignado o el JSON extra_data lo especifica
-        is_assigned = (req.user_id in assigned_user_ids) or (req_commercial_id == current_user.id)
+        user_obj = req.user
+        
+        # Si el usuario no tenía commercial_id guardado en DB pero sí en extra_data, auto-reparar
+        if user_obj and user_obj.commercial_id is None and req_commercial_id:
+            user_obj.commercial_id = req_commercial_id
+            need_commit = True
+
+        # Determinar si esta solicitud pertenece al directivo actual o si es superusuario
+        is_assigned = (
+            (req.user_id in assigned_user_ids) or 
+            (req_commercial_id == current_user.id) or 
+            (user_obj and user_obj.commercial_id == current_user.id) or
+            (current_user.is_superuser is True)
+        )
+
         if is_assigned:
-            user_obj = req.user
             extra = req.extra_data or {}
             
             assigned_requests.append({
@@ -223,6 +241,12 @@ async def get_my_assigned_investments(
                 "comprobante_path": req.comprobante_path,
                 "created_at": req.created_at.isoformat() if req.created_at else None
             })
+
+    if need_commit:
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
 
     return {
         "assigned_investments": assigned_requests,
