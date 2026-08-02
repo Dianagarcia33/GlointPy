@@ -29,7 +29,11 @@ import {
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
 
-export const Sidebar = () => {
+interface SidebarProps {
+    onItemClick?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     const user = useAuthStore((state) => state.user);
     const isAdmin = user?.permissions?.includes('admin.users.manage') || user?.permissions?.includes('admin.roles.manage');
 
@@ -57,7 +61,14 @@ export const Sidebar = () => {
     `;
 
     return (
-        <aside className="w-64 flex flex-col h-full overflow-y-auto z-10 transition-all duration-300 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-brand-300 bg-white/80 backdrop-blur-xs">
+        <aside 
+            onClick={(e) => {
+                if ((e.target as HTMLElement).closest('a')) {
+                    if (onItemClick) onItemClick();
+                }
+            }}
+            className="w-64 flex flex-col h-full overflow-y-auto z-10 transition-all duration-300 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-brand-300 bg-white/80 backdrop-blur-xs"
+        >
             <div className="flex flex-col py-5 px-3.5 gap-2">
                 
                 {/* 📌 SECCIÓN PRINCIPAL */}
