@@ -123,35 +123,52 @@ export const ChatQuickAccess: React.FC<ChatQuickAccessProps> = ({ isDark = false
                 </button>
               </div>
             ) : (
-              rooms.map((room) => (
-                <div
-                  key={room.id}
-                  onClick={() => handleOpenRoom(room.id)}
-                  className="p-3.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3 group"
-                >
-                  <div className="w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs flex-shrink-0 group-hover:scale-105 transition-transform">
-                    <UserCheck className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline">
-                      <p className="text-xs font-bold text-slate-900 truncate">
-                        {room.title || `Sala #${room.id}`}
-                      </p>
-                      {room.updated_at && (
-                        <span className="text-[10px] text-slate-400">
-                          {new Date(room.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+              rooms.map((room) => {
+                const displayName = room.other_participant?.name || room.name || `Sala #${room.id}`;
+                const isOnline = room.other_participant?.is_online || false;
+                const lastMsgText = room.last_message
+                  ? (room.last_message.sender_id === user?.id ? `Tú: ${room.last_message.content || 'Archivo adjunto'}` : `${room.last_message.sender_name || 'Mensaje'}: ${room.last_message.content || 'Archivo adjunto'}`)
+                  : 'Sin mensajes aún';
+
+                return (
+                  <div
+                    key={room.id}
+                    onClick={() => handleOpenRoom(room.id)}
+                    className="p-3.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-3 group"
+                  >
+                    <div className="relative flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-brand-500 text-white flex items-center justify-center font-bold text-sm shadow-xs group-hover:scale-105 transition-transform">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                      {isOnline && (
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" title="En línea" />
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">
-                      {room.last_message ? room.last_message.content || 'Archivo adjunto' : 'Sin mensajes aún'}
-                    </p>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline">
+                        <p className="text-xs font-bold text-slate-900 truncate">
+                          {displayName}
+                        </p>
+                        {room.last_message?.created_at && (
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {new Date(room.last_message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 truncate mt-0.5 font-medium">
+                        {lastMsgText}
+                      </p>
+                    </div>
+
+                    {room.unread_count > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-brand-500 text-white text-[10px] font-bold flex-shrink-0">
+                        {room.unread_count}
+                      </span>
+                    )}
                   </div>
-                  {room.unread_count > 0 && (
-                    <span className="w-2 h-2 rounded-full bg-brand-500 flex-shrink-0"></span>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 

@@ -26,6 +26,17 @@ export const ChatPage: React.FC = () => {
       setLoading(true);
       const data = await chatService.getRooms();
       setRooms(data);
+
+      const params = new URLSearchParams(window.location.search);
+      const targetRoom = params.get('room');
+      if (targetRoom) {
+        const roomId = parseInt(targetRoom, 10);
+        if (!isNaN(roomId) && data.some(r => r.id === roomId)) {
+          setSelectedRoomId(roomId);
+          return;
+        }
+      }
+
       if (data.length > 0 && !selectedRoomId) {
         setSelectedRoomId(data[0].id);
       }
@@ -46,7 +57,7 @@ export const ChatPage: React.FC = () => {
 
   useEffect(() => {
     fetchRooms();
-  }, [canViewChat]);
+  }, [canViewChat, window.location.search]);
 
   const handleStartDirectChat = async (targetUserId: number) => {
     try {
