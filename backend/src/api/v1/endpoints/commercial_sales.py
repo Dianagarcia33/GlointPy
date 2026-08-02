@@ -159,7 +159,7 @@ async def get_my_commercial_summary(
         ]
     }
 
-@router.get("/my-assigned-investments", dependencies=[Depends(RequirePermission("commercial:view"))])
+@router.get("/my-assigned-investments", dependencies=[Depends(RequirePermission(["director.dashboard.view", "commercial:view"]))])
 async def get_my_assigned_investments(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
