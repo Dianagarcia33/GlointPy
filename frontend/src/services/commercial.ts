@@ -244,7 +244,8 @@ export interface AssignedInvestmentItem {
   investor_document: string;
   monto: number;
   paquete_nombre: string;
-  estado: string;
+  status: 'pending' | 'approved' | 'rejected' | string;
+  rejection_reason?: string;
   comprobante_path?: string;
   created_at?: string;
 }

@@ -218,7 +218,8 @@ async def get_my_assigned_investments(
                 "investor_document": user_obj.document_id if user_obj else extra.get("documento", "Sin documento"),
                 "monto": float(req.monto),
                 "paquete_nombre": req.paquete.nombre if req.paquete else f"Paquete #{req.paquete_inversion_id}",
-                "estado": req.estado.value if hasattr(req.estado, "value") else str(req.estado),
+                "status": req.status.value if hasattr(req.status, "value") else str(req.status),
+                "rejection_reason": req.rejection_reason,
                 "comprobante_path": req.comprobante_path,
                 "created_at": req.created_at.isoformat() if req.created_at else None
             })

@@ -638,14 +638,23 @@ export const CommercialDashboardPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                        item.estado === 'aprobado' || item.estado === 'procesado'
+                        item.status === 'approved'
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          : item.estado === 'rechazado'
+                          : item.status === 'rejected'
                           ? 'bg-rose-100 text-rose-800 border border-rose-200'
                           : 'bg-amber-100 text-amber-800 border border-amber-200 animate-pulse'
                       }`}>
-                        {item.estado}
+                        {item.status === 'approved'
+                          ? 'APROBADO'
+                          : item.status === 'rejected'
+                          ? 'RECHAZADO'
+                          : 'PENDIENTE'}
                       </span>
+                      {item.status === 'rejected' && item.rejection_reason && (
+                        <p className="text-[10px] text-rose-500 font-normal truncate max-w-[120px] mx-auto mt-0.5" title={item.rejection_reason}>
+                          {item.rejection_reason}
+                        </p>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
                       {item.created_at ? new Date(item.created_at).toLocaleDateString('es-CO') : '-'}
