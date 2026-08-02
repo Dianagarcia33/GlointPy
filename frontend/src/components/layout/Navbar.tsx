@@ -4,6 +4,7 @@ import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as U
 import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
 import { NotificationBell } from './NotificationBell';
+import { ChatQuickAccess } from './ChatQuickAccess';
 
 const logo = "/logo.png";
 
@@ -177,6 +178,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
                 {/* Campana de Notificaciones Push */}
                 <NotificationBell isDark={isDashboard || !isSolid} />
+
+                {/* Acceso Rápido al Chat */}
+                <ChatQuickAccess isDark={isDashboard || !isSolid} />
                 
                 {/* User Dropdown */}
                 <div className="relative" ref={userMenuRef}>
