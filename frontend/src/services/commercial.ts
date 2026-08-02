@@ -229,4 +229,22 @@ export const commercialService = {
     const query = commercial_id ? `?commercial_id=${commercial_id}` : '';
     return await fetchApi(`/commercial/settlements${query}`);
   },
+
+  getMyAssignedInvestments: async (): Promise<{ assigned_investments: AssignedInvestmentItem[]; total: number }> => {
+    return await fetchApi('/commercial/my-assigned-investments');
+  },
 };
+
+export interface AssignedInvestmentItem {
+  id: number;
+  user_id: number;
+  investor_name: string;
+  investor_email: string;
+  investor_phone: string;
+  investor_document: string;
+  monto: number;
+  paquete_nombre: string;
+  estado: string;
+  comprobante_path?: string;
+  created_at?: string;
+}

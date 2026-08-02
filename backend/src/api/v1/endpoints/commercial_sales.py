@@ -159,6 +159,75 @@ async def get_my_commercial_summary(
         ]
     }
 
+@router.get("/my-assigned-investments", dependencies=[Depends(RequirePermission("commercial:view"))])
+async def get_my_assigned_investments(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene el listado de solicitudes de inversión (InvestmentRequest)
+    de todos los usuarios que han seleccionado al usuario actual como su Directivo de Inversiones.
+    """
+    from sqlalchemy import select, or_, desc
+    from sqlalchemy.orm import selectinload
+    from src.models.investment_request import InvestmentRequest
+    from src.models.user import User
+    from src.models.package import Package
+
+    # Buscar usuarios asignados a este directivo
+    assigned_users_res = await db.execute(
+        select(User.id).where(User.commercial_id == current_user.id)
+    )
+    assigned_user_ids = set(assigned_users_res.scalars().all())
+
+    # Buscar solicitudes de inversión correspondientes
+    stmt = (
+        select(InvestmentRequest)
+        .options(
+            selectinload(InvestmentRequest.user),
+            selectinload(InvestmentRequest.paquete)
+        )
+        .order_by(desc(InvestmentRequest.created_at))
+    )
+    res = await db.execute(stmt)
+    all_requests = res.scalars().all()
+
+    assigned_requests = []
+    for req in all_requests:
+        req_commercial_id = None
+        if req.extra_data and isinstance(req.extra_data, dict):
+            raw_cid = req.extra_data.get("commercial_id")
+            if raw_cid:
+                try:
+                    req_commercial_id = int(raw_cid)
+                except (ValueError, TypeError):
+                    pass
+
+        # Pertenece al directivo si el usuario está asignado o el JSON extra_data lo especifica
+        is_assigned = (req.user_id in assigned_user_ids) or (req_commercial_id == current_user.id)
+        if is_assigned:
+            user_obj = req.user
+            extra = req.extra_data or {}
+            
+            assigned_requests.append({
+                "id": req.id,
+                "user_id": req.user_id,
+                "investor_name": user_obj.name if user_obj else extra.get("nombre_completo", "Inversionista"),
+                "investor_email": user_obj.email if user_obj else "Sin email",
+                "investor_phone": user_obj.phone_number if user_obj else extra.get("numero_celular", "Sin teléfono"),
+                "investor_document": user_obj.document_id if user_obj else extra.get("documento", "Sin documento"),
+                "monto": float(req.monto),
+                "paquete_nombre": req.paquete.nombre if req.paquete else f"Paquete #{req.paquete_inversion_id}",
+                "estado": req.estado.value if hasattr(req.estado, "value") else str(req.estado),
+                "comprobante_path": req.comprobante_path,
+                "created_at": req.created_at.isoformat() if req.created_at else None
+            })
+
+    return {
+        "assigned_investments": assigned_requests,
+        "total": len(assigned_requests)
+    }
+
 @router.get("/admin-summary", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_admin_commercial_summary(
     current_user: User = Depends(get_current_user),
