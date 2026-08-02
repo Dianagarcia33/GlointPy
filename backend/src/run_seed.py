@@ -78,6 +78,25 @@ async def seed_permissions_db(db):
                         permission_id=perm.id
                     ))
             print(f"🔑 Permisos asignados al rol: {role.name}")
+        elif any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente"]):
+            commercial_perms = [
+                "director.dashboard.view", "commercial:view", "referrals:view", 
+                "admin.referrals.manage", "dashboard:view_kpis", "wallets:view", 
+                "wallets:view_balance", "wallets:view_history"
+            ]
+            for p_name in commercial_perms:
+                if p_name in all_perms_map:
+                    perm = all_perms_map[p_name]
+                    check = await db.execute(select(role_permissions).where(
+                        (role_permissions.c.role_id == role.id) & 
+                        (role_permissions.c.permission_id == perm.id)
+                    ))
+                    if not check.first():
+                        await db.execute(insert(role_permissions).values(
+                            role_id=role.id,
+                            permission_id=perm.id
+                        ))
+            print(f"🔑 Permisos de Directivo / Comercial asignados a: {role.name}")
         elif "investor" in r_name or "inversionista" in r_name:
             investor_perms = [
                 "beneficiaries:view", "referrals:view", "wallets:view", "wallets:view_balance", 
