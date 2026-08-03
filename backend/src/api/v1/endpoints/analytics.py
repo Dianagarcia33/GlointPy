@@ -160,6 +160,7 @@ async def get_admin_analytics_dashboard(
             "total_capital_activo": total_invertido,
             "total_capital_finalizado": total_capital_finalizado,
             "total_inversionistas": len(active_invs),
+            "total_inversionistas_inactivos": len(finished_invs),
             "total_wallets": total_wallets,
             "total_withdrawals": total_withdrawals
         }

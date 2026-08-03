@@ -281,7 +281,7 @@ export const DashboardPage = () => {
 
                         {/* Quick Executive KPI Summary Cards */}
                         {adminAnalytics?.summary_cards && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full min-w-0">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 w-full min-w-0">
                                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                     <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Capital Activo</span>
                                     <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
@@ -300,10 +300,18 @@ export const DashboardPage = () => {
 
                                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
                                     <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Inversionistas Activos</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-900 block tracking-tight font-mono">
+                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-600 block tracking-tight font-mono">
                                         {adminAnalytics.summary_cards.total_inversionistas}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-semibold">Contratos registrados</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold">Contratos en curso</span>
+                                </div>
+
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Inversionistas Inactivos</span>
+                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-500 block tracking-tight font-mono">
+                                        {adminAnalytics.summary_cards.total_inversionistas_inactivos || 0}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500 font-semibold">Contratos finalizados</span>
                                 </div>
 
                                 <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
