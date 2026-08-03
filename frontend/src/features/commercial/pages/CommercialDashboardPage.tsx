@@ -142,6 +142,8 @@ export const CommercialDashboardPage: React.FC = () => {
   const canSettle = user?.is_superuser === true || user?.permissions?.includes('admin.commissions.settle') === true;
   const canCreateSaleOrAdjudicate = user?.is_superuser === true || 
     user?.permissions?.includes('admin.commercial.manage') === true || 
+    user?.permissions?.includes('commercial:create_sale') === true ||
+    user?.permissions?.includes('commercial:adjudicate_sale') === true ||
     user?.permissions?.includes('commercial:view') === true ||
     user?.permissions?.includes('director.dashboard.view') === true;
 

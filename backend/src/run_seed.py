@@ -13,6 +13,9 @@ from sqlalchemy import insert
 
 PERMISSIONS = [
     {"name": "commercial:view", "description": "Acceder y ver el panel comercial", "module": "commercial"},
+    {"name": "commercial:create_sale", "description": "Registrar ventas en el panel comercial", "module": "commercial"},
+    {"name": "commercial:adjudicate_sale", "description": "Adjudicar ventas comerciales del equipo", "module": "commercial"},
+    {"name": "admin.commissions.settle", "description": "Liquidar comisiones y bonos del equipo comercial", "module": "commercial"},
     {"name": "admin.commercial.manage", "description": "Gestionar, auditar y adjudicar ventas comerciales del equipo", "module": "commercial"},
     {"name": "admin.roles.manage", "description": "Gestionar roles y permisos del sistema", "module": "admin"},
     {"name": "admin.users.manage", "description": "Gestionar usuarios de la plataforma", "module": "admin"},
@@ -80,8 +83,8 @@ async def seed_permissions_db(db):
             print(f"🔑 Permisos asignados al rol: {role.name}")
         elif any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente"]):
             commercial_perms = [
-                "director.dashboard.view", "commercial:view", "referrals:view", 
-                "admin.referrals.manage", "dashboard:view_kpis", "wallets:view", 
+                "director.dashboard.view", "commercial:view", "commercial:create_sale", "commercial:adjudicate_sale", 
+                "referrals:view", "admin.referrals.manage", "dashboard:view_kpis", "wallets:view", 
                 "wallets:view_balance", "wallets:view_history"
             ]
             for p_name in commercial_perms:
