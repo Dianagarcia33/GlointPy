@@ -101,7 +101,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             "rendimiento_total_contrato": rendimiento_total,
             "liquidacion_diaria_rendimiento": rendimiento_total / dias_contrato if dias_contrato > 0 else 0,
             "dias_contrato": dias_contrato,
-            "aceleracion_dias": aceleracion_dias,
+            "aceleracion_dias": 0,
             "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
             "fecha_finalizacion": fecha_fin.isoformat() if fecha_fin else None,
             "paquete": {
