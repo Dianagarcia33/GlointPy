@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
@@ -64,7 +64,6 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
     active_investors = investors_result.scalars().all()
     
     for inv_record in active_investors:
-        from datetime import timedelta, date, datetime
         fecha_ingreso = inv_record.start_date
         fecha_fin = None
         dias_contrato = 0
