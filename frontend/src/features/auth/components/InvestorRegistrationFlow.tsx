@@ -760,6 +760,77 @@ export const InvestorRegistrationFlow = () => {
                                     </select>
                                 </div>
 
+                                {/* Advisor Selection Block */}
+                                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3">
+                                    <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
+                                        <span className="flex items-center gap-1.5 text-brand-700">
+                                            <User className="w-4 h-4 text-brand-600" /> 👤 Directivo de Inversiones / Asesor Comercial
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 font-semibold">(Opcional)</span>
+                                    </label>
+                                    
+                                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                                        {/* Option 0: Sin Asesor */}
+                                        <div
+                                            onClick={() => setFormData(prev => ({ ...prev, commercial_id: '' }))}
+                                            className={`relative cursor-pointer p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
+                                                !formData.commercial_id
+                                                    ? 'bg-brand-50/90 border-brand-500 font-bold text-brand-900 shadow-sm'
+                                                    : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <span className="text-sm">🌐</span>
+                                                <div>
+                                                    <p className="font-bold">Sin Asesor / Ingreso Independiente</p>
+                                                    <p className="text-[10px] text-slate-500 font-normal">Llegué por cuenta propia a Gloint</p>
+                                                </div>
+                                            </div>
+                                            {!formData.commercial_id && (
+                                                <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
+                                            )}
+                                        </div>
+
+                                        {/* Advisor Cards */}
+                                        {commercialUsers.map((u) => {
+                                            const isSelected = formData.commercial_id === u.id.toString();
+                                            const initials = u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                                            return (
+                                                <div
+                                                    key={u.id}
+                                                    onClick={() => setFormData(prev => ({ ...prev, commercial_id: u.id.toString() }))}
+                                                    className={`relative cursor-pointer p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
+                                                        isSelected
+                                                            ? 'bg-brand-50/90 border-brand-500 font-bold text-brand-900 shadow-sm'
+                                                            : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                                                            isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'
+                                                        }`}>
+                                                            {initials}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="font-bold truncate">{u.name}</p>
+                                                                <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[9px] font-extrabold rounded uppercase">
+                                                                    Directivo
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-500 font-normal truncate">{u.email}</p>
+                                                        </div>
+                                                    </div>
+                                                    {isSelected && (
+                                                        <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Código de Referido (Opcional)</label>
                                     <input 
@@ -825,80 +896,9 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                 )}
 
-                {/* Step 6: Directivo de Inversión + Credentials & Submission */}
+                {/* Step 6: Credentials & Submission */}
                 {step === 6 && (
                     <form onSubmit={handleFinalSubmit} method="post" className="space-y-6 animate-fadeIn">
-                        {/* Advisor Selection Block */}
-                        <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3">
-                            <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
-                                <span className="flex items-center gap-1.5 text-brand-700">
-                                    <User className="w-4 h-4 text-brand-600" /> 👤 Directivo de Inversiones / Asesor Comercial
-                                </span>
-                                <span className="text-[11px] text-slate-500 font-semibold">(Opcional)</span>
-                            </label>
-                            
-                            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                                {/* Option 0: Sin Asesor */}
-                                <div
-                                    onClick={() => setFormData(prev => ({ ...prev, commercial_id: '' }))}
-                                    className={`relative cursor-pointer p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
-                                        !formData.commercial_id
-                                            ? 'bg-brand-50/90 border-brand-500 font-bold text-brand-900 shadow-sm'
-                                            : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-2.5">
-                                        <span className="text-sm">🌐</span>
-                                        <div>
-                                            <p className="font-bold">Sin Asesor / Ingreso Independiente</p>
-                                            <p className="text-[10px] text-slate-500 font-normal">Llegué por cuenta propia a Gloint</p>
-                                        </div>
-                                    </div>
-                                    {!formData.commercial_id && (
-                                        <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
-                                    )}
-                                </div>
-
-                                {/* Advisor Cards */}
-                                {commercialUsers.map((u) => {
-                                    const isSelected = formData.commercial_id === u.id.toString();
-                                    const initials = u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
-                                    return (
-                                        <div
-                                            key={u.id}
-                                            onClick={() => setFormData(prev => ({ ...prev, commercial_id: u.id.toString() }))}
-                                            className={`relative cursor-pointer p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
-                                                isSelected
-                                                    ? 'bg-brand-50/90 border-brand-500 font-bold text-brand-900 shadow-sm'
-                                                    : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                                                    isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'
-                                                }`}>
-                                                    {initials}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <p className="font-bold truncate">{u.name}</p>
-                                                        <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[9px] font-extrabold rounded uppercase">
-                                                            Directivo
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-[10px] text-slate-500 font-normal truncate">{u.email}</p>
-                                                </div>
-                                            </div>
-                                            {isSelected && (
-                                                <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
                                 <LockKeyhole className="w-5 h-5 text-brand-600" /> Datos de Acceso

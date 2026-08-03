@@ -153,10 +153,12 @@ export const DashboardPage = () => {
     });
 
     useEffect(() => {
-        if (!isSuperAdmin && !isDirectorOnly && (user?.permissions?.includes('dashboard:view_investments') || user?.permissions?.includes('ver_mis_inversiones'))) {
+        if (!isSuperAdmin && !isDirectorOnly) {
             setLoading(true);
             investmentsService.getMyInvestments()
-                .then(setInvestments)
+                .then(data => {
+                    setInvestments(Array.isArray(data) ? data : []);
+                })
                 .catch(err => console.error("Error al cargar inversiones:", err))
                 .finally(() => setLoading(false));
         }
