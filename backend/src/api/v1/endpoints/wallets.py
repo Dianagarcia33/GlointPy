@@ -576,3 +576,190 @@ async def admin_adjust_wallet(
         
     return {"message": "Saldo ajustado correctamente.", "new_balance": wallet.balance}
 
+
+class VerifyRecipientRequest(BaseModel):
+    identifier: str
+
+class WalletTransferRequest(BaseModel):
+    identifier: str
+    monto: float
+    notes: Optional[str] = None
+
+@router.post("/transfer/verify-recipient")
+async def verify_transfer_recipient(
+    req: VerifyRecipientRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Valida la existencia del destinatario por cédula (document_id) o correo (email).
+    Sin listas ni autocompletado para proteger la privacidad.
+    """
+    identifier = req.identifier.strip()
+    if not identifier:
+        raise HTTPException(status_code=400, detail="Debe ingresar el número de cédula o correo electrónico.")
+
+    from src.models.user import User
+    from sqlalchemy import or_, func
+
+    stmt = select(User).where(
+        User.is_active == True,
+        or_(
+            User.document_id == identifier,
+            func.lower(User.email) == identifier.lower()
+        )
+    )
+    res = await db.execute(stmt)
+    recipient = res.scalars().first()
+
+    if not recipient:
+        raise HTTPException(
+            status_code=404, 
+            detail="No se encontró ningún usuario activo con el número de cédula o correo electrónico ingresado."
+        )
+
+    if recipient.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="No puedes realizar transferencias a tu propia billetera."
+        )
+
+    doc = recipient.document_id or ""
+    masked_doc = f"CC ***{doc[-4:]}" if len(doc) >= 4 else doc
+
+    return {
+        "recipient_id": recipient.id,
+        "name": recipient.name,
+        "email": recipient.email,
+        "document_id": recipient.document_id,
+        "masked_document": masked_doc
+    }
+
+@router.post("/transfer")
+async def transfer_wallet_funds(
+    req: WalletTransferRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Ejecuta la transferencia de fondos entre billeteras con trazabilidad completa en wallet_transactions.
+    """
+    from decimal import Decimal
+    from src.models.wallet import WalletTransaction
+    
+    identifier = req.identifier.strip()
+    amount = Decimal(str(req.monto))
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="El monto a transferir debe ser mayor a cero.")
+
+    from src.models.user import User
+    from sqlalchemy import or_, func
+
+    stmt = select(User).where(
+        User.is_active == True,
+        or_(
+            User.document_id == identifier,
+            func.lower(User.email) == identifier.lower()
+        )
+    )
+    res = await db.execute(stmt)
+    recipient = res.scalars().first()
+
+    if not recipient:
+        raise HTTPException(
+            status_code=404,
+            detail="No se encontró ningún usuario activo con el número de cédula o correo electrónico ingresado."
+        )
+
+    if recipient.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="No puedes realizar transferencias a tu propia billetera."
+        )
+
+    # Obtener billetera del emisor
+    sender_wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
+    sender_wallet = sender_wallet_res.scalars().first()
+
+    if not sender_wallet or Decimal(str(sender_wallet.balance)) < amount:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Saldo insuficiente en tu billetera. Disponibles: ${float(sender_wallet.balance if sender_wallet else 0):,.0f} COP"
+        )
+
+    # Obtener o crear billetera del receptor
+    recipient_wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == recipient.id))
+    recipient_wallet = recipient_wallet_res.scalars().first()
+
+    if not recipient_wallet:
+        recipient_wallet = Wallet(
+            user_id=recipient.id,
+            balance=Decimal("0.00"),
+            currency="COP"
+        )
+        db.add(recipient_wallet)
+        await db.flush()
+
+    # Débito emisor
+    sender_wallet.balance = Decimal(str(sender_wallet.balance)) - amount
+    sender_tx = WalletTransaction(
+        wallet_id=sender_wallet.id,
+        amount=-amount,
+        type="transfer_out",
+        reference_type="wallet_transfer",
+        reference_id=recipient_wallet.id,
+        description=f"Transferencia enviada a {recipient.name} ({identifier})",
+        balance_after=sender_wallet.balance
+    )
+    db.add(sender_tx)
+
+    # Crédito receptor
+    recipient_wallet.balance = Decimal(str(recipient_wallet.balance)) + amount
+    recipient_tx = WalletTransaction(
+        wallet_id=recipient_wallet.id,
+        amount=amount,
+        type="transfer_in",
+        reference_type="wallet_transfer",
+        reference_id=sender_wallet.id,
+        description=f"Transferencia recibida de {current_user.name}",
+        balance_after=recipient_wallet.balance
+    )
+    db.add(recipient_tx)
+
+    await db.commit()
+
+    # Notificaciones in-app y push
+    try:
+        from src.services.push_notification_service import PushNotificationService
+        formatted_monto = f"${float(amount):,.0f} COP"
+        
+        # Notificar al receptor
+        await PushNotificationService.create_and_send_notification(
+            db=db,
+            user_id=recipient.id,
+            title="¡Transferencia Recibida!",
+            message=f"Has recibido {formatted_monto} de {current_user.name} en tu billetera.",
+            type="billetera",
+            link="/dashboard/wallets"
+        )
+        
+        # Notificar al emisor
+        await PushNotificationService.create_and_send_notification(
+            db=db,
+            user_id=current_user.id,
+            title="Transferencia Exitosa",
+            message=f"Has enviado {formatted_monto} a {recipient.name} correctamente.",
+            type="billetera",
+            link="/dashboard/wallets"
+        )
+    except Exception as err:
+        print(f"Warning sending transfer notifications: {err}")
+
+    return {
+        "message": "Transferencia realizada con éxito.",
+        "amount": float(amount),
+        "recipient_name": recipient.name,
+        "new_balance": float(sender_wallet.balance)
+    }
+

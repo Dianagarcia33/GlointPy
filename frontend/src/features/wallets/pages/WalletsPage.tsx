@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Wallet, ArrowDownToLine, ArrowRightLeft, Clock, CheckCircle2, XCircle, AlertCircle, ArrowUpToLine, ChevronRight } from 'lucide-react';
+import { Wallet, ArrowDownToLine, ArrowRightLeft, Clock, CheckCircle2, XCircle, AlertCircle, ArrowUpToLine, ChevronRight, Send, TrendingUp } from 'lucide-react';
 import { Can } from '../../../components/security/Can';
 import { fetchApi } from '../../../services/api';
 import { WithdrawalModal } from '../components/WithdrawalModal';
 import { MovementDetailModal } from '../components/MovementDetailModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
-import { TrendingUp } from 'lucide-react';
+import { TransferModal } from '../components/TransferModal';
 
 export interface Movement {
     id: number | string;
@@ -47,6 +47,7 @@ export const WalletsPage = () => {
     // Modals state
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
     const [isNewInvestmentModalOpen, setIsNewInvestmentModalOpen] = useState(false);
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
 
     const fetchData = async () => {
@@ -137,6 +138,13 @@ export const WalletsPage = () => {
                 onClose={() => setIsNewInvestmentModalOpen(false)}
             />
 
+            <TransferModal
+                isOpen={isTransferModalOpen}
+                onClose={() => setIsTransferModalOpen(false)}
+                onSuccess={() => fetchData()}
+                currentBalance={balance}
+            />
+
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-20">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight font-montserrat">Mi Billetera</h1>
@@ -203,6 +211,14 @@ export const WalletsPage = () => {
                             </button>
                         </Can>
                         
+                        <button 
+                            onClick={() => setIsTransferModalOpen(true)}
+                            className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                        >
+                            <Send className="w-5 h-5 text-brand-400" />
+                            Transferir Saldo
+                        </button>
+
                         <Can permission="wallets:new_investment">
                             <button 
                                 onClick={() => setIsNewInvestmentModalOpen(true)}
