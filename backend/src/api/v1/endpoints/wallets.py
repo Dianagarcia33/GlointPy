@@ -7,6 +7,7 @@ from src.api.deps import RequirePermission, get_current_user
 from src.services.wallet_service import bulk_create_or_update_wallets, bulk_create_or_update_wallet_transactions
 from sqlalchemy.future import select
 from src.models.wallet import Wallet
+from src.models.user import User
 
 router = APIRouter()
 
