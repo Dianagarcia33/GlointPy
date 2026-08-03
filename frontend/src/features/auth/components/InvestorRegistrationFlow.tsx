@@ -972,15 +972,6 @@ export const InvestorRegistrationFlow = () => {
                                     Atrás
                                 </button>
                                 <div className="flex flex-col items-end gap-2 w-full md:w-auto">
-                                    {!isStep6Valid() && (
-                                        <div className="text-xs text-red-500 text-right">
-                                            Falta completar: 
-                                            {!formData.email && ' Correo /'}
-                                            {!isValidPassword(formData.password) && ' Contraseña válida /'}
-                                            {(formData.password !== confirmPassword) && ' Confirmar contraseña /'}
-                                            {!acceptedTerms && ' Aceptar términos'}
-                                        </div>
-                                    )}
                                     <button
                                         type="submit"
                                         disabled={registerMutation.isPending || !isStep6Valid()}
