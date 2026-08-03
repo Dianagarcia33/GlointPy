@@ -201,6 +201,9 @@ export const DashboardPage = () => {
     };
 
     const activeInvestments = investments.filter(isInvestmentActive);
+    const finishedInvestments = investments.filter(inv => 
+        inv.status === 'finished' || (inv.status === 'approved' && !isInvestmentActive(inv))
+    );
     const filteredInvestments = investments.filter(inv => {
         if (activeTab === 'pending') return inv.status === 'pending' || inv.status === 'rejected';
         if (activeTab === 'approved') return isInvestmentActive(inv);
@@ -209,6 +212,7 @@ export const DashboardPage = () => {
     });
 
     const totalInvertido = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
+    const totalInvertidoFinalizado = finishedInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
     const totalAcciones = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
     const totalRendimiento = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
     const totalPortafolio = totalInvertido + totalRendimiento;
@@ -229,79 +233,70 @@ export const DashboardPage = () => {
                             onClick={() => setAdminViewMode('admin')}
                             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
                                 adminViewMode === 'admin' 
-                                    ? 'bg-slate-900 text-white shadow-sm' 
+                                    ? 'bg-slate-900 text-white shadow-xs' 
                                     : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
-                            Panel Control 360°
+                            Vista General Administración
                         </button>
                         <button
                             onClick={() => setAdminViewMode('director')}
                             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
                                 adminViewMode === 'director' 
-                                    ? 'bg-brand-500 text-white shadow-sm shadow-brand-500/20' 
+                                    ? 'bg-slate-900 text-white shadow-xs' 
                                     : 'text-slate-600 hover:text-slate-900'
                             }`}
                         >
-                            Directivo de Inversiones
+                            Vista Comercial / Metas
                         </button>
                     </div>
 
                     {adminViewMode === 'director' ? (
                         <DirectorDashboardView />
-                    ) : isLoadingAnalytics ? (
-                        <AdminDashboardSkeleton />
                     ) : (
-                        <div className="space-y-6 w-full min-w-0">
-                            {/* Header Admin */}
-                            <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden">
-                                <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                                <div className="relative z-10 space-y-2">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-                                        <ShieldCheck className="w-4 h-4 text-emerald-400" /> Panel de Control Ejecutivo 360°
+                        <div className="space-y-6">
+                            {/* Executive Summary Cards */}
+                            {isLoadingAnalytics ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full">
+                                    {[1, 2, 3, 4].map(i => (
+                                        <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs h-28 animate-pulse"></div>
+                                    ))}
+                                </div>
+                            ) : adminAnalytics ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full min-w-0">
+                                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                        <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Capital Invertido Activo</span>
+                                        <span className="text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate font-mono">
+                                            {formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 font-semibold">Contratos en vigencia</span>
                                     </div>
-                                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-                                        Hola, {user?.name?.split(' ')[0]} 👋
-                                    </h1>
-                                </div>
-                            </div>
 
-                        {/* Quick Executive KPI Summary Cards */}
-                        {adminAnalytics?.summary_cards && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full min-w-0">
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Capital Activo Invertido</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
-                                        {formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}
-                                    </span>
-                                    <span className="text-[11px] text-slate-500">Contratos vigentes</span>
-                                </div>
+                                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                        <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Inversionistas Activos</span>
+                                        <span className="text-xl xl:text-2xl font-extrabold text-slate-900 block tracking-tight truncate font-mono">
+                                            {adminAnalytics.summary_cards.total_inversionistas}
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 font-semibold">Contratos registrados</span>
+                                    </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Inversionistas Activos</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-900 block tracking-tight">
-                                        {adminAnalytics.summary_cards.total_inversionistas}
-                                    </span>
-                                    <span className="text-[11px] text-slate-500">Contratos registrados</span>
-                                </div>
+                                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                        <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Saldo en Billeteras</span>
+                                        <span className="text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate font-mono">
+                                            {formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 font-semibold">Fondos depositados</span>
+                                    </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Saldo en Billeteras</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}>
-                                        {formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}
-                                    </span>
-                                    <span className="text-[11px] text-slate-500">Fondos depositados</span>
+                                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
+                                        <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Retiros Procesados</span>
+                                        <span className="text-xl xl:text-2xl font-extrabold text-amber-600 block tracking-tight truncate font-mono">
+                                            {formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 font-semibold">Pagos liquidados</span>
+                                    </div>
                                 </div>
-
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Retiros Liquidados</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}>
-                                        {formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}
-                                    </span>
-                                    <span className="text-[11px] text-amber-700 font-medium">Pagos procesados</span>
-                                </div>
-                            </div>
-                        )}
+                            ) : null}
 
                             {/* Gráficas Interactivas Recharts */}
                             {adminAnalytics && <AdminAnalyticsCharts data={adminAnalytics} />}
@@ -321,6 +316,7 @@ export const DashboardPage = () => {
                                 userName={user?.name?.split(' ')[0] || ''}
                                 totalPortfolio={totalPortafolio}
                                 investedCapital={totalInvertido}
+                                finishedCapital={totalInvertidoFinalizado}
                                 accumulatedProfit={totalRendimiento}
                                 profitabilityPercent={rentabilidadGlobal}
                                 dailyProfit={gananciaDiaria}
@@ -328,6 +324,7 @@ export const DashboardPage = () => {
 
                             <DashboardKPIs 
                                 investedCapital={totalInvertido}
+                                finishedCapital={totalInvertidoFinalizado}
                                 currentValue={totalPortafolio}
                                 accumulatedProfit={totalRendimiento}
                                 acquiredShares={totalAcciones}
