@@ -86,7 +86,7 @@ async def seed_permissions_db(db):
             print(f"🔑 Permisos asignados al rol: {role.name}")
         elif any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente"]):
             commercial_perms = [
-                "director.dashboard.view", "commercial:view", "commercial:create_sale", "commercial:adjudicate_sale", 
+                "director.dashboard.view", "commercial:view", 
                 "referrals:view", "admin.referrals.manage", "dashboard:view_kpis", "wallets:view", 
                 "wallets:view_balance", "wallets:view_history"
             ]

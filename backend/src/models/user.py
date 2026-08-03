@@ -43,3 +43,13 @@ class User(Base):
     bank_accounts = relationship("UserBankAccount", back_populates="user", cascade="all, delete-orphan")
     withdrawals = relationship("Withdrawal", foreign_keys="Withdrawal.user_id", back_populates="user", cascade="all, delete-orphan")
     wallet = relationship("Wallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+    @property
+    def permissions(self):
+        perms = set()
+        if self.roles:
+            for r in self.roles:
+                if hasattr(r, 'permissions') and r.permissions:
+                    for p in r.permissions:
+                        perms.add(p.name)
+        return list(perms)
