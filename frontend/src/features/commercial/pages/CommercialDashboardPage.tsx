@@ -143,9 +143,7 @@ export const CommercialDashboardPage: React.FC = () => {
   const canCreateSaleOrAdjudicate = user?.is_superuser === true || 
     user?.permissions?.includes('admin.commercial.manage') === true || 
     user?.permissions?.includes('commercial:create_sale') === true ||
-    user?.permissions?.includes('commercial:adjudicate_sale') === true ||
-    user?.permissions?.includes('commercial:view') === true ||
-    user?.permissions?.includes('director.dashboard.view') === true;
+    user?.permissions?.includes('commercial:adjudicate_sale') === true;
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
