@@ -58,7 +58,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
     # 2. Fetch Active Contracts from Investor table
     investors_result = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period))
+        .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
         .where(Investor.user_id == current_user.id)
     )
     active_investors = investors_result.scalars().all()
@@ -66,16 +66,21 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
     for inv_record in active_investors:
         # Calcular fecha_fin si tenemos start_date y period.months
         from dateutil.relativedelta import relativedelta
+        from datetime import timedelta
         fecha_ingreso = inv_record.start_date
         fecha_fin = None
         dias_contrato = 0
+        aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', getattr(acc, 'days_accelerated', 0)) or 0) for acc in (inv_record.accelerations or []))
+
         if fecha_ingreso and inv_record.period:
             fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
+            if aceleracion_dias > 0:
+                fecha_fin = fecha_fin - timedelta(days=aceleracion_dias)
             dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
 
         # Determinar status
         is_active = True
-        if fecha_fin and fecha_fin.date() < today:
+        if fecha_fin and fecha_fin.date() <= today:
             is_active = False
 
         monto = float(inv_record.package.value) if inv_record.package else 0
@@ -96,6 +101,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             "rendimiento_total_contrato": rendimiento_total,
             "liquidacion_diaria_rendimiento": rendimiento_total / dias_contrato if dias_contrato > 0 else 0,
             "dias_contrato": dias_contrato,
+            "aceleracion_dias": aceleracion_dias,
             "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
             "fecha_finalizacion": fecha_fin.isoformat() if fecha_fin else None,
             "paquete": {

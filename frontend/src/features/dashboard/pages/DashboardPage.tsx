@@ -171,9 +171,40 @@ export const DashboardPage = () => {
         return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
     };
 
-    const activeInvestments = investments.filter(inv => inv.status === 'approved');
+    const isInvestmentActive = (inv: Investment) => {
+        if (inv.status !== 'approved') return false;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let endDate: Date | null = null;
+
+        if (inv.fecha_finalizacion) {
+            endDate = new Date(inv.fecha_finalizacion);
+        } else if (inv.fecha_ingreso && inv.dias_contrato) {
+            const startDate = new Date(inv.fecha_ingreso);
+            let durationDays = inv.dias_contrato;
+            if (inv.aceleracion_dias) {
+                durationDays = Math.max(0, durationDays - inv.aceleracion_dias);
+            }
+            endDate = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        }
+
+        if (endDate) {
+            endDate.setHours(23, 59, 59, 999);
+            if (endDate <= today) {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    const activeInvestments = investments.filter(isInvestmentActive);
     const filteredInvestments = investments.filter(inv => {
         if (activeTab === 'pending') return inv.status === 'pending' || inv.status === 'rejected';
+        if (activeTab === 'approved') return isInvestmentActive(inv);
+        if (activeTab === 'finished') return inv.status === 'finished' || (inv.status === 'approved' && !isInvestmentActive(inv));
         return inv.status === activeTab;
     });
 
