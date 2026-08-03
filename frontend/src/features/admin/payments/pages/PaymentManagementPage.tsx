@@ -126,28 +126,6 @@ export const PaymentManagementPage: React.FC = () => {
             Supervisión de solicitudes de retiro, verificación de cuentas bancarias en la bóveda, sincronización de débitos y recibos de transferencia.
           </p>
         </div>
-
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <Can permission="admin.withdrawals.manage">
-            <button 
-              onClick={handleSyncWalletDebits}
-              disabled={isSyncing}
-              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer disabled:opacity-50"
-              title="Sincronizar débitos pasados de billetera"
-            >
-              {isSyncing ? <Loader2 className="w-4 h-4 animate-spin text-brand-400" /> : <RefreshCw className="w-4 h-4 text-brand-400" />}
-              <span>Sincronizar Débitos</span>
-            </button>
-          </Can>
-          <button 
-            onClick={fetchWithdrawals}
-            className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
-            title="Refrescar Lista"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>Actualizar</span>
-          </button>
-        </div>
       </div>
 
       {/* KPI Cards Summary (Estilo Panel Comercial) */}
