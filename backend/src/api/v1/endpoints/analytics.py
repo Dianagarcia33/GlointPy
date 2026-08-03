@@ -79,13 +79,17 @@ async def get_admin_analytics_dashboard(
     )
     all_invs = investors_all.scalars().all()
     active_invs = []
+    current_today = date.today()
     for inv in all_invs:
         fecha_ingreso = inv.start_date
         if fecha_ingreso and inv.period:
-            aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', getattr(acc, 'days_accelerated', 0)) or 0) for acc in (inv.accelerations or []))
-            fecha_fin = fecha_ingreso + relativedelta(months=inv.period.months) - timedelta(days=aceleracion_dias)
-            if fecha_fin.date() < today:
-                # Contrato vencido/finalizado -> no sumar como activo
+            inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
+            dias_base = getattr(inv.period, 'days', 0) or (inv.period.months * 30 if inv.period.months else 0)
+            aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', 0) or 0) for acc in (inv.accelerations or []) if getattr(acc, 'applied', True) is True)
+            dias_efectivos = max(0, dias_base - int(aceleracion_dias))
+            fecha_fin = inv_start + timedelta(days=dias_efectivos)
+            if fecha_fin <= current_today:
+                # Contrato vencido/finalizado por fecha o aceleración -> no sumar como activo
                 continue
         active_invs.append(inv)
 
