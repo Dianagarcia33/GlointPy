@@ -13,7 +13,7 @@ from src.models.user import User
 from sqlalchemy.future import select
 
 async def main():
-    new_password = sys.argv[1] if len(sys.argv) > 1 else "12345678"
+    new_password = sys.argv[1] if len(sys.argv) > 1 else "Admin123!"
     print(f"🔄 Iniciando actualización masiva de contraseñas de usuarios...")
     print(f"🔑 Nueva contraseña genérica a establecer: '{new_password}'")
 
