@@ -32,7 +32,7 @@ class BankAccountUpdateRequest(BaseModel):
 class DeleteBankAccountRequest(BaseModel):
     code: str
 
-@router.get("/me")
+@router.get("/me", dependencies=[Depends(RequirePermission("bank_accounts:manage"))])
 async def get_my_bank_accounts(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -62,7 +62,7 @@ async def get_my_bank_accounts(
         for acc in accounts
     ]
 
-@router.post("/send-otp")
+@router.post("/send-otp", dependencies=[Depends(RequirePermission("bank_accounts:manage"))])
 async def send_bank_account_otp(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -156,7 +156,7 @@ async def _verify_otp_code(user_id: int, code: str, db: AsyncSession):
     verification.used_at = datetime.utcnow()
     return verification
 
-@router.post("/me")
+@router.post("/me", dependencies=[Depends(RequirePermission("bank_accounts:manage"))])
 async def create_my_bank_account(
     req: BankAccountRequest,
     current_user: User = Depends(get_current_user),
@@ -185,7 +185,7 @@ async def create_my_bank_account(
         
     return {"message": "Cuenta bancaria agregada exitosamente", "id": new_acc.id}
 
-@router.put("/me/{account_id}")
+@router.put("/me/{account_id}", dependencies=[Depends(RequirePermission("bank_accounts:manage"))])
 async def update_my_bank_account(
     account_id: int,
     req: BankAccountUpdateRequest,
@@ -224,7 +224,7 @@ async def update_my_bank_account(
         
     return {"message": "Cuenta bancaria actualizada exitosamente."}
 
-@router.post("/me/{account_id}/delete")
+@router.post("/me/{account_id}/delete", dependencies=[Depends(RequirePermission("bank_accounts:manage"))])
 async def delete_my_bank_account(
     account_id: int,
     req: DeleteBankAccountRequest,

@@ -148,12 +148,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </NavLink>
                                 </Can>
 
-                                <NavLink to="/dashboard/bank-accounts" className={navLinkClass}>
-                                    <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
-                                        <Landmark className="w-[18px] h-[18px]" />
-                                    </span>
-                                    <span className="flex-1 text-[13px] font-outfit">Bóveda Bancaria</span>
-                                </NavLink>
+                                <Can permission="bank_accounts:manage">
+                                    <NavLink to="/dashboard/bank-accounts" className={navLinkClass}>
+                                        <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                            <Landmark className="w-[18px] h-[18px]" />
+                                        </span>
+                                        <span className="flex-1 text-[13px] font-outfit">Bóveda Bancaria</span>
+                                    </NavLink>
+                                </Can>
 
                                 {!isAdmin && (
                                     <>

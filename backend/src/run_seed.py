@@ -88,7 +88,7 @@ async def seed_permissions_db(db):
             commercial_perms = [
                 "director.dashboard.view", "commercial:view", 
                 "referrals:view", "admin.referrals.manage", "dashboard:view_kpis", "wallets:view", 
-                "wallets:view_balance", "wallets:view_history"
+                "wallets:view_balance", "wallets:view_history", "bank_accounts:manage"
             ]
             for p_name in commercial_perms:
                 if p_name in all_perms_map:
@@ -109,7 +109,7 @@ async def seed_permissions_db(db):
                 "wallets:view_history", "wallets:request_withdrawal", 
                 "wallets:new_investment", "dashboard:view_kpis", 
                 "dashboard:view_quick_actions", "dashboard:view_investments", 
-                "dashboard:view_requests"
+                "dashboard:view_requests", "bank_accounts:manage"
             ]
             for p_name in investor_perms:
                 if p_name in all_perms_map:

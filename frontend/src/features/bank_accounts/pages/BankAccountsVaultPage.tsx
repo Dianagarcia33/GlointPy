@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Landmark, Plus, Edit2, Trash2, ShieldCheck, CheckCircle2, AlertCircle, CreditCard, Lock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { bankAccountsService, UserBankAccount } from '../../../services/bankAccounts';
 import { BankAccountOtpModal } from '../components/BankAccountOtpModal';
+import { useAuthStore } from '../../../store/authStore';
 
 export const BankAccountsVaultPage: React.FC = () => {
+  const { user } = useAuthStore();
+  const hasBankPerm = user?.is_superuser === true || user?.permissions?.includes('bank_accounts:manage') === true;
+
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'delete'>('create');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<UserBankAccount | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  if (!hasBankPerm && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const { data: accounts = [], isLoading, refetch } = useQuery({
     queryKey: ['my_bank_accounts'],
