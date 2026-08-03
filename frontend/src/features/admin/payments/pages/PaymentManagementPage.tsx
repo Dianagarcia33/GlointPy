@@ -112,18 +112,18 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header Ejecutivo */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border border-slate-800">
+      {/* Header Ejecutivo Principal (Estilo Panel Comercial) */}
+      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
         <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <DollarSign className="w-4 h-4 text-emerald-400" /> Tesorería & Pagos
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm border border-white/10">
+            <DollarSign className="w-4 h-4 text-emerald-400" /> Tesorería & Dispersión de Saldo
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Retiros
+            Gestión de Pagos & Retiros
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
-            Administra las solicitudes de retiro de billetera y capital, verifica cuentas bancarias y descarga recibos de transferencia.
+            Supervisión de solicitudes de retiro, verificación de cuentas bancarias en la bóveda, sincronización de débitos y recibos de transferencia.
           </p>
         </div>
 
@@ -132,16 +132,16 @@ export const PaymentManagementPage: React.FC = () => {
             <button 
               onClick={handleSyncWalletDebits}
               disabled={isSyncing}
-              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 px-5 py-3 rounded-2xl transition-all text-sm font-bold backdrop-blur-sm shadow-md cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer disabled:opacity-50"
               title="Sincronizar débitos pasados de billetera"
             >
               {isSyncing ? <Loader2 className="w-4 h-4 animate-spin text-brand-400" /> : <RefreshCw className="w-4 h-4 text-brand-400" />}
-              <span>Sincronizar Billeteras</span>
+              <span>Sincronizar Débitos</span>
             </button>
           </Can>
           <button 
             onClick={fetchWithdrawals}
-            className="flex items-center gap-2 bg-brand-500 text-white px-5 py-3 rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer"
+            className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
             title="Refrescar Lista"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -150,51 +150,63 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="p-3 bg-brand-50 text-brand-600 rounded-xl">
-            <Wallet className="w-6 h-6" />
+      {/* KPI Cards Summary (Estilo Panel Comercial) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Solicitudes</span>
+            <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100">
+              <Wallet className="w-5 h-5" />
+            </div>
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Solicitudes</p>
-            <p className="text-2xl font-black text-slate-900">{data?.total || 0}</p>
+            <p className="text-3xl font-extrabold text-slate-900 font-montserrat tracking-tight">{data?.total || 0}</p>
+            <p className="text-xs text-slate-500 font-medium mt-1">Registros en plataforma</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-            <Clock className="w-6 h-6" />
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Pendientes por Revisar</span>
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
+              <Clock className="w-5 h-5" />
+            </div>
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Pendientes por Revisar</p>
-            <p className="text-2xl font-black text-amber-600">{pendingCount}</p>
+            <p className="text-3xl font-extrabold text-amber-600 font-montserrat tracking-tight">{pendingCount}</p>
+            <p className="text-xs text-slate-500 font-medium mt-1">Requieren atención administrativa</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-            <CheckCircle2 className="w-6 h-6" />
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Aprobados / Procesados</span>
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Aprobados / Procesados</p>
-            <p className="text-2xl font-black text-emerald-600">{approvedCount}</p>
+            <p className="text-3xl font-extrabold text-emerald-600 font-montserrat tracking-tight">{approvedCount}</p>
+            <p className="text-xs text-slate-500 font-medium mt-1">Desembolsos autorizados</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-            <DollarSign className="w-6 h-6" />
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Desembolsado a la Fecha</span>
+            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
+              <DollarSign className="w-5 h-5" />
+            </div>
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Desembolsado en Página</p>
-            <p className="text-xl font-extrabold text-slate-900">{formatCurrency(totalAmountPaid)}</p>
+            <p className="text-2xl font-extrabold text-slate-900 font-montserrat tracking-tight">{formatCurrency(totalAmountPaid)}</p>
+            <p className="text-xs text-slate-500 font-medium mt-1">Suma acumulada desembolsada</p>
           </div>
         </div>
       </div>
 
-      {/* Control Bar: Filters & Search */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs flex flex-col xl:flex-row gap-4 items-center justify-between">
+      {/* Control Bar: Filters & Search (Estilo Panel Comercial) */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col xl:flex-row gap-4 items-center justify-between">
         <form onSubmit={handleSearch} className="w-full xl:w-80 relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
           <input
@@ -202,26 +214,26 @@ export const PaymentManagementPage: React.FC = () => {
             placeholder="Buscar por usuario, cédula o correo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none text-sm font-medium transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-medium"
           />
         </form>
 
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           {/* Rangos de Fecha */}
-          <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-200 text-xs font-semibold">
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200/80 text-xs font-semibold">
             <span className="text-slate-500 font-bold px-1.5 uppercase tracking-wider text-[10px]">Desde:</span>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
+              className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
             />
             <span className="text-slate-500 font-bold px-1.5 uppercase tracking-wider text-[10px]">Hasta:</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
+              className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
             />
             {(startDate || endDate) && (
               <button
@@ -230,13 +242,13 @@ export const PaymentManagementPage: React.FC = () => {
                 className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
                 title="Limpiar rango de fechas"
               >
-                Limpiar Fechas
+                Limpiar
               </button>
             )}
           </div>
 
           {/* Filtro por Estado */}
-          <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-2xl border border-slate-200 text-xs font-bold overflow-x-auto">
+          <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
             <span className="text-slate-400 px-2 flex items-center gap-1"><Filter className="w-3.5 h-3.5" /> Estado:</span>
             {['todos', 'pendiente', 'aprobado', 'procesado', 'rechazado'].map((st) => (
               <button
@@ -256,11 +268,11 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Table Container */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* Main Table Container (Estilo Panel Comercial) */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[11px] tracking-wider">
+            <thead className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[11px] tracking-widest">
               <tr>
                 <th className="px-6 py-4">ID / Fecha Solicitud</th>
                 <th className="px-6 py-4">Inversionista</th>
@@ -374,14 +386,14 @@ export const PaymentManagementPage: React.FC = () => {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xs flex items-center gap-1"
+                className="px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" /> Anterior
               </button>
               <button
                 onClick={() => setPage(p => p + 1)}
                 disabled={page * limit >= data.total}
-                className="px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xs flex items-center gap-1"
+                className="px-3.5 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
               >
                 Siguiente <ChevronRight className="w-4 h-4" />
               </button>
