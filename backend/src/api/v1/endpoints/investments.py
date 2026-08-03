@@ -70,15 +70,20 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
         fecha_ingreso = inv_record.start_date
         fecha_fin = None
         dias_contrato = 0
-        aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', getattr(acc, 'days_accelerated', 0)) or 0) for acc in (inv_record.accelerations or []))
+        
+        # Días acelerados aplicados al contrato
+        aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', getattr(acc, 'days_accelerated', 0)) or 0) for acc in (inv_record.accelerations or []) if getattr(acc, 'applied', True) is True)
 
         if fecha_ingreso and inv_record.period:
-            fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
-            if aceleracion_dias > 0:
-                fecha_fin = fecha_fin - timedelta(days=aceleracion_dias)
-            dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+            fecha_fin_original = fecha_ingreso + relativedelta(months=inv_record.period.months)
+            dias_originales = (fecha_fin_original.date() - fecha_ingreso.date()).days
+            
+            # Restamos los días acelerados de la duración total del contrato
+            dias_efectivos = max(0, dias_originales - int(aceleracion_dias))
+            fecha_fin = fecha_ingreso + timedelta(days=dias_efectivos)
+            dias_contrato = dias_efectivos
 
-        # Determinar status
+        # Determinar status: si fecha_fin <= hoy, el contrato expiró/aceleró hasta finalizar y NO es activo
         is_active = True
         if fecha_fin and fecha_fin.date() <= today:
             is_active = False
