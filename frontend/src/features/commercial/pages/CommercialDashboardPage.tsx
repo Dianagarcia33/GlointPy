@@ -140,6 +140,10 @@ export const CommercialDashboardPage: React.FC = () => {
   const progressPercent = Math.min(100, Math.round((directAccum / threshold) * 100));
 
   const canSettle = user?.is_superuser === true || user?.permissions?.includes('admin.commissions.settle') === true;
+  const canCreateSaleOrAdjudicate = user?.is_superuser === true || 
+    user?.permissions?.includes('admin.commercial.manage') === true || 
+    user?.permissions?.includes('commercial:view') === true ||
+    user?.permissions?.includes('director.dashboard.view') === true;
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
@@ -179,13 +183,15 @@ export const CommercialDashboardPage: React.FC = () => {
             </button>
           )}
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            {isAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}
-          </button>
+          {canCreateSaleOrAdjudicate && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              {isAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}
+            </button>
+          )}
         </div>
       </div>
 
