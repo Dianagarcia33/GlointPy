@@ -1,5 +1,5 @@
 import React from 'react';
-import { Briefcase, TrendingUp, DollarSign, Activity, ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import { Briefcase, TrendingUp, DollarSign, Activity, ArrowUpRight } from 'lucide-react';
 import { formatCurrency } from '../../../utils/format';
 
 interface KPIProps {
@@ -44,27 +44,19 @@ const KPICard: React.FC<KPIProps> = ({ title, value, subValue, variationStr, isP
 
 export const DashboardKPIs = ({
     investedCapital,
-    finishedCapital = 0,
     currentValue,
     accumulatedProfit,
     acquiredShares,
-    variations
+    variations // mock variations for design
 }: any) => {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
             <KPICard 
-                title="Capital Activo" 
+                title="Capital Invertido" 
                 value={formatCurrency(investedCapital)} 
                 variationStr={variations?.invested || "+0.0%"} 
                 isPositive={true} 
-                icon={<Briefcase className="w-5 h-5 text-emerald-600" />} 
-            />
-            <KPICard 
-                title="Capital Finalizado" 
-                value={formatCurrency(finishedCapital)} 
-                variationStr={variations?.finished || "Completo"} 
-                isPositive={true} 
-                icon={<CheckCircle2 className="w-5 h-5 text-slate-600" />} 
+                icon={<Briefcase className="w-5 h-5" />} 
             />
             <KPICard 
                 title="Valor Proyectado" 

@@ -6,7 +6,6 @@ interface HeroCardProps {
     userName: string;
     totalPortfolio: number;
     investedCapital: number;
-    finishedCapital?: number;
     accumulatedProfit: number;
     profitabilityPercent: number;
     dailyProfit: number;
@@ -16,7 +15,6 @@ export const HeroCard: React.FC<HeroCardProps> = ({
     userName,
     totalPortfolio,
     investedCapital,
-    finishedCapital = 0,
     accumulatedProfit,
     profitabilityPercent,
     dailyProfit
@@ -38,7 +36,7 @@ export const HeroCard: React.FC<HeroCardProps> = ({
                         </h1>
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-400 uppercase tracking-widest font-bold bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700">
                             <Clock className="w-3 h-3" />
-                            Actualizado
+                            Actualizado hace 2m
                         </div>
                     </div>
                     
@@ -53,14 +51,10 @@ export const HeroCard: React.FC<HeroCardProps> = ({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-slate-700/50">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-700/50">
                         <div>
-                            <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wider mb-1">Capital Activo</p>
-                            <p className="text-xl font-bold font-montserrat text-white">{formatCurrency(investedCapital)}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Capital Finalizado</p>
-                            <p className="text-xl font-bold font-montserrat text-slate-300">{formatCurrency(finishedCapital)}</p>
+                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Capital Invertido</p>
+                            <p className="text-xl font-bold font-montserrat text-slate-200">{formatCurrency(investedCapital)}</p>
                         </div>
                         <div>
                             <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Rendimiento Proyectado</p>

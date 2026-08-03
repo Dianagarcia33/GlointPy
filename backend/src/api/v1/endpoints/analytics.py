@@ -79,6 +79,7 @@ async def get_admin_analytics_dashboard(
     )
     all_invs = investors_all.scalars().all()
     active_invs = []
+    finished_invs = []
     current_today = date.today()
     for inv in all_invs:
         fecha_ingreso = inv.start_date
@@ -89,11 +90,13 @@ async def get_admin_analytics_dashboard(
             dias_efectivos = max(0, dias_base - int(aceleracion_dias))
             fecha_fin = inv_start + timedelta(days=dias_efectivos)
             if fecha_fin <= current_today:
-                # Contrato vencido/finalizado por fecha o aceleración -> no sumar como activo
+                # Contrato vencido/finalizado por fecha o aceleración
+                finished_invs.append(inv)
                 continue
         active_invs.append(inv)
 
     total_invertido = sum(float(i.package.value) if i.package and i.package.value else 0 for i in active_invs)
+    total_capital_finalizado = sum(float(i.package.value) if i.package and i.package.value else 0 for i in finished_invs)
 
     # 3. Distribución por Paquetes de Inversión (solo paquetes con contratos activos)
     package_counts = {}
@@ -155,6 +158,8 @@ async def get_admin_analytics_dashboard(
         "sales_by_type": sales_by_type,
         "summary_cards": {
             "total_invertido": total_invertido,
+            "total_capital_activo": total_invertido,
+            "total_capital_finalizado": total_capital_finalizado,
             "total_inversionistas": len(active_invs),
             "total_wallets": total_wallets,
             "total_withdrawals": total_withdrawals
