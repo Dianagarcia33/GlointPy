@@ -281,53 +281,53 @@ export const DashboardPage = () => {
 
                         {/* Quick Executive KPI Summary Cards */}
                         {adminAnalytics?.summary_cards && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 w-full min-w-0">
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Capital Activo</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4 w-full min-w-0">
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Capital Activo</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
                                         {formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-semibold">Contratos en vigencia</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos en vigencia</span>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Capital Finalizado</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-600 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_capital_finalizado || 0)}>
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Capital Finalizado</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-slate-600 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_capital_finalizado || 0)}>
                                         {formatCardCurrency(adminAnalytics.summary_cards.total_capital_finalizado || 0)}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-semibold">Contratos vencidos</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos vencidos</span>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Inversionistas Activos</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-600 block tracking-tight font-mono">
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Inversionistas Activos</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-emerald-600 block tracking-tight font-mono truncate">
                                         {adminAnalytics.summary_cards.total_inversionistas}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-semibold">Contratos en curso</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos en curso</span>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Inversionistas Inactivos</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-500 block tracking-tight font-mono">
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Inversionistas Inactivos</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-slate-500 block tracking-tight font-mono truncate">
                                         {adminAnalytics.summary_cards.total_inversionistas_inactivos || 0}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-semibold">Contratos finalizados</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos finalizados</span>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Saldo en Billeteras</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}>
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Saldo en Billeteras</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}>
                                         {formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-semibold">Fondos depositados</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Fondos depositados</span>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block font-montserrat">Retiros Procesados</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}>
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Retiros Procesados</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}>
                                         {formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}
                                     </span>
-                                    <span className="text-[11px] text-amber-700 font-medium">Pagos liquidados</span>
+                                    <span className="text-[11px] text-amber-700 font-medium truncate block">Pagos liquidados</span>
                                 </div>
                             </div>
                         )}
