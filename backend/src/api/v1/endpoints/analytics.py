@@ -86,11 +86,9 @@ async def get_admin_analytics_dashboard(
         if fecha_ingreso and inv.period:
             inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
             dias_base = getattr(inv.period, 'days', 0) or (inv.period.months * 30 if inv.period.months else 0)
-            aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', 0) or 0) for acc in (inv.accelerations or []) if getattr(acc, 'applied', True) is True)
-            dias_efectivos = max(0, dias_base - int(aceleracion_dias))
-            fecha_fin = inv_start + timedelta(days=dias_efectivos)
-            if fecha_fin <= current_today:
-                # Contrato vencido/finalizado por fecha o aceleración
+            fecha_fin = inv_start + timedelta(days=dias_base)
+            if fecha_fin > current_today:
+                # Regla: fecha fin > hoy va a Capital Finalizado
                 finished_invs.append(inv)
                 continue
         active_invs.append(inv)

@@ -64,28 +64,23 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
     active_investors = investors_result.scalars().all()
     
     for inv_record in active_investors:
-        # Calcular fecha_fin si tenemos start_date y period.months
-        from dateutil.relativedelta import relativedelta
-        from datetime import timedelta
+        from datetime import timedelta, date, datetime
         fecha_ingreso = inv_record.start_date
         fecha_fin = None
         dias_contrato = 0
-        
-        # Días acelerados aplicados al contrato
-        aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', getattr(acc, 'days_accelerated', 0)) or 0) for acc in (inv_record.accelerations or []) if getattr(acc, 'applied', True) is True)
 
         if fecha_ingreso and inv_record.period:
-            fecha_fin_original = fecha_ingreso + relativedelta(months=inv_record.period.months)
-            dias_originales = (fecha_fin_original.date() - fecha_ingreso.date()).days
-            
-            # Restamos los días acelerados de la duración total del contrato
-            dias_efectivos = max(0, dias_originales - int(aceleracion_dias))
-            fecha_fin = fecha_ingreso + timedelta(days=dias_efectivos)
-            dias_contrato = dias_efectivos
+            inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
+            dias_base = getattr(inv_record.period, 'days', 0) or (inv_record.period.months * 30 if inv_record.period.months else 0)
+            fecha_fin_date = inv_start + timedelta(days=dias_base)
+            fecha_fin = datetime.combine(fecha_fin_date, datetime.min.time()) if isinstance(fecha_ingreso, datetime) else fecha_fin_date
+            dias_contrato = dias_base
 
-        # Determinar status: si fecha_fin <= hoy, el contrato expiró/aceleró hasta finalizar y NO es activo
+        # Regla: si fecha_fin > hoy -> Capital Finalizado (is_active = False), sino -> Capital Activo (is_active = True)
         is_active = True
-        if fecha_fin and fecha_fin.date() <= today:
+        current_today = date.today()
+        check_date = fecha_fin.date() if isinstance(fecha_fin, datetime) else fecha_fin
+        if check_date and check_date > current_today:
             is_active = False
 
         monto = float(inv_record.package.value) if inv_record.package else 0

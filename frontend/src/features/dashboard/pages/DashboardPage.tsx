@@ -180,19 +180,27 @@ export const DashboardPage = () => {
         let endDate: Date | null = null;
 
         if (inv.fecha_finalizacion) {
-            endDate = new Date(inv.fecha_finalizacion);
-        } else if (inv.fecha_ingreso && inv.dias_contrato) {
-            const startDate = new Date(inv.fecha_ingreso);
-            let durationDays = inv.dias_contrato;
-            if (inv.aceleracion_dias) {
-                durationDays = Math.max(0, durationDays - inv.aceleracion_dias);
+            const parts = inv.fecha_finalizacion.split('T')[0].split('-');
+            if (parts.length === 3) {
+                endDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            } else {
+                endDate = new Date(inv.fecha_finalizacion);
             }
-            endDate = new Date(startDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        } else if (inv.fecha_ingreso && inv.dias_contrato) {
+            const parts = inv.fecha_ingreso.split('T')[0].split('-');
+            let startDate: Date;
+            if (parts.length === 3) {
+                startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            } else {
+                startDate = new Date(inv.fecha_ingreso);
+            }
+            endDate = new Date(startDate.getTime() + inv.dias_contrato * 24 * 60 * 60 * 1000);
         }
 
         if (endDate) {
-            endDate.setHours(23, 59, 59, 999);
-            if (endDate <= today) {
+            endDate.setHours(0, 0, 0, 0);
+            // Regla: si fecha fin > hoy va a Capital Finalizado (por lo tanto no es activo)
+            if (endDate > today) {
                 return false;
             }
         }
@@ -201,6 +209,9 @@ export const DashboardPage = () => {
     };
 
     const activeInvestments = investments.filter(isInvestmentActive);
+    const finishedInvestments = investments.filter(inv => 
+        inv.status === 'finished' || (inv.status === 'approved' && !isInvestmentActive(inv))
+    );
     const filteredInvestments = investments.filter(inv => {
         if (activeTab === 'pending') return inv.status === 'pending' || inv.status === 'rejected';
         if (activeTab === 'approved') return isInvestmentActive(inv);
@@ -209,6 +220,7 @@ export const DashboardPage = () => {
     });
 
     const totalInvertido = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
+    const totalInvertidoFinalizado = finishedInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
     const totalAcciones = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
     const totalRendimiento = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
     const totalPortafolio = totalInvertido + totalRendimiento;
@@ -329,6 +341,7 @@ export const DashboardPage = () => {
                                 userName={user?.name?.split(' ')[0] || ''}
                                 totalPortfolio={totalPortafolio}
                                 investedCapital={totalInvertido}
+                                finishedCapital={totalInvertidoFinalizado}
                                 accumulatedProfit={totalRendimiento}
                                 profitabilityPercent={rentabilidadGlobal}
                                 dailyProfit={gananciaDiaria}
@@ -336,6 +349,7 @@ export const DashboardPage = () => {
 
                             <DashboardKPIs 
                                 investedCapital={totalInvertido}
+                                finishedCapital={totalInvertidoFinalizado}
                                 currentValue={totalPortafolio}
                                 accumulatedProfit={totalRendimiento}
                                 acquiredShares={totalAcciones}
