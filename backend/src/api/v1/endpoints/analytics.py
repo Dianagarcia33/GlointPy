@@ -79,17 +79,23 @@ async def get_admin_analytics_dashboard(
     )
     all_invs = investors_all.scalars().all()
     active_invs = []
+    finished_invs = []
+    current_today = date.today()
     for inv in all_invs:
         fecha_ingreso = inv.start_date
         if fecha_ingreso and inv.period:
-            aceleracion_dias = sum(float(getattr(acc, 'days_to_reduce', getattr(acc, 'days_accelerated', 0)) or 0) for acc in (inv.accelerations or []))
-            fecha_fin = fecha_ingreso + relativedelta(months=inv.period.months) - timedelta(days=aceleracion_dias)
-            if fecha_fin.date() < today:
-                # Contrato vencido/finalizado -> no sumar como activo
+            inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
+            dias_base = getattr(inv.period, 'days', 0) or (inv.period.months * 30 if inv.period.months else 0)
+            fecha_fin = inv_start + timedelta(days=dias_base)
+            if fecha_fin <= current_today:
+                # Contrato vencido (fecha_fin <= hoy) -> Capital Finalizado
+                finished_invs.append(inv)
                 continue
+        # Contrato en curso (fecha_fin > hoy) -> Capital Activo
         active_invs.append(inv)
 
     total_invertido = sum(float(i.package.value) if i.package and i.package.value else 0 for i in active_invs)
+    total_capital_finalizado = sum(float(i.package.value) if i.package and i.package.value else 0 for i in finished_invs)
 
     # 3. Distribución por Paquetes de Inversión (solo paquetes con contratos activos)
     package_counts = {}
@@ -151,7 +157,10 @@ async def get_admin_analytics_dashboard(
         "sales_by_type": sales_by_type,
         "summary_cards": {
             "total_invertido": total_invertido,
+            "total_capital_activo": total_invertido,
+            "total_capital_finalizado": total_capital_finalizado,
             "total_inversionistas": len(active_invs),
+            "total_inversionistas_inactivos": len(finished_invs),
             "total_wallets": total_wallets,
             "total_withdrawals": total_withdrawals
         }

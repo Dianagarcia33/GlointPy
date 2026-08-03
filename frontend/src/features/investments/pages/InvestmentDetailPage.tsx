@@ -122,21 +122,26 @@ export const InvestmentDetailPage = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Resumen Financiero</p>
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600 font-medium">Rendimiento Total Proyectado</span>
-                                    <span className="font-bold text-emerald-600">+{formatCurrency(inv.rendimiento_total_contrato)}</span>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                                        Rendimientos Acumulados del Ciclo
+                                    </span>
+                                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80">
+                                        {inv.dias_ciclo_actual || 0} días en ciclo
+                                    </span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600 font-medium">Rendimiento Diario</span>
-                                    <span className="font-bold text-emerald-600">+{formatCurrency(inv.liquidacion_diaria_rendimiento, true)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm pt-2 border-t border-slate-100">
-                                    <span className="text-slate-900 font-bold">Total Retorno Estimado</span>
-                                    <span className="font-bold text-slate-900">{formatCurrency(inv.total_contrato)}</span>
-                                </div>
+                                <p className="text-3xl md:text-4xl font-extrabold text-emerald-600 font-montserrat tracking-tight">
+                                    +{formatCurrency(inv.rendimiento_ciclo_actual || 0)}
+                                </p>
+                            </div>
+                            
+                            <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                                <span className="text-slate-500 font-medium">Generación Diaria:</span>
+                                <span className="font-extrabold text-emerald-600">
+                                    +{formatCurrency(inv.liquidacion_diaria_rendimiento || 0, true)} / día
+                                </span>
                             </div>
                         </div>
                     </div>

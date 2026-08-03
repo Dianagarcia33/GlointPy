@@ -7,6 +7,7 @@ import { RegisterCommercialSaleModal } from '../components/RegisterCommercialSal
 import { SettleCommissionsModal } from '../components/SettleCommissionsModal';
 import { CommercialBonusGoalsWidget } from '../components/CommercialBonusGoalsWidget';
 import { AdminCommercialBonusesTable } from '../components/AdminCommercialBonusesTable';
+import { Can } from '../../../components/security/Can';
 
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -67,6 +68,12 @@ export const CommercialDashboardPage: React.FC = () => {
   const { data: leaderboardData, isLoading: isLoadingLeaderboard, refetch: refetchLeaderboard } = useQuery<LeaderboardResponse>({
     queryKey: ['commercial_leaderboard'],
     queryFn: () => commercialService.getLeaderboard()
+  });
+
+  // Query: Solicitudes de Inversión de Inversionistas Asignados al Directivo
+  const { data: assignedInvestmentsData, isLoading: loadingAssignedInvestments } = useQuery({
+    queryKey: ['my_assigned_investments'],
+    queryFn: () => commercialService.getMyAssignedInvestments()
   });
 
   const handleSuccess = () => {
@@ -133,6 +140,10 @@ export const CommercialDashboardPage: React.FC = () => {
   const progressPercent = Math.min(100, Math.round((directAccum / threshold) * 100));
 
   const canSettle = user?.is_superuser === true || user?.permissions?.includes('admin.commissions.settle') === true;
+  const canCreateSaleOrAdjudicate = user?.is_superuser === true || 
+    user?.permissions?.includes('admin.commercial.manage') === true || 
+    user?.permissions?.includes('commercial:create_sale') === true ||
+    user?.permissions?.includes('commercial:adjudicate_sale') === true;
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
@@ -172,13 +183,15 @@ export const CommercialDashboardPage: React.FC = () => {
             </button>
           )}
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            {isAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}
-          </button>
+          {canCreateSaleOrAdjudicate && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              {isAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -572,6 +585,110 @@ export const CommercialDashboardPage: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* Solicitudes de Inversión de Mis Inversionistas Asignados (Protegido con Permiso PBAC) */}
+      <Can permissions={["director.dashboard.view", "commercial:view"]}>
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <UserCheck className="w-5 h-5 text-brand-600" />
+              <div>
+                <h2 className="font-bold text-slate-900 text-base font-montserrat">
+                  Solicitudes de Inversión de Mis Inversionistas Asignados
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Inversionistas que se registraron en Gloint y te seleccionaron como su Directivo de Inversiones
+                </p>
+              </div>
+            </div>
+            {assignedInvestmentsData?.total !== undefined && (
+              <span className="px-3 py-1 bg-brand-50 text-brand-700 font-bold text-xs rounded-full border border-brand-200">
+                {assignedInvestmentsData.total} Inversionista(s)
+              </span>
+            )}
+          </div>
+
+          {loadingAssignedInvestments ? (
+            <div className="text-center py-8 text-xs text-slate-400">Cargando solicitudes asignadas...</div>
+          ) : !assignedInvestmentsData?.assigned_investments || assignedInvestmentsData.assigned_investments.length === 0 ? (
+            <div className="text-center py-8 text-xs text-slate-400">
+              No tienes solicitudes de inversión de inversionistas asignados aún.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
+                  <tr>
+                    <th className="py-3 px-4">Inversionista</th>
+                    <th className="py-3 px-4">Contacto / Documento</th>
+                    <th className="py-3 px-4">Paquete de Inversión</th>
+                    <th className="py-3 px-4 text-right">Monto ($)</th>
+                    <th className="py-3 px-4 text-center">Estado</th>
+                    <th className="py-3 px-4">Fecha Solicitud</th>
+                    <th className="py-3 px-4 text-center">Comprobante</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {assignedInvestmentsData.assigned_investments.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {item.investor_name}
+                      </td>
+                      <td className="py-3.5 px-4 space-y-0.5">
+                        <p className="font-semibold text-slate-800">{item.investor_email}</p>
+                        <p className="text-[10px] text-slate-400">Doc: {item.investor_document} | Tel: {item.investor_phone}</p>
+                      </td>
+                      <td className="py-3.5 px-4 font-medium text-slate-700">
+                        {item.paquete_nombre}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-bold text-emerald-700 font-mono">
+                        ${(item.monto || 0).toLocaleString('es-CO')}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
+                          item.status === 'approved'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            : item.status === 'rejected'
+                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200 animate-pulse'
+                        }`}>
+                          {item.status === 'approved'
+                            ? 'APROBADO'
+                            : item.status === 'rejected'
+                            ? 'RECHAZADO'
+                            : 'PENDIENTE'}
+                        </span>
+                        {item.status === 'rejected' && item.rejection_reason && (
+                          <p className="text-[10px] text-rose-500 font-normal truncate max-w-[120px] mx-auto mt-0.5" title={item.rejection_reason}>
+                            {item.rejection_reason}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
+                        {item.created_at ? new Date(item.created_at).toLocaleDateString('es-CO') : '-'}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        {item.comprobante_path ? (
+                          <a
+                            href={item.comprobante_path.startsWith('/') ? item.comprobante_path : `/api/v1/${item.comprobante_path}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 hover:text-brand-800 underline"
+                          >
+                            <span>Ver</span>
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 text-[10px]">Sin archivo</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Can>
 
       {/* Historial de Liquidaciones Registradas */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">

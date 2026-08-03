@@ -27,3 +27,31 @@ export const adjustWalletBalance = async (
     body: JSON.stringify(data),
   });
 };
+
+export interface VerifyRecipientResponse {
+  recipient_id: number;
+  name: string;
+  email: string;
+  document_id: string;
+  masked_document: string;
+}
+
+export const verifyTransferRecipient = async (identifier: string): Promise<VerifyRecipientResponse> => {
+  return await fetchApi('/wallets/transfer/verify-recipient', {
+    method: 'POST',
+    body: JSON.stringify({ identifier }),
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+export const transferWalletFunds = async (data: {
+  identifier: string;
+  monto: number;
+  notes?: string;
+}): Promise<{ message: string; amount: number; recipient_name: string; new_balance: number }> => {
+  return await fetchApi('/wallets/transfer', {
+    method: 'POST',
+    body: JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' },
+  });
+};

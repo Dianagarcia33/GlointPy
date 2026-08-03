@@ -55,8 +55,9 @@ class UserResponse(BaseModel):
     created_at: Any
     updated_at: Any
     
-    # Devuelve los roles asociados
+    # Devuelve los roles y permisos asociados
     roles: List[RoleResponse] = []
+    permissions: Optional[List[str]] = []
     
     model_config = ConfigDict(from_attributes=True)
 

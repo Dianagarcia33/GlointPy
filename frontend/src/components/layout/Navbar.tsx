@@ -3,10 +3,16 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
+import { NotificationBell } from './NotificationBell';
+import { ChatQuickAccess } from './ChatQuickAccess';
 
 const logo = "/logo.png";
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onToggleMobileSidebar?: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [serviciosMenuOpen, setServiciosMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -89,61 +95,63 @@ export const Navbar: React.FC = () => {
             </Link>
           </div>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center justify-center space-x-8 z-20 absolute left-1/2 transform -translate-x-1/2">
-            <Link to="/" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
-              INICIO
-            </Link>
-            <Link to="/about" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
-              NOSOTROS
-            </Link>
+          {/* Desktop Nav - Oculto si está en el Dashboard */}
+          {!isDashboard && (
+            <div className="hidden md:flex items-center justify-center space-x-8 z-20 absolute left-1/2 transform -translate-x-1/2">
+              <Link to="/" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
+                INICIO
+              </Link>
+              <Link to="/about" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
+                NOSOTROS
+              </Link>
 
-            {/* Dropdown */}
-            <div className="relative" ref={serviciosMenuRef}>
-              <button
-                onClick={() => setServiciosMenuOpen(!serviciosMenuOpen)}
-                className={`flex items-center gap-1.5 text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
-              >
-                SERVICIOS
-                <ChevronDown className={`w-4 h-4 transition-transform ${serviciosMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
+              {/* Dropdown */}
+              <div className="relative" ref={serviciosMenuRef}>
+                <button
+                  onClick={() => setServiciosMenuOpen(!serviciosMenuOpen)}
+                  className={`flex items-center gap-1.5 text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}
+                >
+                  SERVICIOS
+                  <ChevronDown className={`w-4 h-4 transition-transform ${serviciosMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-              {serviciosMenuOpen && (
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-4 w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
-                  <div className="p-2">
-                    <Link
-                      to="/investment"
-                      className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-                      onClick={() => setServiciosMenuOpen(false)}
-                    >
-                      <div className="font-bold text-slate-900 text-sm">GLOINT Investment</div>
-                      <div className="text-xs text-slate-500 mt-0.5">Oportunidades de inversión</div>
-                    </Link>
-                    <Link
-                      to="/place"
-                      className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-                      onClick={() => setServiciosMenuOpen(false)}
-                    >
-                      <div className="font-bold text-slate-900 text-sm">GLOINT Place</div>
-                      <div className="text-xs text-slate-500 mt-0.5">Comercio y logística</div>
-                    </Link>
-                    <Link
-                      to="/tech"
-                      className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-                      onClick={() => setServiciosMenuOpen(false)}
-                    >
-                      <div className="font-bold text-slate-900 text-sm">GLOINT Tech</div>
-                      <div className="text-xs text-slate-500 mt-0.5">Soluciones a la medida</div>
-                    </Link>
+                {serviciosMenuOpen && (
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-4 w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+                    <div className="p-2">
+                      <Link
+                        to="/investment"
+                        className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+                        onClick={() => setServiciosMenuOpen(false)}
+                      >
+                        <div className="font-bold text-slate-900 text-sm">GLOINT Investment</div>
+                        <div className="text-xs text-slate-500 mt-0.5">Oportunidades de inversión</div>
+                      </Link>
+                      <Link
+                        to="/place"
+                        className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+                        onClick={() => setServiciosMenuOpen(false)}
+                      >
+                        <div className="font-bold text-slate-900 text-sm">GLOINT Place</div>
+                        <div className="text-xs text-slate-500 mt-0.5">Comercio y logística</div>
+                      </Link>
+                      <Link
+                        to="/tech"
+                        className="block px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+                        onClick={() => setServiciosMenuOpen(false)}
+                      >
+                        <div className="font-bold text-slate-900 text-sm">GLOINT Tech</div>
+                        <div className="text-xs text-slate-500 mt-0.5">Soluciones a la medida</div>
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <Link to="/contact" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
-              CONTACTO
-            </Link>
-          </div>
+              <Link to="/contact" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
+                CONTACTO
+              </Link>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="hidden md:flex items-center space-x-4 z-20">
@@ -167,6 +175,12 @@ export const Navbar: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Campana de Notificaciones Push */}
+                <NotificationBell isDark={isDashboard || !isSolid} />
+
+                {/* Acceso Rápido al Chat */}
+                <ChatQuickAccess isDark={isDashboard || !isSolid} />
                 
                 {/* User Dropdown */}
                 <div className="relative" ref={userMenuRef}>
@@ -230,8 +244,20 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center z-20">
+          <div className="md:hidden flex items-center gap-2 z-20">
+            {isDashboard && onToggleMobileSidebar && (
+              <button
+                type="button"
+                onClick={onToggleMobileSidebar}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-600 text-white font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+              >
+                <Activity className="w-4 h-4" />
+                <span>Menú Principal</span>
+              </button>
+            )}
+
             <button
+              type="button"
               onClick={() => setIsOpen(!isOpen)}
               className={`p-2 rounded-lg transition-colors ${isSolid ? 'text-slate-900 hover:bg-slate-100' : 'text-white hover:bg-white/10'}`}
             >
@@ -245,28 +271,66 @@ export const Navbar: React.FC = () => {
       {isOpen && (
         <div className="md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden animate-slideInDown">
           <div className="px-4 py-6 space-y-4">
-            <Link to="/" className="block text-slate-900 font-bold text-lg border-b border-slate-100 pb-3">Inicio</Link>
-            <Link to="/about" className="block text-slate-900 font-bold text-lg border-b border-slate-100 pb-3">Nosotros</Link>
-            
-            <div className="border-b border-slate-100 pb-3">
-              <span className="block text-slate-400 font-semibold text-sm mb-3">Servicios</span>
-              <div className="pl-4 space-y-3">
-                <Link to="/investment" className="block text-slate-900 font-medium">GLOINT Investment</Link>
-                <Link to="/place" className="block text-slate-900 font-medium">GLOINT Place</Link>
-                <Link to="/tech" className="block text-slate-900 font-medium">GLOINT Tech</Link>
-              </div>
-            </div>
+            {!isDashboard ? (
+              <>
+                <Link to="/" className="block text-slate-900 font-bold text-lg border-b border-slate-100 pb-3" onClick={() => setIsOpen(false)}>Inicio</Link>
+                <Link to="/about" className="block text-slate-900 font-bold text-lg border-b border-slate-100 pb-3" onClick={() => setIsOpen(false)}>Nosotros</Link>
+                
+                <div className="border-b border-slate-100 pb-3">
+                  <span className="block text-slate-400 font-semibold text-sm mb-3">Servicios</span>
+                  <div className="pl-4 space-y-3">
+                    <Link to="/investment" className="block text-slate-900 font-medium" onClick={() => setIsOpen(false)}>GLOINT Investment</Link>
+                    <Link to="/place" className="block text-slate-900 font-medium" onClick={() => setIsOpen(false)}>GLOINT Place</Link>
+                    <Link to="/tech" className="block text-slate-900 font-medium" onClick={() => setIsOpen(false)}>GLOINT Tech</Link>
+                  </div>
+                </div>
 
-            <Link to="/contact" className="block text-slate-900 font-bold text-lg border-b border-slate-100 pb-3">Contacto</Link>
-            
-            <div className="pt-4 flex flex-col gap-3">
-              <Link to="/login" className="w-full py-3 text-center text-slate-900 font-bold bg-slate-50 rounded-lg border border-slate-200">
-                Iniciar sesión
-              </Link>
-              <Link to="/onboarding" className="w-full py-3 text-center text-white font-bold bg-brand-500 rounded-lg shadow-md">
-                Crear Cuenta
-              </Link>
-            </div>
+                <Link to="/contact" className="block text-slate-900 font-bold text-lg border-b border-slate-100 pb-3" onClick={() => setIsOpen(false)}>Contacto</Link>
+                
+                <div className="pt-4 flex flex-col gap-3">
+                  <Link to="/login" className="w-full py-3 text-center text-slate-900 font-bold bg-slate-50 rounded-lg border border-slate-200" onClick={() => setIsOpen(false)}>
+                    Iniciar sesión
+                  </Link>
+                  <Link to="/onboarding" className="w-full py-3 text-center text-white font-bold bg-brand-500 rounded-lg shadow-md" onClick={() => setIsOpen(false)}>
+                    Crear Cuenta
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <p className="text-xs text-slate-500 font-semibold">Usuario Conectado</p>
+                  <p className="text-base font-bold text-slate-900">{user?.name}</p>
+                  <p className="text-xs text-slate-400">{user?.email}</p>
+                </div>
+
+                {onToggleMobileSidebar && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false);
+                      onToggleMobileSidebar();
+                    }}
+                    className="w-full py-3 px-4 bg-brand-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  >
+                    <Activity className="w-5 h-5" />
+                    <span>Ver Opciones de Gestión (Sidebar)</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    logout();
+                  }}
+                  className="w-full py-3 text-center text-red-600 font-bold bg-red-50 hover:bg-red-100 rounded-xl border border-red-200 transition-colors flex items-center justify-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Cerrar sesión</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

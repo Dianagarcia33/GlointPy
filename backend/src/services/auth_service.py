@@ -156,7 +156,8 @@ class AuthService:
             password_hash=get_password_hash(data.password),
             document_id=data.documento,
             phone_number=data.numero_celular,
-            date_of_birth=dob
+            date_of_birth=dob,
+            commercial_id=data.commercial_id
         )
         
         db.add(new_user)
@@ -209,6 +210,21 @@ class AuthService:
         db.add(req)
 
         await db.commit()
+
+        # Si el inversionista seleccionó un Directivo de Inversiones, notificar al Directivo
+        if data.commercial_id:
+            try:
+                from src.services.push_notification_service import PushNotificationService
+                await PushNotificationService.create_and_send_notification(
+                    db=db,
+                    user_id=int(data.commercial_id),
+                    title="¡Nuevo Inversionista Asignado!",
+                    message=f"El usuario {data.name} ({data.email}) se ha registrado en la plataforma y te ha seleccionado como su Directivo de Inversiones.",
+                    type="sistema",
+                    link="/dashboard/commercial"
+                )
+            except Exception as err:
+                logger.warning(f"Error enviando notificación al Directivo #{data.commercial_id}: {err}")
         
         # Reload user with roles and permissions explicitly loaded to prevent MissingGreenlet during FastAPI serialization
         result = await db.execute(

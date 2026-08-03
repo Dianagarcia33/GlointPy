@@ -22,6 +22,9 @@ class CommercialSaleCreate(BaseModel):
     sale_type: CommercialSaleType
     amount: Decimal
     referrer_code: Optional[str] = None
+    sale_date: Optional[date] = None
+    is_already_settled: bool = False
+    settlement_notes: Optional[str] = None
 
 class CommercialSaleResponse(BaseModel):
     id: int

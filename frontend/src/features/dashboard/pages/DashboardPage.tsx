@@ -130,8 +130,15 @@ export const DashboardPage = () => {
     const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
         
+    const hasDirectorRole = user?.roles?.some((r: any) => {
+        const name = typeof r === 'string' ? r : (r?.name || '');
+        return ['directiv', 'comercial', 'asesor', 'lider', 'director', 'gerente'].some(kw => name.toLowerCase().includes(kw));
+    });
+
     const isDirectorOnly = !isSuperAdmin && (
+        hasDirectorRole ||
         user?.permissions?.includes('director.dashboard.view') === true || 
+        user?.permissions?.includes('commercial:view') === true ||
         user?.permissions?.includes('admin.referrals.manage') === true ||
         user?.permissions?.includes('admin.investments.manage') === true ||
         user?.permissions?.includes('admin.users.manage') === true ||
@@ -164,13 +171,57 @@ export const DashboardPage = () => {
         return `$${val.toLocaleString('es-CO', { maximumFractionDigits: 0 })}`;
     };
 
-    const activeInvestments = investments.filter(inv => inv.status === 'approved');
+    const isInvestmentActive = (inv: Investment) => {
+        if (inv.status !== 'approved') return false;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        let endDate: Date | null = null;
+
+        if (inv.fecha_finalizacion) {
+            const parts = inv.fecha_finalizacion.split('T')[0].split('-');
+            if (parts.length === 3) {
+                endDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            } else {
+                endDate = new Date(inv.fecha_finalizacion);
+            }
+        } else if (inv.fecha_ingreso && inv.dias_contrato) {
+            const parts = inv.fecha_ingreso.split('T')[0].split('-');
+            let startDate: Date;
+            if (parts.length === 3) {
+                startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            } else {
+                startDate = new Date(inv.fecha_ingreso);
+            }
+            endDate = new Date(startDate.getTime() + inv.dias_contrato * 24 * 60 * 60 * 1000);
+        }
+
+        if (endDate) {
+            endDate.setHours(0, 0, 0, 0);
+            // Si fecha fin <= hoy -> el contrato venció (Capital Finalizado, return false)
+            if (endDate <= today) {
+                return false;
+            }
+        }
+
+        // Si fecha fin > hoy -> el contrato sigue vigente (Capital Activo, return true)
+        return true;
+    };
+
+    const activeInvestments = investments.filter(isInvestmentActive);
+    const finishedInvestments = investments.filter(inv => 
+        inv.status === 'finished' || (inv.status === 'approved' && !isInvestmentActive(inv))
+    );
     const filteredInvestments = investments.filter(inv => {
         if (activeTab === 'pending') return inv.status === 'pending' || inv.status === 'rejected';
+        if (activeTab === 'approved') return isInvestmentActive(inv);
+        if (activeTab === 'finished') return inv.status === 'finished' || (inv.status === 'approved' && !isInvestmentActive(inv));
         return inv.status === activeTab;
     });
 
     const totalInvertido = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
+    const totalInvertidoFinalizado = finishedInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
     const totalAcciones = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
     const totalRendimiento = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
     const totalPortafolio = totalInvertido + totalRendimiento;
@@ -230,37 +281,53 @@ export const DashboardPage = () => {
 
                         {/* Quick Executive KPI Summary Cards */}
                         {adminAnalytics?.summary_cards && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 w-full min-w-0">
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Capital Activo Invertido</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4 w-full min-w-0">
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Capital Activo</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-emerald-700 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}>
                                         {formatCardCurrency(adminAnalytics.summary_cards.total_invertido)}
                                     </span>
-                                    <span className="text-[11px] text-slate-500">Contratos vigentes</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos en vigencia</span>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Inversionistas Activos</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-slate-900 block tracking-tight">
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Capital Finalizado</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-slate-600 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_capital_finalizado || 0)}>
+                                        {formatCardCurrency(adminAnalytics.summary_cards.total_capital_finalizado || 0)}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos vencidos</span>
+                                </div>
+
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Inversionistas Activos</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-emerald-600 block tracking-tight font-mono truncate">
                                         {adminAnalytics.summary_cards.total_inversionistas}
                                     </span>
-                                    <span className="text-[11px] text-slate-500">Contratos registrados</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos en curso</span>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Saldo en Billeteras</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}>
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Inversionistas Inactivos</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-slate-500 block tracking-tight font-mono truncate">
+                                        {adminAnalytics.summary_cards.total_inversionistas_inactivos || 0}
+                                    </span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos finalizados</span>
+                                </div>
+
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Saldo en Billeteras</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-indigo-700 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}>
                                         {formatCardCurrency(adminAnalytics.summary_cards.total_wallets)}
                                     </span>
-                                    <span className="text-[11px] text-slate-500">Fondos depositados</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Fondos depositados</span>
                                 </div>
 
-                                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-1 min-w-0 overflow-hidden">
-                                    <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">Retiros Liquidados</span>
-                                    <span className="text-lg sm:text-xl xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate" title={formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}>
+                                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Retiros Procesados</span>
+                                    <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-amber-800 block tracking-tight truncate font-mono" title={formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}>
                                         {formatCardCurrency(adminAnalytics.summary_cards.total_withdrawals)}
                                     </span>
-                                    <span className="text-[11px] text-amber-700 font-medium">Pagos procesados</span>
+                                    <span className="text-[11px] text-amber-700 font-medium truncate block">Pagos liquidados</span>
                                 </div>
                             </div>
                         )}
@@ -283,6 +350,7 @@ export const DashboardPage = () => {
                                 userName={user?.name?.split(' ')[0] || ''}
                                 totalPortfolio={totalPortafolio}
                                 investedCapital={totalInvertido}
+                                finishedCapital={totalInvertidoFinalizado}
                                 accumulatedProfit={totalRendimiento}
                                 profitabilityPercent={rentabilidadGlobal}
                                 dailyProfit={gananciaDiaria}
@@ -290,6 +358,7 @@ export const DashboardPage = () => {
 
                             <DashboardKPIs 
                                 investedCapital={totalInvertido}
+                                finishedCapital={totalInvertidoFinalizado}
                                 currentValue={totalPortafolio}
                                 accumulatedProfit={totalRendimiento}
                                 acquiredShares={totalAcciones}

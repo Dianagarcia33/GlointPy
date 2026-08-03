@@ -2,15 +2,16 @@ import { fetchApi } from '../../../../services/api';
 import { PaginatedWithdrawals, Withdrawal } from '../types';
 
 export const paymentService = {
-  getWithdrawals: async (page = 1, limit = 20, search = ''): Promise<PaginatedWithdrawals> => {
+  getWithdrawals: async (page = 1, limit = 20, search = '', status = 'todos', startDate = '', endDate = ''): Promise<PaginatedWithdrawals> => {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
     });
     
-    if (search) {
-      params.append('search', search);
-    }
+    if (search) params.append('search', search);
+    if (status && status !== 'todos') params.append('status', status);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
 
     const data = await fetchApi(`/withdrawals/?${params.toString()}`);
     return data as PaginatedWithdrawals;

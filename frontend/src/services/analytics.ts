@@ -32,7 +32,9 @@ export interface AdminAnalyticsDashboardData {
   sales_by_type: SalesByTypeItem[];
   summary_cards: {
     total_invertido: number;
+    total_capital_finalizado?: number;
     total_inversionistas: number;
+    total_inversionistas_inactivos?: number;
     total_wallets: number;
     total_withdrawals: number;
   };

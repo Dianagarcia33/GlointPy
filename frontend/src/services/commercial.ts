@@ -148,6 +148,8 @@ export const commercialService = {
     sale_type: 'contrato_nuevo' | 'reinversion' | 'referido';
     amount: number;
     referrer_code?: string;
+    sale_date?: string;
+    is_already_settled?: boolean;
   }): Promise<CommercialSale> => {
     return await fetchApi('/commercial/sales', {
       method: 'POST',
@@ -164,6 +166,8 @@ export const commercialService = {
       sale_type: 'contrato_nuevo' | 'reinversion' | 'referido';
       amount: number;
       referrer_code?: string;
+      sale_date?: string;
+      is_already_settled?: boolean;
     }
   ): Promise<CommercialSale> => {
     return await fetchApi(`/commercial/admin-sales?target_commercial_id=${targetCommercialId}`, {
@@ -229,4 +233,23 @@ export const commercialService = {
     const query = commercial_id ? `?commercial_id=${commercial_id}` : '';
     return await fetchApi(`/commercial/settlements${query}`);
   },
+
+  getMyAssignedInvestments: async (): Promise<{ assigned_investments: AssignedInvestmentItem[]; total: number }> => {
+    return await fetchApi('/commercial/my-assigned-investments');
+  },
 };
+
+export interface AssignedInvestmentItem {
+  id: number;
+  user_id: number;
+  investor_name: string;
+  investor_email: string;
+  investor_phone: string;
+  investor_document: string;
+  monto: number;
+  paquete_nombre: string;
+  status: 'pending' | 'approved' | 'rejected' | string;
+  rejection_reason?: string;
+  comprobante_path?: string;
+  created_at?: string;
+}

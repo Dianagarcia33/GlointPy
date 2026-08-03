@@ -13,11 +13,17 @@ from sqlalchemy import insert
 
 PERMISSIONS = [
     {"name": "commercial:view", "description": "Acceder y ver el panel comercial", "module": "commercial"},
+    {"name": "commercial:create_sale", "description": "Registrar ventas en el panel comercial", "module": "commercial"},
+    {"name": "commercial:adjudicate_sale", "description": "Adjudicar ventas comerciales del equipo", "module": "commercial"},
+    {"name": "admin.commissions.settle", "description": "Liquidar comisiones y bonos del equipo comercial", "module": "commercial"},
     {"name": "admin.commercial.manage", "description": "Gestionar, auditar y adjudicar ventas comerciales del equipo", "module": "commercial"},
-    {"name": "admin.roles.manage", "description": "Gestionar roles y permisos del sistema", "module": "admin"},
-    {"name": "admin.users.manage", "description": "Gestionar usuarios de la plataforma", "module": "admin"},
-    {"name": "admin.periods.manage", "description": "Gestionar periodos de inversión", "module": "admin"},
-    {"name": "admin.packages.manage", "description": "Gestionar paquetes", "module": "admin"},
+    {"name": "roles:view", "description": "Acceder y ver la lista de roles y matriz de permisos", "module": "roles"},
+    {"name": "roles:manage", "description": "Crear, editar y actualizar la matriz de permisos PBAC", "module": "roles"},
+    {"name": "admin.roles.manage", "description": "Gestionar roles y permisos del sistema", "module": "roles"},
+    {"name": "users:view", "description": "Ver lista de usuarios de la plataforma", "module": "users"},
+    {"name": "admin.users.manage", "description": "Gestionar usuarios y credenciales de la plataforma", "module": "users"},
+    {"name": "admin.periods.manage", "description": "Gestionar periodos de inversión", "module": "periods"},
+    {"name": "admin.packages.manage", "description": "Gestionar paquetes de inversión", "module": "packages"},
     {"name": "admin.investors.manage", "description": "Gestionar contratos de inversionistas", "module": "investors"},
     {"name": "admin.investments.manage", "description": "Aprobar y rechazar solicitudes de inversión", "module": "investments"},
     {"name": "admin.payments.manage", "description": "Gestionar sección de pagos", "module": "payments"},
@@ -78,13 +84,32 @@ async def seed_permissions_db(db):
                         permission_id=perm.id
                     ))
             print(f"🔑 Permisos asignados al rol: {role.name}")
+        elif any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente"]):
+            commercial_perms = [
+                "director.dashboard.view", "commercial:view", 
+                "referrals:view", "admin.referrals.manage", "dashboard:view_kpis", "wallets:view", 
+                "wallets:view_balance", "wallets:view_history", "bank_accounts:manage"
+            ]
+            for p_name in commercial_perms:
+                if p_name in all_perms_map:
+                    perm = all_perms_map[p_name]
+                    check = await db.execute(select(role_permissions).where(
+                        (role_permissions.c.role_id == role.id) & 
+                        (role_permissions.c.permission_id == perm.id)
+                    ))
+                    if not check.first():
+                        await db.execute(insert(role_permissions).values(
+                            role_id=role.id,
+                            permission_id=perm.id
+                        ))
+            print(f"🔑 Permisos de Directivo / Comercial asignados a: {role.name}")
         elif "investor" in r_name or "inversionista" in r_name:
             investor_perms = [
                 "beneficiaries:view", "referrals:view", "wallets:view", "wallets:view_balance", 
                 "wallets:view_history", "wallets:request_withdrawal", 
                 "wallets:new_investment", "dashboard:view_kpis", 
                 "dashboard:view_quick_actions", "dashboard:view_investments", 
-                "dashboard:view_requests"
+                "dashboard:view_requests", "bank_accounts:manage"
             ]
             for p_name in investor_perms:
                 if p_name in all_perms_map:

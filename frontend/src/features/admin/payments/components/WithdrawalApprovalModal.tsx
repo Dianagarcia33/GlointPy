@@ -89,142 +89,152 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20" style={{ margin: 0 }}>
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">
-            Revisar Solicitud de Retiro #{withdrawal.id}
-          </h2>
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" style={{ margin: 0 }}>
+      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in duration-200">
+        
+        {/* Header Estandarizado */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-brand-100 text-brand-700 rounded-2xl">
+              <DollarSign className="w-5 h-5 text-brand-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Revisar Solicitud de Retiro #{withdrawal.id}
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">Verificación de fondos, datos bancarios y autorización de pago</p>
+            </div>
+          </div>
           <button 
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-6 overflow-y-auto flex-1 space-y-5">
           {error && (
-            <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">
-              {error}
+            <div className="p-3.5 bg-rose-50 text-rose-700 rounded-2xl text-xs font-bold border border-rose-200 flex items-center gap-2">
+              <XCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
           {/* User Info */}
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-            <div className="flex items-center gap-2 mb-3">
-              <User className="w-5 h-5 text-indigo-600" />
-              <h3 className="font-semibold text-gray-900">Datos del Usuario</h3>
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
+            <div className="flex items-center gap-2 border-b border-slate-200/60 pb-2">
+              <User className="w-4 h-4 text-brand-600" />
+              <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wide">Datos del Titular</h3>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-gray-500 block">Nombre:</span>
-                <span className="font-medium text-gray-900">{withdrawal.user?.name || 'N/A'}</span>
+                <span className="text-slate-400 font-medium block text-[11px]">Nombre Completo:</span>
+                <span className="font-bold text-slate-800">{withdrawal.user?.name || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-500 block">Documento:</span>
-                <span className="font-medium text-gray-900">{withdrawal.user?.document_id || 'N/A'}</span>
+                <span className="text-slate-400 font-medium block text-[11px]">Documento Identidad:</span>
+                <span className="font-bold text-slate-800 font-mono">{withdrawal.user?.document_id || 'N/A'}</span>
               </div>
               <div className="col-span-2">
-                <span className="text-gray-500 block">Correo Electrónico:</span>
-                <span className="font-medium text-gray-900">{withdrawal.user?.email || 'N/A'}</span>
+                <span className="text-slate-400 font-medium block text-[11px]">Correo Electrónico:</span>
+                <span className="font-bold text-slate-800">{withdrawal.user?.email || 'N/A'}</span>
               </div>
             </div>
           </div>
 
           {/* Financial Info */}
-          <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-            <div className="flex items-center gap-2 mb-3">
-              <DollarSign className="w-5 h-5 text-indigo-600" />
-              <h3 className="font-semibold text-indigo-900">Detalle Financiero</h3>
+          <div className="bg-brand-50/60 rounded-2xl p-5 border border-brand-200/80 space-y-3">
+            <div className="flex items-center gap-2 border-b border-brand-200/60 pb-2">
+              <DollarSign className="w-4 h-4 text-brand-600" />
+              <h3 className="font-bold text-xs text-brand-900 uppercase tracking-wide">Detalle Financiero & Liquidación</h3>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-indigo-600/80 block">Monto Bruto:</span>
-                <span className="font-medium text-indigo-900">{formatCurrency(withdrawal.monto)}</span>
+                <span className="text-slate-500 font-medium block text-[11px]">Monto Bruto Solicitado:</span>
+                <span className="font-bold text-slate-800">{formatCurrency(withdrawal.monto)}</span>
               </div>
               <div>
-                <span className="text-indigo-600/80 block">Impuestos / Deducciones:</span>
-                <span className="font-medium text-indigo-900 text-red-600">-{formatCurrency(withdrawal.impuesto)}</span>
+                <span className="text-slate-500 font-medium block text-[11px]">Deducciones / GMF (4x1000):</span>
+                <span className="font-bold text-rose-600">-{formatCurrency(withdrawal.impuesto)}</span>
               </div>
-              <div className="col-span-2 pt-2 border-t border-indigo-200 flex justify-between items-center">
-                <span className="font-semibold text-indigo-900">Monto Neto a Pagar:</span>
-                <span className="text-xl font-bold text-indigo-700">{formatCurrency(withdrawal.monto_neto)}</span>
+              <div className="col-span-2 pt-3 border-t border-brand-200/80 flex justify-between items-center">
+                <span className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">Monto Neto a Desembolsar:</span>
+                <span className="text-2xl font-black text-brand-700 font-montserrat">{formatCurrency(withdrawal.monto_neto)}</span>
               </div>
             </div>
           </div>
 
           {/* Bank Account Info */}
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-            <div className="flex items-center gap-2 mb-3">
-              <Building2 className="w-5 h-5 text-gray-600" />
-              <h3 className="font-semibold text-gray-900">Cuenta Bancaria Registrada</h3>
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
+            <div className="flex items-center gap-2 border-b border-slate-200/60 pb-2">
+              <Building2 className="w-4 h-4 text-slate-600" />
+              <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wide">Cuenta Bancaria Registrada en la Bóveda</h3>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-gray-500 block">Método:</span>
-                <span className="font-medium text-gray-900">{withdrawal.metodo_pago || 'N/A'}</span>
+                <span className="text-slate-400 font-medium block text-[11px]">Método de Pago:</span>
+                <span className="font-bold text-slate-800">{withdrawal.metodo_pago || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-500 block">Banco:</span>
-                <span className="font-medium text-gray-900">{withdrawal.banco || 'N/A'}</span>
+                <span className="text-slate-400 font-medium block text-[11px]">Entidad Bancaria:</span>
+                <span className="font-bold text-slate-800">{withdrawal.banco || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-500 block">Tipo de Cuenta:</span>
-                <span className="font-medium text-gray-900">{withdrawal.tipo_cuenta || 'N/A'}</span>
+                <span className="text-slate-400 font-medium block text-[11px]">Tipo de Cuenta:</span>
+                <span className="font-bold text-slate-800">{withdrawal.tipo_cuenta || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-gray-500 block">Número de Cuenta:</span>
-                <span className="font-medium text-gray-900 tracking-wider">{formatAccountNumber(withdrawal.numero_cuenta)}</span>
+                <span className="text-slate-400 font-medium block text-[11px]">Número de Cuenta:</span>
+                <span className="font-extrabold text-slate-900 font-mono tracking-wider">{formatAccountNumber(withdrawal.numero_cuenta)}</span>
               </div>
             </div>
           </div>
 
           {/* Receipt Upload (Optional) */}
           {!isRejecting && (
-            <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
-              <h3 className="font-semibold text-emerald-900 mb-2">Comprobante de Pago (Opcional)</h3>
-              <p className="text-xs text-emerald-700 mb-3">Sube el comprobante de la transferencia si ya la realizaste.</p>
+            <div className="bg-emerald-50/60 rounded-2xl p-5 border border-emerald-200/80 space-y-2">
+              <h3 className="font-bold text-xs text-emerald-900 uppercase tracking-wide">Adjuntar Comprobante de Pago (Opcional)</h3>
+              <p className="text-xs text-emerald-700 font-medium">Sube el archivo PDF o imagen de la transferencia realizada.</p>
               <input
                 type="file"
                 accept="image/*,.pdf"
                 onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-emerald-700
+                className="block w-full text-xs text-emerald-800
                   file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-medium
-                  file:bg-emerald-100 file:text-emerald-700
-                  hover:file:bg-emerald-200 transition-colors"
+                  file:rounded-xl file:border-0
+                  file:text-xs file:font-bold
+                  file:bg-emerald-100 file:text-emerald-800
+                  hover:file:bg-emerald-200 transition-colors cursor-pointer"
               />
             </div>
           )}
 
           {/* Rejection Form */}
           {isRejecting && (
-            <div className="bg-red-50 rounded-xl p-4 border border-red-100 animate-in fade-in slide-in-from-top-4">
-              <h3 className="font-semibold text-red-900 mb-2">Motivo de Rechazo</h3>
-              <p className="text-xs text-red-700 mb-3">El dinero será devuelto a la billetera del usuario automáticamente.</p>
+            <div className="bg-rose-50/70 rounded-2xl p-5 border border-rose-200 space-y-2 animate-in fade-in slide-in-from-top-4">
+              <h3 className="font-bold text-xs text-rose-900 uppercase tracking-wide">Motivo del Rechazo de Retiro</h3>
+              <p className="text-xs text-rose-700 font-medium">El saldo del retiro será reintegrado de inmediato a la billetera del usuario.</p>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Explica detalladamente por qué se rechaza este retiro..."
-                className="w-full p-3 border border-red-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 text-sm h-24 resize-none"
+                placeholder="Explica detalladamente la causa del rechazo..."
+                className="w-full p-3 border border-rose-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-xs h-24 resize-none font-medium"
               />
             </div>
           )}
         </div>
 
         {/* Footer actions */}
-        <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex items-center justify-between">
+        <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
           {!isRejecting ? (
             <button
               onClick={() => setIsRejecting(true)}
               disabled={isProcessing}
-              className="px-4 py-2 text-red-600 font-medium hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-4 py-2.5 text-rose-600 font-bold text-xs hover:bg-rose-50 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer border border-rose-200/60 bg-white"
             >
-              <XCircle className="w-5 h-5" />
+              <XCircle className="w-4 h-4" />
               Rechazar Retiro
             </button>
           ) : (
@@ -235,7 +245,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
                 setError(null);
               }}
               disabled={isProcessing}
-              className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
+              className="px-4 py-2.5 text-slate-600 font-bold text-xs hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
             >
               Cancelar Rechazo
             </button>
@@ -245,7 +255,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="px-4 py-2 text-gray-700 bg-white border border-gray-200 font-medium hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-50"
+              className="px-5 py-2.5 text-slate-700 bg-white border border-slate-200 font-bold text-xs hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
             >
               Cerrar
             </button>
@@ -254,19 +264,19 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
               <button
                 onClick={handleReject}
                 disabled={isProcessing || !rejectionReason.trim()}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm shadow-red-600/20"
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-rose-600/20 cursor-pointer"
               >
-                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <XCircle className="w-5 h-5" />}
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                 Confirmar Rechazo
               </button>
             ) : (
               <button
                 onClick={handleApprove}
                 disabled={isProcessing}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm shadow-emerald-600/20"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-emerald-600/20 cursor-pointer"
               >
-                {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
-                Aprobar Retiro
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Aprobar & Transferir
               </button>
             )}
           </div>

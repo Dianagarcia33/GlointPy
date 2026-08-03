@@ -37,6 +37,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [saleType, setSaleType] = useState<'contrato_nuevo' | 'reinversion' | 'referido'>('contrato_nuevo');
   const [amount, setAmount] = useState<string>('');
   const [referrerCode, setReferrerCode] = useState('');
+  const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isAlreadySettled, setIsAlreadySettled] = useState<boolean>(false);
 
   const [clientInfo, setClientInfo] = useState<CommercialClientCheckResponse | null>(null);
   const [isAmountLocked, setIsAmountLocked] = useState(false);
@@ -167,7 +169,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         client_name: clientName.trim() || undefined,
         sale_type: saleType,
         amount: numericAmount,
-        referrer_code: referrerCode.trim() || undefined
+        referrer_code: referrerCode.trim() || undefined,
+        sale_date: saleDate || undefined,
+        is_already_settled: isAlreadySettled
       };
 
       if (isTrueAdmin && targetCommercialId) {
@@ -410,6 +414,40 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                 required
               />
             </div>
+          </div>
+
+          {/* Fecha de la Venta */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Fecha de la Venta / Contrato
+            </label>
+            <input
+              type="date"
+              value={saleDate}
+              onChange={(e) => setSaleDate(e.target.value)}
+              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-mono"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              Si estás registrando una venta de un mes pasado, selecciona su fecha correspondiente.
+            </p>
+          </div>
+
+          {/* Opción de Venta Histórica Ya Liquidada */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+            <label className="flex items-center gap-2.5 cursor-pointer font-bold text-xs text-slate-800">
+              <input
+                type="checkbox"
+                checked={isAlreadySettled}
+                onChange={(e) => setIsAlreadySettled(e.target.checked)}
+                className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer"
+              />
+              <span>☑️ Venta Histórica Ya Pagada / Liquidada Manualmente</span>
+            </label>
+            {isAlreadySettled && (
+              <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl font-medium">
+                ℹ️ Esta venta se registrará con estado <strong>LIQUIDADO</strong>. Quedará archivada en las estadísticas del historial pero <strong>NO sumará saldo por pagar en el mes actual</strong>.
+              </p>
+            )}
           </div>
 
           {/* Previsualización en Vivo del Cálculo Marginal */}

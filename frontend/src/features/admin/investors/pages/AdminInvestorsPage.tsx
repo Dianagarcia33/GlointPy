@@ -9,7 +9,9 @@ import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalle
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
 import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap } from 'lucide-react';
+import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsModal';
+import { formatAccountNumber } from '../../../../utils/format';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
@@ -126,6 +128,7 @@ export const AdminInvestorsPage = () => {
   const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
   const [userNameToAdjust, setUserNameToAdjust] = useState('');
   const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
+  const [selectedInvestorForBankAccounts, setSelectedInvestorForBankAccounts] = useState<Investor | null>(null);
 
   const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -462,8 +465,16 @@ export const AdminInvestorsPage = () => {
                         })()}
                       </td>
                       <Can permission="admin.investors.manage">
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap min-w-[280px]">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap min-w-[340px]">
                           <div className="flex items-center justify-center gap-2">
+                            <button 
+                              onClick={() => setSelectedInvestorForBankAccounts(investor)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-slate-200 bg-white shadow-2xs cursor-pointer"
+                              title="Ver Cuentas Bancarias Registradas"
+                            >
+                              <Landmark className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Cuentas ({investor.user?.bank_accounts?.length || 0})</span>
+                            </button>
                             <button 
                               onClick={() => setSelectedInvestorForUpgrade(investor)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-xl transition-all border border-amber-200 bg-amber-50 cursor-pointer"
@@ -643,7 +654,7 @@ export const AdminInvestorsPage = () => {
                                       </div>
                                       <div className="space-y-1 pl-1">
                                         <div className="text-[9px] text-slate-400 uppercase font-medium tracking-wide">Número de Cuenta</div>
-                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{acc.numero_cuenta}</div>
+                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{formatAccountNumber(acc.numero_cuenta)}</div>
                                       </div>
                                     </div>
                                   ))}
@@ -873,6 +884,15 @@ export const AdminInvestorsPage = () => {
           <span className="text-sm font-medium">{toast.message}</span>
         </div>
       )}
+
+      <InvestorBankAccountsModal
+        isOpen={!!selectedInvestorForBankAccounts}
+        onClose={() => setSelectedInvestorForBankAccounts(null)}
+        userName={selectedInvestorForBankAccounts?.user?.name || ''}
+        userEmail={selectedInvestorForBankAccounts?.user?.email || undefined}
+        documentId={selectedInvestorForBankAccounts?.user?.document_id || undefined}
+        bankAccounts={selectedInvestorForBankAccounts?.user?.bank_accounts || []}
+      />
 
       <AdminCapitalIncreaseModal
         isOpen={!!selectedInvestorForUpgrade}

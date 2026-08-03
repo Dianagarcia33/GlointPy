@@ -17,14 +17,20 @@ logger = logging.getLogger(__name__)
 class WithdrawalService:
     
     @staticmethod
-    async def get_withdrawals(db: AsyncSession, page: int = 1, limit: int = 20, search: Optional[str] = None) -> Dict[str, Any]:
-        query = select(Withdrawal).options(
-            selectinload(Withdrawal.user)
-        )
+    async def get_withdrawals(
+        db: AsyncSession, 
+        page: int = 1, 
+        limit: int = 20, 
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> Dict[str, Any]:
+        filters = []
         
         if search:
             search_pattern = f"%{search}%"
-            query = query.join(Withdrawal.user).filter(
+            filters.append(
                 or_(
                     User.name.ilike(search_pattern),
                     User.email.ilike(search_pattern),
@@ -32,15 +38,33 @@ class WithdrawalService:
                 )
             )
             
+        if status and status.lower() != 'todos':
+            filters.append(func.lower(Withdrawal.estado) == status.lower())
+            
+        if start_date:
+            try:
+                sd = datetime.strptime(start_date, "%Y-%m-%d").date()
+                filters.append(Withdrawal.fecha_solicitud >= sd)
+            except Exception:
+                pass
+
+        if end_date:
+            try:
+                ed = datetime.strptime(end_date, "%Y-%m-%d").date()
+                filters.append(Withdrawal.fecha_solicitud <= ed)
+            except Exception:
+                pass
+
+        query = select(Withdrawal).options(selectinload(Withdrawal.user))
         count_query = select(func.count(Withdrawal.id))
+        
         if search:
-            count_query = count_query.join(Withdrawal.user).filter(
-                or_(
-                    User.name.ilike(search_pattern),
-                    User.email.ilike(search_pattern),
-                    User.document_id.ilike(search_pattern)
-                )
-            )
+            query = query.join(Withdrawal.user)
+            count_query = count_query.join(Withdrawal.user)
+            
+        if filters:
+            query = query.filter(*filters)
+            count_query = count_query.filter(*filters)
             
         total_result = await db.execute(count_query)
         total = total_result.scalar_one_or_none() or 0
@@ -146,6 +170,22 @@ class WithdrawalService:
 
         await db.commit()
         await db.refresh(withdrawal)
+
+        # Generar notificación in-app para el usuario
+        try:
+            from src.services.push_notification_service import PushNotificationService
+            formatted_amount = f"${float(withdrawal.monto):,.0f}" if withdrawal.monto else "$0"
+            await PushNotificationService.create_and_send_notification(
+                db=db,
+                user_id=withdrawal.user_id,
+                title="¡Solicitud de Retiro Aprobada!",
+                message=f"Tu solicitud de retiro #{withdrawal.id} por valor de {formatted_amount} COP ha sido aprobada exitosamente.",
+                type="retiro",
+                link="/dashboard/wallet"
+            )
+        except Exception as err:
+            logger.warning(f"Error generando notificación de aprobación de retiro #{withdrawal.id}: {err}")
+
         return withdrawal
 
     @staticmethod
@@ -181,6 +221,22 @@ class WithdrawalService:
 
         await db.commit()
         await db.refresh(withdrawal)
+
+        # Generar notificación in-app para el usuario
+        try:
+            from src.services.push_notification_service import PushNotificationService
+            formatted_amount = f"${float(withdrawal.monto):,.0f}" if withdrawal.monto else "$0"
+            await PushNotificationService.create_and_send_notification(
+                db=db,
+                user_id=withdrawal.user_id,
+                title="Solicitud de Retiro Rechazada",
+                message=f"Tu solicitud de retiro #{withdrawal.id} por valor de {formatted_amount} COP ha sido rechazada. Motivo: {motivo_rechazo}",
+                type="retiro",
+                link="/dashboard/wallet"
+            )
+        except Exception as err:
+            logger.warning(f"Error generando notificación de rechazo de retiro #{withdrawal.id}: {err}")
+
         return withdrawal
 
     @staticmethod

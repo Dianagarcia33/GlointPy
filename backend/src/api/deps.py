@@ -55,18 +55,16 @@ class RequirePermission:
         if current_user.is_superuser:
             return current_user
             
-        has_perm = False
+        user_perms = set(current_user.permissions) if hasattr(current_user, 'permissions') and current_user.permissions else set()
         for role in current_user.roles:
-            for perm in role.permissions:
-                if perm.name in self.required_permissions:
-                    has_perm = True
-                    break
-            if has_perm:
-                break
+            if hasattr(role, 'permissions') and role.permissions:
+                for perm in role.permissions:
+                    user_perms.add(perm.name)
                 
-        if not has_perm:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permisos suficientes para realizar esta acción"
-            )
-        return current_user
+        if any(p in user_perms for p in self.required_permissions):
+            return current_user
+                
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos suficientes para realizar esta acción"
+        )
