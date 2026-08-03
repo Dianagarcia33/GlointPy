@@ -122,21 +122,21 @@ export const InvestmentDetailPage = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Resumen Financiero</p>
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600 font-medium">Rendimiento Total Proyectado</span>
-                                    <span className="font-bold text-emerald-600">+{formatCurrency(inv.rendimiento_total_contrato)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-600 font-medium">Rendimiento Diario</span>
-                                    <span className="font-bold text-emerald-600">+{formatCurrency(inv.liquidacion_diaria_rendimiento, true)}</span>
-                                </div>
-                                <div className="flex justify-between text-sm pt-2 border-t border-slate-100">
-                                    <span className="text-slate-900 font-bold">Total Retorno Estimado</span>
-                                    <span className="font-bold text-slate-900">{formatCurrency(inv.total_contrato)}</span>
-                                </div>
+                        <div className="bg-emerald-950 text-white p-5 rounded-2xl border border-emerald-800/80 shadow-md relative overflow-hidden flex flex-col justify-between">
+                            <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-xl -mr-6 -mt-6"></div>
+                            <div className="relative z-10">
+                                <span className="text-[11px] font-bold text-emerald-300 uppercase tracking-widest block mb-1">
+                                    Rendimientos Acumulados del Ciclo
+                                </span>
+                                <p className="text-3xl font-extrabold text-emerald-400 font-montserrat tracking-tight">
+                                    +{formatCurrency(inv.rendimiento_ciclo_actual || 0)}
+                                </p>
+                            </div>
+                            <div className="relative z-10 pt-2 mt-2 border-t border-emerald-800/80 flex justify-between items-center text-xs">
+                                <span className="text-slate-300 font-semibold">+{formatCurrency(inv.liquidacion_diaria_rendimiento || 0, true)} / día</span>
+                                <span className="text-emerald-300 font-bold bg-emerald-900/60 px-2 py-0.5 rounded-md border border-emerald-700/50">
+                                    {inv.dias_ciclo_actual || 0} días en ciclo
+                                </span>
                             </div>
                         </div>
                     </div>

@@ -339,6 +339,22 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
             
             current_start = next_end
 
+    # --- Current 29th-to-29th Cycle Accumulated Yield ---
+    if today.day >= 29:
+        last_29th = date(today.year, today.month, 29)
+    else:
+        if today.month == 1:
+            last_29th = date(today.year - 1, 12, 29)
+        else:
+            last_29th = date(today.year, today.month - 1, 29)
+
+    contract_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso if fecha_ingreso else today
+    cycle_start = max(last_29th, contract_start)
+    
+    dias_ciclo_actual = (today - cycle_start).days if today >= cycle_start else 0
+    daily_yield = rendimiento_total / dias_contrato if dias_contrato > 0 else 0
+    rendimiento_ciclo_actual = round(dias_ciclo_actual * daily_yield, 2)
+
     inv = {
         "id": inv_record.id,
         "user_id": current_user.id,
@@ -347,7 +363,10 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "created_at": inv_record.created_at.isoformat() if inv_record.created_at else None,
         "total_contrato": monto + rendimiento_total,
         "rendimiento_total_contrato": rendimiento_total,
-        "liquidacion_diaria_rendimiento": rendimiento_total / dias_contrato if dias_contrato > 0 else 0,
+        "liquidacion_diaria_rendimiento": daily_yield,
+        "rendimiento_ciclo_actual": rendimiento_ciclo_actual,
+        "dias_ciclo_actual": dias_ciclo_actual,
+        "fecha_inicio_ciclo_actual": cycle_start.isoformat(),
         "dias_contrato": dias_contrato,
         "dias_transcurridos": dias_transcurridos,
         "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
