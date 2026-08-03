@@ -42,7 +42,7 @@ async def bulk_create_bank_accounts(db: AsyncSession, csv_file: bytes) -> tuple[
             user_id_str = row.get('usuario_id') or row.get('user_id')
             banco = row.get('banco')
             tipo_cuenta = row.get('tipo_cuenta') or row.get('tipo')
-            numero_cuenta = row.get('numero_cuenta') or row.get('numero')
+            numero_cuenta = clean_account_number(row.get('numero_cuenta') or row.get('numero'))
 
             if not user_id_str or not str(user_id_str).strip().isdigit():
                 errors.append(f"Fila {row_num}: El campo 'usuario_id' es requerido y debe ser numérico.")

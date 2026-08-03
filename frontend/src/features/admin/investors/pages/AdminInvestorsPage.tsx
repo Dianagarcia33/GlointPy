@@ -10,6 +10,7 @@ import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
 import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
 import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsModal';
+import { formatAccountNumber } from '../../../../utils/format';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
@@ -653,7 +654,7 @@ export const AdminInvestorsPage = () => {
                                       </div>
                                       <div className="space-y-1 pl-1">
                                         <div className="text-[9px] text-slate-400 uppercase font-medium tracking-wide">Número de Cuenta</div>
-                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{acc.numero_cuenta}</div>
+                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{formatAccountNumber(acc.numero_cuenta)}</div>
                                       </div>
                                     </div>
                                   ))}

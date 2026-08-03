@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Landmark, CreditCard, Copy, Check, X } from 'lucide-react';
+import { formatAccountNumber } from '../../../../utils/format';
 
 interface BankAccount {
   id: number;
@@ -32,7 +33,8 @@ export const InvestorBankAccountsModal: React.FC<InvestorBankAccountsModalProps>
   if (!isOpen) return null;
 
   const handleCopy = (id: number, text: string) => {
-    navigator.clipboard.writeText(text);
+    const formatted = formatAccountNumber(text);
+    navigator.clipboard.writeText(formatted);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
@@ -80,62 +82,65 @@ export const InvestorBankAccountsModal: React.FC<InvestorBankAccountsModalProps>
                 </span>
               </div>
 
-              {bankAccounts.map((acc) => (
-                <div 
-                  key={acc.id} 
-                  className="bg-white border border-slate-200 hover:border-brand-300 rounded-2xl p-4 shadow-xs transition-all relative overflow-hidden group"
-                >
-                  <div className="absolute top-0 left-0 w-1.5 h-full bg-brand-500" />
-                  
-                  <div className="flex items-start justify-between gap-3 pl-2">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-slate-900 text-base font-montserrat uppercase">
-                          {acc.banco}
-                        </span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
-                          {acc.tipo_cuenta}
-                        </span>
+              {bankAccounts.map((acc) => {
+                const formattedNum = formatAccountNumber(acc.numero_cuenta);
+                return (
+                  <div 
+                    key={acc.id} 
+                    className="bg-white border border-slate-200 hover:border-brand-300 rounded-2xl p-4 shadow-xs transition-all relative overflow-hidden group"
+                  >
+                    <div className="absolute top-0 left-0 w-1.5 h-full bg-brand-500" />
+                    
+                    <div className="flex items-start justify-between gap-3 pl-2">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-slate-900 text-base font-montserrat uppercase">
+                            {acc.banco}
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                            {acc.tipo_cuenta}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 font-medium">Número:</span>
+                          <span className="font-mono text-base font-bold text-slate-800 tracking-wider">
+                            {formattedNum}
+                          </span>
+                          
+                          <button
+                            onClick={() => handleCopy(acc.id, acc.numero_cuenta)}
+                            className="p-1 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                            title="Copiar número de cuenta"
+                          >
+                            {copiedId === acc.id ? (
+                              <Check className="w-4 h-4 text-emerald-600 animate-in zoom-in" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-400 font-medium">Número:</span>
-                        <span className="font-mono text-base font-bold text-slate-800 tracking-wider">
-                          {acc.numero_cuenta}
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider border ${
+                          acc.is_active !== false 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                        }`}>
+                          {acc.is_active !== false ? 'Activa' : 'Inactiva'}
                         </span>
                         
-                        <button
-                          onClick={() => handleCopy(acc.id, acc.numero_cuenta)}
-                          className="p-1 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                          title="Copiar número de cuenta"
-                        >
-                          {copiedId === acc.id ? (
-                            <Check className="w-4 h-4 text-emerald-600 animate-in zoom-in" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
+                        {acc.created_at && (
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            Reg: {new Date(acc.created_at).toLocaleDateString()}
+                          </span>
+                        )}
                       </div>
                     </div>
-
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider border ${
-                        acc.is_active !== false 
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                          : 'bg-slate-100 text-slate-500 border-slate-200'
-                      }`}>
-                        {acc.is_active !== false ? 'Activa' : 'Inactiva'}
-                      </span>
-                      
-                      {acc.created_at && (
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          Reg: {new Date(acc.created_at).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="py-12 px-4 text-center space-y-3 bg-slate-50 rounded-2xl border border-slate-200/80 border-dashed">
