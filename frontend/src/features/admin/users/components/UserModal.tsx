@@ -94,10 +94,14 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
     setError(null);
 
     try {
+      const payload = {
+        ...formData,
+        date_of_birth: formData.date_of_birth ? formData.date_of_birth : null
+      };
       if (user) {
-        await usersService.updateUser(user.id, formData as UserUpdate);
+        await usersService.updateUser(user.id, payload as UserUpdate);
       } else {
-        await usersService.createUser(formData as UserCreate);
+        await usersService.createUser(payload as UserCreate);
       }
       onSaved();
       onClose();
