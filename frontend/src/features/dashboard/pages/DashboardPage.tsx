@@ -199,12 +199,13 @@ export const DashboardPage = () => {
 
         if (endDate) {
             endDate.setHours(0, 0, 0, 0);
-            // Regla: si fecha fin > hoy va a Capital Finalizado (por lo tanto no es activo)
-            if (endDate > today) {
+            // Si fecha fin <= hoy -> el contrato venció (Capital Finalizado, return false)
+            if (endDate <= today) {
                 return false;
             }
         }
 
+        // Si fecha fin > hoy -> el contrato sigue vigente (Capital Activo, return true)
         return true;
     };
 

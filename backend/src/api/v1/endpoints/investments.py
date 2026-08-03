@@ -76,11 +76,11 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             fecha_fin = datetime.combine(fecha_fin_date, datetime.min.time()) if isinstance(fecha_ingreso, datetime) else fecha_fin_date
             dias_contrato = dias_base
 
-        # Regla: si fecha_fin > hoy -> Capital Finalizado (is_active = False), sino -> Capital Activo (is_active = True)
+        # Contrato en curso (fecha_fin > hoy) es ACTIVO, vencido (fecha_fin <= hoy) es FINALIZADO
         is_active = True
         current_today = date.today()
         check_date = fecha_fin.date() if isinstance(fecha_fin, datetime) else fecha_fin
-        if check_date and check_date > current_today:
+        if check_date and check_date <= current_today:
             is_active = False
 
         monto = float(inv_record.package.value) if inv_record.package else 0

@@ -87,10 +87,11 @@ async def get_admin_analytics_dashboard(
             inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
             dias_base = getattr(inv.period, 'days', 0) or (inv.period.months * 30 if inv.period.months else 0)
             fecha_fin = inv_start + timedelta(days=dias_base)
-            if fecha_fin > current_today:
-                # Regla: fecha fin > hoy va a Capital Finalizado
+            if fecha_fin <= current_today:
+                # Contrato vencido (fecha_fin <= hoy) -> Capital Finalizado
                 finished_invs.append(inv)
                 continue
+        # Contrato en curso (fecha_fin > hoy) -> Capital Activo
         active_invs.append(inv)
 
     total_invertido = sum(float(i.package.value) if i.package and i.package.value else 0 for i in active_invs)
