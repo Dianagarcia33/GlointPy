@@ -148,6 +148,8 @@ export const commercialService = {
     sale_type: 'contrato_nuevo' | 'reinversion' | 'referido';
     amount: number;
     referrer_code?: string;
+    sale_date?: string;
+    is_already_settled?: boolean;
   }): Promise<CommercialSale> => {
     return await fetchApi('/commercial/sales', {
       method: 'POST',
@@ -164,6 +166,8 @@ export const commercialService = {
       sale_type: 'contrato_nuevo' | 'reinversion' | 'referido';
       amount: number;
       referrer_code?: string;
+      sale_date?: string;
+      is_already_settled?: boolean;
     }
   ): Promise<CommercialSale> => {
     return await fetchApi(`/commercial/admin-sales?target_commercial_id=${targetCommercialId}`, {

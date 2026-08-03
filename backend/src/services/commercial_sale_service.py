@@ -287,14 +287,16 @@ async def register_commercial_sale(
     if classification["is_existing_client"]:
         final_sale_type = CommercialSaleType.referido
         
-    today = date.today()
+    target_date = sale_data.sale_date if sale_data.sale_date else date.today()
     amount = sale_data.amount
     
-    # 2. Calcular comisión marginal
+    # 2. Calcular comisión marginal sobre la fecha de la venta
     comm_amount, comm_rate, tramo_a, tramo_b = await calculate_marginal_commission(
-        db, commercial_id, final_sale_type, amount, today
+        db, commercial_id, final_sale_type, amount, target_date
     )
     
+    sale_status = CommercialSaleStatus.liquidado if sale_data.is_already_settled else CommercialSaleStatus.pendiente
+
     # 3. Guardar registro de la venta
     sale = CommercialSale(
         commercial_id=commercial_id,
@@ -307,16 +309,17 @@ async def register_commercial_sale(
         commission_amount=comm_amount,
         tramo_a_amount=tramo_a,
         tramo_b_amount=tramo_b,
-        sale_date=today
+        status=sale_status,
+        sale_date=target_date
     )
     db.add(sale)
     await db.commit()
     await db.refresh(sale)
 
-    # 4. Evaluar automáticamente Bonos Diarios y Bonos por Piso Mensual
+    # 4. Evaluar automáticamente Bonos Diarios y Bonos por Piso Mensual sobre la fecha de la venta
     try:
-        await evaluate_daily_bonus(db, commercial_id, today)
-        await evaluate_monthly_floor_bonus(db, commercial_id, today.year, today.month)
+        await evaluate_daily_bonus(db, commercial_id, target_date)
+        await evaluate_monthly_floor_bonus(db, commercial_id, target_date.year, target_date.month)
     except Exception as e:
         print(f"Error al evaluar bonos comerciales: {e}")
 
