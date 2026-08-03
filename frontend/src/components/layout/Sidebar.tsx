@@ -308,7 +308,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permissions={["admin.referrals.manage", "admin.users.manage", "admin.roles.manage"]}>
+                                    <Can permissions={["admin.referrals.manage", "referrals:view", "admin.users.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/admin-referrals" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <UserPlus className="w-[18px] h-[18px]" />

@@ -31,7 +31,7 @@ async def create_my_potential_referral(
 ):
     return await PotentialReferralService.create_by_user(db, current_user.id, data)
 
-@router.get("/admin", dependencies=[Depends(RequirePermission(["admin.referrals.manage", "admin.users.manage", "admin.roles.manage"]))])
+@router.get("/admin", dependencies=[Depends(RequirePermission(["admin.referrals.manage", "referrals:view", "admin.users.manage", "admin.roles.manage"]))])
 async def get_all_potential_referrals_admin(
     search: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
@@ -42,7 +42,7 @@ async def get_all_potential_referrals_admin(
 ):
     return await PotentialReferralService.get_all_admin(db, search, estado, page, limit)
 
-@router.put("/{referral_id}", response_model=PotentialReferralResponse)
+@router.put("/{referral_id}", response_model=PotentialReferralResponse, dependencies=[Depends(RequirePermission(["admin.referrals.manage", "referrals:view", "admin.users.manage"]))])
 async def update_potential_referral(
     referral_id: int,
     data: PotentialReferralUpdate,
@@ -51,7 +51,7 @@ async def update_potential_referral(
 ):
     return await PotentialReferralService.update(db, referral_id, data)
 
-@router.delete("/{referral_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{referral_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission(["admin.referrals.manage", "referrals:view", "admin.users.manage"]))])
 async def delete_potential_referral(
     referral_id: int,
     db: AsyncSession = Depends(get_db),
@@ -60,7 +60,7 @@ async def delete_potential_referral(
     await PotentialReferralService.delete(db, referral_id)
     return None
 
-@router.post("/{referral_id}/convert", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission(["admin.referrals.manage", "admin.users.manage", "admin.roles.manage"]))])
+@router.post("/{referral_id}/convert", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission(["admin.referrals.manage", "referrals:view", "admin.users.manage", "admin.roles.manage"]))])
 async def convert_potential_referral(
     referral_id: int,
     data: PotentialReferralConvertRequest,
