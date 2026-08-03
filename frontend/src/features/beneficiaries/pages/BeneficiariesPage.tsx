@@ -63,12 +63,9 @@ const BeneficiaryTableSkeleton = () => {
 };
 
 export const BeneficiariesPage = () => {
-  const user = useAuthStore((state) => state.user);
-  const isAdmin = user?.permissions?.includes('admin.users.manage') || user?.permissions?.includes('admin.roles.manage');
+  const { user } = useAuthStore();
+  const hasBeneficiariesPerm = user?.is_superuser === true || user?.permissions?.includes('beneficiaries:view') === true;
 
-  if (isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +76,10 @@ export const BeneficiariesPage = () => {
   const [beneficiaryToDelete, setBeneficiaryToDelete] = useState<Beneficiary | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  if (!hasBeneficiariesPerm && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   useEffect(() => {
     if (toast) {

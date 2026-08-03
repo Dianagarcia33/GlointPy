@@ -157,12 +157,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
 
                                 {!isAdmin && (
                                     <>
-                                        <NavLink to="/dashboard/beneficiaries" className={navLinkClass}>
-                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
-                                                <HeartHandshake className="w-[18px] h-[18px]" />
-                                            </span>
-                                            <span className="flex-1 text-[13px] font-outfit">Beneficiarios</span>
-                                        </NavLink>
+                                        <Can permission="beneficiaries:view">
+                                            <NavLink to="/dashboard/beneficiaries" className={navLinkClass}>
+                                                <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                                    <HeartHandshake className="w-[18px] h-[18px]" />
+                                                </span>
+                                                <span className="flex-1 text-[13px] font-outfit">Beneficiarios</span>
+                                            </NavLink>
+                                        </Can>
 
                                         <Can permission="referrals:view">
                                             <NavLink to="/dashboard/referrals" className={navLinkClass}>
