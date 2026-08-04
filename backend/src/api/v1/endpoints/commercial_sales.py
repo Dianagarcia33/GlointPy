@@ -665,6 +665,11 @@ async def get_all_bonuses_summary(
                     ]
                 })
 
+        return result
+    except Exception as e:
+        print(f"Error in get_all_bonuses_summary: {e}")
+        return []
+
 @router.get("/floors-monitoring", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_floors_monitoring(
     db: AsyncSession = Depends(get_db)
