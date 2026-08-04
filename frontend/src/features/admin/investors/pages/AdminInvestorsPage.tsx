@@ -103,7 +103,24 @@ const InvestorTableSkeleton = () => {
   );
 };
 
+import { useAuthStore } from '../../../../store/authStore';
+
 export const AdminInvestorsPage = () => {
+  const { user } = useAuthStore();
+  const isDirectivo = Boolean(
+    !user?.is_superuser &&
+    (
+      user?.roles?.some((r: any) => {
+        const n = (typeof r === 'string' ? r : r?.name || '').toLowerCase();
+        return n.includes('directiv') || n.includes('director') || n.includes('comercial') || n.includes('asesor') || n.includes('lider');
+      }) ||
+      user?.roles_list?.some((r: string) => {
+        const n = r.toLowerCase();
+        return n.includes('directiv') || n.includes('director') || n.includes('comercial') || n.includes('asesor') || n.includes('lider');
+      })
+    )
+  );
+
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -610,25 +627,27 @@ export const AdminInvestorsPage = () => {
                                     <div className="flex items-center justify-between">
                                       <div className="text-xl font-bold text-slate-800">
                                         {Number(investor.user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: investor.user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                        {!isDirectivo && (
+                                          <Can permission="admin.investors.manage">
+                                            <button 
+                                              onClick={() => {
+                                                if (investor.user && investor.user.wallet) {
+                                                  setWalletToAdjust({
+                                                    id: investor.user.wallet.id,
+                                                    balance: investor.user.wallet.balance,
+                                                    currency: investor.user.wallet.currency || 'COP'
+                                                  });
+                                                  setUserNameToAdjust(investor.user.name);
+                                                }
+                                              }}
+                                              className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors border border-transparent hover:border-brand-200 cursor-pointer"
+                                              title="Ajustar Saldo"
+                                            >
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                          </Can>
+                                        )}
                                       </div>
-                                      <Can permission="admin.investors.manage">
-                                        <button 
-                                          onClick={() => {
-                                            if (investor.user && investor.user.wallet) {
-                                              setWalletToAdjust({
-                                                id: investor.user.wallet.id,
-                                                balance: investor.user.wallet.balance,
-                                                currency: investor.user.wallet.currency || 'COP'
-                                              });
-                                              setUserNameToAdjust(investor.user.name);
-                                            }
-                                          }}
-                                          className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors border border-transparent hover:border-brand-200"
-                                          title="Ajustar Saldo"
-                                        >
-                                          <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-                                      </Can>
                                     </div>
                                     <div className="text-[9px] text-slate-400 mt-1">ID: #{investor.user.wallet.id} • Moneda: {investor.user.wallet.currency}</div>
                                   </div>

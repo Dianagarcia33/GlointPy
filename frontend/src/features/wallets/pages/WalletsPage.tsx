@@ -36,7 +36,24 @@ export interface Movement {
     saldo_nuevo: number | null;
 }
 
+import { useAuthStore } from '../../../store/authStore';
+
 export const WalletsPage = () => {
+    const { user } = useAuthStore();
+    const isDirectivo = Boolean(
+        !user?.is_superuser &&
+        (
+            user?.roles?.some((r: any) => {
+                const n = (typeof r === 'string' ? r : r?.name || '').toLowerCase();
+                return n.includes('directiv') || n.includes('director') || n.includes('comercial') || n.includes('asesor') || n.includes('lider');
+            }) ||
+            user?.roles_list?.some((r: string) => {
+                const n = r.toLowerCase();
+                return n.includes('directiv') || n.includes('director') || n.includes('comercial') || n.includes('asesor') || n.includes('lider');
+            })
+        )
+    );
+
     const [balance, setBalance] = useState<number>(0);
     const [bankDetails, setBankDetails] = useState<any>(null);
     const [movements, setMovements] = useState<Movement[]>([]);
@@ -219,15 +236,17 @@ export const WalletsPage = () => {
                             Transferir Saldo
                         </button>
 
-                        <Can permission="wallets:new_investment">
-                            <button 
-                                onClick={() => setIsNewInvestmentModalOpen(true)}
-                                className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold rounded-xl transition-all active:scale-95"
-                            >
-                                <TrendingUp className="w-5 h-5" />
-                                Nueva Inversión
-                            </button>
-                        </Can>
+                        {!isDirectivo && (
+                            <Can permission="wallets:new_investment">
+                                <button 
+                                    onClick={() => setIsNewInvestmentModalOpen(true)}
+                                    className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold rounded-xl transition-all active:scale-95 cursor-pointer"
+                                >
+                                    <TrendingUp className="w-5 h-5" />
+                                    Nueva Inversión
+                                </button>
+                            </Can>
+                        )}
                     </div>
                 </div>
 

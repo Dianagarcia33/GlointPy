@@ -30,17 +30,32 @@ export const QuickActions = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
     const { user } = useAuthStore();
+    const isDirectivo = Boolean(
+        !user?.is_superuser &&
+        (
+            user?.roles?.some((r: any) => {
+                const n = (typeof r === 'string' ? r : r?.name || '').toLowerCase();
+                return n.includes('directiv') || n.includes('director') || n.includes('comercial') || n.includes('asesor') || n.includes('lider');
+            }) ||
+            user?.roles_list?.some((r: string) => {
+                const n = r.toLowerCase();
+                return n.includes('directiv') || n.includes('director') || n.includes('comercial') || n.includes('asesor') || n.includes('lider');
+            })
+        )
+    );
 
     return (
         <div className="mb-10">
             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 ml-1">Acciones Rápidas</h3>
             <div className="flex flex-wrap gap-3">
-                <ActionButton 
-                    primary 
-                    icon={<PlusCircle className="w-4 h-4" />} 
-                    label="Nueva Inversión" 
-                    onClick={() => setIsModalOpen(true)}
-                />
+                {!isDirectivo && (
+                    <ActionButton 
+                        primary 
+                        icon={<PlusCircle className="w-4 h-4" />} 
+                        label="Nueva Inversión" 
+                        onClick={() => setIsModalOpen(true)}
+                    />
+                )}
                 <ActionButton 
                     icon={<ArrowDownToLine className="w-4 h-4" />} 
                     label="Solicitar Retiro" 
