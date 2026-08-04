@@ -500,9 +500,12 @@ class InvestmentRequestService:
                 from src.services.commercial_sale_service import register_commercial_sale
                 from src.schemas.commercial_sale import CommercialSaleCreate
                 
+                investor_user_res = await db.execute(select(User).where(User.id == req.user_id))
+                investor_user = investor_user_res.scalars().first()
+
                 sale_type_str = "referido" if referred_code else ("reinversion" if is_upgrade else "contrato_nuevo")
-                doc_val = str((req.extra_data or {}).get("documento") or (req.user and req.user.document_id) or f"USER-{req.user_id}")
-                name_val = str((req.extra_data or {}).get("nombre_completo") or (req.user and req.user.name) or "Cliente Inversionista")
+                doc_val = str((req.extra_data or {}).get("documento") or (investor_user and investor_user.document_id) or f"USER-{req.user_id}")
+                name_val = str((req.extra_data or {}).get("nombre_completo") or (investor_user and investor_user.name) or "Cliente Inversionista")
                 
                 c_sale_create = CommercialSaleCreate(
                     client_document=doc_val,

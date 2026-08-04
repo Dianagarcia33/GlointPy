@@ -22,7 +22,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   showAsesorSelect = false
 }) => {
   const { user } = useAuthStore();
-  const isTrueAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.roles.manage') === true;
+  const isTrueAdmin = user?.is_superuser === true || 
+    user?.permissions?.includes('admin.commercial.manage') === true || 
+    user?.permissions?.includes('admin.roles.manage') === true;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchClientResult[]>([]);
