@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 from typing import List, Optional, Any, Dict
 from datetime import datetime
 from src.schemas.security import RoleResponse
@@ -20,6 +20,13 @@ class UserCreateAdmin(UserBase):
     date_of_birth: Optional[datetime] = None
     role_ids: Optional[List[int]] = []
 
+    @field_validator('date_of_birth', mode='before')
+    @classmethod
+    def parse_empty_date(cls, v):
+        if v == "" or v == "null" or v is None:
+            return None
+        return v
+
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -32,6 +39,13 @@ class UserUpdate(BaseModel):
     date_of_birth: Optional[datetime] = None
     permissions_override: Optional[Dict[str, bool]] = None
 
+    @field_validator('date_of_birth', mode='before')
+    @classmethod
+    def parse_empty_date(cls, v):
+        if v == "" or v == "null" or v is None:
+            return None
+        return v
+
 class UserUpdateAdmin(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -40,6 +54,13 @@ class UserUpdateAdmin(BaseModel):
     is_active: Optional[bool] = None
     date_of_birth: Optional[datetime] = None
     role_ids: Optional[List[int]] = None
+
+    @field_validator('date_of_birth', mode='before')
+    @classmethod
+    def parse_empty_date(cls, v):
+        if v == "" or v == "null" or v is None:
+            return None
+        return v
 
 class UserResponse(BaseModel):
     id: int
