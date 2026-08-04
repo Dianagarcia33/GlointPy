@@ -71,6 +71,13 @@ async def seed_permissions_db(db):
     roles = roles_res.scalars().all()
 
     for role in roles:
+        # Si el rol ya tiene permisos asignados en la matriz, respetar la configuración manual del administrador
+        role_has_perms = await db.execute(
+            select(role_permissions).where(role_permissions.c.role_id == role.id)
+        )
+        if role_has_perms.first():
+            continue
+
         r_name = role.name.lower()
         if "super" in r_name or "admin" in r_name:
             for p_name, perm in all_perms_map.items():
