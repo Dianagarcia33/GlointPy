@@ -12,9 +12,8 @@ import { Can } from '../../../components/security/Can';
 
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
-  const isAdmin = user?.is_superuser === true || 
-    user?.permissions?.includes('admin.commercial.manage') === true || 
-    user?.permissions?.includes('admin.roles.manage') === true;
+  const isCommercialAdmin = user?.is_superuser === true || 
+    user?.permissions?.includes('admin.commercial.manage') === true;
 
   const [adminTab, setAdminTab] = useState<'overview' | 'floors'>('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,14 +35,14 @@ export const CommercialDashboardPage: React.FC = () => {
   const { data: summary, refetch: refetchSummary } = useQuery<CommercialSummary>({
     queryKey: ['my_commercial_summary'],
     queryFn: () => commercialService.getMySummary(),
-    enabled: !isAdmin
+    enabled: !isCommercialAdmin
   });
 
   // Queries para Administrador
   const { data: adminSummary, refetch: refetchAdminSummary } = useQuery<AdminCommercialSummary>({
     queryKey: ['admin_commercial_summary'],
     queryFn: () => commercialService.getAdminSummary(),
-    enabled: isAdmin
+    enabled: isCommercialAdmin
   });
 
   const { data: allSales, isLoading: isLoadingAllSales, refetch: refetchAllSales } = useQuery<CommercialSale[]>({
@@ -52,13 +51,13 @@ export const CommercialDashboardPage: React.FC = () => {
       commercial_id: selectedCommercialId ? Number(selectedCommercialId) : undefined,
       sale_type: selectedSaleType || undefined
     }),
-    enabled: isAdmin
+    enabled: isCommercialAdmin
   });
 
   const { data: commercialUsers } = useQuery<CommercialUserOption[]>({
     queryKey: ['commercial_users_list'],
     queryFn: () => commercialService.getCommercialUsers(),
-    enabled: isAdmin
+    enabled: isCommercialAdmin
   });
 
   // Historial de Liquidaciones
@@ -81,7 +80,7 @@ export const CommercialDashboardPage: React.FC = () => {
 
   const handleSuccess = () => {
     showToast('¡Venta registrada y adjudicada exitosamente!', 'success');
-    if (isAdmin) {
+    if (isCommercialAdmin) {
       refetchAdminSummary();
       refetchAllSales();
     } else {
@@ -95,7 +94,7 @@ export const CommercialDashboardPage: React.FC = () => {
     refetchAdminSummary();
     refetchAllSales();
     refetchSettlements();
-    if (!isAdmin) refetchSummary();
+    if (!isCommercialAdmin) refetchSummary();
   };
 
   const handleDeleteSale = async (saleId: number) => {
@@ -112,41 +111,47 @@ export const CommercialDashboardPage: React.FC = () => {
   };
 
   const exportToCSV = () => {
-    if (!allSales || allSales.length === 0) return;
-    const headers = ['ID Venta', 'Asesor Comercial', 'Documento Cliente', 'Nombre Cliente', 'Tipo Venta', 'Monto Paquete (COP)', 'Comision %', 'Monto Comision (COP)', 'Estado', 'Fecha Venta'];
+    if (!allSales || allSales.length === 0) {
+      showToast('No hay ventas disponibles para exportar', 'error');
+      return;
+    }
+
+    const headers = ['ID', 'Comercial', 'Cédula Cliente', 'Nombre Cliente', 'Tipo Venta', 'Monto ($)', 'Tasa (%)', 'Comisión ($)', 'Fecha Venta'];
     const rows = allSales.map(s => [
       s.id,
-      `"${s.commercial_name || ''}"`,
+      `"${s.commercial_name}"`,
       `"${s.client_document}"`,
-      `"${s.client_name || ''}"`,
+      `"${s.client_name}"`,
       s.sale_type,
       s.amount,
-      (s.commission_rate * 100).toFixed(2) + '%',
+      (s.commission_rate * 100).toFixed(1),
       s.commission_amount,
-      s.status || 'pendiente',
       s.sale_date
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Reporte_Comercial_Gloint_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `reporte_ventas_comerciales_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  const canSettle = user?.is_superuser === true || 
+    user?.permissions?.includes('admin.commercial.manage') === true || 
+    user?.permissions?.includes('admin.commissions.settle') === true;
+  const canCreateSaleOrAdjudicate = user?.is_superuser === true || 
+    user?.permissions?.includes('admin.commercial.manage') === true || 
+    user?.permissions?.includes('commercial:view') === true;
+
+  // Cálculo para Asesor Comercial (Individual)
   const directAccum = summary?.direct_accumulated || 0;
   const threshold = summary?.threshold_36m || 36000000;
   const remaining = summary?.remaining_for_36m || 0;
   const progressPercent = Math.min(100, Math.round((directAccum / threshold) * 100));
-
-  const canSettle = user?.is_superuser === true || user?.permissions?.includes('admin.commissions.settle') === true;
-  const canCreateSaleOrAdjudicate = user?.is_superuser === true || 
-    user?.permissions?.includes('admin.commercial.manage') === true || 
-    user?.permissions?.includes('commercial:create_sale') === true ||
-    user?.permissions?.includes('commercial:adjudicate_sale') === true;
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
@@ -156,10 +161,10 @@ export const CommercialDashboardPage: React.FC = () => {
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            {isAdmin ? 'Panel de Control Comercial' : 'Panel Comercial & Comisiones'}
+            {isCommercialAdmin ? 'Panel de Control Comercial' : 'Panel Comercial & Comisiones'}
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
-            {isAdmin 
+            {isCommercialAdmin 
               ? 'Supervisión global de facturación, auditoría de comisiones, liquidaciones y adjudicación' 
               : 'Gestión de ventas, partición marginal del 3.5% y comisiones en tiempo real'}
           </p>
@@ -176,7 +181,7 @@ export const CommercialDashboardPage: React.FC = () => {
             </button>
           )}
 
-          {isAdmin && (
+          {isCommercialAdmin && (
             <button
               onClick={exportToCSV}
               className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
@@ -192,14 +197,14 @@ export const CommercialDashboardPage: React.FC = () => {
               className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
-              {isAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}
+              {isCommercialAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}
             </button>
           )}
         </div>
       </div>
 
       {/* VISTA ADMINISTRADOR / DIRECTIVO */}
-      {isAdmin ? (
+      {isCommercialAdmin ? (
         <>
           {/* Selector de Pestañas Ejecutivo (Admin) */}
           <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl w-fit border border-slate-200/80 font-montserrat">
@@ -831,8 +836,8 @@ export const CommercialDashboardPage: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleSuccess}
         currentAccumulatedDirect={directAccum}
-        isAdmin={user?.is_superuser === true || user?.permissions?.includes('admin.roles.manage') === true}
-        showAsesorSelect={user?.is_superuser === true || user?.permissions?.includes('admin.roles.manage') === true}
+        isAdmin={isCommercialAdmin}
+        showAsesorSelect={isCommercialAdmin}
       />
 
       {/* Modal para Liquidar Comisiones */}
