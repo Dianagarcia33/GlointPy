@@ -17,7 +17,8 @@ class UserCreate(UserBase):
     password: str
 
 class UserCreateAdmin(UserBase):
-    date_of_birth: Optional[datetime] = None
+    model_config = ConfigDict(extra="ignore")
+    date_of_birth: Optional[Any] = None
     role_ids: Optional[List[int]] = []
 
     @field_validator('date_of_birth', mode='before')
@@ -28,6 +29,7 @@ class UserCreateAdmin(UserBase):
         return v
 
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     document_id: Optional[str] = None
@@ -36,7 +38,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
     must_change_password: Optional[bool] = None
-    date_of_birth: Optional[datetime] = None
+    date_of_birth: Optional[Any] = None
     permissions_override: Optional[Dict[str, bool]] = None
 
     @field_validator('date_of_birth', mode='before')
@@ -47,12 +49,13 @@ class UserUpdate(BaseModel):
         return v
 
 class UserUpdateAdmin(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     document_id: Optional[str] = None
     phone_number: Optional[str] = None
     is_active: Optional[bool] = None
-    date_of_birth: Optional[datetime] = None
+    date_of_birth: Optional[Any] = None
     role_ids: Optional[List[int]] = None
 
     @field_validator('date_of_birth', mode='before')

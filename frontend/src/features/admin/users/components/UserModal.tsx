@@ -94,9 +94,14 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
     setError(null);
 
     try {
-      const payload = {
-        ...formData,
-        date_of_birth: formData.date_of_birth ? formData.date_of_birth : null
+      const payload: any = {
+        name: formData.name,
+        email: formData.email,
+        document_id: formData.document_id ? formData.document_id : null,
+        phone_number: formData.phone_number ? formData.phone_number : null,
+        date_of_birth: formData.date_of_birth ? formData.date_of_birth : null,
+        is_active: formData.is_active,
+        role_ids: formData.role_ids || []
       };
       if (user) {
         await usersService.updateUser(user.id, payload as UserUpdate);
