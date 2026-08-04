@@ -234,10 +234,49 @@ export const commercialService = {
     return await fetchApi(`/commercial/settlements${query}`);
   },
 
+  getFloorsMonitoring: async (): Promise<CommercialFloorsMonitoringResponse> => {
+    return await fetchApi('/commercial/floors-monitoring');
+  },
+
   getMyAssignedInvestments: async (): Promise<{ assigned_investments: AssignedInvestmentItem[]; total: number }> => {
     return await fetchApi('/commercial/my-assigned-investments');
   },
 };
+
+export interface FloorTierInfo {
+  level: number;
+  label: string;
+  target: number;
+  bonus_amount: number;
+}
+
+export interface CommercialFloorMonitoringItem {
+  commercial_id: number;
+  commercial_name: string;
+  email: string;
+  document_id?: string;
+  monthly_volume: number;
+  today_closures: number;
+  monthly_closures: number;
+  current_floor?: FloorTierInfo | null;
+  next_floor?: FloorTierInfo | null;
+  amount_needed_next_floor: number;
+  progress_percent: number;
+  bonus_status: 'sin_piso' | 'en_progreso' | 'piso_alcanzado' | string;
+}
+
+export interface CommercialFloorsMonitoringSummary {
+  total_directivos: number;
+  directivos_con_piso: number;
+  total_monthly_volume: number;
+  projected_floor_bonuses_total: number;
+  average_volume_per_directivo: number;
+}
+
+export interface CommercialFloorsMonitoringResponse {
+  summary: CommercialFloorsMonitoringSummary;
+  items: CommercialFloorMonitoringItem[];
+}
 
 export interface AssignedInvestmentItem {
   id: number;

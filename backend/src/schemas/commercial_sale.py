@@ -64,3 +64,34 @@ class SettlementResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class FloorTierInfo(BaseModel):
+    level: int
+    label: str
+    target: float
+    bonus_amount: float
+
+class CommercialFloorMonitoringItem(BaseModel):
+    commercial_id: int
+    commercial_name: str
+    email: str
+    document_id: Optional[str] = None
+    monthly_volume: float
+    today_closures: int
+    monthly_closures: int
+    current_floor: Optional[FloorTierInfo] = None
+    next_floor: Optional[FloorTierInfo] = None
+    amount_needed_next_floor: float
+    progress_percent: float
+    bonus_status: str # "sin_piso", "en_progreso", "piso_alcanzado"
+
+class CommercialFloorsMonitoringSummary(BaseModel):
+    total_directivos: int
+    directivos_con_piso: int
+    total_monthly_volume: float
+    projected_floor_bonuses_total: float
+    average_volume_per_directivo: float
+
+class CommercialFloorsMonitoringResponse(BaseModel):
+    summary: CommercialFloorsMonitoringSummary
+    items: List[CommercialFloorMonitoringItem]

@@ -665,10 +665,162 @@ async def get_all_bonuses_summary(
                     ]
                 })
 
-        return result
+@router.get("/floors-monitoring", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
+async def get_floors_monitoring(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna el monitoreo de pisos de todos los directivos/asesores comerciales.
+    Requiere permiso 'admin.commercial.manage'.
+    """
+    try:
+        stmt = (
+            select(User)
+            .options(selectinload(User.roles))
+            .where(User.is_active == True)
+            .order_by(User.name.asc())
+        )
+        res = await db.execute(stmt)
+        all_users = res.scalars().all()
+
+        sales_users_res = await db.execute(select(CommercialSale.commercial_id).distinct())
+        sales_user_ids = set(sales_users_res.scalars().all())
+
+        today = date.today()
+        
+        ordered_floors = [
+            {"level": 1, "label": "Piso 1", "target": 18000000.0, "bonus": 360000.0},
+            {"level": 2, "label": "Piso 2", "target": 36000000.0, "bonus": 720000.0},
+            {"level": 3, "label": "Piso 3", "target": 54000000.0, "bonus": 1080000.0},
+            {"level": 4, "label": "Piso 4", "target": 79000000.0, "bonus": 1422000.0},
+            {"level": 5, "label": "Piso 5", "target": 100000000.0, "bonus": 1800000.0},
+            {"level": 6, "label": "Piso 6", "target": 140000000.0, "bonus": 2520000.0},
+            {"level": 7, "label": "Piso 7", "target": 170000000.0, "bonus": 3060000.0},
+            {"level": 8, "label": "Piso 8", "target": 200000000.0, "bonus": 3600000.0},
+        ]
+
+        items = []
+
+        for u in all_users:
+            role_names = [r.name.lower() for r in (u.roles or [])]
+            has_commercial_role = any(
+                any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director"])
+                and not any(inv_kw in r_name for inv_kw in ["inversionista", "investor"])
+                for r_name in role_names
+            )
+
+            if not (has_commercial_role or u.id in sales_user_ids):
+                continue
+
+            monthly_sales_res = await db.execute(
+                select(
+                    func.coalesce(func.sum(CommercialSale.amount), 0),
+                    func.count(CommercialSale.id)
+                )
+                .where(
+                    CommercialSale.commercial_id == u.id,
+                    extract('year', CommercialSale.sale_date) == today.year,
+                    extract('month', CommercialSale.sale_date) == today.month
+                )
+            )
+            m_row = monthly_sales_res.first()
+            monthly_volume = float(m_row[0]) if m_row else 0.0
+            monthly_closures = int(m_row[1]) if m_row else 0
+
+            daily_sales_res = await db.execute(
+                select(func.count(CommercialSale.id))
+                .where(
+                    CommercialSale.commercial_id == u.id,
+                    CommercialSale.sale_date == today
+                )
+            )
+            today_closures = daily_sales_res.scalar() or 0
+
+            current_floor_info = None
+            next_floor_info = None
+
+            achieved_floors = [f for f in ordered_floors if monthly_volume >= f["target"]]
+            if achieved_floors:
+                top_floor = achieved_floors[-1]
+                current_floor_info = {
+                    "level": top_floor["level"],
+                    "label": top_floor["label"],
+                    "target": top_floor["target"],
+                    "bonus_amount": top_floor["bonus"]
+                }
+
+            unreached_floors = [f for f in ordered_floors if monthly_volume < f["target"]]
+            if unreached_floors:
+                next_f = unreached_floors[0]
+                next_floor_info = {
+                    "level": next_f["level"],
+                    "label": next_f["label"],
+                    "target": next_f["target"],
+                    "bonus_amount": next_f["bonus"]
+                }
+            
+            if next_floor_info:
+                prev_target = current_floor_info["target"] if current_floor_info else 0.0
+                next_target = next_floor_info["target"]
+                amount_needed = max(0.0, next_target - monthly_volume)
+                range_span = next_target - prev_target
+                progress_percent = min(100.0, max(0.0, ((monthly_volume - prev_target) / range_span) * 100.0)) if range_span > 0 else 0.0
+            else:
+                amount_needed = 0.0
+                progress_percent = 100.0
+
+            if current_floor_info:
+                bonus_status = "piso_alcanzado"
+            elif monthly_volume > 0:
+                bonus_status = "en_progreso"
+            else:
+                bonus_status = "sin_piso"
+
+            items.append({
+                "commercial_id": u.id,
+                "commercial_name": u.name or u.email,
+                "email": u.email,
+                "document_id": u.document_id,
+                "monthly_volume": monthly_volume,
+                "today_closures": today_closures,
+                "monthly_closures": monthly_closures,
+                "current_floor": current_floor_info,
+                "next_floor": next_floor_info,
+                "amount_needed_next_floor": amount_needed,
+                "progress_percent": round(progress_percent, 1),
+                "bonus_status": bonus_status
+            })
+
+        items.sort(key=lambda x: x["monthly_volume"], reverse=True)
+
+        total_directivos = len(items)
+        directivos_con_piso = sum(1 for it in items if it["current_floor"] is not None)
+        total_monthly_volume = sum(it["monthly_volume"] for it in items)
+        projected_floor_bonuses_total = sum(it["current_floor"]["bonus_amount"] for it in items if it["current_floor"] is not None)
+        average_volume = (total_monthly_volume / total_directivos) if total_directivos > 0 else 0.0
+
+        return {
+            "summary": {
+                "total_directivos": total_directivos,
+                "directivos_con_piso": directivos_con_piso,
+                "total_monthly_volume": total_monthly_volume,
+                "projected_floor_bonuses_total": projected_floor_bonuses_total,
+                "average_volume_per_directivo": average_volume
+            },
+            "items": items
+        }
     except Exception as e:
-        print(f"Error in get_all_bonuses_summary: {e}")
-        return []
+        print(f"Error in get_floors_monitoring: {e}")
+        return {
+            "summary": {
+                "total_directivos": 0,
+                "directivos_con_piso": 0,
+                "total_monthly_volume": 0.0,
+                "projected_floor_bonuses_total": 0.0,
+                "average_volume_per_directivo": 0.0
+            },
+            "items": []
+        }
 
 @router.post("/settle", dependencies=[Depends(RequirePermission("admin.commissions.settle"))])
 async def settle_commissions(

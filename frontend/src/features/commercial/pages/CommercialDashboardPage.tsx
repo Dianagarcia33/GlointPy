@@ -7,6 +7,7 @@ import { RegisterCommercialSaleModal } from '../components/RegisterCommercialSal
 import { SettleCommissionsModal } from '../components/SettleCommissionsModal';
 import { CommercialBonusGoalsWidget } from '../components/CommercialBonusGoalsWidget';
 import { AdminCommercialBonusesTable } from '../components/AdminCommercialBonusesTable';
+import { AdminCommercialFloorsMonitor } from '../components/AdminCommercialFloorsMonitor';
 import { Can } from '../../../components/security/Can';
 
 export const CommercialDashboardPage: React.FC = () => {
@@ -15,6 +16,7 @@ export const CommercialDashboardPage: React.FC = () => {
     user?.permissions?.includes('admin.commercial.manage') === true || 
     user?.permissions?.includes('admin.roles.manage') === true;
 
+  const [adminTab, setAdminTab] = useState<'overview' | 'floors'>('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [selectedCommercialForSettle, setSelectedCommercialForSettle] = useState<number | null>(null);
@@ -198,11 +200,44 @@ export const CommercialDashboardPage: React.FC = () => {
       {/* VISTA ADMINISTRADOR / DIRECTIVO */}
       {isAdmin ? (
         <>
-          {/* Widget de Metas y Bonos en Curso */}
-          <CommercialBonusGoalsWidget
-            summary={summary}
-            dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
-          />
+          {/* Selector de Pestañas Ejecutivo (Admin) */}
+          <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl w-fit border border-slate-200/80 font-montserrat">
+            <button
+              onClick={() => setAdminTab('overview')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                adminTab === 'overview'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              Auditoría & Comisiones
+            </button>
+
+            <Can permission="admin.commercial.manage">
+              <button
+                onClick={() => setAdminTab('floors')}
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                  adminTab === 'floors'
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/20'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Trophy className="w-4 h-4 text-amber-300" />
+                Monitoreo de Pisos por Directivo
+              </button>
+            </Can>
+          </div>
+
+          {adminTab === 'floors' ? (
+            <AdminCommercialFloorsMonitor />
+          ) : (
+            <>
+              {/* Widget de Metas y Bonos en Curso */}
+              <CommercialBonusGoalsWidget
+                summary={summary}
+                dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
+              />
 
           {/* Executive KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -405,6 +440,8 @@ export const CommercialDashboardPage: React.FC = () => {
             }}
             canSettle={canSettle}
           />
+            </>
+          )}
         </>
       ) : (
 
