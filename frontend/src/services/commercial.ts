@@ -86,6 +86,8 @@ export interface CommercialSummary {
   remaining_for_36m: number;
   has_reached_36m: boolean;
   current_rate: number;
+  today_closures?: number;
+  monthly_closures?: number;
   recent_sales: CommercialSale[];
 }
 

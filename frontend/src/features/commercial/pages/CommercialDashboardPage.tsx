@@ -494,7 +494,7 @@ export const CommercialDashboardPage: React.FC = () => {
           {/* Widget de Metas y Bonos en Curso */}
           <CommercialBonusGoalsWidget
             summary={summary}
-            dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
+            dailyClosuresCount={summary?.today_closures ?? 0}
           />
 
           {/* KPI Cards Grid */}

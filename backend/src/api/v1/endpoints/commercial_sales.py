@@ -127,6 +127,27 @@ async def get_my_commercial_summary(
     remaining_for_36m = max(0.0, threshold_36m - direct_accumulated)
     has_reached_36m = direct_accumulated >= threshold_36m
     
+    monthly_closures_res = await db.execute(
+        select(func.count(CommercialSale.id))
+        .where(
+            CommercialSale.commercial_id == current_user.id,
+            extract('year', CommercialSale.sale_date) == year,
+            extract('month', CommercialSale.sale_date) == month
+        )
+    )
+    monthly_closures = int(monthly_closures_res.scalar() or 0)
+
+    daily_closures_res = await db.execute(
+        select(func.count(CommercialSale.id))
+        .where(
+            CommercialSale.commercial_id == current_user.id,
+            extract('year', CommercialSale.sale_date) == today.year,
+            extract('month', CommercialSale.sale_date) == today.month,
+            extract('day', CommercialSale.sale_date) == today.day
+        )
+    )
+    today_closures = int(daily_closures_res.scalar() or 0)
+
     recent_res = await db.execute(
         select(CommercialSale)
         .where(CommercialSale.commercial_id == current_user.id)
@@ -144,16 +165,18 @@ async def get_my_commercial_summary(
         "remaining_for_36m": remaining_for_36m,
         "has_reached_36m": has_reached_36m,
         "current_rate": 0.035 if has_reached_36m else 0.030,
+        "today_closures": today_closures,
+        "monthly_closures": monthly_closures,
         "recent_sales": [
             {
                 "id": s.id,
                 "client_document": s.client_document,
                 "client_name": s.client_name,
-                "sale_type": s.sale_type.value,
+                "sale_type": s.sale_type.value if hasattr(s.sale_type, 'value') else str(s.sale_type),
                 "amount": float(s.amount),
                 "commission_amount": float(s.commission_amount),
                 "commission_rate": float(s.commission_rate),
-                "sale_date": s.sale_date.isoformat()
+                "sale_date": s.sale_date.isoformat() if hasattr(s.sale_date, 'isoformat') else str(s.sale_date)
             }
             for s in recent_sales
         ]
@@ -628,7 +651,9 @@ async def get_all_bonuses_summary(
                 select(func.count(CommercialSale.id))
                 .where(
                     CommercialSale.commercial_id == u.id,
-                    CommercialSale.sale_date == today
+                    extract('year', CommercialSale.sale_date) == today.year,
+                    extract('month', CommercialSale.sale_date) == today.month,
+                    extract('day', CommercialSale.sale_date) == today.day
                 )
             )
             today_closures = daily_sales_res.scalar() or 0
@@ -736,7 +761,9 @@ async def get_floors_monitoring(
                 select(func.count(CommercialSale.id))
                 .where(
                     CommercialSale.commercial_id == u.id,
-                    CommercialSale.sale_date == today
+                    extract('year', CommercialSale.sale_date) == today.year,
+                    extract('month', CommercialSale.sale_date) == today.month,
+                    extract('day', CommercialSale.sale_date) == today.day
                 )
             )
             today_closures = daily_sales_res.scalar() or 0
