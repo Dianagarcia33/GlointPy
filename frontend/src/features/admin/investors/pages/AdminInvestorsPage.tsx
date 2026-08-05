@@ -628,7 +628,7 @@ export const AdminInvestorsPage = () => {
                                       <div className="text-xl font-bold text-slate-800">
                                         {Number(investor.user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: investor.user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                                         {!isDirectivo && (
-                                          <Can permission="admin.investors.manage">
+                                          <Can permissions={["admin.investors.wallet_adjust", "admin.investors.manage"]}>
                                             <button 
                                               onClick={() => {
                                                 if (investor.user && investor.user.wallet) {

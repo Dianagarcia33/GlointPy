@@ -25,6 +25,7 @@ PERMISSIONS = [
     {"name": "admin.periods.manage", "description": "Gestionar periodos de inversión", "module": "periods"},
     {"name": "admin.packages.manage", "description": "Gestionar paquetes de inversión", "module": "packages"},
     {"name": "admin.investors.manage", "description": "Gestionar contratos de inversionistas", "module": "investors"},
+    {"name": "admin.investors.wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Lápiz)", "module": "investors"},
     {"name": "admin.investments.manage", "description": "Aprobar y rechazar solicitudes de inversión", "module": "investments"},
     {"name": "admin.payments.manage", "description": "Gestionar sección de pagos", "module": "payments"},
     {"name": "admin.withdrawals.manage", "description": "Gestionar y aprobar retiros", "module": "payments"},
