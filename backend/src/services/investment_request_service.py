@@ -486,24 +486,37 @@ class InvestmentRequestService:
                     f"monto_bono={bonus_amount}, días_reducidos={days_to_reduce}"
                 )
 
-        # 5. Adjudicar venta comercial si se seleccionó un Directivo de Inversiones
+        # 5. Adjudicar venta comercial si se seleccionó o determinó un Directivo de Inversiones
         c_id = override_commercial_id
         if c_id is None and req.extra_data and isinstance(req.extra_data, dict):
-            c_id = req.extra_data.get("commercial_id")
+            c_id = req.extra_data.get("commercial_id") or req.extra_data.get("directivo_id") or req.extra_data.get("asesor_id")
         
-        if c_id is None:
-            user_res = await db.execute(select(User.commercial_id).where(User.id == req.user_id))
-            c_id = user_res.scalar_one_or_none()
-        
+        investor_user_res = await db.execute(select(User).where(User.id == req.user_id))
+        investor_user = investor_user_res.scalars().first()
+
+        if c_id is None and investor_user:
+            c_id = investor_user.commercial_id
+
+        if c_id is None and referred_code:
+            ref_user_res = await db.execute(
+                select(User.id).where(
+                    or_(
+                        User.document_id == referred_code,
+                        User.email == referred_code
+                    )
+                )
+            )
+            c_id = ref_user_res.scalar_one_or_none()
+
         if c_id:
             try:
+                if investor_user and not investor_user.commercial_id:
+                    investor_user.commercial_id = int(c_id)
+
                 from src.services.commercial_sale_service import register_commercial_sale
                 from src.schemas.commercial_sale import CommercialSaleCreate
                 
-                investor_user_res = await db.execute(select(User).where(User.id == req.user_id))
-                investor_user = investor_user_res.scalars().first()
-
-                sale_type_str = "referido" if referred_code else ("reinversion" if is_upgrade else "contrato_nuevo")
+                sale_type_str = "referido" if referred_code else ("reinversion" if (is_upgrade or existing_investor is not None) else "contrato_nuevo")
                 doc_val = str((req.extra_data or {}).get("documento") or (investor_user and investor_user.document_id) or f"USER-{req.user_id}")
                 name_val = str((req.extra_data or {}).get("nombre_completo") or (investor_user and investor_user.name) or "Cliente Inversionista")
                 

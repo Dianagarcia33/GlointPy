@@ -157,14 +157,15 @@ export const investmentsService = {
   },
 
   approveInvestmentRequest: async (id: number, data: any) => {
-    return await fetchApi(`/investments/admin/requests/${id}/approve`, {
+    const commercialId = data?.commercial_id ? Number(data.commercial_id) : (data?.directivo_id ? Number(data.directivo_id) : null);
+    return await fetchApi(`/investment-requests/${id}/approve`, {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify({ commercial_id: commercialId })
     });
   },
 
   rejectInvestmentRequest: async (id: number, reason: string) => {
-    return await fetchApi(`/investments/admin/requests/${id}/reject`, {
+    return await fetchApi(`/investment-requests/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ rejection_reason: reason })
     });
