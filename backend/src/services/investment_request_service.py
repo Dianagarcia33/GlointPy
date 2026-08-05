@@ -487,14 +487,14 @@ class InvestmentRequestService:
                 )
 
         # 5. Adjudicar venta comercial si se seleccionó o determinó un Directivo de Inversiones
-        from src.models.commercial import CommercialUser
         c_id = override_commercial_id
         if c_id is None and req.extra_data and isinstance(req.extra_data, dict):
-            c_id = req.extra_data.get("commercial_id") or req.extra_data.get("directivo_id") or req.extra_data.get("asesor_id")
-            if c_id is None and req.extra_data.get("created_by_user_id"):
-                creator_uid = req.extra_data.get("created_by_user_id")
-                comm_res = await db.execute(select(CommercialUser.id).where(CommercialUser.user_id == creator_uid))
-                c_id = comm_res.scalar_one_or_none()
+            c_id = (
+                req.extra_data.get("commercial_id") or 
+                req.extra_data.get("directivo_id") or 
+                req.extra_data.get("asesor_id") or 
+                req.extra_data.get("created_by_user_id")
+            )
         
         investor_user_res = await db.execute(select(User).where(User.id == req.user_id))
         investor_user = investor_user_res.scalars().first()

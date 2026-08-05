@@ -728,16 +728,10 @@ async def create_investment_request(
     target_user_id = user_id or current_user.id
     extra_data = {}
 
-    # Registrar el usuario creador y su ID comercial si es un Directivo / Asesor Comercial
+    # Registrar el usuario creador para la adjudicación de la venta comercial
     extra_data["created_by_user_id"] = current_user.id
-    from src.models.commercial import CommercialUser
-    comm_res = await db.execute(select(CommercialUser.id).where(CommercialUser.user_id == current_user.id))
-    creator_comm_id = comm_res.scalar_one_or_none()
-    if not creator_comm_id and getattr(current_user, "commercial_id", None):
-        creator_comm_id = current_user.commercial_id
-    if creator_comm_id:
-        extra_data["commercial_id"] = creator_comm_id
-        extra_data["directivo_id"] = creator_comm_id
+    extra_data["commercial_id"] = current_user.id
+    extra_data["directivo_id"] = current_user.id
 
     if extra_paths:
         extra_data["comprobantes_adicionales"] = extra_paths
