@@ -10,7 +10,7 @@ import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
 import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
 import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsModal';
-import { NewInvestmentModal } from '../../../dashboard/components/NewInvestmentModal';
+import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInversionModal';
 import { formatAccountNumber } from '../../../../utils/format';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
@@ -950,7 +950,7 @@ export const AdminInvestorsPage = () => {
         isDeleting={isDeleting}
       />
 
-      <NewInvestmentModal 
+      <AdminSolicitudInversionModal 
         isOpen={isNewRequestModalOpen}
         onClose={() => {
           setIsNewRequestModalOpen(false);
