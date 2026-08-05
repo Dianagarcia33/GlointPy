@@ -275,13 +275,13 @@ export const AdminInvestorsPage = () => {
         </div>
         
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <Can permission="admin.investments.create_request">
+          <Can permission="admin.investments.solicitud_inversion">
             <button 
               onClick={() => setIsNewRequestModalOpen(true)}
               className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/30 text-sm font-bold cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
-              <span>Crear Solicitud de Inversión</span>
+              <span>Solicitud de Inversión</span>
             </button>
           </Can>
           <Can permission="admin.investors.create">
@@ -309,16 +309,18 @@ export const AdminInvestorsPage = () => {
           >
             Inversiones (Contratos)
           </button>
-          <button
-            onClick={() => setActiveTab('requests')}
-            className={`whitespace-nowrap pb-4 px-1 border-b-2 font-extrabold text-sm font-montserrat transition-colors cursor-pointer ${
-              activeTab === 'requests'
-                ? 'border-brand-500 text-brand-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-            }`}
-          >
-            Solicitudes
-          </button>
+          <Can permission="admin.investments.solicitud_inversion">
+            <button
+              onClick={() => setActiveTab('requests')}
+              className={`whitespace-nowrap pb-4 px-1 border-b-2 font-extrabold text-sm font-montserrat transition-colors cursor-pointer ${
+                activeTab === 'requests'
+                  ? 'border-brand-500 text-brand-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              Solicitud de Inversión
+            </button>
+          </Can>
         </nav>
       </div>
 

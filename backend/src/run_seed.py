@@ -30,7 +30,7 @@ PERMISSIONS = [
     {"name": "admin.investors.capital_increase", "description": "Solicitar o gestionar aumento de capital de contratos (+ Capital)", "module": "investors"},
     {"name": "admin.investors.delete", "description": "Eliminar contratos e inversionistas del sistema", "module": "investors"},
     {"name": "admin.investments.manage", "description": "Aprobar y rechazar solicitudes de inversión", "module": "investments"},
-    {"name": "admin.investments.create_request", "description": "Crear solicitudes de inversión (Crear Solicitud de Inversión)", "module": "investments"},
+    {"name": "admin.investments.solicitud_inversion", "description": "Acceso al botón Solicitud de Inversión", "module": "investments"},
     {"name": "admin.investments.approve", "description": "Aprobar solicitudes de inversión", "module": "investments"},
     {"name": "admin.investments.reject", "description": "Rechazar solicitudes de inversión", "module": "investments"},
     {"name": "admin.payments.manage", "description": "Gestionar sección de pagos", "module": "payments"},

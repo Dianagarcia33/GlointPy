@@ -236,13 +236,13 @@ export const InvestmentRequestsTable = () => {
             onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
-        <Can permission="admin.investments.create_request">
+        <Can permission="admin.investments.solicitud_inversion">
           <button
             onClick={() => setIsNewRequestModalOpen(true)}
             className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>Crear Solicitud de Inversión</span>
+            <span>Solicitud de Inversión</span>
           </button>
         </Can>
       </div>
