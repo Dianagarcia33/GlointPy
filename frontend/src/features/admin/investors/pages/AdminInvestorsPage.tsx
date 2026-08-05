@@ -10,6 +10,7 @@ import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
 import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
 import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsModal';
+import { NewInvestmentModal } from '../../../dashboard/components/NewInvestmentModal';
 import { formatAccountNumber } from '../../../../utils/format';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
@@ -146,6 +147,7 @@ export const AdminInvestorsPage = () => {
   const [userNameToAdjust, setUserNameToAdjust] = useState('');
   const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
   const [selectedInvestorForBankAccounts, setSelectedInvestorForBankAccounts] = useState<Investor | null>(null);
+  const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -272,8 +274,17 @@ export const AdminInvestorsPage = () => {
           </p>
         </div>
         
-        <Can permissions={["admin.investors.create", "admin.investors.manage"]}>
-          <div className="relative z-10 flex items-center gap-3 shrink-0">
+        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+          <Can permissions={["admin.investments.create_request", "admin.investments.manage"]}>
+            <button 
+              onClick={() => setIsNewRequestModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/30 text-sm font-bold cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Crear Solicitud de Inversión</span>
+            </button>
+          </Can>
+          <Can permissions={["admin.investors.create", "admin.investors.manage"]}>
             <button 
               onClick={handleCreate}
               className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
@@ -281,8 +292,8 @@ export const AdminInvestorsPage = () => {
               <Plus className="w-4 h-4" />
               <span>Crear Inversión</span>
             </button>
-          </div>
-        </Can>
+          </Can>
+        </div>
       </div>
 
       {/* Tabs Navigation */}
@@ -935,6 +946,14 @@ export const AdminInvestorsPage = () => {
         onConfirm={confirmDelete}
         investorCode={investorToDelete?.assigned_code}
         isDeleting={isDeleting}
+      />
+
+      <NewInvestmentModal 
+        isOpen={isNewRequestModalOpen}
+        onClose={() => {
+          setIsNewRequestModalOpen(false);
+          fetchData();
+        }}
       />
     </div>
   );

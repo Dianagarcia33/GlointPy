@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
 import { commercialService } from '../../../../services/commercial';
-import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User } from 'lucide-react';
+import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { formatCurrency } from '../../../../utils/format';
 import { getMediaUrl } from '../../../../services/api';
 import { sarlaftService } from '../../../../services/sarlaft';
+import { NewInvestmentModal } from '../../../dashboard/components/NewInvestmentModal';
 
 const FALLBACK_DOC_SVG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E";
 
@@ -59,6 +60,7 @@ export const InvestmentRequestsTable = () => {
   const [selectedRequestToReview, setSelectedRequestToReview] = useState<InvestmentRequest | null>(null);
   const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string; email?: string }>>([]);
   const [selectedCommercialId, setSelectedCommercialId] = useState<string>('');
+  const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   useEffect(() => {
     commercialService.getPublicAdvisors()
@@ -224,7 +226,7 @@ export const InvestmentRequestsTable = () => {
   return (
     <div className="space-y-6">
       {/* Filters Bar */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex-1 w-full relative">
           <input 
             type="text" 
@@ -234,7 +236,24 @@ export const InvestmentRequestsTable = () => {
             onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
+        <Can permissions={["admin.investments.create_request", "admin.investments.manage"]}>
+          <button
+            onClick={() => setIsNewRequestModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Crear Solicitud de Inversión</span>
+          </button>
+        </Can>
       </div>
+
+      <NewInvestmentModal 
+        isOpen={isNewRequestModalOpen}
+        onClose={() => {
+          setIsNewRequestModalOpen(false);
+          fetchData();
+        }}
+      />
 
       <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
