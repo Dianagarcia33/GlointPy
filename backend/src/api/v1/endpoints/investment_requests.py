@@ -48,7 +48,7 @@ class ApproveRequestPayload(BaseModel):
 class RejectRequestPayload(BaseModel):
     rejection_reason: str
 
-@router.post("/{request_id}/approve", dependencies=[Depends(RequirePermission("admin.investments.manage"))])
+@router.post("/{request_id}/approve", dependencies=[Depends(RequirePermission("admin.investments.approve"))])
 async def approve_investment_request(
     request_id: int,
     payload: Optional[ApproveRequestPayload] = None,
@@ -62,7 +62,7 @@ async def approve_investment_request(
     c_id = payload.commercial_id if payload else None
     return await InvestmentRequestService.approve_request(db, request_id, current_user.id, override_commercial_id=c_id)
 
-@router.post("/{request_id}/reject", dependencies=[Depends(RequirePermission("admin.investments.manage"))])
+@router.post("/{request_id}/reject", dependencies=[Depends(RequirePermission("admin.investments.reject"))])
 async def reject_investment_request(
     request_id: int,
     payload: RejectRequestPayload,

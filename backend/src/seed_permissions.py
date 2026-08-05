@@ -41,6 +41,8 @@ PERMISSIONS = [
     {"name": "admin.investors.delete", "description": "Eliminar contratos e inversionistas del sistema", "module": "investors"},
     {"name": "admin.investments.manage", "description": "Aprobar y rechazar solicitudes de inversión", "module": "investments"},
     {"name": "admin.investments.create_request", "description": "Crear solicitudes de inversión (Crear Solicitud de Inversión)", "module": "investments"},
+    {"name": "admin.investments.approve", "description": "Aprobar solicitudes de inversión", "module": "investments"},
+    {"name": "admin.investments.reject", "description": "Rechazar solicitudes de inversión", "module": "investments"},
     {"name": "admin.payments.manage", "description": "Gestionar sección de pagos", "module": "payments"},
     {"name": "admin.withdrawals.manage", "description": "Gestionar y aprobar retiros", "module": "payments"},
     {"name": "admin.audits.manage", "description": "Auditoría y cálculo de rendimientos", "module": "audit"},

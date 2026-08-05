@@ -267,9 +267,7 @@ export const InvestmentRequestsTable = () => {
                 <th className="px-6 py-4">Monto</th>
                 <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Fecha Solicitud</th>
-                <Can permission="admin.investments.manage">
-                  <th className="px-6 py-4 text-center">Acciones</th>
-                </Can>
+                <th className="px-6 py-4 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -331,32 +329,34 @@ export const InvestmentRequestsTable = () => {
                       <td className="px-6 py-4 text-xs text-slate-500">
                         {request.created_at ? new Date(request.created_at).toLocaleDateString() : '-'}
                       </td>
-                      <Can permission="admin.investments.manage">
                         <td className="px-6 py-4 text-center">
                           {request.status === 'pending' && (
                             <div className="flex items-center justify-center gap-2">
-                              <button 
-                                onClick={() => setSelectedRequestToReview(request)}
-                                disabled={isProcessing}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-200 bg-emerald-50 cursor-pointer disabled:opacity-50"
-                                title="Aprobar Solicitud"
-                              >
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                <span>Aprobar</span>
-                              </button>
-                              <button 
-                                onClick={() => setRejectingId(request.id)}
-                                disabled={isProcessing}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer disabled:opacity-50"
-                                title="Rechazar Solicitud"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                                <span>Rechazar</span>
-                              </button>
+                              <Can permission="admin.investments.approve">
+                                <button 
+                                  onClick={() => setSelectedRequestToReview(request)}
+                                  disabled={isProcessing}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100 rounded-xl transition-all border border-emerald-200 bg-emerald-50 cursor-pointer disabled:opacity-50"
+                                  title="Aprobar Solicitud"
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  <span>Aprobar</span>
+                                </button>
+                              </Can>
+                              <Can permission="admin.investments.reject">
+                                <button 
+                                  onClick={() => setRejectingId(request.id)}
+                                  disabled={isProcessing}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer disabled:opacity-50"
+                                  title="Rechazar Solicitud"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  <span>Rechazar</span>
+                                </button>
+                              </Can>
                             </div>
                           )}
                         </td>
-                      </Can>
                     </tr>
                     
                     {/* Expanded Details Row */}
