@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, UploadCloud } from 'lucide-react';
+import { X, Loader2, UploadCloud, Wallet as WalletIcon, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '../../../../store/authStore';
 import { usersService, User } from '../../../../services/users';
 import { packagesService, Package } from '../../../../services/packages';
@@ -25,6 +25,12 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
   const [periodId, setPeriodId] = useState<number | ''>('');
   const [referredBy, setReferredBy] = useState('');
 
+  // Wallet State
+  const [useWallet, setUseWallet] = useState(false);
+  const [userWalletBalance, setUserWalletBalance] = useState<number>(0);
+  const [walletAmount, setWalletAmount] = useState<number>(0);
+  const [isLoadingWallet, setIsLoadingWallet] = useState(false);
+
   const [comprobanteFile, setComprobanteFile] = useState<File | null>(null);
   const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
 
@@ -37,8 +43,9 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Selected package object to determine read-only amount
+  // Selected package object to determine amount
   const selectedPackage = packages.find(p => p.id === Number(packageId));
+  const packageValue = selectedPackage ? selectedPackage.value : 0;
 
   useEffect(() => {
     if (isOpen) {
@@ -48,6 +55,9 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
       setPackageId('');
       setPeriodId('');
       setReferredBy('');
+      setUseWallet(false);
+      setUserWalletBalance(0);
+      setWalletAmount(0);
       setComprobanteFile(null);
       setComprobantePreview(null);
       setError(null);
@@ -74,6 +84,32 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
       loadDependencies();
     }
   }, [isOpen]);
+
+  // Fetch selected user's wallet balance
+  useEffect(() => {
+    if (!userId) {
+      setUserWalletBalance(0);
+      setWalletAmount(0);
+      return;
+    }
+
+    const fetchUserWallet = async () => {
+      try {
+        setIsLoadingWallet(true);
+        const res = await fetchApi('/wallets/admin/all');
+        const userWallet = (res || []).find((item: any) => item.user_id === Number(userId));
+        const balance = userWallet ? (userWallet.balance || 0) : 0;
+        setUserWalletBalance(balance);
+      } catch (err) {
+        console.error("Error obteniendo billetera del usuario", err);
+        setUserWalletBalance(0);
+      } finally {
+        setIsLoadingWallet(false);
+      }
+    };
+
+    fetchUserWallet();
+  }, [userId]);
 
   // Dynamic user search
   useEffect(() => {
@@ -114,6 +150,16 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
     }
   };
 
+  const handleToggleWallet = (checked: boolean) => {
+    setUseWallet(checked);
+    if (checked) {
+      const maxAllowed = Math.min(userWalletBalance, packageValue);
+      setWalletAmount(maxAllowed);
+    } else {
+      setWalletAmount(0);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -130,8 +176,18 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
       setError("Debes seleccionar un periodo de contrato.");
       return;
     }
-    if (!selectedPackage || !selectedPackage.value || selectedPackage.value <= 0) {
+    if (!packageValue || packageValue <= 0) {
       setError("El paquete seleccionado no tiene un monto válido.");
+      return;
+    }
+
+    if (useWallet && walletAmount > userWalletBalance) {
+      setError("El monto ingresado de billetera supera el saldo disponible del usuario.");
+      return;
+    }
+
+    if (useWallet && walletAmount > packageValue) {
+      setError("El monto de billetera no puede superar el valor total del paquete.");
       return;
     }
 
@@ -141,8 +197,11 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
       formData.append('user_id', userId.toString());
       formData.append('paquete_inversion_id', packageId.toString());
       formData.append('periodo_contrato', periodId.toString());
-      formData.append('monto', selectedPackage.value.toString());
+      formData.append('monto', packageValue.toString());
 
+      if (useWallet && walletAmount > 0) {
+        formData.append('monto_billetera_usado', walletAmount.toString());
+      }
       if (referredBy.trim()) {
         formData.append('codigo_referido', referredBy.trim());
       }
@@ -167,6 +226,8 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
       setIsLoading(false);
     }
   };
+
+  const remainingToPay = Math.max(0, packageValue - (useWallet ? walletAmount : 0));
 
   if (!isOpen) return null;
 
@@ -221,9 +282,18 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
               <label className="text-sm font-medium text-slate-700">Usuario *</label>
               {userId ? (
                 <div className="flex items-center justify-between w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
-                  <span className="text-emerald-800 text-sm font-medium">
-                    {selectedUserName || users.find(u => u.id === userId)?.name || 'Usuario Seleccionado'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-emerald-800 text-sm font-medium">
+                      {selectedUserName || users.find(u => u.id === userId)?.name || 'Usuario Seleccionado'}
+                    </span>
+                    {isLoadingWallet ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                    ) : (
+                      <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
+                        Saldo: ${userWalletBalance.toLocaleString('es-CO')} COP
+                      </span>
+                    )}
+                  </div>
                   <button 
                     type="button" 
                     onClick={() => { setUserId(''); setSelectedUserName(''); setUserSearch(''); }} 
@@ -312,20 +382,85 @@ export const AdminSolicitudInversionModal: React.FC<AdminSolicitudInversionModal
               </div>
             </div>
 
-            {/* Monto (Calculado automáticamente del Paquete - Readonly) */}
+            {/* Monto de la Inversión (Readonly) */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-slate-700">Monto de la Inversión (COP)</label>
               <input
                 type="text"
-                value={selectedPackage ? `$${selectedPackage.value.toLocaleString('es-CO')} COP` : 'Selecciona un paquete'}
+                value={packageValue ? `$${packageValue.toLocaleString('es-CO')} COP` : 'Selecciona un paquete'}
                 readOnly
                 className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 font-semibold cursor-not-allowed text-sm"
               />
             </div>
 
+            {/* OPCIÓN: Usar Saldo de Billetera */}
+            {userId && (
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="toggle-use-wallet" className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-slate-800">
+                    <WalletIcon className="w-4 h-4 text-emerald-600" />
+                    <span>Usar Saldo de Billetera del Usuario</span>
+                  </label>
+                  <input
+                    type="checkbox"
+                    id="toggle-use-wallet"
+                    checked={useWallet}
+                    onChange={(e) => handleToggleWallet(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                  />
+                </div>
+
+                {useWallet && (
+                  <div className="space-y-3 pt-2 border-t border-slate-200 animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between text-xs text-slate-600">
+                      <span>Saldo disponible en billetera:</span>
+                      <span className="font-bold text-emerald-700">${userWalletBalance.toLocaleString('es-CO')} COP</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-slate-700">Monto a descontar de billetera (COP)</label>
+                        <button
+                          type="button"
+                          onClick={() => setWalletAmount(Math.min(userWalletBalance, packageValue))}
+                          className="text-[11px] font-bold text-emerald-700 hover:underline"
+                        >
+                          Usar máximo disponible
+                        </button>
+                      </div>
+                      <input
+                        type="number"
+                        value={walletAmount || ''}
+                        onChange={(e) => setWalletAmount(Math.min(Number(e.target.value), userWalletBalance))}
+                        placeholder="Ej: 500000"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1 text-xs">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Valor total paquete:</span>
+                        <span>${packageValue.toLocaleString('es-CO')} COP</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-medium">
+                        <span>Pago con Billetera:</span>
+                        <span>- ${walletAmount.toLocaleString('es-CO')} COP</span>
+                      </div>
+                      <div className="flex justify-between text-slate-900 font-bold border-t border-slate-100 pt-1">
+                        <span>Restante a consignar:</span>
+                        <span>${remainingToPay.toLocaleString('es-CO')} COP</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Comprobante de Pago (Opcional) */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700">Comprobante de Pago (Opcional)</label>
+              <label className="text-sm font-medium text-slate-700">
+                {useWallet && remainingToPay === 0 ? 'Comprobante de Pago (Opcional - Pago 100% con Billetera)' : 'Comprobante de Pago (Opcional)'}
+              </label>
               <div className="border border-dashed border-slate-200 rounded-lg p-3 text-center bg-slate-50 hover:border-brand-400 transition-colors">
                 <input
                   type="file"
