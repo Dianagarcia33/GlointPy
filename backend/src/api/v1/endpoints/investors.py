@@ -53,7 +53,7 @@ async def update_investor(
     """
     return await InvestorService.update_investor(db, investor_id=investor_id, investor=investor)
 
-@router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
+@router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission(["admin.investors.delete", "admin.investors.manage"]))])
 async def delete_investor(
     investor_id: int,
     db: AsyncSession = Depends(get_db)

@@ -492,30 +492,36 @@ export const AdminInvestorsPage = () => {
                               <Landmark className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Cuentas ({investor.user?.bank_accounts?.length || 0})</span>
                             </button>
-                            <button 
-                              onClick={() => setSelectedInvestorForUpgrade(investor)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-xl transition-all border border-amber-200 bg-amber-50 cursor-pointer"
-                              title="Solicitar Aumento de Capital"
-                            >
-                              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                              <span>+ Capital</span>
-                            </button>
-                            <button 
-                              onClick={() => handleEdit(investor)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
-                              title="Editar Inversión"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              <span>Editar</span>
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(investor)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
-                              title="Eliminar Inversión"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Eliminar</span>
-                            </button>
+                            <Can permissions={["admin.investors.capital_increase", "admin.investors.manage"]}>
+                              <button 
+                                onClick={() => setSelectedInvestorForUpgrade(investor)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-xl transition-all border border-amber-200 bg-amber-50 cursor-pointer"
+                                title="Solicitar Aumento de Capital"
+                              >
+                                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                <span>+ Capital</span>
+                              </button>
+                            </Can>
+                            <Can permissions={["admin.investors.capital_increase", "admin.investors.manage"]}>
+                              <button 
+                                onClick={() => handleEdit(investor)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
+                                title="Editar Inversión"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                <span>Editar</span>
+                              </button>
+                            </Can>
+                            <Can permissions={["admin.investors.delete", "admin.investors.manage"]}>
+                              <button 
+                                onClick={() => handleDelete(investor)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
+                                title="Eliminar Inversión"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Eliminar</span>
+                              </button>
+                            </Can>
                           </div>
                         </td>
                       </Can>

@@ -36,6 +36,8 @@ PERMISSIONS = [
     {"name": "admin.packages.manage", "description": "Gestionar paquetes", "module": "admin"},
     {"name": "admin.investors.manage", "description": "Gestionar contratos de inversionistas", "module": "investors"},
     {"name": "admin.investors.wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Lápiz)", "module": "investors"},
+    {"name": "admin.investors.capital_increase", "description": "Solicitar o gestionar aumento de capital de contratos (+ Capital)", "module": "investors"},
+    {"name": "admin.investors.delete", "description": "Eliminar contratos e inversionistas del sistema", "module": "investors"},
     {"name": "admin.investments.manage", "description": "Aprobar y rechazar solicitudes de inversión", "module": "investments"},
     {"name": "admin.payments.manage", "description": "Gestionar sección de pagos", "module": "payments"},
     {"name": "admin.withdrawals.manage", "description": "Gestionar y aprobar retiros", "module": "payments"},
