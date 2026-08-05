@@ -808,35 +808,43 @@ async def create_investment_request(
     return {"message": "Solicitud creada exitosamente", "id": new_request.id}
 
 @router.get("/admin/search-user")
-async def admin_search_user(query: str, current_user = Depends(RequirePermission("admin.investments.manage")), db: AsyncSession = Depends(get_db)):
+async def admin_search_user(
+    query: Optional[str] = "", 
+    current_user = Depends(RequirePermission(["admin.investments.manage", "admin.investments.solicitud_inversion", "admin.investors.manage", "admin.investors.create"])), 
+    db: AsyncSession = Depends(get_db)
+):
     """
     Search users by name, email, or document for admin investment creation.
     """
     from src.models.user import User
     from sqlalchemy import or_
     
-    if len(query) < 3:
-        return []
-        
-    search_term = f"%{query}%"
-    res = await db.execute(
-        select(User).where(
-            or_(
-                User.name.ilike(search_term),
-                User.email.ilike(search_term),
-                User.document_id.ilike(search_term)
-            )
-        ).limit(10)
-    )
-    users = res.scalars().all()
+    q = (query or "").strip()
+    if not q or len(q) < 2:
+        res = await db.execute(select(User).where(User.is_active == True).limit(30))
+        users = res.scalars().all()
+    else:
+        search_term = f"%{q}%"
+        res = await db.execute(
+            select(User).where(
+                User.is_active == True,
+                or_(
+                    User.name.ilike(search_term),
+                    User.email.ilike(search_term),
+                    User.document_id.ilike(search_term)
+                )
+            ).limit(30)
+        )
+        users = res.scalars().all()
     
     return [
         {
             "id": u.id,
             "name": u.name,
             "email": u.email,
+            "document_id": u.document_id,
             "documento": u.document_id,
-            "numero_celular": getattr(u, "phone", ""),
+            "numero_celular": getattr(u, "phone_number", getattr(u, "phone", "")),
             "ciudad": getattr(u, "city", ""),
             "banco": "",
             "tipo_cuenta": "Ahorros",

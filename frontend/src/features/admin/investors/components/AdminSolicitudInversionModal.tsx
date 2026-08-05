@@ -59,13 +59,11 @@ export const AdminSolicitudInversionModal = ({ isOpen, onClose, onSuccess }: Adm
         const handler = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const res = await usersService.getUsers({ 
-                    search: userSearch.trim() || undefined, 
-                    limit: 100 
-                });
-                setUsers(res.data || []);
+                const res = await fetchApi(`/investments/admin/search-user?query=${encodeURIComponent(userSearch.trim())}`);
+                setUsers(res || []);
             } catch (err) {
                 console.error("Error buscando usuarios", err);
+                setUsers([]);
             } finally {
                 setIsSearching(false);
             }
