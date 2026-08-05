@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from src.models.user import User
 from src.models.investor import Investor
-from src.models.commercial_sale import CommercialSale, CommercialSaleType
+from src.models.commercial_sale import CommercialSale, CommercialSaleType, CommercialSaleStatus
 from src.models.commercial_bonus import CommercialBonus, CommercialBonusType, CommercialBonusStatus
 from src.models.wallet import Wallet, WalletTransaction
 from src.schemas.commercial_sale import CommercialSaleCreate
