@@ -275,7 +275,7 @@ export const AdminInvestorsPage = () => {
         </div>
         
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <Can permissions={["admin.investments.create_request", "admin.investments.manage"]}>
+          <Can permission="admin.investments.create_request">
             <button 
               onClick={() => setIsNewRequestModalOpen(true)}
               className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/30 text-sm font-bold cursor-pointer shrink-0"
@@ -284,7 +284,7 @@ export const AdminInvestorsPage = () => {
               <span>Crear Solicitud de Inversión</span>
             </button>
           </Can>
-          <Can permissions={["admin.investors.create", "admin.investors.manage"]}>
+          <Can permission="admin.investors.create">
             <button 
               onClick={handleCreate}
               className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
@@ -503,7 +503,7 @@ export const AdminInvestorsPage = () => {
                               <Landmark className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Cuentas ({investor.user?.bank_accounts?.length || 0})</span>
                             </button>
-                            <Can permissions={["admin.investors.capital_increase", "admin.investors.manage"]}>
+                            <Can permission="admin.investors.capital_increase">
                               <button 
                                 onClick={() => setSelectedInvestorForUpgrade(investor)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-xl transition-all border border-amber-200 bg-amber-50 cursor-pointer"
@@ -513,7 +513,7 @@ export const AdminInvestorsPage = () => {
                                 <span>+ Capital</span>
                               </button>
                             </Can>
-                            <Can permissions={["admin.investors.capital_increase", "admin.investors.manage"]}>
+                            <Can permission="admin.investors.capital_increase">
                               <button 
                                 onClick={() => handleEdit(investor)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
@@ -523,7 +523,7 @@ export const AdminInvestorsPage = () => {
                                 <span>Editar</span>
                               </button>
                             </Can>
-                            <Can permissions={["admin.investors.delete", "admin.investors.manage"]}>
+                            <Can permission="admin.investors.delete">
                               <button 
                                 onClick={() => handleDelete(investor)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
@@ -645,7 +645,7 @@ export const AdminInvestorsPage = () => {
                                       <div className="text-xl font-bold text-slate-800">
                                         {Number(investor.user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: investor.user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                                         {!isDirectivo && (
-                                          <Can permissions={["admin.investors.wallet_adjust", "admin.investors.manage"]}>
+                                          <Can permission="admin.investors.wallet_adjust">
                                             <button 
                                               onClick={() => {
                                                 if (investor.user && investor.user.wallet) {

@@ -475,7 +475,7 @@ async def bulk_upload_transactions(file: UploadFile = File(...), db: AsyncSessio
     return {"success_count": success_count, "errors": errors}
 
 from src.schemas.wallet import AdminWalletAdjustRequest
-@router.post("/admin/wallets/{wallet_id}/adjust", dependencies=[Depends(RequirePermission(["admin.investors.wallet_adjust", "admin.investors.manage"]))])
+@router.post("/admin/wallets/{wallet_id}/adjust", dependencies=[Depends(RequirePermission("admin.investors.wallet_adjust"))])
 async def admin_adjust_wallet(
     wallet_id: int, 
     req: AdminWalletAdjustRequest, 

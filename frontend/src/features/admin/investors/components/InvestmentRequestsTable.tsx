@@ -236,7 +236,7 @@ export const InvestmentRequestsTable = () => {
             onChange={(e) => setSearchInput(e.target.value)}
           />
         </div>
-        <Can permissions={["admin.investments.create_request", "admin.investments.manage"]}>
+        <Can permission="admin.investments.create_request">
           <button
             onClick={() => setIsNewRequestModalOpen(true)}
             className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer shrink-0"

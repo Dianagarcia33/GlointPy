@@ -32,7 +32,7 @@ async def read_investor(
     """
     return await InvestorService.get_investor(db, investor_id=investor_id)
 
-@router.post("/", response_model=InvestorResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission(["admin.investors.create", "admin.investors.manage"]))])
+@router.post("/", response_model=InvestorResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("admin.investors.create"))])
 async def create_investor(
     investor: InvestorCreate,
     db: AsyncSession = Depends(get_db)
@@ -53,7 +53,7 @@ async def update_investor(
     """
     return await InvestorService.update_investor(db, investor_id=investor_id, investor=investor)
 
-@router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission(["admin.investors.delete", "admin.investors.manage"]))])
+@router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission("admin.investors.delete"))])
 async def delete_investor(
     investor_id: int,
     db: AsyncSession = Depends(get_db)
