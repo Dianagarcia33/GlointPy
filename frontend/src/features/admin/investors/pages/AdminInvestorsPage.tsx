@@ -272,7 +272,7 @@ export const AdminInvestorsPage = () => {
           </p>
         </div>
         
-        <Can permission="admin.investors.manage">
+        <Can permissions={["admin.investors.create", "admin.investors.manage"]}>
           <div className="relative z-10 flex items-center gap-3 shrink-0">
             <button 
               onClick={handleCreate}
