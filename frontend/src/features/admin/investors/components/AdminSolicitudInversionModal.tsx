@@ -83,10 +83,8 @@ export const AdminSolicitudInversionModal = ({ isOpen, onClose, onSuccess }: Adm
         const fetchUserWallet = async () => {
             try {
                 setIsLoadingWallet(true);
-                const res = await fetchApi('/wallets/admin/all');
-                const userWallet = (res || []).find((item: any) => item.user_id === Number(userId));
-                const balance = userWallet ? (userWallet.balance || 0) : 0;
-                setUserWalletBalance(balance);
+                const res = await fetchApi(`/wallets/admin/user/${userId}/balance`);
+                setUserWalletBalance(res.balance || 0);
             } catch (err) {
                 console.error("Error obteniendo saldo de billetera", err);
                 setUserWalletBalance(0);

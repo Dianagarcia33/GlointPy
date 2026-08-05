@@ -80,6 +80,19 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
         "withdrawal_date_message": withdrawal_msg
     }
 
+@router.get("/admin/user/{user_id}/balance", dependencies=[Depends(RequirePermission(["admin.investments.manage", "admin.investments.solicitud_inversion", "admin.investors.manage", "admin.investors.create"]))])
+async def get_user_wallet_balance_admin(user_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Get wallet balance for a specific user ID for investment creation.
+    """
+    result = await db.execute(select(Wallet).where(Wallet.user_id == user_id))
+    wallet = result.scalars().first()
+    return {
+        "user_id": user_id,
+        "balance": wallet.balance if wallet else 0,
+        "currency": wallet.currency if wallet else "COP"
+    }
+
 
 
 
