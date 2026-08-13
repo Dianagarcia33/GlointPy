@@ -11,8 +11,10 @@ import {
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 import { Badge } from "./Badge";
+import { CONTACT_INFO } from "../../../constants/contactInfo";
 
 export function Hero() {
+  const whatsappLink = CONTACT_INFO.whatsappLink;
   return (
     <section
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
@@ -261,6 +263,7 @@ export function Hero() {
             whileTap={{ scale: 0.97 }}
             className="px-8 py-4 rounded-xl font-bold text-base"
             style={{ border: `1px solid ${GOLD}`, color: GOLD, background: "rgba(197,155,78,0.08)" }}
+            onClick={() => window.open(whatsappLink, "_blank")}
           >
             Contactar un asesor
           </motion.button>

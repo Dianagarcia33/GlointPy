@@ -2,8 +2,12 @@ import React from "react";
 import { motion } from "motion/react";
 import { ArrowRight, MessageCircle, Sparkles } from "lucide-react";
 import { DARK, GOLD, ORANGE } from "../utils/constants";
+import { CONTACT_INFO } from "../../../constants/contactInfo";
+import { useNavigate } from "react-router-dom";
 
 export function NosotrosCTA() {
+  const whatsappLink = CONTACT_INFO.whatsappLink;
+  const navigate = useNavigate();
   return (
     <section
       className="py-24 md:py-28 relative overflow-hidden"
@@ -104,6 +108,7 @@ export function NosotrosCTA() {
             style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`, boxShadow: `0 10px 30px ${GOLD}25` }}
             whileHover={{ scale: 1.04, boxShadow: `0 15px 40px ${GOLD}40` }}
             whileTap={{ scale: 0.97 }}
+            onClick={() => window.open(whatsappLink, "_blank")}
           >
             <MessageCircle size={18} />
             Hablar con un asesor
@@ -119,6 +124,7 @@ export function NosotrosCTA() {
             style={{ border: "1px solid rgba(255,255,255,0.18)", color: "#fff", background: "rgba(255,255,255,0.05)" }}
             whileHover={{ scale: 1.04, background: "rgba(255,255,255,0.1)", borderColor: `${GOLD}50` }}
             whileTap={{ scale: 0.97 }}
+            onClick={() => { navigate("/investment"); window.scrollTo({ top: 0 }); }}
           >
             Conocer nuestros servicios
             <ArrowRight size={17} />
