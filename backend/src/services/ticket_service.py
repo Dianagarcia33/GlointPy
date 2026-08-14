@@ -1,20 +1,49 @@
 import httpx
 import logging
-from typing import Dict, Any
-from fastapi import HTTPException
+from typing import Dict, Any, Optional
+from fastapi import HTTPException, UploadFile
 from src.core.config import settings
-from src.schemas.ticket import TicketCreate
 
 logger = logging.getLogger(__name__)
 
 class TicketService:
+    @classmethod
+    async def upload_attachment(cls, file: UploadFile) -> str:
+        """Sube un archivo a la API de Glointtickeds y devuelve la URL completa."""
+        url = settings.TICKEDS_API_UPLOAD_URL
+        files = {"file": (file.filename, file.file, file.content_type)}
+        
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                response = await client.post(url, files=files)
+                response.raise_for_status()
+                data = response.json()
+                # Construir la URL completa
+                return "https://tickeds.glointech.com.co" + data["url"]
+            except httpx.HTTPStatusError as exc:
+                logger.error(f"HTTPStatusError al subir archivo: {exc.response.text}")
+                raise HTTPException(
+                    status_code=exc.response.status_code, 
+                    detail="Error subiendo el archivo al sistema de tickets."
+                )
+            except Exception as e:
+                logger.error(f"Excepción al subir archivo: {str(e)}")
+                raise HTTPException(
+                    status_code=500, 
+                    detail="Error interno al subir el archivo."
+                )
+
     @classmethod
     async def create_ticket(
         cls, 
         user_id: str, 
         user_email: str, 
         user_name: str, 
-        ticket_data: TicketCreate
+        title: str,
+        description: str,
+        category: str,
+        priority: str,
+        attachment_url: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Envía la creación de un ticket a la API externa de Glointtickeds.
@@ -29,11 +58,14 @@ class TicketService:
             "external_user_id": str(user_id),
             "external_user_email": user_email,
             "external_user_name": user_name,
-            "title": ticket_data.title,
-            "description": ticket_data.description,
-            "category": ticket_data.category,
-            "priority": ticket_data.priority
+            "title": title,
+            "description": description,
+            "category": category,
+            "priority": priority
         }
+        
+        if attachment_url:
+            payload["attachment_url"] = attachment_url
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:

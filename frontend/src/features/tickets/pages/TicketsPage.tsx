@@ -8,6 +8,7 @@ export const TicketsPage: React.FC = () => {
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState('general');
     const [priority, setPriority] = useState('normal');
+    const [file, setFile] = useState<File | null>(null);
     
     const [isLoading, setIsLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
@@ -20,18 +21,23 @@ export const TicketsPage: React.FC = () => {
         setErrorMsg('');
 
         try {
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('description', description);
+            formData.append('category', category);
+            formData.append('priority', priority);
+            if (file) {
+                formData.append('file', file);
+            }
+
             await fetchApi('/tickets/', {
                 method: 'POST',
-                body: JSON.stringify({
-                    title,
-                    description,
-                    category,
-                    priority
-                })
+                body: formData
             });
             setSuccessMsg('¡Ticket enviado correctamente! Nuestro equipo lo revisará pronto.');
             setTitle('');
             setDescription('');
+            setFile(null);
         } catch (error: any) {
             setErrorMsg(error.message || 'Ocurrió un error al enviar el ticket.');
         } finally {
@@ -114,6 +120,16 @@ export const TicketsPage: React.FC = () => {
                             onChange={(e) => setDescription(e.target.value)}
                             className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all resize-none"
                             placeholder="Detalla tu problema o solicitud..."
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Imagen / Evidencia (Opcional)</label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setFile(e.target.files?.[0] || null)}
+                            className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all bg-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
                         />
                     </div>
 
