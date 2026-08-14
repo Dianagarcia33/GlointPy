@@ -25,7 +25,7 @@ class TicketService:
                 logger.error(f"HTTPStatusError al subir archivo: {exc.response.text}")
                 raise HTTPException(
                     status_code=exc.response.status_code, 
-                    detail="Error subiendo el archivo al sistema de tickets."
+                    detail=f"Error subiendo el archivo al sistema de tickets: {exc.response.text}"
                 )
             except Exception as e:
                 logger.error(f"Excepción al subir archivo: {str(e)}")
