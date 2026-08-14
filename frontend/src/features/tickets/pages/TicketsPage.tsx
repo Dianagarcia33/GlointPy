@@ -259,10 +259,10 @@ export const TicketsPage: React.FC = () => {
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6 min-h-[600px] max-h-[800px]"
+                    className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6 items-stretch h-auto md:h-[700px]"
                 >
                     {/* Panel Izquierdo: Detalles */}
-                    <div className="w-full md:w-1/3 bg-white rounded-3xl p-6 shadow-xs border border-slate-200 flex flex-col h-auto md:h-full overflow-y-auto custom-scrollbar">
+                    <div className="w-full md:w-1/3 bg-white rounded-3xl p-6 shadow-xs border border-slate-200 flex flex-col overflow-y-auto custom-scrollbar">
                         <button onClick={() => setActiveTab('list')} className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-2 mb-6 cursor-pointer w-fit">
                             &larr; Volver a la lista
                         </button>
@@ -307,7 +307,7 @@ export const TicketsPage: React.FC = () => {
                     </div>
 
                     {/* Panel Derecho: Chat */}
-                    <div className="w-full md:w-2/3 bg-white rounded-3xl flex flex-col shadow-xs border border-slate-200 overflow-hidden h-[600px] md:h-auto">
+                    <div className="w-full md:w-2/3 bg-white rounded-3xl flex flex-col shadow-xs border border-slate-200 overflow-hidden">
                         <div className="p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                             <h3 className="font-bold text-slate-800 font-montserrat flex items-center gap-2">
                                 <MessageSquare className="w-5 h-5 text-brand-500" />
