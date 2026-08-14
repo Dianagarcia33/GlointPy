@@ -21,4 +21,5 @@ from src.models.potential_referral import PotentialReferral, PotentialReferralSt
 from src.models.chat import ChatRoom, ChatParticipant, ChatMessage
 from src.models.device_token import UserDeviceToken
 from src.models.user_notification import UserNotification
+from src.models.admin_notification import AdminBroadcastLog
 

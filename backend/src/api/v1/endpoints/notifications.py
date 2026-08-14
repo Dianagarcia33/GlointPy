@@ -5,7 +5,14 @@ from typing import Dict, Any
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
-from src.schemas.notification import DeviceTokenRegisterRequest, DeviceTokenUnregisterRequest, SendPushNotificationRequest, DeviceTokenResponse
+from src.schemas.notification import (
+    DeviceTokenRegisterRequest, 
+    DeviceTokenUnregisterRequest, 
+    SendPushNotificationRequest, 
+    DeviceTokenResponse,
+    AdminBroadcastNotificationRequest,
+    AdminBroadcastLogResponse
+)
 from src.services.push_notification_service import PushNotificationService
 
 router = APIRouter()
@@ -143,3 +150,92 @@ async def mark_all_notifications_read(
     )
     await db.commit()
     return {"success": True}
+
+@router.post("/admin/send-broadcast", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.notifications.manage"]))])
+async def send_admin_broadcast(
+    req: AdminBroadcastNotificationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Endpoint administrativo para enviar comunicados o notificaciones masivas/segmentadas.
+    """
+    return await PushNotificationService.send_broadcast_notification(
+        db=db,
+        sender_id=current_user.id,
+        title=req.title,
+        message=req.message,
+        type=req.type,
+        target_audience=req.target_audience,
+        target_role_id=req.target_role_id,
+        target_user_ids=req.target_user_ids,
+        link=req.link,
+        send_push=req.send_push
+    )
+
+@router.get("/admin/broadcast-history", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.notifications.manage"]))])
+async def get_admin_broadcast_history(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene el historial de notificaciones masivas enviadas por la administración.
+    """
+    from sqlalchemy import select, desc
+    from sqlalchemy.orm import selectinload
+    from src.models.admin_notification import AdminBroadcastLog
+
+    stmt = (
+        select(AdminBroadcastLog)
+        .options(selectinload(AdminBroadcastLog.sender))
+        .order_by(desc(AdminBroadcastLog.created_at))
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    logs = res.scalars().all()
+
+    return [
+        {
+            "id": l.id,
+            "sender_id": l.sender_id,
+            "sender_name": l.sender.name if l.sender else "Administrador del Sistema",
+            "title": l.title,
+            "message": l.message,
+            "type": l.type,
+            "target_audience": l.target_audience,
+            "target_role_name": l.target_role_name,
+            "recipients_count": l.recipients_count,
+            "link": l.link,
+            "sent_push": l.sent_push,
+            "created_at": l.created_at.isoformat() if l.created_at else None
+        }
+        for l in logs
+    ]
+
+@router.get("/admin/target-options", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.notifications.manage"]))])
+async def get_admin_target_options(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna la lista de roles y usuarios activos para poblar los selectores de audiencia del admin.
+    """
+    from sqlalchemy import select
+    from src.models.security import Role
+    from src.models.user import User
+
+    roles_res = await db.execute(select(Role).order_by(Role.name))
+    roles = roles_res.scalars().all()
+
+    users_res = await db.execute(
+        select(User)
+        .where(User.is_active == True)
+        .order_by(User.name)
+        .limit(300)
+    )
+    users = users_res.scalars().all()
+
+    return {
+        "roles": [{"id": r.id, "name": r.name, "description": r.description} for r in roles],
+        "users": [{"id": u.id, "name": u.name, "email": u.email, "document_id": u.document_id} for u in users]
+    }
+

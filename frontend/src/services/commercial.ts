@@ -6,6 +6,9 @@ export interface CommercialClientCheckResponse {
   is_existing_client: boolean;
   client_name?: string;
   monto?: number;
+  total_package_amount?: number;
+  previous_package_amount?: number;
+  increase_amount?: number;
   allowed_types: string[];
   forced_type?: string;
 }

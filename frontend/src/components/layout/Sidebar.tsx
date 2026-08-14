@@ -24,7 +24,8 @@ import {
     LayoutDashboard,
     CreditCard,
     TrendingUp,
-    ShieldCheck
+    ShieldCheck,
+    Send
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
@@ -361,6 +362,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                 <FileText className="w-[18px] h-[18px]" />
                                             </span>
                                             <span className="flex-1 text-[13px] font-outfit">Plantillas</span>
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["admin.notifications.manage", "admin.users.manage", "admin.roles.manage"]}>
+                                        <NavLink to="/dashboard/admin-notifications" className={navLinkClass}>
+                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                                <Send className="w-[18px] h-[18px]" />
+                                            </span>
+                                            <span className="flex-1 text-[13px] font-outfit">Notificaciones Admin</span>
                                         </NavLink>
                                     </Can>
                                 </motion.div>

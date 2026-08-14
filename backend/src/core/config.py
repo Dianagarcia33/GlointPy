@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # Frontend URL for emails
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Tickeds API
+    TICKEDS_API_URL: str = "https://tickeds.glointech.com.co/api/v1/external/tickets"
+    TICKEDS_API_KEY: str = "gtk_live_glointpy_b13847f78de39d43"
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
         env_file_encoding="utf-8",

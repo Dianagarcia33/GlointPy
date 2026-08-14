@@ -75,6 +75,9 @@ PERMISSIONS = [
     {"name": "crm:leads:manage", "description": "Crear, editar y mover prospectos y actividades en el CRM", "module": "crm"},
     {"name": "crm:projects:manage", "description": "Crear y administrar proyectos de inversión en el CRM", "module": "crm"},
     {"name": "admin.crm.manage", "description": "Administración global de prospectos, proyectos y métricas del CRM", "module": "crm"},
+
+    # Notificaciones Administrativas
+    {"name": "admin.notifications.manage", "description": "Enviar y administrar comunicados y notificaciones del sistema", "module": "admin"},
 ]
 
 async def seed_permissions():

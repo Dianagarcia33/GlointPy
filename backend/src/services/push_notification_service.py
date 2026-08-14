@@ -169,3 +169,119 @@ class PushNotificationService:
             logger.warning(f"Push no entregado a usuario {user_id}: {err}")
 
         return notif
+
+    @staticmethod
+    async def send_broadcast_notification(
+        db: AsyncSession,
+        sender_id: int,
+        title: str,
+        message: str,
+        type: str = "sistema",
+        target_audience: str = "all",
+        target_role_id: Optional[int] = None,
+        target_user_ids: Optional[List[int]] = None,
+        link: Optional[str] = None,
+        send_push: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Envía notificaciones in-app y Push masivas a la audiencia seleccionada.
+        Registra la auditoría en AdminBroadcastLog.
+        """
+        from src.models.user import User
+        from src.models.security import Role, user_roles
+        from src.models.admin_notification import AdminBroadcastLog
+
+        # 1. Determinar lista de usuarios destinatarios
+        target_users = []
+        target_role_name = None
+
+        if target_audience == "role" and target_role_id:
+            role_res = await db.execute(select(Role).where(Role.id == target_role_id))
+            role_obj = role_res.scalars().first()
+            if role_obj:
+                target_role_name = role_obj.name
+                users_res = await db.execute(
+                    select(User)
+                    .join(user_roles)
+                    .where(
+                        user_roles.c.role_id == target_role_id,
+                        User.is_active == True
+                    )
+                )
+                target_users = users_res.scalars().all()
+        elif target_audience == "specific_users" and target_user_ids:
+            users_res = await db.execute(
+                select(User).where(
+                    User.id.in_(target_user_ids),
+                    User.is_active == True
+                )
+            )
+            target_users = users_res.scalars().all()
+        else: # "all"
+            target_audience = "all"
+            users_res = await db.execute(select(User).where(User.is_active == True))
+            target_users = users_res.scalars().all()
+
+        recipients_count = len(target_users)
+        if recipients_count == 0:
+            return {
+                "success": False,
+                "message": "No se encontraron usuarios activos para la audiencia seleccionada.",
+                "recipients_count": 0
+            }
+
+        # 2. Crear registros in-app (UserNotification) para cada usuario
+        notifications_to_add = [
+            UserNotification(
+                user_id=u.id,
+                title=title,
+                message=message,
+                type=type,
+                link=link,
+                is_read=False
+            )
+            for u in target_users
+        ]
+        db.add_all(notifications_to_add)
+
+        # 3. Guardar log de auditoría masiva (AdminBroadcastLog)
+        broadcast_log = AdminBroadcastLog(
+            sender_id=sender_id,
+            title=title,
+            message=message,
+            type=type,
+            target_audience=target_audience,
+            target_role_name=target_role_name,
+            recipients_count=recipients_count,
+            link=link,
+            sent_push=send_push
+        )
+        db.add(broadcast_log)
+        await db.commit()
+        await db.refresh(broadcast_log)
+
+        # 4. Transmitir alertas Push FCM si send_push está activo
+        push_sent_total = 0
+        if send_push:
+            for u in target_users:
+                try:
+                    res = await PushNotificationService.send_push_to_user(
+                        db=db,
+                        user_id=u.id,
+                        title=title,
+                        body=message,
+                        data={"link": link or "", "type": type}
+                    )
+                    if res.get("sent_count"):
+                        push_sent_total += res.get("sent_count")
+                except Exception as err:
+                    logger.warning(f"Error al enviar push masivo a usuario {u.id}: {err}")
+
+        return {
+            "success": True,
+            "broadcast_id": broadcast_log.id,
+            "recipients_count": recipients_count,
+            "push_sent_total": push_sent_total,
+            "message": f"Notificación enviada con éxito a {recipients_count} usuarios."
+        }
+

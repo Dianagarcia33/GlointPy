@@ -42,3 +42,31 @@ class UserNotificationResponse(BaseModel):
 class UserNotificationListResponse(BaseModel):
     notifications: list[UserNotificationResponse]
     unread_count: int
+
+class AdminBroadcastNotificationRequest(BaseModel):
+    title: str = Field(..., description="Título del comunicado o actualización")
+    message: str = Field(..., description="Contenido de la notificación")
+    type: str = Field("sistema", description="'sistema', 'anuncio', 'mantenimiento', 'alerta'")
+    target_audience: str = Field("all", description="'all', 'role', 'specific_users'")
+    target_role_id: Optional[int] = Field(None, description="ID del rol si target_audience es 'role'")
+    target_user_ids: Optional[list[int]] = Field(None, description="Lista de IDs de usuarios si target_audience es 'specific_users'")
+    link: Optional[str] = Field(None, description="Enlace interno o externo opcional")
+    send_push: bool = Field(True, description="Enviar también alerta Push via Firebase")
+
+class AdminBroadcastLogResponse(BaseModel):
+    id: int
+    sender_id: Optional[int] = None
+    sender_name: Optional[str] = None
+    title: str
+    message: str
+    type: str
+    target_audience: str
+    target_role_name: Optional[str] = None
+    recipients_count: int
+    link: Optional[str] = None
+    sent_push: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+

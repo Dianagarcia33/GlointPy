@@ -39,6 +39,7 @@ import { AdminReferralsPage } from "./features/admin/referrals/pages/AdminReferr
 import { ChatPage } from "./features/chat/pages/ChatPage";
 import { CRMPage } from "./features/crm/pages/CRMPage";
 import { CRMInboxPage } from "./features/crm/pages/CRMInboxPage";
+import { AdminNotificationsPage } from "./features/admin/notifications/pages/AdminNotificationsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
@@ -116,6 +117,7 @@ function App() {
         <Route path="chat" element={<RequirePermission permission="chat:view"><ChatPage /></RequirePermission>} />
         <Route path="crm" element={<RequirePermission permission="crm:view"><CRMPage /></RequirePermission>} />
         <Route path="crm/inbox" element={<RequirePermission permission="crm:view"><CRMInboxPage /></RequirePermission>} />
+        <Route path="admin-notifications" element={<RequirePermission permission="admin.users.manage"><AdminNotificationsPage /></RequirePermission>} />
       </Route>
 
 

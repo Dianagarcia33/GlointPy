@@ -17,7 +17,7 @@ export function getMediaUrl(path: string | null | undefined): string {
   return `${baseUrl}${cleanPath}`;
 }
 
-export async function fetchApi(endpoint: string, options: RequestInit = {}) {
+export async function fetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().accessToken;
   
   const headers = new Headers(options.headers || {});
@@ -70,7 +70,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   }
 
   if (response.status === 204) {
-    return null;
+    return null as unknown as T;
   }
 
   return response.json();

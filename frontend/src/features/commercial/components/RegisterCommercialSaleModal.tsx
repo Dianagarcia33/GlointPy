@@ -78,22 +78,28 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const selectSearchResult = (item: SearchClientResult) => {
     setClientDocument(item.document_id || searchTerm);
     setClientName(item.name);
-    if (item.monto && item.monto > 0) {
-      setAmount(item.monto.toString());
-      setIsAmountLocked(true);
-    }
-    setClientInfo({
-      client_document: item.document_id || searchTerm,
-      client_exists: true,
-      is_existing_client: true,
-      client_name: item.name,
-      monto: item.monto,
-      allowed_types: ['referido'],
-      forced_type: 'referido'
-    });
-    setSaleType('referido');
     setSearchTerm(`${item.name} (${item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || ''})`);
     setSearchResults([]);
+
+    commercialService.checkClient(item.document_id || item.assigned_code || searchTerm)
+      .then((res) => {
+        setClientInfo(res);
+        if (res.forced_type) setSaleType(res.forced_type as any);
+        if (res.monto && res.monto > 0) setAmount(res.monto.toString());
+      })
+      .catch(() => {
+        setClientInfo({
+          client_document: item.document_id || searchTerm,
+          client_exists: true,
+          is_existing_client: true,
+          client_name: item.name,
+          monto: item.monto,
+          allowed_types: ['referido'],
+          forced_type: 'referido'
+        });
+        setSaleType('referido');
+        if (item.monto) setAmount(item.monto.toString());
+      });
   };
 
   if (!isOpen) return null;
@@ -113,7 +119,6 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       if (res.client_name) setClientName(res.client_name);
       if (res.monto && res.monto > 0) {
         setAmount(res.monto.toString());
-        setIsAmountLocked(true);
       }
     } catch (err: any) {
       setError(err.message || 'Error al validar el documento del cliente');
@@ -300,19 +305,35 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           {/* Banner de Validación del Cliente */}
           {clientInfo && (
             clientInfo.is_existing_client ? (
-              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-1">
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-2">
                 <div className="flex items-center gap-1.5 font-bold text-amber-900">
                   <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Cliente Existente en Plataforma</span>
+                  <span>Inversionista Existente en Plataforma</span>
                 </div>
                 <p className="text-amber-800 leading-relaxed">
-                  Por regla de negocio, esta venta se ha clasificado automáticamente como <strong className="font-extrabold text-amber-950">REFERIDO (1.8% Fijo)</strong>. Las opciones de Contrato Nuevo y Reinversión están bloqueadas.
+                  Por regla de negocio, los aumentos de capital o nuevos contratos de inversionistas existentes se clasifican como <strong className="font-extrabold text-amber-950">REFERIDO (1.8% Fijo)</strong>.
                 </p>
+                {clientInfo.previous_package_amount && clientInfo.previous_package_amount > 0 ? (
+                  <div className="bg-white p-2.5 rounded-lg border border-amber-200 grid grid-cols-3 gap-2 text-[11px] font-mono">
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Paquete Actual</span>
+                      <span className="font-bold text-slate-800">${clientInfo.total_package_amount?.toLocaleString('es-CO')}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Inversión Previa</span>
+                      <span className="font-bold text-slate-600">${clientInfo.previous_package_amount?.toLocaleString('es-CO')}</span>
+                    </div>
+                    <div>
+                      <span className="text-emerald-700 font-bold block text-[10px]">Aumento Neto</span>
+                      <span className="font-extrabold text-emerald-800">${clientInfo.increase_amount?.toLocaleString('es-CO')}</span>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs flex items-center gap-2 text-emerald-800 font-medium">
                 <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Cliente Nuevo en el Sistema • Opciones unlocked (3.0% / 3.5%)</span>
+                <span>Cliente 100% Nuevo • Primera Inversión (Tasa Marginal 3.0% / 3.5%)</span>
               </div>
             )
           )}
@@ -393,15 +414,17 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
             </div>
           )}
 
-          {/* Paquete ($ COP) - Bloqueado Automático */}
+          {/* Monto ($ COP) */}
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <label className="block text-xs font-semibold text-slate-700">
-                Paquete ($ COP) *
+                Monto Base Comisionable ($ COP) *
               </label>
-              <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-slate-400" /> Automático del IG
-              </span>
+              {saleType === 'referido' && (
+                <span className="text-[11px] font-bold text-amber-700 flex items-center gap-1">
+                  👥 Tasa Referido: 1.8% Fijo
+                </span>
+              )}
             </div>
 
             <div className="relative">
@@ -409,13 +432,17 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <input
                 type="number"
                 value={amount}
-                readOnly
-                disabled
-                placeholder="Selecciona un cliente o IG para cargar el paquete automáticamente..."
-                className="w-full pl-8 pr-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 font-mono cursor-not-allowed"
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Ingresa el monto comisionable..."
+                className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 required
               />
             </div>
+            <p className="text-[11px] text-slate-400 mt-1">
+              {clientInfo?.previous_package_amount && clientInfo.previous_package_amount > 0
+                ? 'Base comisionable pre-llenada automáticamente con el valor neto del aumento.'
+                : 'Monto de la inversión o nuevo contrato.'}
+            </p>
           </div>
 
           {/* Fecha de la Venta */}

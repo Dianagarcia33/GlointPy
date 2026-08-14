@@ -110,24 +110,32 @@ def get_current_commercial_cycle_start(ref_date: date) -> date:
 
 async def check_client_classification(db: AsyncSession, client_document: str) -> Dict[str, Any]:
     """
-    Verifica la clasificación comercial del cliente con base en el ciclo comercial de corte (día 29)
-    y los registros de contrato / contract_histories.
+    Verifica la clasificación comercial del cliente con base en los contratos e historial.
+    REGLAS DE NEGOCIO:
+    1. Cliente 100% nuevo (sin inversiones ni contratos previos):
+       - Tipo: "contrato_nuevo" (Tasa marginal 3.0% / 3.5%)
+       - Base de comisión: Valor del contrato inicial.
+    2. Cliente existente que realiza un Aumento de Capital o abre un Contrato Adicional:
+       - Tipo: "referido" (Tasa fija del 1.8%).
+       - Base de comisión para aumentos: Únicamente el VALOR NETO DEL AUMENTO (Diferencia = PaqueteNuevo - ContratoAnterior).
+       - Base de comisión para nuevo contrato adicional: Valor del nuevo contrato.
     """
     doc_clean = client_document.strip()
     today = date.today()
     cycle_start = get_current_commercial_cycle_start(today)
     cycle_start_dt = datetime(cycle_start.year, cycle_start.month, cycle_start.day)
 
-    # Buscar usuario por documento
+    # 1. Buscar usuario por documento
     user_res = await db.execute(select(User).where(User.document_id == doc_clean))
     user = user_res.scalars().first()
 
-    # Buscar contratos de este cliente
+    # 2. Buscar contratos de este cliente
     investors_res = await db.execute(
         select(Investor)
         .options(
             selectinload(Investor.user),
-            selectinload(Investor.package)
+            selectinload(Investor.package),
+            selectinload(Investor.contract_histories)
         )
         .join(User)
         .where(
@@ -139,83 +147,84 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     )
     investors = investors_res.scalars().all()
 
-    client_name = user.name if user else (investors[0].user.name if investors and investors[0].user else None)
-    client_doc = user.document_id if user and user.document_id else (investors[0].user.document_id if investors and investors[0].user else doc_clean)
-    pkg_val = float(investors[0].package.value) if investors and investors[0].package and investors[0].package.value else 0.0
+    if user and not investors:
+        inv_by_user = await db.execute(
+            select(Investor)
+            .options(
+                selectinload(Investor.package),
+                selectinload(Investor.contract_histories)
+            )
+            .where(Investor.user_id == user.id)
+        )
+        investors = inv_by_user.scalars().all()
 
+    # Si no existe usuario ni contratos => Cliente 100% Nuevo
     if not user and not investors:
-        # Cliente 100% nuevo sin usuario ni contratos
         return {
             "client_document": doc_clean,
             "client_exists": False,
             "is_existing_client": False,
             "client_name": None,
             "monto": 0.0,
-            "allowed_types": ["contrato_nuevo", "reinversion", "referido"],
-            "forced_type": None
+            "total_package_amount": 0.0,
+            "previous_package_amount": 0.0,
+            "increase_amount": 0.0,
+            "allowed_types": ["contrato_nuevo"],
+            "forced_type": "contrato_nuevo"
         }
 
-    # Evaluar si algún contrato fue creado/iniciado dentro del ciclo comercial actual (del 29 para acá)
-    has_new_contract_in_cycle = False
-    investor_ids = []
+    client_name = user.name if user else (investors[0].user.name if investors and investors[0].user else None)
+    client_doc = user.document_id if user and user.document_id else (investors[0].user.document_id if investors and investors[0].user else doc_clean)
+    pkg_val = float(investors[0].package.value) if investors and investors[0].package and investors[0].package.value else 0.0
+
+    # Extraer historial de aumentos
+    history_records = []
     for inv in investors:
-        investor_ids.append(inv.id)
-        start_d = inv.start_date.date() if isinstance(inv.start_date, datetime) else inv.start_date
-        created_dt = inv.created_at or datetime(start_d.year, start_d.month, start_d.day)
-        if start_d >= cycle_start or created_dt >= cycle_start_dt:
-            has_new_contract_in_cycle = True
+        if inv.contract_histories:
+            history_records.extend(inv.contract_histories)
+    
+    previous_pkg_val = 0.0
+    if history_records:
+        history_records.sort(key=lambda h: (h.created_at or datetime.min, h.id), reverse=True)
+        previous_pkg_val = float(history_records[0].total_contrato or 0.0)
 
-    # Evaluar si existe algún registro en contract_histories en el ciclo actual para aumentos/reinversión
-    has_history_increase_in_cycle = False
-    if investor_ids:
-        hist_res = await db.execute(
-            select(ContractHistory)
-            .where(
-                ContractHistory.investor_id.in_(investor_ids),
-                or_(
-                    ContractHistory.fecha_inicio >= cycle_start,
-                    ContractHistory.created_at >= cycle_start_dt
-                )
-            )
-        )
-        history_records = hist_res.scalars().all()
-        if history_records:
-            has_history_increase_in_cycle = True
+    # Calcular monto del aumento neto si existe historial
+    increase_amount = max(0.0, pkg_val - previous_pkg_val) if previous_pkg_val > 0 else pkg_val
 
-    # Regla del Ciclo Comercial:
-    # 1. Si se creó/inició un contrato en el ciclo comercial vigente (del 29 para acá): Se permite "contrato_nuevo".
-    # 2. Si hay historial de incremento en el ciclo actual: Se permite "reinversion".
-    # 3. Si solo tiene contratos antiguos y ningún cambio en el ciclo: Se considera cliente antiguo y se clasifica como "referido".
-    if has_new_contract_in_cycle:
-        return {
-            "client_document": client_doc,
-            "client_exists": True,
-            "is_existing_client": False,
-            "client_name": client_name,
-            "monto": pkg_val,
-            "allowed_types": ["contrato_nuevo", "reinversion", "referido"],
-            "forced_type": None
-        }
-    elif has_history_increase_in_cycle:
+    # Si el cliente ya tenía contratos anteriores
+    start_d0 = investors[0].start_date.date() if isinstance(investors[0].start_date, datetime) else investors[0].start_date
+    created_dt0 = investors[0].created_at or datetime(start_d0.year, start_d0.month, start_d0.day)
+    is_brand_new = len(investors) == 1 and not history_records and (start_d0 >= cycle_start or created_dt0 >= cycle_start_dt)
+
+    if not is_brand_new or previous_pkg_val > 0:
+        # INVERSIONISTA EXISTENTE: Todo aumento o nuevo contrato se clasifica como "referido" (1.8%)
+        commissionable_monto = increase_amount if previous_pkg_val > 0 else pkg_val
         return {
             "client_document": client_doc,
             "client_exists": True,
             "is_existing_client": True,
             "client_name": client_name,
-            "monto": pkg_val,
-            "allowed_types": ["reinversion", "referido"],
-            "forced_type": "reinversion"
-        }
-    else:
-        return {
-            "client_document": client_doc,
-            "client_exists": True,
-            "is_existing_client": True,
-            "client_name": client_name,
-            "monto": pkg_val,
+            "monto": commissionable_monto,
+            "total_package_amount": pkg_val,
+            "previous_package_amount": previous_pkg_val,
+            "increase_amount": increase_amount,
             "allowed_types": ["referido"],
             "forced_type": "referido"
         }
+
+    # Si es un cliente 100% nuevo en su primera inversión
+    return {
+        "client_document": client_doc,
+        "client_exists": True,
+        "is_existing_client": False,
+        "client_name": client_name,
+        "monto": pkg_val,
+        "total_package_amount": pkg_val,
+        "previous_package_amount": 0.0,
+        "increase_amount": pkg_val,
+        "allowed_types": ["contrato_nuevo"],
+        "forced_type": "contrato_nuevo"
+    }
 
 async def calculate_marginal_commission(
     db: AsyncSession,
