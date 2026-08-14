@@ -162,98 +162,123 @@ export const TicketsPage: React.FC = () => {
 
             {activeTab === 'create' ? (
                 <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 max-w-3xl mx-auto"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="max-w-4xl mx-auto"
                 >
-                    <h2 className="text-xl font-bold text-slate-800 mb-6 font-montserrat">Crear Nueva Solicitud</h2>
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {successMsg && (
-                            <div className="p-4 bg-emerald-50 text-emerald-700 rounded-xl flex items-center gap-3 border border-emerald-100">
-                                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                                <span className="font-bold text-sm">{successMsg}</span>
-                            </div>
-                        )}
-                        {errorMsg && (
-                            <div className="p-4 bg-rose-50 text-rose-700 rounded-xl flex items-center gap-3 border border-rose-100">
-                                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                                <span className="font-bold text-sm">{errorMsg}</span>
-                            </div>
-                        )}
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Título del Ticket</label>
-                            <input
-                                type="text"
-                                required
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-800"
-                                placeholder="Ej: Error al procesar pago"
-                            />
+                    <div className="bg-white rounded-[2rem] p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
+                        <div className="mb-8">
+                            <h2 className="text-2xl font-black text-slate-800 font-montserrat tracking-tight">Nueva Solicitud de Soporte</h2>
+                            <p className="text-slate-500 text-sm font-medium mt-2">Por favor, detalla tu inconveniente para que nuestro equipo pueda ayudarte rápidamente.</p>
                         </div>
+                        
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {successMsg && (
+                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-3 border border-emerald-100/50">
+                                    <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                                    <span className="font-bold text-sm">{successMsg}</span>
+                                </motion.div>
+                            )}
+                            {errorMsg && (
+                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-rose-50 text-rose-700 rounded-2xl flex items-center gap-3 border border-rose-100/50">
+                                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                    <span className="font-bold text-sm">{errorMsg}</span>
+                                </motion.div>
+                            )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Categoría</label>
-                                <select
-                                    value={category}
-                                    onChange={(e) => setCategory(e.target.value)}
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-800 cursor-pointer"
+                            <div className="group">
+                                <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Asunto del Ticket</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 shadow-sm"
+                                    placeholder="Ej: Problemas al procesar mi pago..."
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="group">
+                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Categoría</label>
+                                    <div className="relative">
+                                        <select
+                                            value={category}
+                                            onChange={(e) => setCategory(e.target.value)}
+                                            className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 cursor-pointer appearance-none shadow-sm"
+                                        >
+                                            <option value="general">Consulta General</option>
+                                            <option value="billing">Pagos / Facturación</option>
+                                            <option value="technical">Soporte Técnico</option>
+                                            <option value="deliveries">Envíos / Pedidos</option>
+                                        </select>
+                                        <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="group">
+                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Prioridad</label>
+                                    <div className="relative">
+                                        <select
+                                            value={priority}
+                                            onChange={(e) => setPriority(e.target.value)}
+                                            className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 cursor-pointer appearance-none shadow-sm"
+                                        >
+                                            <option value="low">Baja (Sin urgencia)</option>
+                                            <option value="normal">Normal</option>
+                                            <option value="urgent">Urgente (Bloqueante)</option>
+                                        </select>
+                                        <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Descripción del Problema</label>
+                                <textarea
+                                    required
+                                    rows={5}
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none resize-none text-sm font-medium text-slate-700 shadow-sm leading-relaxed"
+                                    placeholder="Describe detalladamente lo que sucede..."
+                                />
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Evidencia / Captura (Opcional)</label>
+                                <div className="relative border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-slate-50 hover:border-brand-300 transition-all group-focus-within:border-brand-500 group-focus-within:bg-white">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    />
+                                    <div className="p-6 flex flex-col items-center justify-center text-center">
+                                        <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
+                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                        </div>
+                                        <p className="text-sm font-bold text-slate-700">{file ? file.name : "Haz clic o arrastra una imagen aquí"}</p>
+                                        <p className="text-xs text-slate-400 mt-1 font-medium">Solo formatos de imagen (PNG, JPG)</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-6 mt-2">
+                                <button 
+                                    type="submit"
+                                    disabled={isLoading}
+                                    className="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl font-black text-sm tracking-wide transition-all shadow-[0_8px_20px_rgba(var(--brand-500-rgb),0.3)] hover:shadow-[0_12px_25px_rgba(var(--brand-500-rgb),0.4)] flex items-center justify-center gap-3 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed hover:-translate-y-0.5"
                                 >
-                                    <option value="general">General</option>
-                                    <option value="billing">Pagos / Facturación</option>
-                                    <option value="technical">Soporte Técnico</option>
-                                    <option value="deliveries">Envíos / Pedidos</option>
-                                </select>
+                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                                    {isLoading ? 'ENVIANDO TICKET...' : 'CREAR TICKET AHORA'}
+                                </button>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Prioridad</label>
-                                <select
-                                    value={priority}
-                                    onChange={(e) => setPriority(e.target.value)}
-                                    className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-800 cursor-pointer"
-                                >
-                                    <option value="low">Baja</option>
-                                    <option value="normal">Normal</option>
-                                    <option value="urgent">Urgente</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Descripción</label>
-                            <textarea
-                                required
-                                rows={5}
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none resize-none text-sm font-semibold text-slate-800"
-                                placeholder="Detalla tu problema o solicitud de forma clara..."
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Imagen / Evidencia (Opcional)</label>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                className="w-full px-4 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer"
-                            />
-                        </div>
-
-                        <div className="pt-4 border-t border-slate-100">
-                            <button 
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full sm:w-auto px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
-                            >
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                <span>{isLoading ? 'Enviando...' : 'Enviar Ticket'}</span>
-                            </button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </motion.div>
             ) : activeTab === 'view' && selectedTicket ? (
                 <motion.div 
