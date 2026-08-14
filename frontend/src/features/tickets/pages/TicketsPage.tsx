@@ -328,7 +328,7 @@ export const TicketsPage: React.FC = () => {
                                 </div>
                             ) : (
                                 ticketDetails.comments.map((c: any, i: number) => {
-                                    const isStaff = !c.external_user_name;
+                                    const isStaff = c.author_type === 'agent';
                                     return (
                                         <div key={i} className={`flex ${isStaff ? 'justify-start' : 'justify-end'}`}>
                                             <div className={`p-4 rounded-2xl max-w-[90%] sm:max-w-[75%] shadow-sm ${
@@ -337,7 +337,7 @@ export const TicketsPage: React.FC = () => {
                                                     : 'bg-brand-50 border border-brand-100 rounded-tr-none'
                                             }`}>
                                                 <div className="text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">
-                                                    {c.external_user_name || 'Agente de Soporte'}
+                                                    {c.author_name || (isStaff ? 'Agente de Soporte' : 'Usuario')}
                                                 </div>
                                                 <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
                                                 {c.attachment_url && (
