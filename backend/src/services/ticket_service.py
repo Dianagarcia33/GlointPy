@@ -20,7 +20,7 @@ class TicketService:
                 response.raise_for_status()
                 data = response.json()
                 # Construir la URL completa
-                return "https://tickeds.glointech.com.co" + data["url"]
+                return "http://161.35.107.122" + data["url"]
             except httpx.HTTPStatusError as exc:
                 logger.error(f"HTTPStatusError al subir archivo: {exc.response.text}")
                 raise HTTPException(

@@ -39,8 +39,8 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
 
     # Tickeds API
-    TICKEDS_API_URL: str = "https://tickeds.glointech.com.co/api/v1/external/tickets"
-    TICKEDS_API_UPLOAD_URL: str = "https://tickeds.glointech.com.co/api/v1/upload"
+    TICKEDS_API_URL: str = "http://161.35.107.122/api/v1/external/tickets"
+    TICKEDS_API_UPLOAD_URL: str = "http://161.35.107.122/api/v1/upload"
     TICKEDS_API_KEY: str = "gtk_live_glointpy_b13847f78de39d43"
 
     model_config = SettingsConfigDict(
