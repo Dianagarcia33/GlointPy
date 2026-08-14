@@ -31,7 +31,7 @@ class TicketService:
                 logger.error(f"Excepción al subir archivo: {str(e)}")
                 raise HTTPException(
                     status_code=500, 
-                    detail="Error interno al subir el archivo."
+                    detail=f"Error interno al subir el archivo: {str(e)} - Tipo: {type(e).__name__}"
                 )
 
     @classmethod
