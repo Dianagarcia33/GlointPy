@@ -375,6 +375,7 @@ export const TicketsPage: React.FC = () => {
                                     <th className="px-6 py-4">Categoría</th>
                                     <th className="px-6 py-4">Prioridad</th>
                                     <th className="px-6 py-4">Estado</th>
+                                    <th className="px-6 py-4 text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-semibold text-xs">
@@ -421,6 +422,17 @@ export const TicketsPage: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 {getStatusBadge(ticket.status)}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button 
+                                                    className="px-3 py-1.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-xl text-xs font-bold hover:bg-brand-100 transition-colors shadow-sm"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleViewTicket(ticket);
+                                                    }}
+                                                >
+                                                    Ver Detalle
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
