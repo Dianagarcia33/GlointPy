@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2 } from 'lucide-react';
+import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2, MessageSquare } from 'lucide-react';
 import { fetchApi } from '../../../services/api';
 
 export const TicketsPage: React.FC = () => {
@@ -259,106 +259,134 @@ export const TicketsPage: React.FC = () => {
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 max-w-4xl mx-auto flex flex-col min-h-[600px] max-h-[800px]"
+                    className="max-w-7xl mx-auto flex flex-col md:flex-row gap-6 min-h-[600px] max-h-[800px]"
                 >
-                    <div className="flex justify-between items-start border-b border-slate-100 pb-4 mb-4">
-                        <div>
-                            <button onClick={() => setActiveTab('list')} className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-2 mb-3 cursor-pointer">
-                                &larr; Volver a la lista
-                            </button>
-                            <h2 className="text-xl font-bold text-slate-800 font-montserrat">
+                    {/* Panel Izquierdo: Detalles */}
+                    <div className="w-full md:w-1/3 bg-white rounded-3xl p-6 shadow-xs border border-slate-200 flex flex-col h-auto md:h-full overflow-y-auto custom-scrollbar">
+                        <button onClick={() => setActiveTab('list')} className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-2 mb-6 cursor-pointer w-fit">
+                            &larr; Volver a la lista
+                        </button>
+                        
+                        <div className="mb-6">
+                            <h2 className="text-xl font-bold text-slate-800 font-montserrat leading-tight">
                                 {ticketDetails?.title || selectedTicket.title} 
-                                <span className="ml-3 text-sm font-mono text-slate-400">#{selectedTicket.ticket_number || selectedTicket.id}</span>
                             </h2>
-                        </div>
-                        {getStatusBadge(ticketDetails?.status || selectedTicket.status)}
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar pb-4">
-                        {isLoadingDetails ? (
-                            <div className="text-center py-10 text-slate-400 flex flex-col items-center">
-                                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-brand-400" />
-                                <span className="font-medium text-sm">Cargando conversación...</span>
+                            <div className="mt-3 font-mono text-xs font-bold text-brand-700 bg-brand-50 px-3 py-1.5 rounded-lg inline-block border border-brand-200">
+                                #{selectedTicket.ticket_number || selectedTicket.id}
                             </div>
-                        ) : (
-                            <>
-                                {/* Original Ticket as first message */}
-                                <div className="flex justify-end mb-6">
-                                    <div className="bg-brand-50 rounded-2xl rounded-tr-none p-4 max-w-[85%] sm:max-w-[70%] border border-brand-100 shadow-sm">
-                                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{ticketDetails?.description || selectedTicket.description}</p>
-                                        {ticketDetails?.attachment_url && (
-                                            <a href={ticketDetails.attachment_url} target="_blank" rel="noreferrer" className="block mt-3 border border-brand-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
-                                                <img src={ticketDetails.attachment_url} alt="Evidencia" className="max-h-48 object-cover w-full" />
-                                            </a>
-                                        )}
-                                        <div className="text-[10px] text-brand-600/70 font-bold mt-2 text-right uppercase tracking-wider">Ticket Original</div>
-                                    </div>
+                        </div>
+
+                        <div className="space-y-5 mb-6 flex-1">
+                            <div>
+                                <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Estado Actual</span>
+                                {getStatusBadge(ticketDetails?.status || selectedTicket.status)}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">Categoría</span>
+                                    <span className="text-sm font-semibold text-slate-700 capitalize">{ticketDetails?.category || selectedTicket.category || 'General'}</span>
                                 </div>
-                                
-                                {/* Comments */}
-                                {ticketDetails?.comments?.map((c: any, i: number) => {
-                                    // Determinar si el mensaje es del staff o del cliente
-                                    // La API dice: "El external_user_name es opcional" pero usualmente el staff es is_internal
-                                    // o no tiene external_user_id. Asumiremos que si viene de GlointPy es del cliente (Tú).
+                                <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                    <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">Prioridad</span>
+                                    <span className="text-sm font-semibold text-slate-700 capitalize">{ticketDetails?.priority || selectedTicket.priority || 'Normal'}</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-5 border-t border-slate-100">
+                                <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Mensaje Original</span>
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{ticketDetails?.description || selectedTicket.description}</p>
+                                    {ticketDetails?.attachment_url && (
+                                        <a href={ticketDetails.attachment_url} target="_blank" rel="noreferrer" className="block mt-4 border border-slate-200 rounded-xl overflow-hidden hover:opacity-90 transition-opacity bg-white">
+                                            <img src={ticketDetails.attachment_url} alt="Evidencia inicial" className="max-h-40 object-cover w-full" />
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Panel Derecho: Chat */}
+                    <div className="w-full md:w-2/3 bg-white rounded-3xl flex flex-col shadow-xs border border-slate-200 overflow-hidden h-[600px] md:h-auto">
+                        <div className="p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                            <h3 className="font-bold text-slate-800 font-montserrat flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-brand-500" />
+                                Historial de Conversación
+                            </h3>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-slate-50/30">
+                            {isLoadingDetails ? (
+                                <div className="text-center py-10 text-slate-400 flex flex-col items-center h-full justify-center">
+                                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-brand-400" />
+                                    <span className="font-medium text-sm">Cargando mensajes...</span>
+                                </div>
+                            ) : (!ticketDetails?.comments || ticketDetails.comments.length === 0) ? (
+                                <div className="text-center py-10 text-slate-400 flex flex-col items-center h-full justify-center">
+                                    <MessageSquare className="w-12 h-12 mb-3 text-slate-200" />
+                                    <span className="font-medium text-sm">Aún no hay respuestas en este ticket.</span>
+                                </div>
+                            ) : (
+                                ticketDetails.comments.map((c: any, i: number) => {
                                     const isStaff = !c.external_user_name;
                                     return (
                                         <div key={i} className={`flex ${isStaff ? 'justify-start' : 'justify-end'}`}>
-                                            <div className={`p-4 rounded-2xl max-w-[85%] sm:max-w-[70%] shadow-sm ${
+                                            <div className={`p-4 rounded-2xl max-w-[90%] sm:max-w-[75%] shadow-sm ${
                                                 isStaff
-                                                    ? 'bg-slate-50 border border-slate-200 rounded-tl-none' 
+                                                    ? 'bg-white border border-slate-200 rounded-tl-none' 
                                                     : 'bg-brand-50 border border-brand-100 rounded-tr-none'
                                             }`}>
-                                                <div className="text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                                                <div className="text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">
                                                     {c.external_user_name || 'Agente de Soporte'}
                                                 </div>
                                                 <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
                                                 {c.attachment_url && (
-                                                    <a href={c.attachment_url} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
-                                                        <img src={c.attachment_url} alt="Evidencia adjunta" className="max-h-48 object-cover w-full" />
+                                                    <a href={c.attachment_url} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity bg-white">
+                                                        <img src={c.attachment_url} alt="Evidencia adjunta" className="max-h-48 object-cover min-w-[150px]" />
                                                     </a>
                                                 )}
                                             </div>
                                         </div>
                                     );
-                                })}
-                            </>
-                        )}
-                    </div>
-                    
-                    {/* Reply Form */}
-                    <div className="pt-4 mt-auto border-t border-slate-100 bg-white">
-                        <form onSubmit={handleSendComment} className="flex flex-col sm:flex-row gap-3 items-end">
-                            <div className="flex-1 w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all">
-                                <textarea
-                                    required={!commentFile}
-                                    value={commentContent}
-                                    onChange={(e) => setCommentContent(e.target.value)}
-                                    placeholder="Escribe una respuesta al soporte..."
-                                    className="w-full bg-transparent resize-none outline-none text-sm font-semibold text-slate-700 p-2 max-h-32 min-h-[50px]"
-                                    rows={2}
-                                />
-                                <div className="flex justify-between items-center px-2 pb-1 border-t border-slate-200/50 pt-2 mt-1">
-                                    <input
-                                        type="file"
-                                        id="comment-file"
-                                        className="hidden"
-                                        onChange={(e) => setCommentFile(e.target.files?.[0] || null)}
+                                })
+                            )}
+                        </div>
+
+                        {/* Reply Form */}
+                        <div className="p-4 sm:p-5 border-t border-slate-100 bg-white shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] relative z-10">
+                            <form onSubmit={handleSendComment} className="flex flex-col sm:flex-row gap-3 items-end">
+                                <div className="flex-1 w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all">
+                                    <textarea
+                                        required={!commentFile}
+                                        value={commentContent}
+                                        onChange={(e) => setCommentContent(e.target.value)}
+                                        placeholder="Escribe una respuesta al soporte..."
+                                        className="w-full bg-transparent resize-none outline-none text-sm font-semibold text-slate-700 p-2 max-h-32 min-h-[50px]"
+                                        rows={2}
                                     />
-                                    <label htmlFor="comment-file" className="text-[11px] font-bold uppercase tracking-wide text-slate-500 hover:text-brand-600 cursor-pointer flex items-center gap-1 transition-colors">
-                                        + Adjuntar Archivo
-                                        {commentFile && <span className="text-brand-600 ml-2 max-w-[150px] truncate normal-case font-medium">{commentFile.name}</span>}
-                                    </label>
+                                    <div className="flex justify-between items-center px-2 pb-1 border-t border-slate-200/50 pt-2 mt-1">
+                                        <input
+                                            type="file"
+                                            id="comment-file"
+                                            className="hidden"
+                                            onChange={(e) => setCommentFile(e.target.files?.[0] || null)}
+                                        />
+                                        <label htmlFor="comment-file" className="text-[11px] font-bold uppercase tracking-wide text-slate-500 hover:text-brand-600 cursor-pointer flex items-center gap-1 transition-colors">
+                                            + Adjuntar Archivo
+                                            {commentFile && <span className="text-brand-600 ml-2 max-w-[150px] truncate normal-case font-medium">{commentFile.name}</span>}
+                                        </label>
+                                    </div>
                                 </div>
-                            </div>
-                            <button 
-                                type="submit" 
-                                disabled={isSendingComment || (!commentContent.trim() && !commentFile)}
-                                className="h-14 w-full sm:w-14 flex-shrink-0 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 shadow-md shadow-brand-500/20 cursor-pointer"
-                                title="Enviar respuesta"
-                            >
-                                {isSendingComment ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
-                            </button>
-                        </form>
+                                <button 
+                                    type="submit" 
+                                    disabled={isSendingComment || (!commentContent.trim() && !commentFile)}
+                                    className="h-14 w-full sm:w-14 flex-shrink-0 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 shadow-md shadow-brand-500/20 cursor-pointer"
+                                    title="Enviar respuesta"
+                                >
+                                    {isSendingComment ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </motion.div>
             ) : (
