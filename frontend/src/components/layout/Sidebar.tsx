@@ -25,7 +25,8 @@ import {
     CreditCard,
     TrendingUp,
     ShieldCheck,
-    Send
+    Send,
+    LifeBuoy
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
@@ -110,6 +111,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         <span className="flex-1 text-[13px] font-outfit">Chat</span>
                                     </NavLink>
                                 </Can>
+
+                                <NavLink to="/dashboard/tickets" className={navLinkClass}>
+                                    <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                        <LifeBuoy className="w-[18px] h-[18px]" />
+                                    </span>
+                                    <span className="flex-1 text-[13px] font-outfit">Soporte y Tickets</span>
+                                </NavLink>
                             </motion.div>
                         )}
                     </AnimatePresence>
