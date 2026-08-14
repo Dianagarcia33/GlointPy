@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Ticket, Send, CheckCircle2, AlertCircle } from 'lucide-react';
-import { api } from '../../../services/api';
+import { fetchApi } from '../../../services/api';
 
 export const TicketsPage: React.FC = () => {
     const [title, setTitle] = useState('');
@@ -20,17 +20,20 @@ export const TicketsPage: React.FC = () => {
         setErrorMsg('');
 
         try {
-            await api.post('/tickets/', {
-                title,
-                description,
-                category,
-                priority
+            await fetchApi('/tickets/', {
+                method: 'POST',
+                body: JSON.stringify({
+                    title,
+                    description,
+                    category,
+                    priority
+                })
             });
             setSuccessMsg('¡Ticket enviado correctamente! Nuestro equipo lo revisará pronto.');
             setTitle('');
             setDescription('');
         } catch (error: any) {
-            setErrorMsg(error.response?.data?.detail || 'Ocurrió un error al enviar el ticket.');
+            setErrorMsg(error.message || 'Ocurrió un error al enviar el ticket.');
         } finally {
             setIsLoading(false);
         }
