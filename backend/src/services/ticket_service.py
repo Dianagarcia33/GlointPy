@@ -132,3 +132,41 @@ class TicketService:
             except Exception as e:
                 logger.error(f"Excepción al obtener ticket {ticket_number}: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Error interno al obtener el ticket: {str(e)}")
+
+    @classmethod
+    async def add_ticket_comment(
+        cls, 
+        ticket_number: str, 
+        content: str, 
+        external_user_name: Optional[str] = None, 
+        attachment_url: Optional[str] = None
+    ) -> Any:
+        """Agrega un comentario a un ticket existente."""
+        url = f"{settings.TICKEDS_API_EXTERNAL_BASE}/tickets/{ticket_number}/comments"
+        headers = {
+            "X-API-KEY": settings.TICKEDS_API_KEY,
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "content": content
+        }
+        if external_user_name:
+            payload["external_user_name"] = external_user_name
+        if attachment_url:
+            payload["attachment_url"] = attachment_url
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                logger.error(f"HTTPStatusError al responder ticket {ticket_number}: {exc.response.text}")
+                raise HTTPException(
+                    status_code=exc.response.status_code, 
+                    detail=f"Error respondiendo el ticket: {exc.response.text}"
+                )
+            except Exception as e:
+                logger.error(f"Excepción al responder ticket {ticket_number}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error interno al responder el ticket: {str(e)}")

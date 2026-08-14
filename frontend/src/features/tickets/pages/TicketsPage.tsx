@@ -14,9 +14,16 @@ export const TicketsPage: React.FC = () => {
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
-    const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
+    const [activeTab, setActiveTab] = useState<'list' | 'create' | 'view'>('list');
     const [tickets, setTickets] = useState<any[]>([]);
     const [isLoadingList, setIsLoadingList] = useState(true);
+
+    const [selectedTicket, setSelectedTicket] = useState<any>(null);
+    const [ticketDetails, setTicketDetails] = useState<any>(null);
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+    const [commentContent, setCommentContent] = useState('');
+    const [commentFile, setCommentFile] = useState<File | null>(null);
+    const [isSendingComment, setIsSendingComment] = useState(false);
 
     useEffect(() => {
         if (activeTab === 'list') {
@@ -33,6 +40,50 @@ export const TicketsPage: React.FC = () => {
             console.error('Error fetching tickets', error);
         } finally {
             setIsLoadingList(false);
+        }
+    };
+
+    const handleViewTicket = async (ticket: any) => {
+        setSelectedTicket(ticket);
+        setActiveTab('view');
+        setIsLoadingDetails(true);
+        try {
+            const num = ticket.ticket_number || ticket.id;
+            const data = await fetchApi(`/tickets/${num}`);
+            setTicketDetails(data);
+        } catch (error: any) {
+            console.error('Error fetching ticket details', error);
+        } finally {
+            setIsLoadingDetails(false);
+        }
+    };
+
+    const handleSendComment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!commentContent.trim() && !commentFile) return;
+        
+        setIsSendingComment(true);
+        try {
+            const formData = new FormData();
+            formData.append('content', commentContent);
+            if (commentFile) {
+                formData.append('file', commentFile);
+            }
+            
+            const num = selectedTicket.ticket_number || selectedTicket.id;
+            await fetchApi(`/tickets/${num}/comments`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            setCommentContent('');
+            setCommentFile(null);
+            const data = await fetchApi(`/tickets/${num}`);
+            setTicketDetails(data);
+        } catch (error: any) {
+            alert(error.message || 'Error al enviar respuesta');
+        } finally {
+            setIsSendingComment(false);
         }
     };
 
@@ -204,6 +255,112 @@ export const TicketsPage: React.FC = () => {
                         </div>
                     </form>
                 </motion.div>
+            ) : activeTab === 'view' && selectedTicket ? (
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-200 max-w-4xl mx-auto flex flex-col min-h-[600px] max-h-[800px]"
+                >
+                    <div className="flex justify-between items-start border-b border-slate-100 pb-4 mb-4">
+                        <div>
+                            <button onClick={() => setActiveTab('list')} className="text-sm font-bold text-slate-500 hover:text-slate-800 flex items-center gap-2 mb-3 cursor-pointer">
+                                &larr; Volver a la lista
+                            </button>
+                            <h2 className="text-xl font-bold text-slate-800 font-montserrat">
+                                {ticketDetails?.title || selectedTicket.title} 
+                                <span className="ml-3 text-sm font-mono text-slate-400">#{selectedTicket.ticket_number || selectedTicket.id}</span>
+                            </h2>
+                        </div>
+                        {getStatusBadge(ticketDetails?.status || selectedTicket.status)}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar pb-4">
+                        {isLoadingDetails ? (
+                            <div className="text-center py-10 text-slate-400 flex flex-col items-center">
+                                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-brand-400" />
+                                <span className="font-medium text-sm">Cargando conversación...</span>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Original Ticket as first message */}
+                                <div className="flex justify-end mb-6">
+                                    <div className="bg-brand-50 rounded-2xl rounded-tr-none p-4 max-w-[85%] sm:max-w-[70%] border border-brand-100 shadow-sm">
+                                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{ticketDetails?.description || selectedTicket.description}</p>
+                                        {ticketDetails?.attachment_url && (
+                                            <a href={ticketDetails.attachment_url} target="_blank" rel="noreferrer" className="block mt-3 border border-brand-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
+                                                <img src={ticketDetails.attachment_url} alt="Evidencia" className="max-h-48 object-cover w-full" />
+                                            </a>
+                                        )}
+                                        <div className="text-[10px] text-brand-600/70 font-bold mt-2 text-right uppercase tracking-wider">Ticket Original</div>
+                                    </div>
+                                </div>
+                                
+                                {/* Comments */}
+                                {ticketDetails?.comments?.map((c: any, i: number) => {
+                                    // Determinar si el mensaje es del staff o del cliente
+                                    // La API dice: "El external_user_name es opcional" pero usualmente el staff es is_internal
+                                    // o no tiene external_user_id. Asumiremos que si viene de GlointPy es del cliente (Tú).
+                                    const isStaff = !c.external_user_name;
+                                    return (
+                                        <div key={i} className={`flex ${isStaff ? 'justify-start' : 'justify-end'}`}>
+                                            <div className={`p-4 rounded-2xl max-w-[85%] sm:max-w-[70%] shadow-sm ${
+                                                isStaff
+                                                    ? 'bg-slate-50 border border-slate-200 rounded-tl-none' 
+                                                    : 'bg-brand-50 border border-brand-100 rounded-tr-none'
+                                            }`}>
+                                                <div className="text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                                                    {c.external_user_name || 'Agente de Soporte'}
+                                                </div>
+                                                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
+                                                {c.attachment_url && (
+                                                    <a href={c.attachment_url} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
+                                                        <img src={c.attachment_url} alt="Evidencia adjunta" className="max-h-48 object-cover w-full" />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </>
+                        )}
+                    </div>
+                    
+                    {/* Reply Form */}
+                    <div className="pt-4 mt-auto border-t border-slate-100 bg-white">
+                        <form onSubmit={handleSendComment} className="flex flex-col sm:flex-row gap-3 items-end">
+                            <div className="flex-1 w-full bg-slate-50 border border-slate-200 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-brand-500/20 focus-within:border-brand-500 transition-all">
+                                <textarea
+                                    required={!commentFile}
+                                    value={commentContent}
+                                    onChange={(e) => setCommentContent(e.target.value)}
+                                    placeholder="Escribe una respuesta al soporte..."
+                                    className="w-full bg-transparent resize-none outline-none text-sm font-semibold text-slate-700 p-2 max-h-32 min-h-[50px]"
+                                    rows={2}
+                                />
+                                <div className="flex justify-between items-center px-2 pb-1 border-t border-slate-200/50 pt-2 mt-1">
+                                    <input
+                                        type="file"
+                                        id="comment-file"
+                                        className="hidden"
+                                        onChange={(e) => setCommentFile(e.target.files?.[0] || null)}
+                                    />
+                                    <label htmlFor="comment-file" className="text-[11px] font-bold uppercase tracking-wide text-slate-500 hover:text-brand-600 cursor-pointer flex items-center gap-1 transition-colors">
+                                        + Adjuntar Archivo
+                                        {commentFile && <span className="text-brand-600 ml-2 max-w-[150px] truncate normal-case font-medium">{commentFile.name}</span>}
+                                    </label>
+                                </div>
+                            </div>
+                            <button 
+                                type="submit" 
+                                disabled={isSendingComment || (!commentContent.trim() && !commentFile)}
+                                className="h-14 w-full sm:w-14 flex-shrink-0 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl flex items-center justify-center transition-all disabled:opacity-50 shadow-md shadow-brand-500/20 cursor-pointer"
+                                title="Enviar respuesta"
+                            >
+                                {isSendingComment ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 ml-1" />}
+                            </button>
+                        </form>
+                    </div>
+                </motion.div>
             ) : (
                 <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
                     <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -242,14 +399,18 @@ export const TicketsPage: React.FC = () => {
                                     </tr>
                                 ) : (
                                     tickets.map((ticket, index) => (
-                                        <tr key={index} className="hover:bg-slate-50/80 transition-colors">
+                                        <tr 
+                                            key={index} 
+                                            onClick={() => handleViewTicket(ticket)}
+                                            className="hover:bg-brand-50/50 transition-colors cursor-pointer group"
+                                        >
                                             <td className="px-6 py-4">
-                                                <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                                                <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 group-hover:bg-brand-100 group-hover:text-brand-700 transition-colors px-2.5 py-1 rounded-lg border border-slate-200 group-hover:border-brand-200">
                                                     #{ticket.id || ticket.ticket_number || index + 1}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-800 text-sm">{ticket.title || 'Sin Título'}</div>
+                                                <div className="font-bold text-slate-800 text-sm group-hover:text-brand-700 transition-colors">{ticket.title || 'Sin Título'}</div>
                                                 <div className="text-slate-500 font-normal mt-1 line-clamp-1 max-w-xs">{ticket.description}</div>
                                             </td>
                                             <td className="px-6 py-4">

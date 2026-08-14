@@ -54,3 +54,25 @@ async def get_ticket(ticket_number: str, current_user: User = Depends(get_curren
     Obtiene el detalle de un ticket específico por su número.
     """
     return await TicketService.get_ticket_by_number(ticket_number)
+
+@router.post("/{ticket_number}/comments")
+async def add_ticket_comment(
+    ticket_number: str,
+    content: str = Form(...),
+    file: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Responde a un ticket existente.
+    """
+    attachment_url = None
+    if file:
+        attachment_url = await TicketService.upload_attachment(file)
+
+    result = await TicketService.add_ticket_comment(
+        ticket_number=ticket_number,
+        content=content,
+        external_user_name=current_user.name,
+        attachment_url=attachment_url
+    )
+    return result
