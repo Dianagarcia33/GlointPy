@@ -11,7 +11,8 @@ class TicketService:
     async def upload_attachment(cls, file: UploadFile) -> str:
         """Sube un archivo a la API de Glointtickeds y devuelve la URL completa."""
         url = settings.TICKEDS_API_UPLOAD_URL
-        files = {"file": (file.filename, file.file, file.content_type)}
+        content = await file.read()
+        files = {"file": (file.filename, content, file.content_type)}
         
         async with httpx.AsyncClient(timeout=60.0) as client:
             try:
