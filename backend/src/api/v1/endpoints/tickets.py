@@ -40,3 +40,17 @@ async def create_ticket(
         message="Ticket creado exitosamente",
         data=result
     )
+
+@router.get("/my-tickets")
+async def get_my_tickets(current_user: User = Depends(get_current_user)) -> Any:
+    """
+    Obtiene todos los tickets creados por el usuario logueado.
+    """
+    return await TicketService.get_user_tickets(user_id=str(current_user.id))
+
+@router.get("/{ticket_number}")
+async def get_ticket(ticket_number: str, current_user: User = Depends(get_current_user)) -> Any:
+    """
+    Obtiene el detalle de un ticket específico por su número.
+    """
+    return await TicketService.get_ticket_by_number(ticket_number)

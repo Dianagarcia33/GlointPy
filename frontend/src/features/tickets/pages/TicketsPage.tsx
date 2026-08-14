@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Ticket, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { fetchApi } from '../../../services/api';
@@ -13,6 +13,28 @@ export const TicketsPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
+
+    const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
+    const [tickets, setTickets] = useState<any[]>([]);
+    const [isLoadingList, setIsLoadingList] = useState(false);
+
+    useEffect(() => {
+        if (activeTab === 'list') {
+            fetchTickets();
+        }
+    }, [activeTab]);
+
+    const fetchTickets = async () => {
+        setIsLoadingList(true);
+        try {
+            const data = await fetchApi('/tickets/my-tickets');
+            setTickets(Array.isArray(data) ? data : data?.data || []);
+        } catch (error: any) {
+            console.error('Error fetching tickets', error);
+        } finally {
+            setIsLoadingList(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,9 +69,25 @@ export const TicketsPage: React.FC = () => {
 
     return (
         <div className="p-6 max-w-3xl mx-auto">
-            <div className="mb-6 flex items-center gap-3">
-                <Ticket className="w-8 h-8 text-brand-500" />
-                <h1 className="text-2xl font-bold text-slate-800 font-outfit">Soporte y Tickets</h1>
+            <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Ticket className="w-8 h-8 text-brand-500" />
+                    <h1 className="text-2xl font-bold text-slate-800 font-outfit">Soporte y Tickets</h1>
+                </div>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => setActiveTab('create')}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === 'create' ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                        Nuevo Ticket
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('list')}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === 'list' ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                        Mis Tickets
+                    </button>
+                </div>
             </div>
 
             <motion.div 
@@ -57,6 +95,7 @@ export const TicketsPage: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
             >
+                {activeTab === 'create' ? (
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {successMsg && (
                         <div className="p-4 bg-green-50 text-green-700 rounded-xl flex items-center gap-2">
@@ -148,6 +187,33 @@ export const TicketsPage: React.FC = () => {
                         </button>
                     </div>
                 </form>
+                ) : (
+                <div className="space-y-4">
+                    {isLoadingList ? (
+                        <div className="text-center py-10 text-slate-500">Cargando tickets...</div>
+                    ) : tickets.length === 0 ? (
+                        <div className="text-center py-10 text-slate-500">No tienes tickets creados.</div>
+                    ) : (
+                        <div className="space-y-3">
+                            {tickets.map((ticket, index) => (
+                                <div key={index} className="p-4 border border-slate-100 rounded-xl bg-slate-50/50 flex flex-col gap-2">
+                                    <div className="flex justify-between items-start">
+                                        <h3 className="font-semibold text-slate-800">{ticket.title || `Ticket #${ticket.id || ticket.ticket_number}`}</h3>
+                                        <span className="px-3 py-1 bg-brand-100 text-brand-700 text-xs rounded-full font-medium">
+                                            {ticket.status || 'abierto'}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-slate-600 line-clamp-2">{ticket.description}</p>
+                                    <div className="flex gap-4 text-xs text-slate-500 mt-2">
+                                        {ticket.category && <span>Categoría: <span className="font-medium text-slate-700 capitalize">{ticket.category}</span></span>}
+                                        {ticket.priority && <span>Prioridad: <span className="font-medium text-slate-700 capitalize">{ticket.priority}</span></span>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                )}
             </motion.div>
         </div>
     );

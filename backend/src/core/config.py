@@ -40,6 +40,7 @@ class Settings(BaseSettings):
 
     # Tickeds API
     TICKEDS_API_URL: str = "http://161.35.107.122/api/v1/external/tickets"
+    TICKEDS_API_EXTERNAL_BASE: str = "http://161.35.107.122/api/v1/external"
     TICKEDS_API_UPLOAD_URL: str = "http://161.35.107.122/api/v1/upload"
     TICKEDS_API_KEY: str = "gtk_live_glointpy_b13847f78de39d43"
 

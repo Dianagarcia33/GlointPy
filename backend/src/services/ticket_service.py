@@ -86,3 +86,49 @@ class TicketService:
                     status_code=500, 
                     detail="Error interno comunicándose con la API de tickets."
                 )
+
+    @classmethod
+    async def get_user_tickets(cls, user_id: str) -> Any:
+        """Obtiene la lista de tickets de un usuario desde la API externa."""
+        url = f"{settings.TICKEDS_API_EXTERNAL_BASE}/users/{user_id}/tickets"
+        headers = {
+            "X-API-KEY": settings.TICKEDS_API_KEY,
+            "Content-Type": "application/json"
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                logger.error(f"HTTPStatusError al obtener tickets: {exc.response.text}")
+                raise HTTPException(
+                    status_code=exc.response.status_code, 
+                    detail=f"Error obteniendo tickets: {exc.response.text}"
+                )
+            except Exception as e:
+                logger.error(f"Excepción al obtener tickets: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error interno al obtener tickets: {str(e)}")
+
+    @classmethod
+    async def get_ticket_by_number(cls, ticket_number: str) -> Any:
+        """Obtiene el detalle de un ticket específico."""
+        url = f"{settings.TICKEDS_API_EXTERNAL_BASE}/tickets/{ticket_number}"
+        headers = {
+            "X-API-KEY": settings.TICKEDS_API_KEY,
+            "Content-Type": "application/json"
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                logger.error(f"HTTPStatusError al obtener ticket {ticket_number}: {exc.response.text}")
+                raise HTTPException(
+                    status_code=exc.response.status_code, 
+                    detail=f"Error obteniendo el ticket: {exc.response.text}"
+                )
+            except Exception as e:
+                logger.error(f"Excepción al obtener ticket {ticket_number}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error interno al obtener el ticket: {str(e)}")
