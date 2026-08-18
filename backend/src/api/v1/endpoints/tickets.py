@@ -80,7 +80,7 @@ async def add_ticket_comment(
     return result
 
 @router.get("/image-proxy")
-async def proxy_ticket_image(url: str, current_user: User = Depends(get_current_user)):
+async def proxy_ticket_image(url: str):
     """
     Proxy interno para evitar errores de Mixed Content (HTTPS -> HTTP) en el frontend
     al cargar imágenes desde el sistema externo de tickets.
