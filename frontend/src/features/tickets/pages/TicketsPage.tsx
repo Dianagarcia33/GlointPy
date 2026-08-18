@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2, MessageSquare } from 'lucide-react';
-import { fetchApi } from '../../../services/api';
+import { fetchApi, getMediaUrl } from '../../../services/api';
 import { compressImage } from '../../../utils/imageCompression';
 
 export const TicketsPage: React.FC = () => {
@@ -351,8 +351,8 @@ export const TicketsPage: React.FC = () => {
                                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                                     <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{ticketDetails?.description || selectedTicket.description}</p>
                                     {ticketDetails?.attachment_url && (
-                                        <a href={ticketDetails.attachment_url} target="_blank" rel="noreferrer" className="block mt-4 border border-slate-200 rounded-xl overflow-hidden hover:opacity-90 transition-opacity bg-white">
-                                            <img src={ticketDetails.attachment_url} alt="Evidencia inicial" className="max-h-40 object-cover w-full" />
+                                        <a href={getMediaUrl(ticketDetails.attachment_url)} target="_blank" rel="noreferrer" className="block mt-4 border border-slate-200 rounded-xl overflow-hidden hover:opacity-90 transition-opacity bg-white">
+                                            <img src={getMediaUrl(ticketDetails.attachment_url)} alt="Evidencia inicial" className="max-h-40 object-cover w-full" />
                                         </a>
                                     )}
                                 </div>
@@ -395,8 +395,8 @@ export const TicketsPage: React.FC = () => {
                                                 </div>
                                                 <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
                                                 {c.attachment_url && (
-                                                    <a href={c.attachment_url} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity bg-white">
-                                                        <img src={c.attachment_url} alt="Evidencia adjunta" className="max-h-48 object-cover min-w-[150px]" />
+                                                    <a href={getMediaUrl(c.attachment_url)} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity bg-white">
+                                                        <img src={getMediaUrl(c.attachment_url)} alt="Evidencia adjunta" className="max-h-48 object-cover min-w-[150px]" />
                                                     </a>
                                                 )}
                                             </div>
