@@ -30,20 +30,6 @@ async def login(login_data: LoginRequest, request: Request, db: AsyncSession = D
         "user": user
     }
 
-@router.post("/register", response_model=Token)
-async def register(register_data: RegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:
-    """
-    Registra un nuevo usuario en la base de datos y lo loguea automáticamente.
-    """
-    user = await AuthService.register_user(db, register_data)
-    access_token = create_access_token(subject=user.id)
-    
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user
-    }
-
 from src.schemas.auth import InvestorRegisterRequest
 @router.post("/register-investor", response_model=Token)
 async def register_investor(register_data: InvestorRegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:

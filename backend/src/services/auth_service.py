@@ -86,28 +86,6 @@ class AuthService:
 
 
     @staticmethod
-    async def register_user(db: AsyncSession, register_data: RegisterRequest) -> User:
-        # Check si ya existe
-        existing = await db.execute(select(User).where(User.email == register_data.email))
-        if existing.scalars().first():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El correo ya está registrado."
-            )
-            
-        new_user = User(
-            name=register_data.name,
-            email=register_data.email,
-            password_hash=get_password_hash(register_data.password),
-            commercial_id=register_data.commercial_id
-        )
-        
-        db.add(new_user)
-        await db.commit()
-        await db.refresh(new_user)
-        return new_user
-
-    @staticmethod
     async def register_investor(db: AsyncSession, data: InvestorRegisterRequest) -> User:
         import uuid
         from src.models.user_bank_account import UserBankAccount

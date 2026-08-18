@@ -41,28 +41,8 @@ export const WelcomeOnboardingPage = () => {
                     </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6 max-w-4xl w-full">
+                <div className="flex justify-center max-w-2xl mx-auto w-full">
                     
-                    {/* Tarjeta Cliente */}
-                    <button 
-                        onClick={() => handleRoleSelect('client')}
-                        className="group relative bg-white border-2 border-slate-200 hover:border-brand-500 rounded-3xl p-8 text-left transition-all duration-300 hover:shadow-2xl hover:shadow-brand-500/10 active:scale-[0.98] overflow-hidden"
-                    >
-                        <div className="absolute -right-10 -top-10 w-40 h-40 bg-slate-50 rounded-full group-hover:scale-150 transition-transform duration-700 ease-in-out z-0"></div>
-                        <div className="relative z-10">
-                            <div className="w-16 h-16 bg-slate-100 group-hover:bg-brand-50 rounded-2xl flex items-center justify-center mb-6 transition-colors duration-300">
-                                <Building2 className="w-8 h-8 text-slate-600 group-hover:text-brand-500 transition-colors duration-300" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-slate-900 mb-3">Quiero ser Cliente</h2>
-                            <p className="text-slate-500 mb-8 min-h-[4rem]">
-                                Busca soluciones tecnológicas a la medida, desarrollo web, aplicaciones corporativas y optimización logística.
-                            </p>
-                            <div className="flex items-center text-sm font-bold text-slate-400 group-hover:text-brand-500 transition-colors duration-300">
-                                Continuar como Cliente <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-2 transition-transform" />
-                            </div>
-                        </div>
-                    </button>
-
                     {/* Tarjeta Inversionista */}
                     <button 
                         onClick={() => handleRoleSelect('investor')}
