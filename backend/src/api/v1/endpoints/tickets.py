@@ -50,6 +50,20 @@ async def get_my_tickets(current_user: User = Depends(get_current_user)) -> Any:
     """
     return await TicketService.get_user_tickets(user_id=str(current_user.id))
 
+@router.get("/image-proxy")
+async def proxy_ticket_image(url: str):
+    """
+    Proxy interno para evitar errores de Mixed Content (HTTPS -> HTTP) en el frontend
+    al cargar imágenes desde el sistema externo de tickets.
+    """
+    if not url.startswith("http://161.35.107.122"):
+        raise HTTPException(status_code=403, detail="No autorizado para hacer proxy de esta URL")
+        
+    client = httpx.AsyncClient()
+    req = client.build_request("GET", url)
+    r = await client.send(req, stream=True)
+    return StreamingResponse(r.aiter_raw(), media_type=r.headers.get("Content-Type", "image/jpeg"))
+
 @router.get("/{ticket_number}")
 async def get_ticket(ticket_number: str, current_user: User = Depends(get_current_user)) -> Any:
     """
@@ -78,17 +92,3 @@ async def add_ticket_comment(
         attachment_url=attachment_url
     )
     return result
-
-@router.get("/image-proxy")
-async def proxy_ticket_image(url: str):
-    """
-    Proxy interno para evitar errores de Mixed Content (HTTPS -> HTTP) en el frontend
-    al cargar imágenes desde el sistema externo de tickets.
-    """
-    if not url.startswith("http://161.35.107.122"):
-        raise HTTPException(status_code=403, detail="No autorizado para hacer proxy de esta URL")
-        
-    client = httpx.AsyncClient()
-    req = client.build_request("GET", url)
-    r = await client.send(req, stream=True)
-    return StreamingResponse(r.aiter_raw(), media_type=r.headers.get("Content-Type", "image/jpeg"))
