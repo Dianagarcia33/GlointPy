@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, Form, File, UploadFile
+from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException
 from typing import Any, Optional
+import httpx
+from fastapi.responses import StreamingResponse
 from src.api.deps import get_current_user
 from src.models.user import User
 from src.schemas.ticket import TicketResponse
@@ -76,3 +78,17 @@ async def add_ticket_comment(
         attachment_url=attachment_url
     )
     return result
+
+@router.get("/image-proxy")
+async def proxy_ticket_image(url: str, current_user: User = Depends(get_current_user)):
+    """
+    Proxy interno para evitar errores de Mixed Content (HTTPS -> HTTP) en el frontend
+    al cargar imágenes desde el sistema externo de tickets.
+    """
+    if not url.startswith("http://161.35.107.122"):
+        raise HTTPException(status_code=403, detail="No autorizado para hacer proxy de esta URL")
+        
+    client = httpx.AsyncClient()
+    req = client.build_request("GET", url)
+    r = await client.send(req, stream=True)
+    return StreamingResponse(r.aiter_raw(), media_type=r.headers.get("Content-Type", "image/jpeg"))

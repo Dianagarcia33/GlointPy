@@ -4,6 +4,13 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/ap
 
 export function getMediaUrl(path: string | null | undefined): string {
   if (!path) return '';
+  
+  // Proxy external HTTP ticket images when running on HTTPS
+  if (path.startsWith('http://161.35.107.122') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    const baseUrl = API_URL.replace(/\/api\/v1\/?$/, '');
+    return `${baseUrl}/api/v1/tickets/image-proxy?url=${encodeURIComponent(path)}`;
+  }
+
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path;
   }
