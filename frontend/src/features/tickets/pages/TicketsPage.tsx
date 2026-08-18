@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2, MessageSquare } from 'lucide-react';
 import { fetchApi } from '../../../services/api';
+import { compressImage } from '../../../utils/imageCompression';
 
 export const TicketsPage: React.FC = () => {
     const [title, setTitle] = useState('');
@@ -68,7 +69,8 @@ export const TicketsPage: React.FC = () => {
             const formData = new FormData();
             formData.append('content', commentContent);
             if (commentFile) {
-                formData.append('file', commentFile);
+                const compressedFile = await compressImage(commentFile);
+                formData.append('file', compressedFile);
             }
             
             const num = selectedTicket.ticket_number || selectedTicket.id;
@@ -101,7 +103,8 @@ export const TicketsPage: React.FC = () => {
             formData.append('category', category);
             formData.append('priority', priority);
             if (file) {
-                formData.append('file', file);
+                const compressedFile = await compressImage(file);
+                formData.append('file', compressedFile);
             }
 
             await fetchApi('/tickets/', {
