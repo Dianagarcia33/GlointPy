@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2, MessageSquare } from 'lucide-react';
 import { fetchApi } from '../../../services/api';
 
@@ -11,11 +11,11 @@ export const TicketsPage: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);
     
     const [isLoading, setIsLoading] = useState(false);
-    const [successMsg, setSuccessMsg] = useState('');
+    const [successMsg, setSuccessMsg] = useState<string | null>('');
     const [errorMsg, setErrorMsg] = useState('');
-
-    const [activeTab, setActiveTab] = useState<'list' | 'create' | 'view'>('list');
     const [tickets, setTickets] = useState<any[]>([]);
+    const [activeTab, setActiveTab] = useState<'list' | 'view'>('list');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isLoadingList, setIsLoadingList] = useState(true);
 
     const [selectedTicket, setSelectedTicket] = useState<any>(null);
@@ -108,13 +108,13 @@ export const TicketsPage: React.FC = () => {
                 body: formData
             });
             setSuccessMsg('¡Ticket enviado correctamente! Nuestro equipo lo revisará pronto.');
-            setTitle('');
-            setDescription('');
-            setFile(null);
             setTimeout(() => {
-                setActiveTab('list');
-                setSuccessMsg('');
-            }, 2000);
+                setIsCreateModalOpen(false);
+                setTitle('');
+                setDescription('');
+                setFile(null);
+                setSuccessMsg(null);
+            }, 1500);
         } catch (error: any) {
             setErrorMsg(error.message || 'Ocurrió un error al enviar el ticket.');
         } finally {
@@ -151,136 +151,154 @@ export const TicketsPage: React.FC = () => {
                 
                 <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
                     <button 
-                        onClick={() => setActiveTab(activeTab === 'create' ? 'list' : 'create')}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0 hover:-translate-y-0.5"
                     >
-                        {activeTab === 'create' ? <List className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        <span>{activeTab === 'create' ? 'Ver mis Tickets' : 'Nuevo Ticket'}</span>
+                        <Plus className="w-4 h-4" />
+                        <span>Nuevo Ticket</span>
                     </button>
                 </div>
             </div>
 
-            {activeTab === 'create' ? (
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="max-w-4xl mx-auto"
-                >
-                    <div className="bg-white rounded-[2rem] p-8 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100">
-                        <div className="mb-8">
-                            <h2 className="text-2xl font-black text-slate-800 font-montserrat tracking-tight">Nueva Solicitud de Soporte</h2>
-                            <p className="text-slate-500 text-sm font-medium mt-2">Por favor, detalla tu inconveniente para que nuestro equipo pueda ayudarte rápidamente.</p>
-                        </div>
-                        
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            {successMsg && (
-                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-3 border border-emerald-100/50">
-                                    <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-                                    <span className="font-bold text-sm">{successMsg}</span>
-                                </motion.div>
-                            )}
-                            {errorMsg && (
-                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-rose-50 text-rose-700 rounded-2xl flex items-center gap-3 border border-rose-100/50">
-                                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                                    <span className="font-bold text-sm">{errorMsg}</span>
-                                </motion.div>
-                            )}
-
-                            <div className="group">
-                                <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Asunto del Ticket</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 shadow-sm"
-                                    placeholder="Ej: Problemas al procesar mi pago..."
-                                />
+            <AnimatePresence>
+                {isCreateModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+                        <motion.div 
+                            initial={{ opacity: 0 }} 
+                            animate={{ opacity: 1 }} 
+                            exit={{ opacity: 0 }} 
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer"
+                            onClick={() => setIsCreateModalOpen(false)}
+                        />
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="relative w-full max-w-2xl bg-white rounded-[2rem] p-6 sm:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 max-h-[90vh] overflow-y-auto custom-scrollbar"
+                        >
+                            <button 
+                                onClick={() => setIsCreateModalOpen(false)}
+                                className="absolute top-6 right-6 p-2 rounded-full hover:bg-slate-100 transition-colors cursor-pointer text-slate-400 hover:text-slate-600"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                            
+                            <div className="mb-8 pr-10">
+                                <h2 className="text-2xl font-black text-slate-800 font-montserrat tracking-tight">Nueva Solicitud de Soporte</h2>
+                                <p className="text-slate-500 text-sm font-medium mt-2">Por favor, detalla tu inconveniente para que nuestro equipo pueda ayudarte rápidamente.</p>
                             </div>
+                            
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                {successMsg && (
+                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-3 border border-emerald-100/50">
+                                        <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                                        <span className="font-bold text-sm">{successMsg}</span>
+                                    </motion.div>
+                                )}
+                                {errorMsg && (
+                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-rose-50 text-rose-700 rounded-2xl flex items-center gap-3 border border-rose-100/50">
+                                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                        <span className="font-bold text-sm">{errorMsg}</span>
+                                    </motion.div>
+                                )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="group">
-                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Categoría</label>
-                                    <div className="relative">
-                                        <select
-                                            value={category}
-                                            onChange={(e) => setCategory(e.target.value)}
-                                            className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 cursor-pointer appearance-none shadow-sm"
-                                        >
-                                            <option value="general">Consulta General</option>
-                                            <option value="billing">Pagos / Facturación</option>
-                                            <option value="technical">Soporte Técnico</option>
-                                            <option value="deliveries">Envíos / Pedidos</option>
-                                        </select>
-                                        <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="group">
-                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Prioridad</label>
-                                    <div className="relative">
-                                        <select
-                                            value={priority}
-                                            onChange={(e) => setPriority(e.target.value)}
-                                            className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 cursor-pointer appearance-none shadow-sm"
-                                        >
-                                            <option value="low">Baja (Sin urgencia)</option>
-                                            <option value="normal">Normal</option>
-                                            <option value="urgent">Urgente (Bloqueante)</option>
-                                        </select>
-                                        <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Descripción del Problema</label>
-                                <textarea
-                                    required
-                                    rows={5}
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none resize-none text-sm font-medium text-slate-700 shadow-sm leading-relaxed"
-                                    placeholder="Describe detalladamente lo que sucede..."
-                                />
-                            </div>
-
-                            <div className="group">
-                                <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Evidencia / Captura (Opcional)</label>
-                                <div className="relative border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-slate-50 hover:border-brand-300 transition-all group-focus-within:border-brand-500 group-focus-within:bg-white">
+                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Asunto del Ticket</label>
                                     <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        type="text"
+                                        required
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 shadow-sm"
+                                        placeholder="Ej: Problemas al procesar mi pago..."
                                     />
-                                    <div className="p-6 flex flex-col items-center justify-center text-center">
-                                        <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
-                                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="group">
+                                        <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Categoría</label>
+                                        <div className="relative">
+                                            <select
+                                                value={category}
+                                                onChange={(e) => setCategory(e.target.value)}
+                                                className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 cursor-pointer appearance-none shadow-sm"
+                                            >
+                                                <option value="general">Consulta General</option>
+                                                <option value="billing">Pagos / Facturación</option>
+                                                <option value="technical">Soporte Técnico</option>
+                                                <option value="deliveries">Envíos / Pedidos</option>
+                                            </select>
+                                            <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </div>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-700">{file ? file.name : "Haz clic o arrastra una imagen aquí"}</p>
-                                        <p className="text-xs text-slate-400 mt-1 font-medium">Solo formatos de imagen (PNG, JPG)</p>
+                                    </div>
+                                    <div className="group">
+                                        <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Prioridad</label>
+                                        <div className="relative">
+                                            <select
+                                                value={priority}
+                                                onChange={(e) => setPriority(e.target.value)}
+                                                className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-800 cursor-pointer appearance-none shadow-sm"
+                                            >
+                                                <option value="low">Baja (Sin urgencia)</option>
+                                                <option value="normal">Normal</option>
+                                                <option value="urgent">Urgente (Bloqueante)</option>
+                                            </select>
+                                            <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-slate-400">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="pt-6 mt-2">
-                                <button 
-                                    type="submit"
-                                    disabled={isLoading}
-                                    className="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl font-black text-sm tracking-wide transition-all shadow-[0_8px_20px_rgba(var(--brand-500-rgb),0.3)] hover:shadow-[0_12px_25px_rgba(var(--brand-500-rgb),0.4)] flex items-center justify-center gap-3 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed hover:-translate-y-0.5"
-                                >
-                                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                                    {isLoading ? 'ENVIANDO TICKET...' : 'CREAR TICKET AHORA'}
-                                </button>
-                            </div>
-                        </form>
+                                <div className="group">
+                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Descripción del Problema</label>
+                                    <textarea
+                                        required
+                                        rows={4}
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        className="w-full px-5 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50/50 focus:bg-white focus:border-brand-500 transition-all outline-none resize-none text-sm font-medium text-slate-700 shadow-sm leading-relaxed"
+                                        placeholder="Describe detalladamente lo que sucede..."
+                                    />
+                                </div>
+
+                                <div className="group">
+                                    <label className="block text-[11px] font-black text-slate-400 mb-2 uppercase tracking-widest group-focus-within:text-brand-500 transition-colors">Evidencia / Captura (Opcional)</label>
+                                    <div className="relative border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 hover:bg-slate-50 hover:border-brand-300 transition-all group-focus-within:border-brand-500 group-focus-within:bg-white">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        />
+                                        <div className="p-5 flex flex-col items-center justify-center text-center">
+                                            <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center mb-2">
+                                                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                            </div>
+                                            <p className="text-sm font-bold text-slate-700">{file ? file.name : "Haz clic o arrastra una imagen aquí"}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 mt-2">
+                                    <button 
+                                        type="submit"
+                                        disabled={isLoading}
+                                        className="w-full py-4 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl font-black text-sm tracking-wide transition-all shadow-[0_8px_20px_rgba(var(--brand-500-rgb),0.3)] hover:shadow-[0_12px_25px_rgba(var(--brand-500-rgb),0.4)] flex items-center justify-center gap-3 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed hover:-translate-y-0.5"
+                                    >
+                                        {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                                        {isLoading ? 'ENVIANDO TICKET...' : 'CREAR TICKET AHORA'}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
                     </div>
-                </motion.div>
-            ) : activeTab === 'view' && selectedTicket ? (
+                )}
+            </AnimatePresence>
+
+            {activeTab === 'view' && selectedTicket ? (
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -441,11 +459,11 @@ export const TicketsPage: React.FC = () => {
                                     </tr>
                                 ) : tickets.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                                             <div className="flex flex-col items-center justify-center gap-2">
                                                 <Ticket className="w-8 h-8 text-slate-300" />
                                                 <p>No tienes tickets creados.</p>
-                                                <button onClick={() => setActiveTab('create')} className="text-brand-600 font-bold hover:underline text-xs mt-1 cursor-pointer">
+                                                <button onClick={() => setIsCreateModalOpen(true)} className="text-brand-600 font-bold hover:underline text-xs mt-1 cursor-pointer">
                                                     Crea tu primer ticket aquí
                                                 </button>
                                             </div>
