@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2, MessageSquare } from 'lucide-react';
 import { fetchApi } from '../../../services/api';
@@ -160,9 +161,10 @@ export const TicketsPage: React.FC = () => {
                 </div>
             </div>
 
-            <AnimatePresence>
-                {isCreateModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            {createPortal(
+                <AnimatePresence>
+                    {isCreateModalOpen && (
+                        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6">
                         <motion.div 
                             initial={{ opacity: 0 }} 
                             animate={{ opacity: 1 }} 
@@ -296,7 +298,9 @@ export const TicketsPage: React.FC = () => {
                         </motion.div>
                     </div>
                 )}
-            </AnimatePresence>
+                </AnimatePresence>,
+                document.body
+            )}
 
             {activeTab === 'view' && selectedTicket ? (
                 <motion.div 
