@@ -112,6 +112,10 @@ export const TicketsPage: React.FC = () => {
                 body: formData
             });
             setSuccessMsg('¡Ticket enviado correctamente! Nuestro equipo lo revisará pronto.');
+            
+            // Recargar los tickets para que aparezca en la lista
+            fetchTickets();
+            
             setTimeout(() => {
                 setIsCreateModalOpen(false);
                 setTitle('');
