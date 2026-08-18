@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
 import { NotificationBell } from './NotificationBell';
 import { ChatQuickAccess } from './ChatQuickAccess';
+import { Can } from '../security/Can';
 
 const logo = "/logo.png";
 
@@ -117,6 +118,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
                 {serviciosMenuOpen && (
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-4 w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+                    <Can permission="chat:view">
+                      <div className="py-2 px-3">
+                        <ChatQuickAccess isDark={false} />
+                      </div>
+                    </Can>
                     <div className="p-2">
                       <Link
                         to="/investment"
@@ -180,7 +186,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                 <NotificationBell isDark={isDashboard || !isSolid} />
 
                 {/* Acceso Rápido al Chat */}
-                <ChatQuickAccess isDark={isDashboard || !isSolid} />
+                <Can permission="chat:view">
+                  <ChatQuickAccess isDark={isDashboard || !isSolid} />
+                </Can>
                 
                 {/* User Dropdown */}
                 <div className="relative" ref={userMenuRef}>
