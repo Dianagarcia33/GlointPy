@@ -57,5 +57,14 @@ export const templatesService = {
         await fetchApi(`/templates/${id}`, {
             method: 'DELETE'
         });
+    },
+
+    uploadAsset: async (file: File): Promise<{ url: string; filename: string }> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return await fetchApi('/templates/upload-asset', {
+            method: 'POST',
+            body: formData
+        });
     }
 };

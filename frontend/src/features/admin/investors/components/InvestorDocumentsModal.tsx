@@ -16,6 +16,7 @@ import {
     Download
 } from 'lucide-react';
 import { templatesService, DocumentTemplate } from '../../../../services/templates';
+import { getMediaUrl } from '../../../../services/api';
 import { 
     investorDocumentsService, 
     InvestorDocument, 
@@ -166,12 +167,14 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const backgroundStyle = bgImg ? `
-            background-image: url('${bgImg}');
-            background-size: cover;
+        const resolvedBg = bgImg ? getMediaUrl(bgImg) : '';
+        const backgroundStyle = resolvedBg ? `
+            background-image: url('${resolvedBg}');
+            background-size: 100% 100%;
             background-position: center;
             background-repeat: no-repeat;
-        ` : '';
+            padding: 130px 65px 90px 90px;
+        ` : 'padding: 40px;';
 
         printWindow.document.write(`
             <!DOCTYPE html>
@@ -181,19 +184,20 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                 <style>
                     @page {
                         size: letter;
-                        margin: 20mm;
+                        margin: 0;
                     }
                     body {
                         font-family: 'Helvetica Neue', Arial, sans-serif;
                         color: #1e293b;
                         margin: 0;
-                        padding: 20px;
+                        box-sizing: border-box;
+                        min-height: 100vh;
                         ${backgroundStyle}
                     }
                     @media print {
                         body {
-                            -webkit-print-color-adjust: exact;
-                            print-color-adjust: exact;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
                         }
                     }
                 </style>
@@ -434,19 +438,22 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                     </div>
 
                                     {/* Document Simulation Box */}
-                                    <div 
-                                        className="border border-slate-200 rounded-2xl p-8 bg-white shadow-inner max-h-96 overflow-y-auto custom-scrollbar"
-                                        style={{
-                                            backgroundImage: previewData.background_image ? `url('${previewData.background_image}')` : undefined,
-                                            backgroundSize: 'cover',
-                                            backgroundPosition: 'center',
-                                            backgroundRepeat: 'no-repeat'
-                                        }}
-                                    >
+                                    <div className="bg-slate-100 p-4 rounded-2xl flex justify-center max-h-[420px] overflow-y-auto custom-scrollbar border border-slate-200">
                                         <div 
-                                            className="prose prose-slate max-w-none text-sm leading-relaxed"
-                                            dangerouslySetInnerHTML={{ __html: previewData.html_content }}
-                                        />
+                                            className="bg-white shadow-xl rounded-lg w-full max-w-2xl min-h-[500px]"
+                                            style={{
+                                                backgroundImage: previewData.background_image ? `url('${getMediaUrl(previewData.background_image)}')` : undefined,
+                                                backgroundSize: '100% 100%',
+                                                backgroundPosition: 'center',
+                                                backgroundRepeat: 'no-repeat',
+                                                padding: previewData.background_image ? '110px 50px 70px 70px' : '40px'
+                                            }}
+                                        >
+                                            <div 
+                                                className="prose prose-slate max-w-none text-xs leading-relaxed"
+                                                dangerouslySetInnerHTML={{ __html: previewData.html_content }}
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* Action Buttons */}
@@ -517,19 +524,22 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                 </button>
                             </div>
                         </div>
-                        <div 
-                            className="p-8 overflow-y-auto flex-1 custom-scrollbar bg-white"
-                            style={{
-                                backgroundImage: viewingDoc.background_image ? `url('${viewingDoc.background_image}')` : undefined,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                                backgroundRepeat: 'no-repeat'
-                            }}
-                        >
+                        <div className="p-6 bg-slate-100 flex-1 overflow-y-auto flex justify-center custom-scrollbar">
                             <div 
-                                className="prose prose-slate max-w-none text-sm leading-relaxed"
-                                dangerouslySetInnerHTML={{ __html: viewingDoc.html_content }}
-                            />
+                                className="bg-white shadow-xl rounded-lg w-full max-w-2xl min-h-[550px]"
+                                style={{
+                                    backgroundImage: viewingDoc.background_image ? `url('${getMediaUrl(viewingDoc.background_image)}')` : undefined,
+                                    backgroundSize: '100% 100%',
+                                    backgroundPosition: 'center',
+                                    backgroundRepeat: 'no-repeat',
+                                    padding: viewingDoc.background_image ? '110px 50px 70px 70px' : '40px'
+                                }}
+                            >
+                                <div 
+                                    className="prose prose-slate max-w-none text-xs leading-relaxed"
+                                    dangerouslySetInnerHTML={{ __html: viewingDoc.html_content }}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

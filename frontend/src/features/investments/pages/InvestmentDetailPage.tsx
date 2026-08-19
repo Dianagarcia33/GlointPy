@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchApi } from '../../../services/api';
+import { fetchApi, getMediaUrl } from '../../../services/api';
 import { formatCurrency } from '../../../utils/format';
 import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar } from 'lucide-react';
 import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
@@ -325,16 +325,23 @@ export const InvestmentDetailPage = () => {
                                                     onClick={() => {
                                                         const printWindow = window.open('', '_blank');
                                                         if (!printWindow) return;
-                                                        const bg = doc.background_image ? `background-image: url('${doc.background_image}'); background-size: cover; background-position: center;` : '';
+                                                        const resolvedBg = doc.background_image ? getMediaUrl(doc.background_image) : '';
+                                                        const bgStyle = resolvedBg ? `
+                                                            background-image: url('${resolvedBg}');
+                                                            background-size: 100% 100%;
+                                                            background-position: center;
+                                                            background-repeat: no-repeat;
+                                                            padding: 130px 65px 90px 90px;
+                                                        ` : 'padding: 40px;';
                                                         printWindow.document.write(`
                                                             <!DOCTYPE html>
                                                             <html>
                                                             <head>
                                                                 <title>${doc.title}</title>
                                                                 <style>
-                                                                    @page { size: letter; margin: 20mm; }
-                                                                    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; ${bg} }
-                                                                    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+                                                                    @page { size: letter; margin: 0; }
+                                                                    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; margin: 0; box-sizing: border-box; min-height: 100vh; ${bgStyle} }
+                                                                    @media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
                                                                 </style>
                                                             </head>
                                                             <body>
@@ -422,16 +429,23 @@ export const InvestmentDetailPage = () => {
                                     onClick={() => {
                                         const printWindow = window.open('', '_blank');
                                         if (!printWindow) return;
-                                        const bg = viewingDoc.background_image ? `background-image: url('${viewingDoc.background_image}'); background-size: cover; background-position: center;` : '';
+                                        const resolvedBg = viewingDoc.background_image ? getMediaUrl(viewingDoc.background_image) : '';
+                                        const bgStyle = resolvedBg ? `
+                                            background-image: url('${resolvedBg}');
+                                            background-size: 100% 100%;
+                                            background-position: center;
+                                            background-repeat: no-repeat;
+                                            padding: 130px 65px 90px 90px;
+                                        ` : 'padding: 40px;';
                                         printWindow.document.write(`
                                             <!DOCTYPE html>
                                             <html>
                                             <head>
                                                 <title>${viewingDoc.title}</title>
                                                 <style>
-                                                    @page { size: letter; margin: 20mm; }
-                                                    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; ${bg} }
-                                                    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+                                                    @page { size: letter; margin: 0; }
+                                                    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; margin: 0; box-sizing: border-box; min-height: 100vh; ${bgStyle} }
+                                                    @media print { body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } }
                                                 </style>
                                             </head>
                                             <body>
@@ -457,19 +471,22 @@ export const InvestmentDetailPage = () => {
                                 </button>
                             </div>
                         </div>
-                        <div 
-                            className="p-8 overflow-y-auto flex-1 custom-scrollbar bg-white"
-                            style={{
-                                backgroundImage: viewingDoc.background_image ? `url('${viewingDoc.background_image}')` : undefined,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                                backgroundRepeat: 'no-repeat'
-                            }}
-                        >
+                        <div className="p-6 bg-slate-100 flex-1 overflow-y-auto flex justify-center custom-scrollbar">
                             <div 
-                                className="prose prose-slate max-w-none text-sm leading-relaxed"
-                                dangerouslySetInnerHTML={{ __html: viewingDoc.html_content }}
-                            />
+                                className="bg-white shadow-xl rounded-lg w-full max-w-2xl min-h-[550px]"
+                                style={{
+                                    backgroundImage: viewingDoc.background_image ? `url('${getMediaUrl(viewingDoc.background_image)}')` : undefined,
+                                    backgroundSize: '100% 100%',
+                                    backgroundPosition: 'center',
+                                    backgroundRepeat: 'no-repeat',
+                                    padding: viewingDoc.background_image ? '110px 50px 70px 70px' : '40px'
+                                }}
+                            >
+                                <div 
+                                    className="prose prose-slate max-w-none text-xs leading-relaxed"
+                                    dangerouslySetInnerHTML={{ __html: viewingDoc.html_content }}
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>
