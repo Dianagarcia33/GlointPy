@@ -103,7 +103,35 @@ class InvestorDocumentService:
         }
 
     @staticmethod
+    async def ensure_table_exists(db: AsyncSession):
+        from sqlalchemy import text
+        try:
+            await db.execute(text("""
+                CREATE TABLE IF NOT EXISTS investor_documents (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    investor_id BIGINT NOT NULL,
+                    user_id BIGINT NOT NULL,
+                    template_id BIGINT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    document_type VARCHAR(100) NULL DEFAULT 'contract',
+                    html_content LONGTEXT NOT NULL,
+                    background_image LONGTEXT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_inv_docs_investor (investor_id),
+                    INDEX idx_inv_docs_user (user_id),
+                    FOREIGN KEY (investor_id) REFERENCES investors(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """))
+            await db.commit()
+        except Exception as e:
+            print(f"Notice verifying investor_documents table: {e}")
+
+    @staticmethod
     async def generate_and_save(db: AsyncSession, data: InvestorDocumentGenerateRequest) -> InvestorDocument:
+        await InvestorDocumentService.ensure_table_exists(db)
         investor = await InvestorDocumentService.get_investor_with_relations(db, data.investor_id)
 
         tpl_res = await db.execute(select(Template).where(Template.id == data.template_id))
@@ -131,6 +159,7 @@ class InvestorDocumentService:
 
     @staticmethod
     async def get_by_investor_id(db: AsyncSession, investor_id: int) -> List[InvestorDocument]:
+        await InvestorDocumentService.ensure_table_exists(db)
         result = await db.execute(
             select(InvestorDocument)
             .where(InvestorDocument.investor_id == investor_id)
@@ -140,6 +169,7 @@ class InvestorDocumentService:
 
     @staticmethod
     async def get_my_documents(db: AsyncSession, user_id: int, investor_id: Optional[int] = None) -> List[InvestorDocument]:
+        await InvestorDocumentService.ensure_table_exists(db)
         query = select(InvestorDocument).where(InvestorDocument.user_id == user_id)
         if investor_id:
             query = query.where(InvestorDocument.investor_id == investor_id)
