@@ -43,6 +43,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
     // Generation state
     const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
     const [customTitle, setCustomTitle] = useState('');
+    const [selectedBgOption, setSelectedBgOption] = useState<string>('/uploads/templates/gloint_membrete_oficial.png');
     const [previewData, setPreviewData] = useState<InvestorDocumentPreview | null>(null);
     const [loadingPreview, setLoadingPreview] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -94,21 +95,29 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
             setActiveTab('list');
             setSelectedTemplateId('');
             setCustomTitle('');
+            setSelectedBgOption('/uploads/templates/gloint_membrete_oficial.png');
             setPreviewData(null);
             setViewingDoc(null);
         }
     }, [isOpen, investor?.id]);
 
-    const handleTemplateChange = async (templateIdNum: number) => {
+    const handleTemplateChange = async (templateIdNum: number, bgOverride?: string) => {
         setSelectedTemplateId(templateIdNum);
         if (!templateIdNum) {
             setPreviewData(null);
             return;
         }
 
+        const tpl = templates.find(t => t.id === templateIdNum);
+        const effectiveBg = bgOverride !== undefined 
+            ? bgOverride 
+            : (tpl?.background_image || selectedBgOption || '/uploads/templates/gloint_membrete_oficial.png');
+        
+        setSelectedBgOption(effectiveBg);
+
         setLoadingPreview(true);
         try {
-            const preview = await investorDocumentsService.previewDocument(investor.id, templateIdNum);
+            const preview = await investorDocumentsService.previewDocument(investor.id, templateIdNum, effectiveBg);
             setPreviewData(preview);
             if (!customTitle) {
                 setCustomTitle(preview.title);
@@ -118,6 +127,21 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
             setToast({ message: "Error al generar vista previa", type: "error" });
         } finally {
             setLoadingPreview(false);
+        }
+    };
+
+    const handleBgChange = async (newBg: string) => {
+        setSelectedBgOption(newBg);
+        if (selectedTemplateId) {
+            setLoadingPreview(true);
+            try {
+                const preview = await investorDocumentsService.previewDocument(investor.id, Number(selectedTemplateId), newBg);
+                setPreviewData(preview);
+            } catch (err: any) {
+                console.error("Error actualizando fondo", err);
+            } finally {
+                setLoadingPreview(false);
+            }
         }
     };
 
@@ -132,7 +156,8 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
             await investorDocumentsService.generateDocument(
                 investor.id, 
                 Number(selectedTemplateId), 
-                customTitle.trim() || undefined
+                customTitle.trim() || undefined,
+                selectedBgOption || undefined
             );
             setToast({ message: "¡Documento emitido y guardado con éxito!", type: "success" });
             await fetchDocuments();
@@ -412,6 +437,53 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                         placeholder="Ej: Contrato de Inversión - IG1001"
                                         className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-2.5 px-4 text-xs font-bold text-slate-800 focus:outline-none focus:border-brand-500 transition-all"
                                     />
+                                </div>
+                            </div>
+
+                            {/* Background Letterhead Selector */}
+                            <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-700">Fondo / Membrete:</span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleBgChange('/uploads/templates/gloint_membrete_oficial.png')}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer border ${
+                                            selectedBgOption === '/uploads/templates/gloint_membrete_oficial.png'
+                                                ? 'bg-brand-500 text-white border-brand-600 shadow-xs'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        📄 Hoja Membretada Oficial Gloint
+                                    </button>
+
+                                    {templates.find(t => t.id === Number(selectedTemplateId))?.background_image && 
+                                     templates.find(t => t.id === Number(selectedTemplateId))?.background_image !== '/uploads/templates/gloint_membrete_oficial.png' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleBgChange(templates.find(t => t.id === Number(selectedTemplateId))!.background_image!)}
+                                            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer border ${
+                                                selectedBgOption === templates.find(t => t.id === Number(selectedTemplateId))?.background_image
+                                                    ? 'bg-brand-500 text-white border-brand-600 shadow-xs'
+                                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                                            }`}
+                                        >
+                                            📁 Fondo de Plantilla
+                                        </button>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleBgChange('')}
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer border ${
+                                            !selectedBgOption
+                                                ? 'bg-slate-800 text-white border-slate-900 shadow-xs'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        🚫 Sin Fondo (Blanco)
+                                    </button>
                                 </div>
                             </div>
 

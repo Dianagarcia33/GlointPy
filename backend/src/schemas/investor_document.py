@@ -18,10 +18,12 @@ class InvestorDocumentGenerateRequest(BaseModel):
     investor_id: int
     template_id: int
     custom_title: Optional[str] = None
+    background_image: Optional[str] = None
 
 class InvestorDocumentPreviewRequest(BaseModel):
     investor_id: int
     template_id: int
+    background_image: Optional[str] = None
 
 class InvestorDocumentResponse(InvestorDocumentBase):
     id: int

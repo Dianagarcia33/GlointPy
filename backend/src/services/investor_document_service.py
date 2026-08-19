@@ -202,6 +202,8 @@ class InvestorDocumentService:
         else:
             title = f"{template.name} - {investor.assigned_code or investor.id}"
 
+        bg_img = data.background_image if data.background_image is not None else template.background_image
+
         return {
             "template_id": template.id,
             "template_name": template.name,
@@ -209,7 +211,7 @@ class InvestorDocumentService:
             "version": version_count,
             "document_type": template.type or "contract",
             "html_content": rendered_html,
-            "background_image": template.background_image
+            "background_image": bg_img
         }
 
     @staticmethod
@@ -264,6 +266,8 @@ class InvestorDocumentService:
             else:
                 title = f"{template.name} - {investor.assigned_code or investor.id}"
 
+        bg_img = data.background_image if data.background_image is not None else template.background_image
+
         doc = InvestorDocument(
             investor_id=investor.id,
             user_id=investor.user_id,
@@ -271,7 +275,7 @@ class InvestorDocumentService:
             title=title,
             document_type=template.type or "contract",
             html_content=rendered_html,
-            background_image=template.background_image
+            background_image=bg_img
         )
         db.add(doc)
 

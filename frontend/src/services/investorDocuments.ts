@@ -23,17 +23,26 @@ export interface InvestorDocumentPreview {
 }
 
 export const investorDocumentsService = {
-    previewDocument: async (investorId: number, templateId: number): Promise<InvestorDocumentPreview> => {
+    previewDocument: async (investorId: number, templateId: number, backgroundImage?: string): Promise<InvestorDocumentPreview> => {
         return await fetchApi('/investor-documents/preview', {
             method: 'POST',
-            body: JSON.stringify({ investor_id: investorId, template_id: templateId })
+            body: JSON.stringify({ 
+                investor_id: investorId, 
+                template_id: templateId,
+                background_image: backgroundImage 
+            })
         });
     },
 
-    generateDocument: async (investorId: number, templateId: number, customTitle?: string): Promise<InvestorDocument> => {
+    generateDocument: async (investorId: number, templateId: number, customTitle?: string, backgroundImage?: string): Promise<InvestorDocument> => {
         return await fetchApi('/investor-documents/generate', {
             method: 'POST',
-            body: JSON.stringify({ investor_id: investorId, template_id: templateId, custom_title: customTitle })
+            body: JSON.stringify({ 
+                investor_id: investorId, 
+                template_id: templateId, 
+                custom_title: customTitle,
+                background_image: backgroundImage
+            })
         });
     },
 
