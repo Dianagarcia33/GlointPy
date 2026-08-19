@@ -13,7 +13,7 @@ import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsMod
 import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInversionModal';
 import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { formatAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
@@ -149,7 +149,18 @@ export const AdminInvestorsPage = () => {
   const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
   const [selectedInvestorForBankAccounts, setSelectedInvestorForBankAccounts] = useState<Investor | null>(null);
   const [selectedInvestorForDocuments, setSelectedInvestorForDocuments] = useState<Investor | null>(null);
+  const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.action-menu-container')) {
+        setOpenActionMenuId(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -497,54 +508,100 @@ export const AdminInvestorsPage = () => {
                         })()}
                       </td>
                       <Can permission="admin.investors.manage">
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap min-w-[340px]">
-                          <div className="flex items-center justify-center gap-2">
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                          <div className="relative inline-block text-left action-menu-container">
                             <button 
-                              onClick={() => setSelectedInvestorForBankAccounts(investor)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all border border-slate-200 bg-white shadow-2xs cursor-pointer"
-                              title="Ver Cuentas Bancarias Registradas"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionMenuId(openActionMenuId === investor.id ? null : investor.id);
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all border cursor-pointer ${
+                                openActionMenuId === investor.id
+                                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                                  : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200 shadow-2xs'
+                              }`}
                             >
-                              <Landmark className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Cuentas ({investor.user?.bank_accounts?.length || 0})</span>
+                              <MoreVertical className="w-3.5 h-3.5" />
+                              <span>Acciones</span>
+                              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${openActionMenuId === investor.id ? 'rotate-180' : ''}`} />
                             </button>
-                            <button 
-                              onClick={() => setSelectedInvestorForDocuments(investor)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 rounded-xl transition-all border border-indigo-200 bg-indigo-50/60 shadow-2xs cursor-pointer"
-                              title="Generar y Gestionar Documentos / Contratos"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-indigo-600" />
-                              <span>Documentos</span>
-                            </button>
-                            <Can permission="admin.investors.capital_increase">
-                              <button 
-                                onClick={() => setSelectedInvestorForUpgrade(investor)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-xl transition-all border border-amber-200 bg-amber-50 cursor-pointer"
-                                title="Solicitar Aumento de Capital"
-                              >
-                                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                                <span>+ Capital</span>
-                              </button>
-                            </Can>
-                            <Can permission="admin.investors.capital_increase">
-                              <button 
-                                onClick={() => handleEdit(investor)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
-                                title="Editar Inversión"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                                <span>Editar</span>
-                              </button>
-                            </Can>
-                            <Can permission="admin.investors.delete">
-                              <button 
-                                onClick={() => handleDelete(investor)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
-                                title="Eliminar Inversión"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>Eliminar</span>
-                              </button>
-                            </Can>
+
+                            {openActionMenuId === investor.id && (
+                              <div className="absolute right-0 mt-1 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                                
+                                {/* Documentos */}
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    setSelectedInvestorForDocuments(investor);
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                >
+                                  <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
+                                  <span>Documentos & Contratos</span>
+                                </button>
+
+                                {/* Cuentas Bancarias */}
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    setSelectedInvestorForBankAccounts(investor);
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center justify-between transition-colors cursor-pointer"
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <Landmark className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <span>Cuentas Bancarias</span>
+                                  </div>
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold">
+                                    {investor.user?.bank_accounts?.length || 0}
+                                  </span>
+                                </button>
+
+                                <Can permission="admin.investors.capital_increase">
+                                  {/* Aumento de Capital */}
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      setSelectedInvestorForUpgrade(investor);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-800 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <Zap className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+                                    <span>+ Aumento de Capital</span>
+                                  </button>
+                                </Can>
+
+                                <Can permission="admin.investors.capital_increase">
+                                  {/* Editar Inversión */}
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleEdit(investor);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <Edit2 className="w-4 h-4 text-brand-600 shrink-0" />
+                                    <span>Editar Inversión</span>
+                                  </button>
+                                </Can>
+
+                                <Can permission="admin.investors.delete">
+                                  <div className="my-1 border-t border-slate-100"></div>
+                                  {/* Eliminar Inversión */}
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleDelete(investor);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+                                    <span>Eliminar Inversión</span>
+                                  </button>
+                                </Can>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </Can>
