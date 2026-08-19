@@ -187,12 +187,26 @@ class InvestorDocumentService:
         if not template:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plantilla no encontrada")
 
+        prev_res = await db.execute(
+            select(InvestorDocument)
+            .where(InvestorDocument.investor_id == investor.id)
+            .where(InvestorDocument.template_id == template.id)
+        )
+        existing_docs = prev_res.scalars().all()
+        version_count = len(existing_docs) + 1
+
         rendered_html = InvestorDocumentService.render_html(template.html_content, investor)
         
+        if version_count > 1:
+            title = f"{template.name} (v{version_count} - Actualización) - {investor.assigned_code or investor.id}"
+        else:
+            title = f"{template.name} - {investor.assigned_code or investor.id}"
+
         return {
             "template_id": template.id,
             "template_name": template.name,
-            "title": f"{template.name} - {investor.assigned_code or investor.id}",
+            "title": title,
+            "version": version_count,
             "document_type": template.type or "contract",
             "html_content": rendered_html,
             "background_image": template.background_image
@@ -232,8 +246,23 @@ class InvestorDocumentService:
         if not template:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plantilla no encontrada")
 
+        prev_res = await db.execute(
+            select(InvestorDocument)
+            .where(InvestorDocument.investor_id == investor.id)
+            .where(InvestorDocument.template_id == template.id)
+        )
+        existing_docs = prev_res.scalars().all()
+        version_count = len(existing_docs) + 1
+
         rendered_html = InvestorDocumentService.render_html(template.html_content, investor)
-        title = data.custom_title or f"{template.name} - {investor.assigned_code or investor.id}"
+        
+        if data.custom_title and data.custom_title.strip():
+            title = data.custom_title.strip()
+        else:
+            if version_count > 1:
+                title = f"{template.name} (v{version_count} - Actualización) - {investor.assigned_code or investor.id}"
+            else:
+                title = f"{template.name} - {investor.assigned_code or investor.id}"
 
         doc = InvestorDocument(
             investor_id=investor.id,
@@ -244,8 +273,41 @@ class InvestorDocumentService:
             html_content=rendered_html,
             background_image=template.background_image
         )
-
         db.add(doc)
+
+        # Registrar en ContractHistory para que figure como actualización de contrato en el timeline
+        try:
+            from src.models.contract_history import ContractHistory
+            from decimal import Decimal
+            from datetime import date
+
+            start_d = investor.start_date.date() if isinstance(investor.start_date, datetime) else (investor.start_date or date.today())
+            old_days = investor.period.days if investor.period else 365
+            fecha_fin = start_d + timedelta(days=int(old_days))
+            pkg_val = float(investor.package.value or 0) if investor.package else 0
+            pct_val = f"{investor.period.percentage}%" if investor.period else "0%"
+            shares_cnt = investor.package.granted_shares if investor.package else 0
+
+            motivo_str = f"Actualización de Contrato (v{version_count})" if version_count > 1 else f"Emisión de {template.name}"
+
+            history = ContractHistory(
+                investor_id=investor.id,
+                paquete_inversion_id=investor.package_id,
+                contract_period_id=investor.period_id,
+                fecha_inicio=start_d,
+                fecha_fin=fecha_fin,
+                dias_contrato=int(old_days),
+                total_contrato=Decimal(str(pkg_val)),
+                tasa_interes=pct_val,
+                acciones_otorgadas=int(shares_cnt),
+                valor_total_acciones=Decimal(str(pkg_val)),
+                motivo=motivo_str,
+                observaciones=f"Documento emitido: {title}"
+            )
+            db.add(history)
+        except Exception as hist_err:
+            print(f"Notice registering ContractHistory: {hist_err}")
+
         await db.commit()
         await db.refresh(doc)
         return doc
