@@ -93,6 +93,8 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
         inv = {
             "id": inv_record.id,
             "user_id": current_user.id,
+            "assigned_code": inv_record.assigned_code,
+            "codigo_asignado": inv_record.assigned_code,
             "monto": monto,
             "status": "approved" if is_active else "finished",
             "created_at": inv_record.created_at.isoformat() if inv_record.created_at else None,
@@ -363,6 +365,8 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     inv = {
         "id": inv_record.id,
         "user_id": current_user.id,
+        "assigned_code": inv_record.assigned_code,
+        "codigo_asignado": inv_record.assigned_code,
         "monto": monto,
         "status": "approved" if is_active else "finished",
         "created_at": inv_record.created_at.isoformat() if inv_record.created_at else None,

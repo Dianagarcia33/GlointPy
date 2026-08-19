@@ -387,18 +387,21 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                     <Link className="w-4 h-4 text-slate-400" />
                                     Código de Referido (Opcional)
                                 </label>
-                                {myInvestments && myInvestments.filter((inv: any) => inv.codigo_asignado).length > 0 ? (
+                                {myInvestments && myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).length > 0 ? (
                                     <select 
                                         value={referralCode}
                                         onChange={(e) => setReferralCode(e.target.value)}
                                         className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 appearance-none"
                                     >
                                         <option value="">-- Sin código de referido --</option>
-                                        {myInvestments.filter((inv: any) => inv.codigo_asignado).map((inv: any) => (
-                                            <option key={inv.id} value={inv.codigo_asignado}>
-                                                {inv.codigo_asignado} - {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(inv.monto)} ({inv.paquete?.acciones_otorgadas} Acciones)
-                                            </option>
-                                        ))}
+                                        {myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).map((inv: any) => {
+                                            const code = inv.codigo_asignado || inv.assigned_code;
+                                            return (
+                                                <option key={inv.id} value={code}>
+                                                    {code} - {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(inv.monto)} ({inv.paquete?.acciones_otorgadas || 0} Acciones)
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                 ) : (
                                     <div className="bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-400 font-medium italic text-sm">
