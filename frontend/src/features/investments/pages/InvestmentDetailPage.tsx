@@ -6,6 +6,7 @@ import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap,
 import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
 import { investorDocumentsService, InvestorDocument } from '../../../services/investorDocuments';
+import { DocumentPagesPreview, printPaginatedDocument } from '../../../components/common/DocumentPagesPreview';
 
 export const InvestmentDetailPage = () => {
     const { id } = useParams();
@@ -322,57 +323,7 @@ export const InvestmentDetailPage = () => {
                                                     <span>Ver</span>
                                                 </button>
                                                 <button
-                                                    onClick={() => {
-                                                        const printWindow = window.open('', '_blank');
-                                                        if (!printWindow) return;
-                                                        let resolvedBg = doc.background_image ? getMediaUrl(doc.background_image) : '';
-                                                        if (resolvedBg && !resolvedBg.startsWith('http://') && !resolvedBg.startsWith('https://') && !resolvedBg.startsWith('data:')) {
-                                                            resolvedBg = `${window.location.origin}${resolvedBg.startsWith('/') ? resolvedBg : `/${resolvedBg}`}`;
-                                                        }
-                                                        printWindow.document.write(`
-                                                            <!DOCTYPE html>
-                                                            <html>
-                                                            <head>
-                                                                <base href="${window.location.origin}/">
-                                                                <title>${doc.title}</title>
-                                                                <meta charset="utf-8">
-                                                                <style>
-                                                                    @page { size: letter; margin: 0mm; }
-                                                                    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                                                                    html, body { margin: 0; padding: 0; background-color: #ffffff; font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; }
-                                                                    .bg-letterhead { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; object-fit: fill; pointer-events: none; }
-                                                                    .document-container { position: relative; z-index: 1; width: 100%; min-height: 100vh; padding: ${resolvedBg ? '160px 75px 105px 105px' : '40px 50px'}; box-sizing: border-box; }
-                                                                    .document-content { font-size: 12px; line-height: 1.6; color: #0f172a; }
-                                                                    @media print {
-                                                                        html, body { width: 100%; height: 100%; }
-                                                                        .bg-letterhead { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: block !important; }
-                                                                    }
-                                                                </style>
-                                                            </head>
-                                                            <body>
-                                                                ${resolvedBg ? `<img id="bgImgTag" src="${resolvedBg}" class="bg-letterhead" alt="Membrete" />` : ''}
-                                                                <div class="document-container">
-                                                                    <div class="document-content">
-                                                                        ${doc.html_content}
-                                                                    </div>
-                                                                </div>
-                                                                <script>
-                                                                    function triggerPrint() {
-                                                                        setTimeout(function() { window.focus(); window.print(); }, 350);
-                                                                    }
-                                                                    const img = document.getElementById('bgImgTag');
-                                                                    if (img) {
-                                                                        if (img.complete) { triggerPrint(); } else { img.onload = triggerPrint; img.onerror = triggerPrint; }
-                                                                    } else {
-                                                                        window.onload = triggerPrint;
-                                                                    }
-                                                                    window.onafterprint = function() { window.close(); };
-                                                                </script>
-                                                            </body>
-                                                            </html>
-                                                        `);
-                                                        printWindow.document.close();
-                                                    }}
+                                                    onClick={() => printPaginatedDocument(doc.title, doc.html_content, doc.background_image)}
                                                     className="py-1.5 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                                                     title="Imprimir o Descargar PDF"
                                                 >
@@ -394,33 +345,23 @@ export const InvestmentDetailPage = () => {
                         <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6">Proyección de Rendimientos</h3>
                         <div className="overflow-x-auto rounded-xl border border-slate-200">
                             <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
+                                <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-wider">
                                     <tr>
-                                        <th className="px-4 py-3">Ciclo</th>
-                                        <th className="px-4 py-3 text-center">Días</th>
-                                        <th className="px-4 py-3 text-right">Capital de Cálculo</th>
-                                        <th className="px-4 py-3 text-right">Rendimiento (Est.)</th>
-                                        <th className="px-4 py-3 text-center">Estado</th>
+                                        <th className="py-3 px-4">Periodo</th>
+                                        <th className="py-3 px-4">Fecha Esperada</th>
+                                        <th className="py-3 px-4">Rendimiento Estimado</th>
+                                        <th className="py-3 px-4">Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {inv.projection.map((proj: any, idx: number) => (
-                                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-slate-700 whitespace-nowrap">
-                                                {formatDate(proj.fecha_inicio)} - {formatDate(proj.fecha_fin)}
-                                            </td>
-                                            <td className="px-4 py-3 text-center text-slate-600">
-                                                {proj.dias}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                                                {formatCurrency(proj.capital_base)}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-bold text-emerald-600">
-                                                +{formatCurrency(proj.rendimiento)}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-md ${
-                                                    proj.estado === 'Procesado' ? 'bg-emerald-100 text-emerald-700' : 'bg-brand-100 text-brand-700'
+                                        <tr key={idx} className="hover:bg-slate-50/50">
+                                            <td className="py-3 px-4 font-semibold text-slate-900">Mes {proj.mes}</td>
+                                            <td className="py-3 px-4 text-slate-500">{new Date(proj.fecha).toLocaleDateString('es-CO')}</td>
+                                            <td className="py-3 px-4 font-bold text-emerald-600">+{formatCurrency(proj.rendimiento)}</td>
+                                            <td className="py-3 px-4">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                                    proj.estado === 'pagado' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
                                                 }`}>
                                                     {proj.estado}
                                                 </span>
@@ -445,57 +386,7 @@ export const InvestmentDetailPage = () => {
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={() => {
-                                        const printWindow = window.open('', '_blank');
-                                        if (!printWindow) return;
-                                        let resolvedBg = viewingDoc.background_image ? getMediaUrl(viewingDoc.background_image) : '';
-                                        if (resolvedBg && !resolvedBg.startsWith('http://') && !resolvedBg.startsWith('https://') && !resolvedBg.startsWith('data:')) {
-                                            resolvedBg = `${window.location.origin}${resolvedBg.startsWith('/') ? resolvedBg : `/${resolvedBg}`}`;
-                                        }
-                                        printWindow.document.write(`
-                                            <!DOCTYPE html>
-                                            <html>
-                                            <head>
-                                                <base href="${window.location.origin}/">
-                                                <title>${viewingDoc.title}</title>
-                                                <meta charset="utf-8">
-                                                <style>
-                                                    @page { size: letter; margin: 0mm; }
-                                                    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                                                    html, body { margin: 0; padding: 0; background-color: #ffffff; font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; }
-                                                    .bg-letterhead { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; object-fit: fill; pointer-events: none; }
-                                                    .document-container { position: relative; z-index: 1; width: 100%; min-height: 100vh; padding: ${resolvedBg ? '160px 75px 105px 105px' : '40px 50px'}; box-sizing: border-box; }
-                                                    .document-content { font-size: 12px; line-height: 1.6; color: #0f172a; }
-                                                    @media print {
-                                                        html, body { width: 100%; height: 100%; }
-                                                        .bg-letterhead { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: block !important; }
-                                                    }
-                                                </style>
-                                            </head>
-                                            <body>
-                                                ${resolvedBg ? `<img id="bgImgTag" src="${resolvedBg}" class="bg-letterhead" alt="Membrete" />` : ''}
-                                                <div class="document-container">
-                                                    <div class="document-content">
-                                                        ${viewingDoc.html_content}
-                                                    </div>
-                                                </div>
-                                                <script>
-                                                    function triggerPrint() {
-                                                        setTimeout(function() { window.focus(); window.print(); }, 350);
-                                                    }
-                                                    const img = document.getElementById('bgImgTag');
-                                                    if (img) {
-                                                        if (img.complete) { triggerPrint(); } else { img.onload = triggerPrint; img.onerror = triggerPrint; }
-                                                    } else {
-                                                        window.onload = triggerPrint;
-                                                    }
-                                                    window.onafterprint = function() { window.close(); };
-                                                </script>
-                                            </body>
-                                            </html>
-                                        `);
-                                        printWindow.document.close();
-                                    }}
+                                    onClick={() => printPaginatedDocument(viewingDoc.title, viewingDoc.html_content, viewingDoc.background_image)}
                                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all cursor-pointer"
                                 >
                                     <Printer className="w-4 h-4" />
@@ -510,25 +401,10 @@ export const InvestmentDetailPage = () => {
                             </div>
                         </div>
                         <div className="p-8 bg-slate-300/80 flex-1 overflow-y-auto flex justify-center custom-scrollbar">
-                            <div 
-                                className="bg-white shadow-2xl rounded-sm text-slate-800 relative mx-auto shrink-0 my-4"
-                                style={{
-                                    width: '100%',
-                                    maxWidth: '820px',
-                                    minHeight: '1150px',
-                                    backgroundImage: viewingDoc.background_image ? `url('${getMediaUrl(viewingDoc.background_image)}')` : undefined,
-                                    backgroundSize: '100% 100%',
-                                    backgroundPosition: 'top center',
-                                    backgroundRepeat: 'no-repeat',
-                                    padding: viewingDoc.background_image ? '160px 80px 105px 105px' : '50px 60px',
-                                    boxSizing: 'border-box'
-                                }}
-                            >
-                                <div 
-                                    className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-800 font-sans"
-                                    dangerouslySetInnerHTML={{ __html: viewingDoc.html_content }}
-                                />
-                            </div>
+                            <DocumentPagesPreview 
+                                html={viewingDoc.html_content} 
+                                bgUrl={viewingDoc.background_image} 
+                            />
                         </div>
                     </div>
                 </div>

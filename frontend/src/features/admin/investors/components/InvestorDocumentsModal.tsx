@@ -22,6 +22,7 @@ import {
     InvestorDocument, 
     InvestorDocumentPreview 
 } from '../../../../services/investorDocuments';
+import { DocumentPagesPreview, printPaginatedDocument } from '../../../../components/common/DocumentPagesPreview';
 
 interface InvestorDocumentsModalProps {
     isOpen: boolean;
@@ -189,116 +190,8 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
     };
 
     const handlePrint = (html: string, bgImg?: string | null) => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-
-        let resolvedBg = bgImg ? getMediaUrl(bgImg) : '';
-        if (resolvedBg && !resolvedBg.startsWith('http://') && !resolvedBg.startsWith('https://') && !resolvedBg.startsWith('data:')) {
-            resolvedBg = `${window.location.origin}${resolvedBg.startsWith('/') ? resolvedBg : `/${resolvedBg}`}`;
-        }
-
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <base href="${window.location.origin}/">
-                <title>Documento - ${investor?.user?.name || 'Inversión'}</title>
-                <meta charset="utf-8">
-                <style>
-                    @page {
-                        size: letter;
-                        margin: 0mm;
-                    }
-                    * {
-                        box-sizing: border-box;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    html, body {
-                        margin: 0;
-                        padding: 0;
-                        background-color: #ffffff;
-                        font-family: 'Helvetica Neue', Arial, sans-serif;
-                        color: #1e293b;
-                    }
-                    .bg-letterhead {
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        width: 100vw;
-                        height: 100vh;
-                        z-index: 0;
-                        object-fit: fill;
-                        pointer-events: none;
-                    }
-                    .document-container {
-                        position: relative;
-                        z-index: 1;
-                        width: 100%;
-                        min-height: 100vh;
-                        padding: ${resolvedBg ? '160px 75px 105px 105px' : '40px 50px'};
-                        box-sizing: border-box;
-                    }
-                    .document-content {
-                        font-size: 12px;
-                        line-height: 1.6;
-                        color: #0f172a;
-                    }
-                    p {
-                        margin-bottom: 12px;
-                    }
-                    h1, h2, h3 {
-                        color: #0f172a;
-                    }
-                    @media print {
-                        html, body {
-                            width: 100%;
-                            height: 100%;
-                        }
-                        .bg-letterhead {
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100%;
-                            height: 100%;
-                            display: block !important;
-                        }
-                    }
-                </style>
-            </head>
-            <body>
-                ${resolvedBg ? `<img id="bgImgTag" src="${resolvedBg}" class="bg-letterhead" alt="Membrete" />` : ''}
-                <div class="document-container">
-                    <div class="document-content">
-                        ${html}
-                    </div>
-                </div>
-                <script>
-                    function triggerPrint() {
-                        setTimeout(function() {
-                            window.focus();
-                            window.print();
-                        }, 350);
-                    }
-                    const img = document.getElementById('bgImgTag');
-                    if (img) {
-                        if (img.complete) {
-                            triggerPrint();
-                        } else {
-                            img.onload = triggerPrint;
-                            img.onerror = triggerPrint;
-                        }
-                    } else {
-                        window.onload = triggerPrint;
-                    }
-                    window.onafterprint = function() {
-                        window.close();
-                    };
-                </script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
+        const title = `Documento - ${investor?.user?.name || 'Inversión'}`;
+        printPaginatedDocument(title, html, bgImg);
     };
 
     if (!isOpen || !investor) return null;
@@ -565,27 +458,12 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                         </button>
                                     </div>
 
-                                    {/* Document Simulation Box (Realistic Sheet Proportions) */}
-                                    <div className="bg-slate-200/80 p-6 rounded-2xl flex justify-center max-h-[480px] overflow-y-auto custom-scrollbar border border-slate-200">
-                                        <div 
-                                            className="bg-white shadow-2xl rounded-sm text-slate-800 relative mx-auto shrink-0"
-                                            style={{
-                                                width: '100%',
-                                                maxWidth: '780px',
-                                                minHeight: '1100px',
-                                                backgroundImage: previewData.background_image ? `url('${getMediaUrl(previewData.background_image)}')` : undefined,
-                                                backgroundSize: '100% 100%',
-                                                backgroundPosition: 'top center',
-                                                backgroundRepeat: 'no-repeat',
-                                                padding: previewData.background_image ? '160px 75px 100px 105px' : '50px 60px',
-                                                boxSizing: 'border-box'
-                                            }}
-                                        >
-                                            <div 
-                                                className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-800"
-                                                dangerouslySetInnerHTML={{ __html: previewData.html_content }}
-                                            />
-                                        </div>
+                                    {/* Document Simulation Box (Paginated Letter Sheets) */}
+                                    <div className="bg-slate-200/80 p-6 rounded-2xl flex justify-center max-h-[500px] overflow-y-auto custom-scrollbar border border-slate-200">
+                                        <DocumentPagesPreview 
+                                            html={previewData.html_content} 
+                                            bgUrl={previewData.background_image} 
+                                        />
                                     </div>
 
                                     {/* Action Buttons */}
@@ -657,25 +535,10 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                             </div>
                         </div>
                         <div className="p-8 bg-slate-300/80 flex-1 overflow-y-auto flex justify-center custom-scrollbar">
-                            <div 
-                                className="bg-white shadow-2xl rounded-sm text-slate-800 relative mx-auto shrink-0 my-4"
-                                style={{
-                                    width: '100%',
-                                    maxWidth: '820px',
-                                    minHeight: '1150px',
-                                    backgroundImage: viewingDoc.background_image ? `url('${getMediaUrl(viewingDoc.background_image)}')` : undefined,
-                                    backgroundSize: '100% 100%',
-                                    backgroundPosition: 'top center',
-                                    backgroundRepeat: 'no-repeat',
-                                    padding: viewingDoc.background_image ? '160px 80px 105px 105px' : '50px 60px',
-                                    boxSizing: 'border-box'
-                                }}
-                            >
-                                <div 
-                                    className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-800 font-sans"
-                                    dangerouslySetInnerHTML={{ __html: viewingDoc.html_content }}
-                                />
-                            </div>
+                            <DocumentPagesPreview 
+                                html={viewingDoc.html_content} 
+                                bgUrl={viewingDoc.background_image} 
+                            />
                         </div>
                     </div>
                 </div>

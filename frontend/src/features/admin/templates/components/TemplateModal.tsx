@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { DocumentTemplate, DocumentTemplateCreate, DocumentTemplateUpdate, templatesService } from '../../../../services/templates';
 import { getMediaUrl } from '../../../../services/api';
+import { DocumentPagesPreview } from '../../../../components/common/DocumentPagesPreview';
 import { X, Loader2, FileText, Code, Eye, Sparkles, Image as ImageIcon, Check, UploadCloud, Trash2 } from 'lucide-react';
 
 interface TemplateModalProps {
@@ -330,22 +331,10 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
                             />
                         ) : (
                             <div className="p-8 bg-slate-300/80 min-h-[400px] max-h-[580px] overflow-y-auto flex justify-center custom-scrollbar">
-                                <div 
-                                    className="bg-white shadow-2xl rounded-sm w-full max-w-[780px] min-h-[1100px] text-slate-800 shrink-0"
-                                    style={{
-                                        backgroundImage: backgroundImage ? `url('${getMediaUrl(backgroundImage)}')` : undefined,
-                                        backgroundSize: '100% 100%',
-                                        backgroundPosition: 'top center',
-                                        backgroundRepeat: 'no-repeat',
-                                        padding: backgroundImage ? '160px 75px 100px 105px' : '50px 60px',
-                                        boxSizing: 'border-box'
-                                    }}
-                                >
-                                    <div 
-                                        className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-800"
-                                        dangerouslySetInnerHTML={{ __html: htmlContent || '<p class="text-slate-400 italic">Sin contenido HTML para previsualizar</p>' }} 
-                                    />
-                                </div>
+                                <DocumentPagesPreview 
+                                    html={htmlContent || '<p class="text-slate-400 italic">Sin contenido HTML para previsualizar</p>'} 
+                                    bgUrl={backgroundImage} 
+                                />
                             </div>
                         )}
                     </div>
