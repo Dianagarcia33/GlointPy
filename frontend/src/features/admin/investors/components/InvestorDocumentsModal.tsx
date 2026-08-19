@@ -193,50 +193,102 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
         if (!printWindow) return;
 
         const resolvedBg = bgImg ? getMediaUrl(bgImg) : '';
-        const backgroundStyle = resolvedBg ? `
-            background-image: url('${resolvedBg}');
-            background-size: 100% 100%;
-            background-position: center;
-            background-repeat: no-repeat;
-            padding: 130px 65px 90px 90px;
-        ` : 'padding: 40px;';
 
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
             <head>
                 <title>Documento - ${investor?.user?.name || 'Inversión'}</title>
+                <meta charset="utf-8">
                 <style>
                     @page {
                         size: letter;
-                        margin: 0;
+                        margin: 0mm;
                     }
-                    body {
+                    * {
+                        box-sizing: border-box;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    html, body {
+                        margin: 0;
+                        padding: 0;
+                        background-color: #ffffff;
                         font-family: 'Helvetica Neue', Arial, sans-serif;
                         color: #1e293b;
-                        margin: 0;
-                        box-sizing: border-box;
+                    }
+                    .bg-letterhead {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100vw;
+                        height: 100vh;
+                        z-index: 0;
+                        object-fit: fill;
+                        pointer-events: none;
+                    }
+                    .document-container {
+                        position: relative;
+                        z-index: 1;
+                        width: 100%;
                         min-height: 100vh;
-                        ${backgroundStyle}
+                        padding: ${resolvedBg ? '160px 75px 105px 105px' : '40px 50px'};
+                        box-sizing: border-box;
+                    }
+                    .document-content {
+                        font-size: 12px;
+                        line-height: 1.6;
+                        color: #0f172a;
+                    }
+                    p {
+                        margin-bottom: 12px;
+                    }
+                    h1, h2, h3 {
+                        color: #0f172a;
                     }
                     @media print {
-                        body {
-                            -webkit-print-color-adjust: exact !important;
-                            print-color-adjust: exact !important;
+                        html, body {
+                            width: 100%;
+                            height: 100%;
+                        }
+                        .bg-letterhead {
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            display: block !important;
                         }
                     }
                 </style>
             </head>
             <body>
-                <div class="document-content">
-                    ${html}
+                ${resolvedBg ? `<img id="bgImgTag" src="${resolvedBg}" class="bg-letterhead" alt="Membrete" />` : ''}
+                <div class="document-container">
+                    <div class="document-content">
+                        ${html}
+                    </div>
                 </div>
                 <script>
-                    window.onload = function() {
-                        window.print();
-                        window.onafterprint = function() {
-                            window.close();
-                        };
+                    function triggerPrint() {
+                        setTimeout(function() {
+                            window.focus();
+                            window.print();
+                        }, 350);
+                    }
+                    const img = document.getElementById('bgImgTag');
+                    if (img) {
+                        if (img.complete) {
+                            triggerPrint();
+                        } else {
+                            img.onload = triggerPrint;
+                            img.onerror = triggerPrint;
+                        }
+                    } else {
+                        window.onload = triggerPrint;
+                    }
+                    window.onafterprint = function() {
+                        window.close();
                     };
                 </script>
             </body>
