@@ -1,4 +1,5 @@
 from sqlalchemy import Column, BigInteger, String, Text, DateTime, ForeignKey
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.core.database import Base
@@ -13,8 +14,8 @@ class InvestorDocument(Base):
 
     title = Column(String(255), nullable=False)
     document_type = Column(String(100), nullable=True, default="contract")
-    html_content = Column(Text, nullable=False)
-    background_image = Column(Text, nullable=True)
+    html_content = Column(Text().with_variant(LONGTEXT, "mysql"), nullable=False)
+    background_image = Column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
