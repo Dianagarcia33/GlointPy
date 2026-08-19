@@ -192,12 +192,16 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
-        const resolvedBg = bgImg ? getMediaUrl(bgImg) : '';
+        let resolvedBg = bgImg ? getMediaUrl(bgImg) : '';
+        if (resolvedBg && !resolvedBg.startsWith('http://') && !resolvedBg.startsWith('https://') && !resolvedBg.startsWith('data:')) {
+            resolvedBg = `${window.location.origin}${resolvedBg.startsWith('/') ? resolvedBg : `/${resolvedBg}`}`;
+        }
 
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
             <head>
+                <base href="${window.location.origin}/">
                 <title>Documento - ${investor?.user?.name || 'Inversión'}</title>
                 <meta charset="utf-8">
                 <style>

@@ -15,7 +15,14 @@ export function getMediaUrl(path: string | null | undefined): string {
     return path;
   }
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const baseUrl = API_URL.replace(/\/api\/v1\/?$/, '');
+  let baseUrl = API_URL.replace(/\/api\/v1\/?$/, '');
+
+  // If baseUrl is empty or relative (e.g. '/api/v1'), prepend window.location.origin!
+  if (typeof window !== 'undefined') {
+    if (!baseUrl || baseUrl.startsWith('/')) {
+      baseUrl = `${window.location.origin}${baseUrl}`;
+    }
+  }
 
   if (cleanPath.startsWith('/uploads/')) {
     return `${baseUrl}/api/v1${cleanPath}`;

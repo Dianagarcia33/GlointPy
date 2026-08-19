@@ -325,11 +325,15 @@ export const InvestmentDetailPage = () => {
                                                     onClick={() => {
                                                         const printWindow = window.open('', '_blank');
                                                         if (!printWindow) return;
-                                                        const resolvedBg = doc.background_image ? getMediaUrl(doc.background_image) : '';
+                                                        let resolvedBg = doc.background_image ? getMediaUrl(doc.background_image) : '';
+                                                        if (resolvedBg && !resolvedBg.startsWith('http://') && !resolvedBg.startsWith('https://') && !resolvedBg.startsWith('data:')) {
+                                                            resolvedBg = `${window.location.origin}${resolvedBg.startsWith('/') ? resolvedBg : `/${resolvedBg}`}`;
+                                                        }
                                                         printWindow.document.write(`
                                                             <!DOCTYPE html>
                                                             <html>
                                                             <head>
+                                                                <base href="${window.location.origin}/">
                                                                 <title>${doc.title}</title>
                                                                 <meta charset="utf-8">
                                                                 <style>
@@ -444,11 +448,15 @@ export const InvestmentDetailPage = () => {
                                     onClick={() => {
                                         const printWindow = window.open('', '_blank');
                                         if (!printWindow) return;
-                                        const resolvedBg = viewingDoc.background_image ? getMediaUrl(viewingDoc.background_image) : '';
+                                        let resolvedBg = viewingDoc.background_image ? getMediaUrl(viewingDoc.background_image) : '';
+                                        if (resolvedBg && !resolvedBg.startsWith('http://') && !resolvedBg.startsWith('https://') && !resolvedBg.startsWith('data:')) {
+                                            resolvedBg = `${window.location.origin}${resolvedBg.startsWith('/') ? resolvedBg : `/${resolvedBg}`}`;
+                                        }
                                         printWindow.document.write(`
                                             <!DOCTYPE html>
                                             <html>
                                             <head>
+                                                <base href="${window.location.origin}/">
                                                 <title>${viewingDoc.title}</title>
                                                 <meta charset="utf-8">
                                                 <style>
