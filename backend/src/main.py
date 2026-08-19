@@ -60,6 +60,11 @@ async def on_startup():
             except Exception:
                 pass
 
+            try:
+                await conn.execute(text("ALTER TABLE templates ADD COLUMN background_image LONGTEXT NULL"))
+            except Exception:
+                pass
+
             # Crear tabla investor_documents si no existe
             try:
                 await conn.execute(text("""
