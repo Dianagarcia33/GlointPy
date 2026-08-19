@@ -64,10 +64,10 @@ async def on_startup():
             try:
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS investor_documents (
-                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                        investor_id BIGINT NOT NULL,
-                        user_id BIGINT NOT NULL,
-                        template_id BIGINT NULL,
+                        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                        investor_id BIGINT UNSIGNED NOT NULL,
+                        user_id BIGINT UNSIGNED NOT NULL,
+                        template_id BIGINT UNSIGNED NULL,
                         title VARCHAR(255) NOT NULL,
                         document_type VARCHAR(100) NULL DEFAULT 'contract',
                         html_content LONGTEXT NOT NULL,
@@ -75,10 +75,7 @@ async def on_startup():
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         INDEX idx_inv_docs_investor (investor_id),
-                        INDEX idx_inv_docs_user (user_id),
-                        FOREIGN KEY (investor_id) REFERENCES investors(id) ON DELETE CASCADE,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                        FOREIGN KEY (template_id) REFERENCES templates(id) ON DELETE SET NULL
+                        INDEX idx_inv_docs_user (user_id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
             except Exception as e:

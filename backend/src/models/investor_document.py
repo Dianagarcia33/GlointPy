@@ -1,16 +1,15 @@
-from sqlalchemy import Column, BigInteger, String, Text, DateTime, ForeignKey
-from sqlalchemy.dialects.mysql import LONGTEXT
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, BigInteger, String, Text, DateTime
+from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from datetime import datetime
 from src.core.database import Base
 
 class InvestorDocument(Base):
     __tablename__ = "investor_documents"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    investor_id = Column(BigInteger, ForeignKey("investors.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    template_id = Column(BigInteger, ForeignKey("templates.id", ondelete="SET NULL"), nullable=True)
+    id = Column(BigInteger().with_variant(BIGINT(unsigned=True), "mysql"), primary_key=True, autoincrement=True)
+    investor_id = Column(BigInteger().with_variant(BIGINT(unsigned=True), "mysql"), nullable=False, index=True)
+    user_id = Column(BigInteger().with_variant(BIGINT(unsigned=True), "mysql"), nullable=False, index=True)
+    template_id = Column(BigInteger().with_variant(BIGINT(unsigned=True), "mysql"), nullable=True)
 
     title = Column(String(255), nullable=False)
     document_type = Column(String(100), nullable=True, default="contract")
@@ -19,8 +18,3 @@ class InvestorDocument(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relaciones
-    investor = relationship("Investor", backref="documents")
-    user = relationship("User")
-    template = relationship("Template")
