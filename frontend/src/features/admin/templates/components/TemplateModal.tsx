@@ -329,19 +329,20 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, o
                                 className="w-full p-4 font-mono text-xs text-slate-800 bg-white border-0 focus:outline-none resize-y min-h-[300px]"
                             />
                         ) : (
-                            <div className="p-6 bg-slate-200/60 min-h-[350px] max-h-[550px] overflow-y-auto flex justify-center custom-scrollbar">
+                            <div className="p-8 bg-slate-300/80 min-h-[400px] max-h-[580px] overflow-y-auto flex justify-center custom-scrollbar">
                                 <div 
-                                    className="bg-white shadow-xl rounded-lg w-full max-w-2xl min-h-[500px]"
+                                    className="bg-white shadow-2xl rounded-sm w-full max-w-[780px] min-h-[1100px] text-slate-800 shrink-0"
                                     style={{
                                         backgroundImage: backgroundImage ? `url('${getMediaUrl(backgroundImage)}')` : undefined,
                                         backgroundSize: '100% 100%',
-                                        backgroundPosition: 'center',
+                                        backgroundPosition: 'top center',
                                         backgroundRepeat: 'no-repeat',
-                                        padding: backgroundImage ? '110px 50px 70px 70px' : '40px'
+                                        padding: backgroundImage ? '160px 75px 100px 105px' : '50px 60px',
+                                        boxSizing: 'border-box'
                                     }}
                                 >
                                     <div 
-                                        className="prose prose-slate max-w-none text-xs leading-relaxed"
+                                        className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-800"
                                         dangerouslySetInnerHTML={{ __html: htmlContent || '<p class="text-slate-400 italic">Sin contenido HTML para previsualizar</p>' }} 
                                     />
                                 </div>

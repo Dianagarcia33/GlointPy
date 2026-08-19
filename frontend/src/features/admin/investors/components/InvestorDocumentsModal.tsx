@@ -509,20 +509,24 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                         </button>
                                     </div>
 
-                                    {/* Document Simulation Box */}
-                                    <div className="bg-slate-100 p-4 rounded-2xl flex justify-center max-h-[420px] overflow-y-auto custom-scrollbar border border-slate-200">
+                                    {/* Document Simulation Box (Realistic Sheet Proportions) */}
+                                    <div className="bg-slate-200/80 p-6 rounded-2xl flex justify-center max-h-[480px] overflow-y-auto custom-scrollbar border border-slate-200">
                                         <div 
-                                            className="bg-white shadow-xl rounded-lg w-full max-w-2xl min-h-[500px]"
+                                            className="bg-white shadow-2xl rounded-sm text-slate-800 relative mx-auto shrink-0"
                                             style={{
+                                                width: '100%',
+                                                maxWidth: '780px',
+                                                minHeight: '1100px',
                                                 backgroundImage: previewData.background_image ? `url('${getMediaUrl(previewData.background_image)}')` : undefined,
                                                 backgroundSize: '100% 100%',
-                                                backgroundPosition: 'center',
+                                                backgroundPosition: 'top center',
                                                 backgroundRepeat: 'no-repeat',
-                                                padding: previewData.background_image ? '110px 50px 70px 70px' : '40px'
+                                                padding: previewData.background_image ? '160px 75px 100px 105px' : '50px 60px',
+                                                boxSizing: 'border-box'
                                             }}
                                         >
                                             <div 
-                                                className="prose prose-slate max-w-none text-xs leading-relaxed"
+                                                className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-800"
                                                 dangerouslySetInnerHTML={{ __html: previewData.html_content }}
                                             />
                                         </div>
@@ -596,19 +600,23 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                 </button>
                             </div>
                         </div>
-                        <div className="p-6 bg-slate-100 flex-1 overflow-y-auto flex justify-center custom-scrollbar">
+                        <div className="p-8 bg-slate-300/80 flex-1 overflow-y-auto flex justify-center custom-scrollbar">
                             <div 
-                                className="bg-white shadow-xl rounded-lg w-full max-w-2xl min-h-[550px]"
+                                className="bg-white shadow-2xl rounded-sm text-slate-800 relative mx-auto shrink-0 my-4"
                                 style={{
+                                    width: '100%',
+                                    maxWidth: '820px',
+                                    minHeight: '1150px',
                                     backgroundImage: viewingDoc.background_image ? `url('${getMediaUrl(viewingDoc.background_image)}')` : undefined,
                                     backgroundSize: '100% 100%',
-                                    backgroundPosition: 'center',
+                                    backgroundPosition: 'top center',
                                     backgroundRepeat: 'no-repeat',
-                                    padding: viewingDoc.background_image ? '110px 50px 70px 70px' : '40px'
+                                    padding: viewingDoc.background_image ? '160px 80px 105px 105px' : '50px 60px',
+                                    boxSizing: 'border-box'
                                 }}
                             >
                                 <div 
-                                    className="prose prose-slate max-w-none text-xs leading-relaxed"
+                                    className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-800 font-sans"
                                     dangerouslySetInnerHTML={{ __html: viewingDoc.html_content }}
                                 />
                             </div>
