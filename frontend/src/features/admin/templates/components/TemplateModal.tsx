@@ -11,15 +11,20 @@ interface TemplateModalProps {
 }
 
 const TEMPLATE_VARIABLES = [
-    { label: 'Nombre Inversionista', tag: '{NOMBRE_INVERSIONISTA}' },
-    { label: 'Documento / Cédula', tag: '{DOCUMENTO}' },
-    { label: 'Correo Electrónico', tag: '{CORREO}' },
-    { label: 'Teléfono', tag: '{TELEFONO}' },
+    { label: 'Nombre', tag: '{nombre}' },
+    { label: 'Apellido', tag: '{apellido}' },
+    { label: 'Nombre Completo', tag: '{NOMBRE_INVERSIONISTA}' },
+    { label: 'Documento / Cédula', tag: '{documento}' },
+    { label: 'Ciudad / Domicilio', tag: '{ciudad}' },
+    { label: 'Acciones Otorgadas', tag: '{acciones_otorgadas}' },
+    { label: 'Valor Total Acciones', tag: '{valor_total_acciones_formato}' },
+    { label: 'Fecha Ingreso / Inicio', tag: '{fecha_ingreso}' },
+    { label: 'Fecha Finalización / Fin', tag: '{FECHA_FIN}' },
     { label: 'Monto Inversión', tag: '{MONTO_INVERSION}' },
     { label: 'Periodo (Meses)', tag: '{PERIODOS_MESES}' },
-    { label: 'Fecha Inicio', tag: '{FECHA_INICIO}' },
-    { label: 'Fecha Fin', tag: '{FECHA_FIN}' },
     { label: 'Código Inversión', tag: '{CODIGO_INVERSION}' },
+    { label: 'Correo Electrónico', tag: '{CORREO}' },
+    { label: 'Teléfono', tag: '{TELEFONO}' },
     { label: 'Firma Digital', tag: '{FIRMA_DIGITAL}' },
 ];
 

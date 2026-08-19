@@ -14,55 +14,151 @@ class InvestorDocumentService:
     
     @staticmethod
     def render_html(template_html: str, investor: Investor) -> str:
-        user = investor.user
-        user_name = user.name if user else "Inversionista"
-        user_doc = user.document_id if user and user.document_id else "N/A"
-        user_email = user.email if user else "N/A"
-        user_phone = user.phone_number if user and user.phone_number else "N/A"
+        if not template_html:
+            return ""
 
+        user = investor.user
+        full_name = (user.name if user and user.name else "Inversionista").strip()
+        
+        # Split first and last name
+        words = full_name.split()
+        if len(words) == 0:
+            first_name = "Inversionista"
+            last_name = ""
+        elif len(words) == 1:
+            first_name = words[0]
+            last_name = ""
+        elif len(words) == 2:
+            first_name = words[0]
+            last_name = words[1]
+        elif len(words) == 3:
+            first_name = f"{words[0]} {words[1]}"
+            last_name = words[2]
+        else:
+            first_name = f"{words[0]} {words[1]}"
+            last_name = " ".join(words[2:])
+
+        user_doc = user.document_id if user and user.document_id else "N/A"
+        doc_type = getattr(user, 'tipo_documento', 'Cédula de Ciudadanía') or 'Cédula de Ciudadanía'
+        user_email = user.email if user and user.email else "N/A"
+        user_phone = user.phone_number if user and user.phone_number else "N/A"
+        user_city = getattr(user, 'city', '') or getattr(user, 'ciudad', '') or "Bogotá D.C."
+
+        # Package & Shares
         monto_num = float(investor.package.value) if investor.package else 0
         monto_fmt = f"${monto_num:,.0f} COP".replace(",", ".")
+        monto_clean = f"${monto_num:,.0f}".replace(",", ".")
+        shares_count = str(investor.package.granted_shares if investor.package else 0)
         
         period_months = str(investor.period.months) if investor.period else "0"
         period_days = str(investor.period.days) if investor.period else "0"
         period_pct = f"{investor.period.percentage}%" if investor.period else "0%"
 
+        meses_es = {
+            1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
+            5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
+            9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
+        }
+
+        # Start Date
         start_date = investor.start_date
         if isinstance(start_date, datetime):
             start_date_str = start_date.strftime("%d/%m/%Y")
+            start_date_long = f"{start_date.day} de {meses_es.get(start_date.month, '')} de {start_date.year}"
         elif start_date:
             start_date_str = str(start_date)
+            start_date_long = str(start_date)
         else:
-            start_date_str = datetime.utcnow().strftime("%d/%m/%Y")
+            now = datetime.utcnow()
+            start_date_str = now.strftime("%d/%m/%Y")
+            start_date_long = f"{now.day} de {meses_es.get(now.month, '')} de {now.year}"
 
+        # End Date
         end_date_str = "N/A"
+        end_date_long = "N/A"
         if investor.start_date and investor.period:
             days = getattr(investor.period, 'days', 0) or (investor.period.months * 30 if investor.period.months else 0)
             end_date = investor.start_date + timedelta(days=days)
             end_date_str = end_date.strftime("%d/%m/%Y")
+            end_date_long = f"{end_date.day} de {meses_es.get(end_date.month, '')} de {end_date.year}"
 
         assigned_code = investor.assigned_code or "N/A"
-        shares = str(investor.package.granted_shares if investor.package else 0)
 
+        # Complete dictionary mapping
         replacements = {
-            "{NOMBRE_INVERSIONISTA}": user_name,
-            "{DOCUMENTO}": user_doc,
-            "{CORREO}": user_email,
-            "{TELEFONO}": user_phone,
-            "{MONTO_INVERSION}": monto_fmt,
-            "{PERIODOS_MESES}": period_months,
-            "{DIAS_CONTRATO}": period_days,
-            "{PORCENTAJE_MENSUAL}": period_pct,
-            "{FECHA_INICIO}": start_date_str,
-            "{FECHA_FIN}": end_date_str,
-            "{CODIGO_INVERSION}": assigned_code,
-            "{ACCIONES}": shares,
-            "{FIRMA_DIGITAL}": f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;"><strong>Firma Digital:</strong><br/>{user_name}<br/><span style="color:#64748b; font-size: 11px;">Doc: {user_doc}</span></div>'
+            # Acciones
+            "acciones_otorgadas": shares_count,
+            "acciones": shares_count,
+            "shares": shares_count,
+            "granted_shares": shares_count,
+            "valor_total_acciones_formato": monto_fmt,
+            "valor_total_acciones": monto_clean,
+
+            # Nombres
+            "nombre": first_name,
+            "nombres": first_name,
+            "first_name": first_name,
+            "apellido": last_name,
+            "apellidos": last_name,
+            "last_name": last_name,
+            "nombre_completo": full_name,
+            "nombre_inversionista": full_name,
+            "inversionista": full_name,
+
+            # Documento e Identificación
+            "documento": user_doc,
+            "cedula": user_doc,
+            "numero_documento": user_doc,
+            "tipo_documento": doc_type,
+            "ciudad": user_city,
+            "domicilio": user_city,
+
+            # Contacto
+            "correo": user_email,
+            "correo_electronico": user_email,
+            "email": user_email,
+            "telefono": user_phone,
+            "celular": user_phone,
+            "phone": user_phone,
+
+            # Montos
+            "monto_inversion": monto_fmt,
+            "monto": monto_fmt,
+            "valor_inversion": monto_fmt,
+
+            # Fechas
+            "fecha_ingreso": start_date_str,
+            "fecha_inicio": start_date_str,
+            "fecha_inicio_larga": start_date_long,
+            "fecha_fin": end_date_str,
+            "fecha_finalizacion": end_date_str,
+            "fecha_fin_larga": end_date_long,
+
+            # Periodo y porcentajes
+            "periodos_meses": period_months,
+            "meses": period_months,
+            "periodo": period_months,
+            "dias_contrato": period_days,
+            "dias": period_days,
+            "porcentaje_mensual": period_pct,
+            "porcentaje": period_pct,
+
+            # Código
+            "codigo_inversion": assigned_code,
+            "codigo_asignado": assigned_code,
+            "codigo": assigned_code,
+
+            # Firma
+            "firma_digital": f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;"><strong>Firma Digital:</strong><br/>{full_name}<br/><span style="color:#64748b; font-size: 11px;">Doc: {user_doc}</span></div>',
+            "firma": f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;"><strong>Firma Digital:</strong><br/>{full_name}<br/><span style="color:#64748b; font-size: 11px;">Doc: {user_doc}</span></div>'
         }
 
-        rendered = template_html or ""
-        for tag, val in replacements.items():
-            rendered = rendered.replace(tag, str(val))
+        # Case-insensitive replacement of all {key} patterns
+        import re
+        rendered = template_html
+        for key, val in replacements.items():
+            pattern = re.compile(re.escape(f"{{{key}}}"), re.IGNORECASE)
+            rendered = pattern.sub(str(val), rendered)
 
         return rendered
 
