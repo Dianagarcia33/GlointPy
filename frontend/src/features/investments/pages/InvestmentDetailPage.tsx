@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchApi } from '../../../services/api';
 import { formatCurrency } from '../../../utils/format';
-import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar } from 'lucide-react';
 import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
+import { investorDocumentsService, InvestorDocument } from '../../../services/investorDocuments';
 
 export const InvestmentDetailPage = () => {
     const { id } = useParams();
@@ -13,11 +14,22 @@ export const InvestmentDetailPage = () => {
     const [loading, setLoading] = useState(true);
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+    const [documents, setDocuments] = useState<InvestorDocument[]>([]);
+    const [viewingDoc, setViewingDoc] = useState<InvestorDocument | null>(null);
 
     const loadDetails = async () => {
         try {
             const data = await fetchApi(`/investments/${id}`);
             setInv(data);
+
+            if (!String(id).startsWith('req_')) {
+                try {
+                    const docs = await investorDocumentsService.getMyDocuments(Number(id));
+                    setDocuments(docs);
+                } catch (docErr) {
+                    console.error("Error loading documents:", docErr);
+                }
+            }
         } catch (err) {
             console.error("Error loading investment:", err);
             alert("Error al cargar los detalles de la inversión");
@@ -273,6 +285,80 @@ export const InvestmentDetailPage = () => {
                                 </div>
                             </div>
                         )}
+                        {/* Documentos y Contratos Emitidos */}
+                        {documents.length > 0 && (
+                            <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 space-y-4">
+                                <div className="flex justify-between items-center border-b border-indigo-200/50 pb-3">
+                                    <h3 className="text-sm font-bold text-indigo-950 uppercase tracking-widest flex items-center gap-2">
+                                        <FileText className="w-4 h-4 text-indigo-600" />
+                                        Documentos & Contratos Legales
+                                    </h3>
+                                    <span className="text-xs font-bold bg-indigo-200 text-indigo-800 px-2.5 py-0.5 rounded-full">
+                                        {documents.length} {documents.length === 1 ? 'documento' : 'documentos'}
+                                    </span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {documents.map((doc) => (
+                                        <div key={doc.id} className="bg-white p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex justify-between items-center mb-1.5">
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 uppercase tracking-wider border border-indigo-100">
+                                                        {doc.document_type || 'Contrato'}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 font-medium">
+                                                        {new Date(doc.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </span>
+                                                </div>
+                                                <h4 className="text-xs font-bold text-slate-800 line-clamp-2">{doc.title}</h4>
+                                            </div>
+
+                                            <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                                                <button
+                                                    onClick={() => setViewingDoc(doc)}
+                                                    className="flex-1 py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                                >
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                    <span>Ver</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const printWindow = window.open('', '_blank');
+                                                        if (!printWindow) return;
+                                                        const bg = doc.background_image ? `background-image: url('${doc.background_image}'); background-size: cover; background-position: center;` : '';
+                                                        printWindow.document.write(`
+                                                            <!DOCTYPE html>
+                                                            <html>
+                                                            <head>
+                                                                <title>${doc.title}</title>
+                                                                <style>
+                                                                    @page { size: letter; margin: 20mm; }
+                                                                    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; ${bg} }
+                                                                    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+                                                                </style>
+                                                            </head>
+                                                            <body>
+                                                                <div>${doc.html_content}</div>
+                                                                <script>
+                                                                    window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; };
+                                                                </script>
+                                                            </body>
+                                                            </html>
+                                                        `);
+                                                        printWindow.document.close();
+                                                    }}
+                                                    className="py-1.5 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                                    title="Imprimir o Descargar PDF"
+                                                >
+                                                    <Printer className="w-3.5 h-3.5" />
+                                                    <span>PDF</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -321,6 +407,73 @@ export const InvestmentDetailPage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Document Viewer Modal */}
+            {viewingDoc && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-150">
+                    <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                        <div className="p-5 bg-slate-900 text-white flex justify-between items-center">
+                            <div>
+                                <h3 className="text-base font-bold font-montserrat">{viewingDoc.title}</h3>
+                                <span className="text-xs text-slate-400">Documento Oficial</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => {
+                                        const printWindow = window.open('', '_blank');
+                                        if (!printWindow) return;
+                                        const bg = viewingDoc.background_image ? `background-image: url('${viewingDoc.background_image}'); background-size: cover; background-position: center;` : '';
+                                        printWindow.document.write(`
+                                            <!DOCTYPE html>
+                                            <html>
+                                            <head>
+                                                <title>${viewingDoc.title}</title>
+                                                <style>
+                                                    @page { size: letter; margin: 20mm; }
+                                                    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; ${bg} }
+                                                    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+                                                </style>
+                                            </head>
+                                            <body>
+                                                <div>${viewingDoc.html_content}</div>
+                                                <script>
+                                                    window.onload = function() { window.print(); window.onafterprint = function() { window.close(); }; };
+                                                </script>
+                                            </body>
+                                            </html>
+                                        `);
+                                        printWindow.document.close();
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all cursor-pointer"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    Imprimir / PDF
+                                </button>
+                                <button
+                                    onClick={() => setViewingDoc(null)}
+                                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                        <div 
+                            className="p-8 overflow-y-auto flex-1 custom-scrollbar bg-white"
+                            style={{
+                                backgroundImage: viewingDoc.background_image ? `url('${viewingDoc.background_image}')` : undefined,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                backgroundRepeat: 'no-repeat'
+                            }}
+                        >
+                            <div 
+                                className="prose prose-slate max-w-none text-sm leading-relaxed"
+                                dangerouslySetInnerHTML={{ __html: viewingDoc.html_content }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

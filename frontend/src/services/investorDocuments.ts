@@ -1,0 +1,58 @@
+import { fetchApi } from './api';
+
+export interface InvestorDocument {
+    id: number;
+    investor_id: number;
+    user_id: number;
+    template_id: number | null;
+    title: string;
+    document_type: string;
+    html_content: string;
+    background_image: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface InvestorDocumentPreview {
+    template_id: number;
+    template_name: string;
+    title: string;
+    document_type: string;
+    html_content: string;
+    background_image: string | null;
+}
+
+export const investorDocumentsService = {
+    previewDocument: async (investorId: number, templateId: number): Promise<InvestorDocumentPreview> => {
+        return await fetchApi('/investor-documents/preview', {
+            method: 'POST',
+            body: JSON.stringify({ investor_id: investorId, template_id: templateId })
+        });
+    },
+
+    generateDocument: async (investorId: number, templateId: number, customTitle?: string): Promise<InvestorDocument> => {
+        return await fetchApi('/investor-documents/generate', {
+            method: 'POST',
+            body: JSON.stringify({ investor_id: investorId, template_id: templateId, custom_title: customTitle })
+        });
+    },
+
+    getDocumentsByInvestor: async (investorId: number): Promise<InvestorDocument[]> => {
+        return await fetchApi(`/investor-documents/investor/${investorId}`);
+    },
+
+    getMyDocuments: async (investorId?: number): Promise<InvestorDocument[]> => {
+        const query = investorId ? `?investor_id=${investorId}` : '';
+        return await fetchApi(`/investor-documents/my-documents${query}`);
+    },
+
+    getDocumentById: async (documentId: number): Promise<InvestorDocument> => {
+        return await fetchApi(`/investor-documents/${documentId}`);
+    },
+
+    deleteDocument: async (documentId: number): Promise<void> => {
+        await fetchApi(`/investor-documents/${documentId}`, {
+            method: 'DELETE'
+        });
+    }
+};

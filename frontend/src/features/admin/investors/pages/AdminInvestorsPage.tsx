@@ -11,8 +11,9 @@ import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
 import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
 import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsModal';
 import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInversionModal';
+import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { formatAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
@@ -147,6 +148,7 @@ export const AdminInvestorsPage = () => {
   const [userNameToAdjust, setUserNameToAdjust] = useState('');
   const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
   const [selectedInvestorForBankAccounts, setSelectedInvestorForBankAccounts] = useState<Investor | null>(null);
+  const [selectedInvestorForDocuments, setSelectedInvestorForDocuments] = useState<Investor | null>(null);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   const [investorToDelete, setInvestorToDelete] = useState<Investor | null>(null);
@@ -504,6 +506,14 @@ export const AdminInvestorsPage = () => {
                             >
                               <Landmark className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Cuentas ({investor.user?.bank_accounts?.length || 0})</span>
+                            </button>
+                            <button 
+                              onClick={() => setSelectedInvestorForDocuments(investor)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 rounded-xl transition-all border border-indigo-200 bg-indigo-50/60 shadow-2xs cursor-pointer"
+                              title="Generar y Gestionar Documentos / Contratos"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>Documentos</span>
                             </button>
                             <Can permission="admin.investors.capital_increase">
                               <button 
@@ -956,6 +966,12 @@ export const AdminInvestorsPage = () => {
           setIsNewRequestModalOpen(false);
           fetchData();
         }}
+      />
+
+      <InvestorDocumentsModal
+        isOpen={!!selectedInvestorForDocuments}
+        onClose={() => setSelectedInvestorForDocuments(null)}
+        investor={selectedInvestorForDocuments}
       />
     </div>
   );
