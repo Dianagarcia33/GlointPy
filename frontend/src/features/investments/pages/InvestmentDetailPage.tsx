@@ -288,46 +288,46 @@ export const InvestmentDetailPage = () => {
                         )}
                         {/* Documentos y Contratos Emitidos */}
                         {documents.length > 0 ? (
-                            <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/40 p-6 rounded-2xl border border-indigo-100/80 shadow-xs space-y-4">
-                                <div className="flex justify-between items-center border-b border-indigo-200/50 pb-3">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-xs">
-                                            <FileText className="w-4 h-4" />
+                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2.5 bg-brand-50 text-brand-500 rounded-xl border border-brand-100">
+                                            <FileText className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 className="text-sm font-bold text-slate-900 font-montserrat">
+                                            <h3 className="text-sm font-bold text-slate-900 font-montserrat uppercase tracking-wider">
                                                 Documentos & Contratos Oficiales
                                             </h3>
-                                            <p className="text-[11px] text-slate-500 font-medium">Descarga tus contratos y certificados con validez legal</p>
+                                            <p className="text-xs text-slate-500">Documentos legales y certificados emitidos para esta inversión</p>
                                         </div>
                                     </div>
-                                    <span className="text-xs font-bold bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full border border-indigo-200">
+                                    <span className="text-xs font-bold bg-brand-50 text-brand-700 px-3 py-1 rounded-full border border-brand-200">
                                         {documents.length} {documents.length === 1 ? 'documento' : 'documentos'}
                                     </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                                     {documents.map((doc) => (
-                                        <div key={doc.id} className="bg-white p-4.5 rounded-2xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between group">
+                                        <div key={doc.id} className="bg-slate-50/60 hover:bg-white p-5 rounded-2xl border border-slate-200 hover:border-brand-300 hover:shadow-md transition-all flex flex-col justify-between group">
                                             <div>
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 uppercase tracking-wider border border-indigo-100">
+                                                <div className="flex justify-between items-center mb-2.5">
+                                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-white text-brand-600 uppercase tracking-wider border border-brand-200 shadow-2xs">
                                                         {doc.document_type || 'Contrato'}
                                                     </span>
                                                     <span className="text-[11px] text-slate-400 font-medium">
                                                         {new Date(doc.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                     </span>
                                                 </div>
-                                                <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                                                <h4 className="text-sm font-bold text-slate-900 group-hover:text-brand-500 transition-colors line-clamp-2">
                                                     {doc.title}
                                                 </h4>
                                             </div>
 
-                                            <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
+                                            <div className="flex items-center gap-2 mt-4 pt-3.5 border-t border-slate-200/60">
                                                 <button
                                                     type="button"
                                                     onClick={() => setViewingDoc(doc)}
-                                                    className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                                    className="flex-1 py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
                                                 >
                                                     <Eye className="w-3.5 h-3.5" />
                                                     <span>Visualizar</span>
@@ -335,7 +335,7 @@ export const InvestmentDetailPage = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => printPaginatedDocument(doc.title, doc.html_content, doc.background_image)}
-                                                    className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                                    className="flex-1 py-2.5 px-3 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-500/20 hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                                                     title="Descargar o Guardar como PDF"
                                                 >
                                                     <Download className="w-3.5 h-3.5" />
@@ -347,13 +347,13 @@ export const InvestmentDetailPage = () => {
                                 </div>
                             </div>
                         ) : (
-                            <div className="bg-slate-50/70 p-5 rounded-2xl border border-dashed border-slate-200 flex items-center gap-4">
-                                <div className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl shrink-0 shadow-xs">
-                                    <FileText className="w-5 h-5 text-indigo-400" />
+                            <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 flex items-center gap-4">
+                                <div className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl shrink-0 shadow-2xs">
+                                    <FileText className="w-5 h-5 text-brand-500" />
                                 </div>
                                 <div className="flex-1">
-                                    <h4 className="text-xs font-bold text-slate-800">Documentos Legales</h4>
-                                    <p className="text-[11px] text-slate-500 mt-0.5">Tus contratos y certificados oficiales emitidos aparecerán aquí listos para descargar en formato PDF.</p>
+                                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Documentos Legales</h4>
+                                    <p className="text-xs text-slate-500 mt-0.5">Tus contratos y certificados oficiales emitidos aparecerán aquí listos para descargar en formato PDF.</p>
                                 </div>
                             </div>
                         )}
