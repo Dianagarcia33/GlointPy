@@ -89,7 +89,7 @@ from src.models.investor import Investor
 from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
 from src.models.wallet import Wallet, WalletTransaction, WalletStatus
 from src.models.contract_history import ContractHistory
-from src.services.notification_service import NotificationService
+from src.services.push_notification_service import PushNotificationService
 from src.api.deps import get_current_user
 
 @router.post("/{investor_id}/admin-withdraw-capital", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
@@ -194,12 +194,12 @@ async def admin_withdraw_capital(
 
     # 7. Send In-App Notification
     try:
-        await NotificationService.create_notification(
+        await PushNotificationService.create_and_send_notification(
             db=db,
             user_id=investor.user_id,
             title="Capital Acreditado en tu Billetera",
-            message=f"Se ha liquidado exitosamente el capital de tu contrato #{assigned_code} por un valor de {formatted_amount}, el cual ya se encuentra disponible en tu Billetera Gloint.",
-            type="wallet_credit"
+            body=f"Se ha liquidado exitosamente el capital de tu contrato #{assigned_code} por un valor de {formatted_amount}, el cual ya se encuentra disponible en tu Billetera Gloint.",
+            notification_type="wallet_credit"
         )
     except Exception as notif_err:
         print(f"Error creating notification for capital withdrawal: {notif_err}")
