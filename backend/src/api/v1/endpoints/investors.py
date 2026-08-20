@@ -79,3 +79,141 @@ async def bulk_upload_investors(file: UploadFile = File(...), db: AsyncSession =
         
     result = await InvestorService.bulk_create_investors(db, csv_text)
     return result
+
+from decimal import Decimal
+from datetime import datetime
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from src.schemas.investor import AdminWithdrawCapitalRequest
+from src.models.investor import Investor
+from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
+from src.models.wallet import Wallet, WalletTransaction, WalletStatus
+from src.models.contract_history import ContractHistory
+from src.services.notification_service import NotificationService
+from src.api.deps import get_current_user
+
+@router.post("/{investor_id}/admin-withdraw-capital", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
+async def admin_withdraw_capital(
+    investor_id: int,
+    req: AdminWithdrawCapitalRequest,
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Process capital liquidation for a contract, recording the withdrawal and crediting funds directly to the user's wallet.
+    """
+    # 1. Fetch Investor
+    res = await db.execute(
+        select(Investor)
+        .options(
+            selectinload(Investor.package),
+            selectinload(Investor.period),
+            selectinload(Investor.user),
+            selectinload(Investor.withdrawals)
+        )
+        .where(Investor.id == investor_id)
+    )
+    investor = res.scalars().first()
+    if not investor:
+        raise HTTPException(status_code=404, detail="Inversión no encontrada")
+
+    # 2. Calculate remaining capital
+    total_package_value = float(investor.package.value) if investor.package else 0.0
+    
+    already_withdrawn = 0.0
+    if investor.withdrawals:
+        for w in investor.withdrawals:
+            w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else str(w.tipo)
+            w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+            if w_tipo.lower() == "capital" and w_estado.lower() in ["pendiente", "aprobado", "procesado"]:
+                already_withdrawn += float(w.monto or 0.0)
+
+    available_capital = max(0.0, total_package_value - already_withdrawn)
+    if available_capital <= 0:
+        raise HTTPException(status_code=400, detail="Este contrato no tiene saldo de capital pendiente por retirar.")
+
+    amount_to_withdraw = float(req.monto) if (req.monto is not None and 0 < float(req.monto) <= available_capital) else available_capital
+    amount_decimal = Decimal(str(amount_to_withdraw))
+
+    # 3. Fetch or Create User Wallet
+    wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == investor.user_id))
+    wallet = wallet_res.scalars().first()
+    if not wallet:
+        wallet = Wallet(
+            user_id=investor.user_id,
+            balance=Decimal("0.00"),
+            currency="COP",
+            status=WalletStatus.ACTIVE
+        )
+        db.add(wallet)
+        await db.flush()
+
+    # 4. Create Withdrawal Record (Processed)
+    withdrawal = Withdrawal(
+        investor_id=investor.id,
+        user_id=investor.user_id,
+        origen="wallet_credit",
+        tipo=WithdrawalType.CAPITAL,
+        monto=amount_decimal,
+        impuesto=Decimal("0.00"),
+        monto_neto=amount_decimal,
+        fecha_solicitud=datetime.utcnow(),
+        estado=WithdrawalStatus.PROCESSED,
+        aprobado_por=current_user.id,
+        fecha_aprobacion=datetime.utcnow(),
+        metodo_pago="Abono a Billetera",
+        comprobante_pago=req.notes or "Liquidación y retorno de capital a Billetera por finalización de contrato"
+    )
+    db.add(withdrawal)
+    await db.flush()
+
+    # 5. Credit Wallet and Create Transaction
+    wallet.balance += amount_decimal
+    
+    assigned_code = investor.assigned_code or f"INV-{investor.id}"
+    tx = WalletTransaction(
+        wallet_id=wallet.id,
+        amount=amount_decimal,
+        type="Retiro de Capital",
+        reference_type="investor_capital_withdrawal",
+        reference_id=withdrawal.id,
+        description=f"Retorno de capital - Contrato #{assigned_code}",
+        balance_after=wallet.balance
+    )
+    db.add(tx)
+
+    # 6. Add Contract History Entry
+    formatted_amount = f"${amount_to_withdraw:,.0f} COP".replace(",", ".")
+    history = ContractHistory(
+        investor_id=investor.id,
+        cambio_tipo="Liquidación de Capital",
+        observacion=f"Se liquidaron {formatted_amount} de capital y se acreditaron a la Billetera Gloint.",
+        fecha=datetime.utcnow()
+    )
+    db.add(history)
+
+    # 7. Send In-App Notification
+    try:
+        await NotificationService.create_notification(
+            db=db,
+            user_id=investor.user_id,
+            title="Capital Acreditado en tu Billetera",
+            message=f"Se ha liquidado exitosamente el capital de tu contrato #{assigned_code} por un valor de {formatted_amount}, el cual ya se encuentra disponible en tu Billetera Gloint.",
+            type="wallet_credit"
+        )
+    except Exception as notif_err:
+        print(f"Error creating notification for capital withdrawal: {notif_err}")
+
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al procesar el retiro de capital: {str(e)}")
+
+    return {
+        "message": "Retiro de capital procesado y acreditado a la Billetera con éxito",
+        "investor_id": investor.id,
+        "monto_acreditado": amount_to_withdraw,
+        "nuevo_saldo_wallet": float(wallet.balance),
+        "withdrawal_id": withdrawal.id
+    }

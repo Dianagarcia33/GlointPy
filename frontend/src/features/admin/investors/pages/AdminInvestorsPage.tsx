@@ -12,8 +12,9 @@ import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseMod
 import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsModal';
 import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInversionModal';
 import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
+import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
@@ -149,6 +150,7 @@ export const AdminInvestorsPage = () => {
   const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
   const [selectedInvestorForBankAccounts, setSelectedInvestorForBankAccounts] = useState<Investor | null>(null);
   const [selectedInvestorForDocuments, setSelectedInvestorForDocuments] = useState<Investor | null>(null);
+  const [selectedInvestorForCapitalWithdrawal, setSelectedInvestorForCapitalWithdrawal] = useState<Investor | null>(null);
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
@@ -572,6 +574,20 @@ export const AdminInvestorsPage = () => {
                                   </button>
                                 </Can>
 
+                                <Can permission="admin.investors.manage">
+                                  {/* Retiro de Capital a Billetera */}
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      setSelectedInvestorForCapitalWithdrawal(investor);
+                                    }}
+                                    className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                  >
+                                    <Wallet className="w-4 h-4 text-brand-500 shrink-0" />
+                                    <span>Retiro de Capital a Billetera</span>
+                                  </button>
+                                </Can>
+
                                 <Can permission="admin.investors.capital_increase">
                                   {/* Editar Inversión */}
                                   <button
@@ -649,6 +665,17 @@ export const AdminInvestorsPage = () => {
                                   );
                                 })()}
                               </div>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-100 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedInvestorForCapitalWithdrawal(investor)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                              >
+                                <Wallet className="w-3.5 h-3.5" />
+                                <span>Retiro de Capital a Billetera</span>
+                              </button>
                             </div>
                           </div>
                           
@@ -1029,6 +1056,16 @@ export const AdminInvestorsPage = () => {
         isOpen={!!selectedInvestorForDocuments}
         onClose={() => setSelectedInvestorForDocuments(null)}
         investor={selectedInvestorForDocuments}
+      />
+
+      <AdminCapitalWithdrawalModal
+        isOpen={!!selectedInvestorForCapitalWithdrawal}
+        onClose={() => setSelectedInvestorForCapitalWithdrawal(null)}
+        onSuccess={() => {
+          setToast({ message: 'Retiro de capital procesado y acreditado a la billetera con éxito', type: 'success' });
+          fetchData();
+        }}
+        investor={selectedInvestorForCapitalWithdrawal}
       />
     </div>
   );

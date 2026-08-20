@@ -121,3 +121,7 @@ class InvestorPaginatedResponse(BaseModel):
     total: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class AdminWithdrawCapitalRequest(BaseModel):
+    monto: Optional[float] = None
+    notes: Optional[str] = None

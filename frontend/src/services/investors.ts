@@ -116,3 +116,13 @@ export const bulkUploadInvestors = async (file: File): Promise<{ success: number
     body: formData,
   });
 };
+
+export const adminWithdrawCapital = async (
+  investorId: number,
+  data: { monto?: number; notes?: string }
+): Promise<{ message: string; investor_id: number; monto_acreditado: number; nuevo_saldo_wallet: number; withdrawal_id: number }> => {
+  return await fetchApi(`/investors/${investorId}/admin-withdraw-capital`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
