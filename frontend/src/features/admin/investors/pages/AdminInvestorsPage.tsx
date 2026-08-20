@@ -405,7 +405,9 @@ export const AdminInvestorsPage = () => {
                   </td>
                 </tr>
               ) : (
-                investors.map((investor) => (
+                investors.map((investor, index) => {
+                  const isNearBottom = index >= Math.max(0, investors.length - 4);
+                  return (
                   <React.Fragment key={investor.id}>
                     <tr className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-4 w-10 text-center">
@@ -532,7 +534,9 @@ export const AdminInvestorsPage = () => {
                             </button>
 
                             {openActionMenuId === investor.id && (
-                              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                              <div className={`absolute right-0 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
+                                isNearBottom ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'
+                              }`}>
                                 
                                 {/* Documentos */}
                                 <button
@@ -969,7 +973,8 @@ export const AdminInvestorsPage = () => {
                       </tr>
                     )}
                   </React.Fragment>
-                ))
+                );
+              })
               )}
             </tbody>
           </table>
