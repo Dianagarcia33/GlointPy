@@ -5,7 +5,8 @@ from typing import List, Optional
 from src.core.database import get_db
 from src.schemas.investor import InvestorCreate, InvestorUpdate, InvestorResponse, InvestorPaginatedResponse
 from src.services.investor_service import InvestorService
-from src.api.deps import RequirePermission
+from src.api.deps import RequirePermission, get_current_user
+from src.models.user import User
 
 router = APIRouter()
 
@@ -21,6 +22,17 @@ async def read_investors(
     Retrieve all investors paginated.
     """
     return await InvestorService.get_investors(db, page=page, limit=limit, search=search, has_history=has_history)
+
+@router.get("/my-investments")
+async def get_my_investments_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna las inversiones activas del usuario autenticado (para app móvil y web).
+    """
+    from src.api.v1.endpoints.investments import get_my_investments
+    return await get_my_investments(current_user=current_user, db=db)
 
 @router.get("/{investor_id}", response_model=InvestorResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investor(
