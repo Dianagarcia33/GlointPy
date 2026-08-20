@@ -574,19 +574,44 @@ export const AdminInvestorsPage = () => {
                                   </button>
                                 </Can>
 
-                                <Can permission="admin.investors.manage">
-                                  {/* Retiro de Capital a Billetera */}
-                                  <button
-                                    onClick={() => {
-                                      setOpenActionMenuId(null);
-                                      setSelectedInvestorForCapitalWithdrawal(investor);
-                                    }}
-                                    className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer"
-                                  >
-                                    <Wallet className="w-4 h-4 text-brand-500 shrink-0" />
-                                    <span>Retiro de Capital a Billetera</span>
-                                  </button>
-                                </Can>
+                                {/* Retiro de Capital a Billetera - SOLO si finalizó los días y tiene saldo */}
+                                {(() => {
+                                  const now = new Date().getTime();
+                                  const start = investor.start_date ? new Date(investor.start_date).getTime() : now;
+                                  const totalDays = investor.period ? (investor.period.days || (investor.period.months * 30)) : 0;
+                                  const elapsedDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                                  const isFinalized = totalDays > 0 && elapsedDays >= totalDays;
+
+                                  const totalPkg = investor.package ? Number(investor.package.value) : 0;
+                                  const alreadyWithdrawn = investor.withdrawals
+                                    ? investor.withdrawals.reduce((sum: number, w: any) => {
+                                        const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
+                                        const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
+                                        if (String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase())) {
+                                          return sum + Number(w.monto || 0);
+                                        }
+                                        return sum;
+                                      }, 0)
+                                    : 0;
+                                  const hasCapital = (totalPkg - alreadyWithdrawn) > 0;
+
+                                  if (!isFinalized || !hasCapital) return null;
+
+                                  return (
+                                    <Can permission="admin.investors.manage">
+                                      <button
+                                        onClick={() => {
+                                          setOpenActionMenuId(null);
+                                          setSelectedInvestorForCapitalWithdrawal(investor);
+                                        }}
+                                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-amber-800 bg-amber-50/70 hover:bg-amber-100 flex items-center gap-2.5 transition-colors cursor-pointer border-y border-amber-200/60 my-0.5"
+                                      >
+                                        <Wallet className="w-4 h-4 text-brand-600 shrink-0" />
+                                        <span>💸 Retiro de Capital (Finalizado)</span>
+                                      </button>
+                                    </Can>
+                                  );
+                                })()}
 
                                 <Can permission="admin.investors.capital_increase">
                                   {/* Editar Inversión */}
@@ -667,16 +692,45 @@ export const AdminInvestorsPage = () => {
                               </div>
                             </div>
 
-                            <div className="pt-2 border-t border-slate-100 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedInvestorForCapitalWithdrawal(investor)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
-                              >
-                                <Wallet className="w-3.5 h-3.5" />
-                                <span>Retiro de Capital a Billetera</span>
-                              </button>
-                            </div>
+                            {/* Botón en fila expandida SOLO si finalizó el contrato y tiene saldo de capital */}
+                            {(() => {
+                              const now = new Date().getTime();
+                              const start = investor.start_date ? new Date(investor.start_date).getTime() : now;
+                              const totalDays = investor.period ? (investor.period.days || (investor.period.months * 30)) : 0;
+                              const elapsedDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                              const isFinalized = totalDays > 0 && elapsedDays >= totalDays;
+
+                              const totalPkg = investor.package ? Number(investor.package.value) : 0;
+                              const alreadyWithdrawn = investor.withdrawals
+                                ? investor.withdrawals.reduce((sum: number, w: any) => {
+                                    const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
+                                    const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
+                                    if (String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase())) {
+                                      return sum + Number(w.monto || 0);
+                                    }
+                                    return sum;
+                                  }, 0)
+                                : 0;
+                              const hasCapital = (totalPkg - alreadyWithdrawn) > 0;
+
+                              if (!isFinalized || !hasCapital) return null;
+
+                              return (
+                                <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center bg-amber-50/60 p-3 rounded-xl border border-amber-200/80">
+                                  <div className="text-xs text-amber-900 font-medium">
+                                    ✨ Este contrato ha <strong>finalizado sus {totalDays} días</strong> y cuenta con capital pendiente por liquidar.
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedInvestorForCapitalWithdrawal(investor)}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all cursor-pointer shrink-0"
+                                  >
+                                    <Wallet className="w-3.5 h-3.5" />
+                                    <span>Liquidar Capital a Billetera</span>
+                                  </button>
+                                </div>
+                              );
+                            })()}
                           </div>
                           
                           {/* Tarjetas de Rendimientos Diarios y Liberación */}
