@@ -373,8 +373,8 @@ export const AdminInvestorsPage = () => {
             </div>
           </div>
 
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-3xl shadow-xs border border-slate-200">
+        <div className="overflow-x-auto min-h-[380px]">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
@@ -428,27 +428,30 @@ export const AdminInvestorsPage = () => {
                       <td className="px-4 py-3.5">
                         <div className="font-semibold text-slate-800">{investor.assigned_code}</div>
                         {investor.referred_by && (
-                            <div className="text-xs text-slate-500">Ref: {investor.referred_by}</div>
+                          <div className="text-[11px] text-slate-400">Ref: {investor.referred_by}</div>
                         )}
                       </td>
                       <td className="px-4 py-3.5">
                         {investor.user ? (
-                            <div className="space-y-0.5">
-                                <div className="font-semibold text-slate-800">{investor.user.name}</div>
-                                <div className="text-xs text-slate-500">{investor.user.email}</div>
-                                {investor.user.document_id && <div className="text-[11px] text-slate-500 mt-1.5">Doc: <span className="font-medium text-slate-700">{investor.user.document_id}</span></div>}
-                                {investor.user.phone_number && <div className="text-[11px] text-slate-500">Tel: <span className="font-medium text-slate-700">{investor.user.phone_number}</span></div>}
-                                {investor.user.date_of_birth && <div className="text-[11px] text-slate-500">Nac: <span className="font-medium text-slate-700">{new Date(investor.user.date_of_birth).toLocaleDateString()}</span></div>}
-                                
-                                {((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet) && (
-                                  <button 
-                                    onClick={() => toggleRow(investor.id)}
-                                    className="text-[10px] text-brand-600 font-semibold hover:text-brand-700 flex items-center gap-0.5 mt-2 hover:underline"
-                                  >
-                                    Ver detalles {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 ? `(${investor.user.bank_accounts.length} ctas)` : ''}
-                                  </button>
-                                )}
+                          <div>
+                            <div className="font-bold text-slate-900 text-xs">{investor.user.name}</div>
+                            <div className="text-[11px] text-slate-500">{investor.user.email}</div>
+                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                              {investor.user.document_id && <span>Doc: <span className="font-mono text-slate-600">{investor.user.document_id}</span></span>}
+                              {investor.user.phone && <span>• Tel: {investor.user.phone}</span>}
                             </div>
+                            {investor.user.birth_date && (
+                              <div className="text-[10px] text-slate-400">Nac: {new Date(investor.user.birth_date).toLocaleDateString()}</div>
+                            )}
+                            {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
+                              <button
+                                onClick={() => setSelectedInvestorForBankAccounts(investor)}
+                                className="mt-1 text-[11px] text-brand-600 hover:text-brand-700 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                Ver detalles ({investor.user.bank_accounts.length} {investor.user.bank_accounts.length === 1 ? 'cta' : 'ctas'})
+                              </button>
+                            )}
+                          </div>
                         ) : (
                             <span className="text-slate-400">Desconocido</span>
                         )}
@@ -529,7 +532,7 @@ export const AdminInvestorsPage = () => {
                             </button>
 
                             {openActionMenuId === investor.id && (
-                              <div className="absolute right-0 mt-1 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-100">
+                              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                                 
                                 {/* Documentos */}
                                 <button
