@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2, MessageSquare } from 'lucide-react';
+import { Ticket, Send, CheckCircle2, AlertCircle, Plus, List, Loader2, MessageSquare, Radio } from 'lucide-react';
 import { fetchApi, getMediaUrl } from '../../../services/api';
 import { compressImage } from '../../../utils/imageCompression';
 
@@ -27,21 +27,68 @@ export const TicketsPage: React.FC = () => {
     const [commentFile, setCommentFile] = useState<File | null>(null);
     const [isSendingComment, setIsSendingComment] = useState(false);
 
+    const chatEndRef = useRef<HTMLDivElement | null>(null);
+    const previousCommentsLengthRef = useRef<number>(0);
+
+    const scrollToBottom = useCallback((smooth = true) => {
+        if (chatEndRef.current) {
+            chatEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+        }
+    }, []);
+
+    // 1. Cargar tickets al abrir pestaña de lista
     useEffect(() => {
         if (activeTab === 'list') {
-            fetchTickets();
+            fetchTickets(false);
         }
     }, [activeTab]);
 
-    const fetchTickets = async () => {
-        setIsLoadingList(true);
+    // 2. Polling periódico silencioso en segundo plano
+    useEffect(() => {
+        let interval: any;
+
+        if (activeTab === 'view' && selectedTicket) {
+            // Actualización en tiempo real del chat de ticket cada 3.5 segundos
+            interval = setInterval(() => {
+                fetchTicketDetailsSilently(selectedTicket.ticket_number || selectedTicket.id);
+            }, 3500);
+        } else if (activeTab === 'list') {
+            // Actualización en tiempo real de la lista cada 10 segundos
+            interval = setInterval(() => {
+                fetchTickets(true);
+            }, 10000);
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [activeTab, selectedTicket]);
+
+    const fetchTickets = async (silent = false) => {
+        if (!silent) setIsLoadingList(true);
         try {
             const data = await fetchApi('/tickets/my-tickets');
             setTickets(Array.isArray(data) ? data : data?.data || []);
         } catch (error: any) {
-            console.error('Error fetching tickets', error);
+            if (!silent) console.error('Error fetching tickets', error);
         } finally {
-            setIsLoadingList(false);
+            if (!silent) setIsLoadingList(false);
+        }
+    };
+
+    const fetchTicketDetailsSilently = async (num: string | number) => {
+        try {
+            const data = await fetchApi(`/tickets/${num}`);
+            if (data) {
+                setTicketDetails(data);
+                const currentCommentsLen = data?.comments?.length || 0;
+                if (currentCommentsLen > previousCommentsLengthRef.current) {
+                    previousCommentsLengthRef.current = currentCommentsLen;
+                    setTimeout(() => scrollToBottom(true), 100);
+                }
+            }
+        } catch (error) {
+            // Error silencioso en background
         }
     };
 
@@ -53,6 +100,8 @@ export const TicketsPage: React.FC = () => {
             const num = ticket.ticket_number || ticket.id;
             const data = await fetchApi(`/tickets/${num}`);
             setTicketDetails(data);
+            previousCommentsLengthRef.current = data?.comments?.length || 0;
+            setTimeout(() => scrollToBottom(false), 150);
         } catch (error: any) {
             console.error('Error fetching ticket details', error);
         } finally {
@@ -60,14 +109,15 @@ export const TicketsPage: React.FC = () => {
         }
     };
 
-    const handleSendComment = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSendComment = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (!commentContent.trim() && !commentFile) return;
+        if (isSendingComment) return;
         
         setIsSendingComment(true);
         try {
             const formData = new FormData();
-            formData.append('content', commentContent);
+            formData.append('content', commentContent.trim());
             if (commentFile) {
                 const compressedFile = await compressImage(commentFile);
                 formData.append('file', compressedFile);
@@ -81,12 +131,23 @@ export const TicketsPage: React.FC = () => {
             
             setCommentContent('');
             setCommentFile(null);
+            
+            // Recargar detalles y auto-scroll inmediato
             const data = await fetchApi(`/tickets/${num}`);
             setTicketDetails(data);
+            previousCommentsLengthRef.current = data?.comments?.length || 0;
+            setTimeout(() => scrollToBottom(true), 100);
         } catch (error: any) {
             alert(error.message || 'Error al enviar respuesta');
         } finally {
             setIsSendingComment(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendComment();
         }
     };
 
@@ -367,6 +428,13 @@ export const TicketsPage: React.FC = () => {
                                 <MessageSquare className="w-5 h-5 text-brand-500" />
                                 Historial de Conversación
                             </h3>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full text-xs font-bold shadow-2xs">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <span>En vivo</span>
+                            </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-slate-50/30">
@@ -381,28 +449,36 @@ export const TicketsPage: React.FC = () => {
                                     <span className="font-medium text-sm">Aún no hay respuestas en este ticket.</span>
                                 </div>
                             ) : (
-                                ticketDetails.comments.map((c: any, i: number) => {
-                                    const isStaff = c.author_type === 'agent';
-                                    return (
-                                        <div key={i} className={`flex ${isStaff ? 'justify-start' : 'justify-end'}`}>
-                                            <div className={`p-4 rounded-2xl max-w-[90%] sm:max-w-[75%] shadow-sm ${
-                                                isStaff
-                                                    ? 'bg-white border border-slate-200 rounded-tl-none' 
-                                                    : 'bg-brand-50 border border-brand-100 rounded-tr-none'
-                                            }`}>
-                                                <div className="text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">
-                                                    {c.author_name || (isStaff ? 'Agente de Soporte' : 'Usuario')}
+                                <>
+                                    {ticketDetails.comments.map((c: any, i: number) => {
+                                        const isStaff = c.author_type === 'agent';
+                                        return (
+                                            <div key={i} className={`flex ${isStaff ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-2 duration-200`}>
+                                                <div className={`p-4 rounded-2xl max-w-[90%] sm:max-w-[75%] shadow-sm ${
+                                                    isStaff
+                                                        ? 'bg-white border border-slate-200 rounded-tl-none' 
+                                                        : 'bg-brand-50 border border-brand-100 rounded-tr-none'
+                                                }`}>
+                                                    <div className="text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide flex items-center justify-between gap-4">
+                                                        <span>{c.author_name || (isStaff ? 'Agente de Soporte' : 'Usuario')}</span>
+                                                        {c.created_at && (
+                                                            <span className="text-[10px] text-slate-400 font-normal lowercase">
+                                                                {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
+                                                    {c.attachment_url && (
+                                                        <a href={getMediaUrl(c.attachment_url)} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity bg-white">
+                                                            <img src={getMediaUrl(c.attachment_url)} alt="Evidencia adjunta" className="max-h-48 object-cover min-w-[150px]" />
+                                                        </a>
+                                                    )}
                                                 </div>
-                                                <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{c.content}</p>
-                                                {c.attachment_url && (
-                                                    <a href={getMediaUrl(c.attachment_url)} target="_blank" rel="noreferrer" className="block mt-3 border border-slate-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity bg-white">
-                                                        <img src={getMediaUrl(c.attachment_url)} alt="Evidencia adjunta" className="max-h-48 object-cover min-w-[150px]" />
-                                                    </a>
-                                                )}
                                             </div>
-                                        </div>
-                                    );
-                                })
+                                        );
+                                    })}
+                                    <div ref={chatEndRef} />
+                                </>
                             )}
                         </div>
 
@@ -414,7 +490,8 @@ export const TicketsPage: React.FC = () => {
                                         required={!commentFile}
                                         value={commentContent}
                                         onChange={(e) => setCommentContent(e.target.value)}
-                                        placeholder="Escribe una respuesta al soporte..."
+                                        onKeyDown={handleKeyDown}
+                                        placeholder="Escribe una respuesta... (Presiona Enter para enviar)"
                                         className="w-full bg-transparent resize-none outline-none text-sm font-semibold text-slate-700 p-2 max-h-32 min-h-[50px]"
                                         rows={2}
                                     />
@@ -429,6 +506,7 @@ export const TicketsPage: React.FC = () => {
                                             + Adjuntar Archivo
                                             {commentFile && <span className="text-brand-600 ml-2 max-w-[150px] truncate normal-case font-medium">{commentFile.name}</span>}
                                         </label>
+                                        <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">Enter para enviar • Shift+Enter nueva línea</span>
                                     </div>
                                 </div>
                                 <button 
@@ -446,7 +524,12 @@ export const TicketsPage: React.FC = () => {
             ) : (
                 <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
                     <div className="p-4 sm:p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <h2 className="text-lg font-bold text-slate-800 font-montserrat">Tus Tickets Recientes</h2>
+                        <h2 className="text-lg font-bold text-slate-800 font-montserrat flex items-center gap-2">
+                            <span>Tus Tickets Recientes</span>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full text-[11px] font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Sincronizado
+                            </span>
+                        </h2>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm text-slate-600">
