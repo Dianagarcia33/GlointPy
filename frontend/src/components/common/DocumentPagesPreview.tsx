@@ -84,8 +84,24 @@ export const printPaginatedDocument = (
     html: string,
     bgImg?: string | null
 ) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    // Remove any existing print iframe
+    const existingIframe = document.getElementById('gloint-silent-print-frame');
+    if (existingIframe) {
+        existingIframe.remove();
+    }
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'gloint-silent-print-frame';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    iframe.style.zIndex = '-9999';
+    document.body.appendChild(iframe);
 
     let resolvedBg = bgImg ? getMediaUrl(bgImg) : '';
     if (resolvedBg && !resolvedBg.startsWith('http://') && !resolvedBg.startsWith('https://') && !resolvedBg.startsWith('data:')) {
@@ -104,7 +120,11 @@ export const printPaginatedDocument = (
         </div>
     `).join('');
 
-    printWindow.document.write(`
+    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!iframeDoc) return;
+
+    iframeDoc.open();
+    iframeDoc.write(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -175,22 +195,28 @@ export const printPaginatedDocument = (
         </head>
         <body>
             ${pagesHtml}
-            <script>
-                function triggerPrint() {
-                    setTimeout(function() {
-                        window.focus();
-                        window.print();
-                    }, 400);
-                }
-                window.onload = triggerPrint;
-                window.onafterprint = function() {
-                    window.close();
-                };
-            </script>
         </body>
         </html>
     `);
-    printWindow.document.close();
+    iframeDoc.close();
+
+    let hasPrinted = false;
+    const triggerPrint = () => {
+        if (hasPrinted) return;
+        hasPrinted = true;
+        setTimeout(() => {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+            setTimeout(() => {
+                iframe.remove();
+            }, 2000);
+        }, 300);
+    };
+
+    if (iframe.contentWindow) {
+        iframe.contentWindow.onload = triggerPrint;
+        setTimeout(triggerPrint, 600);
+    }
 };
 
 export const DocumentPagesPreview: React.FC<DocumentPagesPreviewProps> = ({
