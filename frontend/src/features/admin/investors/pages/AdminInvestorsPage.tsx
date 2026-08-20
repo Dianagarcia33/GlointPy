@@ -438,10 +438,10 @@ export const AdminInvestorsPage = () => {
                             <div className="text-[11px] text-slate-500">{investor.user.email}</div>
                             <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                               {investor.user.document_id && <span>Doc: <span className="font-mono text-slate-600">{investor.user.document_id}</span></span>}
-                              {investor.user.phone && <span>• Tel: {investor.user.phone}</span>}
+                              {investor.user.phone_number && <span>• Tel: {investor.user.phone_number}</span>}
                             </div>
-                            {investor.user.birth_date && (
-                              <div className="text-[10px] text-slate-400">Nac: {new Date(investor.user.birth_date).toLocaleDateString()}</div>
+                            {investor.user.date_of_birth && (
+                              <div className="text-[10px] text-slate-400">Nac: {new Date(investor.user.date_of_birth).toLocaleDateString()}</div>
                             )}
                             {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
                               <button
