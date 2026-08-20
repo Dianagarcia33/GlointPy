@@ -10,6 +10,63 @@ from src.models.investor import Investor
 from src.models.template import Template
 from src.schemas.investor_document import InvestorDocumentGenerateRequest, InvestorDocumentPreviewRequest
 
+def numero_a_letras(numero: float) -> str:
+    """Convierte un número a su representación en letras en español (Pesos Colombianos M/CTE)."""
+    unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
+    decenas = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
+    diez_y = ["DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE"]
+    veinti = ["VEINTE", "VEINTIUNO", "VEINTIDÓS", "VEINTITRÉS", "VEINTICUATRO", "VEINTICINCO", "VEINTISÉIS", "VEINTISIETE", "VEINTIOCHO", "VEINTINUEVE"]
+    centenas = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS"]
+
+    n = int(round(numero))
+    if n == 0:
+        return "CERO PESOS M/CTE"
+    if n == 100:
+        return "CIEN PESOS M/CTE"
+
+    def convertir_grupo(g: int) -> str:
+        c = g // 100
+        d = (g % 100) // 10
+        u = g % 10
+        res = []
+        if g == 100:
+            return "CIEN"
+        if c > 0:
+            res.append(centenas[c])
+        if d == 1:
+            res.append(diez_y[u])
+        elif d == 2:
+            res.append(veinti[u])
+        elif d > 2:
+            if u > 0:
+                res.append(f"{decenas[d]} Y {unidades[u]}")
+            else:
+                res.append(decenas[d])
+        elif u > 0:
+            res.append(unidades[u])
+        return " ".join(res).strip()
+
+    millones = (n // 1_000_000) % 1_000_000
+    miles = (n // 1_000) % 1_000
+    unidades_val = n % 1_000
+
+    partes = []
+    if millones == 1:
+        partes.append("UN MILLÓN")
+    elif millones > 1:
+        partes.append(f"{convertir_grupo(millones)} MILLONES")
+
+    if miles == 1:
+        partes.append("MIL")
+    elif miles > 1:
+        partes.append(f"{convertir_grupo(miles)} MIL")
+
+    if unidades_val > 0:
+        partes.append(convertir_grupo(unidades_val))
+
+    resultado = " ".join(partes).strip()
+    return f"{resultado} PESOS M/CTE"
+
 class InvestorDocumentService:
     
     @staticmethod
@@ -45,14 +102,27 @@ class InvestorDocumentService:
         user_city = getattr(user, 'city', '') or getattr(user, 'ciudad', '') or "Bogotá D.C."
 
         # Package & Shares
-        monto_num = float(investor.package.value) if investor.package else 0
+        monto_num = float(investor.package.value) if investor.package and investor.package.value is not None else 0.0
         monto_fmt = f"${monto_num:,.0f} COP".replace(",", ".")
         monto_clean = f"${monto_num:,.0f}".replace(",", ".")
-        shares_count = str(investor.package.granted_shares if investor.package else 0)
+        monto_sin_signo = f"{monto_num:,.0f}".replace(",", ".")
+        shares_count = str(investor.package.granted_shares if investor.package and investor.package.granted_shares is not None else 0)
         
-        period_months = str(investor.period.months) if investor.period else "0"
-        period_days = str(investor.period.days) if investor.period else "0"
-        period_pct = f"{investor.period.percentage}%" if investor.period else "0%"
+        period_months_num = investor.period.months if investor.period and investor.period.months is not None else 0
+        period_days_num = investor.period.days if investor.period and investor.period.days is not None else 0
+        pct_num = float(investor.period.percentage) if investor.period and investor.period.percentage is not None else 0.0
+        
+        period_months = str(period_months_num)
+        period_days = str(period_days_num)
+        period_pct = f"{pct_num:g}%"
+        period_pct_clean = f"{pct_num:g}"
+        
+        rendimiento_total_num = (monto_num * (pct_num / 100.0)) * period_months_num
+        rendimiento_total_fmt = f"${rendimiento_total_num:,.0f} COP".replace(",", ".")
+        rendimiento_mensual_num = monto_num * (pct_num / 100.0)
+        rendimiento_mensual_fmt = f"${rendimiento_mensual_num:,.0f} COP".replace(",", ".")
+
+        monto_en_letras = numero_a_letras(monto_num)
 
         meses_es = {
             1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
@@ -65,32 +135,49 @@ class InvestorDocumentService:
         if isinstance(start_date, datetime):
             start_date_str = start_date.strftime("%d/%m/%Y")
             start_date_long = f"{start_date.day} de {meses_es.get(start_date.month, '')} de {start_date.year}"
+            dia_inicio = str(start_date.day)
+            mes_inicio = meses_es.get(start_date.month, '')
+            ano_inicio = str(start_date.year)
         elif start_date:
             start_date_str = str(start_date)
             start_date_long = str(start_date)
+            dia_inicio = "01"
+            mes_inicio = "enero"
+            ano_inicio = "2026"
         else:
             now = datetime.utcnow()
             start_date_str = now.strftime("%d/%m/%Y")
             start_date_long = f"{now.day} de {meses_es.get(now.month, '')} de {now.year}"
+            dia_inicio = str(now.day)
+            mes_inicio = meses_es.get(now.month, '')
+            ano_inicio = str(now.year)
 
         # End Date
         end_date_str = "N/A"
         end_date_long = "N/A"
+        dia_fin = "N/A"
+        mes_fin = "N/A"
+        ano_fin = "N/A"
         if investor.start_date and investor.period:
             days = getattr(investor.period, 'days', 0) or (investor.period.months * 30 if investor.period.months else 0)
             end_date = investor.start_date + timedelta(days=days)
             end_date_str = end_date.strftime("%d/%m/%Y")
             end_date_long = f"{end_date.day} de {meses_es.get(end_date.month, '')} de {end_date.year}"
+            dia_fin = str(end_date.day)
+            mes_fin = meses_es.get(end_date.month, '')
+            ano_fin = str(end_date.year)
 
         assigned_code = investor.assigned_code or "N/A"
 
-        # Complete dictionary mapping
+        # Complete dictionary mapping covering all variations
         replacements = {
             # Acciones
             "acciones_otorgadas": shares_count,
             "acciones": shares_count,
             "shares": shares_count,
             "granted_shares": shares_count,
+            "numero_acciones": shares_count,
+            "cantidad_acciones": shares_count,
             "valor_total_acciones_formato": monto_fmt,
             "valor_total_acciones": monto_clean,
 
@@ -104,14 +191,18 @@ class InvestorDocumentService:
             "nombre_completo": full_name,
             "nombre_inversionista": full_name,
             "inversionista": full_name,
+            "deudor": full_name,
+            "acreedor": "GLOINT S.A.S.",
 
             # Documento e Identificación
             "documento": user_doc,
             "cedula": user_doc,
             "numero_documento": user_doc,
+            "identificacion": user_doc,
             "tipo_documento": doc_type,
             "ciudad": user_city,
             "domicilio": user_city,
+            "ciudad_inversionista": user_city,
 
             # Contacto
             "correo": user_email,
@@ -120,33 +211,86 @@ class InvestorDocumentService:
             "telefono": user_phone,
             "celular": user_phone,
             "phone": user_phone,
+            "telefono_inversionista": user_phone,
 
-            # Montos
+            # Montos del Paquete e Inversión
+            "paquete_accion_adquirido": monto_fmt,
+            "paquete_adquirido": monto_fmt,
+            "paquete_inversion": monto_fmt,
+            "paquete_valor": monto_fmt,
+            "valor_paquete": monto_fmt,
+            "paquete": monto_fmt,
             "monto_inversion": monto_fmt,
             "monto": monto_fmt,
+            "monto_numeros": monto_sin_signo,
+            "monto_capital": monto_fmt,
+            "capital": monto_fmt,
             "valor_inversion": monto_fmt,
+            "valor_contrato": monto_fmt,
+            "total_contrato": monto_fmt,
+            "valor_total_contrato": monto_fmt,
+            "valor": monto_fmt,
+            "monto_letras": monto_en_letras,
+            "valor_en_letras": monto_en_letras,
+            "monto_en_letras": monto_en_letras,
+            "suma_en_letras": monto_en_letras,
+            "suma_letras": monto_en_letras,
 
             # Fechas
             "fecha_ingreso": start_date_str,
             "fecha_inicio": start_date_str,
+            "fecha_creacion": start_date_str,
+            "fecha_emision": start_date_long,
             "fecha_inicio_larga": start_date_long,
             "fecha_fin": end_date_str,
             "fecha_finalizacion": end_date_str,
+            "fecha_vencimiento": end_date_str,
             "fecha_fin_larga": end_date_long,
+            "fecha_vencimiento_larga": end_date_long,
+            "dia_inicio": dia_inicio,
+            "mes_inicio": mes_inicio,
+            "ano_inicio": ano_inicio,
+            "dia_fin": dia_fin,
+            "mes_fin": mes_fin,
+            "ano_fin": ano_fin,
 
             # Periodo y porcentajes
+            "porcentaje_participacion_accionista": period_pct,
+            "porcentaje_participacion": period_pct,
+            "porcentaje_rentabilidad": period_pct,
+            "porcentaje_mensual": period_pct,
+            "porcentaje_interes": period_pct,
+            "tasa_interes": period_pct,
+            "tasa_mensual": period_pct,
+            "tasa": period_pct,
+            "interes": period_pct,
+            "interes_mensual": period_pct,
+            "rendimiento_mensual": period_pct,
+            "rendimiento_aprobado_mensual": period_pct,
+            "rentabilidad_contrato": period_pct,
+            "porcentaje": period_pct,
+            "porcentaje_sin_signo": period_pct_clean,
+            "rendimiento_mensual_valor": rendimiento_mensual_fmt,
+            "rendimiento_total_contrato": rendimiento_total_fmt,
+            "rendimiento_total": rendimiento_total_fmt,
             "periodos_meses": period_months,
+            "periodo_meses": period_months,
+            "periodo_contrato": f"{period_months} meses",
+            "duracion_meses": period_months,
             "meses": period_months,
             "periodo": period_months,
             "dias_contrato": period_days,
             "dias": period_days,
-            "porcentaje_mensual": period_pct,
-            "porcentaje": period_pct,
+            "dias_vigencia": period_days,
+            "vigencia": f"{period_days} días",
+            "duracion_dias": period_days,
 
             # Código
             "codigo_inversion": assigned_code,
             "codigo_asignado": assigned_code,
             "codigo": assigned_code,
+            "numero_pagare": assigned_code,
+            "pagare_numero": assigned_code,
 
             # Firma
             "firma_digital": f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;"><strong>Firma Digital:</strong><br/>{full_name}<br/><span style="color:#64748b; font-size: 11px;">Doc: {user_doc}</span></div>',
@@ -164,18 +308,32 @@ class InvestorDocumentService:
 
     @staticmethod
     async def get_investor_with_relations(db: AsyncSession, investor_id: int) -> Investor:
+        from src.models.package import Package
+        from src.models.period import Period
+
         result = await db.execute(
             select(Investor)
             .options(
                 selectinload(Investor.user),
                 selectinload(Investor.package),
-                selectinload(Investor.period)
+                selectinload(Investor.period),
+                selectinload(Investor.contract_histories)
             )
             .where(Investor.id == investor_id)
         )
         investor = result.scalars().first()
         if not investor:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inversión no encontrada")
+
+        # Defensive fallback if relationships were not loaded
+        if investor.package is None and investor.package_id:
+            pkg_res = await db.execute(select(Package).where(Package.id == investor.package_id))
+            investor.package = pkg_res.scalars().first()
+
+        if investor.period is None and investor.period_id:
+            per_res = await db.execute(select(Period).where(Period.id == investor.period_id))
+            investor.period = per_res.scalars().first()
+
         return investor
 
     @staticmethod

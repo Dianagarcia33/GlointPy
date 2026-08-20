@@ -13,21 +13,23 @@ interface TemplateModalProps {
 }
 
 const TEMPLATE_VARIABLES = [
-    { label: 'Nombre', tag: '{nombre}' },
-    { label: 'Apellido', tag: '{apellido}' },
-    { label: 'Nombre Completo', tag: '{NOMBRE_INVERSIONISTA}' },
+    { label: 'Nombre Completo', tag: '{nombre_completo}' },
     { label: 'Documento / Cédula', tag: '{documento}' },
     { label: 'Ciudad / Domicilio', tag: '{ciudad}' },
+    { label: 'Paquete Adquirido ($ COP)', tag: '{paquete_accion_adquirido}' },
+    { label: 'Valor en Letras', tag: '{valor_en_letras}' },
+    { label: 'Porcentaje / Rentabilidad', tag: '{porcentaje_participacion_accionista}' },
+    { label: 'Periodo (Meses)', tag: '{periodos_meses}' },
+    { label: 'Días de Contrato', tag: '{dias_contrato}' },
     { label: 'Acciones Otorgadas', tag: '{acciones_otorgadas}' },
     { label: 'Valor Total Acciones', tag: '{valor_total_acciones_formato}' },
     { label: 'Fecha Ingreso / Inicio', tag: '{fecha_ingreso}' },
-    { label: 'Fecha Finalización / Fin', tag: '{FECHA_FIN}' },
-    { label: 'Monto Inversión', tag: '{MONTO_INVERSION}' },
-    { label: 'Periodo (Meses)', tag: '{PERIODOS_MESES}' },
-    { label: 'Código Inversión', tag: '{CODIGO_INVERSION}' },
-    { label: 'Correo Electrónico', tag: '{CORREO}' },
-    { label: 'Teléfono', tag: '{TELEFONO}' },
-    { label: 'Firma Digital', tag: '{FIRMA_DIGITAL}' },
+    { label: 'Fecha Finalización / Fin', tag: '{fecha_fin}' },
+    { label: 'Fecha Emisión Larga', tag: '{fecha_emision}' },
+    { label: 'Código Inversión / Pagaré', tag: '{codigo_inversion}' },
+    { label: 'Correo Electrónico', tag: '{correo}' },
+    { label: 'Teléfono', tag: '{telefono}' },
+    { label: 'Firma Digital', tag: '{firma_digital}' },
 ];
 
 export const TemplateModal: React.FC<TemplateModalProps> = ({ isOpen, onClose, onSaved, template }) => {
