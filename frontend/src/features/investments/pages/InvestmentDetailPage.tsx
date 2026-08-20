@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchApi, getMediaUrl } from '../../../services/api';
 import { formatCurrency } from '../../../utils/format';
-import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar } from 'lucide-react';
+import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar, Download } from 'lucide-react';
 import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
 import { investorDocumentsService, InvestorDocument } from '../../../services/investorDocuments';
@@ -287,52 +287,73 @@ export const InvestmentDetailPage = () => {
                             </div>
                         )}
                         {/* Documentos y Contratos Emitidos */}
-                        {documents.length > 0 && (
-                            <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 space-y-4">
+                        {documents.length > 0 ? (
+                            <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/40 p-6 rounded-2xl border border-indigo-100/80 shadow-xs space-y-4">
                                 <div className="flex justify-between items-center border-b border-indigo-200/50 pb-3">
-                                    <h3 className="text-sm font-bold text-indigo-950 uppercase tracking-widest flex items-center gap-2">
-                                        <FileText className="w-4 h-4 text-indigo-600" />
-                                        Documentos & Contratos Legales
-                                    </h3>
-                                    <span className="text-xs font-bold bg-indigo-200 text-indigo-800 px-2.5 py-0.5 rounded-full">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-xs">
+                                            <FileText className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-bold text-slate-900 font-montserrat">
+                                                Documentos & Contratos Oficiales
+                                            </h3>
+                                            <p className="text-[11px] text-slate-500 font-medium">Descarga tus contratos y certificados con validez legal</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-xs font-bold bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full border border-indigo-200">
                                         {documents.length} {documents.length === 1 ? 'documento' : 'documentos'}
                                     </span>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
                                     {documents.map((doc) => (
-                                        <div key={doc.id} className="bg-white p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col justify-between">
+                                        <div key={doc.id} className="bg-white p-4.5 rounded-2xl border border-slate-200/80 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between group">
                                             <div>
-                                                <div className="flex justify-between items-center mb-1.5">
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 uppercase tracking-wider border border-indigo-100">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 uppercase tracking-wider border border-indigo-100">
                                                         {doc.document_type || 'Contrato'}
                                                     </span>
-                                                    <span className="text-[10px] text-slate-400 font-medium">
+                                                    <span className="text-[11px] text-slate-400 font-medium">
                                                         {new Date(doc.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                     </span>
                                                 </div>
-                                                <h4 className="text-xs font-bold text-slate-800 line-clamp-2">{doc.title}</h4>
+                                                <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-2">
+                                                    {doc.title}
+                                                </h4>
                                             </div>
 
-                                            <div className="flex gap-2 mt-3 pt-3 border-t border-slate-100">
+                                            <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
                                                 <button
+                                                    type="button"
                                                     onClick={() => setViewingDoc(doc)}
-                                                    className="flex-1 py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                                    className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                                                 >
                                                     <Eye className="w-3.5 h-3.5" />
-                                                    <span>Ver</span>
+                                                    <span>Visualizar</span>
                                                 </button>
                                                 <button
+                                                    type="button"
                                                     onClick={() => printPaginatedDocument(doc.title, doc.html_content, doc.background_image)}
-                                                    className="py-1.5 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                                                    title="Imprimir o Descargar PDF"
+                                                    className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                                                    title="Descargar o Guardar como PDF"
                                                 >
-                                                    <Printer className="w-3.5 h-3.5" />
-                                                    <span>PDF</span>
+                                                    <Download className="w-3.5 h-3.5" />
+                                                    <span>Descargar PDF</span>
                                                 </button>
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-slate-50/70 p-5 rounded-2xl border border-dashed border-slate-200 flex items-center gap-4">
+                                <div className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl shrink-0 shadow-xs">
+                                    <FileText className="w-5 h-5 text-indigo-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="text-xs font-bold text-slate-800">Documentos Legales</h4>
+                                    <p className="text-[11px] text-slate-500 mt-0.5">Tus contratos y certificados oficiales emitidos aparecerán aquí listos para descargar en formato PDF.</p>
                                 </div>
                             </div>
                         )}
@@ -382,17 +403,19 @@ export const InvestmentDetailPage = () => {
                         <div className="p-5 bg-slate-900 text-white flex justify-between items-center">
                             <div>
                                 <h3 className="text-base font-bold font-montserrat">{viewingDoc.title}</h3>
-                                <span className="text-xs text-slate-400">Documento Oficial</span>
+                                <span className="text-xs text-slate-400">Documento Oficial de Inversión</span>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
+                                    type="button"
                                     onClick={() => printPaginatedDocument(viewingDoc.title, viewingDoc.html_content, viewingDoc.background_image)}
                                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all cursor-pointer"
                                 >
-                                    <Printer className="w-4 h-4" />
-                                    Imprimir / PDF
+                                    <Download className="w-4 h-4" />
+                                    Descargar / Imprimir PDF
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => setViewingDoc(null)}
                                     className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
                                 >
