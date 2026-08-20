@@ -18,29 +18,32 @@ from src.services.push_notification_service import PushNotificationService
 router = APIRouter()
 
 @router.post("/register-token", response_model=DeviceTokenResponse)
+@router.post("/devices/register", response_model=DeviceTokenResponse)
+@router.post("/devices", response_model=DeviceTokenResponse)
 async def register_device_token(
     req: DeviceTokenRegisterRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Registra o actualiza un token de dispositivo FCM para el usuario autenticado.
+    Registra o actualiza un token de dispositivo FCM para el usuario autenticado (Web o Móvil Android/iOS).
     """
     return await PushNotificationService.register_token(
         db=db,
         user_id=current_user.id,
         token=req.token,
-        device_type=req.device_type or "web"
+        device_type=req.device_type or "android"
     )
 
 @router.post("/unregister-token")
+@router.post("/devices/unregister")
 async def unregister_device_token(
     req: DeviceTokenUnregisterRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Inactiva un token de dispositivo FCM (por ejemplo, al cerrar sesión).
+    Inactiva un token de dispositivo FCM (por ejemplo, al cerrar sesión en la app).
     """
     success = await PushNotificationService.unregister_token(db=db, token=req.token)
     return {"success": success, "message": "Token de dispositivo inactivado correctamente." if success else "Token no encontrado."}
