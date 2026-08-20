@@ -81,7 +81,7 @@ async def bulk_upload_investors(file: UploadFile = File(...), db: AsyncSession =
     return result
 
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, date
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from src.schemas.investor import AdminWithdrawCapitalRequest
@@ -134,6 +134,7 @@ async def admin_withdraw_capital(
 
     amount_to_withdraw = float(req.monto) if (req.monto is not None and 0 < float(req.monto) <= available_capital) else available_capital
     amount_decimal = Decimal(str(amount_to_withdraw))
+    assigned_code = investor.assigned_code or f"INV-{investor.id}"
 
     # 3. Fetch or Create User Wallet
     wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == investor.user_id))
@@ -157,12 +158,14 @@ async def admin_withdraw_capital(
         monto=amount_decimal,
         impuesto=Decimal("0.00"),
         monto_neto=amount_decimal,
-        fecha_solicitud=datetime.utcnow(),
+        fecha_solicitud=date.today(),
         estado=WithdrawalStatus.PROCESSED,
         aprobado_por=current_user.id,
         fecha_aprobacion=datetime.utcnow(),
-        metodo_pago="Abono a Billetera",
-        comprobante_pago=req.notes or "Liquidación y retorno de capital a Billetera por finalización de contrato"
+        procesado_por=current_user.id,
+        fecha_procesamiento=datetime.utcnow(),
+        metodo_pago="Billetera Gloint",
+        observaciones=req.notes or f"Liquidación y retorno de capital a Billetera por finalización de contrato #{assigned_code}"
     )
     db.add(withdrawal)
     await db.flush()
@@ -170,7 +173,6 @@ async def admin_withdraw_capital(
     # 5. Credit Wallet and Create Transaction
     wallet.balance += amount_decimal
     
-    assigned_code = investor.assigned_code or f"INV-{investor.id}"
     tx = WalletTransaction(
         wallet_id=wallet.id,
         amount=amount_decimal,
@@ -184,13 +186,25 @@ async def admin_withdraw_capital(
 
     # 6. Add Contract History Entry
     formatted_amount = f"${amount_to_withdraw:,.0f} COP".replace(",", ".")
-    history = ContractHistory(
-        investor_id=investor.id,
-        cambio_tipo="Liquidación de Capital",
-        observacion=f"Se liquidaron {formatted_amount} de capital y se acreditaron a la Billetera Gloint.",
-        fecha=datetime.utcnow()
-    )
-    db.add(history)
+    if investor.start_date and investor.period:
+        start_d = investor.start_date.date() if isinstance(investor.start_date, datetime) else investor.start_date
+        end_d = start_d
+        if hasattr(investor, 'end_date') and investor.end_date:
+            end_d = investor.end_date.date() if isinstance(investor.end_date, datetime) else investor.end_date
+        
+        history = ContractHistory(
+            investor_id=investor.id,
+            paquete_inversion_id=investor.package_id,
+            contract_period_id=investor.period_id,
+            fecha_inicio=start_d,
+            fecha_fin=end_d,
+            dias_contrato=investor.period.days if investor.period else 0,
+            total_contrato=Decimal(str(total_package_value)),
+            tasa_interes=f"{investor.period.percentage}%" if investor.period else "0%",
+            motivo="Liquidación y Retiro de Capital a Billetera",
+            observaciones=f"Se liquidaron {formatted_amount} de capital y se acreditaron a la Billetera Gloint."
+        )
+        db.add(history)
 
     # 7. Send In-App Notification
     try:
@@ -217,3 +231,4 @@ async def admin_withdraw_capital(
         "nuevo_saldo_wallet": float(wallet.balance),
         "withdrawal_id": withdrawal.id
     }
+
