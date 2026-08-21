@@ -60,6 +60,19 @@ export const chatService = {
     });
   },
 
+  uploadFiles: async (roomId: number, files: File[], content?: string): Promise<ChatMessage | ChatMessage[]> => {
+    const formData = new FormData();
+    formData.append('room_id', roomId.toString());
+    if (content) formData.append('content', content);
+    files.forEach(f => {
+      formData.append('files', f);
+    });
+    return fetchApi('/chat/upload-multiple', {
+      method: 'POST',
+      body: formData
+    });
+  },
+
   markAsRead: async (roomId: number): Promise<{ message: string }> => {
     return fetchApi(`/chat/rooms/${roomId}/read`, {
       method: 'POST'
