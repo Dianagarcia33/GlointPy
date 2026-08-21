@@ -31,6 +31,14 @@ interface ChatWindowProps {
   onBack?: () => void;
 }
 
+export const formatFileSize = (bytes: number): string => {
+  if (!bytes || isNaN(bytes) || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+};
+
 export const getFileMeta = (fileName?: string | null, fileType?: string | null) => {
   const name = (fileName || '').toLowerCase();
   const type = (fileType || '').toLowerCase();
@@ -381,7 +389,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-slate-800 truncate font-outfit max-w-[140px]">{file.name}</p>
-                    <p className="text-[10px] text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
+                    <p className="text-[10px] text-slate-400 font-medium">{formatFileSize(file.size)}</p>
                   </div>
                   <button
                     type="button"
