@@ -42,6 +42,7 @@ class SendCodeRequest(BaseModel):
     monto: float
 
 @router.get("/me/balance")
+@router.get("/balance")
 async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the wallet balance of the current logged-in user.

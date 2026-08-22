@@ -46,12 +46,7 @@ async def on_startup():
                 pass
 
             try:
-                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_url VARCHAR(1000) NULL"))
-            except Exception:
-                pass
-
-            try:
-                await conn.execute(text("ALTER TABLE chat_messages MODIFY COLUMN file_url VARCHAR(1000) NULL"))
+                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_url VARCHAR(500) NULL"))
             except Exception:
                 pass
 
@@ -61,12 +56,7 @@ async def on_startup():
                 pass
 
             try:
-                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_type VARCHAR(255) NULL"))
-            except Exception:
-                pass
-
-            try:
-                await conn.execute(text("ALTER TABLE chat_messages MODIFY COLUMN file_type VARCHAR(255) NULL"))
+                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_type VARCHAR(50) NULL"))
             except Exception:
                 pass
 

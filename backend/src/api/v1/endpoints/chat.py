@@ -112,16 +112,14 @@ async def mark_room_as_read(
     return {"message": "Mensajes marcados como leídos"}
 
 @router.post("/upload", dependencies=[Depends(RequirePermission("chat:send"))])
-@router.post("/upload-multiple", dependencies=[Depends(RequirePermission("chat:send"))])
 async def upload_chat_file(
     room_id: int = Form(...),
     content: Optional[str] = Form(""),
-    file: Optional[UploadFile] = File(None),
-    files: Optional[List[UploadFile]] = File(None),
+    file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Sube uno o múltiples archivos adjuntos en el chat (PDF, Excel, Word, Imágenes, etc.) y los transmite en tiempo real."""
+    """Sube un archivo/imagen adjunta en el chat, lo guarda y transmite el mensaje en tiempo real."""
     is_part = await ChatService.is_participant(db, room_id, current_user.id)
     if not is_part and not PBACEngine.has_permission(current_user, "admin.chat.manage"):
         raise HTTPException(
@@ -129,64 +127,38 @@ async def upload_chat_file(
             detail="No eres participante de esta sala de chat"
         )
 
-    # Recopilar todos los archivos enviados
-    upload_list: List[UploadFile] = []
-    if files:
-        upload_list.extend([f for f in files if f and f.filename])
-    if file and file.filename:
-        upload_list.append(file)
-
-    if not upload_list:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No se ha proporcionado ningún archivo para subir"
-        )
-
     # Crear carpeta de destino
     upload_dir = os.path.join("uploads", "chat")
     os.makedirs(upload_dir, exist_ok=True)
 
-    saved_messages = []
-    text_content = content.strip() if content else ""
+    # Generar nombre único de archivo
+    file_ext = os.path.splitext(file.filename)[1] if file.filename else ""
+    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+    file_path = os.path.join(upload_dir, unique_filename)
 
-    for index, current_file in enumerate(upload_list):
-        # Generar nombre único de archivo
-        file_ext = os.path.splitext(current_file.filename)[1] if current_file.filename else ""
-        unique_filename = f"{uuid.uuid4().hex}{file_ext}"
-        file_path = os.path.join(upload_dir, unique_filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(current_file.file, buffer)
+    file_url = f"/api/v1/uploads/chat/{unique_filename}"
+    file_name = file.filename or "archivo_adjunto"
+    file_type = file.content_type or "application/octet-stream"
 
-        file_url = f"/api/v1/uploads/chat/{unique_filename}"
-        file_name = current_file.filename or "archivo_adjunto"
-        file_type = (current_file.content_type or "application/octet-stream")[:250]
+    msg_content = content.strip() if content and content.strip() else f"📎 Adjunto: {file_name}"
 
-        # Si el usuario escribió un texto, asociarlo al primer archivo o poner título descriptivo
-        if text_content and index == 0:
-            msg_content = text_content
-        else:
-            msg_content = f"📎 Adjunto: {file_name}"
+    saved_msg = await ChatService.save_message(
+        db=db,
+        room_id=room_id,
+        sender_id=current_user.id,
+        content=msg_content,
+        file_url=file_url,
+        file_name=file_name,
+        file_type=file_type
+    )
 
-        saved_msg = await ChatService.save_message(
-            db=db,
-            room_id=room_id,
-            sender_id=current_user.id,
-            content=msg_content,
-            file_url=file_url,
-            file_name=file_name,
-            file_type=file_type
-        )
+    # Broadcast en tiempo real a todos los clientes en la sala
+    await manager.broadcast_to_room(room_id, saved_msg)
 
-        # Broadcast en tiempo real a todos los clientes en la sala
-        await manager.broadcast_to_room(room_id, saved_msg)
-        saved_messages.append(saved_msg)
-
-    # Retornar el primer mensaje o la lista completa
-    if len(saved_messages) == 1:
-        return saved_messages[0]
-    return saved_messages
-
+    return saved_msg
 
 
 @router.websocket("/ws/{room_id}")
