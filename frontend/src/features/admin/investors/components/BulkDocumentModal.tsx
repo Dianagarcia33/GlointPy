@@ -12,10 +12,12 @@ import {
     Sparkles, 
     Image, 
     Check,
-    ArrowRight
+    ArrowRight,
+    Play
 } from 'lucide-react';
 import { templatesService, DocumentTemplate } from '../../../../services/templates';
 import { investorDocumentsService, InvestorDocumentBulkGenerateResponse } from '../../../../services/investorDocuments';
+import { getInvestors, Investor } from '../../../../services/investors';
 
 interface BulkDocumentModalProps {
     isOpen: boolean;
@@ -42,8 +44,16 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
     const [selectedBgOption, setSelectedBgOption] = useState<string>('/uploads/templates/gloint_membrete_oficial.png');
     const [overwriteExisting, setOverwriteExisting] = useState(false);
 
-    // Processing & Result State
+    // Live Progress State
     const [isProcessing, setIsProcessing] = useState(false);
+    const [progress, setProgress] = useState<{
+        current: number;
+        total: number;
+        percent: number;
+        currentName: string;
+    }>({ current: 0, total: 0, percent: 0, currentName: '' });
+
+    // Result State
     const [result, setResult] = useState<InvestorDocumentBulkGenerateResponse | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -59,7 +69,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
         try {
             const data = await templatesService.getTemplates();
             setTemplates(data);
-            if (data.length > 0 && !selectedTemplateId) {
+            if (data.length > 0) {
                 setSelectedTemplateId(data[0].id);
             }
         } catch (err: any) {
@@ -74,6 +84,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
             fetchTemplates();
             setResult(null);
             setIsProcessing(false);
+            setProgress({ current: 0, total: 0, percent: 0, currentName: '' });
             if (preselectedInvestorIds.length > 0) {
                 setTargetType('selected');
             } else {
@@ -95,20 +106,71 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
 
         setIsProcessing(true);
         setResult(null);
+        setProgress({ current: 0, total: 1, percent: 5, currentName: 'Consultando lista de inversionistas...' });
 
         try {
-            const res = await investorDocumentsService.bulkGenerateDocuments({
-                template_id: Number(tplId),
-                target_type: targetType,
-                investor_ids: targetType === 'selected' ? preselectedInvestorIds : undefined,
-                custom_title: customTitle.trim() || undefined,
-                background_image: selectedBgOption || undefined,
-                overwrite_existing: overwriteExisting
+            // Fetch candidates to process progressively with live progress bar
+            const investorsRes = await getInvestors({ limit: 1000 });
+            let candidates: Investor[] = investorsRes.data || [];
+
+            if (targetType === 'selected' && preselectedInvestorIds.length > 0) {
+                candidates = candidates.filter(inv => preselectedInvestorIds.includes(inv.id));
+            }
+
+            if (candidates.length === 0) {
+                setToast({ message: "No se encontraron inversionistas para procesar", type: "error" });
+                setIsProcessing(false);
+                return;
+            }
+
+            const total = candidates.length;
+            let generatedCount = 0;
+            let skippedCount = 0;
+            const errors: string[] = [];
+
+            for (let i = 0; i < candidates.length; i++) {
+                const inv = candidates[i];
+                const invName = `${inv.user?.name || 'Inversionista'} (${inv.assigned_code || `#${inv.id}`})`;
+                
+                setProgress({
+                    current: i + 1,
+                    total: total,
+                    percent: Math.round(((i + 1) / total) * 100),
+                    currentName: invName
+                });
+
+                try {
+                    // Check if document exists if target is without_document
+                    if (targetType === 'without_document' && !overwriteExisting) {
+                        const existingDocs = await investorDocumentsService.getDocumentsByInvestor(inv.id);
+                        if (existingDocs.some(d => d.template_id === Number(tplId))) {
+                            skippedCount++;
+                            continue;
+                        }
+                    }
+
+                    await investorDocumentsService.generateDocument(
+                        inv.id,
+                        Number(tplId),
+                        customTitle.trim() || undefined,
+                        selectedBgOption || undefined
+                    );
+                    generatedCount++;
+                } catch (err: any) {
+                    console.error(`Error generando documento para ${invName}:`, err);
+                    errors.push(`${invName}: ${err.message || 'Error desconocido'}`);
+                }
+            }
+
+            setResult({
+                total_candidates: total,
+                generated_count: generatedCount,
+                skipped_count: skippedCount,
+                errors: errors
             });
 
-            setResult(res);
             setToast({ 
-                message: `¡Proceso completado! Se generaron ${res.generated_count} documentos.`, 
+                message: `¡Generación masiva completada! Se emitieron ${generatedCount} documentos.`, 
                 type: "success" 
             });
 
@@ -173,7 +235,43 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto space-y-6">
-                    {result ? (
+                    {isProcessing ? (
+                        /* Live Processing Screen with Progress Bar */
+                        <div className="space-y-6 text-center py-8">
+                            <div className="relative w-20 h-20 mx-auto">
+                                <div className="absolute inset-0 rounded-full bg-brand-500/20 animate-ping"></div>
+                                <div className="relative w-20 h-20 rounded-full bg-brand-500 text-white flex items-center justify-center shadow-xl shadow-brand-500/30">
+                                    <Loader2 className="w-10 h-10 animate-spin" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <h3 className="text-lg font-bold text-slate-800 font-montserrat">
+                                    Generando Documentos en Progreso...
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Por favor no cierres esta ventana mientras se procesan las emisiones
+                                </p>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="max-w-md mx-auto space-y-2">
+                                <div className="flex justify-between text-xs font-bold text-slate-600 px-1">
+                                    <span>Documento {progress.current} de {progress.total}</span>
+                                    <span className="text-brand-600">{progress.percent}%</span>
+                                </div>
+                                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/80 p-0.5">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-brand-500 via-indigo-500 to-emerald-500 rounded-full transition-all duration-300 shadow-xs"
+                                        style={{ width: `${Math.max(5, progress.percent)}%` }}
+                                    ></div>
+                                </div>
+                                <div className="text-[11px] text-slate-400 font-medium truncate pt-1">
+                                    Procesando: <span className="font-bold text-slate-700">{progress.currentName || 'Iniciando...'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : result ? (
                         /* Result Summary View */
                         <div className="space-y-6 text-center py-4">
                             <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center mx-auto">
