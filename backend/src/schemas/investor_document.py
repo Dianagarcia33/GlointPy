@@ -25,6 +25,20 @@ class InvestorDocumentPreviewRequest(BaseModel):
     template_id: int
     background_image: Optional[str] = None
 
+class InvestorDocumentBulkGenerateRequest(BaseModel):
+    template_id: int
+    target_type: str = "all"  # "all", "selected", "without_document"
+    investor_ids: Optional[list[int]] = None
+    custom_title: Optional[str] = None
+    background_image: Optional[str] = None
+    overwrite_existing: bool = False
+
+class InvestorDocumentBulkGenerateResponse(BaseModel):
+    total_candidates: int
+    generated_count: int
+    skipped_count: int
+    errors: list[str] = []
+
 class InvestorDocumentResponse(InvestorDocumentBase):
     id: int
     user_id: int
@@ -33,3 +47,4 @@ class InvestorDocumentResponse(InvestorDocumentBase):
 
     class Config:
         from_attributes = True
+

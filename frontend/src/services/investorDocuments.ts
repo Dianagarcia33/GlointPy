@@ -22,6 +22,22 @@ export interface InvestorDocumentPreview {
     background_image: string | null;
 }
 
+export interface InvestorDocumentBulkGenerateRequest {
+    template_id: number;
+    target_type: 'all' | 'selected' | 'without_document';
+    investor_ids?: number[];
+    custom_title?: string;
+    background_image?: string;
+    overwrite_existing?: boolean;
+}
+
+export interface InvestorDocumentBulkGenerateResponse {
+    total_candidates: number;
+    generated_count: number;
+    skipped_count: number;
+    errors: string[];
+}
+
 export const investorDocumentsService = {
     previewDocument: async (investorId: number, templateId: number, backgroundImage?: string): Promise<InvestorDocumentPreview> => {
         return await fetchApi('/investor-documents/preview', {
@@ -43,6 +59,13 @@ export const investorDocumentsService = {
                 custom_title: customTitle,
                 background_image: backgroundImage
             })
+        });
+    },
+
+    bulkGenerateDocuments: async (data: InvestorDocumentBulkGenerateRequest): Promise<InvestorDocumentBulkGenerateResponse> => {
+        return await fetchApi('/investor-documents/bulk-generate', {
+            method: 'POST',
+            body: JSON.stringify(data)
         });
     },
 
