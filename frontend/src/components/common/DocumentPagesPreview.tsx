@@ -11,15 +11,15 @@ interface DocumentPagesPreviewProps {
 const PAGE_WIDTH_PX = 816;
 const PAGE_HEIGHT_PX = 1056;
 
-// Available content height inside letterhead (1056 - 135 top - 75 bottom)
-const USABLE_HEIGHT_PX = 845;
+// Available content height inside letterhead (1056 - 145 top - 70 bottom)
+const USABLE_HEIGHT_PX = 840;
 
 export const splitHtmlIntoPages = (fullHtml: string): string[] => {
     if (!fullHtml) return [''];
 
-    // Clean up excessive empty lines
+    // Clean up excessive empty lines and spaces
     const cleanedHtml = fullHtml
-        .replace(/<p>\s*(?:<br\s*\/?>|&nbsp;|\s)*<\/p>/gi, '<p style="margin-bottom:4px;"></p>')
+        .replace(/<p>\s*(?:<br\s*\/?>|&nbsp;|\s)*<\/p>/gi, '')
         .trim();
 
     // If template has explicit page breaks
@@ -45,26 +45,26 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
         const textLen = (child.textContent || '').length;
         const tagName = child.tagName.toLowerCase();
 
-        // Realistic height based on font-size 11px and line-height ~16px
-        let elementHeight = 10;
+        // Realistic height based on font-size 10.5px and line-height ~15px
+        let elementHeight = 8;
         if (tagName === 'h1' || tagName === 'h2') {
-            elementHeight = 35;
-        } else if (tagName === 'h3' || tagName === 'h4') {
             elementHeight = 28;
+        } else if (tagName === 'h3' || tagName === 'h4') {
+            elementHeight = 22;
         } else if (tagName === 'p') {
             const hasImg = child.querySelector('img') !== null;
-            const lines = Math.max(1, Math.ceil(textLen / 90));
-            elementHeight = lines * 16 + 8 + (hasImg ? 70 : 0);
+            const lines = Math.max(1, Math.ceil(textLen / 95));
+            elementHeight = lines * 15 + 6 + (hasImg ? 65 : 0);
         } else if (tagName === 'table') {
             const rows = child.querySelectorAll('tr').length || 3;
-            elementHeight = rows * 26 + 15;
+            elementHeight = rows * 24 + 10;
         } else if (tagName === 'div') {
-            const lines = Math.max(1, Math.ceil(textLen / 90));
-            elementHeight = lines * 16 + 10;
+            const lines = Math.max(1, Math.ceil(textLen / 95));
+            elementHeight = lines * 15 + 8;
         } else if (tagName === 'br') {
-            elementHeight = 8;
+            elementHeight = 6;
         } else if (tagName === 'img') {
-            elementHeight = 70;
+            elementHeight = 65;
         }
 
         // Check if element has page break class
@@ -154,7 +154,7 @@ export const printPaginatedDocument = (
                     padding: 0;
                     background-color: #ffffff;
                     font-family: 'Helvetica Neue', Arial, sans-serif;
-                    color: #1e293b;
+                    color: #0f172a;
                 }
                 .print-page {
                     width: 215.9mm;
@@ -185,32 +185,35 @@ export const printPaginatedDocument = (
                     z-index: 1;
                     width: 100%;
                     height: 100%;
-                    padding: ${resolvedBg ? '135px 65px 75px 85px' : '40px 50px'};
-                    font-size: 11px;
-                    line-height: 1.45;
+                    padding: ${resolvedBg ? '145px 55px 70px 75px' : '40px 50px'};
+                    font-size: 10.5px;
+                    line-height: 1.38;
                     color: #0f172a;
                     box-sizing: border-box;
+                    text-align: justify;
                 }
                 .page-content p {
                     margin-top: 0;
-                    margin-bottom: 7px;
+                    margin-bottom: 5px;
                 }
                 .page-content p:last-child {
                     margin-bottom: 0;
                 }
                 .page-content h1, .page-content h2, .page-content h3 {
                     margin-top: 0;
-                    margin-bottom: 8px;
+                    margin-bottom: 6px;
+                    text-align: center;
                 }
                 .page-content img {
-                    max-height: 70px;
+                    max-height: 65px;
                     object-fit: contain;
+                    display: inline-block;
                 }
                 .page-number {
                     position: absolute;
-                    bottom: 8mm;
+                    bottom: 6mm;
                     right: 15mm;
-                    font-size: 9px;
+                    font-size: 8.5px;
                     color: #64748b;
                     z-index: 2;
                     font-family: monospace;
@@ -275,16 +278,13 @@ export const DocumentPagesPreview: React.FC<DocumentPagesPreviewProps> = ({
                             backgroundPosition: 'top center',
                             backgroundRepeat: 'no-repeat',
                             backgroundColor: '#ffffff',
-                            padding: resolvedBg ? '135px 65px 75px 85px' : '40px 50px',
+                            padding: resolvedBg ? '145px 55px 70px 75px' : '40px 50px',
                             boxSizing: 'border-box',
                             overflow: 'hidden'
                         }}
                     >
                         <div 
-                            className="prose prose-slate max-w-none text-[11px] leading-[1.45] text-slate-800"
-                            style={{
-                                color: '#0f172a'
-                            }}
+                            className="text-[10.5px] leading-[1.38] text-slate-900 text-justify doc-preview-content"
                             dangerouslySetInnerHTML={{ __html: pageHtml }}
                         />
                         <div className="absolute bottom-4 right-8 text-[10px] text-slate-400 font-mono">
