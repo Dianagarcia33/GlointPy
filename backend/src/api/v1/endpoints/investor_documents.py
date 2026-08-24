@@ -53,6 +53,9 @@ async def get_my_documents(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    is_admin = current_user.is_superuser or any(r.name.lower() in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in getattr(current_user, 'roles', []))
+    if is_admin and investor_id:
+        return await InvestorDocumentService.get_by_investor_id(db, investor_id)
     return await InvestorDocumentService.get_my_documents(db, current_user.id, investor_id)
 
 @router.get("/{document_id}", response_model=InvestorDocumentResponse)
