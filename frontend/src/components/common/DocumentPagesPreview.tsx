@@ -14,28 +14,83 @@ const PAGE_HEIGHT_PX = 1056;
 // Available content height inside letterhead (1056 - 145 top - 70 bottom)
 const USABLE_HEIGHT_PX = 840;
 
-export const splitHtmlIntoPages = (fullHtml: string): string[] => {
-    if (!fullHtml) return [''];
+/**
+ * Automatically formats and cleans raw HTML entered in Quill editor so the user
+ * doesn't need to write any CSS or manual inline styles.
+ */
+export const normalizeDocumentHtml = (rawHtml: string): string => {
+    if (!rawHtml) return '';
 
-    // Clean up excessive empty lines and spaces
-    const cleanedHtml = fullHtml
+    // 1. Clean up empty <p><br></p> or whitespace-only paragraphs
+    let cleaned = rawHtml
         .replace(/<p>\s*(?:<br\s*\/?>|&nbsp;|\s)*<\/p>/gi, '')
         .trim();
 
+    // 2. Parse into DOM to apply semantic legal document formatting
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${cleaned}</div>`, 'text/html');
+    const container = doc.body.firstElementChild;
+    if (!container) return cleaned;
+
+    const children = Array.from(container.children);
+    if (children.length === 0) return cleaned;
+
+    // Detect Title (first bold paragraph containing CERTIFICADO, CONTRATO, PAGARE, etc.)
+    let titleDetected = false;
+    for (let i = 0; i < Math.min(3, children.length); i++) {
+        const el = children[i];
+        const text = (el.textContent || '').trim().toUpperCase();
+        if (!titleDetected && (
+            text.startsWith('CERTIFICADO') ||
+            text.startsWith('CONTRATO') ||
+            text.startsWith('PAGARÉ') ||
+            text.startsWith('PAGARE') ||
+            text.startsWith('ACTA DE') ||
+            text.startsWith('DOCUMENTO DE')
+        )) {
+            el.classList.add('doc-title');
+            titleDetected = true;
+        }
+    }
+
+    // Detect section headers like "HACE CONSTAR:", "DECLARACIONES:", etc.
+    for (const el of children) {
+        const text = (el.textContent || '').trim().toUpperCase();
+        if (text === 'HACE CONSTAR:' || text === 'DECLARA:' || text === 'DECLARACIONES:' || text === 'CONSIDERACIONES:') {
+            el.classList.add('doc-section-header');
+        }
+    }
+
+    // Detect signature lines (like ___________________________)
+    for (const el of children) {
+        const text = (el.textContent || '').trim();
+        if (/^_{4,}$/.test(text)) {
+            el.classList.add('doc-sig-line');
+        }
+    }
+
+    return container.innerHTML;
+};
+
+export const splitHtmlIntoPages = (fullHtml: string): string[] => {
+    if (!fullHtml) return [''];
+
+    const normalizedHtml = normalizeDocumentHtml(fullHtml);
+
     // If template has explicit page breaks
-    if (cleanedHtml.includes('class="page-break"') || cleanedHtml.includes('page-break-after')) {
-        const parts = cleanedHtml.split(/<div[^>]*class=["'][^"']*page-break[^"']*["'][^>]*>.*?<\/div>/gi);
+    if (normalizedHtml.includes('class="page-break"') || normalizedHtml.includes('page-break-after')) {
+        const parts = normalizedHtml.split(/<div[^>]*class=["'][^"']*page-break[^"']*["'][^>]*>.*?<\/div>/gi);
         if (parts.length > 1) return parts.filter(p => p.trim().length > 0);
     }
 
     // Temporary container to parse DOM elements
     const parser = new DOMParser();
-    const doc = parser.parseFromString(`<div>${cleanedHtml}</div>`, 'text/html');
+    const doc = parser.parseFromString(`<div>${normalizedHtml}</div>`, 'text/html');
     const container = doc.body.firstElementChild;
-    if (!container) return [cleanedHtml];
+    if (!container) return [normalizedHtml];
 
     const childNodes = Array.from(container.children);
-    if (childNodes.length === 0) return [cleanedHtml];
+    if (childNodes.length === 0) return [normalizedHtml];
 
     const pages: string[] = [];
     let currentPageHtml = '';
@@ -44,27 +99,29 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
     for (const child of childNodes) {
         const textLen = (child.textContent || '').length;
         const tagName = child.tagName.toLowerCase();
+        const hasImg = child.querySelector('img') !== null || tagName === 'img';
+        const isTitle = child.classList.contains('doc-title') || tagName === 'h1' || tagName === 'h2';
+        const isHeader = child.classList.contains('doc-section-header') || tagName === 'h3' || tagName === 'h4';
 
-        // Realistic height based on font-size 10.5px and line-height ~15px
-        let elementHeight = 8;
-        if (tagName === 'h1' || tagName === 'h2') {
-            elementHeight = 28;
-        } else if (tagName === 'h3' || tagName === 'h4') {
+        // Realistic height based on font-size 10px and line-height ~14.5px
+        let elementHeight = 6;
+        if (isTitle) {
+            elementHeight = 32;
+        } else if (isHeader) {
             elementHeight = 22;
         } else if (tagName === 'p') {
-            const hasImg = child.querySelector('img') !== null;
             const lines = Math.max(1, Math.ceil(textLen / 95));
-            elementHeight = lines * 15 + 6 + (hasImg ? 65 : 0);
+            elementHeight = lines * 15 + 6 + (hasImg ? 60 : 0);
         } else if (tagName === 'table') {
             const rows = child.querySelectorAll('tr').length || 3;
-            elementHeight = rows * 24 + 10;
+            elementHeight = rows * 22 + 10;
         } else if (tagName === 'div') {
             const lines = Math.max(1, Math.ceil(textLen / 95));
-            elementHeight = lines * 15 + 8;
+            elementHeight = lines * 15 + 8 + (hasImg ? 60 : 0);
         } else if (tagName === 'br') {
-            elementHeight = 6;
-        } else if (tagName === 'img') {
-            elementHeight = 65;
+            elementHeight = 4;
+        } else if (hasImg) {
+            elementHeight = 60;
         }
 
         // Check if element has page break class
@@ -84,7 +141,7 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
         pages.push(currentPageHtml);
     }
 
-    return pages.length > 0 ? pages : [cleanedHtml];
+    return pages.length > 0 ? pages : [normalizedHtml];
 };
 
 export const printPaginatedDocument = (
@@ -203,22 +260,40 @@ export const printPaginatedDocument = (
                 .page-content p:last-child {
                     margin-bottom: 0;
                 }
-                .page-content h1, .page-content h2, .page-content h3 {
+                .page-content .doc-title, .page-content h1, .page-content h2 {
                     margin-top: 0;
-                    margin-bottom: 8px;
-                    text-align: center;
-                    font-weight: 700;
+                    margin-bottom: 12px;
+                    text-align: center !important;
+                    font-size: 12.5px;
+                    font-weight: 800;
                     letter-spacing: 0.5px;
                     color: #0f172a;
+                    text-transform: uppercase;
+                }
+                .page-content .doc-section-header, .page-content h3, .page-content h4 {
+                    margin-top: 8px;
+                    margin-bottom: 6px;
+                    text-align: center !important;
+                    font-weight: 700;
+                    color: #0f172a;
+                    letter-spacing: 0.5px;
+                }
+                .page-content .doc-sig-line {
+                    letter-spacing: -1px;
+                    color: #334155;
+                    font-weight: bold;
+                    margin-bottom: 2px;
                 }
                 .page-content strong {
                     font-weight: 700;
                     color: #020617;
                 }
                 .page-content img {
-                    max-height: 60px;
+                    max-height: 55px;
                     object-fit: contain;
                     display: inline-block;
+                    margin-top: 4px;
+                    margin-bottom: 0px;
                 }
                 .ql-align-center { text-align: center !important; }
                 .ql-align-justify { text-align: justify !important; text-justify: inter-word !important; }
@@ -294,22 +369,40 @@ export const DocumentPagesPreview: React.FC<DocumentPagesPreviewProps> = ({
                 .doc-preview-content p:last-child {
                     margin-bottom: 0;
                 }
-                .doc-preview-content h1, .doc-preview-content h2, .doc-preview-content h3 {
+                .doc-preview-content .doc-title, .doc-preview-content h1, .doc-preview-content h2 {
                     margin-top: 0;
-                    margin-bottom: 8px;
-                    text-align: center;
-                    font-weight: 700;
+                    margin-bottom: 12px;
+                    text-align: center !important;
+                    font-size: 12.5px;
+                    font-weight: 800;
                     letter-spacing: 0.5px;
                     color: #0f172a;
+                    text-transform: uppercase;
+                }
+                .doc-preview-content .doc-section-header, .doc-preview-content h3, .doc-preview-content h4 {
+                    margin-top: 8px;
+                    margin-bottom: 6px;
+                    text-align: center !important;
+                    font-weight: 700;
+                    color: #0f172a;
+                    letter-spacing: 0.5px;
+                }
+                .doc-preview-content .doc-sig-line {
+                    letter-spacing: -1px;
+                    color: #334155;
+                    font-weight: bold;
+                    margin-bottom: 2px;
                 }
                 .doc-preview-content strong {
                     font-weight: 700;
                     color: #020617;
                 }
                 .doc-preview-content img {
-                    max-height: 60px;
+                    max-height: 55px;
                     object-fit: contain;
                     display: inline-block;
+                    margin-top: 4px;
+                    margin-bottom: 0px;
                 }
                 .doc-preview-content .ql-align-center { text-align: center !important; }
                 .doc-preview-content .ql-align-justify { text-align: justify !important; text-justify: inter-word !important; }
