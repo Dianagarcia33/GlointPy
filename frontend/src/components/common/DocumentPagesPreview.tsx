@@ -153,8 +153,9 @@ export const printPaginatedDocument = (
                     margin: 0;
                     padding: 0;
                     background-color: #ffffff;
-                    font-family: 'Helvetica Neue', Arial, sans-serif;
+                    font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
                     color: #0f172a;
+                    -webkit-font-smoothing: antialiased;
                 }
                 .print-page {
                     width: 215.9mm;
@@ -186,29 +187,43 @@ export const printPaginatedDocument = (
                     width: 100%;
                     height: 100%;
                     padding: ${resolvedBg ? '145px 55px 70px 75px' : '40px 50px'};
-                    font-size: 10.5px;
-                    line-height: 1.38;
+                    font-size: 10px;
+                    line-height: 1.42;
                     color: #0f172a;
                     box-sizing: border-box;
                     text-align: justify;
+                    text-justify: inter-word;
                 }
                 .page-content p {
                     margin-top: 0;
-                    margin-bottom: 5px;
+                    margin-bottom: 6px;
+                    text-align: justify;
+                    text-justify: inter-word;
                 }
                 .page-content p:last-child {
                     margin-bottom: 0;
                 }
                 .page-content h1, .page-content h2, .page-content h3 {
                     margin-top: 0;
-                    margin-bottom: 6px;
+                    margin-bottom: 8px;
                     text-align: center;
+                    font-weight: 700;
+                    letter-spacing: 0.5px;
+                    color: #0f172a;
+                }
+                .page-content strong {
+                    font-weight: 700;
+                    color: #020617;
                 }
                 .page-content img {
-                    max-height: 65px;
+                    max-height: 60px;
                     object-fit: contain;
                     display: inline-block;
                 }
+                .ql-align-center { text-align: center !important; }
+                .ql-align-justify { text-align: justify !important; text-justify: inter-word !important; }
+                .ql-align-right { text-align: right !important; }
+                .ql-align-left { text-align: left !important; }
                 .page-number {
                     position: absolute;
                     bottom: 6mm;
@@ -261,6 +276,46 @@ export const DocumentPagesPreview: React.FC<DocumentPagesPreviewProps> = ({
 
     return (
         <div className={`flex flex-col items-center gap-8 py-4 ${className}`}>
+            <style>{`
+                .doc-preview-content {
+                    font-family: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+                    font-size: 10px;
+                    line-height: 1.42;
+                    color: #0f172a;
+                    text-align: justify;
+                    text-justify: inter-word;
+                }
+                .doc-preview-content p {
+                    margin-top: 0;
+                    margin-bottom: 6px;
+                    text-align: justify;
+                    text-justify: inter-word;
+                }
+                .doc-preview-content p:last-child {
+                    margin-bottom: 0;
+                }
+                .doc-preview-content h1, .doc-preview-content h2, .doc-preview-content h3 {
+                    margin-top: 0;
+                    margin-bottom: 8px;
+                    text-align: center;
+                    font-weight: 700;
+                    letter-spacing: 0.5px;
+                    color: #0f172a;
+                }
+                .doc-preview-content strong {
+                    font-weight: 700;
+                    color: #020617;
+                }
+                .doc-preview-content img {
+                    max-height: 60px;
+                    object-fit: contain;
+                    display: inline-block;
+                }
+                .doc-preview-content .ql-align-center { text-align: center !important; }
+                .doc-preview-content .ql-align-justify { text-align: justify !important; text-justify: inter-word !important; }
+                .doc-preview-content .ql-align-right { text-align: right !important; }
+                .doc-preview-content .ql-align-left { text-align: left !important; }
+            `}</style>
             {pages.map((pageHtml, index) => (
                 <div key={index} className="flex flex-col items-center">
                     <div className="text-[11px] font-bold text-slate-500 mb-2 uppercase tracking-wider font-mono">
@@ -284,7 +339,7 @@ export const DocumentPagesPreview: React.FC<DocumentPagesPreviewProps> = ({
                         }}
                     >
                         <div 
-                            className="text-[10.5px] leading-[1.38] text-slate-900 text-justify doc-preview-content"
+                            className="doc-preview-content"
                             dangerouslySetInnerHTML={{ __html: pageHtml }}
                         />
                         <div className="absolute bottom-4 right-8 text-[10px] text-slate-400 font-mono">
