@@ -11,26 +11,31 @@ interface DocumentPagesPreviewProps {
 const PAGE_WIDTH_PX = 816;
 const PAGE_HEIGHT_PX = 1056;
 
-// Available content height inside letterhead (1056 - 160 top - 110 bottom)
-const USABLE_HEIGHT_PX = 780;
+// Available content height inside letterhead (1056 - 135 top - 75 bottom)
+const USABLE_HEIGHT_PX = 845;
 
 export const splitHtmlIntoPages = (fullHtml: string): string[] => {
     if (!fullHtml) return [''];
 
+    // Clean up excessive empty lines
+    const cleanedHtml = fullHtml
+        .replace(/<p>\s*(?:<br\s*\/?>|&nbsp;|\s)*<\/p>/gi, '<p style="margin-bottom:4px;"></p>')
+        .trim();
+
     // If template has explicit page breaks
-    if (fullHtml.includes('class="page-break"') || fullHtml.includes('page-break-after')) {
-        const parts = fullHtml.split(/<div[^>]*class=["'][^"']*page-break[^"']*["'][^>]*>.*?<\/div>/gi);
+    if (cleanedHtml.includes('class="page-break"') || cleanedHtml.includes('page-break-after')) {
+        const parts = cleanedHtml.split(/<div[^>]*class=["'][^"']*page-break[^"']*["'][^>]*>.*?<\/div>/gi);
         if (parts.length > 1) return parts.filter(p => p.trim().length > 0);
     }
 
     // Temporary container to parse DOM elements
     const parser = new DOMParser();
-    const doc = parser.parseFromString(`<div>${fullHtml}</div>`, 'text/html');
+    const doc = parser.parseFromString(`<div>${cleanedHtml}</div>`, 'text/html');
     const container = doc.body.firstElementChild;
-    if (!container) return [fullHtml];
+    if (!container) return [cleanedHtml];
 
     const childNodes = Array.from(container.children);
-    if (childNodes.length === 0) return [fullHtml];
+    if (childNodes.length === 0) return [cleanedHtml];
 
     const pages: string[] = [];
     let currentPageHtml = '';
@@ -40,23 +45,26 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
         const textLen = (child.textContent || '').length;
         const tagName = child.tagName.toLowerCase();
 
-        // Estimate height based on tag type and text length (average ~80 chars per line of 22px height)
-        let elementHeight = 35; // base margin/padding
+        // Realistic height based on font-size 11px and line-height ~16px
+        let elementHeight = 10;
         if (tagName === 'h1' || tagName === 'h2') {
-            elementHeight = 65;
+            elementHeight = 35;
         } else if (tagName === 'h3' || tagName === 'h4') {
-            elementHeight = 45;
+            elementHeight = 28;
         } else if (tagName === 'p') {
-            const lines = Math.max(1, Math.ceil(textLen / 75));
-            elementHeight = lines * 22 + 18;
+            const hasImg = child.querySelector('img') !== null;
+            const lines = Math.max(1, Math.ceil(textLen / 90));
+            elementHeight = lines * 16 + 8 + (hasImg ? 70 : 0);
         } else if (tagName === 'table') {
             const rows = child.querySelectorAll('tr').length || 3;
-            elementHeight = rows * 35 + 20;
+            elementHeight = rows * 26 + 15;
         } else if (tagName === 'div') {
-            const lines = Math.max(1, Math.ceil(textLen / 75));
-            elementHeight = lines * 22 + 25;
+            const lines = Math.max(1, Math.ceil(textLen / 90));
+            elementHeight = lines * 16 + 10;
         } else if (tagName === 'br') {
-            elementHeight = 20;
+            elementHeight = 8;
+        } else if (tagName === 'img') {
+            elementHeight = 70;
         }
 
         // Check if element has page break class
@@ -76,7 +84,7 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
         pages.push(currentPageHtml);
     }
 
-    return pages.length > 0 ? pages : [fullHtml];
+    return pages.length > 0 ? pages : [cleanedHtml];
 };
 
 export const printPaginatedDocument = (
@@ -153,11 +161,15 @@ export const printPaginatedDocument = (
                     height: 279.4mm;
                     max-height: 279.4mm;
                     position: relative;
-                    page-break-after: always;
-                    break-after: page;
                     box-sizing: border-box;
                     overflow: hidden;
                     background-color: #ffffff;
+                    page-break-inside: avoid;
+                    break-inside: avoid;
+                }
+                .print-page:not(:last-child) {
+                    page-break-after: always;
+                    break-after: page;
                 }
                 .bg-letterhead {
                     position: absolute;
@@ -173,14 +185,26 @@ export const printPaginatedDocument = (
                     z-index: 1;
                     width: 100%;
                     height: 100%;
-                    padding: ${resolvedBg ? '160px 75px 105px 105px' : '45px 50px'};
-                    font-size: 11.5px;
-                    line-height: 1.6;
+                    padding: ${resolvedBg ? '135px 65px 75px 85px' : '40px 50px'};
+                    font-size: 11px;
+                    line-height: 1.45;
                     color: #0f172a;
                     box-sizing: border-box;
                 }
                 .page-content p {
-                    margin-bottom: 12px;
+                    margin-top: 0;
+                    margin-bottom: 7px;
+                }
+                .page-content p:last-child {
+                    margin-bottom: 0;
+                }
+                .page-content h1, .page-content h2, .page-content h3 {
+                    margin-top: 0;
+                    margin-bottom: 8px;
+                }
+                .page-content img {
+                    max-height: 70px;
+                    object-fit: contain;
                 }
                 .page-number {
                     position: absolute;
@@ -251,13 +275,16 @@ export const DocumentPagesPreview: React.FC<DocumentPagesPreviewProps> = ({
                             backgroundPosition: 'top center',
                             backgroundRepeat: 'no-repeat',
                             backgroundColor: '#ffffff',
-                            padding: resolvedBg ? '160px 75px 105px 105px' : '50px 60px',
+                            padding: resolvedBg ? '135px 65px 75px 85px' : '40px 50px',
                             boxSizing: 'border-box',
                             overflow: 'hidden'
                         }}
                     >
                         <div 
-                            className="prose prose-slate max-w-none text-xs leading-relaxed text-slate-800"
+                            className="prose prose-slate max-w-none text-[11px] leading-[1.45] text-slate-800"
+                            style={{
+                                color: '#0f172a'
+                            }}
                             dangerouslySetInnerHTML={{ __html: pageHtml }}
                         />
                         <div className="absolute bottom-4 right-8 text-[10px] text-slate-400 font-mono">
