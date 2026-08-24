@@ -13,7 +13,7 @@ class TemplateService:
             await db.execute(text("ALTER TABLE templates ADD COLUMN background_image LONGTEXT NULL"))
             await db.commit()
         except Exception:
-            pass
+            await db.rollback()
 
     @staticmethod
     async def get_all(db: AsyncSession) -> Sequence[Template]:

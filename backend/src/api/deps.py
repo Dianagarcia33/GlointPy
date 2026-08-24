@@ -54,6 +54,10 @@ class RequirePermission:
     def __call__(self, current_user: User = Depends(get_current_user)) -> User:
         if current_user.is_superuser:
             return current_user
+
+        user_roles = [r.name.lower() for r in getattr(current_user, 'roles', []) if hasattr(r, 'name')]
+        if any(r in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in user_roles):
+            return current_user
             
         user_perms = set(current_user.permissions) if hasattr(current_user, 'permissions') and current_user.permissions else set()
         for role in current_user.roles:
@@ -68,3 +72,4 @@ class RequirePermission:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permisos suficientes para realizar esta acción"
         )
+

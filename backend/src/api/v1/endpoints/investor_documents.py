@@ -7,7 +7,9 @@ from src.models.user import User
 from src.schemas.investor_document import (
     InvestorDocumentResponse,
     InvestorDocumentGenerateRequest,
-    InvestorDocumentPreviewRequest
+    InvestorDocumentPreviewRequest,
+    InvestorDocumentBulkGenerateRequest,
+    InvestorDocumentBulkGenerateResponse
 )
 from src.services.investor_document_service import InvestorDocumentService
 
@@ -28,6 +30,14 @@ async def generate_document(
     current_user: User = Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage"]))
 ):
     return await InvestorDocumentService.generate_and_save(db, data)
+
+@router.post("/bulk-generate", response_model=InvestorDocumentBulkGenerateResponse, status_code=status.HTTP_200_OK)
+async def bulk_generate_documents(
+    data: InvestorDocumentBulkGenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage"]))
+):
+    return await InvestorDocumentService.bulk_generate(db, data)
 
 @router.get("/investor/{investor_id}", response_model=List[InvestorDocumentResponse])
 async def get_documents_by_investor(

@@ -12,9 +12,10 @@ import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseMod
 import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsModal';
 import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInversionModal';
 import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
+import { BulkDocumentModal } from '../components/BulkDocumentModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
@@ -153,6 +154,7 @@ export const AdminInvestorsPage = () => {
   const [selectedInvestorForCapitalWithdrawal, setSelectedInvestorForCapitalWithdrawal] = useState<Investor | null>(null);
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
+  const [isBulkDocModalOpen, setIsBulkDocModalOpen] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -260,13 +262,18 @@ export const AdminInvestorsPage = () => {
 
   if (error) {
       return (
-          <div className="w-full max-w-7xl mx-auto p-6 bg-red-50 border border-red-200 rounded-3xl flex items-start gap-4 text-red-700 shadow-xs">
-              <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
-              <div>
-                  <h3 className="font-bold font-montserrat text-base">Error al cargar inversionistas</h3>
-                  <p className="text-sm mt-1">{error}</p>
-                  <button onClick={fetchData} className="mt-3 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-all cursor-pointer">Reintentar</button>
+          <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-xs border border-red-100 text-center">
+              <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-3">
+                  <AlertCircle className="w-6 h-6" />
               </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-1">Error al cargar inversionistas</h3>
+              <p className="text-slate-500 text-sm mb-4">{error}</p>
+              <button 
+                  onClick={fetchData}
+                  className="px-4 py-2 bg-brand-500 text-white rounded-xl text-sm font-medium hover:bg-brand-600 transition-colors"
+              >
+                  Reintentar
+              </button>
           </div>
       );
   }
@@ -297,6 +304,15 @@ export const AdminInvestorsPage = () => {
             >
               <Plus className="w-4 h-4" />
               <span>Solicitud de Inversión</span>
+            </button>
+          </Can>
+          <Can permission="admin.investors.manage">
+            <button 
+              onClick={() => setIsBulkDocModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all border border-slate-700/80 shadow-lg text-sm font-bold cursor-pointer shrink-0"
+            >
+              <Layers className="w-4 h-4 text-amber-400" />
+              <span>Generación Masiva</span>
             </button>
           </Can>
           <Can permission="admin.investors.create">
@@ -1118,6 +1134,15 @@ export const AdminInvestorsPage = () => {
         isOpen={!!selectedInvestorForDocuments}
         onClose={() => setSelectedInvestorForDocuments(null)}
         investor={selectedInvestorForDocuments}
+      />
+
+      <BulkDocumentModal
+        isOpen={isBulkDocModalOpen}
+        onClose={() => setIsBulkDocModalOpen(false)}
+        onSuccess={() => {
+          fetchData();
+        }}
+        totalInvestorsCount={total}
       />
 
       <AdminCapitalWithdrawalModal

@@ -8,7 +8,11 @@ from fastapi import HTTPException, status
 from src.models.investor_document import InvestorDocument
 from src.models.investor import Investor
 from src.models.template import Template
-from src.schemas.investor_document import InvestorDocumentGenerateRequest, InvestorDocumentPreviewRequest
+from src.schemas.investor_document import (
+    InvestorDocumentGenerateRequest, 
+    InvestorDocumentPreviewRequest,
+    InvestorDocumentBulkGenerateRequest
+)
 
 def numero_a_letras(numero: float) -> str:
     """Convierte un número a su representación en letras en español (Pesos Colombianos M/CTE)."""
@@ -524,3 +528,116 @@ class InvestorDocumentService:
         doc = await InvestorDocumentService.get_by_id(db, document_id)
         await db.delete(doc)
         await db.commit()
+
+    @staticmethod
+    async def bulk_generate(db: AsyncSession, data: InvestorDocumentBulkGenerateRequest) -> dict:
+        await InvestorDocumentService.ensure_table_exists(db)
+        from src.models.package import Package
+        from src.models.period import Period
+        from src.models.user import User
+
+        tpl_res = await db.execute(select(Template).where(Template.id == data.template_id))
+        template = tpl_res.scalars().first()
+        if not template:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plantilla no encontrada")
+
+        bg_img = data.background_image if data.background_image is not None else template.background_image
+
+        from sqlalchemy import func
+        count_query = select(func.count(Investor.id))
+        if data.target_type == "selected" and data.investor_ids:
+            count_query = count_query.where(Investor.id.in_(data.investor_ids))
+        
+        total_count_res = await db.execute(count_query)
+        total_candidates = total_count_res.scalar() or 0
+
+        # Query batch of candidates
+        query = select(Investor).options(
+            selectinload(Investor.user),
+            selectinload(Investor.package),
+            selectinload(Investor.period),
+            selectinload(Investor.contract_histories)
+        ).order_by(Investor.id.asc())
+
+        if data.target_type == "selected" and data.investor_ids:
+            query = query.where(Investor.id.in_(data.investor_ids))
+        
+        offset = data.offset or 0
+        batch_size = data.batch_size if data.batch_size and data.batch_size > 0 else 50
+
+        query = query.offset(offset).limit(batch_size)
+        
+        result = await db.execute(query)
+        candidates = result.scalars().all()
+
+        generated_count = 0
+        skipped_count = 0
+        errors = []
+
+        for investor in candidates:
+            try:
+                # Defensive fallback for package and period
+                if investor.package is None and investor.package_id:
+                    pkg_res = await db.execute(select(Package).where(Package.id == investor.package_id))
+                    investor.package = pkg_res.scalars().first()
+
+                if investor.period is None and investor.period_id:
+                    per_res = await db.execute(select(Period).where(Period.id == investor.period_id))
+                    investor.period = per_res.scalars().first()
+
+                if investor.user is None and investor.user_id:
+                    u_res = await db.execute(select(User).where(User.id == investor.user_id))
+                    investor.user = u_res.scalars().first()
+
+                # Check existing documents for this template
+                prev_res = await db.execute(
+                    select(InvestorDocument)
+                    .where(InvestorDocument.investor_id == investor.id)
+                    .where(InvestorDocument.template_id == template.id)
+                )
+                existing_docs = prev_res.scalars().all()
+
+                if existing_docs and data.target_type == "without_document" and not data.overwrite_existing:
+                    skipped_count += 1
+                    continue
+
+                version_count = len(existing_docs) + 1
+                rendered_html = InvestorDocumentService.render_html(template.html_content, investor)
+
+                if data.custom_title and data.custom_title.strip():
+                    title = f"{data.custom_title.strip()} - {investor.assigned_code or investor.id}"
+                else:
+                    if version_count > 1:
+                        title = f"{template.name} (v{version_count} - Actualización) - {investor.assigned_code or investor.id}"
+                    else:
+                        title = f"{template.name} - {investor.assigned_code or investor.id}"
+
+                doc = InvestorDocument(
+                    investor_id=investor.id,
+                    user_id=investor.user_id,
+                    template_id=template.id,
+                    title=title,
+                    document_type=template.type or "contract",
+                    html_content=rendered_html,
+                    background_image=bg_img
+                )
+                db.add(doc)
+                generated_count += 1
+            except Exception as e:
+                errors.append(f"Error con inversionista {investor.assigned_code or investor.id}: {str(e)}")
+
+        await db.commit()
+
+        has_more = (offset + len(candidates)) < total_candidates
+        next_offset = offset + len(candidates)
+
+        return {
+            "total_candidates": total_candidates,
+            "generated_count": generated_count,
+            "skipped_count": skipped_count,
+            "processed_in_batch": len(candidates),
+            "has_more": has_more,
+            "next_offset": next_offset,
+            "errors": errors
+        }
+
