@@ -11,10 +11,7 @@ import {
     Filter, 
     Sparkles, 
     Image, 
-    Check,
-    ArrowRight,
-    CheckSquare,
-    Square
+    ArrowRight
 } from 'lucide-react';
 import { templatesService, DocumentTemplate } from '../../../../services/templates';
 import { investorDocumentsService, InvestorDocumentBulkGenerateResponse } from '../../../../services/investorDocuments';
@@ -38,10 +35,8 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
     const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
     const [loadingTemplates, setLoadingTemplates] = useState(false);
     
-    // Multi-template Selection Form state
-    const [selectedTemplateIds, setSelectedTemplateIds] = useState<number[]>([]);
+    // Form state
     const [targetType, setTargetType] = useState<'all' | 'without_document' | 'selected'>('all');
-    const [customTitle, setCustomTitle] = useState('');
     const [selectedBgOption, setSelectedBgOption] = useState<string>('/uploads/templates/gloint_membrete_oficial.png');
     const [overwriteExisting, setOverwriteExisting] = useState(false);
 
@@ -71,10 +66,6 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
             const data = await templatesService.getTemplates();
             const list = Array.isArray(data) ? data : [];
             setTemplates(list);
-            // Select all templates by default
-            if (list.length > 0) {
-                setSelectedTemplateIds(list.map(t => t.id));
-            }
         } catch (err: any) {
             console.error("Error cargando plantillas", err);
         } finally {
@@ -96,34 +87,27 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
         }
     }, [isOpen]);
 
-    const toggleTemplate = (id: number) => {
-        setSelectedTemplateIds(prev => 
-            prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
-        );
-    };
-
-    const selectAllTemplates = () => {
-        if (selectedTemplateIds.length === templates.length) {
-            setSelectedTemplateIds([]);
-        } else {
-            setSelectedTemplateIds(templates.map(t => t.id));
-        }
-    };
-
     const handleExecute = async () => {
-        const templatesToProcess = templates.filter(t => selectedTemplateIds.includes(t.id));
-
-        if (templatesToProcess.length === 0) {
-            setToast({ message: "Por favor selecciona al menos una plantilla de la lista", type: "error" });
-            return;
-        }
-
         setIsProcessing(true);
         setResult(null);
-        setProgress({ current: 0, total: 1, percent: 5, currentName: 'Consultando lista de inversionistas...' });
+        setProgress({ current: 0, total: 1, percent: 5, currentName: 'Consultando plantillas e inversionistas...' });
 
         try {
-            // Fetch candidates
+            // 1. Get all templates
+            let allTemplates = templates;
+            if (allTemplates.length === 0) {
+                const freshTemplates = await templatesService.getTemplates();
+                allTemplates = Array.isArray(freshTemplates) ? freshTemplates : [];
+                setTemplates(allTemplates);
+            }
+
+            if (allTemplates.length === 0) {
+                setToast({ message: "No hay plantillas registradas en el sistema.", type: "error" });
+                setIsProcessing(false);
+                return;
+            }
+
+            // 2. Fetch candidates
             const investorsRes = await getInvestors({ limit: 1000 });
             let candidates: Investor[] = investorsRes.data || [];
 
@@ -137,7 +121,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                 return;
             }
 
-            const totalTasks = candidates.length * templatesToProcess.length;
+            const totalTasks = candidates.length * allTemplates.length;
             let currentTask = 0;
             let generatedCount = 0;
             let skippedCount = 0;
@@ -146,7 +130,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
             for (const inv of candidates) {
                 const invName = `${inv.user?.name || 'Inversionista'} (${inv.assigned_code || `#${inv.id}`})`;
                 
-                // Fetch investor's existing documents once if filtering by without_document
+                // Fetch investor's existing documents if filtering
                 let existingDocs: any[] = [];
                 if (targetType === 'without_document' && !overwriteExisting) {
                     try {
@@ -156,7 +140,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                     }
                 }
 
-                for (const tpl of templatesToProcess) {
+                for (const tpl of allTemplates) {
                     currentTask++;
                     
                     setProgress({
@@ -177,13 +161,13 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                         await investorDocumentsService.generateDocument(
                             inv.id,
                             tpl.id,
-                            customTitle.trim() || undefined,
+                            undefined,
                             selectedBgOption || undefined
                         );
                         generatedCount++;
                     } catch (err: any) {
                         console.error(`Error generando ${tpl.name} para ${invName}:`, err);
-                        errors.push(`${tpl.name} - ${invName}: ${err.message || 'Error desconocido'}`);
+                        errors.push(`${tpl.name} - ${invName}: ${err.message || 'Error'}`);
                     }
                 }
             }
@@ -231,11 +215,11 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                             <div className="flex items-center gap-2">
                                 <h2 className="text-xl font-bold font-montserrat">Generación Masiva de Documentos</h2>
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                                    <Sparkles className="w-3 h-3" /> Todas las Plantillas
+                                    <Sparkles className="w-3 h-3" /> Paquete Completo
                                 </span>
                             </div>
                             <p className="text-xs text-slate-400 mt-0.5">
-                                Emite certificados, pagarés y contratos para múltiples inversionistas en 1 clic
+                                Emite todos los documentos legales del sistema para los inversionistas en un solo clic
                             </p>
                         </div>
                     </div>
@@ -353,84 +337,21 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                     ) : (
                         /* Configuration Form View */
                         <>
-                            {/* 1. Seleccionar Plantillas (Múltiples / Todas) */}
-                            <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider font-montserrat">
-                                        1. Selecciona las Plantillas a Emitir
-                                    </label>
-                                    {templates.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={selectAllTemplates}
-                                            className="text-xs font-bold text-brand-600 hover:text-brand-700 cursor-pointer flex items-center gap-1 hover:underline"
-                                        >
-                                            {selectedTemplateIds.length === templates.length ? (
-                                                <>
-                                                    <Square className="w-3.5 h-3.5" /> Deseleccionar todas
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <CheckSquare className="w-3.5 h-3.5" /> Seleccionar todas ({templates.length})
-                                                </>
-                                            )}
-                                        </button>
-                                    )}
+                            {/* Document Package Info Banner */}
+                            <div className="p-4 rounded-2xl bg-brand-50/70 border border-brand-100 flex items-start gap-3">
+                                <div className="p-2 rounded-xl bg-brand-500 text-white shrink-0 mt-0.5">
+                                    <FileText className="w-4 h-4" />
                                 </div>
-
-                                {loadingTemplates ? (
-                                    <div className="flex items-center gap-2 text-xs text-slate-400 py-3">
-                                        <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
-                                        Cargando plantillas configuradas...
-                                    </div>
-                                ) : templates.length === 0 ? (
-                                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
-                                        No hay plantillas registradas. Agrega plantillas en la sección de Configuración de Plantillas.
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                        {templates.map(tpl => {
-                                            const isSelected = selectedTemplateIds.includes(tpl.id);
-                                            return (
-                                                <button
-                                                    key={tpl.id}
-                                                    type="button"
-                                                    onClick={() => toggleTemplate(tpl.id)}
-                                                    className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
-                                                        isSelected
-                                                            ? 'border-brand-500 bg-brand-500/5 ring-2 ring-brand-500/20'
-                                                            : 'border-slate-200 hover:border-slate-300 bg-white opacity-70 hover:opacity-100'
-                                                    }`}
-                                                >
-                                                    <div className={`p-2 rounded-xl mt-0.5 ${
-                                                        isSelected ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-400'
-                                                    }`}>
-                                                        <FileText className="w-4 h-4" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-xs font-bold text-slate-800 truncate">{tpl.name}</div>
-                                                        <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
-                                                            Tipo: {tpl.type || 'Contrato'}
-                                                        </div>
-                                                    </div>
-                                                    <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
-                                                        isSelected 
-                                                            ? 'bg-brand-500 border-brand-500 text-white' 
-                                                            : 'border-slate-300 bg-white'
-                                                    }`}>
-                                                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                <div className="text-xs text-brand-900">
+                                    <span className="font-bold block mb-0.5">Emisión Automática de Todos los Documentos</span>
+                                    Se generarán todos los documentos legales configurados en el sistema (Certificados de Acciones, Contratos, Pagarés) para cada inversionista.
+                                </div>
                             </div>
 
-                            {/* 2. Alcance / Destinatarios */}
+                            {/* 1. Alcance / Destinatarios */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 font-montserrat">
-                                    2. Destinatarios de la Emisión
+                                    1. Destinatarios de la Emisión
                                 </label>
                                 <div className="space-y-2">
                                     <label className={`p-3.5 rounded-2xl border flex items-center gap-3 cursor-pointer transition-all ${
@@ -506,10 +427,10 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                 </div>
                             </div>
 
-                            {/* 3. Opciones de Membrete */}
+                            {/* 2. Opciones de Membrete */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 font-montserrat">
-                                    3. Membrete de Impresión
+                                    2. Membrete de Impresión
                                 </label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
@@ -550,9 +471,9 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={handleExecute}
-                                    disabled={isProcessing || selectedTemplateIds.length === 0}
+                                    disabled={isProcessing}
                                     className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg cursor-pointer ${
-                                        isProcessing || selectedTemplateIds.length === 0 ? 'bg-slate-400 opacity-60 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/25'
+                                        isProcessing ? 'bg-slate-400 opacity-60 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/25'
                                     }`}
                                 >
                                     {isProcessing ? (
@@ -562,7 +483,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                         </>
                                     ) : (
                                         <>
-                                            Generar Documentos ({selectedTemplateIds.length} plantillas)
+                                            Generar Todos los Documentos
                                             <ArrowRight className="w-4 h-4" />
                                         </>
                                     )}
