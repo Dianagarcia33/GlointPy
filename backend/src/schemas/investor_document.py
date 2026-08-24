@@ -32,11 +32,16 @@ class InvestorDocumentBulkGenerateRequest(BaseModel):
     custom_title: Optional[str] = None
     background_image: Optional[str] = None
     overwrite_existing: bool = False
+    offset: int = 0
+    batch_size: Optional[int] = 50
 
 class InvestorDocumentBulkGenerateResponse(BaseModel):
     total_candidates: int
     generated_count: int
     skipped_count: int
+    processed_in_batch: int = 0
+    has_more: bool = False
+    next_offset: int = 0
     errors: list[str] = []
 
 class InvestorDocumentResponse(InvestorDocumentBase):

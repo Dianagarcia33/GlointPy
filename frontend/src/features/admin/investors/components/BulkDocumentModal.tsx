@@ -90,7 +90,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
     const handleExecute = async () => {
         setIsProcessing(true);
         setResult(null);
-        setProgress({ current: 0, total: 1, percent: 5, currentName: 'Consultando plantillas configuradas...' });
+        setProgress({ current: 0, total: 1, percent: 5, currentName: 'Iniciando procesamiento por bloques...' });
 
         try {
             // 1. Get all templates
@@ -107,53 +107,74 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                 return;
             }
 
-            let totalEvaluated = 0;
-            let totalGenerated = 0;
-            let totalSkipped = 0;
+            const BATCH_SIZE = 50;
+            let grandTotalCandidates = 0;
+            let grandTotalGenerated = 0;
+            let grandTotalSkipped = 0;
             const allErrors: string[] = [];
 
-            for (let i = 0; i < allTemplates.length; i++) {
-                const tpl = allTemplates[i];
-                
-                setProgress({
-                    current: i + 1,
-                    total: allTemplates.length,
-                    percent: Math.round(((i + 0.3) / allTemplates.length) * 100),
-                    currentName: `Emitiendo: ${tpl.name} (Plantilla ${i + 1} de ${allTemplates.length})...`
-                });
+            for (let tIdx = 0; tIdx < allTemplates.length; tIdx++) {
+                const tpl = allTemplates[tIdx];
+                let offset = 0;
+                let hasMore = true;
+                let batchNum = 1;
+                let tplCandidates = 0;
 
-                const res = await investorDocumentsService.bulkGenerateDocuments({
-                    template_id: tpl.id,
-                    target_type: targetType,
-                    investor_ids: targetType === 'selected' ? preselectedInvestorIds : undefined,
-                    background_image: selectedBgOption || undefined,
-                    overwrite_existing: overwriteExisting
-                });
+                while (hasMore) {
+                    const currentOffsetDisplay = offset + 1;
+                    const endOffsetDisplay = offset + BATCH_SIZE;
 
-                totalEvaluated += res.total_candidates;
-                totalGenerated += res.generated_count;
-                totalSkipped += res.skipped_count;
-                if (res.errors && res.errors.length > 0) {
-                    allErrors.push(...res.errors);
+                    setProgress({
+                        current: tIdx + 1,
+                        total: allTemplates.length,
+                        percent: Math.min(98, Math.max(5, Math.round(((tIdx + (offset / (tplCandidates || 500))) / allTemplates.length) * 100))),
+                        currentName: `Plantilla ${tIdx + 1}/${allTemplates.length}: ${tpl.name} ➔ Lote ${batchNum} (${currentOffsetDisplay} a ${endOffsetDisplay})`
+                    });
+
+                    const res = await investorDocumentsService.bulkGenerateDocuments({
+                        template_id: tpl.id,
+                        target_type: targetType,
+                        investor_ids: targetType === 'selected' ? preselectedInvestorIds : undefined,
+                        background_image: selectedBgOption || undefined,
+                        overwrite_existing: overwriteExisting,
+                        offset: offset,
+                        batch_size: BATCH_SIZE
+                    });
+
+                    tplCandidates = res.total_candidates;
+                    grandTotalGenerated += res.generated_count;
+                    grandTotalSkipped += res.skipped_count;
+                    if (res.errors && res.errors.length > 0) {
+                        allErrors.push(...res.errors);
+                    }
+
+                    hasMore = res.has_more;
+                    offset = res.next_offset;
+                    batchNum++;
                 }
 
-                setProgress({
-                    current: i + 1,
-                    total: allTemplates.length,
-                    percent: Math.round(((i + 1) / allTemplates.length) * 100),
-                    currentName: `Completado: ${tpl.name} (${res.generated_count} emitidos)`
-                });
+                grandTotalCandidates += tplCandidates;
             }
 
+            setProgress({
+                current: allTemplates.length,
+                total: allTemplates.length,
+                percent: 100,
+                currentName: '¡Finalizado con éxito!'
+            });
+
             setResult({
-                total_candidates: totalEvaluated,
-                generated_count: totalGenerated,
-                skipped_count: totalSkipped,
+                total_candidates: grandTotalCandidates,
+                generated_count: grandTotalGenerated,
+                skipped_count: grandTotalSkipped,
+                processed_in_batch: grandTotalGenerated,
+                has_more: false,
+                next_offset: 0,
                 errors: allErrors
             });
 
             setToast({ 
-                message: `¡Generación masiva completada! Se emitieron ${totalGenerated} documentos en total.`, 
+                message: `¡Generación masiva completada! Se emitieron ${grandTotalGenerated} documentos en bloques.`, 
                 type: "success" 
             });
 

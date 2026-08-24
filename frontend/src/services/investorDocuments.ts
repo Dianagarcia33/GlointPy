@@ -29,12 +29,17 @@ export interface InvestorDocumentBulkGenerateRequest {
     custom_title?: string;
     background_image?: string;
     overwrite_existing?: boolean;
+    offset?: number;
+    batch_size?: number;
 }
 
 export interface InvestorDocumentBulkGenerateResponse {
     total_candidates: number;
     generated_count: number;
     skipped_count: number;
+    processed_in_batch: number;
+    has_more: boolean;
+    next_offset: number;
     errors: string[];
 }
 

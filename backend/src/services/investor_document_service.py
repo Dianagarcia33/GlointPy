@@ -543,16 +543,29 @@ class InvestorDocumentService:
 
         bg_img = data.background_image if data.background_image is not None else template.background_image
 
-        # Query candidates based on target_type
+        from sqlalchemy import func
+        count_query = select(func.count(Investor.id))
+        if data.target_type == "selected" and data.investor_ids:
+            count_query = count_query.where(Investor.id.in_(data.investor_ids))
+        
+        total_count_res = await db.execute(count_query)
+        total_candidates = total_count_res.scalar() or 0
+
+        # Query batch of candidates
         query = select(Investor).options(
             selectinload(Investor.user),
             selectinload(Investor.package),
             selectinload(Investor.period),
             selectinload(Investor.contract_histories)
-        )
+        ).order_by(Investor.id.asc())
 
         if data.target_type == "selected" and data.investor_ids:
             query = query.where(Investor.id.in_(data.investor_ids))
+        
+        offset = data.offset or 0
+        batch_size = data.batch_size if data.batch_size and data.batch_size > 0 else 50
+
+        query = query.offset(offset).limit(batch_size)
         
         result = await db.execute(query)
         candidates = result.scalars().all()
@@ -615,10 +628,16 @@ class InvestorDocumentService:
 
         await db.commit()
 
+        has_more = (offset + len(candidates)) < total_candidates
+        next_offset = offset + len(candidates)
+
         return {
-            "total_candidates": len(candidates),
+            "total_candidates": total_candidates,
             "generated_count": generated_count,
             "skipped_count": skipped_count,
+            "processed_in_batch": len(candidates),
+            "has_more": has_more,
+            "next_offset": next_offset,
             "errors": errors
         }
 
