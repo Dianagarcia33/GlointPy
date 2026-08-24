@@ -83,8 +83,13 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
     }, [isOpen, preselectedInvestorIds]);
 
     const handleExecute = async () => {
-        if (!selectedTemplateId) {
-            setToast({ message: "Por favor selecciona una plantilla de documento", type: "error" });
+        let tplId = selectedTemplateId;
+        if (!tplId && templates.length > 0) {
+            tplId = templates[0].id;
+            setSelectedTemplateId(tplId);
+        }
+        if (!tplId) {
+            setToast({ message: "Por favor selecciona una plantilla de documento de la lista", type: "error" });
             return;
         }
 
@@ -93,7 +98,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
 
         try {
             const res = await investorDocumentsService.bulkGenerateDocuments({
-                template_id: Number(selectedTemplateId),
+                template_id: Number(tplId),
                 target_type: targetType,
                 investor_ids: targetType === 'selected' ? preselectedInvestorIds : undefined,
                 custom_title: customTitle.trim() || undefined,
@@ -390,8 +395,10 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={handleExecute}
-                                    disabled={isProcessing || !selectedTemplateId}
-                                    className="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-brand-500/25 disabled:opacity-50 cursor-pointer"
+                                    disabled={isProcessing}
+                                    className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg cursor-pointer ${
+                                        isProcessing ? 'bg-slate-400 opacity-60 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/25'
+                                    }`}
                                 >
                                     {isProcessing ? (
                                         <>

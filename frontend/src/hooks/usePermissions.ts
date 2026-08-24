@@ -23,10 +23,11 @@ export const usePermissions = () => {
         return user.is_superuser === true;
     };
 
-    // Devuelve true si el usuario tiene el permiso o es superusuario
+    // Devuelve true si el usuario tiene el permiso o es superusuario/admin
     const hasPermission = (permission: string) => {
         if (!user) return false;
         if (isSuperuser()) return true;
+        if (isAdmin()) return true;
         if (!user.permissions) return false;
         return user.permissions.includes(permission);
     };
@@ -35,6 +36,7 @@ export const usePermissions = () => {
     const hasAllPermissions = (permissions: string[]) => {
         if (!user) return false;
         if (isSuperuser()) return true;
+        if (isAdmin()) return true;
         if (!user.permissions) return false;
         return permissions.every(p => user.permissions?.includes(p));
     };
@@ -43,9 +45,11 @@ export const usePermissions = () => {
     const hasAnyPermission = (permissions: string[]) => {
         if (!user) return false;
         if (isSuperuser()) return true;
+        if (isAdmin()) return true;
         if (!user.permissions) return false;
         return permissions.some(p => user.permissions?.includes(p));
     };
 
     return { hasPermission, hasAllPermissions, hasAnyPermission, isAdmin, isSuperuser };
 };
+
