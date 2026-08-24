@@ -13,7 +13,8 @@ import {
     Image, 
     Check,
     ArrowRight,
-    Play
+    CheckSquare,
+    Square
 } from 'lucide-react';
 import { templatesService, DocumentTemplate } from '../../../../services/templates';
 import { investorDocumentsService, InvestorDocumentBulkGenerateResponse } from '../../../../services/investorDocuments';
@@ -37,8 +38,8 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
     const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
     const [loadingTemplates, setLoadingTemplates] = useState(false);
     
-    // Form state
-    const [selectedTemplateId, setSelectedTemplateId] = useState<number | ''>('');
+    // Multi-template Selection Form state
+    const [selectedTemplateIds, setSelectedTemplateIds] = useState<number[]>([]);
     const [targetType, setTargetType] = useState<'all' | 'without_document' | 'selected'>('all');
     const [customTitle, setCustomTitle] = useState('');
     const [selectedBgOption, setSelectedBgOption] = useState<string>('/uploads/templates/gloint_membrete_oficial.png');
@@ -69,8 +70,9 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
         try {
             const data = await templatesService.getTemplates();
             setTemplates(data);
+            // Select all templates by default
             if (data.length > 0) {
-                setSelectedTemplateId(data[0].id);
+                setSelectedTemplateIds(data.map(t => t.id));
             }
         } catch (err: any) {
             console.error("Error cargando plantillas", err);
@@ -93,14 +95,25 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
         }
     }, [isOpen, preselectedInvestorIds]);
 
-    const handleExecute = async () => {
-        let tplId = selectedTemplateId;
-        if (!tplId && templates.length > 0) {
-            tplId = templates[0].id;
-            setSelectedTemplateId(tplId);
+    const toggleTemplate = (id: number) => {
+        setSelectedTemplateIds(prev => 
+            prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
+        );
+    };
+
+    const selectAllTemplates = () => {
+        if (selectedTemplateIds.length === templates.length) {
+            setSelectedTemplateIds([]);
+        } else {
+            setSelectedTemplateIds(templates.map(t => t.id));
         }
-        if (!tplId) {
-            setToast({ message: "Por favor selecciona una plantilla de documento de la lista", type: "error" });
+    };
+
+    const handleExecute = async () => {
+        const templatesToProcess = templates.filter(t => selectedTemplateIds.includes(t.id));
+
+        if (templatesToProcess.length === 0) {
+            setToast({ message: "Por favor selecciona al menos una plantilla de la lista", type: "error" });
             return;
         }
 
@@ -109,7 +122,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
         setProgress({ current: 0, total: 1, percent: 5, currentName: 'Consultando lista de inversionistas...' });
 
         try {
-            // Fetch candidates to process progressively with live progress bar
+            // Fetch candidates
             const investorsRes = await getInvestors({ limit: 1000 });
             let candidates: Investor[] = investorsRes.data || [];
 
@@ -123,47 +136,59 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                 return;
             }
 
-            const total = candidates.length;
+            const totalTasks = candidates.length * templatesToProcess.length;
+            let currentTask = 0;
             let generatedCount = 0;
             let skippedCount = 0;
             const errors: string[] = [];
 
-            for (let i = 0; i < candidates.length; i++) {
-                const inv = candidates[i];
+            for (const inv of candidates) {
                 const invName = `${inv.user?.name || 'Inversionista'} (${inv.assigned_code || `#${inv.id}`})`;
                 
-                setProgress({
-                    current: i + 1,
-                    total: total,
-                    percent: Math.round(((i + 1) / total) * 100),
-                    currentName: invName
-                });
-
-                try {
-                    // Check if document exists if target is without_document
-                    if (targetType === 'without_document' && !overwriteExisting) {
-                        const existingDocs = await investorDocumentsService.getDocumentsByInvestor(inv.id);
-                        if (existingDocs.some(d => d.template_id === Number(tplId))) {
-                            skippedCount++;
-                            continue;
-                        }
+                // Fetch investor's existing documents once if filtering by without_document
+                let existingDocs: any[] = [];
+                if (targetType === 'without_document' && !overwriteExisting) {
+                    try {
+                        existingDocs = await investorDocumentsService.getDocumentsByInvestor(inv.id);
+                    } catch (e) {
+                        existingDocs = [];
                     }
+                }
 
-                    await investorDocumentsService.generateDocument(
-                        inv.id,
-                        Number(tplId),
-                        customTitle.trim() || undefined,
-                        selectedBgOption || undefined
-                    );
-                    generatedCount++;
-                } catch (err: any) {
-                    console.error(`Error generando documento para ${invName}:`, err);
-                    errors.push(`${invName}: ${err.message || 'Error desconocido'}`);
+                for (const tpl of templatesToProcess) {
+                    currentTask++;
+                    
+                    setProgress({
+                        current: currentTask,
+                        total: totalTasks,
+                        percent: Math.round((currentTask / totalTasks) * 100),
+                        currentName: `${tpl.name} ➔ ${invName}`
+                    });
+
+                    try {
+                        if (targetType === 'without_document' && !overwriteExisting) {
+                            if (existingDocs.some(d => d.template_id === tpl.id)) {
+                                skippedCount++;
+                                continue;
+                            }
+                        }
+
+                        await investorDocumentsService.generateDocument(
+                            inv.id,
+                            tpl.id,
+                            customTitle.trim() || undefined,
+                            selectedBgOption || undefined
+                        );
+                        generatedCount++;
+                    } catch (err: any) {
+                        console.error(`Error generando ${tpl.name} para ${invName}:`, err);
+                        errors.push(`${tpl.name} - ${invName}: ${err.message || 'Error desconocido'}`);
+                    }
                 }
             }
 
             setResult({
-                total_candidates: total,
+                total_candidates: totalTasks,
                 generated_count: generatedCount,
                 skipped_count: skippedCount,
                 errors: errors
@@ -205,7 +230,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                             <div className="flex items-center gap-2">
                                 <h2 className="text-xl font-bold font-montserrat">Generación Masiva de Documentos</h2>
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-                                    <Sparkles className="w-3 h-3" /> Batch
+                                    <Sparkles className="w-3 h-3" /> Todas las Plantillas
                                 </span>
                             </div>
                             <p className="text-xs text-slate-400 mt-0.5">
@@ -266,8 +291,8 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                         style={{ width: `${Math.max(5, progress.percent)}%` }}
                                     ></div>
                                 </div>
-                                <div className="text-[11px] text-slate-400 font-medium truncate pt-1">
-                                    Procesando: <span className="font-bold text-slate-700">{progress.currentName || 'Iniciando...'}</span>
+                                <div className="text-[11px] text-slate-500 font-medium truncate pt-1 bg-slate-50 py-1.5 px-3 rounded-xl border border-slate-100">
+                                    <span className="text-slate-400">Procesando:</span> <span className="font-bold text-slate-800">{progress.currentName || 'Iniciando...'}</span>
                                 </div>
                             </div>
                         </div>
@@ -318,7 +343,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                                 <button
                                     onClick={onClose}
-                                    className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all"
+                                    className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer"
                                 >
                                     Cerrar y Ver Inversionistas
                                 </button>
@@ -327,45 +352,76 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                     ) : (
                         /* Configuration Form View */
                         <>
-                            {/* 1. Seleccionar Plantilla */}
+                            {/* 1. Seleccionar Plantillas (Múltiples / Todas) */}
                             <div>
-                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 font-montserrat">
-                                    1. Selecciona la Plantilla a Emitir
-                                </label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider font-montserrat">
+                                        1. Selecciona las Plantillas a Emitir
+                                    </label>
+                                    {templates.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={selectAllTemplates}
+                                            className="text-xs font-bold text-brand-600 hover:text-brand-700 cursor-pointer flex items-center gap-1 hover:underline"
+                                        >
+                                            {selectedTemplateIds.length === templates.length ? (
+                                                <>
+                                                    <Square className="w-3.5 h-3.5" /> Deseleccionar todas
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <CheckSquare className="w-3.5 h-3.5" /> Seleccionar todas ({templates.length})
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+
                                 {loadingTemplates ? (
                                     <div className="flex items-center gap-2 text-xs text-slate-400 py-3">
                                         <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
                                         Cargando plantillas configuradas...
                                     </div>
+                                ) : templates.length === 0 ? (
+                                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
+                                        No hay plantillas registradas. Agrega plantillas en la sección de Configuración de Plantillas.
+                                    </div>
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                        {templates.map(tpl => (
-                                            <button
-                                                key={tpl.id}
-                                                type="button"
-                                                onClick={() => setSelectedTemplateId(tpl.id)}
-                                                className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
-                                                    selectedTemplateId === tpl.id
-                                                        ? 'border-brand-500 bg-brand-500/5 ring-2 ring-brand-500/20'
-                                                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                                                }`}
-                                            >
-                                                <div className={`p-2 rounded-xl mt-0.5 ${
-                                                    selectedTemplateId === tpl.id ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-500'
-                                                }`}>
-                                                    <FileText className="w-4 h-4" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-xs font-bold text-slate-800 truncate">{tpl.name}</div>
-                                                    <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
-                                                        Tipo: {tpl.type || 'Contrato'}
+                                        {templates.map(tpl => {
+                                            const isSelected = selectedTemplateIds.includes(tpl.id);
+                                            return (
+                                                <button
+                                                    key={tpl.id}
+                                                    type="button"
+                                                    onClick={() => toggleTemplate(tpl.id)}
+                                                    className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                                                        isSelected
+                                                            ? 'border-brand-500 bg-brand-500/5 ring-2 ring-brand-500/20'
+                                                            : 'border-slate-200 hover:border-slate-300 bg-white opacity-70 hover:opacity-100'
+                                                    }`}
+                                                >
+                                                    <div className={`p-2 rounded-xl mt-0.5 ${
+                                                        isSelected ? 'bg-brand-500 text-white' : 'bg-slate-100 text-slate-400'
+                                                    }`}>
+                                                        <FileText className="w-4 h-4" />
                                                     </div>
-                                                </div>
-                                                {selectedTemplateId === tpl.id && (
-                                                    <Check className="w-4 h-4 text-brand-500 flex-shrink-0" />
-                                                )}
-                                            </button>
-                                        ))}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-xs font-bold text-slate-800 truncate">{tpl.name}</div>
+                                                        <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">
+                                                            Tipo: {tpl.type || 'Contrato'}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
+                                                        isSelected 
+                                                            ? 'bg-brand-500 border-brand-500 text-white' 
+                                                            : 'border-slate-300 bg-white'
+                                                    }`}>
+                                                        {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
@@ -414,10 +470,10 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                         />
                                         <div className="flex-1">
                                             <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                                                <Filter className="w-3.5 h-3.5 text-amber-500" /> Solo quienes NO tengan este documento
+                                                <Filter className="w-3.5 h-3.5 text-amber-500" /> Solo quienes NO tengan los documentos
                                             </div>
                                             <div className="text-[11px] text-slate-400">
-                                                Omite a quienes ya se les haya generado esta plantilla anteriormente
+                                                Omite aquellos documentos que el inversionista ya tenga generados
                                             </div>
                                         </div>
                                     </label>
@@ -458,7 +514,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setSelectedBgOption('/uploads/templates/gloint_membrete_oficial.png')}
-                                        className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all ${
+                                        className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all cursor-pointer ${
                                             selectedBgOption === '/uploads/templates/gloint_membrete_oficial.png'
                                                 ? 'border-brand-500 bg-brand-50 text-brand-700 font-bold'
                                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -469,7 +525,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => setSelectedBgOption('')}
-                                        className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all ${
+                                        className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all cursor-pointer ${
                                             selectedBgOption === ''
                                                 ? 'border-brand-500 bg-brand-50 text-brand-700 font-bold'
                                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -486,16 +542,16 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                     type="button"
                                     onClick={onClose}
                                     disabled={isProcessing}
-                                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition-all disabled:opacity-50"
+                                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleExecute}
-                                    disabled={isProcessing}
+                                    disabled={isProcessing || selectedTemplateIds.length === 0}
                                     className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg cursor-pointer ${
-                                        isProcessing ? 'bg-slate-400 opacity-60 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/25'
+                                        isProcessing || selectedTemplateIds.length === 0 ? 'bg-slate-400 opacity-60 cursor-not-allowed' : 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/25'
                                     }`}
                                 >
                                     {isProcessing ? (
@@ -505,7 +561,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                         </>
                                     ) : (
                                         <>
-                                            Generar Documentos
+                                            Generar Documentos ({selectedTemplateIds.length} plantillas)
                                             <ArrowRight className="w-4 h-4" />
                                         </>
                                     )}
