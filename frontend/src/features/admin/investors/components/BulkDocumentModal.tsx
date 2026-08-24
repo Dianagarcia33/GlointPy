@@ -90,7 +90,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
     const handleExecute = async () => {
         setIsProcessing(true);
         setResult(null);
-        setProgress({ current: 0, total: 1, percent: 5, currentName: 'Consultando plantillas e inversionistas...' });
+        setProgress({ current: 0, total: 1, percent: 5, currentName: 'Consultando plantillas configuradas...' });
 
         try {
             // 1. Get all templates
@@ -107,80 +107,53 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                 return;
             }
 
-            // 2. Fetch candidates
-            const investorsRes = await getInvestors({ limit: 1000 });
-            let candidates: Investor[] = investorsRes.data || [];
+            let totalEvaluated = 0;
+            let totalGenerated = 0;
+            let totalSkipped = 0;
+            const allErrors: string[] = [];
 
-            if (targetType === 'selected' && preselectedInvestorIds.length > 0) {
-                candidates = candidates.filter(inv => preselectedInvestorIds.includes(inv.id));
-            }
-
-            if (candidates.length === 0) {
-                setToast({ message: "No se encontraron inversionistas para procesar", type: "error" });
-                setIsProcessing(false);
-                return;
-            }
-
-            const totalTasks = candidates.length * allTemplates.length;
-            let currentTask = 0;
-            let generatedCount = 0;
-            let skippedCount = 0;
-            const errors: string[] = [];
-
-            for (const inv of candidates) {
-                const invName = `${inv.user?.name || 'Inversionista'} (${inv.assigned_code || `#${inv.id}`})`;
+            for (let i = 0; i < allTemplates.length; i++) {
+                const tpl = allTemplates[i];
                 
-                // Fetch investor's existing documents if filtering
-                let existingDocs: any[] = [];
-                if (targetType === 'without_document' && !overwriteExisting) {
-                    try {
-                        existingDocs = await investorDocumentsService.getDocumentsByInvestor(inv.id);
-                    } catch (e) {
-                        existingDocs = [];
-                    }
+                setProgress({
+                    current: i + 1,
+                    total: allTemplates.length,
+                    percent: Math.round(((i + 0.3) / allTemplates.length) * 100),
+                    currentName: `Emitiendo: ${tpl.name} (Plantilla ${i + 1} de ${allTemplates.length})...`
+                });
+
+                const res = await investorDocumentsService.bulkGenerateDocuments({
+                    template_id: tpl.id,
+                    target_type: targetType,
+                    investor_ids: targetType === 'selected' ? preselectedInvestorIds : undefined,
+                    background_image: selectedBgOption || undefined,
+                    overwrite_existing: overwriteExisting
+                });
+
+                totalEvaluated += res.total_candidates;
+                totalGenerated += res.generated_count;
+                totalSkipped += res.skipped_count;
+                if (res.errors && res.errors.length > 0) {
+                    allErrors.push(...res.errors);
                 }
 
-                for (const tpl of allTemplates) {
-                    currentTask++;
-                    
-                    setProgress({
-                        current: currentTask,
-                        total: totalTasks,
-                        percent: Math.round((currentTask / totalTasks) * 100),
-                        currentName: `${tpl.name} ➔ ${invName}`
-                    });
-
-                    try {
-                        if (targetType === 'without_document' && !overwriteExisting) {
-                            if (existingDocs.some(d => d.template_id === tpl.id)) {
-                                skippedCount++;
-                                continue;
-                            }
-                        }
-
-                        await investorDocumentsService.generateDocument(
-                            inv.id,
-                            tpl.id,
-                            undefined,
-                            selectedBgOption || undefined
-                        );
-                        generatedCount++;
-                    } catch (err: any) {
-                        console.error(`Error generando ${tpl.name} para ${invName}:`, err);
-                        errors.push(`${tpl.name} - ${invName}: ${err.message || 'Error'}`);
-                    }
-                }
+                setProgress({
+                    current: i + 1,
+                    total: allTemplates.length,
+                    percent: Math.round(((i + 1) / allTemplates.length) * 100),
+                    currentName: `Completado: ${tpl.name} (${res.generated_count} emitidos)`
+                });
             }
 
             setResult({
-                total_candidates: totalTasks,
-                generated_count: generatedCount,
-                skipped_count: skippedCount,
-                errors: errors
+                total_candidates: totalEvaluated,
+                generated_count: totalGenerated,
+                skipped_count: totalSkipped,
+                errors: allErrors
             });
 
             setToast({ 
-                message: `¡Generación masiva completada! Se emitieron ${generatedCount} documentos.`, 
+                message: `¡Generación masiva completada! Se emitieron ${totalGenerated} documentos en total.`, 
                 type: "success" 
             });
 
