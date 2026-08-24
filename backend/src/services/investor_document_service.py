@@ -444,7 +444,7 @@ class InvestorDocumentService:
             else:
                 title = f"{template.name} - {investor.assigned_code or investor.id}"
 
-        bg_img = data.background_image if data.background_image is not None else template.background_image
+        bg_img = data.background_image if data.background_image is not None else (template.background_image or "/uploads/templates/gloint_membrete_oficial.png")
 
         doc = InvestorDocument(
             investor_id=investor.id,
@@ -541,7 +541,7 @@ class InvestorDocumentService:
         if not template:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plantilla no encontrada")
 
-        bg_img = data.background_image if data.background_image is not None else template.background_image
+        bg_img = data.background_image if data.background_image is not None else (template.background_image or "/uploads/templates/gloint_membrete_oficial.png")
 
         from sqlalchemy import func
         count_query = select(func.count(Investor.id))
