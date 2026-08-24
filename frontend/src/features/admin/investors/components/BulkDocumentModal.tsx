@@ -69,10 +69,11 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
         setLoadingTemplates(true);
         try {
             const data = await templatesService.getTemplates();
-            setTemplates(data);
+            const list = Array.isArray(data) ? data : [];
+            setTemplates(list);
             // Select all templates by default
-            if (data.length > 0) {
-                setSelectedTemplateIds(data.map(t => t.id));
+            if (list.length > 0) {
+                setSelectedTemplateIds(list.map(t => t.id));
             }
         } catch (err: any) {
             console.error("Error cargando plantillas", err);
@@ -87,13 +88,13 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
             setResult(null);
             setIsProcessing(false);
             setProgress({ current: 0, total: 0, percent: 0, currentName: '' });
-            if (preselectedInvestorIds.length > 0) {
+            if (preselectedInvestorIds && preselectedInvestorIds.length > 0) {
                 setTargetType('selected');
             } else {
                 setTargetType('all');
             }
         }
-    }, [isOpen, preselectedInvestorIds]);
+    }, [isOpen]);
 
     const toggleTemplate = (id: number) => {
         setSelectedTemplateIds(prev => 
