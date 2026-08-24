@@ -69,6 +69,13 @@ export const normalizeDocumentHtml = (rawHtml: string): string => {
         }
     }
 
+    // Detect signature image container to apply dedicated top spacing
+    for (const el of children) {
+        if (el.querySelector('img') || el.tagName.toLowerCase() === 'img') {
+            el.classList.add('doc-signature-img');
+        }
+    }
+
     return container.innerHTML;
 };
 
@@ -99,7 +106,7 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
     for (const child of childNodes) {
         const textLen = (child.textContent || '').length;
         const tagName = child.tagName.toLowerCase();
-        const hasImg = child.querySelector('img') !== null || tagName === 'img';
+        const hasImg = child.querySelector('img') !== null || tagName === 'img' || child.classList.contains('doc-signature-img');
         const isTitle = child.classList.contains('doc-title') || tagName === 'h1' || tagName === 'h2';
         const isHeader = child.classList.contains('doc-section-header') || tagName === 'h3' || tagName === 'h4';
 
@@ -111,17 +118,17 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
             elementHeight = 22;
         } else if (tagName === 'p') {
             const lines = Math.max(1, Math.ceil(textLen / 95));
-            elementHeight = lines * 15 + 6 + (hasImg ? 60 : 0);
+            elementHeight = lines * 15 + 6 + (hasImg ? 75 : 0);
         } else if (tagName === 'table') {
             const rows = child.querySelectorAll('tr').length || 3;
             elementHeight = rows * 22 + 10;
         } else if (tagName === 'div') {
             const lines = Math.max(1, Math.ceil(textLen / 95));
-            elementHeight = lines * 15 + 8 + (hasImg ? 60 : 0);
+            elementHeight = lines * 15 + 8 + (hasImg ? 75 : 0);
         } else if (tagName === 'br') {
             elementHeight = 4;
         } else if (hasImg) {
-            elementHeight = 60;
+            elementHeight = 75;
         }
 
         // Check if element has page break class
@@ -288,12 +295,14 @@ export const printPaginatedDocument = (
                     font-weight: 700;
                     color: #020617;
                 }
+                .page-content .doc-signature-img,
+                .page-content p:has(img),
                 .page-content img {
-                    max-height: 55px;
+                    max-height: 50px;
                     object-fit: contain;
-                    display: inline-block;
-                    margin-top: 4px;
-                    margin-bottom: 0px;
+                    display: block;
+                    margin-top: 18px !important;
+                    margin-bottom: 2px !important;
                 }
                 .ql-align-center { text-align: center !important; }
                 .ql-align-justify { text-align: justify !important; text-justify: inter-word !important; }
@@ -397,12 +406,14 @@ export const DocumentPagesPreview: React.FC<DocumentPagesPreviewProps> = ({
                     font-weight: 700;
                     color: #020617;
                 }
+                .doc-preview-content .doc-signature-img,
+                .doc-preview-content p:has(img),
                 .doc-preview-content img {
-                    max-height: 55px;
+                    max-height: 50px;
                     object-fit: contain;
-                    display: inline-block;
-                    margin-top: 4px;
-                    margin-bottom: 0px;
+                    display: block;
+                    margin-top: 18px !important;
+                    margin-bottom: 2px !important;
                 }
                 .doc-preview-content .ql-align-center { text-align: center !important; }
                 .doc-preview-content .ql-align-justify { text-align: justify !important; text-justify: inter-word !important; }
