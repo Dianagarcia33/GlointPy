@@ -33,13 +33,15 @@ async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optiona
             
     return False, "Actualmente no se encuentra habilitada la ventana de retiros. Por favor consulta las fechas de retiro autorizadas en el sistema."
 
+from pydantic import BaseModel, Field
+
 class WalletWithdrawRequest(BaseModel):
-    monto: float
-    code: str
+    monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
+    code: str = Field(..., min_length=6, max_length=6)
     bank_account_id: Optional[int] = None
 
 class SendCodeRequest(BaseModel):
-    monto: float
+    monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
 
 @router.get("/me/balance")
 @router.get("/balance")

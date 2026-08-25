@@ -238,9 +238,11 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a Retirar (COP)</label>
+                                    <label htmlFor="monto-retiro" className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a Retirar (COP)</label>
                                     <input 
                                         type="number" 
+                                        id="monto-retiro"
+                                        name="monto"
                                         min={5000}
                                         max={balance > 0 ? balance : 0}
                                         step={1000}
