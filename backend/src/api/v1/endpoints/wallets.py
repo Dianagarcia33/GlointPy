@@ -321,14 +321,27 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
     # Map Transactions
     for t in transactions:
         amount = float(t.amount)
-        origen = t.type
+        raw_type = (t.type or "").lower().strip().replace("-", "_")
+        
+        outflow_types = [
+            "transfer_out", "transfer sent", "transfer_sent", "transferencia enviada",
+            "withdrawal_request", "withdrawal", "retiro", "solicitud_retiro",
+            "investment_reservation", "investment_payment", "investment", "reserva_inversion",
+            "yield_payout_reversal", "debit", "egreso"
+        ]
+        
+        is_outflow = raw_type in outflow_types or amount < 0
+        direction = "out" if is_outflow else "in"
+        tipo_str = "egreso" if is_outflow else "ingreso"
             
         response.append({
             "id": f"t_{t.id}",
             "investor_id": None,
             "user_id": current_user.id,
-            "origen": origen,
-            "tipo": t.type,
+            "origen": t.type,
+            "tipo": tipo_str,
+            "type": t.type,
+            "direction": direction,
             "monto": abs(amount),
             "impuesto": 0,
             "monto_neto": abs(amount),

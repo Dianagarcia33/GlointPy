@@ -277,36 +277,69 @@ export const WalletsPage = () => {
                                     {movements.map((mov) => {
                                         const status = getStatusConfig(mov.estado);
                                         const rawOrigin = mov.origen || mov.type || mov.reference_type || '';
-                                        const originNormalized = rawOrigin.toLowerCase().trim().replace(/_/g, ' ');
-                                        const metodoPagoNormalized = mov.metodo_pago ? mov.metodo_pago.toLowerCase().trim() : '';
 
-                                        const isIngreso = [
-                                            'generacion_rendimiento', 'bono', 'cash', 'auto_yield_transfer', 'auto_bonus_transfer',
-                                            'yield payout', 'transfer received', 'bonus payout', 'withdrawal refund',
-                                            'rendimiento_inversion', 'bono_aceleracion', 'generacion rendimiento', 'rendimiento inversion'
-                                        ].includes(rawOrigin.toLowerCase().trim()) || metodoPagoNormalized === 'wallet' || mov.tipo === 'ingreso' || mov.type === 'ingreso';
+                                        const isIngresoMovement = (m: any): boolean => {
+                                            if (m.direction === 'in' || m.tipo === 'ingreso' || m.type === 'ingreso') return true;
+                                            if (m.direction === 'out' || m.tipo === 'egreso' || m.type === 'egreso') return false;
+
+                                            const raw = (m.origen || m.type || m.reference_type || m.tipo || '').toLowerCase().trim().replace(/_/g, ' ');
+                                            
+                                            const egresosKeywords = [
+                                                'transfer out', 'transfer sent', 'transferencia enviada',
+                                                'withdrawal request', 'solicitud de retiro', 'retiro',
+                                                'investment reservation', 'reserva de inversión', 'investment payment',
+                                                'yield payout reversal', 'rendimientos revertidos', 'ajuste debito', 'debit', 'egreso'
+                                            ];
+                                            if (egresosKeywords.some(kw => raw.includes(kw))) return false;
+
+                                            const ingresosKeywords = [
+                                                'transfer in', 'transfer received', 'transferencia recibida',
+                                                'withdrawal refund', 'withdrawal rejection', 'reembolso de retiro', 'reembolso retiro', 'devolución por rechazo',
+                                                'generacion rendimiento', 'rendimiento inversion', 'yield payout', 'auto yield transfer',
+                                                'bono', 'bonus payout', 'auto bonus transfer', 'bono aceleracion',
+                                                'deposito', 'deposit', 'cash', 'recarga', 'capital liquidation', 'liquidación de capital',
+                                                'ajuste credito', 'credit', 'ingreso'
+                                            ];
+                                            if (ingresosKeywords.some(kw => raw.includes(kw))) return true;
+
+                                            return m.metodo_pago?.toLowerCase().trim() === 'wallet';
+                                        };
+
+                                        const isIngreso = isIngresoMovement(mov);
 
                                         const getOriginTranslation = (raw: string): string => {
+                                            if (!raw) return 'Movimiento de Billetera';
                                             const norm = raw.toLowerCase().trim().replace(/_/g, ' ');
                                             const dict: Record<string, string> = {
+                                                'transfer in': 'Transferencia Recibida',
+                                                'transfer received': 'Transferencia Recibida',
+                                                'transferencia recibida': 'Transferencia Recibida',
+                                                'transfer out': 'Transferencia Enviada',
+                                                'transfer sent': 'Transferencia Enviada',
+                                                'transferencia enviada': 'Transferencia Enviada',
+                                                'withdrawal rejection': 'Reembolso de Retiro',
+                                                'withdrawal refund': 'Reembolso de Retiro',
+                                                'reembolso de retiro': 'Reembolso de Retiro',
+                                                'reembolso retiro': 'Reembolso de Retiro',
+                                                'devolución por rechazo': 'Reembolso de Retiro',
+                                                'withdrawal request': 'Solicitud de Retiro',
                                                 'yield payout reversal': 'Reversión de Rendimientos',
                                                 'yield payout reversed': 'Rendimientos Revertidos',
                                                 'yield payout': 'Pago de Rendimientos',
-                                                'withdrawal request': 'Solicitud de Retiro',
-                                                'withdrawal refund': 'Reembolso de Retiro',
-                                                'transfer sent': 'Transferencia Enviada',
-                                                'transfer received': 'Transferencia Recibida',
-                                                'bonus payout': 'Pago de Bono',
-                                                'investment reservation': 'Reserva de Inversión',
                                                 'auto yield transfer': 'Pago de Rendimientos',
-                                                'auto bonus transfer': 'Pago de Bono',
                                                 'generacion rendimiento': 'Pago de Rendimientos',
                                                 'rendimiento inversion': 'Pago de Rendimientos',
+                                                'bonus payout': 'Pago de Bono',
+                                                'auto bonus transfer': 'Pago de Bono',
                                                 'bono aceleracion': 'Bono de Aceleración',
                                                 'bono': 'Pago de Bono',
+                                                'investment reservation': 'Reserva de Inversión',
+                                                'capital liquidation': 'Liquidación de Capital',
+                                                'liquidación de capital': 'Liquidación de Capital',
                                                 'ingreso': 'Ingreso a Billetera',
                                                 'egreso': 'Egreso de Billetera',
-                                                'cash': 'Depósito de Saldo'
+                                                'cash': 'Depósito de Saldo',
+                                                'deposit': 'Depósito de Saldo'
                                             };
 
                                             if (dict[norm]) return dict[norm];
