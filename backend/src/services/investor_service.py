@@ -279,6 +279,16 @@ class InvestorService:
     async def delete_investor(db: AsyncSession, investor_id: int):
         db_investor = await InvestorService.get_investor(db, investor_id)
         
+        # Sincronizar y actualizar las solicitudes asociadas para evitar estados huérfanos 'Aprobado'
+        from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+        req_stmt = select(InvestmentRequest).where(InvestmentRequest.investor_id == investor_id)
+        req_result = await db.execute(req_stmt)
+        associated_requests = req_result.scalars().all()
+        for req in associated_requests:
+            req.status = InvestmentRequestStatus.rejected
+            req.rejection_reason = "Contrato de inversión eliminado o anulado por la administración."
+            req.investor_id = None
+            
         await db.delete(db_investor)
         await db.commit()
 

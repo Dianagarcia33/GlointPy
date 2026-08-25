@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
 import { commercialService } from '../../../../services/commercial';
-import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus } from 'lucide-react';
+import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { formatCurrency } from '../../../../utils/format';
 import { getMediaUrl } from '../../../../services/api';
@@ -866,29 +866,44 @@ export const InvestmentRequestsTable = () => {
 
               {selectedRequestToReview.comprobante_path ? (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">Comprobante de Pago</span>
+                    <span className="text-xs text-slate-500 font-mono">
+                      {selectedRequestToReview.comprobante_path.toLowerCase().endsWith('.pdf') ? 'Documento PDF' : 'Imagen'}
+                    </span>
                   </div>
-                  <div className="p-4 flex justify-center bg-slate-100 min-h-[200px]">
-                    <img 
-                      src={getMediaUrl(selectedRequestToReview.comprobante_path)} 
-                      alt="Comprobante" 
-                      className="max-h-[400px] object-contain rounded shadow-sm border border-slate-200"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (target.src !== FALLBACK_DOC_SVG) {
-                          target.src = FALLBACK_DOC_SVG;
-                        }
-                      }}
-                    />
+                  <div className="p-4 flex justify-center bg-slate-100 min-h-[220px]">
+                    {selectedRequestToReview.comprobante_path.toLowerCase().endsWith('.pdf') ? (
+                      <div className="w-full h-[450px] rounded-lg overflow-hidden border border-slate-200 bg-white shadow-xs">
+                        <iframe 
+                          src={`${getMediaUrl(selectedRequestToReview.comprobante_path)}#toolbar=0`} 
+                          title="Comprobante PDF" 
+                          className="w-full h-full border-0"
+                        />
+                      </div>
+                    ) : (
+                      <img 
+                        src={getMediaUrl(selectedRequestToReview.comprobante_path)} 
+                        alt="Comprobante" 
+                        className="max-h-[400px] object-contain rounded shadow-sm border border-slate-200"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (target.src !== FALLBACK_DOC_SVG) {
+                            target.src = FALLBACK_DOC_SVG;
+                          }
+                        }}
+                      />
+                    )}
                   </div>
-                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-right">
+                  <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">¿Problemas para visualizar?</span>
                     <a 
                       href={getMediaUrl(selectedRequestToReview.comprobante_path)} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-sm text-brand-600 font-medium hover:underline"
+                      className="text-sm text-brand-600 font-bold hover:text-brand-700 hover:underline flex items-center gap-1.5"
                     >
+                      <ExternalLink className="w-4 h-4" />
                       Abrir en nueva pestaña
                     </a>
                   </div>
