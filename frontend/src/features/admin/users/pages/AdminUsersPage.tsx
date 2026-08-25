@@ -6,7 +6,7 @@ import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
 import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
-import { maskAccountNumber, formatAccountNumber } from '../../../../utils/format';
+import { maskAccountNumber, formatAccountNumber, formatColombiaDate } from '../../../../utils/format';
 
 export const AdminUsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -291,8 +291,8 @@ export const AdminUsersPage = () => {
                         <div className="text-slate-500 font-mono">{user.email}</div>
                         {user.document_id && <div className="text-slate-500">Doc: <strong className="font-bold text-slate-700">{user.document_id}</strong></div>}
                         {user.phone_number && <div className="text-slate-500">Tel: <strong className="font-bold text-slate-700">{user.phone_number}</strong></div>}
-                        {user.date_of_birth && <div className="text-slate-500">Nac: <strong className="font-bold text-slate-700">{new Date(user.date_of_birth).toLocaleDateString()}</strong></div>}
-                        <div className="text-[10px] text-slate-400">Reg: {new Date(user.created_at).toLocaleDateString()}</div>
+                        {user.date_of_birth && <div className="text-slate-500">Nac: <strong className="font-bold text-slate-700">{formatColombiaDate(user.date_of_birth)}</strong></div>}
+                        <div className="text-[10px] text-slate-400">Reg: {formatColombiaDate(user.created_at)}</div>
                       </div>
                     </div>
                   </td>

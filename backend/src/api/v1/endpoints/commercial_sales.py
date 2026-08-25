@@ -8,6 +8,7 @@ from sqlalchemy import extract, func, desc, or_
 from sqlalchemy.orm import selectinload
 
 from src.core.database import get_db
+from src.core.timezone import get_colombia_today, get_colombia_now
 from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
 from src.models.commercial_sale import CommercialSale, CommercialSaleType, CommercialSaleStatus
@@ -86,7 +87,7 @@ async def get_my_commercial_summary(
     """
     Resumen en tiempo real para el comercial en sesión.
     """
-    today = date.today()
+    today = get_colombia_today()
     year = today.year
     month = today.month
     
@@ -289,7 +290,7 @@ async def get_admin_commercial_summary(
     - Total de cierres adjudicados
     - Asesor Líder del mes
     """
-    today = date.today()
+    today = get_colombia_today()
     year = today.year
     month = today.month
     
@@ -501,7 +502,7 @@ async def get_commercial_leaderboard(
     """
     Ranking de Ventas (Leaderboard) en tiempo real para el mes en curso.
     """
-    today = date.today()
+    today = get_colombia_today()
     year = today.year
     month = today.month
     
@@ -630,7 +631,7 @@ async def get_all_bonuses_summary(
         )
         all_users = users_res.scalars().all()
 
-        today = date.today()
+        today = get_colombia_today()
         result = []
 
         for u in all_users:
@@ -716,7 +717,7 @@ async def get_floors_monitoring(
         sales_users_res = await db.execute(select(CommercialSale.commercial_id).distinct())
         sales_user_ids = set(sales_users_res.scalars().all())
 
-        today = date.today()
+        today = get_colombia_today()
         
         ordered_floors = [
             {"level": 1, "label": "Piso 1", "target": 18000000.0, "bonus": 360000.0},

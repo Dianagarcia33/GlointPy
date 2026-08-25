@@ -38,3 +38,34 @@ export const maskAccountNumber = (accNum: string | number | null | undefined): s
     const last4 = clean.slice(-4);
     return `•••• •••• ${last4}`;
 };
+
+/**
+ * Retorna la fecha calendario actual de Colombia en formato YYYY-MM-DD (America/Bogota, UTC-5).
+ * Evita saltar de día a partir de las 19:00 COT como ocurre con toISOString() en UTC.
+ */
+export const getColombiaToday = (): string => {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+};
+
+/**
+ * Formatea una fecha o timestamp a formato local colombiano DD/MM/YYYY respetando la zona horaria America/Bogota.
+ */
+export const formatColombiaDate = (dateStr: string | Date | null | undefined): string => {
+    if (!dateStr) return 'N/A';
+    let d: Date;
+    if (typeof dateStr === 'string') {
+        if (!dateStr.includes('Z') && !dateStr.includes('+') && dateStr.includes('T')) {
+            d = new Date(dateStr + 'Z');
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            const [y, m, day] = dateStr.split('-').map(Number);
+            return `${String(day).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+        } else {
+            d = new Date(dateStr);
+        }
+    } else {
+        d = dateStr;
+    }
+    
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' });
+};

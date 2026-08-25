@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User } from 'lucide-react';
 import { commercialService, CommercialClientCheckResponse, SearchClientResult } from '../../../services/commercial';
 import { useAuthStore } from '../../../store/authStore';
+import { getColombiaToday } from '../../../utils/format';
 
 interface RegisterCommercialSaleModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [saleType, setSaleType] = useState<'contrato_nuevo' | 'reinversion' | 'referido'>('contrato_nuevo');
   const [amount, setAmount] = useState<string>('');
   const [referrerCode, setReferrerCode] = useState('');
-  const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [saleDate, setSaleDate] = useState<string>(getColombiaToday());
   const [isAlreadySettled, setIsAlreadySettled] = useState<boolean>(false);
 
   const [clientInfo, setClientInfo] = useState<CommercialClientCheckResponse | null>(null);

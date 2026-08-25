@@ -12,6 +12,7 @@ from src.models.commercial_sale import CommercialSale, CommercialSaleType, Comme
 from src.models.commercial_bonus import CommercialBonus, CommercialBonusType, CommercialBonusStatus
 from src.models.wallet import Wallet, WalletTransaction
 from src.schemas.commercial_sale import CommercialSaleCreate
+from src.core.timezone import get_colombia_today, get_colombia_now
 
 THRESHOLD_36M = Decimal("36000000.00")
 RATE_30 = Decimal("0.030") # 3.0%
@@ -121,7 +122,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
        - Base de comisión para nuevo contrato adicional: Valor del nuevo contrato.
     """
     doc_clean = client_document.strip()
-    today = date.today()
+    today = get_colombia_today()
     cycle_start = get_current_commercial_cycle_start(today)
     cycle_start_dt = datetime(cycle_start.year, cycle_start.month, cycle_start.day)
 
@@ -298,7 +299,7 @@ async def register_commercial_sale(
     elif sale_data.referrer_code or final_sale_type == CommercialSaleType.referido:
         final_sale_type = CommercialSaleType.referido
         
-    target_date = sale_data.sale_date if sale_data.sale_date else date.today()
+    target_date = sale_data.sale_date if sale_data.sale_date else get_colombia_today()
     amount = sale_data.amount
     
     # 2. Calcular comisión marginal sobre la fecha de la venta

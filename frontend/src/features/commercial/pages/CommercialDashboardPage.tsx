@@ -9,6 +9,7 @@ import { CommercialBonusGoalsWidget } from '../components/CommercialBonusGoalsWi
 import { AdminCommercialBonusesTable } from '../components/AdminCommercialBonusesTable';
 import { AdminCommercialFloorsMonitor } from '../components/AdminCommercialFloorsMonitor';
 import { Can } from '../../../components/security/Can';
+import { getColombiaToday } from '../../../utils/format';
 
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -242,7 +243,7 @@ export const CommercialDashboardPage: React.FC = () => {
               {/* Widget de Metas y Bonos en Curso */}
               <CommercialBonusGoalsWidget
                 summary={summary}
-                dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
+                dailyClosuresCount={summary?.today_closures ?? (summary?.recent_sales?.filter((s: any) => s.sale_date === getColombiaToday()).length || 0)}
               />
 
           {/* Executive KPI Cards */}
