@@ -530,6 +530,20 @@ class InvestorDocumentService:
         await db.commit()
 
     @staticmethod
+    async def delete_all(db: AsyncSession, template_id: Optional[int] = None, investor_id: Optional[int] = None) -> int:
+        await InvestorDocumentService.ensure_table_exists(db)
+        from sqlalchemy import delete as sql_delete
+        query = sql_delete(InvestorDocument)
+        if template_id:
+            query = query.where(InvestorDocument.template_id == template_id)
+        if investor_id:
+            query = query.where(InvestorDocument.investor_id == investor_id)
+        
+        result = await db.execute(query)
+        await db.commit()
+        return result.rowcount or 0
+
+    @staticmethod
     async def bulk_generate(db: AsyncSession, data: InvestorDocumentBulkGenerateRequest) -> dict:
         await InvestorDocumentService.ensure_table_exists(db)
         from src.models.package import Package

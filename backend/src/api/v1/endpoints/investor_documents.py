@@ -72,6 +72,20 @@ async def get_document_by_id(
         raise HTTPException(status_code=403, detail="No tienes permiso para ver este documento")
     return doc
 
+@router.delete("/bulk-delete/all", status_code=status.HTTP_200_OK)
+async def delete_all_documents(
+    template_id: Optional[int] = Query(None),
+    investor_id: Optional[int] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage"]))
+):
+    count = await InvestorDocumentService.delete_all(db, template_id, investor_id)
+    return {
+        "status": "success",
+        "deleted_count": count,
+        "message": f"Se eliminaron {count} documentos exitosamente"
+    }
+
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     document_id: int,

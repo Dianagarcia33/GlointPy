@@ -91,5 +91,15 @@ export const investorDocumentsService = {
         await fetchApi(`/investor-documents/${documentId}`, {
             method: 'DELETE'
         });
+    },
+
+    deleteAllDocuments: async (templateId?: number, investorId?: number): Promise<{ status: string; deleted_count: number; message: string }> => {
+        const params = new URLSearchParams();
+        if (templateId) params.append('template_id', templateId.toString());
+        if (investorId) params.append('investor_id', investorId.toString());
+        const qs = params.toString() ? `?${params.toString()}` : '';
+        return await fetchApi(`/investor-documents/bulk-delete/all${qs}`, {
+            method: 'DELETE'
+        });
     }
 };
