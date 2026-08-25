@@ -245,9 +245,30 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                                         onChange={(e) => setMonto(e.target.value)}
                                         placeholder="Mínimo $5,000"
                                         disabled={!bankDetails || !canWithdraw}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                                        className={`w-full px-4 py-3 bg-white border rounded-xl focus:ring-2 transition-all font-medium text-slate-900 outline-none disabled:bg-slate-50 disabled:text-slate-500 ${
+                                            monto.trim() !== '' && (montoNumber < 5000 || montoNumber > balance)
+                                                ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/20'
+                                                : 'border-slate-200 focus:border-brand-500 focus:ring-brand-500/20'
+                                        }`}
                                         required
                                     />
+                                    {monto.trim() !== '' && montoNumber > 0 && montoNumber < 5000 && (
+                                        <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1 animate-in fade-in duration-150">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            El monto mínimo para solicitar un retiro es de $5,000 COP.
+                                        </p>
+                                    )}
+                                    {monto.trim() !== '' && montoNumber > balance && (
+                                        <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1 animate-in fade-in duration-150">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            El monto solicitado supera tu saldo disponible ({formatCurrency(balance)}).
+                                        </p>
+                                    )}
+                                    {(!monto || (montoNumber >= 5000 && montoNumber <= balance)) && (
+                                        <p className="text-[11px] text-slate-400 mt-1 font-medium">
+                                            Monto mínimo de retiro: $5,000 COP
+                                        </p>
+                                    )}
                                 </div>
 
                                 {bankAccounts.length > 0 && (
