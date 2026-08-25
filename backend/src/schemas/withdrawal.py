@@ -70,3 +70,17 @@ class WithdrawalPaginatedResponse(BaseModel):
 
 class WithdrawalRejectRequest(BaseModel):
     motivo_rechazo: str
+
+    @classmethod
+    def validate_motivo(cls, v: str) -> str:
+        clean = (v or "").strip()
+        if len(clean) < 10:
+            raise ValueError("El motivo de rechazo debe contener al menos 10 caracteres explicativos.")
+        # Prevenir cadenas de texto basura repetitivo (ej: asdf, sss, 1111)
+        if len(set(clean.lower().replace(" ", ""))) < 4:
+            raise ValueError("Por favor ingrese un motivo de rechazo válido y descriptivo para el usuario.")
+        return clean
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.motivo_rechazo = self.validate_motivo(self.motivo_rechazo)

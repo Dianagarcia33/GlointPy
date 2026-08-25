@@ -70,16 +70,25 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
     }
   };
 
+  const REJECTION_PRESETS = [
+    'Datos bancarios erróneos o cuenta no coincide con el titular.',
+    'Fondos en proceso de verificación o auditoría de seguridad.',
+    'Documentación o validación de identidad KYC pendiente.',
+    'Solicitud duplicada o cancelada a petición del usuario.',
+    'Inconsistencia en el monto solicitado o comprobante bancario.'
+  ];
+
   const handleReject = async () => {
-    if (!rejectionReason.trim()) {
-      setError('Por favor, ingresa el motivo del rechazo.');
+    const cleanReason = rejectionReason.trim();
+    if (cleanReason.length < 10) {
+      setError('Por favor, ingresa un motivo de rechazo claro de al menos 10 caracteres explicativos.');
       return;
     }
     
     try {
       setIsProcessing(true);
       setError(null);
-      await paymentService.rejectWithdrawal(withdrawal.id, rejectionReason);
+      await paymentService.rejectWithdrawal(withdrawal.id, cleanReason);
       onUpdate();
       onClose();
     } catch (err: any) {
@@ -213,13 +222,35 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
 
           {/* Rejection Form */}
           {isRejecting && (
-            <div className="bg-rose-50/70 rounded-2xl p-5 border border-rose-200 space-y-2 animate-in fade-in slide-in-from-top-4">
-              <h3 className="font-bold text-xs text-rose-900 uppercase tracking-wide">Motivo del Rechazo de Retiro</h3>
+            <div className="bg-rose-50/70 rounded-2xl p-5 border border-rose-200 space-y-3 animate-in fade-in slide-in-from-top-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-xs text-rose-900 uppercase tracking-wide">Motivo del Rechazo de Retiro</h3>
+                <span className={`text-[11px] font-mono font-bold ${rejectionReason.trim().length >= 10 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                  {rejectionReason.trim().length} / mín. 10 caracteres
+                </span>
+              </div>
               <p className="text-xs text-rose-700 font-medium">El saldo del retiro será reintegrado de inmediato a la billetera del usuario.</p>
+              
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-rose-900 uppercase tracking-wider">Motivos Predefinidos:</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {REJECTION_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setRejectionReason(preset)}
+                      className="px-2.5 py-1 text-[11px] rounded-lg bg-white border border-rose-200 hover:border-rose-400 text-rose-800 font-medium text-left transition-colors cursor-pointer hover:bg-rose-100/50"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Explica detalladamente la causa del rechazo..."
+                placeholder="Explica detalladamente la causa del rechazo (mínimo 10 caracteres)..."
                 className="w-full p-3 border border-rose-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-xs h-24 resize-none font-medium"
               />
             </div>
