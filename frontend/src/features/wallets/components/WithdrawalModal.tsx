@@ -241,11 +241,14 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a Retirar (COP)</label>
                                     <input 
                                         type="number" 
+                                        min={5000}
+                                        max={balance > 0 ? balance : 0}
+                                        step={1000}
                                         value={monto}
                                         onChange={(e) => setMonto(e.target.value)}
                                         placeholder="Mínimo $5,000"
                                         disabled={!bankDetails || !canWithdraw || balance <= 0}
-                                        className={`w-full px-4 py-3 bg-white border rounded-xl focus:ring-2 transition-all font-medium text-slate-900 outline-none disabled:bg-slate-50 disabled:text-slate-500 ${
+                                        className={`w-full px-4 py-3 bg-white border rounded-xl focus:ring-2 transition-all font-medium text-slate-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:bg-slate-50 disabled:text-slate-500 ${
                                             monto.trim() !== '' && (montoNumber < 5000 || montoNumber > balance)
                                                 ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/20'
                                                 : 'border-slate-200 focus:border-brand-500 focus:ring-brand-500/20'
