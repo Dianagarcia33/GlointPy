@@ -9,7 +9,7 @@ import { CommercialBonusGoalsWidget } from '../components/CommercialBonusGoalsWi
 import { AdminCommercialBonusesTable } from '../components/AdminCommercialBonusesTable';
 import { AdminCommercialFloorsMonitor } from '../components/AdminCommercialFloorsMonitor';
 import { Can } from '../../../components/security/Can';
-import { getColombiaToday } from '../../../utils/format';
+import { getColombiaToday, formatColombiaDate, formatCurrency } from '../../../utils/format';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 export const CommercialDashboardPage: React.FC = () => {
@@ -829,16 +829,16 @@ export const CommercialDashboardPage: React.FC = () => {
                 {settlements.map((st) => (
                   <tr key={st.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4 font-mono">
-                      {st.created_at ? new Date(st.created_at).toLocaleDateString('es-CO') : 'N/A'}
+                      {formatColombiaDate(st.created_at)}
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-800 font-montserrat">
                       {st.commercial_name}
                     </td>
                     <td className="py-3 px-4 text-center font-mono font-bold">
-                      {st.sales_count} cierres
+                      {st.sales_count} {st.sales_count === 1 ? 'cierre' : 'cierres'}
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                      ${(st.total_amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                      {formatCurrency(Number(st.total_amount) || 0)}
                     </td>
                     <td className="py-3 px-4">
                       {st.reference_code ? (
