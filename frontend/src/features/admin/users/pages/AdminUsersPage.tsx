@@ -4,14 +4,16 @@ import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
+import { maskAccountNumber, formatAccountNumber } from '../../../../utils/format';
 
 export const AdminUsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [revealedAccounts, setRevealedAccounts] = useState<Set<number>>(new Set());
   
   // Pagination & Filters state
   const [page, setPage] = useState(1);
@@ -70,6 +72,13 @@ export const AdminUsersPage = () => {
     } catch (err: any) {
       setError(err.message || 'Error al crear la billetera');
     }
+  };
+
+  const toggleRevealAccount = (accId: number) => {
+    const next = new Set(revealedAccounts);
+    if (next.has(accId)) next.delete(accId);
+    else next.add(accId);
+    setRevealedAccounts(next);
   };
 
   const fetchData = async () => {
@@ -326,12 +335,27 @@ export const AdminUsersPage = () => {
                         </div>
                         {user.bank_accounts && user.bank_accounts.length > 0 ? (
                           <div className="space-y-1.5 w-48">
-                            {user.bank_accounts.map(acc => (
-                              <div key={acc.id} className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
-                                <div className="font-bold text-slate-800 truncate">{acc.banco} - {acc.tipo_cuenta}</div>
-                                <div className="text-slate-500 font-mono mt-0.5">{acc.numero_cuenta}</div>
-                              </div>
-                            ))}
+                            {user.bank_accounts.map(acc => {
+                              const isRevealed = revealedAccounts.has(acc.id);
+                              return (
+                                <div key={acc.id} className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                                  <div className="font-bold text-slate-800 truncate">{acc.banco} - {acc.tipo_cuenta}</div>
+                                  <div className="flex items-center justify-between gap-1 text-slate-600 font-mono mt-0.5">
+                                    <span className="select-all">
+                                      {isRevealed ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleRevealAccount(acc.id)}
+                                      className="p-0.5 text-slate-400 hover:text-brand-600 hover:bg-slate-200 rounded transition-colors cursor-pointer"
+                                      title={isRevealed ? "Ocultar número completo" : "Mostrar número completo"}
+                                    >
+                                      {isRevealed ? <EyeOff className="w-3 h-3 text-brand-600" /> : <Eye className="w-3 h-3" />}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="text-slate-400 italic">Sin cuentas registradas</div>

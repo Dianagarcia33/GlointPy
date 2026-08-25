@@ -30,3 +30,11 @@ export const formatAccountNumber = (accNum: string | number | null | undefined):
     
     return str;
 };
+
+export const maskAccountNumber = (accNum: string | number | null | undefined): string => {
+    if (accNum === null || accNum === undefined || accNum === '') return 'N/A';
+    const clean = formatAccountNumber(accNum);
+    if (clean.length <= 4) return clean;
+    const last4 = clean.slice(-4);
+    return `•••• •••• ${last4}`;
+};
