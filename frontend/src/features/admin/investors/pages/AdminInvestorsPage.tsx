@@ -14,7 +14,6 @@ import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsMod
 import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInversionModal';
 import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { BulkDocumentModal } from '../components/BulkDocumentModal';
-import { DeleteAllDocumentsModal } from '../components/DeleteAllDocumentsModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber } from '../../../../utils/format';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye } from 'lucide-react';
@@ -160,7 +159,6 @@ export const AdminInvestorsPage = () => {
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
   const [isBulkDocModalOpen, setIsBulkDocModalOpen] = useState(false);
-  const [isDeleteAllDocsModalOpen, setIsDeleteAllDocsModalOpen] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -322,14 +320,6 @@ export const AdminInvestorsPage = () => {
               >
                 <Layers className="w-4 h-4 text-amber-400" />
                 <span>Generación Masiva</span>
-              </button>
-              <button 
-                onClick={() => setIsDeleteAllDocsModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-3 bg-rose-950/40 text-rose-300 rounded-2xl hover:bg-rose-900/60 hover:text-white transition-all border border-rose-800/50 shadow-lg text-sm font-bold cursor-pointer shrink-0"
-                title="Eliminar todos los documentos y contratos generados en el sistema"
-              >
-                <Trash2 className="w-4 h-4 text-rose-400" />
-                <span>Vaciar Documentos</span>
               </button>
             </Can>
           )}
@@ -1159,15 +1149,6 @@ export const AdminInvestorsPage = () => {
           fetchData();
         }}
         totalInvestorsCount={total}
-      />
-
-      <DeleteAllDocumentsModal
-        isOpen={isDeleteAllDocsModalOpen}
-        onClose={() => setIsDeleteAllDocsModalOpen(false)}
-        onSuccess={(deletedCount) => {
-          setToast({ message: `¡Se eliminaron ${deletedCount} documentos con éxito!`, type: 'success' });
-          fetchData();
-        }}
       />
 
       <AdminCapitalWithdrawalModal
