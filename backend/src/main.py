@@ -94,6 +94,11 @@ async def on_startup():
 
         async with async_session_maker() as db:
             await seed_permissions_db(db)
+            try:
+                from src.services.commercial_sale_service import purge_ghost_bonuses
+                await purge_ghost_bonuses(db)
+            except Exception as pe:
+                print(f"Error purging ghost bonuses on startup: {pe}")
     except Exception as e:
         print(f"Error on startup database initialization/seeding: {e}")
 from fastapi.staticfiles import StaticFiles
