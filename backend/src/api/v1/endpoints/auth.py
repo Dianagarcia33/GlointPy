@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any
+from typing import Any, Optional
 
 from src.core.database import get_db
 from src.core.config import settings
@@ -22,7 +22,7 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
     elif getattr(settings, 'ENVIRONMENT', 'development') == 'production':
         is_secure = True
 
-    max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 120)) * 60
+    max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 5)) * 60
 
     response.set_cookie(
         key="access_token",
