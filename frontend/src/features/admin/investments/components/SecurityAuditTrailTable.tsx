@@ -326,25 +326,30 @@ export const SecurityAuditTrailTable: React.FC = () => {
 
         {/* Pagination Footer */}
         {total > limit && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <span className="text-slate-500">
-              Página <strong className="text-slate-800">{page}</strong> de <strong className="text-slate-800">{totalPages}</strong>
+              Mostrando <strong className="text-slate-800">{(page - 1) * limit + 1}</strong> a <strong className="text-slate-800">{Math.min(page * limit, total)}</strong> de <strong className="text-slate-800">{total}</strong> eventos <span className="text-slate-400 font-normal ml-1">(Página {page} de {totalPages})</span>
             </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all font-bold text-slate-700 flex items-center gap-1"
               >
                 <ChevronLeft className="w-4 h-4 text-slate-600" />
+                <span>Anterior</span>
               </button>
+              <span className="px-2 font-mono text-slate-400 text-[11px]">
+                {page} / {totalPages}
+              </span>
               <button
                 type="button"
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all font-bold text-slate-700 flex items-center gap-1"
               >
+                <span>Siguiente</span>
                 <ChevronRight className="w-4 h-4 text-slate-600" />
               </button>
             </div>
