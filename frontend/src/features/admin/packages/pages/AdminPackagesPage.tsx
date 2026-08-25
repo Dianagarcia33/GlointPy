@@ -15,7 +15,7 @@ export const AdminPackagesPage = () => {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
 
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingPackage, setDeletingPackage] = useState<Package | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = async () => {
@@ -49,14 +49,14 @@ export const AdminPackagesPage = () => {
   };
 
   const confirmDelete = async () => {
-    if (!deletingId) return;
+    if (!deletingPackage) return;
     try {
       setIsDeleting(true);
       setError(null);
-      await packagesService.deletePackage(deletingId);
-      setSuccess('Paquete eliminado correctamente.');
+      await packagesService.deletePackage(deletingPackage.id);
+      setSuccess(`Paquete de $${Number(deletingPackage.value).toLocaleString('es-CO')} COP eliminado correctamente.`);
       setTimeout(() => setSuccess(null), 5000);
-      setDeletingId(null);
+      setDeletingPackage(null);
       fetchData();
     } catch (err: any) {
       setError(err.message || 'Error al eliminar el paquete');
@@ -225,7 +225,7 @@ export const AdminPackagesPage = () => {
                             <span>Editar</span>
                           </button>
                           <button 
-                            onClick={() => setDeletingId(pkg.id)}
+                            onClick={() => setDeletingPackage(pkg)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -242,20 +242,39 @@ export const AdminPackagesPage = () => {
         </div>
       </div>
 
-      {/* Modal Confirmación Eliminar */}
-      {deletingId && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4">
+      {/* Modal Confirmación Eliminar con Identificación de Paquete */}
+      {deletingPackage && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200" style={{ margin: 0 }}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full space-y-4">
             <div className="flex items-center gap-3 text-rose-600">
               <div className="p-2.5 bg-rose-100 rounded-xl">
                 <Trash2 className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-slate-800 text-lg font-montserrat">¿Eliminar Paquete?</h3>
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg font-montserrat">¿Eliminar Paquete?</h3>
+                <p className="text-xs text-slate-500">Confirmación de eliminación irreversible</p>
+              </div>
             </div>
-            <p className="text-xs text-slate-600">Esta acción eliminará el paquete de inversión configurado.</p>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>Valor del Paquete:</span>
+                <span className="font-bold text-slate-900 font-mono text-sm">${Number(deletingPackage.value).toLocaleString('es-CO')} COP</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>ID del Registro:</span>
+                <span className="font-mono text-slate-700">#{deletingPackage.id}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Acciones Otorgadas:</span>
+                <span className="font-bold text-brand-600">{deletingPackage.granted_shares} acciones</span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              ¿Estás seguro de que deseas eliminar este paquete? Esta acción no se puede deshacer y el paquete ya no estará disponible en la plataforma.
+            </p>
+            <div className="flex justify-end gap-2.5 pt-2">
               <button 
-                onClick={() => setDeletingId(null)}
+                onClick={() => setDeletingPackage(null)}
                 disabled={isDeleting}
                 className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               >
@@ -264,8 +283,9 @@ export const AdminPackagesPage = () => {
               <button 
                 onClick={confirmDelete}
                 disabled={isDeleting}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
               >
+                {isDeleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 {isDeleting ? 'Eliminando...' : 'Sí, Eliminar'}
               </button>
             </div>
