@@ -31,7 +31,35 @@ export function getMediaUrl(path: string | null | undefined): string {
   return `${baseUrl}${cleanPath}`;
 }
 
+const inFlightRequests = new Map<string, Promise<any>>();
+
 export async function fetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+
+  // Deduplicate identical concurrent GET requests in-flight
+  if (isGet && !options.body) {
+    const cacheKey = `${method}:${endpoint}`;
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
+
+    const promise = (async () => {
+      try {
+        return await executeFetchApi<T>(endpoint, options);
+      } finally {
+        inFlightRequests.delete(cacheKey);
+      }
+    })();
+
+    inFlightRequests.set(cacheKey, promise);
+    return promise;
+  }
+
+  return executeFetchApi<T>(endpoint, options);
+}
+
+async function executeFetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().accessToken;
   
   const headers = new Headers(options.headers || {});

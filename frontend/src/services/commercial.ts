@@ -134,6 +134,9 @@ export interface CommercialUserOption {
   document_id?: string;
 }
 
+let cachedPublicAdvisors: CommercialUserOption[] | null = null;
+let cachedPublicAdvisorsTimestamp = 0;
+
 export const commercialService = {
   searchClients: async (q: string): Promise<SearchClientResult[]> => {
     return await fetchApi(`/commercial/search-clients?q=${encodeURIComponent(q)}`);
@@ -207,7 +210,14 @@ export const commercialService = {
   },
 
   getPublicAdvisors: async (): Promise<CommercialUserOption[]> => {
-    return await fetchApi('/commercial/public-advisors');
+    const now = Date.now();
+    if (cachedPublicAdvisors && now - cachedPublicAdvisorsTimestamp < 1000 * 60 * 5) {
+      return cachedPublicAdvisors;
+    }
+    const data = await fetchApi<CommercialUserOption[]>('/commercial/public-advisors');
+    cachedPublicAdvisors = data;
+    cachedPublicAdvisorsTimestamp = now;
+    return data;
   },
 
   getLeaderboard: async (): Promise<LeaderboardResponse> => {
