@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
@@ -28,6 +28,13 @@ class CommercialSaleCreate(BaseModel):
     sale_date: Optional[date] = None
     is_already_settled: bool = False
     settlement_notes: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_referrer_code_for_referrals(self) -> 'CommercialSaleCreate':
+        if self.sale_type == CommercialSaleType.referido:
+            if not self.referrer_code or not str(self.referrer_code).strip():
+                raise ValueError("El código del cliente recomendador (origen) es obligatorio para ventas de tipo Referido")
+        return self
 
 class CommercialSaleResponse(BaseModel):
     id: int

@@ -245,6 +245,10 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       setError('Por favor ingresa el documento del cliente');
       return;
     }
+    if (saleType === 'referido' && !referrerCode.trim()) {
+      setError('El Código del Cliente Recomendador (Origen) es obligatorio para registrar ventas de tipo Referido');
+      return;
+    }
     if (numericAmount <= 0) {
       setError('Por favor ingresa un monto mayor a cero');
       return;
@@ -492,15 +496,19 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           {saleType === 'referido' && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Código del Cliente Recomendador (Origen) <span className="text-slate-400 font-normal">(Opcional)</span>
+                Código del Cliente Recomendador (Origen) <span className="text-red-500 font-bold">* (Obligatorio)</span>
               </label>
               <input
                 type="text"
                 value={referrerCode}
                 onChange={(e) => setReferrerCode(e.target.value)}
-                placeholder="Ej. IG1974 (opcional)"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 uppercase font-mono"
+                placeholder="Ej. IG1974 o código del recomendador"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 uppercase font-mono font-bold text-slate-800"
+                required
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Asocia el código de la inversión o cliente de origen para garantizar la trazabilidad de la comisión.
+              </p>
             </div>
           )}
 
