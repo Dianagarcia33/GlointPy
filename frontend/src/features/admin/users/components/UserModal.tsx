@@ -107,6 +107,15 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
       return;
     }
 
+    if (formData.date_of_birth) {
+      const dob = new Date(formData.date_of_birth);
+      const today = new Date();
+      if (dob > today) {
+        setError('La fecha de nacimiento no puede ser una fecha futura');
+        return;
+      }
+    }
+
     setIsSaving(true);
     setError(null);
 
@@ -267,6 +276,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
                   <input
                     type="date"
                     name="date_of_birth"
+                    max={new Date().toISOString().split('T')[0]}
                     value={formData.date_of_birth || ''}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm text-slate-900"

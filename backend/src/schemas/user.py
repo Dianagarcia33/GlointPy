@@ -16,6 +16,25 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+def _validate_date_of_birth(v):
+    if v == "" or v == "null" or v is None:
+        return None
+    from datetime import datetime, date
+    if isinstance(v, str):
+        try:
+            d = datetime.strptime(v.split("T")[0], "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Formato de fecha de nacimiento inválido (debe ser AAAA-MM-DD).")
+    elif isinstance(v, (datetime, date)):
+        d = v.date() if isinstance(v, datetime) else v
+    else:
+        return v
+    
+    today = date.today()
+    if d > today:
+        raise ValueError("La fecha de nacimiento no puede ser una fecha futura.")
+    return d
+
 class UserCreateAdmin(UserBase):
     model_config = ConfigDict(extra="ignore")
     document_id: str = Field(..., min_length=3, max_length=50, description="Documento de identidad obligatorio")
@@ -25,9 +44,7 @@ class UserCreateAdmin(UserBase):
     @field_validator('date_of_birth', mode='before')
     @classmethod
     def parse_empty_date(cls, v):
-        if v == "" or v == "null" or v is None:
-            return None
-        return v
+        return _validate_date_of_birth(v)
 
     @field_validator('role_ids')
     @classmethod
@@ -52,9 +69,7 @@ class UserUpdate(BaseModel):
     @field_validator('date_of_birth', mode='before')
     @classmethod
     def parse_empty_date(cls, v):
-        if v == "" or v == "null" or v is None:
-            return None
-        return v
+        return _validate_date_of_birth(v)
 
 class UserUpdateAdmin(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -69,9 +84,7 @@ class UserUpdateAdmin(BaseModel):
     @field_validator('date_of_birth', mode='before')
     @classmethod
     def parse_empty_date(cls, v):
-        if v == "" or v == "null" or v is None:
-            return None
-        return v
+        return _validate_date_of_birth(v)
 
     @field_validator('role_ids')
     @classmethod

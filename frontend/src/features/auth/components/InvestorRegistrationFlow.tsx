@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle } from 'lucide-react';
+import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar } from 'lucide-react';
 
 import { Link, useNavigate } from 'react-router-dom';
 import imageCompression from 'browser-image-compression';
@@ -382,13 +382,43 @@ export const InvestorRegistrationFlow = () => {
         registerMutation.mutate(payload);
     };
 
+    // Age validation helpers
+    const calculateAge = (birthDateStr: string) => {
+        if (!birthDateStr) return null;
+        const birthDate = new Date(birthDateStr);
+        if (isNaN(birthDate.getTime())) return null;
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    };
+
+    const getMaxBirthDate = () => {
+        const today = new Date();
+        today.setFullYear(today.getFullYear() - 18);
+        return today.toISOString().split('T')[0];
+    };
+
+    const getMinBirthDate = () => {
+        const today = new Date();
+        today.setFullYear(today.getFullYear() - 110);
+        return today.toISOString().split('T')[0];
+    };
+
     // Validation helpers for wizard steps
     const isStep3Valid = () => {
         const cityValid = formData.ciudad === 'Otra' ? !!formData.custom_ciudad : !!formData.ciudad;
+        const age = calculateAge(formData.fecha_nacimiento);
+        const isAdult = age !== null && age >= 18 && age <= 110;
         return (
             !!formData.name &&
             !!formData.tipo_documento &&
             !!formData.documento &&
+            !!formData.fecha_nacimiento &&
+            isAdult &&
             !!formData.numero_celular &&
             !!selectedDepartmentId &&
             cityValid
@@ -605,8 +635,40 @@ export const InvestorRegistrationFlow = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1 font-sans">Fecha de Nacimiento</label>
-                                    <input type="date" name="fecha_nacimiento" value={formData.fecha_nacimiento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
+                                    <label htmlFor="fecha_nacimiento" className="block text-sm font-bold text-slate-700 mb-1 font-sans">
+                                        Fecha de Nacimiento * <span className="text-xs font-normal text-slate-500">(Mayor de 18 años)</span>
+                                    </label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <Calendar className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input 
+                                            required
+                                            type="date" 
+                                            id="fecha_nacimiento"
+                                            name="fecha_nacimiento" 
+                                            max={getMaxBirthDate()}
+                                            min={getMinBirthDate()}
+                                            value={formData.fecha_nacimiento} 
+                                            onChange={handleChange} 
+                                            className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 border rounded-lg focus:ring-2 text-slate-900 transition-all ${
+                                                formData.fecha_nacimiento && (calculateAge(formData.fecha_nacimiento) === null || (calculateAge(formData.fecha_nacimiento) || 0) < 18)
+                                                    ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/30'
+                                                    : 'border-slate-200 focus:border-brand-500 focus:ring-brand-500'
+                                            }`} 
+                                        />
+                                    </div>
+                                    {formData.fecha_nacimiento && (calculateAge(formData.fecha_nacimiento) === null || (calculateAge(formData.fecha_nacimiento) || 0) < 18) && (
+                                        <p className="text-xs text-rose-600 font-semibold mt-1 flex items-center gap-1">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            Debes ser mayor de 18 años para registrarte (edad calculada: {calculateAge(formData.fecha_nacimiento) ?? 0} años).
+                                        </p>
+                                    )}
+                                    {formData.fecha_nacimiento && (calculateAge(formData.fecha_nacimiento) || 0) >= 18 && (
+                                        <p className="text-xs text-emerald-600 font-medium mt-1">
+                                            Edad: {calculateAge(formData.fecha_nacimiento)} años (Mayor de edad ✓)
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Celular *</label>
