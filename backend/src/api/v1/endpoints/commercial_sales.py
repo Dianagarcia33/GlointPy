@@ -26,6 +26,9 @@ from src.services.commercial_sale_service import (
     check_client_classification,
     search_clients_service,
     register_commercial_sale,
+    evaluate_daily_bonus,
+    evaluate_monthly_floor_bonus,
+    purge_ghost_bonuses,
     THRESHOLD_36M
 )
 
@@ -414,15 +417,24 @@ async def delete_commercial_sale(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Permite al Administrador anular/eliminar una venta errónea.
+    Permite al Administrador anular/eliminar una venta errónea y recalcular bonos.
     """
     sale_res = await db.execute(select(CommercialSale).where(CommercialSale.id == sale_id))
     sale = sale_res.scalars().first()
     if not sale:
         raise HTTPException(status_code=404, detail="Venta comercial no encontrada")
         
+    commercial_id = sale.commercial_id
+    sale_date = sale.sale_date
+
     await db.delete(sale)
     await db.commit()
+
+    # Re-evaluar y revertir bonos de piso y metas diarias si ya no se sustentan en ventas vigentes
+    if sale_date:
+        await evaluate_daily_bonus(db, commercial_id, sale_date)
+        await evaluate_monthly_floor_bonus(db, commercial_id, sale_date.year, sale_date.month)
+    await purge_ghost_bonuses(db, commercial_id)
 
 @router.get("/public-advisors")
 async def get_public_advisors(
@@ -580,12 +592,14 @@ async def get_commercial_leaderboard(
 @router.get("/pending-settlement/{commercial_id}", dependencies=[Depends(RequirePermission("commercial:view"))])
 async def get_pending_settlement_breakdown(
     commercial_id: int,
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Retorna el desglose de comisiones por ventas y bonos pendientes por liquidar.
+    Calcula el total de comisiones y bonos pendientes de liquidar para un comercial.
     """
+    # Purgar y validar integridad de bonos antes de calcular liquidación
+    await purge_ghost_bonuses(db, commercial_id)
+
     sales_res = await db.execute(
         select(CommercialSale)
         .where(
@@ -638,6 +652,9 @@ async def get_all_bonuses_summary(
     Retorna la auditoría de bonos acumulados y pendientes de todos los asesores/directivos.
     """
     try:
+        # Purgar y validar integridad de bonos
+        await purge_ghost_bonuses(db)
+
         users_res = await db.execute(
             select(User)
             .where(User.is_active == True)

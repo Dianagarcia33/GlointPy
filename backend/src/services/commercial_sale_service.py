@@ -382,6 +382,19 @@ async def evaluate_daily_bonus(db: AsyncSession, commercial_id: int, target_date
         valid_sales_for_count.append(s)
 
     if len(valid_sales_for_count) < 5:
+        # Si ya no cumple la meta (p. ej. tras anular ventas), revertir/eliminar bono pendiente
+        bonus_res = await db.execute(
+            select(CommercialBonus)
+            .where(
+                CommercialBonus.commercial_id == commercial_id,
+                CommercialBonus.bonus_type == CommercialBonusType.meta_diaria,
+                CommercialBonus.earned_date == target_date
+            )
+        )
+        existing_bonus = bonus_res.scalars().first()
+        if existing_bonus and existing_bonus.status == CommercialBonusStatus.pendiente:
+            await db.delete(existing_bonus)
+            await db.commit()
         return None
 
     is_exclusive = all(
@@ -453,6 +466,20 @@ async def evaluate_monthly_floor_bonus(db: AsyncSession, commercial_id: int, yea
             break
 
     if bonus_amount <= 0:
+        # Si la facturación cayó por debajo del piso (p. ej. tras anular una venta), eliminar bono pendiente fantasma
+        bonus_res = await db.execute(
+            select(CommercialBonus)
+            .where(
+                CommercialBonus.commercial_id == commercial_id,
+                CommercialBonus.bonus_type == CommercialBonusType.piso_cumplido,
+                extract('year', CommercialBonus.earned_date) == year,
+                extract('month', CommercialBonus.earned_date) == month
+            )
+        )
+        existing_bonus = bonus_res.scalars().first()
+        if existing_bonus and existing_bonus.status == CommercialBonusStatus.pendiente:
+            await db.delete(existing_bonus)
+            await db.commit()
         return None
 
     last_day_date = date(year, month, 28)
@@ -490,3 +517,97 @@ async def evaluate_monthly_floor_bonus(db: AsyncSession, commercial_id: int, yea
         await db.commit()
         await db.refresh(new_bonus)
         return new_bonus
+
+
+async def purge_ghost_bonuses(db: AsyncSession, commercial_id: Optional[int] = None):
+    """
+    Recalcula y purga cualquier bono pendiente (piso, meta diaria) que no esté respaldado
+    por ventas reales vigentes en la base de datos, garantizando integridad financiera absoluta.
+    """
+    # 1. Purgar bonos por piso cumplido sin respaldo
+    stmt_floor = select(CommercialBonus).where(
+        CommercialBonus.bonus_type == CommercialBonusType.piso_cumplido,
+        CommercialBonus.status == CommercialBonusStatus.pendiente
+    )
+    if commercial_id:
+        stmt_floor = stmt_floor.where(CommercialBonus.commercial_id == commercial_id)
+
+    res_floor = await db.execute(stmt_floor)
+    floor_bonuses = res_floor.scalars().all()
+
+    for b in floor_bonuses:
+        earned_year = b.earned_date.year if b.earned_date else None
+        earned_month = b.earned_date.month if b.earned_date else None
+        if not earned_year or not earned_month:
+            await db.delete(b)
+            continue
+
+        sales_res = await db.execute(
+            select(func.coalesce(func.sum(CommercialSale.amount), 0))
+            .where(
+                CommercialSale.commercial_id == b.commercial_id,
+                extract('year', CommercialSale.sale_date) == earned_year,
+                extract('month', CommercialSale.sale_date) == earned_month
+            )
+        )
+        real_sales_total = Decimal(str(sales_res.scalar() or "0"))
+
+        expected_bonus = Decimal("0.00")
+        for floor_amount, bonus_val in FLOOR_BONUSES:
+            if real_sales_total >= floor_amount:
+                expected_bonus = bonus_val
+                break
+
+        if expected_bonus <= 0:
+            await db.delete(b)
+        elif expected_bonus != b.amount:
+            b.amount = expected_bonus
+
+    # 2. Purgar bonos por meta diaria sin respaldo
+    stmt_daily = select(CommercialBonus).where(
+        CommercialBonus.bonus_type == CommercialBonusType.meta_diaria,
+        CommercialBonus.status == CommercialBonusStatus.pendiente
+    )
+    if commercial_id:
+        stmt_daily = stmt_daily.where(CommercialBonus.commercial_id == commercial_id)
+
+    res_daily = await db.execute(stmt_daily)
+    daily_bonuses = res_daily.scalars().all()
+
+    for b in daily_bonuses:
+        if not b.earned_date:
+            await db.delete(b)
+            continue
+
+        daily_sales_res = await db.execute(
+            select(CommercialSale).where(
+                CommercialSale.commercial_id == b.commercial_id,
+                CommercialSale.sale_date == b.earned_date
+            )
+        )
+        daily_sales = daily_sales_res.scalars().all()
+
+        seen_investor_ids = set()
+        seen_ref_trees = set()
+        valid_sales = []
+        for s in daily_sales:
+            if s.investor_id in seen_investor_ids:
+                continue
+            seen_investor_ids.add(s.investor_id)
+            ref_key = getattr(s, 'investor_referred_by', None) or (s.extra_data.get('referred_by') if s.extra_data else None)
+            if ref_key and ref_key in seen_ref_trees:
+                continue
+            if ref_key:
+                seen_ref_trees.add(ref_key)
+            valid_sales.append(s)
+
+        if len(valid_sales) < 5:
+            await db.delete(b)
+        else:
+            is_exclusive = all(s.sale_type in [CommercialSaleType.contrato_nuevo, CommercialSaleType.reinversion] for s in valid_sales)
+            daily_total = sum(Decimal(str(s.amount)) for s in daily_sales)
+            rate = Decimal("0.020") if is_exclusive else Decimal("0.015")
+            expected_amount = daily_total * rate
+            b.amount = expected_amount
+
+    await db.commit()
