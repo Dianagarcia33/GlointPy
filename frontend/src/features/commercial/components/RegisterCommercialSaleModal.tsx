@@ -52,6 +52,36 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
   const shouldShowAsesorSelect = isTrueAdmin;
 
+  const resetFormState = () => {
+    setSearchTerm('');
+    setSearchResults([]);
+    setIsSearching(false);
+    setIsCheckingClient(false);
+    setClientDocument('');
+    setClientName('');
+    setSaleType('contrato_nuevo');
+    setAmount('');
+    setReferrerCode('');
+    setSaleDate(getColombiaToday());
+    setIsAlreadySettled(false);
+    setClientInfo(null);
+    setIsAmountLocked(false);
+    setIsSubmitting(false);
+    setError(null);
+  };
+
+  const handleClose = () => {
+    resetFormState();
+    onClose();
+  };
+
+  // Resetear el formulario completo cada vez que se abre el modal
+  useEffect(() => {
+    if (isOpen) {
+      resetFormState();
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (shouldShowAsesorSelect && isOpen) {
       commercialService.getCommercialUsers()
@@ -105,6 +135,13 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   }, [searchTerm]);
 
   const selectSearchResult = (item: SearchClientResult) => {
+    // Resetear inmediatamente estados dependientes del cliente anterior
+    setClientInfo(null);
+    setAmount('');
+    setReferrerCode('');
+    setSaleType('contrato_nuevo');
+    setError(null);
+
     setClientDocument(item.document_id || searchTerm);
     setClientName(item.name);
     setSearchTerm(`${item.name} (${item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || ''})`);
@@ -113,8 +150,17 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     commercialService.checkClient(item.document_id || item.assigned_code || searchTerm)
       .then((res) => {
         setClientInfo(res);
-        if (res.forced_type) setSaleType(res.forced_type as any);
-        if (res.monto && res.monto > 0) setAmount(res.monto.toString());
+        if (res.forced_type) {
+          setSaleType(res.forced_type as any);
+        } else if (res.allowed_types && res.allowed_types.length > 0) {
+          setSaleType(res.allowed_types[0] as any);
+        }
+        if (res.client_name) setClientName(res.client_name);
+        if (res.monto && res.monto > 0) {
+          setAmount(res.monto.toString());
+        } else {
+          setAmount('');
+        }
       })
       .catch(() => {
         setClientInfo({
@@ -127,7 +173,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           forced_type: 'referido'
         });
         setSaleType('referido');
-        if (item.monto) setAmount(item.monto.toString());
+        if (item.monto && item.monto > 0) {
+          setAmount(item.monto.toString());
+        } else {
+          setAmount('');
+        }
       });
   };
 
@@ -148,6 +198,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       if (res.client_name) setClientName(res.client_name);
       if (res.monto && res.monto > 0) {
         setAmount(res.monto.toString());
+      } else {
+        setAmount('');
       }
     } catch (err: any) {
       setError(err.message || 'Error al validar el documento del cliente');
@@ -219,7 +271,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       }
 
       onSuccess();
-      onClose();
+      handleClose();
     } catch (err: any) {
       setError(err.message || 'Error al adjudicar la venta comercial');
     } finally {
@@ -243,7 +295,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -290,9 +342,16 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                 type="text"
                 value={searchTerm}
                 onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setClientDocument(e.target.value);
+                  const val = e.target.value;
+                  setSearchTerm(val);
+                  setClientDocument(val);
+                  // Limpiar datos del cliente anterior para evitar datos cruzados
+                  setClientName('');
                   setClientInfo(null);
+                  setAmount('');
+                  setSaleType('contrato_nuevo');
+                  setReferrerCode('');
+                  setError(null);
                 }}
                 onBlur={() => {
                   if (clientDocument && !clientInfo) {
@@ -568,7 +627,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
             >
