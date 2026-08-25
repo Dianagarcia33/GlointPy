@@ -84,6 +84,9 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
   }
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      throw new Error("El servicio no está disponible temporalmente. Por favor, intenta nuevamente en unos momentos.");
+    }
     const errorData = await response.json().catch(() => ({}));
     let errMsg = 'Error en la petición al servidor';
     if (errorData.detail) {
@@ -94,6 +97,10 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
       } else {
         errMsg = JSON.stringify(errorData.detail);
       }
+    } else if (response.status === 404) {
+      errMsg = "El recurso solicitado no fue encontrado.";
+    } else if (response.status === 403) {
+      errMsg = "No tienes permisos suficientes para realizar esta acción.";
     }
     throw new Error(errMsg);
   }
