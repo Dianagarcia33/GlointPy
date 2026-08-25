@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
     X, 
@@ -11,11 +11,15 @@ import {
     Filter, 
     Sparkles, 
     Image, 
-    ArrowRight
+    ArrowRight,
+    UploadCloud,
+    Check,
+    Image as ImageIcon
 } from 'lucide-react';
 import { templatesService, DocumentTemplate } from '../../../../services/templates';
 import { investorDocumentsService, InvestorDocumentBulkGenerateResponse } from '../../../../services/investorDocuments';
 import { getInvestors, Investor } from '../../../../services/investors';
+import { getMediaUrl } from '../../../../services/api';
 
 interface BulkDocumentModalProps {
     isOpen: boolean;
@@ -37,8 +41,12 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
     
     // Form state
     const [targetType, setTargetType] = useState<'all' | 'without_document' | 'selected'>('all');
-    const [bgMode, setBgMode] = useState<'template' | 'blank'>('template');
+    const [bgMode, setBgMode] = useState<'template' | 'custom' | 'blank'>('template');
+    const [customBg, setCustomBg] = useState<string>('');
+    const [isUploadingBg, setIsUploadingBg] = useState<boolean>(false);
     const [overwriteExisting, setOverwriteExisting] = useState(false);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Live Progress State
     const [isProcessing, setIsProcessing] = useState(false);
@@ -87,6 +95,25 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
         }
     }, [isOpen]);
 
+    const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploadingBg(true);
+        try {
+            const res = await templatesService.uploadAsset(file);
+            setCustomBg(res.url);
+            setBgMode('custom');
+            setToast({ message: "¡Imagen de membrete cargada correctamente!", type: "success" });
+        } catch (err: any) {
+            console.error("Error subiendo membrete", err);
+            setToast({ message: "Error al subir la imagen de membrete", type: "error" });
+        } finally {
+            setIsUploadingBg(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
     const handleExecute = async () => {
         setIsProcessing(true);
         setResult(null);
@@ -131,11 +158,15 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                         currentName: `Plantilla ${tIdx + 1}/${allTemplates.length}: ${tpl.name} ➔ Lote ${batchNum} (${currentOffsetDisplay} a ${endOffsetDisplay})`
                     });
 
+                    const effectiveBgToSend = bgMode === 'blank'
+                        ? ''
+                        : (bgMode === 'custom' ? (customBg.trim() || undefined) : (tpl.background_image || undefined));
+
                     const res = await investorDocumentsService.bulkGenerateDocuments({
                         template_id: tpl.id,
                         target_type: targetType,
                         investor_ids: targetType === 'selected' ? preselectedInvestorIds : undefined,
-                        background_image: bgMode === 'blank' ? '' : (tpl.background_image || undefined),
+                        background_image: effectiveBgToSend,
                         overwrite_existing: overwriteExisting,
                         offset: offset,
                         batch_size: BATCH_SIZE
@@ -424,32 +455,128 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                             {/* 2. Opciones de Membrete */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 font-montserrat">
-                                    2. Membrete de Impresión
+                                    2. Fondo / Membrete de Impresión
                                 </label>
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setBgMode('template')}
-                                        className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all cursor-pointer ${
+                                        className={`p-3 rounded-2xl border text-xs font-medium flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer text-center ${
                                             bgMode === 'template'
-                                                ? 'border-brand-500 bg-brand-50 text-brand-700 font-bold'
+                                                ? 'border-brand-500 bg-brand-50 text-brand-700 font-bold ring-1 ring-brand-500/20'
                                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                                         }`}
                                     >
-                                        <Image className="w-4 h-4" /> Membrete de la Plantilla
+                                        <Image className="w-4 h-4 text-brand-500" />
+                                        <span>Fondo de Cada Plantilla</span>
+                                        <span className="text-[10px] text-slate-400 font-normal">Usa el membrete de cada documento</span>
                                     </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setBgMode('custom')}
+                                        className={`p-3 rounded-2xl border text-xs font-medium flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer text-center ${
+                                            bgMode === 'custom'
+                                                ? 'border-purple-500 bg-purple-50 text-purple-700 font-bold ring-1 ring-purple-500/20'
+                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <UploadCloud className="w-4 h-4 text-purple-500" />
+                                        <span>Membrete Personalizado</span>
+                                        <span className="text-[10px] text-slate-400 font-normal">Subir o elegir un membrete único</span>
+                                    </button>
+
                                     <button
                                         type="button"
                                         onClick={() => setBgMode('blank')}
-                                        className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all cursor-pointer ${
+                                        className={`p-3 rounded-2xl border text-xs font-medium flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer text-center ${
                                             bgMode === 'blank'
-                                                ? 'border-brand-500 bg-brand-50 text-brand-700 font-bold'
+                                                ? 'border-slate-800 bg-slate-100 text-slate-900 font-bold ring-1 ring-slate-800/20'
                                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                                         }`}
                                     >
-                                        <FileText className="w-4 h-4" /> Hoja en Blanco
+                                        <FileText className="w-4 h-4 text-slate-400" />
+                                        <span>Hoja en Blanco</span>
+                                        <span className="text-[10px] text-slate-400 font-normal">Sin membrete ni fondo</span>
                                     </button>
                                 </div>
+
+                                {/* Custom background picker subpanel */}
+                                {bgMode === 'custom' && (
+                                    <div className="mt-3 p-4 rounded-2xl bg-purple-50/50 border border-purple-200/70 space-y-3 animate-in fade-in duration-150">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-purple-900">Seleccionar o Cargar Imagen de Membrete:</span>
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                onChange={handleBgUpload} 
+                                                accept="image/*" 
+                                                className="hidden" 
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploadingBg}
+                                                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                                            >
+                                                {isUploadingBg ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+                                                <span>Subir Imagen (.png / .jpg)</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Existing template backgrounds */}
+                                        {templates.filter(t => !!t.background_image).length > 0 && (
+                                            <div>
+                                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                                                    Membretes Disponibles en tus Plantillas:
+                                                </span>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    {templates.filter(t => !!t.background_image).map(t => (
+                                                        <div
+                                                            key={t.id}
+                                                            onClick={() => setCustomBg(t.background_image!)}
+                                                            className={`p-2.5 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-all ${
+                                                                customBg === t.background_image
+                                                                    ? 'bg-white border-purple-500 ring-2 ring-purple-500/20 shadow-xs'
+                                                                    : 'bg-white/70 border-slate-200 hover:bg-white'
+                                                            }`}
+                                                        >
+                                                            <img 
+                                                                src={getMediaUrl(t.background_image!)} 
+                                                                alt={t.name} 
+                                                                className="w-8 h-10 object-cover rounded border border-slate-200 shadow-2xs" 
+                                                            />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-xs font-bold text-slate-800 truncate">{t.name}</p>
+                                                                <p className="text-[10px] text-slate-400 truncate">{t.background_image}</p>
+                                                            </div>
+                                                            {customBg === t.background_image && (
+                                                                <Check className="w-4 h-4 text-purple-600 shrink-0" />
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Selected preview indicator */}
+                                        {customBg && (
+                                            <div className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-purple-200">
+                                                <img 
+                                                    src={getMediaUrl(customBg)} 
+                                                    alt="Membrete Seleccionado" 
+                                                    className="w-10 h-12 object-cover rounded border border-slate-200 shadow-xs" 
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                                                        <CheckCircle2 className="w-3.5 h-3.5" /> Membrete Seleccionado Activo
+                                                    </span>
+                                                    <p className="text-[11px] text-slate-500 truncate font-mono mt-0.5">{customBg}</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Actions */}

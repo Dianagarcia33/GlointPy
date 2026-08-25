@@ -383,10 +383,10 @@ class InvestorDocumentService:
         # Background image resolution:
         if data.background_image == "":
             bg_img = None
-        elif template.background_image and template.background_image.strip():
-            bg_img = template.background_image.strip()
         elif data.background_image and data.background_image.strip():
             bg_img = data.background_image.strip()
+        elif template.background_image and template.background_image.strip():
+            bg_img = template.background_image.strip()
         else:
             bg_img = None
 
@@ -452,10 +452,10 @@ class InvestorDocumentService:
         # Background image resolution:
         if data.background_image == "":
             bg_img = None
-        elif template.background_image and template.background_image.strip():
-            bg_img = template.background_image.strip()
         elif data.background_image and data.background_image.strip():
             bg_img = data.background_image.strip()
+        elif template.background_image and template.background_image.strip():
+            bg_img = template.background_image.strip()
         else:
             bg_img = None
 
@@ -568,10 +568,10 @@ class InvestorDocumentService:
         # Background image resolution:
         if data.background_image == "":
             bg_img = None
-        elif template.background_image and template.background_image.strip():
-            bg_img = template.background_image.strip()
         elif data.background_image and data.background_image.strip():
             bg_img = data.background_image.strip()
+        elif template.background_image and template.background_image.strip():
+            bg_img = template.background_image.strip()
         else:
             bg_img = None
 
