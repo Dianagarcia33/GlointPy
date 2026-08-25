@@ -365,6 +365,17 @@ export const DashboardPage = () => {
                                 accumulatedProfit={totalRendimiento}
                                 acquiredShares={totalAcciones}
                                 profitabilityPercent={rentabilidadGlobal}
+                                investments={investments}
+                                activeInvestments={activeInvestments}
+                                finishedInvestments={finishedInvestments}
+                                dailyProfit={gananciaDiaria}
+                                onCardClick={(type) => {
+                                    if (type === 'finished') {
+                                        setActiveTab('finished');
+                                    } else if (type === 'invested' || type === 'current' || type === 'profit' || type === 'shares') {
+                                        setActiveTab('approved');
+                                    }
+                                }}
                             />
                         </Can>
 
