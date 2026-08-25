@@ -16,12 +16,20 @@ async def read_investors(
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
     has_history: Optional[bool] = Query(None, description="Filtrar por inversiones que tienen historial de contratos"),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Retrieve all investors paginated.
+    Retrieve investors paginated with role-based scoping (Advisors only see their assigned clients).
     """
-    return await InvestorService.get_investors(db, page=page, limit=limit, search=search, has_history=has_history)
+    return await InvestorService.get_investors(
+        db, 
+        page=page, 
+        limit=limit, 
+        search=search, 
+        has_history=has_history,
+        current_user=current_user
+    )
 
 @router.get("/my-investments")
 async def get_my_investments_endpoint(

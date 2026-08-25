@@ -19,6 +19,7 @@ import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawa
 import { formatAccountNumber } from '../../../../utils/format';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
+import { usePermissions } from '../../../../hooks/usePermissions';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
   if (!isOpen) return null;
@@ -128,6 +129,7 @@ export const AdminInvestorsPage = () => {
   );
 
   const navigate = useNavigate();
+  const { isAdmin } = usePermissions();
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -290,13 +292,15 @@ export const AdminInvestorsPage = () => {
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <Users className="w-4 h-4 text-emerald-400" /> Control de Contratos & Inversiones
+            <Users className="w-4 h-4 text-emerald-400" /> {isAdmin() ? 'Control Global de Contratos & Inversiones' : 'Portafolio de Inversionistas Asignados'}
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Inversionistas
+            {isAdmin() ? 'Gestión de Inversionistas' : 'Mis Inversionistas'}
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
-            Administra los contratos activos, rendimientos proyectados, aumentos de capital y solicitudes de inversión.
+            {isAdmin() 
+              ? 'Administra los contratos activos, rendimientos proyectados, aumentos de capital y solicitudes de inversión globales.'
+              : 'Visualiza los contratos, rendimientos proyectados y solicitudes de inversión de tus clientes asignados.'}
           </p>
         </div>
         
@@ -310,23 +314,25 @@ export const AdminInvestorsPage = () => {
               <span>Solicitud de Inversión</span>
             </button>
           </Can>
-          <Can permission="admin.investors.manage">
-            <button 
-              onClick={() => setIsBulkDocModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all border border-slate-700/80 shadow-lg text-sm font-bold cursor-pointer shrink-0"
-            >
-              <Layers className="w-4 h-4 text-amber-400" />
-              <span>Generación Masiva</span>
-            </button>
-            <button 
-              onClick={() => setIsDeleteAllDocsModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-rose-950/40 text-rose-300 rounded-2xl hover:bg-rose-900/60 hover:text-white transition-all border border-rose-800/50 shadow-lg text-sm font-bold cursor-pointer shrink-0"
-              title="Eliminar todos los documentos y contratos generados en el sistema"
-            >
-              <Trash2 className="w-4 h-4 text-rose-400" />
-              <span>Vaciar Documentos</span>
-            </button>
-          </Can>
+          {isAdmin() && (
+            <Can permission="admin.investors.manage">
+              <button 
+                onClick={() => setIsBulkDocModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all border border-slate-700/80 shadow-lg text-sm font-bold cursor-pointer shrink-0"
+              >
+                <Layers className="w-4 h-4 text-amber-400" />
+                <span>Generación Masiva</span>
+              </button>
+              <button 
+                onClick={() => setIsDeleteAllDocsModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-3 bg-rose-950/40 text-rose-300 rounded-2xl hover:bg-rose-900/60 hover:text-white transition-all border border-rose-800/50 shadow-lg text-sm font-bold cursor-pointer shrink-0"
+                title="Eliminar todos los documentos y contratos generados en el sistema"
+              >
+                <Trash2 className="w-4 h-4 text-rose-400" />
+                <span>Vaciar Documentos</span>
+              </button>
+            </Can>
+          )}
           <Can permission="admin.investors.create">
             <button 
               onClick={handleCreate}
