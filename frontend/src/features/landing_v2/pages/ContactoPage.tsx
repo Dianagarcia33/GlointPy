@@ -85,7 +85,7 @@ export function ContactoPage() {
                   </div>
                   <div>
                     <div className="font-black text-sm leading-tight" style={{ color: DARK }}>
-                      GLOINT INTERNATIONAL PARTNERS SAS
+                      GLOINT INTERNATIONAL PARTNERS S.A.S.
                     </div>
                     <div className="text-xs text-slate-400 mt-1 font-medium">NIT: 901702380-5</div>
                     <div className="text-xs text-slate-400 mt-0.5">Bogotá, Colombia</div>

@@ -41,7 +41,7 @@ export function NosotrosAcerca() {
             </h1>
 
             <div className="text-xs font-semibold tracking-widest uppercase mb-8" style={{ color: "#94a3b8" }}>
-              GLOINT INTERNATIONAL VENTURES S.A.
+              GLOINT INTERNATIONAL PARTNERS S.A.S.
             </div>
 
             <p className="text-slate-600 leading-relaxed mb-4">

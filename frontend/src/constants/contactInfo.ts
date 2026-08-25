@@ -1,6 +1,7 @@
 export const CONTACT_INFO = {
   companyName: "GLOINT INTERNATIONAL PARTNERS S.A.S.",
   brandName: "GLOINT",
+  nit: "901702380-5",
   email: "atencionalcliente@gloint.com.co",
   supportEmail: "atencionalcliente@gloint.com.co",
   pqrsEmail: "pqrs@gloint.com.co",
