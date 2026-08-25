@@ -441,10 +441,15 @@ class InvestorDocumentService:
         else:
             if version_count > 1:
                 title = f"{template.name} (v{version_count} - Actualización) - {investor.assigned_code or investor.id}"
-            else:
-                title = f"{template.name} - {investor.assigned_code or investor.id}"
-
-        bg_img = (data.background_image.strip() if data.background_image and data.background_image.strip() else None) or (template.background_image.strip() if template.background_image and template.background_image.strip() else None) or "/uploads/templates/gloint_membrete_oficial.png"
+        # Background image resolution:
+        if data.background_image == "":
+            bg_img = None
+        elif template.background_image and template.background_image.strip():
+            bg_img = template.background_image.strip()
+        elif data.background_image and data.background_image.strip():
+            bg_img = data.background_image.strip()
+        else:
+            bg_img = None
 
         doc = InvestorDocument(
             investor_id=investor.id,
@@ -552,10 +557,15 @@ class InvestorDocumentService:
 
         tpl_res = await db.execute(select(Template).where(Template.id == data.template_id))
         template = tpl_res.scalars().first()
-        if not template:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plantilla no encontrada")
-
-        bg_img = (data.background_image.strip() if data.background_image and data.background_image.strip() else None) or (template.background_image.strip() if template.background_image and template.background_image.strip() else None) or "/uploads/templates/gloint_membrete_oficial.png"
+        # Background image resolution:
+        if data.background_image == "":
+            bg_img = None
+        elif template.background_image and template.background_image.strip():
+            bg_img = template.background_image.strip()
+        elif data.background_image and data.background_image.strip():
+            bg_img = data.background_image.strip()
+        else:
+            bg_img = None
 
         from sqlalchemy import func
         count_query = select(func.count(Investor.id))

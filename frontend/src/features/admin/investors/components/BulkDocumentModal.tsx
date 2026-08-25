@@ -37,7 +37,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
     
     // Form state
     const [targetType, setTargetType] = useState<'all' | 'without_document' | 'selected'>('all');
-    const [selectedBgOption, setSelectedBgOption] = useState<string>('/uploads/templates/gloint_membrete_oficial.png');
+    const [bgMode, setBgMode] = useState<'template' | 'blank'>('template');
     const [overwriteExisting, setOverwriteExisting] = useState(false);
 
     // Live Progress State
@@ -135,7 +135,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                         template_id: tpl.id,
                         target_type: targetType,
                         investor_ids: targetType === 'selected' ? preselectedInvestorIds : undefined,
-                        background_image: selectedBgOption || '/uploads/templates/gloint_membrete_oficial.png',
+                        background_image: bgMode === 'blank' ? '' : (tpl.background_image || undefined),
                         overwrite_existing: overwriteExisting,
                         offset: offset,
                         batch_size: BATCH_SIZE
@@ -429,20 +429,20 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => setSelectedBgOption('/uploads/templates/gloint_membrete_oficial.png')}
+                                        onClick={() => setBgMode('template')}
                                         className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all cursor-pointer ${
-                                            selectedBgOption === '/uploads/templates/gloint_membrete_oficial.png'
+                                            bgMode === 'template'
                                                 ? 'border-brand-500 bg-brand-50 text-brand-700 font-bold'
                                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                                         }`}
                                     >
-                                        <Image className="w-4 h-4" /> Membrete Oficial Gloint
+                                        <Image className="w-4 h-4" /> Membrete de la Plantilla
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setSelectedBgOption('')}
+                                        onClick={() => setBgMode('blank')}
                                         className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all cursor-pointer ${
-                                            selectedBgOption === ''
+                                            bgMode === 'blank'
                                                 ? 'border-brand-500 bg-brand-50 text-brand-700 font-bold'
                                                 : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                                         }`}
