@@ -3,6 +3,7 @@ import { periodsService, Period } from '../../../../services/periods';
 import { PeriodModal } from '../components/PeriodModal';
 import { Plus, Edit2, CalendarDays, Loader2, Trash2, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
+import { ConfirmationModal } from '../../../../components/common/ConfirmationModal';
 
 export const AdminPeriodsPage = () => {
   const [periods, setPeriods] = useState<Period[]>([]);
@@ -20,7 +21,10 @@ export const AdminPeriodsPage = () => {
     setIsLoading(true);
     try {
       const data = await periodsService.getPeriods();
-      setPeriods(data);
+      const sorted = Array.isArray(data) 
+        ? [...data].sort((a, b) => (Number(a.months) || 0) - (Number(b.months) || 0) || (Number(a.days) || 0) - (Number(b.days) || 0)) 
+        : [];
+      setPeriods(sorted);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Error al cargar los periodos');
@@ -232,35 +236,17 @@ export const AdminPeriodsPage = () => {
       </div>
 
       {/* Modal Confirmación Eliminar */}
-      {deletingId && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4">
-            <div className="flex items-center gap-3 text-rose-600">
-              <div className="p-2.5 bg-rose-100 rounded-xl">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <h3 className="font-bold text-slate-800 text-lg font-montserrat">¿Eliminar Periodo?</h3>
-            </div>
-            <p className="text-xs text-slate-600">Esta acción deshabilitará el plazo configurado para futuras solicitudes de inversión.</p>
-            <div className="flex justify-end gap-2 pt-2">
-              <button 
-                onClick={() => setDeletingId(null)}
-                disabled={isDeleting}
-                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={confirmDelete}
-                disabled={isDeleting}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md transition-colors cursor-pointer"
-              >
-                {isDeleting ? 'Eliminando...' : 'Sí, Eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={confirmDelete}
+        title="¿Eliminar Periodo?"
+        description="Esta acción deshabilitará el plazo configurado para futuras solicitudes de inversión."
+        confirmText="Sí, Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isDeleting}
+      />
 
       <PeriodModal 
         isOpen={isModalOpen}
