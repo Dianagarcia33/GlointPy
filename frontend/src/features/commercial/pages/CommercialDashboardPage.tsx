@@ -61,6 +61,13 @@ export const CommercialDashboardPage: React.FC = () => {
     enabled: isCommercialAdmin
   });
 
+  // Query para supervisar asesor seleccionado por el Administrador
+  const { data: advisorSummary, refetch: refetchAdvisorSummary } = useQuery<CommercialSummary>({
+    queryKey: ['advisor_commercial_summary', selectedCommercialId],
+    queryFn: () => commercialService.getAdvisorSummary(Number(selectedCommercialId)),
+    enabled: isCommercialAdmin && !!selectedCommercialId
+  });
+
   // Historial de Liquidaciones
   const { data: settlements, refetch: refetchSettlements } = useQuery<CommissionSettlement[]>({
     queryKey: ['commercial_settlements'],
@@ -241,10 +248,26 @@ export const CommercialDashboardPage: React.FC = () => {
           ) : (
             <>
               {/* Widget de Metas y Bonos en Curso */}
-              <CommercialBonusGoalsWidget
-                summary={summary}
-                dailyClosuresCount={summary?.today_closures ?? (summary?.recent_sales?.filter((s: any) => s.sale_date === getColombiaToday()).length || 0)}
-              />
+              {!isCommercialAdmin ? (
+                <CommercialBonusGoalsWidget
+                  summary={summary}
+                  dailyClosuresCount={summary?.today_closures ?? (summary?.recent_sales?.filter((s: any) => s.sale_date === getColombiaToday()).length || 0)}
+                />
+              ) : selectedCommercialId && advisorSummary ? (
+                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider font-montserrat">
+                      <Users className="w-4 h-4 text-brand-600" />
+                      <span>Metas y Pisos de: <strong className="text-brand-700 font-extrabold">{commercialUsers?.find(u => u.id.toString() === selectedCommercialId)?.name || `Asesor #${selectedCommercialId}`}</strong></span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-semibold">Supervisión en tiempo real</span>
+                  </div>
+                  <CommercialBonusGoalsWidget
+                    summary={advisorSummary}
+                    dailyClosuresCount={advisorSummary?.today_closures ?? (advisorSummary?.recent_sales?.filter((s: any) => s.sale_date === getColombiaToday()).length || 0)}
+                  />
+                </div>
+              ) : null}
 
           {/* Executive KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

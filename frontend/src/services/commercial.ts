@@ -189,6 +189,10 @@ export const commercialService = {
     return await fetchApi('/commercial/my-summary');
   },
 
+  getAdvisorSummary: async (commercialId: number): Promise<CommercialSummary> => {
+    return await fetchApi(`/commercial/advisor-summary/${commercialId}`);
+  },
+
   getAdminSummary: async (): Promise<AdminCommercialSummary> => {
     return await fetchApi('/commercial/admin-summary');
   },

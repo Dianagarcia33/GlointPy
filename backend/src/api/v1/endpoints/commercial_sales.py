@@ -79,14 +79,7 @@ async def create_admin_sale(
     sale = await register_commercial_sale(db, target_commercial_id, sale_data)
     return sale
 
-@router.get("/my-summary", dependencies=[Depends(RequirePermission("commercial:view"))])
-async def get_my_commercial_summary(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Resumen en tiempo real para el comercial en sesión.
-    """
+async def build_commercial_summary_data(commercial_id: int, db: AsyncSession) -> Dict[str, Any]:
     today = get_colombia_today()
     year = today.year
     month = today.month
@@ -94,7 +87,7 @@ async def get_my_commercial_summary(
     direct_res = await db.execute(
         select(func.coalesce(func.sum(CommercialSale.amount), 0))
         .where(
-            CommercialSale.commercial_id == current_user.id,
+            CommercialSale.commercial_id == commercial_id,
             CommercialSale.sale_type.in_([CommercialSaleType.contrato_nuevo, CommercialSaleType.reinversion]),
             extract('year', CommercialSale.sale_date) == year,
             extract('month', CommercialSale.sale_date) == month
@@ -105,7 +98,7 @@ async def get_my_commercial_summary(
     ref_res = await db.execute(
         select(func.coalesce(func.sum(CommercialSale.amount), 0))
         .where(
-            CommercialSale.commercial_id == current_user.id,
+            CommercialSale.commercial_id == commercial_id,
             CommercialSale.sale_type == CommercialSaleType.referido,
             extract('year', CommercialSale.sale_date) == year,
             extract('month', CommercialSale.sale_date) == month
@@ -117,7 +110,7 @@ async def get_my_commercial_summary(
     comm_res = await db.execute(
         select(func.coalesce(func.sum(CommercialSale.commission_amount), 0))
         .where(
-            CommercialSale.commercial_id == current_user.id,
+            CommercialSale.commercial_id == commercial_id,
             extract('year', CommercialSale.sale_date) == year,
             extract('month', CommercialSale.sale_date) == month
         )
@@ -131,7 +124,7 @@ async def get_my_commercial_summary(
     monthly_closures_res = await db.execute(
         select(func.count(CommercialSale.id))
         .where(
-            CommercialSale.commercial_id == current_user.id,
+            CommercialSale.commercial_id == commercial_id,
             extract('year', CommercialSale.sale_date) == year,
             extract('month', CommercialSale.sale_date) == month
         )
@@ -141,7 +134,7 @@ async def get_my_commercial_summary(
     daily_closures_res = await db.execute(
         select(func.count(CommercialSale.id))
         .where(
-            CommercialSale.commercial_id == current_user.id,
+            CommercialSale.commercial_id == commercial_id,
             extract('year', CommercialSale.sale_date) == today.year,
             extract('month', CommercialSale.sale_date) == today.month,
             extract('day', CommercialSale.sale_date) == today.day
@@ -151,7 +144,7 @@ async def get_my_commercial_summary(
 
     recent_res = await db.execute(
         select(CommercialSale)
-        .where(CommercialSale.commercial_id == current_user.id)
+        .where(CommercialSale.commercial_id == commercial_id)
         .order_by(CommercialSale.id.desc())
         .limit(10)
     )
@@ -182,6 +175,26 @@ async def get_my_commercial_summary(
             for s in recent_sales
         ]
     }
+
+@router.get("/my-summary", dependencies=[Depends(RequirePermission("commercial:view"))])
+async def get_my_commercial_summary(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Resumen en tiempo real para el comercial en sesión.
+    """
+    return await build_commercial_summary_data(current_user.id, db)
+
+@router.get("/advisor-summary/{commercial_id}", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
+async def get_advisor_commercial_summary(
+    commercial_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Resumen comercial y progreso de metas de un asesor específico para supervisión de administradores.
+    """
+    return await build_commercial_summary_data(commercial_id, db)
 
 @router.get("/my-assigned-investments", dependencies=[Depends(RequirePermission(["director.dashboard.view", "commercial:view"]))])
 async def get_my_assigned_investments(
