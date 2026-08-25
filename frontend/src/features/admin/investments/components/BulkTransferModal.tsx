@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calculator, Send, Loader2, CheckCircle2, AlertTriangle, Users, DollarSign, Search, Gift, TrendingUp, ChevronDown, ChevronRight, ArrowRight } from 'lucide-react';
 import { auditService, BulkYieldCalculationResult, BulkPayYieldResult } from '../../../../services/audit';
+import { ConfirmationModal } from '../../../../components/common/ConfirmationModal';
 
 interface BulkTransferModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [isConfirmPayOpen, setIsConfirmPayOpen] = useState(false);
 
   const [payMode, setPayMode] = useState<'all' | 'yields_only' | 'bonuses_only'>('all');
 
@@ -76,10 +78,11 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
       return;
     }
 
-    const modeLabel = payMode === 'all' ? 'TODO (Rendimientos + Bonos)' : payMode === 'yields_only' ? 'SOLO RENDIMIENTOS' : 'SOLO BONOS DE ACELERACIÓN';
-    const confirmMsg = `¿Confirmas la transferencia MASIVA [Modo: ${modeLabel}] por un total de ${Number(totalToPay).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })} a los usuarios beneficiarios? Esta acción acreditará de inmediato las billeteras.`;
-    if (!window.confirm(confirmMsg)) return;
+    setIsConfirmPayOpen(true);
+  };
 
+  const handleConfirmExecutePay = async () => {
+    setIsConfirmPayOpen(false);
     setIsPaying(true);
     setError(null);
 
@@ -462,6 +465,19 @@ export const BulkTransferModal: React.FC<BulkTransferModalProps> = ({
 
         </div>
       </div>
+
+      {/* Modal de Confirmación para Transferencia Masiva */}
+      <ConfirmationModal
+        isOpen={isConfirmPayOpen}
+        onClose={() => setIsConfirmPayOpen(false)}
+        onConfirm={handleConfirmExecutePay}
+        title="¿Confirmar Transferencia Masiva?"
+        description={`Esta acción acreditará de inmediato las billeteras de los ${result?.total_payable_users || 0} usuarios beneficiarios por un total de ${formatCOP(payMode === 'yields_only' ? (result?.global_yield_total || 0) : payMode === 'bonuses_only' ? (result?.global_acceleration_bonus_total || 0) : (result?.global_grand_total || 0))}.`}
+        confirmText="Sí, Ejecutar Transferencia"
+        cancelText="Cancelar"
+        variant="warning"
+        isLoading={isPaying}
+      />
     </div>,
     document.body
   );

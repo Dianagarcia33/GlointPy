@@ -6,6 +6,7 @@ import { WithdrawalModal } from '../components/WithdrawalModal';
 import { MovementDetailModal } from '../components/MovementDetailModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
 import { TransferModal } from '../components/TransferModal';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 export interface Movement {
     id: number | string;
@@ -66,6 +67,8 @@ export const WalletsPage = () => {
     const [isNewInvestmentModalOpen, setIsNewInvestmentModalOpen] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
+    const [cancellingWithdrawalId, setCancellingWithdrawalId] = useState<number | null>(null);
+    const [isCancellingWithdrawal, setIsCancellingWithdrawal] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -98,17 +101,19 @@ export const WalletsPage = () => {
         }).format(value);
     };
 
-    const handleCancelWithdrawal = async (withdrawalId: number) => {
-        if (!window.confirm('¿Estás seguro de que deseas cancelar este retiro? Los fondos serán reembolsados a tu billetera.')) return;
-        
+    const handleConfirmCancelWithdrawal = async () => {
+        if (!cancellingWithdrawalId) return;
+        setIsCancellingWithdrawal(true);
         try {
-            await fetchApi(`/wallets/me/withdrawals/${withdrawalId}/cancel`, {
+            await fetchApi(`/wallets/me/withdrawals/${cancellingWithdrawalId}/cancel`, {
                 method: 'POST'
             });
+            setCancellingWithdrawalId(null);
             fetchData();
         } catch (error) {
             console.error('Error cancelling withdrawal:', error);
-            alert('Error al cancelar el retiro.');
+        } finally {
+            setIsCancellingWithdrawal(false);
         }
     };
 
@@ -421,9 +426,9 @@ export const WalletsPage = () => {
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if (mov.real_id) handleCancelWithdrawal(mov.real_id);
+                                                                if (mov.real_id) setCancellingWithdrawalId(mov.real_id);
                                                             }}
-                                                            className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-medium rounded-lg text-xs transition-colors flex items-center gap-1"
+                                                            className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 font-medium rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
                                                         >
                                                             <XCircle className="w-3.5 h-3.5" />
                                                             Cancelar
@@ -444,6 +449,19 @@ export const WalletsPage = () => {
                 </Can>
                     </>
                 )}
+
+                {/* Modal de Confirmación para Cancelar Retiro */}
+                <ConfirmationModal
+                    isOpen={!!cancellingWithdrawalId}
+                    onClose={() => setCancellingWithdrawalId(null)}
+                    onConfirm={handleConfirmCancelWithdrawal}
+                    title="¿Cancelar Solicitud de Retiro?"
+                    description="Los fondos retenidos serán reembolsados automáticamente a tu saldo disponible en billetera."
+                    confirmText="Sí, Cancelar Retiro"
+                    cancelText="Mantener Retiro"
+                    variant="warning"
+                    isLoading={isCancellingWithdrawal}
+                />
             </div>
         </Can>
     );

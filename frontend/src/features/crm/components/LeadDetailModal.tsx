@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { crmService, CRMLead, CRMActivity, CRMLeadStage } from '../../../services/crmService';
 import { crmEmailService, CRMEmail } from '../../../services/crmEmailService';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 interface LeadDetailModalProps {
   lead: CRMLead | null;
@@ -54,6 +55,9 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   const [currentStage, setCurrentStage] = useState<CRMLeadStage>('lead_entrante');
   const [lossReason, setLossReason] = useState('');
   const [updatingStage, setUpdatingStage] = useState(false);
+  const [generatingAi, setGeneratingAi] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'activities' | 'emails'>('info');
+  const [isConfirmConvertOpen, setIsConfirmConvertOpen] = useState(false);
   const [converting, setConverting] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -173,11 +177,12 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       alert('Para registrar la venta comercial, por favor ingresa primero el documento de identidad del prospecto.');
       return;
     }
+    setIsConfirmConvertOpen(true);
+  };
 
-    if (!window.confirm(`¿Confirmas la conversión del prospecto "${lead.name}" a Cierre Ganado y Registro de Venta Comercial por $${lead.estimated_amount.toLocaleString('es-CO')} COP?`)) {
-      return;
-    }
-
+  const handleConfirmConvertToSale = async () => {
+    if (!lead) return;
+    setIsConfirmConvertOpen(false);
     try {
       setConverting(true);
       await crmService.convertLeadToSale(lead.id);
@@ -463,6 +468,19 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Modal de Confirmación para Convertir a Cierre Ganado */}
+      <ConfirmationModal
+        isOpen={isConfirmConvertOpen}
+        onClose={() => setIsConfirmConvertOpen(false)}
+        onConfirm={handleConfirmConvertToSale}
+        title="¿Confirmar Cierre y Venta Comercial?"
+        description={`¿Confirmas la conversión del prospecto "${lead?.name}" a Cierre Ganado y el registro automático de la venta comercial por $${(lead?.estimated_amount || 0).toLocaleString('es-CO')} COP?`}
+        confirmText="Sí, Registrar Venta"
+        cancelText="Cancelar"
+        variant="primary"
+        isLoading={converting}
+      />
     </div>
   );
 };

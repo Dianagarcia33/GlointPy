@@ -10,6 +10,7 @@ import { AdminCommercialBonusesTable } from '../components/AdminCommercialBonuse
 import { AdminCommercialFloorsMonitor } from '../components/AdminCommercialFloorsMonitor';
 import { Can } from '../../../components/security/Can';
 import { getColombiaToday } from '../../../utils/format';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -20,6 +21,8 @@ export const CommercialDashboardPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [selectedCommercialForSettle, setSelectedCommercialForSettle] = useState<number | null>(null);
+  const [saleToCancel, setSaleToCancel] = useState<number | null>(null);
+  const [isCancellingSale, setIsCancellingSale] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Filtros del Administrador
@@ -105,16 +108,20 @@ export const CommercialDashboardPage: React.FC = () => {
     if (!isCommercialAdmin) refetchSummary();
   };
 
-  const handleDeleteSale = async (saleId: number) => {
-    if (!window.confirm('¿Estás seguro de anular esta venta comercial? Esta acción no se puede deshacer.')) return;
+  const handleConfirmCancelSale = async () => {
+    if (!saleToCancel) return;
+    setIsCancellingSale(true);
     try {
-      await commercialService.deleteSale(saleId);
+      await commercialService.deleteSale(saleToCancel);
       showToast('Venta comercial anulada correctamente', 'success');
+      setSaleToCancel(null);
       refetchAdminSummary();
       refetchAllSales();
       refetchLeaderboard();
     } catch (err: any) {
       showToast(err.message || 'Error al anular la venta', 'error');
+    } finally {
+      setIsCancellingSale(false);
     }
   };
 
@@ -445,7 +452,7 @@ export const CommercialDashboardPage: React.FC = () => {
                           </td>
                           <td className="py-3 px-3 text-center">
                             <button
-                              onClick={() => handleDeleteSale(s.id)}
+                              onClick={() => setSaleToCancel(s.id)}
                               title="Anular Venta Comercial"
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                             >
@@ -875,6 +882,19 @@ export const CommercialDashboardPage: React.FC = () => {
           initialCommercialId={selectedCommercialForSettle}
         />
       )}
+
+      {/* Modal de Confirmación para Anular Venta Comercial */}
+      <ConfirmationModal
+        isOpen={!!saleToCancel}
+        onClose={() => setSaleToCancel(null)}
+        onConfirm={handleConfirmCancelSale}
+        title="¿Anular Venta Comercial?"
+        description="Esta acción anulará el registro de la venta comercial seleccionada y recalculará las comisiones y acumulados del asesor. Esta acción no se puede deshacer."
+        confirmText="Sí, Anular Venta"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isCancellingSale}
+      />
 
       {/* Toast */}
       {toast && (
