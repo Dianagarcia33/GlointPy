@@ -13,14 +13,24 @@ from src.models.user import User
 
 router = APIRouter()
 
-def set_auth_cookie(response: Response, access_token: str):
+def set_auth_cookie(response: Response, access_token: str, request: Optional[Request] = None):
+    # Dynamic secure detection (supports both HTTP staging and HTTPS production via reverse proxy)
+    is_secure = False
+    if request:
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        is_secure = (proto == "https")
+    elif getattr(settings, 'ENVIRONMENT', 'development') == 'production':
+        is_secure = True
+
+    max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 120)) * 60
+
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False if getattr(settings, 'ENVIRONMENT', 'development') == 'development' else True,
+        secure=is_secure,
         samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=max_age,
         path="/"
     )
 
@@ -40,7 +50,7 @@ async def login(login_data: LoginRequest, request: Request, response: Response, 
 
     # Generar token
     access_token = create_access_token(subject=user.id)
-    set_auth_cookie(response, access_token)
+    set_auth_cookie(response, access_token, request=request)
     
     return {
         "access_token": access_token,
@@ -58,13 +68,13 @@ async def logout(response: Response) -> Any:
 
 from src.schemas.auth import InvestorRegisterRequest
 @router.post("/register-investor", response_model=Token)
-async def register_investor(register_data: InvestorRegisterRequest, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
+async def register_investor(register_data: InvestorRegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Registra un inversionista con sus datos personales, bancarios, KYC y la solicitud de inversión.
     """
     user = await AuthService.register_investor(db, register_data)
     access_token = create_access_token(subject=user.id)
-    set_auth_cookie(response, access_token)
+    set_auth_cookie(response, access_token, request=request)
     
     return {
         "access_token": access_token,
@@ -73,7 +83,7 @@ async def register_investor(register_data: InvestorRegisterRequest, response: Re
     }
 
 @router.post("/force-change-password", response_model=Token)
-async def force_change_password(data: ForceChangePasswordRequest, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
+async def force_change_password(data: ForceChangePasswordRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Cambia la contraseña de forma obligatoria cuando must_change_password = True.
     Retorna el Token de acceso tras cambiarla exitosamente y renueva la cookie.
@@ -82,7 +92,7 @@ async def force_change_password(data: ForceChangePasswordRequest, response: Resp
     
     # Generar token
     access_token = create_access_token(subject=user.id)
-    set_auth_cookie(response, access_token)
+    set_auth_cookie(response, access_token, request=request)
     
     return {
         "access_token": access_token,
