@@ -21,6 +21,7 @@ import { ProjectKanban } from '../components/ProjectKanban';
 import { CreateProjectModal } from '../components/CreateProjectModal';
 import { CreateLeadModal } from '../components/CreateLeadModal';
 import { LeadDetailModal } from '../components/LeadDetailModal';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 export const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'grid' | 'kanban'>('grid');
@@ -28,6 +29,10 @@ export const CRMPage: React.FC = () => {
 
   // Modales
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState<CRMProject | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<CRMProject | null>(null);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<CRMLead | null>(null);
 
@@ -64,6 +69,37 @@ export const CRMPage: React.FC = () => {
     refetchLeads();
   };
 
+  const handleOpenCreateProject = () => {
+    setProjectToEdit(null);
+    setIsProjectModalOpen(true);
+  };
+
+  const handleEditProject = (project: CRMProject) => {
+    setProjectToEdit(project);
+    setIsProjectModalOpen(true);
+  };
+
+  const handleDeleteProject = (project: CRMProject) => {
+    setProjectToDelete(project);
+  };
+
+  const handleConfirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+    try {
+      setIsDeletingProject(true);
+      await crmService.deleteProject(projectToDelete.id);
+      if (selectedProjectId === projectToDelete.id) {
+        setSelectedProjectId(null);
+      }
+      setProjectToDelete(null);
+      handleRefreshAll();
+    } catch (err: any) {
+      alert(err.message || 'Error al eliminar el proyecto');
+    } finally {
+      setIsDeletingProject(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       
@@ -86,7 +122,7 @@ export const CRMPage: React.FC = () => {
 
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
           <button
-            onClick={() => setIsProjectModalOpen(true)}
+            onClick={handleOpenCreateProject}
             className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -113,7 +149,7 @@ export const CRMPage: React.FC = () => {
         </div>
 
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
-          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat font-montserrat">Total Prospectos</span>
+          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Total Prospectos</span>
           <span className="text-2xl font-extrabold text-slate-900 block tracking-tight font-montserrat">
             {kpis?.total_leads || 0}
           </span>
@@ -142,7 +178,7 @@ export const CRMPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab('grid')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 font-montserrat ${
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 font-montserrat cursor-pointer ${
               activeTab === 'grid'
                 ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -154,7 +190,7 @@ export const CRMPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('kanban')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 font-montserrat ${
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 font-montserrat cursor-pointer ${
               activeTab === 'kanban'
                 ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
                 : 'text-slate-600 hover:bg-slate-100'
@@ -172,7 +208,7 @@ export const CRMPage: React.FC = () => {
             <select
               value={activeProject?.id || ''}
               onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-              className="bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold py-2 px-3 rounded-2xl focus:outline-none focus:border-brand-500 font-montserrat"
+              className="bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold py-2 px-3 rounded-2xl focus:outline-none focus:border-brand-500 font-montserrat cursor-pointer"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -189,7 +225,9 @@ export const CRMPage: React.FC = () => {
         <ProjectGrid
           projects={projects}
           onSelectProject={handleSelectProject}
-          onCreateProject={() => setIsProjectModalOpen(true)}
+          onCreateProject={handleOpenCreateProject}
+          onEditProject={handleEditProject}
+          onDeleteProject={handleDeleteProject}
         />
       ) : activeProject ? (
         <ProjectKanban
@@ -198,6 +236,8 @@ export const CRMPage: React.FC = () => {
           onSelectLead={(lead) => setSelectedLead(lead)}
           onCreateLead={() => setIsLeadModalOpen(true)}
           onRefreshLeads={handleRefreshAll}
+          onEditProject={handleEditProject}
+          onDeleteProject={handleDeleteProject}
         />
       ) : (
         <div className="p-12 text-center text-slate-500">No hay proyectos para mostrar en el Kanban.</div>
@@ -206,7 +246,11 @@ export const CRMPage: React.FC = () => {
       {/* Modales */}
       <CreateProjectModal
         isOpen={isProjectModalOpen}
-        onClose={() => setIsProjectModalOpen(false)}
+        projectToEdit={projectToEdit}
+        onClose={() => {
+          setIsProjectModalOpen(false);
+          setProjectToEdit(null);
+        }}
         onSuccess={handleRefreshAll}
       />
 
@@ -223,6 +267,19 @@ export const CRMPage: React.FC = () => {
         isOpen={Boolean(selectedLead)}
         onClose={() => setSelectedLead(null)}
         onUpdate={handleRefreshAll}
+      />
+
+      {/* Confirmación para Eliminar Proyecto */}
+      <ConfirmationModal
+        isOpen={Boolean(projectToDelete)}
+        onClose={() => setProjectToDelete(null)}
+        onConfirm={handleConfirmDeleteProject}
+        title="¿Eliminar Proyecto de Inversión?"
+        description={`¿Estás seguro de que deseas eliminar permanentemente el proyecto "${projectToDelete?.name}" (${projectToDelete?.code})? Esta acción retirará las metas asociadas y los prospectos registrados en su embudo.`}
+        confirmText="Sí, Eliminar Proyecto"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isDeletingProject}
       />
     </div>
   );

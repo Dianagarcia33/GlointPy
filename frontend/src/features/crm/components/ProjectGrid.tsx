@@ -1,17 +1,21 @@
 import React from 'react';
-import { FolderKanban, TrendingUp, Users, CheckCircle2, ArrowRight, DollarSign, Calendar } from 'lucide-react';
+import { FolderKanban, TrendingUp, Users, CheckCircle2, ArrowRight, DollarSign, Calendar, Edit3, Trash2 } from 'lucide-react';
 import { CRMProject } from '../../../services/crmService';
 
 interface ProjectGridProps {
   projects: CRMProject[];
   onSelectProject: (projectId: number) => void;
   onCreateProject: () => void;
+  onEditProject?: (project: CRMProject) => void;
+  onDeleteProject?: (project: CRMProject) => void;
 }
 
 export const ProjectGrid: React.FC<ProjectGridProps> = ({
   projects,
   onSelectProject,
-  onCreateProject
+  onCreateProject,
+  onEditProject,
+  onDeleteProject
 }) => {
   return (
     <div className="space-y-6">
@@ -56,25 +60,56 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
               <div
                 key={project.id}
                 onClick={() => onSelectProject(project.id)}
-                className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs hover:shadow-md hover:border-brand-300 transition-all cursor-pointer group flex flex-col justify-between space-y-4"
+                className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs hover:shadow-md hover:border-brand-300 transition-all cursor-pointer group flex flex-col justify-between space-y-4 relative"
               >
                 <div>
                   {/* Top Bar de la Tarjeta */}
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="px-3 py-1 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-xl font-montserrat tracking-wide">
-                      {project.code}
-                    </span>
-                    <span
-                      className={`px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider font-montserrat ${
-                        isCompleted
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : project.status === 'en_pausa'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-brand-50 text-brand-700 border border-brand-200'
-                      }`}
-                    >
-                      {isCompleted ? 'Meta Cumplida 🏆' : project.status}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-3 py-1 bg-slate-100 text-slate-700 font-bold text-[10px] rounded-xl font-montserrat tracking-wide">
+                        {project.code}
+                      </span>
+                      <span
+                        className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider font-montserrat ${
+                          isCompleted
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : project.status === 'en_pausa'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-brand-50 text-brand-700 border border-brand-200'
+                        }`}
+                      >
+                        {isCompleted ? 'Meta Cumplida 🏆' : project.status}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {onEditProject && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditProject(project);
+                          }}
+                          title="Editar Proyecto"
+                          className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all cursor-pointer"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      )}
+                      {onDeleteProject && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteProject(project);
+                          }}
+                          title="Eliminar Proyecto"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Nombre y Descripción */}

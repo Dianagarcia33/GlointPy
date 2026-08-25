@@ -23,6 +23,15 @@ class ProjectCreateSchema(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
 
+class ProjectUpdateSchema(BaseModel):
+    code: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    target_amount: Optional[float] = None
+    status: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
 class LeadCreateSchema(BaseModel):
     project_id: int
     name: str
@@ -86,6 +95,39 @@ async def create_crm_project(
         return {"message": "Proyecto creado exitosamente", "id": project.id, "code": project.code}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al crear el proyecto: {str(e)}")
+
+
+@router.put("/projects/{project_id}", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+async def update_crm_project(
+    project_id: int,
+    data: ProjectUpdateSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Actualiza un proyecto de inversión comercial en el CRM."""
+    try:
+        project = await CRMService.update_project(db, project_id, data.dict(exclude_unset=True))
+        return {"message": "Proyecto actualizado exitosamente", "id": project.id, "code": project.code}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al actualizar el proyecto: {str(e)}")
+
+
+@router.delete("/projects/{project_id}", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+async def delete_crm_project(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Elimina un proyecto de inversión comercial en el CRM."""
+    try:
+        await CRMService.delete_project(db, project_id)
+        return {"message": "Proyecto eliminado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al eliminar el proyecto: {str(e)}")
 
 
 @router.get("/projects/{project_id}/leads", dependencies=[Depends(RequirePermission("crm:view"))])
