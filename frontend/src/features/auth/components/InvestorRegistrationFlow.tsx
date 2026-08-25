@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle } from 'lucide-react';
 
 import { Link, useNavigate } from 'react-router-dom';
 import imageCompression from 'browser-image-compression';
@@ -77,6 +77,9 @@ export const InvestorRegistrationFlow = () => {
     const [showCustomCity, setShowCustomCity] = useState(false);
     const [showCustomBank, setShowCustomBank] = useState(false);
     const [uploadingComprobante, setUploadingComprobante] = useState(false);
+    const [comprobanteError, setComprobanteError] = useState<string | null>(null);
+    const [comprobanteFileName, setComprobanteFileName] = useState<string | null>(null);
+    const comprobanteInputRef = useRef<HTMLInputElement | null>(null);
 
     // Fetch commercial users (Directivos de Inversión)
     React.useEffect(() => {
@@ -288,8 +291,21 @@ export const InvestorRegistrationFlow = () => {
         const file = e.target.files?.[0];
         if (!file) return;
         
+        setComprobanteError(null);
+
+        // Pre-validar tamaño de archivo (máximo 10 MB)
+        const MAX_SIZE = 10 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            setComprobanteError("El archivo seleccionado excede el tamaño máximo permitido de 10 MB. Por favor comprime la imagen o sube un documento más liviano.");
+            if (e.target) e.target.value = '';
+            setFormData(prev => ({ ...prev, comprobante_path: '' }));
+            setComprobanteFileName(null);
+            return;
+        }
+
         try {
             setUploadingComprobante(true);
+            setComprobanteFileName(file.name);
             const compressedFile = await compressImage(file);
             const fd = new FormData();
             fd.append('file', compressedFile);
@@ -297,12 +313,28 @@ export const InvestorRegistrationFlow = () => {
                 method: 'POST',
                 body: fd
             });
+            if (!res || !res.path) {
+                throw new Error("Respuesta inválida del servidor al guardar el comprobante.");
+            }
             setFormData(prev => ({ ...prev, comprobante_path: res.path }));
-        } catch (error) {
+            setComprobanteError(null);
+        } catch (error: any) {
             console.error("Error al subir archivo", error);
-            alert("Error al subir comprobante");
+            setComprobanteError(error.message || "Error al procesar y subir el comprobante. Por favor verifica tu conexión y vuelve a intentar.");
+            setFormData(prev => ({ ...prev, comprobante_path: '' }));
+            setComprobanteFileName(null);
+            if (e.target) e.target.value = '';
         } finally {
             setUploadingComprobante(false);
+        }
+    };
+
+    const handleRemoveComprobante = () => {
+        setFormData(prev => ({ ...prev, comprobante_path: '' }));
+        setComprobanteFileName(null);
+        setComprobanteError(null);
+        if (comprobanteInputRef.current) {
+            comprobanteInputRef.current.value = '';
         }
     };
 
@@ -866,30 +898,84 @@ export const InvestorRegistrationFlow = () => {
 
                                 <div className="pt-2">
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Comprobante de Pago *</label>
-                                    <p className="text-xs text-slate-500 mb-2">Por favor sube la foto o el PDF de tu consignación.</p>
-                                    <input required={!formData.comprobante_path} type="file" accept="image/*,.pdf" onChange={handleComprobanteUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer" />
-                                    {formData.comprobante_path && <p className="text-xs text-emerald-600 mt-2 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Comprobante adjunto correctamente.</p>}
-                                    {uploadingComprobante && <p className="text-xs text-brand-500 mt-2 flex items-center gap-1"><Loader2 className="w-4 h-4 animate-spin"/> Subiendo...</p>}
+                                    <p className="text-xs text-slate-500 mb-2">Por favor sube la foto (PNG, JPG, WEBP) o el PDF de tu consignación (Máx. 10 MB).</p>
+                                    
+                                    <input 
+                                        ref={comprobanteInputRef}
+                                        required={!formData.comprobante_path} 
+                                        type="file" 
+                                        accept="image/*,.pdf" 
+                                        onChange={handleComprobanteUpload} 
+                                        disabled={uploadingComprobante}
+                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer disabled:opacity-50" 
+                                    />
+
+                                    {uploadingComprobante && (
+                                        <div className="mt-2.5 p-3 bg-brand-50 border border-brand-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-brand-700 animate-in fade-in">
+                                            <Loader2 className="w-4 h-4 animate-spin shrink-0 text-brand-600"/>
+                                            <span>Subiendo y verificando comprobante ({comprobanteFileName})...</span>
+                                        </div>
+                                    )}
+
+                                    {comprobanteError && (
+                                        <div className="mt-2.5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 animate-in fade-in">
+                                            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
+                                            <div className="flex-1">
+                                                <p className="font-bold">Error al procesar el comprobante:</p>
+                                                <p className="mt-0.5">{comprobanteError}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {formData.comprobante_path && !uploadingComprobante && (
+                                        <div className="mt-2.5 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-800 animate-in fade-in">
+                                            <span className="flex items-center gap-2 font-bold">
+                                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0"/>
+                                                <span>Comprobante cargado correctamente {comprobanteFileName ? `(${comprobanteFileName})` : ''}</span>
+                                            </span>
+                                            <button 
+                                                type="button" 
+                                                onClick={handleRemoveComprobante} 
+                                                className="text-rose-600 hover:text-rose-800 font-bold ml-2 underline cursor-pointer"
+                                            >
+                                                Cambiar
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {!formData.comprobante_path && !uploadingComprobante && !comprobanteError && (
+                                        <p className="text-[11px] text-amber-700 mt-2 font-medium flex items-center gap-1.5 bg-amber-50/80 p-2 rounded-lg border border-amber-200/60">
+                                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                                            Adjunta tu comprobante de pago para habilitar el siguiente paso.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-between pt-4 border-t border-slate-100">
-                            <button
-                                type="button"
-                                onClick={() => setStep(4)}
-                                className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
-                            >
-                                Atrás
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setStep(6)}
-                                disabled={!isStep5Valid() || uploadingComprobante}
-                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
-                            >
-                                Siguiente paso
-                            </button>
+                        <div className="flex flex-col gap-2 pt-4 border-t border-slate-100">
+                            <div className="flex justify-between items-center">
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(4)}
+                                    className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                                >
+                                    Atrás
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(6)}
+                                    disabled={!isStep5Valid() || uploadingComprobante}
+                                    className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors cursor-pointer"
+                                >
+                                    Siguiente paso
+                                </button>
+                            </div>
+                            {!isStep5Valid() && !uploadingComprobante && (
+                                <p className="text-[11px] text-slate-400 text-right">
+                                    Completa todos los campos obligatorios (*) y adjunta tu comprobante para continuar.
+                                </p>
+                            )}
                         </div>
                     </div>
                 )}

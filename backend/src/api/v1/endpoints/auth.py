@@ -141,28 +141,34 @@ async def upload_file(file: UploadFile = File(...)):
     """
     Sube un archivo de comprobante o documento KYC con validaciones de seguridad (máximo 10MB, UUID aleatorio).
     """
-    os.makedirs("uploads", exist_ok=True)
-    ext = os.path.splitext(file.filename)[1].lower()
-    
-    # Lista estricta de extensiones permitidas
-    allowed_extensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp']
-    if ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail="Extensión de archivo no permitida. Solo se permiten imágenes (JPG, PNG, WEBP) o documentos PDF.")
+    try:
+        os.makedirs("uploads/comprobantes", exist_ok=True)
+        os.makedirs("uploads", exist_ok=True)
+        ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".jpg"
         
-    # Verificar tamaño del archivo (máximo 10MB)
-    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-    file_bytes = await file.read()
-    if len(file_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="El archivo excede el tamaño máximo permitido de 10MB.")
+        # Lista estricta de extensiones permitidas
+        allowed_extensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp']
+        if ext not in allowed_extensions:
+            raise HTTPException(status_code=400, detail="Extensión de archivo no permitida. Solo se permiten imágenes (JPG, PNG, WEBP) o documentos PDF.")
+            
+        # Verificar tamaño del archivo (máximo 10MB)
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+        file_bytes = await file.read()
+        if len(file_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el tamaño máximo permitido de 10MB.")
 
-    # Guardar usando UUID v4 aleatorio de alta entropía
-    filename = f"{uuid.uuid4()}{ext}"
-    file_path = os.path.join("uploads", filename)
-    
-    with open(file_path, "wb") as buffer:
-        buffer.write(file_bytes)
+        # Guardar usando UUID v4 aleatorio de alta entropía
+        filename = f"{uuid.uuid4()}{ext}"
+        file_path = os.path.join("uploads", "comprobantes", filename)
         
-    return {"path": f"/uploads/{filename}"}
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_bytes)
+            
+        return {"path": f"/uploads/comprobantes/{filename}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar y guardar el archivo: {str(e)}")
 
 
 from sqlalchemy import select
