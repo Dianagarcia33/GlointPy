@@ -44,6 +44,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [isAlreadySettled, setIsAlreadySettled] = useState<boolean>(false);
 
   const [clientInfo, setClientInfo] = useState<CommercialClientCheckResponse | null>(null);
+  const [advisorAccumulatedDirect, setAdvisorAccumulatedDirect] = useState<number>(currentAccumulatedDirect);
+  const [isLoadingAdvisorData, setIsLoadingAdvisorData] = useState<boolean>(false);
   const [isAmountLocked, setIsAmountLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,32 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         .catch(() => {});
     }
   }, [shouldShowAsesorSelect, isOpen]);
+
+  // Cargar el acumulado mensual vigente del asesor seleccionado
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchAdvisorAccum = async () => {
+      setIsLoadingAdvisorData(true);
+      try {
+        if (shouldShowAsesorSelect && targetCommercialId) {
+          const summary = await commercialService.getAdvisorSummary(targetCommercialId);
+          setAdvisorAccumulatedDirect(summary.direct_accumulated || 0);
+        } else if (!shouldShowAsesorSelect) {
+          const summary = await commercialService.getMySummary();
+          setAdvisorAccumulatedDirect(summary.direct_accumulated || 0);
+        } else {
+          setAdvisorAccumulatedDirect(currentAccumulatedDirect);
+        }
+      } catch (err) {
+        setAdvisorAccumulatedDirect(currentAccumulatedDirect);
+      } finally {
+        setIsLoadingAdvisorData(false);
+      }
+    };
+
+    fetchAdvisorAccum();
+  }, [isOpen, targetCommercialId, shouldShowAsesorSelect, currentAccumulatedDirect]);
 
   useEffect(() => {
     if (searchTerm.trim().length >= 2) {
@@ -131,7 +159,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const numericAmount = Number(amount) || 0;
   const THRESHOLD = 36000000;
 
-  // Cálculo en vivo de la partición marginal o referido
+  // Cálculo en vivo de la partición marginal o referido basado en el acumulado real del asesor
   let estimatedCommission = 0;
   let tramoA = 0;
   let tramoB = 0;
@@ -141,16 +169,18 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     effectiveRate = 0.018;
     estimatedCommission = numericAmount * 0.018;
   } else {
-    if (currentAccumulatedDirect >= THRESHOLD) {
+    if (advisorAccumulatedDirect >= THRESHOLD) {
+      tramoA = 0;
       tramoB = numericAmount;
       effectiveRate = 0.035;
       estimatedCommission = numericAmount * 0.035;
-    } else if (currentAccumulatedDirect + numericAmount <= THRESHOLD) {
+    } else if (advisorAccumulatedDirect + numericAmount <= THRESHOLD) {
       tramoA = numericAmount;
+      tramoB = 0;
       effectiveRate = 0.030;
       estimatedCommission = numericAmount * 0.030;
     } else {
-      tramoA = THRESHOLD - currentAccumulatedDirect;
+      tramoA = Math.max(0, THRESHOLD - advisorAccumulatedDirect);
       tramoB = numericAmount - tramoA;
       estimatedCommission = (tramoA * 0.030) + (tramoB * 0.035);
       effectiveRate = numericAmount > 0 ? estimatedCommission / numericAmount : 0.030;
@@ -486,6 +516,20 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200 pb-1.5">
                 Previsualización del Cálculo de Comisión:
               </span>
+
+              {saleType !== 'referido' && (
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-[11px] text-slate-500 pb-1 gap-1 border-b border-slate-200/60">
+                  <span>Acumulado Previo del Asesor (Mes en Curso):</span>
+                  <span className="font-mono font-bold text-slate-700">
+                    ${advisorAccumulatedDirect.toLocaleString('es-CO')} COP
+                    {advisorAccumulatedDirect >= THRESHOLD ? (
+                      <span className="ml-1.5 text-emerald-700 font-extrabold">(Superó $36M → Tasa 3.5% Plana)</span>
+                    ) : (
+                      <span className="ml-1.5 text-amber-700 font-semibold">(Faltan ${(THRESHOLD - advisorAccumulatedDirect).toLocaleString('es-CO')} para 3.5%)</span>
+                    )}
+                  </span>
+                </div>
+              )}
               
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-600">Tasa Efectiva Aplicada:</span>
