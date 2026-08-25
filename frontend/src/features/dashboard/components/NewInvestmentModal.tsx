@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Link, Wallet } from 'lucide-react';
+import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Link, Wallet, AlertCircle, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
 import { compressImage } from '../../../utils/imageCompression';
@@ -27,6 +27,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
     const [useWallet, setUseWallet] = useState(false);
     const [walletAmount, setWalletAmount] = useState<number>(0);
     const [files, setFiles] = useState<FileList | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const { data: packages, isLoading: loadingPackages } = useQuery({
         queryKey: ['investment_packages'],
@@ -68,7 +69,29 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         setUseWallet(false);
         setWalletAmount(0);
         setFiles(null);
+        setSubmitError(null);
         onClose();
+    };
+
+    const handleFilesSelected = (selectedFiles: FileList | null) => {
+        setSubmitError(null);
+        if (!selectedFiles || selectedFiles.length === 0) {
+            setFiles(null);
+            return;
+        }
+        const MAX_SIZE_MB = 10;
+        const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            if (file.size > MAX_SIZE_BYTES) {
+                setSubmitError(`El archivo "${file.name}" (${(file.size / 1024 / 1024).toFixed(1)} MB) supera el tamaño máximo permitido de ${MAX_SIZE_MB} MB. Por favor comprímelo o adjunta un archivo más liviano.`);
+                setFiles(null);
+                const inputEl = document.getElementById('comprobantes') as HTMLInputElement;
+                if (inputEl) inputEl.value = '';
+                return;
+            }
+        }
+        setFiles(selectedFiles);
     };
 
     const createRequestMutation = useMutation({
@@ -80,11 +103,13 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my_investments'] });
+            setSubmitError(null);
             setStep(3);
         },
-        onError: (error) => {
+        onError: (error: any) => {
             console.error("Error creating request", error);
-            alert("Error al enviar la solicitud: " + error.message);
+            const msg = error.message || 'Error al enviar la solicitud de inversión.';
+            setSubmitError(msg);
         }
     });
 
@@ -327,6 +352,24 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                 )}
                             </div>
 
+                            {/* Error Alert Banner */}
+                            {submitError && (
+                                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3 text-red-700 text-xs font-semibold animate-in fade-in duration-200">
+                                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                                    <div className="flex-1 space-y-1">
+                                        <p className="font-bold text-sm">Error en la solicitud</p>
+                                        <p className="font-normal text-red-600 leading-relaxed">{submitError}</p>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setSubmitError(null)}
+                                        className="p-1 text-red-400 hover:text-red-600 rounded-lg hover:bg-red-100/50 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Resumen de Pago */}
                             <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                                 <div className="flex justify-between items-center text-sm mb-2">
@@ -358,22 +401,36 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                         multiple
                                         accept="image/*,.pdf"
                                         className="hidden"
-                                        onChange={(e) => setFiles(e.target.files)}
+                                        onChange={(e) => handleFilesSelected(e.target.files)}
                                     />
                                     <label htmlFor="comprobantes" className="cursor-pointer flex flex-col items-center">
                                         <Upload className="w-8 h-8 text-slate-400 mb-2" />
                                         <span className="text-sm font-semibold text-slate-700">Haz clic para subir o arrastra tus archivos</span>
-                                        <span className="text-xs text-slate-500 mt-1">Imágenes o PDF</span>
+                                        <span className="text-xs text-slate-500 mt-1">Imágenes (PNG, JPG, WEBP) o PDF • <strong>Máx. 10 MB por archivo</strong></span>
                                     </label>
                                     
                                     {files && files.length > 0 && (
                                         <div className="mt-4 pt-4 border-t border-slate-200 text-left space-y-2">
-                                            <p className="text-xs font-bold text-slate-500 uppercase">Archivos seleccionados:</p>
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs font-bold text-slate-500 uppercase">Archivos seleccionados:</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFiles(null);
+                                                        const inputEl = document.getElementById('comprobantes') as HTMLInputElement;
+                                                        if (inputEl) inputEl.value = '';
+                                                    }}
+                                                    className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    Quitar archivos
+                                                </button>
+                                            </div>
                                             {Array.from(files).map((file, i) => (
                                                 <div key={i} className="text-sm text-slate-700 flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-100">
                                                     <div className="w-2 h-2 rounded-full bg-brand-500"></div>
                                                     <span className="truncate flex-1">{file.name}</span>
-                                                    <span className="text-xs text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                                    <span className="text-xs font-mono text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
                                                 </div>
                                             ))}
                                         </div>

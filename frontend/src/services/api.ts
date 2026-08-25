@@ -112,6 +112,9 @@ async function executeFetchApi<T = any>(endpoint: string, options: RequestInit =
   }
 
   if (!response.ok) {
+    if (response.status === 413) {
+      throw new Error("El archivo adjunto es demasiado grande para el servidor. El tamaño máximo permitido es de 10 MB.");
+    }
     if (response.status >= 500) {
       throw new Error("El servicio no está disponible temporalmente. Por favor, intenta nuevamente en unos momentos.");
     }
