@@ -83,6 +83,9 @@ async def on_startup():
                         INDEX idx_inv_docs_user (user_id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
+            except Exception as e:
+                print(f"Error creating investor_documents table: {e}")
+
             # Ajuste de consistencia para paquetes con 0 acciones
             try:
                 await conn.execute(text("UPDATE packages SET granted_shares = 1 WHERE (value = 50000 OR value = 50000.00) AND (granted_shares = 0 OR granted_shares IS NULL)"))
