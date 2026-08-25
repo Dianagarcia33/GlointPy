@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchApi, getMediaUrl } from '../../../services/api';
 import { formatCurrency } from '../../../utils/format';
-import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar, Download } from 'lucide-react';
+import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar, Download, ShieldCheck, User } from 'lucide-react';
 import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
 import { investorDocumentsService, InvestorDocument } from '../../../services/investorDocuments';
 import { DocumentPagesPreview, printPaginatedDocument } from '../../../components/common/DocumentPagesPreview';
+import { usePermissions } from '../../../hooks/usePermissions';
 
 export const InvestmentDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { isAdmin } = usePermissions();
     const [inv, setInv] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
@@ -86,11 +88,50 @@ export const InvestmentDetailPage = () => {
                 currentPackageId={inv.paquete?.id}
                 currentPeriodId={inv.periodo?.id}
             />
+            
             {/* Header / Back */}
-            <div className="flex items-center gap-4 cursor-pointer text-slate-500 hover:text-slate-800 transition-colors" onClick={() => navigate(-1)}>
-                <ArrowLeft className="w-5 h-5" />
-                <span className="font-bold">Volver al Dashboard</span>
+            <div className="flex items-center justify-between">
+                <div 
+                    className="inline-flex items-center gap-2 cursor-pointer text-slate-500 hover:text-slate-800 transition-colors font-bold text-sm" 
+                    onClick={() => navigate(-1)}
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>{isAdmin() ? "Volver a Inversionistas" : "Volver al Dashboard"}</span>
+                </div>
+
+                {isAdmin() && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500/10 text-amber-700 border border-amber-500/20 rounded-full text-xs font-bold">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                        Vista de Administrador
+                    </span>
+                )}
             </div>
+
+            {/* Admin Info Banner */}
+            {isAdmin() && inv.user && (
+                <div className="bg-slate-900 text-white p-5 rounded-3xl flex flex-wrap items-center justify-between gap-4 shadow-xl border border-slate-800 relative overflow-hidden">
+                    <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                    <div className="flex items-center gap-3 relative z-10">
+                        <div className="w-11 h-11 rounded-2xl bg-brand-500/20 border border-brand-500/30 text-brand-400 flex items-center justify-center font-bold">
+                            <User className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-brand-400 uppercase tracking-wider">Inversionista Titular</span>
+                                <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-300 font-mono font-bold border border-slate-700">
+                                    {inv.assigned_code || `#${inv.id}`}
+                                </span>
+                            </div>
+                            <h2 className="text-base font-bold text-white font-montserrat">{inv.user.name}</h2>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-slate-400 relative z-10">
+                        {inv.user.document_id && <span>Cédula: <strong className="text-slate-200 font-mono">{inv.user.document_id}</strong></span>}
+                        {inv.user.email && <span>Email: <strong className="text-slate-200">{inv.user.email}</strong></span>}
+                        {inv.user.phone_number && <span>Tel: <strong className="text-slate-200">{inv.user.phone_number}</strong></span>}
+                    </div>
+                </div>
+            )}
 
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
                 <div className="p-8 border-b border-slate-100 bg-slate-50/50">

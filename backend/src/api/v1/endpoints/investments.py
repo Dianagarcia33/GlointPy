@@ -127,13 +127,16 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     from src.models.investment_request import InvestmentRequest
 
     today = date.today()
+    is_admin = current_user.is_superuser or any(r.name.lower() in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in getattr(current_user, 'roles', []))
     
     # 1. Is it a request?
     if str(investment_id).startswith("req_"):
         req_id = int(str(investment_id).replace("req_", ""))
-        req_res = await db.execute(
-            select(InvestmentRequest).options(selectinload(InvestmentRequest.package)).where(InvestmentRequest.id == req_id, InvestmentRequest.user_id == current_user.id)
-        )
+        query = select(InvestmentRequest).options(selectinload(InvestmentRequest.package), selectinload(InvestmentRequest.user)).where(InvestmentRequest.id == req_id)
+        if not is_admin:
+            query = query.where(InvestmentRequest.user_id == current_user.id)
+            
+        req_res = await db.execute(query)
         req = req_res.scalars().first()
         if not req:
             raise HTTPException(status_code=404, detail="Inversión no encontrada")
@@ -141,6 +144,13 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         inv = {
             "id": f"req_{req.id}",
             "user_id": req.user_id,
+            "user": {
+                "id": req.user.id,
+                "name": req.user.name,
+                "email": req.user.email,
+                "document_id": req.user.document_id,
+                "phone_number": req.user.phone_number
+            } if req.user else None,
             "monto": float(req.monto),
             "status": (req.status.value if hasattr(req.status, 'value') else req.status).lower() if req.status else "pending",
             "created_at": req.created_at.isoformat() if req.created_at else None,
@@ -159,15 +169,20 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         
     # 2. It's an active Investor contract
     inv_id = int(investment_id)
-    inv_res = await db.execute(
+    query = (
         select(Investor)
         .options(
             selectinload(Investor.package), 
             selectinload(Investor.period),
-            selectinload(Investor.accelerations)
+            selectinload(Investor.accelerations),
+            selectinload(Investor.user)
         )
-        .where(Investor.id == inv_id, Investor.user_id == current_user.id)
+        .where(Investor.id == inv_id)
     )
+    if not is_admin:
+        query = query.where(Investor.user_id == current_user.id)
+
+    inv_res = await db.execute(query)
     inv_record = inv_res.scalars().first()
     
     if not inv_record:
@@ -263,7 +278,8 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     history_records = h_res.scalars().all()
     
     from src.models.user_bank_account import UserBankAccount
-    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == current_user.id, UserBankAccount.is_active == True))
+    target_user_id = inv_record.user_id if is_admin else current_user.id
+    bank_res = await db.execute(select(UserBankAccount).where(UserBankAccount.user_id == target_user_id, UserBankAccount.is_active == True))
     bank = bank_res.scalars().first()
     bank_info = None
     if bank:
@@ -364,7 +380,14 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
 
     inv = {
         "id": inv_record.id,
-        "user_id": current_user.id,
+        "user_id": inv_record.user_id,
+        "user": {
+            "id": inv_record.user.id,
+            "name": inv_record.user.name,
+            "email": inv_record.user.email,
+            "document_id": inv_record.user.document_id,
+            "phone_number": inv_record.user.phone_number
+        } if inv_record.user else None,
         "assigned_code": inv_record.assigned_code,
         "codigo_asignado": inv_record.assigned_code,
         "monto": monto,

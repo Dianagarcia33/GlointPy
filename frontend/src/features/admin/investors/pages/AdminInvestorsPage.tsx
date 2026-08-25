@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Investor, getInvestors, deleteInvestor } from '../../../../services/investors';
 import { InvestorModal } from '../components/InvestorModal';
 import { BulkUploadInvestorsModal } from '../components/BulkUploadInvestorsModal';
@@ -15,7 +16,7 @@ import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { BulkDocumentModal } from '../components/BulkDocumentModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
@@ -125,6 +126,7 @@ export const AdminInvestorsPage = () => {
     )
   );
 
+  const navigate = useNavigate();
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -444,7 +446,13 @@ export const AdminInvestorsPage = () => {
                         #{investor.id}
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="font-semibold text-slate-800">{investor.assigned_code}</div>
+                        <button
+                          onClick={() => navigate(`/investments/${investor.id}`)}
+                          className="font-bold text-brand-600 hover:text-brand-800 hover:underline cursor-pointer text-left block"
+                          title="Ver detalle de la inversión (Vista Inversionista)"
+                        >
+                          {investor.assigned_code || `#${investor.id}`}
+                        </button>
                         {investor.referred_by && (
                           <div className="text-[11px] text-slate-400">Ref: {investor.referred_by}</div>
                         )}
@@ -471,57 +479,28 @@ export const AdminInvestorsPage = () => {
                             )}
                           </div>
                         ) : (
-                            <span className="text-slate-400">Desconocido</span>
+                          <span className="text-xs text-slate-400">Sin usuario asignado</span>
                         )}
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-brand-50 text-brand-700">
-                          {investor.package ? `$${investor.package.value.toLocaleString('es-CO')} COP` : 'Desconocido'}
+                          {investor.package ? `$${Number(investor.package.value).toLocaleString('es-CO')} COP` : 'Desconocido'}
                         </span>
                         <div className="text-xs text-slate-500 mt-1">
-                            {investor.period ? `${investor.period.months}m ${investor.period.days}d (${investor.period.percentage}%)` : ''}
+                            {investor.period ? `${investor.period.months}m ${investor.period.days || (investor.period.months * 30)}d (${investor.period.percentage}%)` : ''}
                         </div>
-                        {(() => {
-                          const hasCapitalWithdrawal = investor.has_capital_withdrawal ?? (
-                            investor.withdrawals && investor.withdrawals.some((w: any) => {
-                              const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
-                              const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
-                              return String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase());
-                            })
-                          );
-
-                          const capitalWithdrawnAmount = investor.total_capital_withdrawn ?? (
-                            investor.withdrawals ? investor.withdrawals.reduce((sum: number, w: any) => {
-                              const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
-                              const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
-                              if (String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase())) {
-                                return sum + Number(w.monto || 0);
-                              }
-                              return sum;
-                            }, 0) : 0
-                          );
-
-                          return hasCapitalWithdrawal ? (
-                            <div className="mt-1.5">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
-                                💸 Retiro Capital (${capitalWithdrawnAmount.toLocaleString('es-CO')} COP)
-                              </span>
-                            </div>
-                          ) : null;
-                        })()}
                       </td>
-
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3.5 text-center">
                         {(() => {
                           const accelerations = investor.accelerations || [];
-                          const totalBonus = investor.total_acceleration_bonus ?? accelerations.reduce((sum, a) => sum + (Number(a.bonus_amount) || 0), 0);
-                          return accelerations.length > 0 || totalBonus > 0 ? (
-                            <div className="inline-flex flex-col">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
-                                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                                +${totalBonus.toLocaleString('es-CO')} COP
+                          const totalDaysReduced = accelerations.reduce((sum, acc) => sum + Number(acc.days_to_reduce || 0), 0);
+                          return accelerations.length > 0 ? (
+                            <div className="inline-flex flex-col items-center">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <Zap className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                -{totalDaysReduced.toFixed(1)} días
                               </span>
-                              <span className="text-[10px] text-slate-500 mt-1 font-medium pl-0.5">
+                              <span className="text-[10px] text-slate-400 mt-0.5 font-medium">
                                 {accelerations.length} {accelerations.length === 1 ? 'bono aplicado' : 'bonos aplicados'}
                               </span>
                             </div>
@@ -550,10 +529,22 @@ export const AdminInvestorsPage = () => {
                             </button>
 
                             {openActionMenuId === investor.id && (
-                              <div className={`absolute right-0 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
+                              <div className={`absolute right-0 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
                                 isNearBottom ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'
                               }`}>
                                 
+                                {/* Ver Detalle (Vista Inversionista) */}
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    navigate(`/investments/${investor.id}`);
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-800 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer border-b border-slate-100"
+                                >
+                                  <Eye className="w-4 h-4 text-brand-500 shrink-0" />
+                                  <span>Ver Detalle (Vista Inversionista)</span>
+                                </button>
+
                                 {/* Documentos */}
                                 <button
                                   onClick={() => {
