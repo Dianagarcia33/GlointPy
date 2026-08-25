@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, FileText, Calculator, Send } from 'lucide-react';
+import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, FileText, Calculator, Send, ShieldAlert } from 'lucide-react';
 import { auditService, AuditUser } from '../../../../services/audit';
 import { UserYieldAuditBox } from '../components/UserYieldAuditBox';
 import { UserWalletHistoryBox } from '../components/UserWalletHistoryBox';
 import { BulkTransferModal } from '../components/BulkTransferModal';
+import { SecurityAuditTrailTable } from '../components/SecurityAuditTrailTable';
 
 export const AdminInvestmentsPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'financial' | 'security'>('financial');
   const [users, setUsers] = useState<AuditUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +47,10 @@ export const AdminInvestmentsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [page, search]);
+    if (activeTab === 'financial') {
+      fetchData();
+    }
+  }, [page, search, activeTab]);
 
   const toggleExpand = (userId: number) => {
     const newSet = new Set(expandedUsers);
@@ -77,42 +81,81 @@ export const AdminInvestmentsPage: React.FC = () => {
         onSuccess={() => fetchData()}
       />
 
+      {/* Header & Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Briefcase className="w-8 h-8 text-brand-600" />
-            Auditoría de Rendimientos
+            Centro de Auditoría y Gobernanza
           </h1>
-          <p className="text-slate-500 mt-1">Supervisa y liquida los rendimientos de las inversiones por usuario.</p>
+          <p className="text-slate-500 mt-1">Supervisión integral de rendimientos financieros y pista de auditoría inmutable de seguridad.</p>
         </div>
 
+        {activeTab === 'financial' && (
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 text-sm cursor-pointer shrink-0"
+          >
+            <Send className="w-4 h-4" />
+            Transferencia Masiva General
+          </button>
+        )}
+      </div>
+
+      {/* Tabs Navigation */}
+      <div className="flex border-b border-slate-200 gap-2">
         <button
-          onClick={() => setIsBulkModalOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 text-sm cursor-pointer shrink-0"
+          type="button"
+          onClick={() => setActiveTab('financial')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'financial'
+              ? 'border-brand-600 text-brand-600 bg-brand-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-t-xl'
+          }`}
         >
-          <Send className="w-4 h-4" />
-          Transferencia Masiva General
+          <Calculator className="w-4 h-4" />
+          <span>Auditoría Financiera y Rendimientos</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('security')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'security'
+              ? 'border-purple-600 text-purple-700 bg-purple-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-t-xl'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4 text-purple-600" />
+          <span>Pista de Auditoría y Seguridad (Audit Trail)</span>
+          <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md bg-purple-100 text-purple-700">
+            Inmutable
+          </span>
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">
-        <div className="flex-1 relative w-full">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre, email o documento..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-          />
-        </div>
-        <div className="flex gap-4 w-full md:w-auto bg-slate-50 p-2 rounded-lg border border-slate-100">
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 ml-1">Inicio Ciclo</label>
-            <input
+      {activeTab === 'security' ? (
+        <SecurityAuditTrailTable />
+      ) : (
+        <>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">
+            <div className="flex-1 relative w-full">
+              <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, email o documento..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-4 w-full md:w-auto bg-slate-50 p-2 rounded-lg border border-slate-100">
+              <div>
+                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 ml-1">Inicio Ciclo</label>
+                <input
               type="date"
               value={cycleStartDate}
               onChange={(e) => setCycleStartDate(e.target.value)}
@@ -454,6 +497,8 @@ export const AdminInvestmentsPage: React.FC = () => {
           </>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 };

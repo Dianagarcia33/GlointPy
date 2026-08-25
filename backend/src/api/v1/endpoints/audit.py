@@ -163,6 +163,31 @@ class AuditUserResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class AuditLogResponse(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    action: str
+    module: str
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    description: Optional[str] = None
+    details: Optional[Any] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class AuditLogPaginatedResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    data: List[AuditLogResponse]
+    modules: List[str] = []
+
 class AuditUserPaginatedResponse(BaseModel):
     total: int
     page: int
@@ -170,6 +195,84 @@ class AuditUserPaginatedResponse(BaseModel):
     data: List[AuditUserResponse]
 
 router = APIRouter()
+
+@router.get("/logs", response_model=AuditLogPaginatedResponse, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def get_audit_logs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
+    module: Optional[str] = None,
+    action: Optional[str] = None,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna la pista de auditoría inmutable de seguridad y acciones administrativas (Audit Trail).
+    """
+    from src.models.audit_log import AuditLog
+
+    query = select(AuditLog)
+    
+    if module and module != "all":
+        query = query.where(AuditLog.module == module)
+        
+    if action:
+        query = query.where(AuditLog.action.ilike(f"%{action}%"))
+        
+    if status and status != "all":
+        query = query.where(AuditLog.status == status)
+        
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            or_(
+                AuditLog.user_name.ilike(search_term),
+                AuditLog.user_email.ilike(search_term),
+                AuditLog.action.ilike(search_term),
+                AuditLog.description.ilike(search_term),
+                AuditLog.entity_id.ilike(search_term),
+                AuditLog.ip_address.ilike(search_term)
+            )
+        )
+        
+    if start_date:
+        try:
+            s_date = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.where(AuditLog.created_at >= s_date)
+        except Exception:
+            pass
+            
+    if end_date:
+        try:
+            e_date = datetime.strptime(end_date, "%Y-%m-%d") + relativedelta(days=1)
+            query = query.where(AuditLog.created_at < e_date)
+        except Exception:
+            pass
+            
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    
+    offset = (page - 1) * limit
+    query = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset(offset).limit(limit)
+    result = await db.execute(query)
+    data = result.scalars().all()
+    
+    # Get distinct available modules
+    modules_res = await db.execute(select(AuditLog.module).distinct())
+    modules = [m[0] for m in modules_res.fetchall() if m[0]]
+    if not modules:
+        modules = ["auth", "investments", "withdrawals", "users", "commercial", "audit", "documents"]
+        
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "data": data,
+        "modules": sorted(list(set(modules)))
+    }
 
 @router.get("/users", response_model=AuditUserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def get_audit_users(

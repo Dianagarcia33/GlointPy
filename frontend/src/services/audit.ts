@@ -163,6 +163,53 @@ export const auditService = {
             method: 'PUT',
             body: JSON.stringify({ created_at: createdAt })
         });
+    },
+
+    getSecurityLogs: async (params?: {
+        page?: number;
+        limit?: number;
+        module?: string;
+        action?: string;
+        search?: string;
+        status?: string;
+        start_date?: string;
+        end_date?: string;
+    }): Promise<SecurityAuditLogResponse> => {
+        const qs = new URLSearchParams();
+        if (params?.page) qs.append('page', params.page.toString());
+        if (params?.limit) qs.append('limit', params.limit.toString());
+        if (params?.module && params.module !== 'all') qs.append('module', params.module);
+        if (params?.action) qs.append('action', params.action);
+        if (params?.search) qs.append('search', params.search);
+        if (params?.status && params.status !== 'all') qs.append('status', params.status);
+        if (params?.start_date) qs.append('start_date', params.start_date);
+        if (params?.end_date) qs.append('end_date', params.end_date);
+        return await fetchApi(`/audit/logs?${qs.toString()}`);
     }
 };
+
+export interface SecurityAuditLog {
+    id: number;
+    user_id?: number | null;
+    user_name?: string | null;
+    user_email?: string | null;
+    action: string;
+    module: string;
+    entity_type?: string | null;
+    entity_id?: string | null;
+    description?: string | null;
+    details?: any;
+    ip_address?: string | null;
+    user_agent?: string | null;
+    status: 'SUCCESS' | 'FAILED' | 'WARNING' | string;
+    created_at: string;
+}
+
+export interface SecurityAuditLogResponse {
+    total: number;
+    page: number;
+    limit: number;
+    data: SecurityAuditLog[];
+    modules: string[];
+}
 
