@@ -50,14 +50,28 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
     credentials: options.credentials || 'include',
   };
 
+  const isIdempotent = !options.method || options.method.toUpperCase() === 'GET';
   let response: Response;
   try {
     response = await fetch(`${API_URL}${endpoint}`, config);
-  } catch (err: any) {
-    if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
-      throw new Error("No se pudo conectar con el servidor. Verifica tu conexión a internet o si tienes problemas de red (Network Error).");
+    if ((response.status === 502 || response.status === 503 || response.status === 504) && isIdempotent) {
+      // Reintento automático silencioso para mitigar micro-cortes
+      await new Promise(r => setTimeout(r, 600));
+      response = await fetch(`${API_URL}${endpoint}`, config);
     }
-    throw err;
+  } catch (err: any) {
+    if (isIdempotent && (err.name === 'TypeError' || err.message === 'Failed to fetch')) {
+      try {
+        await new Promise(r => setTimeout(r, 600));
+        response = await fetch(`${API_URL}${endpoint}`, config);
+      } catch (retryErr: any) {
+        throw new Error("No se pudo conectar con el servidor. Verifica tu conexión a internet o si tienes problemas de red (Network Error).");
+      }
+    } else if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
+      throw new Error("No se pudo conectar con el servidor. Verifica tu conexión a internet o si tienes problemas de red (Network Error).");
+    } else {
+      throw err;
+    }
   }
 
   if (response.status === 401) {

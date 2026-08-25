@@ -9,7 +9,11 @@ engine = create_async_engine(
     settings.DATABASE_URL,
     echo=(settings.ENVIRONMENT == "development"),
     future=True,
-    pool_pre_ping=True, # Verifica que la conexión no se haya caído
+    pool_pre_ping=True,      # Verifica y recicla conexiones muertas antes de ejecutarlas
+    pool_recycle=300,        # Recicla conexiones cada 5 min para evitar caídas de TCP/MySQL
+    pool_size=20,            # Capacidad del pool de conexiones para alta concurrencia
+    max_overflow=20,         # Capacidad de sobrecarga para absorber picos de tráfico
+    pool_timeout=30,         # Tiempo máximo de espera por conexión antes de error
 )
 
 # 2. Fábrica de sesiones
