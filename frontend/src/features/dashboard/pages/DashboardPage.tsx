@@ -364,6 +364,7 @@ export const DashboardPage = () => {
                                 currentValue={totalPortafolio}
                                 accumulatedProfit={totalRendimiento}
                                 acquiredShares={totalAcciones}
+                                profitabilityPercent={rentabilidadGlobal}
                             />
                         </Can>
 

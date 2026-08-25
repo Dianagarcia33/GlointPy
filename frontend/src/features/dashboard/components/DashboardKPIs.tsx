@@ -1,5 +1,5 @@
 import React from 'react';
-import { Briefcase, TrendingUp, DollarSign, Activity, ArrowUpRight } from 'lucide-react';
+import { Briefcase, TrendingUp, DollarSign, Activity, ArrowUpRight, Minus } from 'lucide-react';
 import { formatCurrency } from '../../../utils/format';
 
 interface KPIProps {
@@ -8,11 +8,12 @@ interface KPIProps {
     subValue?: string;
     variationStr: string;
     isPositive: boolean;
+    isNeutral?: boolean;
     icon: React.ReactNode;
 }
 
-const KPICard: React.FC<KPIProps> = ({ title, value, subValue, variationStr, isPositive, icon }) => (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
+const KPICard: React.FC<KPIProps> = ({ title, value, subValue, variationStr, isPositive, isNeutral, icon }) => (
+    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow group relative overflow-hidden">
         {/* Subtle hover gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
         
@@ -24,8 +25,14 @@ const KPICard: React.FC<KPIProps> = ({ title, value, subValue, variationStr, isP
                     </div>
                 </div>
             </div>
-            <div className={`flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg ${isPositive ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' : 'text-red-700 bg-red-50 border border-red-100'}`}>
-                {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            <div className={`flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-lg ${
+                isNeutral
+                    ? 'text-slate-600 bg-slate-100 border border-slate-200'
+                    : isPositive 
+                        ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' 
+                        : 'text-red-700 bg-red-50 border border-red-100'
+            }`}>
+                {isNeutral ? <Minus className="w-3 h-3 text-slate-400" /> : isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                 {variationStr}
             </div>
         </div>
@@ -43,49 +50,66 @@ const KPICard: React.FC<KPIProps> = ({ title, value, subValue, variationStr, isP
 );
 
 export const DashboardKPIs = ({
-    investedCapital,
+    investedCapital = 0,
     finishedCapital = 0,
-    currentValue,
-    accumulatedProfit,
-    acquiredShares,
+    currentValue = 0,
+    accumulatedProfit = 0,
+    acquiredShares = 0,
+    profitabilityPercent = 0,
     variations
-}: any) => {
+}: {
+    investedCapital?: number;
+    finishedCapital?: number;
+    currentValue?: number;
+    accumulatedProfit?: number;
+    acquiredShares?: number;
+    profitabilityPercent?: number;
+    variations?: any;
+}) => {
+    const hasInvested = investedCapital > 0;
+    const calcProfitPercent = profitabilityPercent || (hasInvested ? (accumulatedProfit / investedCapital) * 100 : 0);
+
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 mb-8">
             <KPICard 
                 title="Capital Activo" 
                 value={formatCurrency(investedCapital)} 
-                variationStr={variations?.invested || "+0.0%"} 
-                isPositive={true} 
+                variationStr={variations?.invested || (hasInvested ? "+100%" : "0.0%")} 
+                isPositive={hasInvested} 
+                isNeutral={!hasInvested}
                 icon={<Briefcase className="w-5 h-5 text-emerald-600" />} 
             />
             <KPICard 
                 title="Capital Finalizado" 
                 value={formatCurrency(finishedCapital)} 
-                variationStr={variations?.finished || "Completo"} 
-                isPositive={true} 
+                variationStr={variations?.finished || (finishedCapital > 0 ? "Completado" : "0.0%")} 
+                isPositive={finishedCapital > 0} 
+                isNeutral={finishedCapital === 0}
                 icon={<Briefcase className="w-5 h-5 text-slate-500" />} 
             />
             <KPICard 
                 title="Valor Proyectado" 
                 value={formatCurrency(currentValue)} 
-                variationStr={variations?.current || "+12.4%"} 
-                isPositive={true} 
+                variationStr={variations?.current || (hasInvested && calcProfitPercent > 0 ? `+${calcProfitPercent.toFixed(1)}%` : "0.0%")} 
+                isPositive={hasInvested && calcProfitPercent > 0} 
+                isNeutral={!hasInvested || calcProfitPercent === 0}
                 icon={<DollarSign className="w-5 h-5" />} 
             />
             <KPICard 
                 title="Rendimiento Proyectado" 
                 value={"+" + formatCurrency(accumulatedProfit)} 
-                variationStr={variations?.profit || "+5.2%"} 
-                isPositive={true} 
+                variationStr={variations?.profit || (hasInvested && accumulatedProfit > 0 ? `+${calcProfitPercent.toFixed(1)}%` : "0.0%")} 
+                isPositive={hasInvested && accumulatedProfit > 0} 
+                isNeutral={!hasInvested || accumulatedProfit === 0}
                 icon={<TrendingUp className="w-5 h-5" />} 
             />
             <KPICard 
                 title="Acciones Adquiridas" 
                 value={acquiredShares} 
                 subValue="unds"
-                variationStr={variations?.shares || "+2.0%"} 
-                isPositive={true} 
+                variationStr={variations?.shares || (acquiredShares > 0 ? `${acquiredShares} unds` : "0 unds")} 
+                isPositive={acquiredShares > 0} 
+                isNeutral={acquiredShares === 0}
                 icon={<Activity className="w-5 h-5" />} 
             />
         </div>
