@@ -226,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </NavLink>
 
                                     <Can permission="crm:view">
-                                        <NavLink to="/dashboard/crm" className={navLinkClass}>
+                                        <NavLink to="/dashboard/crm" end className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <FolderKanban className="w-[18px] h-[18px]" />
                                             </span>
