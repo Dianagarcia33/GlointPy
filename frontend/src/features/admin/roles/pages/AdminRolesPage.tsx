@@ -188,16 +188,27 @@ export const AdminRolesPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-wrap gap-1.5 max-w-md">
-                                            {role.permissions.length === 0 && <span className="text-slate-400 italic text-xs">Sin permisos</span>}
-                                            {role.permissions.slice(0, 5).map(p => (
-                                                <span key={p.id} className="inline-flex px-2.5 py-1 bg-brand-50 text-brand-800 border border-brand-100 rounded-lg text-[10px] font-bold whitespace-nowrap">
-                                                    {p.name}
-                                                </span>
-                                            ))}
-                                            {role.permissions.length > 5 && (
-                                                <span className="inline-flex px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold whitespace-nowrap">
-                                                    +{role.permissions.length - 5} más
-                                                </span>
+                                            {role.permissions.length === 0 ? (
+                                                (role.name.toLowerCase().includes('super') || role.name.toLowerCase().includes('admin')) ? (
+                                                    <span className="inline-flex px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold">
+                                                        🛡️ Acceso Total (SuperAdmin)
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-slate-400 italic text-xs">Sin permisos</span>
+                                                )
+                                            ) : (
+                                                <>
+                                                    {role.permissions.slice(0, 5).map(p => (
+                                                        <span key={p.id} className="inline-flex px-2.5 py-1 bg-brand-50 text-brand-800 border border-brand-100 rounded-lg text-[10px] font-bold whitespace-nowrap">
+                                                            {p.name}
+                                                        </span>
+                                                    ))}
+                                                    {role.permissions.length > 5 && (
+                                                        <span className="inline-flex px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold whitespace-nowrap">
+                                                            +{role.permissions.length - 5} más
+                                                        </span>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     </td>
