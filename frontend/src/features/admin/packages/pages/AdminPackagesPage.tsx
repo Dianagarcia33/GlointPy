@@ -22,7 +22,10 @@ export const AdminPackagesPage = () => {
     setIsLoading(true);
     try {
       const data = await packagesService.getPackages();
-      setPackages(data);
+      const sorted = Array.isArray(data) 
+        ? [...data].sort((a, b) => (Number(a.value) || 0) - (Number(b.value) || 0)) 
+        : [];
+      setPackages(sorted);
       setError(null);
     } catch (err: any) {
       setError(err.message || 'Error al cargar los paquetes');

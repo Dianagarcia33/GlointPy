@@ -11,7 +11,7 @@ from src.schemas.package import PackageCreate, PackageUpdate
 class PackageService:
     @staticmethod
     async def get_all_packages(db: AsyncSession) -> Sequence[Package]:
-        result = await db.execute(select(Package))
+        result = await db.execute(select(Package).order_by(Package.value.asc()))
         return result.scalars().all()
 
     @staticmethod
