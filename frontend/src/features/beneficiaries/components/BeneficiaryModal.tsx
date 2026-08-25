@@ -57,8 +57,14 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
             return;
         }
 
-        if (percentage === '' || Number(percentage) <= 0 || Number(percentage) > 100) {
-            setError('El porcentaje asignado debe ser un número entre 1% y 100%');
+        const valPct = Number(percentage);
+        if (percentage === '' || isNaN(valPct) || valPct <= 0 || valPct > 100) {
+            setError('El porcentaje asignado debe ser un número válido entre 0.01% y 100%');
+            return;
+        }
+
+        if (valPct > availablePercentage + 0.001) {
+            setError(`El porcentaje (${valPct}%) supera el porcentaje disponible (${availablePercentage.toFixed(2)}%)`);
             return;
         }
 
