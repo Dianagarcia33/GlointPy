@@ -175,8 +175,8 @@ export const printPaginatedDocument = (
     iframe.style.zIndex = '-9999';
     document.body.appendChild(iframe);
 
-    // Default to official letterhead if null/undefined or empty string
-    const effectiveBgPath = (bgImg && bgImg.trim() !== '') ? bgImg : '/uploads/templates/gloint_membrete_oficial.png';
+    // Use the provided background image or none if empty
+    const effectiveBgPath = (bgImg && bgImg.trim() !== '') ? bgImg : '';
     let resolvedBg = effectiveBgPath ? getMediaUrl(effectiveBgPath) : '';
     if (resolvedBg && !resolvedBg.startsWith('http://') && !resolvedBg.startsWith('https://') && !resolvedBg.startsWith('data:')) {
         resolvedBg = `${window.location.origin}${resolvedBg.startsWith('/') ? resolvedBg : `/${resolvedBg}`}`;
@@ -353,7 +353,7 @@ export const DocumentPagesPreview: React.FC<DocumentPagesPreviewProps> = ({
     className = ''
 }) => {
     const [pages, setPages] = useState<string[]>([]);
-    const effectiveBgPath = (bgUrl && bgUrl.trim() !== '') ? bgUrl : '/uploads/templates/gloint_membrete_oficial.png';
+    const effectiveBgPath = (bgUrl && bgUrl.trim() !== '') ? bgUrl : '';
     const resolvedBg = effectiveBgPath ? getMediaUrl(effectiveBgPath) : '';
 
     useEffect(() => {

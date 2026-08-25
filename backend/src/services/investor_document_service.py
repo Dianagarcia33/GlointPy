@@ -380,7 +380,15 @@ class InvestorDocumentService:
         else:
             title = f"{template.name} - {investor.assigned_code or investor.id}"
 
-        bg_img = data.background_image if data.background_image is not None else template.background_image
+        # Background image resolution:
+        if data.background_image == "":
+            bg_img = None
+        elif template.background_image and template.background_image.strip():
+            bg_img = template.background_image.strip()
+        elif data.background_image and data.background_image.strip():
+            bg_img = data.background_image.strip()
+        else:
+            bg_img = None
 
         return {
             "template_id": template.id,

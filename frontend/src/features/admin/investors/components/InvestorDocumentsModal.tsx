@@ -96,7 +96,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
             setActiveTab('list');
             setSelectedTemplateId('');
             setCustomTitle('');
-            setSelectedBgOption('/uploads/templates/gloint_membrete_oficial.png');
+            setSelectedBgOption('');
             setPreviewData(null);
             setViewingDoc(null);
         }
@@ -112,7 +112,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
         const tpl = templates.find(t => t.id === templateIdNum);
         const effectiveBg = bgOverride !== undefined 
             ? bgOverride 
-            : (tpl?.background_image || selectedBgOption || '/uploads/templates/gloint_membrete_oficial.png');
+            : (tpl?.background_image || '');
         
         setSelectedBgOption(effectiveBg);
 
@@ -395,20 +395,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                     <span className="text-xs font-bold text-slate-700">Fondo / Membrete:</span>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleBgChange('/uploads/templates/gloint_membrete_oficial.png')}
-                                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer border ${
-                                            selectedBgOption === '/uploads/templates/gloint_membrete_oficial.png'
-                                                ? 'bg-brand-500 text-white border-brand-600 shadow-xs'
-                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                                        }`}
-                                    >
-                                        📄 Hoja Membretada Oficial Gloint
-                                    </button>
-
-                                    {templates.find(t => t.id === Number(selectedTemplateId))?.background_image && 
-                                     templates.find(t => t.id === Number(selectedTemplateId))?.background_image !== '/uploads/templates/gloint_membrete_oficial.png' && (
+                                    {templates.find(t => t.id === Number(selectedTemplateId))?.background_image && (
                                         <button
                                             type="button"
                                             onClick={() => handleBgChange(templates.find(t => t.id === Number(selectedTemplateId))!.background_image!)}
@@ -418,7 +405,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                                             }`}
                                         >
-                                            📁 Fondo de Plantilla
+                                            📄 Membrete de la Plantilla
                                         </button>
                                     )}
 
@@ -431,7 +418,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                                         }`}
                                     >
-                                        🚫 Sin Fondo (Blanco)
+                                        🚫 Sin Fondo (Hoja en Blanco)
                                     </button>
                                 </div>
                             </div>
