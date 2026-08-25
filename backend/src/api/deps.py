@@ -25,8 +25,8 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    # 1. Check HttpOnly cookie first, then fallback to Authorization header
-    auth_token = request.cookies.get("access_token") or token
+    # 1. Check HttpOnly cookie first, then Authorization header, then query param token
+    auth_token = request.cookies.get("access_token") or token or request.query_params.get("token")
     if not auth_token:
         raise credentials_exception
 

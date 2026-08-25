@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, notifications, tickets, investor_documents
+from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, notifications, tickets, investor_documents, uploads
 
 api_router = APIRouter()
 
@@ -29,3 +29,4 @@ api_router.include_router(crm_emails.router, prefix="", tags=["crm-emails"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
 api_router.include_router(investor_documents.router, prefix="", tags=["investor-documents"])
+api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
