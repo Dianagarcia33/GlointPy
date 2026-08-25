@@ -142,9 +142,16 @@ export const InvestmentDetailPage = () => {
                             </div>
                             <div>
                                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Contrato de Inversión</p>
-                                <h1 className="text-3xl font-bold text-slate-900 font-montserrat">
-                                    {formatCurrency(inv.monto)}
-                                </h1>
+                                <div className="flex items-baseline gap-3">
+                                    <h1 className="text-3xl font-bold text-slate-900 font-montserrat">
+                                        {formatCurrency(inv.monto)}
+                                    </h1>
+                                    {(inv.periodo?.percentage || inv.porcentaje_mensual) && (
+                                        <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl font-montserrat">
+                                            {inv.periodo?.percentage || inv.porcentaje_mensual}% mensual
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">

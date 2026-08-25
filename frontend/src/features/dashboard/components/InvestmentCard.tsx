@@ -68,9 +68,16 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Paquete de Inversión</p>
-                            <h4 className="text-xl font-bold text-slate-900 font-montserrat">
-                                {formatCurrency(parseInt(inv.paquete?.paquete_accion_adquirido || "0"))}
-                            </h4>
+                            <div className="flex items-baseline gap-2">
+                                <h4 className="text-xl font-bold text-slate-900 font-montserrat">
+                                    {formatCurrency(parseInt(inv.paquete?.paquete_accion_adquirido || "0") || monto)}
+                                </h4>
+                                {((inv as any).periodo?.percentage || (inv as any).porcentaje_mensual) && (
+                                    <span className="text-xs font-extrabold text-emerald-600 font-montserrat bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                        {(inv as any).periodo?.percentage || (inv as any).porcentaje_mensual}% / mes
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -111,10 +118,21 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                     <span className="font-semibold text-slate-900">{formatCurrency(monto)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600 font-medium">Rendimiento Estimado</span>
+                    <span className="text-slate-600 font-medium">Rentabilidad del Contrato</span>
+                    <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs font-montserrat flex items-center gap-1">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                        {(inv as any).periodo?.percentage 
+                            ? `${(inv as any).periodo.percentage}% mensual (${(inv as any).periodo.months || Math.round((inv.dias_contrato || 0) / 30)} meses)` 
+                            : (inv as any).porcentaje_mensual 
+                                ? `${(inv as any).porcentaje_mensual}% mensual` 
+                                : `+${rentabilidadPct}% total`}
+                    </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600 font-medium">Rendimiento Proyectado</span>
                     <div className="text-right">
                         <span className="font-bold text-brand-600 block">+{formatCurrency(rendimiento)}</span>
-                        <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">+{rentabilidadPct}%</span>
+                        <span className="text-[10px] font-bold text-emerald-600">+{rentabilidadPct}% acumulado</span>
                     </div>
                 </div>
                 {inv.liquidacion_diaria_rendimiento && (

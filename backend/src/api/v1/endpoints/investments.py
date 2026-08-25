@@ -105,6 +105,13 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             "aceleracion_dias": 0,
             "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
             "fecha_finalizacion": fecha_fin.isoformat() if fecha_fin else None,
+            "porcentaje_mensual": float(inv_record.period.percentage) if inv_record.period and inv_record.period.percentage else 0,
+            "periodo": {
+                "id": inv_record.period.id if inv_record.period else 0,
+                "percentage": float(inv_record.period.percentage) if inv_record.period and inv_record.period.percentage else 0,
+                "months": inv_record.period.months if inv_record.period else 0,
+                "days": dias_contrato
+            } if inv_record.period else None,
             "paquete": {
                 "id": inv_record.package.id if inv_record.package else 0,
                 "paquete_accion_adquirido": str(inv_record.package.value) if inv_record.package else "0",
