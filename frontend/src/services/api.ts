@@ -47,6 +47,7 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
   const config: RequestInit = {
     ...options,
     headers,
+    credentials: options.credentials || 'include',
   };
 
   let response: Response;

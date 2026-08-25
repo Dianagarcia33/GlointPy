@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any
 
 from src.core.database import get_db
+from src.core.config import settings
 from src.core.security import create_access_token
 from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
 from src.schemas.user import UserResponse
@@ -12,17 +13,34 @@ from src.models.user import User
 
 router = APIRouter()
 
+def set_auth_cookie(response: Response, access_token: str):
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False if getattr(settings, 'ENVIRONMENT', 'development') == 'development' else True,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/"
+    )
+
+def clear_auth_cookie(response: Response):
+    response.delete_cookie(
+        key="access_token",
+        path="/"
+    )
+
 @router.post("/login", response_model=Token)
-async def login(login_data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)) -> Any:
+async def login(login_data: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Inicia sesión (Login). 
-    Recibe email y password, devuelve un Access Token.
+    Recibe email y password, devuelve un Access Token y establece la cookie HttpOnly.
     """
     user = await AuthService.authenticate_user(db, login_data, request=request)
 
-    
     # Generar token
     access_token = create_access_token(subject=user.id)
+    set_auth_cookie(response, access_token)
     
     return {
         "access_token": access_token,
@@ -30,14 +48,23 @@ async def login(login_data: LoginRequest, request: Request, db: AsyncSession = D
         "user": user
     }
 
+@router.post("/logout")
+async def logout(response: Response) -> Any:
+    """
+    Cierra sesión eliminando la cookie HttpOnly de autenticación.
+    """
+    clear_auth_cookie(response)
+    return {"message": "Sesión cerrada correctamente"}
+
 from src.schemas.auth import InvestorRegisterRequest
 @router.post("/register-investor", response_model=Token)
-async def register_investor(register_data: InvestorRegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def register_investor(register_data: InvestorRegisterRequest, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Registra un inversionista con sus datos personales, bancarios, KYC y la solicitud de inversión.
     """
     user = await AuthService.register_investor(db, register_data)
     access_token = create_access_token(subject=user.id)
+    set_auth_cookie(response, access_token)
     
     return {
         "access_token": access_token,
@@ -46,15 +73,16 @@ async def register_investor(register_data: InvestorRegisterRequest, db: AsyncSes
     }
 
 @router.post("/force-change-password", response_model=Token)
-async def force_change_password(data: ForceChangePasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def force_change_password(data: ForceChangePasswordRequest, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Cambia la contraseña de forma obligatoria cuando must_change_password = True.
-    Retorna el Token de acceso tras cambiarla exitosamente.
+    Retorna el Token de acceso tras cambiarla exitosamente y renueva la cookie.
     """
     user = await AuthService.force_change_password(db, data)
     
     # Generar token
     access_token = create_access_token(subject=user.id)
+    set_auth_cookie(response, access_token)
     
     return {
         "access_token": access_token,
