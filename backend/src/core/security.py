@@ -27,11 +27,12 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
 
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
-    """Genera el token JWT de acceso (corta duración)."""
+    """Genera el token JWT de acceso (corta duración, 5 minutos)."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(hours=2)
+        minutes = getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 5)
+        expire = datetime.utcnow() + timedelta(minutes=minutes)
         
     to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(
