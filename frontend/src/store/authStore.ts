@@ -37,9 +37,9 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      // Seguridad: Se excluye el accessToken de localStorage (se gestiona vía Cookie HttpOnly)
+      // Seguridad H-33 y H-34: NO almacenar tokens, PII ni flags de autorización en localStorage
+      // Únicamente se persiste el estado booleano de sesión
       partialize: (state) => ({
-        user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
     }

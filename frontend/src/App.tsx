@@ -44,6 +44,7 @@ import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
+import { fetchApi } from "./services/api";
 
 
 // Componente para proteger rutas (si no está logueado, lo manda al login)
@@ -63,6 +64,21 @@ const GuestRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   // Inicializamos el "Perro Guardián" de inactividad
   useInactivityTimer();
+
+  const { isAuthenticated, setUser, logout } = useAuthStore();
+
+  // Seguridad H-34: Al cargar la app, se hidrata el perfil y permisos en memoria desde el servidor
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      fetchApi('/auth/me')
+        .then((userData) => {
+          setUser(userData);
+        })
+        .catch(() => {
+          logout();
+        });
+    }
+  }, [isAuthenticated]);
 
   // Lógica de mantenimiento comentada
   // const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
