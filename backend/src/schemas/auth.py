@@ -32,12 +32,20 @@ class InvestorRegisterRequest(BaseModel):
     numero_cuenta: str
     monto: float
     paquete_id: int
-    contract_period_id: int
-    kyc_docs: list[str]
-    fecha_nacimiento: Optional[str] = None
     comprobante_path: str
     referred_by: Optional[str] = None
     commercial_id: Optional[int] = None
+
+    @field_validator("referred_by")
+    @classmethod
+    def validate_referred_by(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        import re
+        v_clean = v.strip().upper()
+        if not re.match(r"^[A-Z0-9_-]{2,25}$", v_clean):
+            raise ValueError("El código de referido debe tener entre 2 y 25 caracteres alfanuméricos válidos (ej. IG1974).")
+        return v_clean
 
 
 class ForceChangePasswordRequest(BaseModel):

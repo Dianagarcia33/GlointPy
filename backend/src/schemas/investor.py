@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from datetime import datetime
 from typing import Optional
+import re
 from dateutil.relativedelta import relativedelta
 from src.schemas.user import UserResponse, UserWithBankAccountsResponse
 from src.schemas.package import PackageResponse
@@ -17,6 +18,16 @@ class InvestorBase(BaseModel):
     start_date: Optional[datetime] = None
     observations: Optional[str] = None
 
+    @field_validator("referred_by")
+    @classmethod
+    def validate_referred_by(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        v_clean = v.strip().upper()
+        if not re.match(r"^[A-Z0-9_-]{2,25}$", v_clean):
+            raise ValueError("El código de referido debe contener entre 2 y 25 caracteres alfanuméricos válidos.")
+        return v_clean
+
 class InvestorCreate(InvestorBase):
     pass
 
@@ -28,6 +39,16 @@ class InvestorUpdate(BaseModel):
     period_id: Optional[int] = None
     start_date: Optional[datetime] = None
     observations: Optional[str] = None
+
+    @field_validator("referred_by")
+    @classmethod
+    def validate_referred_by(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        v_clean = v.strip().upper()
+        if not re.match(r"^[A-Z0-9_-]{2,25}$", v_clean):
+            raise ValueError("El código de referido debe contener entre 2 y 25 caracteres alfanuméricos válidos.")
+        return v_clean
 
 class SimpleInvestorResponse(InvestorBase):
     id: int

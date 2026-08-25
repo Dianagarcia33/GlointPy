@@ -825,16 +825,21 @@ export const InvestorRegistrationFlow = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Código de Referido (Opcional)</label>
+                                    <label htmlFor="referred_by" className="block text-sm font-bold text-slate-700 mb-1">Código de Referido (Opcional)</label>
                                     <input 
                                         type="text" 
+                                        id="referred_by"
                                         name="referred_by" 
                                         value={formData.referred_by} 
-                                        onChange={handleChange} 
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900 placeholder-slate-400 font-mono text-sm" 
-                                        placeholder="Ej: IG100" 
+                                        onChange={(e) => {
+                                            const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 25);
+                                            setFormData(prev => ({ ...prev, referred_by: val }));
+                                        }}
+                                        maxLength={25}
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900 placeholder-slate-400 font-mono text-sm uppercase tracking-wider" 
+                                        placeholder="Ej: IG1974" 
                                     />
-                                    <p className="text-[11px] text-slate-500 mt-1">Si tienes un código de referido de otro inversionista o de una inversión previa, ingrésalo aquí para otorgar un bono del 5%.</p>
+                                    <p className="text-[11px] text-slate-500 mt-1">Si tienes un código de referido de otro inversionista o de una inversión previa (ej. IG1974), ingrésalo aquí para otorgar un bono de aceleración.</p>
                                 </div>
 
                                 {calc && (
