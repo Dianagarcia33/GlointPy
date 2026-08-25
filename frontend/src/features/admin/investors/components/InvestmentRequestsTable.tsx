@@ -807,7 +807,7 @@ export const InvestmentRequestsTable = () => {
                           <span className="font-medium">
                             {(() => {
                               const p = periods.find(p => p.id === Number(selectedRequestToReview.extra_data?.contract_period_id));
-                              return p ? `${p.months} meses y ${p.days} días (${p.percentage}%)` : `ID: ${selectedRequestToReview.extra_data?.contract_period_id}`;
+                              return p ? `${p.months} meses (${p.days} días) - ${p.percentage}%` : `ID: ${selectedRequestToReview.extra_data?.contract_period_id}`;
                             })()}
                           </span>
                         </div>

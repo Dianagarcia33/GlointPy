@@ -180,12 +180,11 @@ export const AdminPeriodsPage = () => {
                         </div>
                         <div>
                           <div className="font-extrabold text-slate-900 text-sm font-montserrat">
-                            {period.months > 0 ? `${period.months} Meses` : ''} 
-                            {period.months > 0 && period.days > 0 ? ' y ' : ''}
-                            {period.days > 0 ? `${period.days} Días` : ''}
-                            {period.months === 0 && period.days === 0 ? '0 Días' : ''}
+                            {period.months > 0 
+                              ? `${period.months} ${period.months === 1 ? 'Mes' : 'Meses'} (${period.days} días)`
+                              : `${period.days} Días`}
                           </div>
-                          <div className="text-slate-400 text-xs font-mono mt-0.5">Equivalente: {period.days} días calendario</div>
+                          <div className="text-slate-400 text-xs font-mono mt-0.5">Plazo de vigencia: {period.days} días calendario</div>
                         </div>
                       </div>
                     </td>
