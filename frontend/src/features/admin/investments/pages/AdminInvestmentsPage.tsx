@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, FileText, Calculator, Send, ShieldAlert } from 'lucide-react';
+import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, ChevronUp, Eye, FileText, Calculator, Send, ShieldAlert } from 'lucide-react';
 import { auditService, AuditUser } from '../../../../services/audit';
 import { UserYieldAuditBox } from '../components/UserYieldAuditBox';
 import { UserWalletHistoryBox } from '../components/UserWalletHistoryBox';
@@ -275,15 +275,29 @@ export const AdminInvestmentsPage: React.FC = () => {
                         <td className="px-6 py-4 text-center align-top" onClick={(e) => e.stopPropagation()}>
                           <button 
                             onClick={() => toggleExpand(user.id)}
-                            className="text-xs font-medium text-brand-600 hover:text-white px-4 py-2 border border-brand-200 bg-brand-50 hover:bg-brand-600 rounded-lg transition-all shadow-sm cursor-pointer"
+                            className={`text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5 mx-auto ${
+                              expandedUsers.has(user.id)
+                                ? 'bg-slate-800 text-white hover:bg-slate-900 border border-slate-800'
+                                : 'text-brand-700 bg-brand-50 hover:bg-brand-600 hover:text-white border border-brand-200'
+                            }`}
                           >
-                            Auditar Usuario
+                            {expandedUsers.has(user.id) ? (
+                              <>
+                                <ChevronUp className="w-3.5 h-3.5" />
+                                <span>Ocultar Auditoría</span>
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Auditar Usuario</span>
+                              </>
+                            )}
                           </button>
                         </td>
                       </tr>
 
-                      {/* Fila expandida con las inversiones */}
-                      {expandedUsers.has(user.id) && user.investments && user.investments.length > 0 && (
+                      {/* Fila expandida con las inversiones y auditoría */}
+                      {expandedUsers.has(user.id) && (
                         <tr>
                           <td colSpan={6} className="p-0 bg-slate-50/80 border-b border-slate-200">
                             <div className="px-10 py-6">
@@ -291,14 +305,15 @@ export const AdminInvestmentsPage: React.FC = () => {
                                 <FileText className="w-4 h-4 text-brand-600" />
                                 Detalle de Inversiones y Liberación de Capital por Ciclos (60 días)
                               </h3>
-                              <div className="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-sm">
-                                <table className="w-full text-left text-xs">
-                                  <thead className="bg-slate-100 text-slate-600 uppercase tracking-wider font-semibold">
-                                    <tr>
-                                      <th className="px-4 py-3 border-b">Código</th>
-                                      <th className="px-4 py-3 border-b">Capital Total</th>
-                                      <th className="px-4 py-3 border-b">Liberación Capital (Ciclos 60d)</th>
-                                      <th className="px-4 py-3 border-b">Capital Disponible (Retiro)</th>
+                              {user.investments && user.investments.length > 0 ? (
+                                <div className="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-sm mb-6">
+                                  <table className="w-full text-left text-xs">
+                                    <thead className="bg-slate-100 text-slate-600 uppercase tracking-wider font-semibold">
+                                      <tr>
+                                        <th className="px-4 py-3 border-b">Código</th>
+                                        <th className="px-4 py-3 border-b">Capital Total</th>
+                                        <th className="px-4 py-3 border-b">Liberación Capital (Ciclos 60d)</th>
+                                        <th className="px-4 py-3 border-b">Capital Disponible (Retiro)</th>
                                       <th className="px-4 py-3 border-b">Periodo / Tasa</th>
                                       <th className="px-4 py-3 border-b">Fechas</th>
                                       <th className="px-4 py-3 border-b">Extras</th>
@@ -435,30 +450,26 @@ export const AdminInvestmentsPage: React.FC = () => {
                                   </tbody>
                                 </table>
                               </div>
-                              
-                              <UserYieldAuditBox 
-                                userId={user.id}
-                                userName={user.name}
-                                startDate={cycleStartDate}
-                                endDate={cycleEndDate}
-                                onSuccess={() => fetchData()}
-                              />
-                              
-                              <UserWalletHistoryBox userId={user.id} />
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                      
-                      {expandedUsers.has(user.id) && (!user.investments || user.investments.length === 0) && (
-                        <tr>
-                          <td colSpan={5} className="p-0 bg-slate-50/80 border-b border-slate-200">
-                            <div className="px-14 py-6 text-center text-sm text-slate-500 italic">
-                              Este usuario no registra ninguna inversión actualmente.
-                            </div>
-                          </td>
-                        </tr>
-                      )}
+                            ) : (
+                              <div className="bg-white p-4 rounded-xl border border-slate-200 text-xs text-slate-500 flex items-center gap-2 mb-4">
+                                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                                <span>Este usuario no registra contratos de inversión asociados.</span>
+                              </div>
+                            )}
+
+                            <UserYieldAuditBox 
+                              userId={user.id}
+                              userName={user.name}
+                              startDate={cycleStartDate}
+                              endDate={cycleEndDate}
+                              onSuccess={() => fetchData()}
+                            />
+                            
+                            <UserWalletHistoryBox userId={user.id} />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                     </React.Fragment>
                   ))}
                   {users.length === 0 && (
