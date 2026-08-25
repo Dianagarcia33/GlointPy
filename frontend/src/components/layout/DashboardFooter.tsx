@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { APP_DISPLAY_VERSION } from '../../constants/appVersion';
 
 export const DashboardFooter = () => {
     return (
@@ -17,7 +18,7 @@ export const DashboardFooter = () => {
                     <div className="hidden md:block h-4 w-px bg-slate-700"></div>
                     
                     <span className="bg-slate-800 text-brand-400 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest border border-slate-700 uppercase">
-                        GLOINT 2.0.0.1
+                        {APP_DISPLAY_VERSION}
                     </span>
                 </div>
             </div>
