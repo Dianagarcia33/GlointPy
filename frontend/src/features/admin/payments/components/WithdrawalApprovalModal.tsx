@@ -165,7 +165,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
                 <span className="font-bold text-slate-800">{formatCurrency(withdrawal.monto)}</span>
               </div>
               <div>
-                <span className="text-slate-500 font-medium block text-[11px]">Deducciones / GMF (4x1000):</span>
+                <span className="text-slate-500 font-medium block text-[11px]">Costo Operativo & Retiro (3.2%):</span>
                 <span className="font-bold text-rose-600">-{formatCurrency(withdrawal.impuesto)}</span>
               </div>
               <div className="col-span-2 pt-3 border-t border-brand-200/80 flex justify-between items-center">

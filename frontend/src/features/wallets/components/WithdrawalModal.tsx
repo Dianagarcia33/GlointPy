@@ -327,7 +327,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-amber-700 flex items-center gap-1">
-                                            Impuestos/Comisión (3.2%): 
+                                            Costo Operativo & Retiro (3.2%): 
                                         </span>
                                         <span className="font-semibold text-red-600">-{formatCurrency(impuesto)}</span>
                                     </div>
