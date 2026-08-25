@@ -336,6 +336,9 @@ export const WalletsPage = () => {
                                                 'investment reservation': 'Reserva de Inversión',
                                                 'capital liquidation': 'Liquidación de Capital',
                                                 'liquidación de capital': 'Liquidación de Capital',
+                                                'admin adjustment': 'Ajuste de Saldo',
+                                                'ajuste de saldo': 'Ajuste de Saldo',
+                                                'ajuste administrativo': 'Ajuste de Saldo',
                                                 'ingreso': 'Ingreso a Billetera',
                                                 'egreso': 'Egreso de Billetera',
                                                 'cash': 'Depósito de Saldo',
@@ -350,6 +353,7 @@ export const WalletsPage = () => {
                                         };
 
                                         const displayType = getOriginTranslation(rawOrigin);
+                                        const cleanObs = mov.observaciones ? mov.observaciones.replace(/\(Admin:.*?\)/gi, '').replace(/\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)/gi, '').trim() : '';
 
                                         return (
                                             <div 
@@ -373,9 +377,9 @@ export const WalletsPage = () => {
                                                                 {status.text}
                                                             </span>
                                                         </div>
-                                                        {(mov.observaciones || mov.motivo_rechazo) && (
+                                                        {(cleanObs || mov.motivo_rechazo) && (
                                                             <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
-                                                                {mov.motivo_rechazo || mov.observaciones}
+                                                                {mov.motivo_rechazo || cleanObs}
                                                             </p>
                                                         )}
                                                     </div>

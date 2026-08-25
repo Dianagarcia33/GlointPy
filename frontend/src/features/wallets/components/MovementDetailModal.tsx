@@ -103,6 +103,9 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
             'investment reservation': 'Reserva de Inversión',
             'capital liquidation': 'Liquidación de Capital',
             'liquidación de capital': 'Liquidación de Capital',
+            'admin adjustment': 'Ajuste de Saldo',
+            'ajuste de saldo': 'Ajuste de Saldo',
+            'ajuste administrativo': 'Ajuste de Saldo',
             'ingreso': 'Ingreso a Billetera',
             'egreso': 'Egreso de Billetera',
             'cash': 'Depósito de Saldo',
@@ -242,16 +245,20 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
                     )}
 
                     {/* Observaciones */}
-                    {(movement.observaciones || movement.motivo_rechazo) && (
-                        <div>
-                            <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-slate-400" /> Notas Administrativas
-                            </h3>
-                            <div className={`rounded-2xl p-4 border text-sm ${movement.motivo_rechazo ? 'bg-red-50 border-red-100 text-red-700' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
-                                {movement.motivo_rechazo || movement.observaciones}
+                    {(() => {
+                        const cleanObs = movement.observaciones ? movement.observaciones.replace(/\(Admin:.*?\)/gi, '').replace(/\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)/gi, '').trim() : '';
+                        if (!cleanObs && !movement.motivo_rechazo) return null;
+                        return (
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-slate-400" /> Notas Administrativas
+                                </h3>
+                                <div className={`rounded-2xl p-4 border text-sm ${movement.motivo_rechazo ? 'bg-red-50 border-red-100 text-red-700' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
+                                    {movement.motivo_rechazo || cleanObs}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                 </div>
 

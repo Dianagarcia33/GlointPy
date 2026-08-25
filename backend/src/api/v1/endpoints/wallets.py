@@ -334,6 +334,16 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         direction = "out" if is_outflow else "in"
         tipo_str = "egreso" if is_outflow else "ingreso"
             
+        # Sanitizar descripción para proteger privacidad de administradores y contrapartes
+        desc = t.description or ""
+        is_admin = current_user.is_superuser or (current_user.permissions and "admin.wallets.manage" in current_user.permissions)
+        if not is_admin:
+            import re
+            desc = re.sub(r'\(Admin:.*?\)', '', desc).strip()
+            if not desc or t.type == "admin_adjustment":
+                desc = "Ajuste de saldo administrativo autorizado"
+            desc = re.sub(r'\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)', '', desc)
+
         response.append({
             "id": f"t_{t.id}",
             "investor_id": None,
@@ -352,7 +362,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             "banco": None,
             "tipo_cuenta": None,
             "numero_cuenta": None,
-            "observaciones": t.description,
+            "observaciones": desc,
             "motivo_rechazo": None,
             "fecha_aprobacion": t.created_at.isoformat() if t.created_at else None,
             "fecha_procesamiento": t.created_at.isoformat() if t.created_at else None,
@@ -545,7 +555,7 @@ async def admin_adjust_wallet(
         wallet_id=wallet.id,
         amount=diff,
         type="admin_adjustment",
-        description=f"{req.description} (Admin: {current_user.name} / ID: {current_user.id})",
+        description=req.description.strip() if req.description else "Ajuste administrativo de saldo autorizado",
         reference_type="admin",
         reference_id=current_user.id,
         balance_after=wallet.balance
@@ -739,7 +749,7 @@ async def transfer_wallet_funds(
         type="transfer_out",
         reference_type="wallet_transfer",
         reference_id=recipient_wallet.id,
-        description=f"Transferencia enviada a {recipient.name} ({identifier})",
+        description=f"Transferencia enviada a {recipient.name}",
         balance_after=sender_wallet.balance
     )
     db.add(sender_tx)
