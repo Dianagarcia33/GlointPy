@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 from typing import List, Optional, Any, Dict
 from datetime import datetime
 from src.schemas.security import RoleResponse
@@ -18,14 +18,22 @@ class UserCreate(UserBase):
 
 class UserCreateAdmin(UserBase):
     model_config = ConfigDict(extra="ignore")
+    document_id: str = Field(..., min_length=3, max_length=50, description="Documento de identidad obligatorio")
     date_of_birth: Optional[Any] = None
-    role_ids: Optional[List[int]] = []
+    role_ids: List[int] = Field(..., min_length=1, description="Debe asignarse al menos un rol al usuario")
 
     @field_validator('date_of_birth', mode='before')
     @classmethod
     def parse_empty_date(cls, v):
         if v == "" or v == "null" or v is None:
             return None
+        return v
+
+    @field_validator('role_ids')
+    @classmethod
+    def validate_roles(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("Debe asignarse al menos un rol al usuario")
         return v
 
 class UserUpdate(BaseModel):
@@ -63,6 +71,13 @@ class UserUpdateAdmin(BaseModel):
     def parse_empty_date(cls, v):
         if v == "" or v == "null" or v is None:
             return None
+        return v
+
+    @field_validator('role_ids')
+    @classmethod
+    def validate_roles(cls, v):
+        if v is not None and len(v) == 0:
+            raise ValueError("El usuario debe tener al menos un rol asignado")
         return v
 
 class UserResponse(BaseModel):
