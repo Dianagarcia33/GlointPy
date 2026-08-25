@@ -53,6 +53,82 @@ class SimpleInvestorAuditResponse(InvestorBase):
             return base_date
         return base_date + relativedelta(days=self.period.days)
 
+    @computed_field
+    @property
+    def capital_total(self) -> float:
+        if self.package and self.package.value:
+            return float(self.package.value)
+        return 0.0
+
+    @computed_field
+    @property
+    def dias_totales(self) -> int:
+        if self.period and self.period.days:
+            return int(self.period.days)
+        if self.period and self.period.months:
+            return int(self.period.months * 30)
+        return 1
+
+    @computed_field
+    @property
+    def dias_transcurridos(self) -> int:
+        if not self.start_date:
+            return 0
+        from datetime import date
+        today = date.today()
+        start = self.start_date.date() if isinstance(self.start_date, datetime) else self.start_date
+        diff = (today - start).days
+        return max(0, diff)
+
+    @computed_field
+    @property
+    def capital_diario(self) -> float:
+        total = self.capital_total
+        dias = self.dias_totales
+        return (total / dias) if dias > 0 else 0.0
+
+    @computed_field
+    @property
+    def bloques_60_dias_cumplidos(self) -> int:
+        return self.dias_transcurridos // 60
+
+    @computed_field
+    @property
+    def capital_liberado(self) -> float:
+        monto = self.capital_total
+        diario = self.capital_diario
+        bloques = self.bloques_60_dias_cumplidos
+        liberado = (diario * 60) * bloques
+        return min(monto, liberado)
+
+    @computed_field
+    @property
+    def capital_retirado(self) -> float:
+        retirado = 0.0
+        if self.withdrawals:
+            for w in self.withdrawals:
+                tipo = str(getattr(w, 'tipo', '')).lower()
+                estado = str(getattr(w, 'estado', '')).lower()
+                if tipo == "capital" and estado in ["pendiente", "aprobado", "procesado"]:
+                    retirado += float(getattr(w, 'monto', 0) or getattr(w, 'monto_neto', 0) or 0)
+        return retirado
+
+    @computed_field
+    @property
+    def capital_disponible(self) -> float:
+        disp = self.capital_liberado - self.capital_retirado
+        return max(0.0, disp)
+
+    @computed_field
+    @property
+    def dias_proxima_liberacion(self) -> int:
+        transcurridos = self.dias_transcurridos
+        totales = self.dias_totales
+        if transcurridos >= totales:
+            return 0
+        proximo_hito = (self.bloques_60_dias_cumplidos + 1) * 60
+        return max(0, min(proximo_hito, totales) - transcurridos)
+
     model_config = ConfigDict(from_attributes=True)
 
 class AuditUserResponse(BaseModel):
@@ -64,7 +140,27 @@ class AuditUserResponse(BaseModel):
     is_active: bool
     wallet: Optional[WalletResponse] = None
     investments: List[SimpleInvestorAuditResponse] = []
-    
+
+    @computed_field
+    @property
+    def total_capital_invertido(self) -> float:
+        return sum(inv.capital_total for inv in self.investments)
+
+    @computed_field
+    @property
+    def total_capital_liberado(self) -> float:
+        return sum(inv.capital_liberado for inv in self.investments)
+
+    @computed_field
+    @property
+    def total_capital_retirado(self) -> float:
+        return sum(inv.capital_retirado for inv in self.investments)
+
+    @computed_field
+    @property
+    def total_capital_disponible(self) -> float:
+        return sum(inv.capital_disponible for inv in self.investments)
+
     model_config = ConfigDict(from_attributes=True)
 
 class AuditUserPaginatedResponse(BaseModel):
