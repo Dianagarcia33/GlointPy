@@ -58,23 +58,11 @@ class RequirePermission:
         if isinstance(required_permission, str):
             self.required_permissions = [required_permission]
         else:
-            self.required_permissions = required_permission
+            self.required_permissions = list(required_permission)
 
     def __call__(self, current_user: User = Depends(get_current_user)) -> User:
-        if current_user.is_superuser:
-            return current_user
-
-        user_roles = [r.name.lower() for r in getattr(current_user, 'roles', []) if hasattr(r, 'name')]
-        if any(r in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in user_roles):
-            return current_user
-            
-        user_perms = set(current_user.permissions) if hasattr(current_user, 'permissions') and current_user.permissions else set()
-        for role in current_user.roles:
-            if hasattr(role, 'permissions') and role.permissions:
-                for perm in role.permissions:
-                    user_perms.add(perm.name)
-                
-        if any(p in user_perms for p in self.required_permissions):
+        from src.core.pbac import PBACEngine
+        if PBACEngine.has_permission(current_user, self.required_permissions):
             return current_user
                 
         raise HTTPException(
