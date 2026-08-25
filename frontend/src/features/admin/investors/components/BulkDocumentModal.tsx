@@ -135,7 +135,7 @@ export const BulkDocumentModal: React.FC<BulkDocumentModalProps> = ({
                         template_id: tpl.id,
                         target_type: targetType,
                         investor_ids: targetType === 'selected' ? preselectedInvestorIds : undefined,
-                        background_image: selectedBgOption || undefined,
+                        background_image: selectedBgOption || '/uploads/templates/gloint_membrete_oficial.png',
                         overwrite_existing: overwriteExisting,
                         offset: offset,
                         batch_size: BATCH_SIZE
