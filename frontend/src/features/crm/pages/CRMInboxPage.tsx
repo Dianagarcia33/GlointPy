@@ -96,23 +96,22 @@ export const CRMInboxPage: React.FC = () => {
   const handleSyncIMAP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!imapPass.trim()) {
-      showToast('Ingresa tu contraseña de correo cPanel para autenticar la lectura', 'error');
+      showToast('Ingresa la contraseña de tu cuenta institucional para autenticar la lectura', 'error');
       return;
     }
-
     try {
       setSyncing(true);
       const res = await crmEmailService.syncEmails(imapPass.trim());
       if (res.error) {
-        showToast(`Error cPanel: ${res.error}`, 'error');
+        showToast(`Error de sincronización: ${res.error}`, 'error');
       } else {
-        showToast(res.message || 'Sincronización con cPanel completada', 'success');
+        showToast(res.message || 'Sincronización de bandeja completada exitosamente', 'success');
         setIsSyncModalOpen(false);
         setImapPass('');
         refetchEmails();
       }
     } catch (err: any) {
-      showToast(err.message || 'Error al conectar con host81.latinoamericahosting.com', 'error');
+      showToast(err.message || 'Error al conectar con el servidor de correo corporativo', 'error');
     } finally {
       setSyncing(false);
     }
@@ -127,14 +126,14 @@ export const CRMInboxPage: React.FC = () => {
         <div className="relative z-10 space-y-2">
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 bg-brand-500/20 text-brand-300 text-xs font-bold rounded-full border border-brand-500/30 uppercase tracking-wider font-montserrat">
-              cPanel IMAP • host81.latinoamericahosting.com
+              Bandeja Corporativa • Conexión Segura SSL
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
             Bandeja de Correos Comercial
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
-            Envía propuestas comerciales y sincroniza las respuestas de tus prospectos desde cPanel.
+            Envía propuestas comerciales y sincroniza las respuestas de tus prospectos de forma segura y centralizada.
           </p>
         </div>
 
@@ -144,7 +143,7 @@ export const CRMInboxPage: React.FC = () => {
             className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer font-montserrat"
           >
             <RefreshCw className="w-4 h-4" />
-            <span>Sincronizar cPanel</span>
+            <span>Sincronizar Bandeja</span>
           </button>
           
           <button
@@ -194,7 +193,7 @@ export const CRMInboxPage: React.FC = () => {
             >
               <div className="flex items-center gap-2.5">
                 <Inbox className="w-4 h-4" />
-                <span>Recibidos (cPanel)</span>
+                <span>Recibidos</span>
               </div>
             </button>
           </nav>
@@ -397,8 +396,8 @@ export const CRMInboxPage: React.FC = () => {
                   <RefreshCw className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 font-montserrat">Sincronizar cPanel IMAP</h2>
-                  <p className="text-xs text-slate-500">host81.latinoamericahosting.com:993</p>
+                  <h2 className="text-base font-bold text-slate-900 font-montserrat">Sincronizar Bandeja Corporativa</h2>
+                  <p className="text-xs text-slate-500">Servicio de Correo Seguro • IMAP SSL</p>
                 </div>
               </div>
               <button onClick={() => setIsSyncModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer">
@@ -408,11 +407,11 @@ export const CRMInboxPage: React.FC = () => {
 
             <form onSubmit={handleSyncIMAP} className="space-y-4">
               <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-2xl text-xs text-blue-900 font-sans">
-                Se sincronizará la casilla <strong className="font-montserrat">{user?.email}</strong> en el servidor cPanel para traer las respuestas de tus prospectos.
+                Se sincronizará la casilla <strong className="font-montserrat">{user?.email}</strong> con el servidor institucional para traer las respuestas de tus prospectos.
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Contraseña del Correo cPanel *</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Contraseña de la Casilla Corporativa *</label>
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                   <input
