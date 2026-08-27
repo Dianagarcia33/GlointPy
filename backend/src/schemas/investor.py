@@ -18,18 +18,32 @@ class InvestorBase(BaseModel):
     start_date: Optional[datetime] = None
     observations: Optional[str] = None
 
-    @field_validator("referred_by")
+    @field_validator("referred_by", mode="before")
     @classmethod
     def validate_referred_by(cls, v: Optional[str]) -> Optional[str]:
-        if not v or not v.strip():
+        if v is None:
             return None
-        v_clean = v.strip().upper()
-        if not re.match(r"^[A-Z0-9_-]{2,25}$", v_clean):
-            raise ValueError("El código de referido debe contener entre 2 y 25 caracteres alfanuméricos válidos.")
-        return v_clean
+        v_clean = str(v).strip()
+        if not v_clean or v_clean in ["\\N", r"\N", "\\\\N", "None", "none", "NULL", "null", "N/A", "n/a", "undefined", ""]:
+            return None
+        v_upper = v_clean.upper()
+        if not re.match(r"^[A-Z0-9_-]{2,25}$", v_upper):
+            return None
+        return v_upper
 
 class InvestorCreate(InvestorBase):
-    pass
+    @field_validator("referred_by")
+    @classmethod
+    def validate_create_referred_by(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v_clean = str(v).strip()
+        if not v_clean or v_clean in ["\\N", r"\N", "None", "none", "NULL", "null", "N/A", "n/a", ""]:
+            return None
+        v_upper = v_clean.upper()
+        if not re.match(r"^[A-Z0-9_-]{2,25}$", v_upper):
+            raise ValueError("El código de referido debe contener entre 2 y 25 caracteres alfanuméricos válidos.")
+        return v_upper
 
 class InvestorUpdate(BaseModel):
     assigned_code: Optional[str] = None
@@ -40,15 +54,18 @@ class InvestorUpdate(BaseModel):
     start_date: Optional[datetime] = None
     observations: Optional[str] = None
 
-    @field_validator("referred_by")
+    @field_validator("referred_by", mode="before")
     @classmethod
     def validate_referred_by(cls, v: Optional[str]) -> Optional[str]:
-        if not v or not v.strip():
+        if v is None:
             return None
-        v_clean = v.strip().upper()
-        if not re.match(r"^[A-Z0-9_-]{2,25}$", v_clean):
+        v_clean = str(v).strip()
+        if not v_clean or v_clean in ["\\N", r"\N", "\\\\N", "None", "none", "NULL", "null", "N/A", "n/a", "undefined", ""]:
+            return None
+        v_upper = v_clean.upper()
+        if not re.match(r"^[A-Z0-9_-]{2,25}$", v_upper):
             raise ValueError("El código de referido debe contener entre 2 y 25 caracteres alfanuméricos válidos.")
-        return v_clean
+        return v_upper
 
 class SimpleInvestorResponse(InvestorBase):
     id: int

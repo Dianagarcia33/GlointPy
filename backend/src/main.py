@@ -121,6 +121,12 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Limpieza de valores nulos / escapados en referred_by
+            try:
+                await conn.execute(text("UPDATE investors SET referred_by = NULL WHERE referred_by = '\\\\N' OR referred_by = '\\N' OR referred_by = 'NULL' OR referred_by = ''"))
+            except Exception:
+                pass
+
         async with async_session_maker() as db:
             await seed_permissions_db(db)
             try:
