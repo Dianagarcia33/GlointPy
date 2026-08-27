@@ -351,8 +351,16 @@ class WithdrawalService:
         updated_count = 0
         user_notifications = []
 
+        # Validación de seguridad: Prevenir pagos dobles
+        invalid_withdrawals = [w for w in withdrawals if w.estado != WithdrawalStatus.PENDING]
+        if invalid_withdrawals:
+            invalid_ids = [str(w.id) for w in invalid_withdrawals]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Los retiros #{', #'.join(invalid_ids)} no están en estado pendiente. Para evitar pagos dobles, solo se pueden procesar solicitudes pendientes."
+            )
+
         for w in withdrawals:
-            # Permitir marcar como procesados retiros en estado pendiente o aprobado
             w.estado = WithdrawalStatus.PROCESSED
             w.procesado_por = admin_id
             w.fecha_procesamiento = now

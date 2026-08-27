@@ -107,40 +107,45 @@ export const PaymentManagementPage: React.FC = () => {
     return item.estado.toLowerCase() === statusFilter.toLowerCase();
   });
 
-  // Calculate selection stats
+  // Calculate selection stats (Solo permitidos retiros en estado PENDIENTE)
+  const pendingItemsOnPage = useMemo(() => {
+    return filteredItems.filter(i => i.estado === 'pendiente');
+  }, [filteredItems]);
+
   const selectedWithdrawalsList = useMemo(() => {
     const all = data?.data || [];
-    return all.filter(i => selectedIds.has(i.id));
+    return all.filter(i => selectedIds.has(i.id) && i.estado === 'pendiente');
   }, [data, selectedIds]);
 
   const selectedTotalNet = useMemo(() => {
     return selectedWithdrawalsList.reduce((sum, i) => sum + parseFloat(i.monto_neto as any || i.monto || 0), 0);
   }, [selectedWithdrawalsList]);
 
-  const isAllOnPageSelected = useMemo(() => {
-    return filteredItems.length > 0 && filteredItems.every(i => selectedIds.has(i.id));
-  }, [filteredItems, selectedIds]);
+  const isAllPendingOnPageSelected = useMemo(() => {
+    return pendingItemsOnPage.length > 0 && pendingItemsOnPage.every(i => selectedIds.has(i.id));
+  }, [pendingItemsOnPage, selectedIds]);
 
-  const isSomeOnPageSelected = useMemo(() => {
-    return filteredItems.some(i => selectedIds.has(i.id)) && !isAllOnPageSelected;
-  }, [filteredItems, selectedIds, isAllOnPageSelected]);
+  const isSomePendingOnPageSelected = useMemo(() => {
+    return pendingItemsOnPage.some(i => selectedIds.has(i.id)) && !isAllPendingOnPageSelected;
+  }, [pendingItemsOnPage, selectedIds, isAllPendingOnPageSelected]);
 
   const toggleSelectAllOnPage = () => {
     const next = new Set(selectedIds);
-    if (isAllOnPageSelected) {
-      filteredItems.forEach(i => next.delete(i.id));
+    if (isAllPendingOnPageSelected) {
+      pendingItemsOnPage.forEach(i => next.delete(i.id));
     } else {
-      filteredItems.forEach(i => next.add(i.id));
+      pendingItemsOnPage.forEach(i => next.add(i.id));
     }
     setSelectedIds(next);
   };
 
-  const toggleSelectOne = (id: number) => {
+  const toggleSelectOne = (withdrawal: Withdrawal) => {
+    if (withdrawal.estado !== 'pendiente') return;
     const next = new Set(selectedIds);
-    if (next.has(id)) {
-      next.delete(id);
+    if (next.has(withdrawal.id)) {
+      next.delete(withdrawal.id);
     } else {
-      next.add(id);
+      next.add(withdrawal.id);
     }
     setSelectedIds(next);
   };
@@ -366,12 +371,19 @@ export const PaymentManagementPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={toggleSelectAllOnPage}
-                    className="w-5 h-5 rounded-md flex items-center justify-center transition-colors cursor-pointer mx-auto"
-                    title={isAllOnPageSelected ? "Desmarcar todos" : "Seleccionar todos"}
+                    disabled={pendingItemsOnPage.length === 0}
+                    className="w-5 h-5 rounded-md flex items-center justify-center transition-colors cursor-pointer mx-auto disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={
+                      pendingItemsOnPage.length === 0 
+                        ? "No hay solicitudes pendientes en esta página" 
+                        : isAllPendingOnPageSelected 
+                          ? "Desmarcar todos los pendientes" 
+                          : "Seleccionar todos los pendientes"
+                    }
                   >
-                    {isAllOnPageSelected ? (
+                    {isAllPendingOnPageSelected ? (
                       <CheckSquare className="w-4 h-4 text-brand-600" />
-                    ) : isSomeOnPageSelected ? (
+                    ) : isSomePendingOnPageSelected ? (
                       <div className="w-3 h-3 bg-brand-600 rounded-xs" />
                     ) : (
                       <Square className="w-4 h-4 text-slate-400 hover:text-slate-600" />
@@ -408,6 +420,7 @@ export const PaymentManagementPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredItems.map((withdrawal) => {
+                  const isPending = withdrawal.estado === 'pendiente';
                   const isSelected = selectedIds.has(withdrawal.id);
                   return (
                     <tr 
@@ -415,15 +428,26 @@ export const PaymentManagementPage: React.FC = () => {
                       className={`transition-colors group cursor-pointer ${
                         isSelected ? 'bg-brand-50/50 hover:bg-brand-50/70' : 'hover:bg-slate-50/80'
                       }`}
-                      onClick={() => withdrawal.estado === 'pendiente' && setSelectedWithdrawal(withdrawal)}
+                      onClick={() => isPending && setSelectedWithdrawal(withdrawal)}
                     >
                       <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelectOne(withdrawal.id)}
-                          className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer accent-brand-600"
-                        />
+                        {isPending ? (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectOne(withdrawal)}
+                            className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer accent-brand-600"
+                            title="Seleccionar para dispersión"
+                          />
+                        ) : (
+                          <input
+                            type="checkbox"
+                            disabled
+                            checked={false}
+                            title="Solo se pueden seleccionar solicitudes en estado pendiente para dispersión"
+                            className="w-4 h-4 rounded border-slate-200 text-slate-300 opacity-40 cursor-not-allowed"
+                          />
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="font-extrabold text-slate-900 font-mono">#{withdrawal.id}</div>

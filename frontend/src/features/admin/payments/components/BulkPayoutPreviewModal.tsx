@@ -256,28 +256,22 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
           </button>
         </div>
 
-        {/* Controls Bar & Reference Config */}
-        <div className="p-5 bg-slate-50 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Referencia / Plataforma:
-            </label>
-            <input
-              type="text"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="Gloint"
-              className="px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-2xs"
-            />
+        {/* Summary Info Bar */}
+        <div className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Solicitudes seleccionadas:
+            </span>
+            <span className="px-2.5 py-0.5 bg-brand-100 text-brand-800 font-mono font-bold rounded-lg text-xs">
+              {rows.length} registros
+            </span>
           </div>
 
-          <div className="flex items-center gap-6 text-right">
-            <div>
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block">Total Dispersión</span>
-              <span className="text-lg sm:text-xl font-extrabold text-emerald-600 font-montserrat">
-                {formatCurrency(totalAmount)}
-              </span>
-            </div>
+          <div className="flex items-center gap-2 text-right">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total a Dispersar:</span>
+            <span className="text-lg sm:text-xl font-extrabold text-emerald-600 font-montserrat">
+              {formatCurrency(totalAmount)}
+            </span>
           </div>
         </div>
 
