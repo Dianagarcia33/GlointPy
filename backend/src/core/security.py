@@ -27,11 +27,11 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
 
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
-    """Genera el token JWT de acceso (corta duración, 5 minutos)."""
+    """Genera el token JWT de acceso (24 horas)."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        minutes = getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 5)
+        minutes = getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 1440)
         expire = datetime.utcnow() + timedelta(minutes=minutes)
         
     to_encode = {"exp": expire, "sub": str(subject)}
@@ -43,11 +43,11 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
     return encoded_jwt
 
 def create_refresh_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
-    """Genera el Refresh Token (media duración, para la Cookie HttpOnly)."""
+    """Genera el Refresh Token (7 días)."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(hours=2)
+        expire = datetime.utcnow() + timedelta(days=7)
         
     to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
     encoded_jwt = jwt.encode(
