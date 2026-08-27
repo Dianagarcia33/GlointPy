@@ -5,6 +5,8 @@ import { investmentsService } from '../../../../services/investments';
 import { fetchApi } from '../../../../services/api';
 import { X, Loader2, User, Landmark, UploadCloud, CheckCircle2, DollarSign } from 'lucide-react';
 
+import { bankAccountsService, DataBank } from '../../../../services/bankAccounts';
+
 interface ConvertReferralModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -18,32 +20,6 @@ const CITIES = [
     "Villavicencio", "Santa Marta", "Valledupar", "Montería", "Pasto", "Otra"
 ];
 
-const COLOMBIAN_BANKS = [
-    "Bancolombia",
-    "Nequi",
-    "Davivienda",
-    "Daviplata",
-    "Banco de Bogotá",
-    "BBVA Colombia",
-    "Banco Popular",
-    "Banco de Occidente",
-    "Banco AV Villas",
-    "Scotiabank Colpatria",
-    "Itaú Colombia",
-    "GNB Sudameris",
-    "Banco Caja Social",
-    "Banco Agrario de Colombia",
-    "Lulo Bank",
-    "Nubank (Nu Colombia)",
-    "Ualá",
-    "RappiPay (RappiCuenta)",
-    "Banco W",
-    "Banco Coomeva",
-    "Banco Falabella",
-    "Banco Pichincha",
-    "Otro / Cooperativa"
-];
-
 export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     isOpen,
     onClose,
@@ -52,6 +28,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
 }) => {
     const [paquetes, setPaquetes] = useState<any[]>([]);
     const [periodos, setPeriodos] = useState<any[]>([]);
+    const [officialBanks, setOfficialBanks] = useState<DataBank[]>([]);
     const [loadingOptions, setLoadingOptions] = useState(false);
 
     const [showCustomCity, setShowCustomCity] = useState(false);
@@ -66,7 +43,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
         ciudad: 'Bogotá',
         custom_ciudad: '',
         fecha_nacimiento: '',
-        banco: 'Bancolombia',
+        banco: 'BANCOLOMBIA',
         tipo_cuenta: 'Ahorros',
         numero_cuenta: '',
         paquete_id: '',
@@ -83,12 +60,18 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     useEffect(() => {
         if (isOpen) {
             setLoadingOptions(true);
-            fetchApi('/auth/public/config')
-                .then((cfg: any) => {
+            Promise.all([
+                fetchApi('/auth/public/config'),
+                bankAccountsService.getBanks().catch(() => [])
+            ])
+                .then(([cfg, banks]: [any, any]) => {
                     setPaquetes(cfg?.paquetes || []);
                     setPeriodos(cfg?.periodos || []);
+                    if (banks && banks.length > 0) {
+                        setOfficialBanks(banks);
+                    }
                 })
-                .catch((err: any) => console.error("Error al cargar opciones de paquetes", err))
+                .catch((err: any) => console.error("Error al cargar opciones", err))
                 .finally(() => setLoadingOptions(false));
         }
     }, [isOpen]);
@@ -380,7 +363,16 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                                         onChange={e => setFormData({ ...formData, banco: e.target.value })} 
                                         className="w-full px-3.5 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs font-bold text-slate-900 outline-none transition-all cursor-pointer"
                                     >
-                                        {COLOMBIAN_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                                        {officialBanks.length > 0 ? (
+                                            officialBanks.map(b => (
+                                                <option key={b.id} value={b.banck}>
+                                                    {b.banck} (Cód: {b.code_banck})
+                                                </option>
+                                            ))
+                                        ) : (
+                                            <option value="BANCOLOMBIA">BANCOLOMBIA (Cód: 1007)</option>
+                                        )}
+                                        <option value="Otro">Otro / Cooperativa</option>
                                     </select>
                                 </div>
                                 <div className="space-y-1">

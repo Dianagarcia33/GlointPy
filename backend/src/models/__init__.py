@@ -24,4 +24,5 @@ from src.models.user_notification import UserNotification
 from src.models.admin_notification import AdminBroadcastLog
 from src.models.investor_document import InvestorDocument
 from src.models.audit_log import AuditLog
+from src.models.data_bank import DataBank
 

@@ -7,37 +7,18 @@ import imageCompression from 'browser-image-compression';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
 import { commercialService } from '../../../services/commercial';
+import { bankAccountsService, DataBank } from '../../../services/bankAccounts';
 import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 import { compressImage } from '../../../utils/imageCompression';
 
-const COLOMBIAN_BANKS = [
-    "Bancolombia",
-    "Nequi",
-    "Davivienda",
-    "Daviplata",
-    "Banco de Bogotá",
-    "BBVA Colombia",
-    "Banco Popular",
-    "Banco de Occidente",
-    "Banco AV Villas",
-    "Scotiabank Colpatria",
-    "Itaú Colombia",
-    "GNB Sudameris",
-    "Banco Caja Social",
-    "Banco Agrario de Colombia",
-    "Lulo Bank",
-    "Nubank (Nu Colombia)",
-    "Ualá",
-    "RappiPay (RappiCuenta)",
-    "Banco W",
-    "Banco Coomeva",
-    "Banco Falabella",
-    "Banco Pichincha",
-    "Otro / Cooperativa"
-];
-
 export const InvestorRegistrationFlow = () => {
     const [step, setStep] = useState(1);
+    
+    const { data: officialBanks = [] } = useQuery<DataBank[]>({
+        queryKey: ['official_banks'],
+        queryFn: () => bankAccountsService.getBanks(),
+        staleTime: 1000 * 60 * 30
+    });
     
     // KYC Images States
     const [frontImage, setFrontImage] = useState<File | null>(null);
@@ -768,9 +749,10 @@ export const InvestorRegistrationFlow = () => {
                                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
                                     >
                                         <option value="">Selecciona tu banco...</option>
-                                        {COLOMBIAN_BANKS.map(b => (
-                                            <option key={b} value={b}>{b}</option>
+                                        {officialBanks.map(b => (
+                                            <option key={b.id} value={b.banck}>{b.banck} (Cód: {b.code_banck})</option>
                                         ))}
+                                        <option value="Otro">Otro / Cooperativa</option>
                                     </select>
                                 </div>
                                 {showCustomBank && (

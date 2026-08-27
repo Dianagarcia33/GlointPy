@@ -49,6 +49,15 @@ export const paymentService = {
       method: 'POST',
     });
     return data as { synced_count: number; message: string };
+  },
+
+  bulkProcessWithdrawals: async (withdrawalIds: number[]): Promise<{ processed_count: number; message: string }> => {
+    const data = await fetchApi('/withdrawals/bulk-process', {
+      method: 'POST',
+      body: JSON.stringify({ withdrawal_ids: withdrawalIds }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return data as { processed_count: number; message: string };
   }
 };
 

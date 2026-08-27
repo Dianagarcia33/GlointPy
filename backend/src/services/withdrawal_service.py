@@ -331,3 +331,57 @@ class WithdrawalService:
             "synced_count": synced_count
         }
 
+    @staticmethod
+    async def bulk_process_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int) -> Dict[str, Any]:
+        """
+        Actualiza masivamente una lista de retiros al estado 'procesado'.
+        """
+        if not withdrawal_ids:
+            raise HTTPException(status_code=400, detail="Debe proporcionar al menos un ID de retiro")
+
+        result = await db.execute(
+            select(Withdrawal).options(selectinload(Withdrawal.user)).where(Withdrawal.id.in_(withdrawal_ids))
+        )
+        withdrawals = result.scalars().all()
+
+        if not withdrawals:
+            raise HTTPException(status_code=404, detail="No se encontraron los retiros seleccionados")
+
+        now = datetime.utcnow()
+        updated_count = 0
+        user_notifications = []
+
+        for w in withdrawals:
+            # Permitir marcar como procesados retiros en estado pendiente o aprobado
+            w.estado = WithdrawalStatus.PROCESSED
+            w.procesado_por = admin_id
+            w.fecha_procesamiento = now
+            if not w.fecha_aprobacion:
+                w.aprobado_por = admin_id
+                w.fecha_aprobacion = now
+            updated_count += 1
+            user_notifications.append((w.user_id, w.id, w.monto_neto or w.monto))
+
+        await db.commit()
+
+        # Generar notificaciones push internas en background o bloque protegido
+        try:
+            from src.services.push_notification_service import PushNotificationService
+            for uid, wid, monto in user_notifications:
+                formatted_amount = f"${float(monto):,.0f}" if monto else "$0"
+                await PushNotificationService.create_and_send_notification(
+                    db=db,
+                    user_id=uid,
+                    title="¡Pago de Retiro Procesado!",
+                    message=f"Tu retiro #{wid} por valor de {formatted_amount} COP ha sido procesado exitosamente a través del sistema de dispersión.",
+                    type="retiro",
+                    link="/dashboard/wallet"
+                )
+        except Exception as err:
+            logger.warning(f"Error generando notificaciones de retiros procesados en lote: {err}")
+
+        return {
+            "message": f"Se marcaron exitosamente {updated_count} retiros como PROCESADOS.",
+            "processed_count": updated_count
+        }
+

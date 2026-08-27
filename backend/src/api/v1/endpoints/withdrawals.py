@@ -7,7 +7,7 @@ import aiofiles
 from datetime import datetime
 
 from src.core.database import get_db
-from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate, WithdrawalPaginatedResponse, WithdrawalRejectRequest
+from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate, WithdrawalPaginatedResponse, WithdrawalRejectRequest, WithdrawalBulkProcessRequest
 from src.services.withdrawal_service import WithdrawalService
 from src.services.pdf_service import PDFService
 from src.api.deps import get_current_user, RequirePermission
@@ -150,4 +150,19 @@ async def sync_wallet_debits(
     Sincroniza retroactivamente todas las transacciones de débito de billetera creando registros de retiro en estado APROBADO.
     """
     return await WithdrawalService.sync_wallet_debits(db, current_user.id)
+
+@router.post("/bulk-process", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def bulk_process_withdrawals(
+    req: WithdrawalBulkProcessRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Marca masivamente una lista de retiros como PROCESADOS.
+    """
+    return await WithdrawalService.bulk_process_withdrawals(
+        db=db,
+        withdrawal_ids=req.withdrawal_ids,
+        admin_id=current_user.id
+    )
 

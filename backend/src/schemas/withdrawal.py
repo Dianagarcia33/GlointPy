@@ -84,3 +84,6 @@ class WithdrawalRejectRequest(BaseModel):
     def __init__(self, **data):
         super().__init__(**data)
         self.motivo_rechazo = self.validate_motivo(self.motivo_rechazo)
+
+class WithdrawalBulkProcessRequest(BaseModel):
+    withdrawal_ids: List[int]

@@ -1,27 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Landmark, Mail, KeyRound, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Trash2 } from 'lucide-react';
-import { bankAccountsService, UserBankAccount } from '../../../services/bankAccounts';
-
-const COLOMBIAN_BANKS = [
-  "Bancolombia",
-  "Nequi",
-  "Daviplata",
-  "Davivienda",
-  "Banco de Bogotá",
-  "BBVA Colombia",
-  "Banco de Occidente",
-  "Banco AV Villas",
-  "Banco Popular",
-  "Scotiabank Colpatria",
-  "Lulo Bank",
-  "Nu Colombia",
-  "Banco Itaú",
-  "Banco Falabella",
-  "Banco Pichincha",
-  "Coopcentral",
-  "Otro"
-];
+import { bankAccountsService, UserBankAccount, DataBank } from '../../../services/bankAccounts';
 
 interface BankAccountOtpModalProps {
   isOpen: boolean;
@@ -45,25 +25,48 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
   const [numeroCuenta, setNumeroCuenta] = useState('');
   const [otpCode, setOtpCode] = useState('');
   
+  const [officialBanks, setOfficialBanks] = useState<DataBank[]>([]);
+  const [isLoadingBanks, setIsLoadingBanks] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadBanks = async () => {
+      try {
+        setIsLoadingBanks(true);
+        const list = await bankAccountsService.getBanks();
+        setOfficialBanks(list);
+      } catch (err) {
+        console.error('Error fetching banks list:', err);
+      } finally {
+        setIsLoadingBanks(false);
+      }
+    };
+    if (isOpen) {
+      loadBanks();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (isOpen) {
       if (mode === 'edit' && accountToEdit) {
-        if (COLOMBIAN_BANKS.includes(accountToEdit.banco)) {
-          setBanco(accountToEdit.banco);
+        const found = officialBanks.find(
+          b => b.banck.toLowerCase() === accountToEdit.banco.toLowerCase() ||
+               b.code_banck === accountToEdit.banco
+        );
+        if (found) {
+          setBanco(found.banck);
           setCustomBanco('');
         } else {
-          setBanco('Otro');
-          setCustomBanco(accountToEdit.banco);
+          setBanco(accountToEdit.banco || 'BANCOLOMBIA');
+          setCustomBanco('');
         }
         setTipoCuenta(accountToEdit.tipo_cuenta || 'Ahorros');
         setNumeroCuenta(accountToEdit.numero_cuenta || '');
       } else {
-        setBanco('Bancolombia');
+        setBanco('BANCOLOMBIA');
         setCustomBanco('');
         setTipoCuenta('Ahorros');
         setNumeroCuenta('');
@@ -73,7 +76,7 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
       setOtpSent(false);
       setError(null);
     }
-  }, [isOpen, mode, accountToEdit]);
+  }, [isOpen, mode, accountToEdit, officialBanks]);
 
   if (!isOpen) return null;
 
@@ -205,9 +208,16 @@ export const BankAccountOtpModal: React.FC<BankAccountOtpModalProps> = ({
                   onChange={(e) => setBanco(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
                 >
-                  {COLOMBIAN_BANKS.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
+                  {officialBanks.length > 0 ? (
+                    officialBanks.map((b) => (
+                      <option key={b.id} value={b.banck}>
+                        {b.banck} (Cód: {b.code_banck})
+                      </option>
+                    ))
+                  ) : (
+                    <option value="BANCOLOMBIA">BANCOLOMBIA (Cód: 1007)</option>
+                  )}
+                  <option value="Otro">Otro / Otra Entidad</option>
                 </select>
               </div>
 

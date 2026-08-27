@@ -1,5 +1,13 @@
 import { fetchApi } from './api';
 
+export interface DataBank {
+  id: number;
+  banck: string;
+  code_banck: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface UserBankAccount {
   id: number;
   user_id: number;
@@ -11,6 +19,11 @@ export interface UserBankAccount {
 }
 
 export const bankAccountsService = {
+  getBanks: async (search?: string): Promise<DataBank[]> => {
+    const query = search ? `?search=${encodeURIComponent(search)}` : '';
+    return await fetchApi(`/banks${query}`);
+  },
+
   getMyBankAccounts: async (): Promise<UserBankAccount[]> => {
     return await fetchApi('/bank-accounts/me');
   },
