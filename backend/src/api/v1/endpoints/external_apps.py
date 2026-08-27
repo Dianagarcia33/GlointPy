@@ -3,8 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 
 from src.core.database import get_db
-from src.core.security import get_current_user
-from src.core.permissions import RequirePermission
+from src.api.deps import RequirePermission, get_current_user
 from src.models.user import User
 from src.schemas.external_app import (
     ExternalAppCreate,
