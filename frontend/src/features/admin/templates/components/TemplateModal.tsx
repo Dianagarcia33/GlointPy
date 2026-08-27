@@ -24,6 +24,7 @@ const TEMPLATE_VARIABLES = [
     { label: 'Acciones Otorgadas', tag: '{acciones_otorgadas}' },
     { label: 'Valor Total Acciones', tag: '{valor_total_acciones_formato}' },
     { label: 'Fecha Ingreso / Inicio', tag: '{fecha_ingreso}' },
+    { label: 'Fecha en Palabras (Legal)', tag: '{fecha_ingreso_palabras}' },
     { label: 'Fecha Finalización / Fin', tag: '{fecha_fin}' },
     { label: 'Fecha Emisión Larga', tag: '{fecha_emision}' },
     { label: 'Código Inversión / Pagaré', tag: '{codigo_inversion}' },

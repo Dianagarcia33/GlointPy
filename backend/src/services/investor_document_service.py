@@ -71,6 +71,42 @@ def numero_a_letras(numero: float) -> str:
     resultado = " ".join(partes).strip()
     return f"{resultado} PESOS M/CTE"
 
+def fecha_a_palabras(dt: Optional[datetime]) -> str:
+    """Convierte una fecha al formato legal colombiano en palabras."""
+    if not dt:
+        dt = datetime.utcnow()
+        
+    dias_letras = {
+        1: "un (01)", 2: "dos (02)", 3: "tres (03)", 4: "cuatro (04)", 5: "cinco (05)",
+        6: "seis (06)", 7: "siete (07)", 8: "ocho (08)", 9: "nueve (09)", 10: "diez (10)",
+        11: "once (11)", 12: "doce (12)", 13: "trece (13)", 14: "catorce (14)", 15: "quince (15)",
+        16: "dieciséis (16)", 17: "diecisiete (17)", 18: "dieciocho (18)", 19: "diecinueve (19)", 20: "veinte (20)",
+        21: "veintiuno (21)", 22: "veintidós (22)", 23: "veintitrés (23)", 24: "veinticuatro (24)", 25: "veinticinco (25)",
+        26: "veintiséis (26)", 27: "veintisiete (27)", 28: "veintiocho (28)", 29: "veintinueve (29)", 30: "treinta (30)",
+        31: "treinta y un (31)"
+    }
+    meses_es = {
+        1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
+        5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
+        9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
+    }
+    
+    dia_txt = dias_letras.get(dt.day, f"{dt.day}")
+    mes_txt = meses_es.get(dt.month, "")
+    
+    anos_letras = {
+        2023: "dos mil veintitrés (2023)",
+        2024: "dos mil veinticuatro (2024)",
+        2025: "dos mil veinticinco (2025)",
+        2026: "dos mil veintiséis (2026)",
+        2027: "dos mil veintisiete (2027)",
+        2028: "dos mil veintiocho (2028)",
+        2029: "dos mil veintinueve (2029)",
+        2030: "dos mil treinta (2030)"
+    }
+    ano_txt = anos_letras.get(dt.year, str(dt.year))
+    return f"{dia_txt} días del mes de {mes_txt} de {ano_txt}"
+
 class InvestorDocumentService:
     
     @staticmethod
@@ -142,12 +178,14 @@ class InvestorDocumentService:
             dia_inicio = str(start_date.day)
             mes_inicio = meses_es.get(start_date.month, '')
             ano_inicio = str(start_date.year)
+            start_date_dt = start_date
         elif start_date:
             start_date_str = str(start_date)
             start_date_long = str(start_date)
             dia_inicio = "01"
             mes_inicio = "enero"
             ano_inicio = "2026"
+            start_date_dt = datetime(2026, 1, 1)
         else:
             now = datetime.utcnow()
             start_date_str = now.strftime("%d/%m/%Y")
@@ -155,6 +193,10 @@ class InvestorDocumentService:
             dia_inicio = str(now.day)
             mes_inicio = meses_es.get(now.month, '')
             ano_inicio = str(now.year)
+            start_date_dt = now
+
+        # Fecha en palabras
+        fecha_ingreso_palabras = fecha_a_palabras(start_date_dt)
 
         # End Date
         end_date_str = "N/A"
@@ -162,6 +204,7 @@ class InvestorDocumentService:
         dia_fin = "N/A"
         mes_fin = "N/A"
         ano_fin = "N/A"
+        fecha_fin_palabras = "N/A"
         if investor.start_date and investor.period:
             days = getattr(investor.period, 'days', 0) or (investor.period.months * 30 if investor.period.months else 0)
             end_date = investor.start_date + timedelta(days=days)
@@ -170,6 +213,7 @@ class InvestorDocumentService:
             dia_fin = str(end_date.day)
             mes_fin = meses_es.get(end_date.month, '')
             ano_fin = str(end_date.year)
+            fecha_fin_palabras = fecha_a_palabras(end_date)
 
         assigned_code = investor.assigned_code or "N/A"
 
@@ -257,6 +301,26 @@ class InvestorDocumentService:
             "dia_fin": dia_fin,
             "mes_fin": mes_fin,
             "ano_fin": ano_fin,
+
+            # Fechas en Palabras (Legal Colombiano)
+            "fecha_ingreso_palabras": fecha_ingreso_palabras,
+            "fecha_ingreso_en_palabras": fecha_ingreso_palabras,
+            "fecha_inicio_palabras": fecha_ingreso_palabras,
+            "fecha_inicio_en_palabras": fecha_ingreso_palabras,
+            "fecha_palabras": fecha_ingreso_palabras,
+            "fecha_en_palabras": fecha_ingreso_palabras,
+            "fecha_ingreso_letras": fecha_ingreso_palabras,
+            "fecha_ingreso_en_letras": fecha_ingreso_palabras,
+            "fecha_inicio_letras": fecha_ingreso_palabras,
+            "fecha_inicio_en_letras": fecha_ingreso_palabras,
+            "fecha_letras": fecha_ingreso_palabras,
+            "fecha_en_letras": fecha_ingreso_palabras,
+            "fecha_emision_palabras": fecha_ingreso_palabras,
+            "fecha_emision_letras": fecha_ingreso_palabras,
+            "fecha_fin_palabras": fecha_fin_palabras,
+            "fecha_fin_letras": fecha_fin_palabras,
+            "fecha_vencimiento_palabras": fecha_fin_palabras,
+            "fecha_vencimiento_letras": fecha_fin_palabras,
 
             # Periodo y porcentajes
             "periodo_porcentaje_numero": period_pct_clean,
@@ -508,6 +572,17 @@ class InvestorDocumentService:
         return doc
 
     @staticmethod
+    async def _patch_docs(db: AsyncSession, docs: List[InvestorDocument]) -> List[InvestorDocument]:
+        for doc in docs:
+            if doc and doc.html_content and "{" in doc.html_content and "}" in doc.html_content:
+                try:
+                    investor = await InvestorDocumentService.get_investor_with_relations(db, doc.investor_id)
+                    doc.html_content = InvestorDocumentService.render_html(doc.html_content, investor)
+                except Exception:
+                    pass
+        return docs
+
+    @staticmethod
     async def get_by_investor_id(db: AsyncSession, investor_id: int) -> List[InvestorDocument]:
         await InvestorDocumentService.ensure_table_exists(db)
         result = await db.execute(
@@ -515,7 +590,8 @@ class InvestorDocumentService:
             .where(InvestorDocument.investor_id == investor_id)
             .order_by(InvestorDocument.id.desc())
         )
-        return result.scalars().all()
+        docs = result.scalars().all()
+        return await InvestorDocumentService._patch_docs(db, list(docs))
 
     @staticmethod
     async def get_my_documents(db: AsyncSession, user_id: int, investor_id: Optional[int] = None) -> List[InvestorDocument]:
@@ -526,7 +602,8 @@ class InvestorDocumentService:
         
         query = query.order_by(InvestorDocument.id.desc())
         result = await db.execute(query)
-        return result.scalars().all()
+        docs = result.scalars().all()
+        return await InvestorDocumentService._patch_docs(db, list(docs))
 
     @staticmethod
     async def get_by_id(db: AsyncSession, document_id: int) -> InvestorDocument:
@@ -534,7 +611,8 @@ class InvestorDocumentService:
         doc = result.scalars().first()
         if not doc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado")
-        return doc
+        patched = await InvestorDocumentService._patch_docs(db, [doc])
+        return patched[0]
 
     @staticmethod
     async def delete(db: AsyncSession, document_id: int) -> None:
