@@ -4,7 +4,8 @@ import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff } from 'lucide-react';
+import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate } from '../../../../utils/format';
 
@@ -30,6 +31,7 @@ export const AdminUsersPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [statementUser, setStatementUser] = useState<User | null>(null);
 
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -385,6 +387,14 @@ export const AdminUsersPage = () => {
                     <Can permission="admin.users.manage">
                       <div className="flex items-center justify-center gap-2">
                         <button 
+                          onClick={() => setStatementUser(user)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-slate-200 hover:border-brand-300 bg-white cursor-pointer shadow-2xs"
+                          title="Ver Estado de Cuenta & Extracto Financiero"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-brand-600" />
+                          <span>Estado de Cuenta</span>
+                        </button>
+                        <button 
                           onClick={() => handleEdit(user)} 
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
                         >
@@ -505,6 +515,15 @@ export const AdminUsersPage = () => {
           fetchData();
         }}
       />
+
+      {statementUser && (
+        <UserAccountStatementModal
+          isOpen={!!statementUser}
+          onClose={() => setStatementUser(null)}
+          userId={statementUser.id}
+          userName={statementUser.name}
+        />
+      )}
     </div>
   );
 };

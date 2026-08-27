@@ -291,3 +291,210 @@ class UserService:
             "success": success_count,
             "errors": errors
         }
+
+    @staticmethod
+    async def get_user_account_statement(
+        db: AsyncSession,
+        user_id: int,
+        start_date_str: str = None,
+        end_date_str: str = None
+    ) -> dict:
+        from src.models.wallet import Wallet, WalletTransaction
+        from src.models.withdrawal import Withdrawal
+        from src.models.investor import Investor
+        from src.models.user_bank_account import UserBankAccount
+        from src.models.package import Package
+        from src.models.period import Period
+        from datetime import datetime, date, time
+        from sqlalchemy import desc, asc, and_
+
+        # 1. Fetch user with relations
+        user_res = await db.execute(
+            select(User)
+            .options(
+                selectinload(User.roles),
+                selectinload(User.bank_accounts),
+                selectinload(User.wallet)
+            )
+            .where(User.id == user_id)
+        )
+        user = user_res.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        # 2. Parse dates if provided
+        start_dt = None
+        end_dt = None
+        if start_date_str:
+            try:
+                start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
+            except Exception:
+                pass
+        if end_date_str:
+            try:
+                end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
+            except Exception:
+                pass
+
+        # 3. Fetch Wallet Transactions
+        wallet = user.wallet
+        wallet_transactions_list = []
+        opening_balance = 0.0
+        closing_balance = float(wallet.balance) if wallet else 0.0
+        total_credits = 0.0
+        total_debits = 0.0
+
+        if wallet:
+            # Query all transactions
+            t_query = select(WalletTransaction).where(WalletTransaction.wallet_id == wallet.id)
+            t_res = await db.execute(t_query.order_by(asc(WalletTransaction.created_at), asc(WalletTransaction.id)))
+            all_transactions = t_res.scalars().all()
+
+            for t in all_transactions:
+                t_dt = t.created_at
+                t_amount = float(t.amount or 0)
+                t_balance_after = float(t.balance_after or 0)
+
+                # If before start_dt, calculate opening balance
+                if start_dt and t_dt < start_dt:
+                    opening_balance = t_balance_after
+                    continue
+
+                # If after end_dt, skip from period list
+                if end_dt and t_dt > end_dt:
+                    continue
+
+                if t_amount >= 0:
+                    total_credits += t_amount
+                else:
+                    total_debits += abs(t_amount)
+
+                wallet_transactions_list.append({
+                    "id": t.id,
+                    "created_at": t_dt.isoformat() if t_dt else None,
+                    "type": t.type,
+                    "description": t.description or t.type,
+                    "amount": t_amount,
+                    "is_credit": t_amount >= 0,
+                    "balance_after": t_balance_after
+                })
+
+        # 4. Fetch Withdrawals
+        w_query = select(Withdrawal).where(Withdrawal.user_id == user_id)
+        if start_dt:
+            w_query = w_query.where(Withdrawal.created_at >= start_dt)
+        if end_dt:
+            w_query = w_query.where(Withdrawal.created_at <= end_dt)
+
+        w_res = await db.execute(w_query.order_by(desc(Withdrawal.created_at)))
+        withdrawals = w_res.scalars().all()
+
+        withdrawals_list = []
+        total_withdrawn_paid = 0.0
+        total_withdrawn_pending = 0.0
+
+        for w in withdrawals:
+            w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else str(w.tipo)
+            w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+            monto_bruto = float(w.monto or 0)
+            monto_neto = float(w.monto_neto or w.monto or 0)
+            retencion = max(0.0, monto_bruto - monto_neto)
+
+            if w_estado.lower() in ["aprobado", "procesado"]:
+                total_withdrawn_paid += monto_neto
+            elif w_estado.lower() == "pendiente":
+                total_withdrawn_pending += monto_neto
+
+            withdrawals_list.append({
+                "id": w.id,
+                "created_at": w.created_at.isoformat() if w.created_at else None,
+                "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
+                "fecha_aprobacion": w.fecha_aprobacion.isoformat() if hasattr(w, 'fecha_aprobacion') and w.fecha_aprobacion else None,
+                "tipo": w_tipo,
+                "monto_bruto": monto_bruto,
+                "retencion": retencion,
+                "monto_neto": monto_neto,
+                "estado": w_estado,
+                "banco": w.banco or "N/A",
+                "tipo_cuenta": w.tipo_cuenta or "Ahorros",
+                "numero_cuenta": w.numero_cuenta or "N/A",
+                "metodo_pago": w.metodo_pago or "Transferencia Bancaria"
+            })
+
+        # 5. Fetch Active Investment Contracts
+        inv_res = await db.execute(
+            select(Investor)
+            .options(selectinload(Investor.package), selectinload(Investor.period))
+            .where(Investor.user_id == user_id)
+            .order_by(desc(Investor.created_at))
+        )
+        investors = inv_res.scalars().all()
+
+        investments_list = []
+        total_capital_invested = 0.0
+
+        for inv in investors:
+            pkg_val = float(inv.package.value) if inv.package else 0.0
+            pct = float(inv.period.percentage) if inv.period else 0.0
+            months = int(inv.period.months) if inv.period else 0
+            if (inv.status or '').lower() in ['approved', 'active', 'aprobado', 'activo']:
+                total_capital_invested += pkg_val
+
+            investments_list.append({
+                "id": inv.id,
+                "assigned_code": inv.assigned_code or f"#{inv.id}",
+                "capital": pkg_val,
+                "porcentaje_mensual": pct,
+                "meses": months,
+                "fecha_inicio": inv.start_date.isoformat() if inv.start_date else None,
+                "estado": inv.status or "Activo",
+                "observaciones": inv.observations or ""
+            })
+
+        # 6. Consolidate Statement Payload
+        bank_accounts_list = [
+            {
+                "id": acc.id,
+                "banco": acc.banco,
+                "tipo_cuenta": acc.tipo_cuenta,
+                "numero_cuenta": acc.numero_cuenta,
+                "is_active": acc.is_active
+            }
+            for acc in (user.bank_accounts or [])
+        ]
+
+        return {
+            "statement_date": datetime.now().isoformat(),
+            "period": {
+                "start_date": start_date_str or "Inicio de Operaciones",
+                "end_date": end_date_str or datetime.now().strftime("%Y-%m-%d")
+            },
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "document_id": user.document_id or "N/A",
+                "phone_number": user.phone_number or "N/A",
+                "date_of_birth": user.date_of_birth.isoformat() if hasattr(user.date_of_birth, 'isoformat') and user.date_of_birth else str(user.date_of_birth) if user.date_of_birth else None,
+                "roles": [r.name for r in (user.roles or [])]
+            },
+            "bank_accounts": bank_accounts_list,
+            "wallet": {
+                "id": wallet.id if wallet else None,
+                "balance": float(wallet.balance) if wallet else 0.0,
+                "currency": wallet.currency if wallet else "COP",
+                "status": wallet.status.value if wallet and hasattr(wallet.status, 'value') else str(wallet.status) if wallet else "active"
+            },
+            "summary": {
+                "opening_balance": opening_balance,
+                "total_credits": total_credits,
+                "total_debits": total_debits,
+                "closing_balance": float(wallet.balance) if wallet else 0.0,
+                "total_withdrawn_paid": total_withdrawn_paid,
+                "total_withdrawn_pending": total_withdrawn_pending,
+                "total_capital_invested": total_capital_invested
+            },
+            "transactions": wallet_transactions_list,
+            "withdrawals": withdrawals_list,
+            "investments": investments_list
+        }

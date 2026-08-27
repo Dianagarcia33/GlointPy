@@ -102,3 +102,15 @@ async def reset_user_password(user_id: int, db: AsyncSession = Depends(get_db)):
     Restablece la contraseña de un usuario a la clave temporal '123456789' y fuerza el cambio de contraseña al ingresar.
     """
     return await UserService.reset_user_password(db, user_id)
+
+@router.get("/{user_id}/statement", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage"]))])
+async def get_user_statement(
+    user_id: int,
+    start_date: Optional[str] = Query(None, description="Fecha inicial formato YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="Fecha final formato YYYY-MM-DD"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene el estado de cuenta consolidado y resumen de retiros (tipo extracto bancario) de un usuario.
+    """
+    return await UserService.get_user_account_statement(db, user_id, start_date, end_date)
