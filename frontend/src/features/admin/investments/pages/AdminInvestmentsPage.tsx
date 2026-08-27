@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, ChevronUp, Eye, FileText, Calculator, Send, ShieldAlert } from 'lucide-react';
+import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, ChevronUp, Eye, FileText, Calculator, Send } from 'lucide-react';
 import { auditService, AuditUser } from '../../../../services/audit';
 import { UserYieldAuditBox } from '../components/UserYieldAuditBox';
 import { UserWalletHistoryBox } from '../components/UserWalletHistoryBox';
 import { BulkTransferModal } from '../components/BulkTransferModal';
-import { SecurityAuditTrailTable } from '../components/SecurityAuditTrailTable';
 
 export const AdminInvestmentsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'financial' | 'security'>('financial');
   const [users, setUsers] = useState<AuditUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +45,8 @@ export const AdminInvestmentsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'financial') {
-      fetchData();
-    }
-  }, [page, search, activeTab]);
+    fetchData();
+  }, [page, search]);
 
   const toggleExpand = (userId: number) => {
     const newSet = new Set(expandedUsers);
@@ -84,61 +80,23 @@ export const AdminInvestmentsPage: React.FC = () => {
       {/* Header & Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 font-montserrat">
             <Briefcase className="w-8 h-8 text-brand-600" />
-            Centro de Auditoría y Gobernanza
+            Auditoría Financiera y Rendimientos
           </h1>
-          <p className="text-slate-500 mt-1">Supervisión integral de rendimientos financieros y pista de auditoría inmutable de seguridad.</p>
+          <p className="text-slate-500 mt-1 text-xs sm:text-sm">Supervisión integral de contratos, balances en billeteras y transferencias masivas a inversionistas.</p>
         </div>
 
-        {activeTab === 'financial' && (
-          <button
-            onClick={() => setIsBulkModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 text-sm cursor-pointer shrink-0"
-          >
-            <Send className="w-4 h-4" />
-            Transferencia Masiva General
-          </button>
-        )}
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 gap-2">
         <button
-          type="button"
-          onClick={() => setActiveTab('financial')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-            activeTab === 'financial'
-              ? 'border-brand-600 text-brand-600 bg-brand-50/50 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-t-xl'
-          }`}
+          onClick={() => setIsBulkModalOpen(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 text-sm cursor-pointer shrink-0"
         >
-          <Calculator className="w-4 h-4" />
-          <span>Auditoría Financiera y Rendimientos</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
-            activeTab === 'security'
-              ? 'border-purple-600 text-purple-700 bg-purple-50/50 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-t-xl'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4 text-purple-600" />
-          <span>Pista de Auditoría y Seguridad (Audit Trail)</span>
-          <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md bg-purple-100 text-purple-700">
-            Inmutable
-          </span>
+          <Send className="w-4 h-4" />
+          Transferencia Masiva General
         </button>
       </div>
 
-      {activeTab === 'security' ? (
-        <SecurityAuditTrailTable />
-      ) : (
-        <>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">
             <div className="flex-1 relative w-full">
               <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -517,8 +475,6 @@ export const AdminInvestmentsPage: React.FC = () => {
           </>
         )}
       </div>
-      </>
-      )}
     </div>
   );
 };
