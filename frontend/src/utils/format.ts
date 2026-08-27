@@ -69,3 +69,52 @@ export const formatColombiaDate = (dateStr: string | Date | null | undefined): s
     if (isNaN(d.getTime())) return 'N/A';
     return d.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' });
 };
+
+export const TRANSACTION_TYPE_TRANSLATIONS: Record<string, string> = {
+    'yield_payout': 'Pago de Rendimientos',
+    'yield payout': 'Pago de Rendimientos',
+    'bonus_payout': 'Pago de Bono',
+    'bonus payout': 'Pago de Bono',
+    'withdrawal_request': 'Solicitud de Retiro',
+    'withdrawal request': 'Solicitud de Retiro',
+    'withdrawal_refund': 'Reembolso de Retiro',
+    'withdrawal refund': 'Reembolso de Retiro',
+    'withdrawal_rejection': 'Rechazo de Retiro',
+    'withdrawal rejection': 'Rechazo de Retiro',
+    'investment_reservation': 'Reserva de Inversión',
+    'investment reservation': 'Reserva de Inversión',
+    'investment_payment': 'Pago de Inversión',
+    'investment payment': 'Pago de Inversión',
+    'transfer_received': 'Transferencia Recibida',
+    'transfer received': 'Transferencia Recibida',
+    'transfer_in': 'Transferencia Recibida',
+    'transfer in': 'Transferencia Recibida',
+    'transfer_sent': 'Transferencia Enviada',
+    'transfer sent': 'Transferencia Enviada',
+    'transfer_out': 'Transferencia Enviada',
+    'transfer out': 'Transferencia Enviada',
+    'yield_payout_reversed': 'Rendimiento Revertido',
+    'yield payout reversed': 'Rendimiento Revertido',
+    'yield_payout_reversal': 'Reversión de Rendimiento',
+    'yield payout reversal': 'Reversión de Rendimiento',
+    'admin_adjustment': 'Ajuste Administrativo',
+    'admin adjustment': 'Ajuste Administrativo',
+    'adjustment': 'Ajuste de Saldo',
+    'ingreso': 'Abono / Rendimiento',
+    'egreso': 'Débito de Fondos',
+    'capital_increase': 'Aumento de Capital',
+    'capital increase': 'Aumento de Capital',
+    'capital_withdrawal': 'Retiro de Capital',
+    'capital withdrawal': 'Retiro de Capital',
+    'pending_payout': 'Pago Pendiente',
+    'pending payout': 'Pago Pendiente',
+};
+
+export const formatTransactionType = (rawType?: string | null): string => {
+    if (!rawType) return 'Movimiento';
+    const clean = rawType.trim().toLowerCase();
+    if (TRANSACTION_TYPE_TRANSLATIONS[clean]) {
+        return TRANSACTION_TYPE_TRANSLATIONS[clean];
+    }
+    return rawType.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};

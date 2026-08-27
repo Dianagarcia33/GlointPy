@@ -369,11 +369,54 @@ class UserService:
                 else:
                     total_debits += abs(t_amount)
 
+                # Translate and format transaction type
+                tx_type_map = {
+                    "yield_payout": "Pago de Rendimientos",
+                    "yield payout": "Pago de Rendimientos",
+                    "bonus_payout": "Pago de Bono",
+                    "bonus payout": "Pago de Bono",
+                    "withdrawal_request": "Solicitud de Retiro",
+                    "withdrawal request": "Solicitud de Retiro",
+                    "withdrawal_refund": "Reembolso de Retiro",
+                    "withdrawal refund": "Reembolso de Retiro",
+                    "withdrawal_rejection": "Rechazo de Retiro",
+                    "withdrawal rejection": "Rechazo de Retiro",
+                    "investment_reservation": "Reserva de Inversión",
+                    "investment reservation": "Reserva de Inversión",
+                    "investment_payment": "Pago de Inversión",
+                    "investment payment": "Pago de Inversión",
+                    "transfer_received": "Transferencia Recibida",
+                    "transfer received": "Transferencia Recibida",
+                    "transfer_in": "Transferencia Recibida",
+                    "transfer in": "Transferencia Recibida",
+                    "transfer_sent": "Transferencia Enviada",
+                    "transfer sent": "Transferencia Enviada",
+                    "transfer_out": "Transferencia Enviada",
+                    "transfer out": "Transferencia Enviada",
+                    "yield_payout_reversed": "Rendimiento Revertido",
+                    "yield payout reversed": "Rendimiento Revertido",
+                    "yield_payout_reversal": "Reversión de Rendimiento",
+                    "yield payout reversal": "Reversión de Rendimiento",
+                    "admin_adjustment": "Ajuste Administrativo",
+                    "admin adjustment": "Ajuste Administrativo",
+                    "adjustment": "Ajuste de Saldo",
+                    "ingreso": "Abono / Rendimiento",
+                    "egreso": "Débito de Fondos",
+                    "capital_increase": "Aumento de Capital",
+                    "capital increase": "Aumento de Capital",
+                    "capital_withdrawal": "Retiro de Capital",
+                    "capital withdrawal": "Retiro de Capital",
+                    "pending_payout": "Pago Pendiente",
+                    "pending payout": "Pago Pendiente",
+                }
+                raw_type = (t.type or "").strip().lower()
+                clean_type = tx_type_map.get(raw_type, (t.type or "Movimiento").replace("_", " ").replace("-", " ").title())
+
                 wallet_transactions_list.append({
                     "id": t.id,
                     "created_at": t_dt.isoformat() if t_dt else None,
-                    "type": t.type,
-                    "description": t.description or t.type,
+                    "type": clean_type,
+                    "description": t.description or clean_type,
                     "amount": t_amount,
                     "is_credit": t_amount >= 0,
                     "balance_after": t_balance_after

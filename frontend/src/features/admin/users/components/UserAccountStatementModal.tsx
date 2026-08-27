@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { usersService, UserAccountStatement } from '../../../../services/users';
+import { formatTransactionType } from '../../../../utils/format';
 
 interface UserAccountStatementModalProps {
   isOpen: boolean;
@@ -137,7 +138,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
       const txRows = statement.transactions.map((t, idx) => ({
         '#': idx + 1,
         'FECHA Y HORA': formatDateTime(t.created_at),
-        'TIPO DE MOVIMIENTO': t.type,
+        'TIPO DE MOVIMIENTO': formatTransactionType(t.type),
         'CONCEPTO / DESCRIPCIÓN': t.description,
         'MONTO': t.amount,
         'TIPO': t.is_credit ? 'CRÉDITO (+)' : 'DÉBITO (-)',
@@ -475,7 +476,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                                       : 'bg-rose-50 text-rose-700 border border-rose-200'
                                   }`}>
-                                    {t.type}
+                                    {formatTransactionType(t.type)}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-slate-800 max-w-xs truncate font-medium" title={t.description}>
