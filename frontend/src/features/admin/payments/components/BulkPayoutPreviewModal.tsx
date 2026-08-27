@@ -222,187 +222,191 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" style={{ margin: 0 }}>
+      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in duration-200">
         
-        {/* Header Modal */}
-        <div className="flex items-center justify-between p-6 sm:p-7 border-b border-slate-100 bg-slate-900 text-white relative">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-brand-500/20 text-brand-300 rounded-2xl border border-brand-500/30">
-              <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
+        {/* Header Estandarizado */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-brand-100 text-brand-700 rounded-2xl">
+              <FileSpreadsheet className="w-5 h-5 text-brand-600" />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight font-montserrat flex flex-wrap items-center gap-2">
-                Previsualización de Dispersión de Pagos
-                <span className="text-xs px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 font-mono rounded-full border border-emerald-500/30">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  Previsualización de Dispersión de Pagos
+                </h2>
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold uppercase bg-brand-100 text-brand-800 border border-brand-200 font-mono">
                   {selectedWithdrawals.length} seleccionados
                 </span>
                 {autoDownloaded && (
-                  <span className="text-xs px-2.5 py-0.5 bg-emerald-600/90 text-white font-bold rounded-full flex items-center gap-1 shadow-xs animate-in fade-in">
-                    <Download className="w-3 h-3" /> Archivo Excel Descargado
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                    <Download className="w-3 h-3 text-emerald-700" /> Excel Descargado
                   </span>
                 )}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300">
-                La plantilla para dispersión bancaria fue generada. Revisa los datos y confirma para cambiar a procesados.
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                Verificación de estructura bancaria ACH, montos netos y confirmación de dispersión
               </p>
             </div>
           </div>
-          <button
+          <button 
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Summary Info Bar */}
-        <div className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Solicitudes seleccionadas:
-            </span>
-            <span className="px-2.5 py-0.5 bg-brand-100 text-brand-800 font-mono font-bold rounded-lg text-xs">
-              {rows.length} registros
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 text-right">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total a Dispersar:</span>
-            <span className="text-lg sm:text-xl font-extrabold text-emerald-600 font-montserrat">
-              {formatCurrency(totalAmount)}
-            </span>
-          </div>
-        </div>
-
-        {/* Body / Preview Table */}
-        <div className="flex-1 overflow-auto p-6 space-y-4">
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-5">
           {error && (
-            <div className="p-4 bg-rose-50 text-rose-700 text-sm rounded-2xl border border-rose-200 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />
+            <div className="p-3.5 bg-rose-50 text-rose-700 rounded-2xl text-xs font-bold border border-rose-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-mono text-[11px] uppercase tracking-wider">
-                    <th className="py-3 px-3.5 font-bold text-center">#</th>
-                    <th className="py-3 px-3.5 font-bold">DOCUMENT_TYPE</th>
-                    <th className="py-3 px-3.5 font-bold">IDENTIFICATION_NUMBER</th>
-                    <th className="py-3 px-3.5 font-bold">FULL_NAME</th>
-                    <th className="py-3 px-3.5 font-bold">
-                      BANK_CODE
-                      <span className="block text-[9px] text-slate-400 font-normal font-sans">(Entidad)</span>
-                    </th>
-                    <th className="py-3 px-3.5 font-bold text-center">ACCOUNT_TYPE</th>
-                    <th className="py-3 px-3.5 font-bold">ACCOUNT_NUMBER</th>
-                    <th className="py-3 px-3.5 font-bold text-right">DEBIT_AMOUNT</th>
-                    <th className="py-3 px-3.5 font-bold text-center">REFERENCE</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium">
-                  {rows.map((row, idx) => (
-                    <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3.5 text-center text-slate-400 font-mono text-[11px]">
-                        {idx + 1}
-                      </td>
-                      <td className="py-3 px-3.5 font-mono text-center font-bold text-slate-700">
-                        {row.DOCUMENT_TYPE}
-                      </td>
-                      <td className="py-3 px-3.5 font-mono font-bold text-slate-900">
-                        {row.IDENTIFICATION_NUMBER}
-                      </td>
-                      <td className="py-3 px-3.5 font-bold text-slate-800 uppercase tracking-tight">
-                        {row.FULL_NAME}
-                      </td>
-                      <td className="py-3 px-3.5">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand-50 text-brand-700 font-mono font-extrabold rounded-lg border border-brand-200">
-                          {row.BANK_CODE || 'N/A'}
-                        </span>
-                        <span className="block text-[10px] text-slate-400 truncate max-w-[140px] mt-0.5" title={row.bankNameOriginal}>
-                          {row.bankNameOriginal}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3.5 text-center">
-                        <span className={`inline-flex items-center px-2 py-0.5 font-mono font-bold rounded-md text-[11px] ${
-                          row.ACCOUNT_TYPE === 1 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-purple-50 text-purple-700 border border-purple-200'
-                        }`}>
-                          {row.ACCOUNT_TYPE} {row.ACCOUNT_TYPE === 1 ? '(Ahorros)' : '(Corriente)'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3.5 font-mono font-bold text-slate-800 tracking-wider">
-                        {row.ACCOUNT_NUMBER || 'Sin Cuenta'}
-                      </td>
-                      <td className="py-3 px-3.5 font-mono font-extrabold text-emerald-700 text-right">
-                        {row.DEBIT_AMOUNT.toLocaleString('es-CO')}
-                      </td>
-                      <td className="py-3 px-3.5 font-mono text-center text-slate-600 font-bold">
-                        {row.REFERENCE}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Financial Summary Card */}
+          <div className="bg-brand-50/60 rounded-2xl p-5 border border-brand-200/80 space-y-3">
+            <div className="flex items-center gap-2 border-b border-brand-200/60 pb-2">
+              <DollarSign className="w-4 h-4 text-brand-600" />
+              <h3 className="font-bold text-xs text-brand-900 uppercase tracking-wide">Resumen Financiero de Dispersión</h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+              <div>
+                <span className="text-slate-500 font-medium block text-[11px]">Total Solicitudes:</span>
+                <span className="font-bold text-slate-800">{rows.length} retiros seleccionados</span>
+              </div>
+              <div>
+                <span className="text-slate-500 font-medium block text-[11px]">Referencia de Plataforma:</span>
+                <span className="font-bold text-slate-800 font-mono">Gloint</span>
+              </div>
+              <div className="col-span-2 sm:col-span-1 sm:text-right">
+                <span className="text-slate-500 font-medium block text-[11px]">Monto Neto Total a Dispersar:</span>
+                <span className="text-xl font-black text-brand-700 font-montserrat">{formatCurrency(totalAmount)}</span>
+              </div>
             </div>
           </div>
 
-          <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-xs text-amber-900">
-            <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          {/* Bank & ACH Records Detail */}
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-slate-600" />
+                <h3 className="font-bold text-xs text-slate-800 uppercase tracking-wide">Estructura Formateada con Códigos ACH</h3>
+              </div>
+              <span className="text-[11px] text-slate-400 font-mono font-medium">8 Columnas Oficiales</span>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-2xs">
+              <div className="overflow-x-auto max-h-64">
+                <table className="w-full text-left border-collapse text-xs whitespace-nowrap">
+                  <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider sticky top-0 bg-slate-50 z-10">
+                    <tr>
+                      <th className="py-2.5 px-3 font-bold text-center">#</th>
+                      <th className="py-2.5 px-3 font-bold">DOCUMENT_TYPE</th>
+                      <th className="py-2.5 px-3 font-bold">IDENTIFICATION_NUMBER</th>
+                      <th className="py-2.5 px-3 font-bold">FULL_NAME</th>
+                      <th className="py-2.5 px-3 font-bold">BANK_CODE (ACH)</th>
+                      <th className="py-2.5 px-3 font-bold text-center">ACCOUNT_TYPE</th>
+                      <th className="py-2.5 px-3 font-bold">ACCOUNT_NUMBER</th>
+                      <th className="py-2.5 px-3 font-bold text-right">DEBIT_AMOUNT</th>
+                      <th className="py-2.5 px-3 font-bold text-center">REFERENCE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {rows.map((row, idx) => (
+                      <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-3 text-center text-slate-400 font-mono text-[11px]">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-center font-bold text-slate-700">
+                          {row.DOCUMENT_TYPE}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                          {row.IDENTIFICATION_NUMBER}
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-slate-800 uppercase tracking-tight">
+                          {row.FULL_NAME}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-brand-50 text-brand-700 font-mono font-extrabold rounded-md border border-brand-200 text-[11px]">
+                            {row.BANK_CODE || 'N/A'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 truncate max-w-[120px] ml-2 inline-block align-middle" title={row.bankNameOriginal}>
+                            {row.bankNameOriginal}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span className={`inline-flex items-center px-2 py-0.5 font-mono font-bold rounded-md text-[10px] ${
+                            row.ACCOUNT_TYPE === 1 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-purple-50 text-purple-700 border border-purple-200'
+                          }`}>
+                            {row.ACCOUNT_TYPE} {row.ACCOUNT_TYPE === 1 ? '(Ahorros)' : '(Corriente)'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-800 tracking-wider">
+                          {row.ACCOUNT_NUMBER || 'Sin Cuenta'}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono font-extrabold text-slate-900 text-right">
+                          {formatCurrency(row.DEBIT_AMOUNT)}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-center text-slate-600 font-bold">
+                          {row.REFERENCE}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Info Banner */}
+          <div className="bg-amber-50/70 rounded-2xl p-4 border border-amber-200 flex items-start gap-3 text-xs text-amber-900">
+            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold">Información Importante de Dispersión:</p>
-              <p className="text-amber-800 mt-0.5">
-                Al hacer clic en <strong>"Marcar como Procesados"</strong>, el estado de estas solicitudes pasará a <strong>PROCESADO</strong> y se registrará la fecha y tu usuario de tesorería en la auditoría del sistema.
-              </p>
+              <span className="font-bold block">Trazabilidad y Auditoría:</span>
+              <span className="text-amber-800 text-[11px]">
+                Al hacer clic en <strong>"Marcar como Procesados"</strong>, el estado de estas solicitudes cambiará a <strong>PROCESADO</strong> y se registrará la fecha y tu usuario de tesorería.
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 sm:p-6 border-t border-slate-100 bg-slate-50/70">
+        {/* Footer actions */}
+        <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
           <button
             type="button"
-            onClick={onClose}
-            disabled={isProcessing}
-            className="w-full sm:w-auto px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200/80 rounded-2xl transition-colors disabled:opacity-50"
+            onClick={handleDownloadExcel}
+            disabled={isProcessing || rows.length === 0}
+            className="px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-100 rounded-xl transition-colors flex items-center gap-2 border border-slate-200 bg-white cursor-pointer shadow-2xs"
           >
-            Cerrar
+            <Download className="w-4 h-4 text-brand-600" />
+            Descargar Excel (.xlsx)
           </button>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <div className="flex gap-3">
             <button
               type="button"
-              onClick={handleDownloadExcel}
-              disabled={isProcessing || rows.length === 0}
-              className="w-full sm:w-auto px-5 py-2.5 text-sm font-bold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2"
+              onClick={onClose}
+              disabled={isProcessing}
+              className="px-5 py-2.5 text-slate-700 bg-white border border-slate-200 font-bold text-xs hover:bg-slate-100 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
             >
-              <Download className="w-4 h-4 text-brand-600" />
-              Descargar Archivo Excel (.xlsx)
+              Cerrar
             </button>
-
+            
             <button
               type="button"
               onClick={handleProcessAll}
               disabled={isProcessing || rows.length === 0}
-              className="w-full sm:w-auto px-6 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-2xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-emerald-600/20 cursor-pointer"
             >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Actualizando a Procesados...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  Marcar como Procesados
-                </>
-              )}
+              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              Marcar como Procesados
             </button>
           </div>
         </div>
-
       </div>
     </div>,
     document.body

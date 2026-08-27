@@ -109,26 +109,35 @@ export const PaymentManagementPage: React.FC = () => {
 
   const [isBulkProcessing, setIsBulkProcessing] = useState<boolean>(false);
 
-  const isProcesadoView = statusFilter === 'procesado';
+  const isSelectableWithdrawal = (w: Withdrawal) => {
+    if (!w || !w.estado) return false;
+    const st = w.estado.toLowerCase().trim();
+    return st === 'pendiente' || st === 'procesado' || st === 'en proceso' || st === 'en_proceso';
+  };
 
-  // Ítems seleccionables según la pestaña activa (procesados en su pestaña, o pendientes)
+  // Ítems seleccionables en la página (pendientes o procesados)
   const selectableItemsOnPage = useMemo(() => {
-    if (isProcesadoView) {
-      return filteredItems.filter(i => i.estado === 'procesado');
-    }
-    return filteredItems.filter(i => i.estado === 'pendiente');
-  }, [filteredItems, isProcesadoView]);
+    return filteredItems.filter(isSelectableWithdrawal);
+  }, [filteredItems]);
 
   const selectedWithdrawalsList = useMemo(() => {
     const all = data?.data || [];
-    if (isProcesadoView) {
-      return all.filter(i => selectedIds.has(i.id) && i.estado === 'procesado');
-    }
-    return all.filter(i => selectedIds.has(i.id) && i.estado === 'pendiente');
-  }, [data, selectedIds, isProcesadoView]);
+    return all.filter(i => selectedIds.has(i.id) && isSelectableWithdrawal(i));
+  }, [data, selectedIds]);
 
   const selectedTotalNet = useMemo(() => {
     return selectedWithdrawalsList.reduce((sum, i) => sum + parseFloat(i.monto_neto as any || i.monto || 0), 0);
+  }, [selectedWithdrawalsList]);
+
+  const hasProcesadoInSelection = useMemo(() => {
+    return selectedWithdrawalsList.some(i => {
+      const st = (i.estado || '').toLowerCase().trim();
+      return st === 'procesado' || st === 'en proceso' || st === 'en_proceso';
+    });
+  }, [selectedWithdrawalsList]);
+
+  const hasPendingInSelection = useMemo(() => {
+    return selectedWithdrawalsList.some(i => (i.estado || '').toLowerCase().trim() === 'pendiente');
   }, [selectedWithdrawalsList]);
 
   const isAllSelectableOnPageSelected = useMemo(() => {
@@ -150,8 +159,7 @@ export const PaymentManagementPage: React.FC = () => {
   };
 
   const toggleSelectOne = (withdrawal: Withdrawal) => {
-    const isSelectable = isProcesadoView ? withdrawal.estado === 'procesado' : withdrawal.estado === 'pendiente';
-    if (!isSelectable) return;
+    if (!isSelectableWithdrawal(withdrawal)) return;
     const next = new Set(selectedIds);
     if (next.has(withdrawal.id)) {
       next.delete(withdrawal.id);
@@ -166,11 +174,17 @@ export const PaymentManagementPage: React.FC = () => {
   };
 
   const handleBulkApprove = async () => {
-    if (selectedIds.size === 0) return;
+    const toApproveIds = selectedWithdrawalsList
+      .filter(i => {
+        const st = (i.estado || '').toLowerCase().trim();
+        return st === 'procesado' || st === 'en proceso' || st === 'en_proceso' || st === 'pendiente';
+      })
+      .map(i => i.id);
+
+    if (toApproveIds.length === 0) return;
     try {
       setIsBulkProcessing(true);
-      const ids = Array.from(selectedIds);
-      const res = await paymentService.bulkApproveWithdrawals(ids);
+      const res = await paymentService.bulkApproveWithdrawals(toApproveIds);
       setToast({
         message: res.message || `Se aprobaron ${res.approved_count} retiros exitosamente.`,
         type: 'success'
@@ -206,7 +220,7 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* Floating Selection Bar for Quick Batch Export */}
+      {/* Floating Selection Bar */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 sm:px-6 py-3.5 rounded-3xl shadow-2xl border border-slate-700/80 flex items-center gap-4 sm:gap-6 animate-in slide-in-from-bottom-5 duration-200 backdrop-blur-md">
           <div className="flex items-center gap-3">
@@ -222,22 +236,24 @@ export const PaymentManagementPage: React.FC = () => {
           <div className="h-7 w-px bg-slate-700" />
 
           <div className="flex items-center gap-2">
-            {isProcesadoView ? (
+            {hasPendingInSelection && (
+              <button
+                onClick={() => setIsBulkModalOpen(true)}
+                className="px-4 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Previsualizar Dispersión
+              </button>
+            )}
+
+            {hasProcesadoInSelection && (
               <button
                 onClick={handleBulkApprove}
                 disabled={isBulkProcessing}
                 className="px-4 py-2 text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-md shadow-blue-600/30 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Aprobar Pagos Seleccionados ({selectedIds.size})
-              </button>
-            ) : (
-              <button
-                onClick={() => setIsBulkModalOpen(true)}
-                className="px-4 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                Previsualizar Dispersión de Pagos
+                Aprobar Pagos Procesados ({selectedWithdrawalsList.filter(i => (i.estado || '').toLowerCase().trim() !== 'pendiente').length})
               </button>
             )}
 
@@ -396,26 +412,29 @@ export const PaymentManagementPage: React.FC = () => {
 
           {/* Quick Bulk Action Button if Selected */}
           {selectedIds.size > 0 && (
-            isProcesadoView ? (
-              <button
-                type="button"
-                onClick={handleBulkApprove}
-                disabled={isBulkProcessing}
-                className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
-              >
-                {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Aprobar ({selectedIds.size})
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsBulkModalOpen(true)}
-                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                Dispersión de Pagos ({selectedIds.size})
-              </button>
-            )
+            <div className="flex items-center gap-2">
+              {hasPendingInSelection && (
+                <button
+                  type="button"
+                  onClick={() => setIsBulkModalOpen(true)}
+                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Dispersión ({selectedWithdrawalsList.filter(i => (i.estado || '').toLowerCase().trim() === 'pendiente').length})
+                </button>
+              )}
+              {hasProcesadoInSelection && (
+                <button
+                  type="button"
+                  onClick={handleBulkApprove}
+                  disabled={isBulkProcessing}
+                  className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  Aprobar ({selectedWithdrawalsList.filter(i => (i.estado || '').toLowerCase().trim() !== 'pendiente').length})
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -479,8 +498,7 @@ export const PaymentManagementPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredItems.map((withdrawal) => {
-                  const isSelectable = isProcesadoView ? withdrawal.estado === 'procesado' : withdrawal.estado === 'pendiente';
-                  const isInteractive = withdrawal.estado === 'pendiente' || withdrawal.estado === 'procesado';
+                  const isSelectable = isSelectableWithdrawal(withdrawal);
                   const isSelected = selectedIds.has(withdrawal.id);
                   return (
                     <tr 
@@ -488,7 +506,7 @@ export const PaymentManagementPage: React.FC = () => {
                       className={`transition-colors group cursor-pointer ${
                         isSelected ? 'bg-brand-50/50 hover:bg-brand-50/70' : 'hover:bg-slate-50/80'
                       }`}
-                      onClick={() => isInteractive && setSelectedWithdrawal(withdrawal)}
+                      onClick={() => isSelectable && setSelectedWithdrawal(withdrawal)}
                     >
                       <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                         {isSelectable ? (
@@ -497,14 +515,14 @@ export const PaymentManagementPage: React.FC = () => {
                             checked={isSelected}
                             onChange={() => toggleSelectOne(withdrawal)}
                             className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer accent-brand-600"
-                            title={isProcesadoView ? "Seleccionar para aprobar" : "Seleccionar para dispersión"}
+                            title="Seleccionar solicitud"
                           />
                         ) : (
                           <input
                             type="checkbox"
                             disabled
                             checked={false}
-                            title={isProcesadoView ? "Solo se pueden seleccionar solicitudes procesadas" : "Solo se pueden seleccionar solicitudes en estado pendiente"}
+                            title="Solo se pueden seleccionar solicitudes pendientes o procesadas"
                             className="w-4 h-4 rounded border-slate-200 text-slate-300 opacity-40 cursor-not-allowed"
                           />
                         )}
