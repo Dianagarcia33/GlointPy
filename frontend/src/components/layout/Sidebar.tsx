@@ -255,6 +255,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                     "admin.users.manage",
                     "admin.roles.manage",
                     "admin.investors.manage",
+                    "admin.rankings.manage",
                     "admin.payments.manage",
                     "admin.packages.manage",
                     "admin.periods.manage",
@@ -290,7 +291,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                             </span>
                                             <span className="flex-1 text-[13px] font-outfit">Inversionistas</span>
                                         </NavLink>
+                                    </Can>
 
+                                    <Can permissions={["admin.rankings.manage", "admin.investors.manage", "admin.users.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/rankings" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <Trophy className="w-[18px] h-[18px]" />

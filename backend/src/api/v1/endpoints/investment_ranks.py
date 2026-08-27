@@ -61,7 +61,7 @@ async def get_my_rank_details(
     """
     return await InvestmentRankService.get_user_rank_details(db, current_user.id)
 
-@router.get("/rankings/user/{user_id}", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage"]))])
+@router.get("/rankings/user/{user_id}", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.users.manage", "admin.investors.manage", "admin.roles.manage"]))])
 async def get_user_rank_details_admin(
     user_id: int,
     db: AsyncSession = Depends(get_db)
@@ -71,7 +71,7 @@ async def get_user_rank_details_admin(
     """
     return await InvestmentRankService.get_user_rank_details(db, user_id)
 
-@router.post("/rankings", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
+@router.post("/rankings", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def create_ranking(
     rank_in: RankCreateRequest,
     db: AsyncSession = Depends(get_db)
@@ -81,7 +81,7 @@ async def create_ranking(
     """
     return await InvestmentRankService.create_rank(db, rank_in.model_dump())
 
-@router.put("/rankings/{rank_id}", dependencies=[Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
+@router.put("/rankings/{rank_id}", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def update_ranking(
     rank_id: int,
     rank_in: RankUpdateRequest,
@@ -93,7 +93,7 @@ async def update_ranking(
     update_data = {k: v for k, v in rank_in.model_dump().items() if v is not None}
     return await InvestmentRankService.update_rank(db, rank_id, update_data)
 
-@router.delete("/rankings/{rank_id}", dependencies=[Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
+@router.delete("/rankings/{rank_id}", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def delete_ranking(
     rank_id: int,
     db: AsyncSession = Depends(get_db)
@@ -103,7 +103,7 @@ async def delete_ranking(
     """
     return await InvestmentRankService.delete_rank(db, rank_id)
 
-@router.post("/rankings/seed-defaults", dependencies=[Depends(RequirePermission(["admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
+@router.post("/rankings/seed-defaults", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
 async def seed_default_rankings(
     db: AsyncSession = Depends(get_db)
 ):
@@ -112,7 +112,7 @@ async def seed_default_rankings(
     """
     return await InvestmentRankService.seed_defaults(db)
 
-@router.post("/rankings/assign-user", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage"]))])
+@router.post("/rankings/assign-user", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.users.manage", "admin.investors.manage", "admin.roles.manage"]))])
 async def assign_rank_to_user(
     assign_in: AssignUserRankRequest,
     db: AsyncSession = Depends(get_db)

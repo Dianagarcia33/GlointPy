@@ -34,6 +34,7 @@ PERMISSIONS = [
     {"name": "admin.users.manage", "description": "Gestionar usuarios de la plataforma", "module": "admin"},
     {"name": "admin.periods.manage", "description": "Gestionar periodos de inversión", "module": "admin"},
     {"name": "admin.packages.manage", "description": "Gestionar paquetes", "module": "admin"},
+    {"name": "admin.rankings.manage", "description": "Gestionar rankings y niveles de inversión", "module": "admin"},
     {"name": "admin.investors.manage", "description": "Gestionar contratos de inversionistas", "module": "investors"},
     {"name": "admin.investors.create", "description": "Crear nuevos contratos de inversión e inversionistas (Crear Inversión)", "module": "investors"},
     {"name": "admin.investors.wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Lápiz)", "module": "investors"},
