@@ -453,7 +453,7 @@ export const AdminInvestorsPage = () => {
                       </td>
                       <td className="px-4 py-3.5">
                         <button
-                          onClick={() => navigate(`/investments/${investor.id}`)}
+                          onClick={() => navigate(`/dashboard/investments/${investor.id}`)}
                           className="font-bold text-brand-600 hover:text-brand-800 hover:underline cursor-pointer text-left block"
                           title="Ver detalle de la inversión (Vista Inversionista)"
                         >
@@ -543,7 +543,7 @@ export const AdminInvestorsPage = () => {
                                 <button
                                   onClick={() => {
                                     setOpenActionMenuId(null);
-                                    navigate(`/investments/${investor.id}`);
+                                    navigate(`/dashboard/investments/${investor.id}`);
                                   }}
                                   className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-800 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer border-b border-slate-100"
                                 >

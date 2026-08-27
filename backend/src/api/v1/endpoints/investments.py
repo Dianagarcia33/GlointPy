@@ -310,7 +310,13 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     from src.models.investment_request import InvestmentRequest
 
     today = date.today()
-    is_admin = current_user.is_superuser or any(r.name.lower() in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in getattr(current_user, 'roles', []))
+    user_perms = {p.name for r in getattr(current_user, 'roles', []) for p in getattr(r, 'permissions', [])}
+    is_admin = (
+        current_user.is_superuser
+        or 'admin.investors.manage' in user_perms
+        or 'admin.audits.manage' in user_perms
+        or any(r.name.lower() in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in getattr(current_user, 'roles', []))
+    )
     
     # 1. Is it a request?
     if str(investment_id).startswith("req_"):
