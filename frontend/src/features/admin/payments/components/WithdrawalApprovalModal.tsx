@@ -108,10 +108,23 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
               <DollarSign className="w-5 h-5 text-brand-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Revisar Solicitud de Retiro #{withdrawal.id}
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">Verificación de fondos, datos bancarios y autorización de pago</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {withdrawal.estado === 'procesado' ? `Aprobar Retiro Procesado #${withdrawal.id}` : `Revisar Solicitud de Retiro #${withdrawal.id}`}
+                </h2>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                  withdrawal.estado === 'procesado' 
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                }`}>
+                  {withdrawal.estado}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                {withdrawal.estado === 'procesado' 
+                  ? 'Confirmación final de desembolso para marcar la solicitud como APROBADA.' 
+                  : 'Verificación de fondos, datos bancarios y autorización de pago'}
+              </p>
             </div>
           </div>
           <button 
@@ -307,7 +320,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-emerald-600/20 cursor-pointer"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Aprobar & Transferir
+                {withdrawal.estado === 'procesado' ? 'Confirmar Aprobación' : 'Aprobar & Transferir'}
               </button>
             )}
           </div>

@@ -58,6 +58,15 @@ export const paymentService = {
       headers: { 'Content-Type': 'application/json' },
     });
     return data as { processed_count: number; message: string };
+  },
+
+  bulkApproveWithdrawals: async (withdrawalIds: number[]): Promise<{ approved_count: number; message: string }> => {
+    const data = await fetchApi('/withdrawals/bulk-approve', {
+      method: 'POST',
+      body: JSON.stringify({ withdrawal_ids: withdrawalIds }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return data as { approved_count: number; message: string };
   }
 };
 

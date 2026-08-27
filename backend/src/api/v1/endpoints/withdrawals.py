@@ -166,3 +166,18 @@ async def bulk_process_withdrawals(
         admin_id=current_user.id
     )
 
+@router.post("/bulk-approve", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def bulk_approve_withdrawals(
+    req: WithdrawalBulkProcessRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Aprueba masivamente una lista de retiros (en estado procesado o pendiente).
+    """
+    return await WithdrawalService.bulk_approve_withdrawals(
+        db=db,
+        withdrawal_ids=req.withdrawal_ids,
+        admin_id=current_user.id
+    )
+
