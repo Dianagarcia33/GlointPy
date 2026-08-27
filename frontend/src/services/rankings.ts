@@ -98,6 +98,12 @@ export const rankingsService = {
     });
   },
 
+  syncAllRanks: async (): Promise<{ status: string; message: string; total_users_synced: number; distribution: Record<string, number> }> => {
+    return await fetchApi('/rankings/sync-all', {
+      method: 'POST',
+    });
+  },
+
   assignRankToUser: async (userId: number, rankId: number | null): Promise<UserRankDetails> => {
     return await fetchApi('/rankings/assign-user', {
       method: 'POST',

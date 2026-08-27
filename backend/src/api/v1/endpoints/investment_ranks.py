@@ -112,6 +112,15 @@ async def seed_default_rankings(
     """
     return await InvestmentRankService.seed_defaults(db)
 
+@router.post("/rankings/sync-all", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]))])
+async def sync_all_rankings(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Sincroniza y asigna automáticamente los rangos a todos los usuarios según su capital activo.
+    """
+    return await InvestmentRankService.sync_all_users_ranks(db)
+
 @router.post("/rankings/assign-user", dependencies=[Depends(RequirePermission(["admin.rankings.manage", "admin.users.manage", "admin.investors.manage", "admin.roles.manage"]))])
 async def assign_rank_to_user(
     assign_in: AssignUserRankRequest,

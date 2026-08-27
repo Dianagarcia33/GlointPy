@@ -128,6 +128,13 @@ async def on_startup():
                 await purge_ghost_bonuses(db)
             except Exception as pe:
                 print(f"Error purging ghost bonuses on startup: {pe}")
+
+            try:
+                from src.services.investment_rank_service import InvestmentRankService
+                await InvestmentRankService.sync_all_users_ranks(db)
+                print("🏆 Rangos de inversión sincronizados y asignados automáticamente.")
+            except Exception as re:
+                print(f"Error syncing user ranks on startup: {re}")
     except Exception as e:
         print(f"Error on startup database initialization/seeding: {e}")
 from fastapi.staticfiles import StaticFiles

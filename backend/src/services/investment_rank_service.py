@@ -328,6 +328,11 @@ class InvestmentRankService:
             else:
                 current_rank = all_ranks_data[0] if all_ranks_data else None
 
+        # Auto-update user.rank_id in database if different
+        if current_rank and user.rank_id != current_rank["id"]:
+            user.rank_id = current_rank["id"]
+            await db.commit()
+
         # 5. Find next rank
         next_rank = None
         if current_rank:
@@ -357,4 +362,77 @@ class InvestmentRankService:
             "progress_percentage": round(progress_pct, 1),
             "amount_needed": amount_needed,
             "all_ranks": all_ranks_data
+        }
+
+    @staticmethod
+    async def sync_all_users_ranks(db: AsyncSession) -> dict:
+        """
+        Sincroniza y asigna automáticamente el rango a todos los usuarios de la plataforma
+        según el capital activo de sus contratos de inversión vigentes.
+        """
+        # 1. Asegurar que existan rangos
+        ranks_query = select(InvestmentRank).where(InvestmentRank.is_active == True).order_by(
+            asc(InvestmentRank.order), asc(InvestmentRank.min_investment)
+        )
+        ranks_res = await db.execute(ranks_query)
+        ranks = ranks_res.scalars().all()
+        
+        if not ranks:
+            await InvestmentRankService.seed_defaults(db)
+            ranks_res = await db.execute(ranks_query)
+            ranks = ranks_res.scalars().all()
+
+        # 2. Cargar todos los usuarios con sus inversiones
+        users_res = await db.execute(
+            select(User).options(
+                selectinload(User.investments).selectinload(Investor.package),
+                selectinload(User.investments).selectinload(Investor.period)
+            )
+        )
+        users = users_res.scalars().all()
+
+        today_date = date.today()
+        synced_count = 0
+        distribution = {}
+
+        for u in users:
+            # Calcular capital activo
+            total_active_capital = 0.0
+            if u.investments:
+                for inv in u.investments:
+                    pkg_val = float(inv.package.value) if inv.package else 0.0
+                    months = int(inv.period.months) if inv.period else 12
+                    inv_start = inv.start_date or inv.created_at
+                    is_active = True
+                    if inv_start:
+                        start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
+                        end_d = start_d + relativedelta(months=months)
+                        if end_d <= today_date:
+                            is_active = False
+                    
+                    if is_active:
+                        total_active_capital += pkg_val
+
+            # Encontrar el rango que le corresponde (mayor orden con min_investment <= capital)
+            matching_rank = None
+            for r in reversed(ranks):
+                if float(r.min_investment) <= total_active_capital:
+                    matching_rank = r
+                    break
+            
+            if not matching_rank and ranks:
+                matching_rank = ranks[0]
+
+            if matching_rank:
+                u.rank_id = matching_rank.id
+                synced_count += 1
+                distribution[matching_rank.name] = distribution.get(matching_rank.name, 0) + 1
+
+        await db.commit()
+
+        return {
+            "status": "success",
+            "message": f"Se sincronizaron y asignaron rangos automáticamente para {synced_count} usuarios.",
+            "total_users_synced": synced_count,
+            "distribution": distribution
         }
