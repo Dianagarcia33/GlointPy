@@ -152,6 +152,7 @@ export const AdminInvestorsPage = () => {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
   const [userNameToAdjust, setUserNameToAdjust] = useState('');
+  const [assignedCodeToAdjust, setAssignedCodeToAdjust] = useState('');
   const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
   const [selectedInvestorForBankAccounts, setSelectedInvestorForBankAccounts] = useState<Investor | null>(null);
   const [selectedInvestorForDocuments, setSelectedInvestorForDocuments] = useState<Investor | null>(null);
@@ -825,6 +826,7 @@ export const AdminInvestorsPage = () => {
                                                     currency: investor.user.wallet.currency || 'COP'
                                                   });
                                                   setUserNameToAdjust(investor.user.name);
+                                                  setAssignedCodeToAdjust(investor.assigned_code || `#${investor.id}`);
                                                 }
                                               }}
                                               className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors border border-transparent hover:border-brand-200 cursor-pointer"
@@ -1082,14 +1084,19 @@ export const AdminInvestorsPage = () => {
 
       <WalletAdjustmentModal
         isOpen={!!walletToAdjust}
-        onClose={() => setWalletToAdjust(null)}
+        onClose={() => {
+          setWalletToAdjust(null);
+          setAssignedCodeToAdjust('');
+        }}
         onAdjusted={() => {
           setWalletToAdjust(null);
+          setAssignedCodeToAdjust('');
           setToast({ message: 'Saldo de billetera ajustado exitosamente', type: 'success' });
           fetchData();
         }}
         wallet={walletToAdjust}
         userName={userNameToAdjust}
+        assignedCode={assignedCodeToAdjust}
       />
 
       {toast && (
