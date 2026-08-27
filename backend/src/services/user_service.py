@@ -422,6 +422,8 @@ class UserService:
             })
 
         # 5. Fetch Active Investment Contracts
+        from dateutil.relativedelta import relativedelta
+
         inv_res = await db.execute(
             select(Investor)
             .options(selectinload(Investor.package), selectinload(Investor.period))
@@ -432,12 +434,23 @@ class UserService:
 
         investments_list = []
         total_capital_invested = 0.0
+        today_date = date.today()
 
         for inv in investors:
             pkg_val = float(inv.package.value) if inv.package else 0.0
             pct = float(inv.period.percentage) if inv.period else 0.0
-            months = int(inv.period.months) if inv.period else 0
-            if (inv.status or '').lower() in ['approved', 'active', 'aprobado', 'activo']:
+            months = int(inv.period.months) if inv.period else 12
+
+            inv_start = inv.start_date or inv.created_at
+            is_active = True
+            if inv_start:
+                start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
+                end_d = start_d + relativedelta(months=months)
+                if end_d <= today_date:
+                    is_active = False
+
+            estado = "Activo" if is_active else "Finalizado"
+            if is_active:
                 total_capital_invested += pkg_val
 
             investments_list.append({
@@ -447,7 +460,7 @@ class UserService:
                 "porcentaje_mensual": pct,
                 "meses": months,
                 "fecha_inicio": inv.start_date.isoformat() if inv.start_date else None,
-                "estado": inv.status or "Activo",
+                "estado": estado,
                 "observaciones": inv.observations or ""
             })
 
