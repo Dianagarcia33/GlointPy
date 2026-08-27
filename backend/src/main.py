@@ -121,6 +121,52 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Crear tablas external_apps y external_payment_orders si no existen
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS external_apps (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        description TEXT NULL,
+                        client_id VARCHAR(100) NOT NULL UNIQUE,
+                        api_key_hash VARCHAR(255) NOT NULL,
+                        webhook_url VARCHAR(500) NULL,
+                        webhook_secret VARCHAR(255) NULL,
+                        redirect_urls TEXT NULL,
+                        is_active TINYINT(1) DEFAULT 1 NOT NULL,
+                        created_by BIGINT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_ext_apps_client (client_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS external_payment_orders (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        payment_token VARCHAR(120) NOT NULL UNIQUE,
+                        app_id BIGINT NOT NULL,
+                        user_id BIGINT NULL,
+                        order_reference VARCHAR(255) NOT NULL,
+                        amount DECIMAL(15,2) NOT NULL,
+                        currency VARCHAR(3) DEFAULT 'COP' NOT NULL,
+                        description VARCHAR(500) NULL,
+                        status ENUM('pending','completed','cancelled','expired','failed') DEFAULT 'pending' NOT NULL,
+                        redirect_url VARCHAR(500) NULL,
+                        metadata_json TEXT NULL,
+                        webhook_status VARCHAR(50) DEFAULT 'pending' NOT NULL,
+                        webhook_attempts BIGINT DEFAULT 0 NOT NULL,
+                        webhook_response TEXT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        expires_at DATETIME NULL,
+                        completed_at DATETIME NULL,
+                        INDEX idx_ext_orders_token (payment_token),
+                        INDEX idx_ext_orders_app (app_id),
+                        INDEX idx_ext_orders_user (user_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating external_apps tables: {e}")
+
             # Limpieza de valores nulos / escapados en referred_by
             try:
                 await conn.execute(text("UPDATE investors SET referred_by = NULL WHERE referred_by = '\\\\N' OR referred_by = '\\N' OR referred_by = 'NULL' OR referred_by = ''"))

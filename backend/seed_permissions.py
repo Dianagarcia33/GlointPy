@@ -35,6 +35,7 @@ PERMISSIONS = [
     {"name": "admin.periods.manage", "description": "Gestionar periodos de inversión", "module": "admin"},
     {"name": "admin.packages.manage", "description": "Gestionar paquetes", "module": "admin"},
     {"name": "admin.rankings.manage", "description": "Gestionar rankings y niveles de inversión", "module": "admin"},
+    {"name": "admin.external_apps.manage", "description": "Gestionar aplicaciones externas conectadas y pasarela Gloint Pay", "module": "admin"},
     {"name": "admin.investors.manage", "description": "Gestionar contratos de inversionistas", "module": "investors"},
     {"name": "admin.investments.manage", "description": "Aprobar y rechazar solicitudes de inversión", "module": "investments"},
     {"name": "admin.payments.manage", "description": "Gestionar sección de pagos", "module": "payments"},

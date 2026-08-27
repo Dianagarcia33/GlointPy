@@ -30,6 +30,8 @@ import { AdminPackagesPage } from "./features/admin/packages/pages/AdminPackages
 import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvestorsPage";
 import { AdminTemplatesPage } from "./features/admin/templates/pages/AdminTemplatesPage";
 import { AdminRankingsPage } from "./features/admin/rankings/pages/AdminRankingsPage";
+import { AdminExternalAppsPage } from "./features/admin/external-apps/pages/AdminExternalAppsPage";
+import { GlointPayCheckoutPage } from "./features/checkout/pages/GlointPayCheckoutPage";
 import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
@@ -105,6 +107,9 @@ function App() {
       <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
       <Route path="/force-change-password" element={<GuestRoute><ForceChangePasswordPage /></GuestRoute>} />
       
+      {/* Pasarela Pública Gloint Pay Checkout */}
+      <Route path="/pay/checkout" element={<GlointPayCheckoutPage />} />
+      
       {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
       <Route 
         path="/dashboard" 
@@ -125,6 +130,7 @@ function App() {
         <Route path="packages" element={<RequirePermission permission="admin.packages.manage"><AdminPackagesPage /></RequirePermission>} />
         <Route path="investors" element={<RequirePermission permission="admin.investors.manage"><AdminInvestorsPage /></RequirePermission>} />
         <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
+        <Route path="external-apps" element={<RequirePermission permissions={["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]}><AdminExternalAppsPage /></RequirePermission>} />
         <Route path="system-events" element={<RequirePermission permission="manage_system_events"><SystemEventsPage /></RequirePermission>} />
         <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
