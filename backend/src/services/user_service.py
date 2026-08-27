@@ -554,3 +554,244 @@ class UserService:
             "withdrawals": withdrawals_list,
             "investments": investments_list
         }
+
+    @staticmethod
+    async def get_global_account_statement(
+        db: AsyncSession,
+        start_date_str: str = None,
+        end_date_str: str = None,
+        user_id: int = None,
+        tx_type: str = None
+    ) -> dict:
+        from src.models.wallet import Wallet, WalletTransaction
+        from src.models.withdrawal import Withdrawal
+        from src.models.investor import Investor
+        from src.models.package import Package
+        from src.models.period import Period
+        from src.models.user import User
+        from datetime import datetime, date, time
+        from sqlalchemy import desc, asc, and_, func
+        from dateutil.relativedelta import relativedelta
+
+        # 1. Parse dates if provided
+        start_dt = None
+        end_dt = None
+        if start_date_str:
+            try:
+                start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
+            except Exception:
+                pass
+        if end_date_str:
+            try:
+                end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
+            except Exception:
+                pass
+
+        # 2. Fetch all wallets total current balance
+        total_wallets_balance_res = await db.execute(select(func.sum(Wallet.balance)))
+        total_wallets_balance = float(total_wallets_balance_res.scalar_one() or 0.0)
+
+        # 3. Fetch all Wallet Transactions joining Wallet and User
+        tx_query = (
+            select(WalletTransaction, User)
+            .join(Wallet, WalletTransaction.wallet_id == Wallet.id)
+            .join(User, Wallet.user_id == User.id)
+        )
+        if user_id:
+            tx_query = tx_query.where(User.id == user_id)
+        if start_dt:
+            tx_query = tx_query.where(WalletTransaction.created_at >= start_dt)
+        if end_dt:
+            tx_query = tx_query.where(WalletTransaction.created_at <= end_dt)
+
+        tx_res = await db.execute(tx_query.order_by(desc(WalletTransaction.created_at), desc(WalletTransaction.id)))
+        all_tx_records = tx_res.all()
+
+        tx_type_map = {
+            "yield_payout": "Pago de Rendimientos",
+            "yield payout": "Pago de Rendimientos",
+            "bonus_payout": "Pago de Bono",
+            "bonus payout": "Pago de Bono",
+            "withdrawal_request": "Solicitud de Retiro",
+            "withdrawal request": "Solicitud de Retiro",
+            "withdrawal_refund": "Reembolso de Retiro",
+            "withdrawal refund": "Reembolso de Retiro",
+            "withdrawal_rejection": "Rechazo de Retiro",
+            "withdrawal rejection": "Rechazo de Retiro",
+            "investment_reservation": "Reserva de Inversión",
+            "investment reservation": "Reserva de Inversión",
+            "investment_payment": "Pago de Inversión",
+            "investment payment": "Pago de Inversión",
+            "transfer_received": "Transferencia Recibida",
+            "transfer received": "Transferencia Recibida",
+            "transfer_in": "Transferencia Recibida",
+            "transfer in": "Transferencia Recibida",
+            "transfer_sent": "Transferencia Enviada",
+            "transfer sent": "Transferencia Enviada",
+            "transfer_out": "Transferencia Enviada",
+            "transfer out": "Transferencia Enviada",
+            "yield_payout_reversed": "Rendimiento Revertido",
+            "yield payout reversed": "Rendimiento Revertido",
+            "yield_payout_reversal": "Reversión de Rendimiento",
+            "yield payout reversal": "Reversión de Rendimiento",
+            "admin_adjustment": "Ajuste Administrativo",
+            "admin adjustment": "Ajuste Administrativo",
+            "adjustment": "Ajuste de Saldo",
+            "ingreso": "Abono / Rendimiento",
+            "egreso": "Débito de Fondos",
+            "capital_increase": "Aumento de Capital",
+            "capital increase": "Aumento de Capital",
+            "capital_withdrawal": "Retiro de Capital",
+            "capital withdrawal": "Retiro de Capital",
+            "pending_payout": "Pago Pendiente",
+            "pending payout": "Pago Pendiente",
+        }
+
+        transactions_list = []
+        total_credits = 0.0
+        total_debits = 0.0
+
+        for t, u in all_tx_records:
+            t_amount = float(t.amount or 0)
+            if t_amount >= 0:
+                total_credits += t_amount
+            else:
+                total_debits += abs(t_amount)
+
+            raw_type = (t.type or "").strip().lower()
+            clean_type = tx_type_map.get(raw_type, (t.type or "Movimiento").replace("_", " ").replace("-", " ").title())
+
+            if tx_type and clean_type != tx_type and raw_type != tx_type.lower():
+                continue
+
+            transactions_list.append({
+                "id": t.id,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "user_id": u.id,
+                "user_name": u.name,
+                "user_document": u.document_id or "N/A",
+                "type": clean_type,
+                "raw_type": t.type,
+                "description": t.description or clean_type,
+                "amount": t_amount,
+                "is_credit": t_amount >= 0,
+                "balance_after": float(t.balance_after or 0)
+            })
+
+        # 4. Fetch Withdrawals with User and Bank info
+        w_query = select(Withdrawal, User).join(User, Withdrawal.user_id == User.id)
+        if user_id:
+            w_query = w_query.where(User.id == user_id)
+        if start_dt:
+            w_query = w_query.where(Withdrawal.created_at >= start_dt)
+        if end_dt:
+            w_query = w_query.where(Withdrawal.created_at <= end_dt)
+
+        w_res = await db.execute(w_query.order_by(desc(Withdrawal.created_at)))
+        all_w_records = w_res.all()
+
+        withdrawals_list = []
+        total_withdrawn_paid = 0.0
+        total_withdrawn_pending = 0.0
+        total_gmf_tax = 0.0
+
+        for w, u in all_w_records:
+            amount = float(w.amount or 0)
+            gmf = float(getattr(w, 'gmf_amount', 0) or 0)
+            net = float(getattr(w, 'net_amount', amount - gmf) or (amount - gmf))
+            w_status = (w.status or "pendiente").lower()
+
+            if w_status in ["aprobado", "approved", "pagado", "paid", "completado"]:
+                total_withdrawn_paid += amount
+                total_gmf_tax += gmf
+            elif w_status in ["pendiente", "pending", "procesado", "processed"]:
+                total_withdrawn_pending += amount
+
+            withdrawals_list.append({
+                "id": w.id,
+                "created_at": w.created_at.isoformat() if w.created_at else None,
+                "user_id": u.id,
+                "user_name": u.name,
+                "user_document": u.document_id or "N/A",
+                "bank_name": w.bank_name or "Banco Registrado",
+                "account_number": w.account_number or "N/A",
+                "account_type": w.account_type or "Ahorros",
+                "amount": amount,
+                "gmf_tax": gmf,
+                "net_amount": net,
+                "status": w.status or "pendiente",
+                "rejection_reason": w.rejection_reason if hasattr(w, 'rejection_reason') else None
+            })
+
+        # 5. Fetch Active & Finished Investments
+        inv_query = (
+            select(Investor, User)
+            .join(User, Investor.user_id == User.id)
+            .options(selectinload(Investor.package), selectinload(Investor.period))
+        )
+        if user_id:
+            inv_query = inv_query.where(User.id == user_id)
+
+        inv_res = await db.execute(inv_query.order_by(desc(Investor.created_at)))
+        all_inv_records = inv_res.all()
+
+        investments_list = []
+        total_capital_active = 0.0
+        total_capital_finished = 0.0
+        today_date = date.today()
+        active_users_set = set()
+
+        for inv, u in all_inv_records:
+            pkg_val = float(inv.package.value) if inv.package else 0.0
+            pct = float(inv.period.percentage) if inv.period else 0.0
+            months = int(inv.period.months) if inv.period else 12
+
+            inv_start = inv.start_date or inv.created_at
+            is_active = True
+            if inv_start:
+                start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
+                end_d = start_d + relativedelta(months=months)
+                if end_d <= today_date:
+                    is_active = False
+
+            if is_active:
+                total_capital_active += pkg_val
+                active_users_set.add(u.id)
+            else:
+                total_capital_finished += pkg_val
+
+            investments_list.append({
+                "id": inv.id,
+                "user_id": u.id,
+                "user_name": u.name,
+                "user_document": u.document_id or "N/A",
+                "assigned_code": inv.assigned_code or f"#{inv.id}",
+                "capital": pkg_val,
+                "porcentaje_mensual": pct,
+                "meses": months,
+                "fecha_inicio": inv.start_date.isoformat() if inv.start_date else None,
+                "estado": "Activo" if is_active else "Finalizado",
+                "observaciones": inv.observations or ""
+            })
+
+        return {
+            "statement_date": datetime.now().isoformat(),
+            "period": {
+                "start_date": start_date_str or "Inicio de Operaciones",
+                "end_date": end_date_str or datetime.now().strftime("%Y-%m-%d")
+            },
+            "summary": {
+                "total_wallets_balance": total_wallets_balance,
+                "total_credits": total_credits,
+                "total_debits": total_debits,
+                "total_withdrawn_paid": total_withdrawn_paid,
+                "total_withdrawn_pending": total_withdrawn_pending,
+                "total_gmf_tax": total_gmf_tax,
+                "total_capital_active": total_capital_active,
+                "total_capital_finished": total_capital_finished,
+                "active_investors_count": len(active_users_set)
+            },
+            "transactions": transactions_list,
+            "withdrawals": withdrawals_list,
+            "investments": investments_list
+        }

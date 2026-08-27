@@ -103,6 +103,19 @@ async def reset_user_password(user_id: int, db: AsyncSession = Depends(get_db)):
     """
     return await UserService.reset_user_password(db, user_id)
 
+@router.get("/statement/global", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage", "admin.payments.manage", "admin.audits.manage", "admin.roles.manage"]))])
+async def get_global_statement(
+    start_date: Optional[str] = Query(None, description="Fecha inicial formato YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="Fecha final formato YYYY-MM-DD"),
+    user_id: Optional[int] = Query(None, description="Filtrar por usuario específico"),
+    tx_type: Optional[str] = Query(None, description="Filtrar por tipo de transacción"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene el estado de cuenta financiero global consolidado y resumen de retiros para administradores.
+    """
+    return await UserService.get_global_account_statement(db, start_date, end_date, user_id, tx_type)
+
 @router.get("/{user_id}/statement", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage"]))])
 async def get_user_statement(
     user_id: int,

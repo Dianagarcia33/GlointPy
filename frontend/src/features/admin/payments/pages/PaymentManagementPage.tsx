@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check } from 'lucide-react';
+import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check, Landmark } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
 import { Withdrawal, PaginatedWithdrawals } from '../types';
 import { WithdrawalApprovalModal } from '../components/WithdrawalApprovalModal';
 import { BulkPayoutPreviewModal } from '../components/BulkPayoutPreviewModal';
 import { BulkApprovePreviewModal } from '../components/BulkApprovePreviewModal';
+import { GlobalAccountStatementModal } from '../../users/components/GlobalAccountStatementModal';
 import { bankAccountsService, DataBank } from '../../../../services/bankAccounts';
 import { Can } from '../../../../components/security/Can';
 
@@ -19,6 +20,7 @@ export const PaymentManagementPage: React.FC = () => {
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isGlobalStatementOpen, setIsGlobalStatementOpen] = useState(false);
 
   // Multi-selection states
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -321,6 +323,17 @@ export const PaymentManagementPage: React.FC = () => {
           <p className="text-slate-300 text-sm max-w-xl">
             Supervisión de solicitudes de retiro, verificación de cuentas bancarias en la bóveda, sincronización de débitos y recibos de transferencia.
           </p>
+        </div>
+
+        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+          <button 
+            onClick={() => setIsGlobalStatementOpen(true)}
+            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
+            title="Ver auditoría financiera y extracto general de la plataforma"
+          >
+            <Landmark className="w-4 h-4 text-emerald-400" />
+            <span>Estado de Cuenta General</span>
+          </button>
         </div>
       </div>
 
@@ -710,6 +723,12 @@ export const PaymentManagementPage: React.FC = () => {
           selectedWithdrawals={selectedWithdrawalsList}
         />
       )}
+
+      {/* Modal Estado de Cuenta General */}
+      <GlobalAccountStatementModal
+        isOpen={isGlobalStatementOpen}
+        onClose={() => setIsGlobalStatementOpen(false)}
+      />
     </div>
   );
 };

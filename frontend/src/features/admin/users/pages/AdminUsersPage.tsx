@@ -5,7 +5,8 @@ import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt } from 'lucide-react';
+import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate } from '../../../../utils/format';
 
@@ -32,6 +33,7 @@ export const AdminUsersPage = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [statementUser, setStatementUser] = useState<User | null>(null);
+  const [isGlobalStatementOpen, setIsGlobalStatementOpen] = useState(false);
 
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -194,15 +196,26 @@ export const AdminUsersPage = () => {
           </p>
         </div>
         
-        <Can permission="admin.users.manage">
+        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
           <button 
-            onClick={handleCreate}
-            className="relative z-10 flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+            onClick={() => setIsGlobalStatementOpen(true)}
+            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
+            title="Ver auditoría financiera y extracto general de la plataforma"
           >
-            <Plus className="w-4 h-4" />
-            <span>Crear Usuario</span>
+            <Landmark className="w-4 h-4 text-emerald-400" />
+            <span>Estado de Cuenta General</span>
           </button>
-        </Can>
+
+          <Can permission="admin.users.manage">
+            <button 
+              onClick={handleCreate}
+              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Crear Usuario</span>
+            </button>
+          </Can>
+        </div>
       </div>
       
       {/* Filters Bar */}
@@ -524,6 +537,11 @@ export const AdminUsersPage = () => {
           userName={statementUser.name}
         />
       )}
+
+      <GlobalAccountStatementModal
+        isOpen={isGlobalStatementOpen}
+        onClose={() => setIsGlobalStatementOpen(false)}
+      />
     </div>
   );
 };
