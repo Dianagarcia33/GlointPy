@@ -696,16 +696,16 @@ class UserService:
         total_gmf_tax = 0.0
 
         for w, u in all_w_records:
-            amount = float(w.amount or 0)
-            gmf = float(getattr(w, 'gmf_amount', 0) or 0)
-            net = float(getattr(w, 'net_amount', amount - gmf) or (amount - gmf))
-            w_status = (w.status or "pendiente").lower()
+            w_status = w.estado.value if hasattr(w.estado, 'value') else str(w.estado or "pendiente")
+            monto_bruto = float(w.monto or 0)
+            monto_neto = float(w.monto_neto or w.monto or 0)
+            gmf = float(w.impuesto if hasattr(w, 'impuesto') and w.impuesto is not None else max(0.0, monto_bruto - monto_neto))
 
-            if w_status in ["aprobado", "approved", "pagado", "paid", "completado"]:
-                total_withdrawn_paid += amount
+            if w_status.lower() in ["aprobado", "approved", "pagado", "paid", "procesado", "processed", "completado"]:
+                total_withdrawn_paid += monto_neto
                 total_gmf_tax += gmf
-            elif w_status in ["pendiente", "pending", "procesado", "processed"]:
-                total_withdrawn_pending += amount
+            elif w_status.lower() in ["pendiente", "pending"]:
+                total_withdrawn_pending += monto_neto
 
             withdrawals_list.append({
                 "id": w.id,
@@ -713,14 +713,14 @@ class UserService:
                 "user_id": u.id,
                 "user_name": u.name,
                 "user_document": u.document_id or "N/A",
-                "bank_name": w.bank_name or "Banco Registrado",
-                "account_number": w.account_number or "N/A",
-                "account_type": w.account_type or "Ahorros",
-                "amount": amount,
+                "bank_name": w.banco or "N/A",
+                "account_number": w.numero_cuenta or "N/A",
+                "account_type": w.tipo_cuenta or "Ahorros",
+                "amount": monto_bruto,
                 "gmf_tax": gmf,
-                "net_amount": net,
-                "status": w.status or "pendiente",
-                "rejection_reason": w.rejection_reason if hasattr(w, 'rejection_reason') else None
+                "net_amount": monto_neto,
+                "status": w_status,
+                "rejection_reason": w.motivo_rechazo if hasattr(w, 'motivo_rechazo') else None
             })
 
         # 5. Fetch Active & Finished Investments
