@@ -29,6 +29,7 @@ import { AdminPeriodsPage } from "./features/admin/periods/pages/AdminPeriodsPag
 import { AdminPackagesPage } from "./features/admin/packages/pages/AdminPackagesPage";
 import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvestorsPage";
 import { AdminTemplatesPage } from "./features/admin/templates/pages/AdminTemplatesPage";
+import { AdminRankingsPage } from "./features/admin/rankings/pages/AdminRankingsPage";
 import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
@@ -128,6 +129,7 @@ function App() {
         <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
+        <Route path="rankings" element={<RequirePermission permission="admin.investors.manage"><AdminRankingsPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<BeneficiariesPage />} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
         <Route path="admin-referrals" element={<RequirePermission permission="admin.users.manage"><AdminReferralsPage /></RequirePermission>} />

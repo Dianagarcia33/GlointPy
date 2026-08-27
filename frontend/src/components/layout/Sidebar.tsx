@@ -290,6 +290,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                             </span>
                                             <span className="flex-1 text-[13px] font-outfit">Inversionistas</span>
                                         </NavLink>
+
+                                        <NavLink to="/dashboard/rankings" className={navLinkClass}>
+                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                                <Trophy className="w-[18px] h-[18px]" />
+                                            </span>
+                                            <span className="flex-1 text-[13px] font-outfit">Rankings & Niveles</span>
+                                        </NavLink>
                                     </Can>
 
                                     <Can permission="admin.payments.manage">

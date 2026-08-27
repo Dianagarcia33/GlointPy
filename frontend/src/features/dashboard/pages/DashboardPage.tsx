@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ShieldCheck, Loader2 } from 'lucide-react';
+import { ShieldCheck, Loader2, Trophy, Sparkles, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { Can } from '../../../components/security/Can';
 import { investmentsService, Investment } from '../../../services/investments';
 import { analyticsService, AdminAnalyticsDashboardData } from '../../../services/analytics';
+import { rankingsService, UserRankDetails } from '../../../services/rankings';
 import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
 import { DirectorDashboardView } from '../components/DirectorDashboardView';
+import { RankingsClubModal } from '../../investments/components/RankingsClubModal';
 
 /* SKELETON LOADERS */
 const AdminDashboardSkeleton = () => (
@@ -126,6 +128,8 @@ export const DashboardPage = () => {
     const [investments, setInvestments] = useState<Investment[]>([]);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
+    const [isClubModalOpen, setIsClubModalOpen] = useState(false);
+    const [rankDetails, setRankDetails] = useState<UserRankDetails | null>(null);
 
     const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
@@ -155,11 +159,15 @@ export const DashboardPage = () => {
     useEffect(() => {
         if (!isSuperAdmin && !isDirectorOnly) {
             setLoading(true);
-            investmentsService.getMyInvestments()
-                .then(data => {
-                    setInvestments(Array.isArray(data) ? data : []);
+            Promise.all([
+                investmentsService.getMyInvestments(),
+                rankingsService.getMyRankDetails().catch(() => null)
+            ])
+                .then(([invData, rankData]) => {
+                    setInvestments(Array.isArray(invData) ? invData : []);
+                    if (rankData) setRankDetails(rankData);
                 })
-                .catch(err => console.error("Error al cargar inversiones:", err))
+                .catch(err => console.error("Error al cargar dashboard de inversionista:", err))
                 .finally(() => setLoading(false));
         }
     }, [user, isSuperAdmin, isDirectorOnly]);
@@ -358,6 +366,75 @@ export const DashboardPage = () => {
                                 dailyProfit={gananciaDiaria}
                             />
 
+                            {/* CLUB DE BENEFICIOS & RANKING BANNER */}
+                            {rankDetails?.current_rank && (
+                                <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 rounded-3xl p-5 sm:p-6 text-white shadow-xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden group">
+                                    <div 
+                                        className="absolute top-0 right-0 w-80 h-80 opacity-15 rounded-full blur-3xl pointer-events-none" 
+                                        style={{ backgroundColor: rankDetails.current_rank.color || '#EAB308' }} 
+                                    />
+
+                                    <div className="flex items-center gap-4 relative z-10">
+                                        <div 
+                                            className="w-13 h-13 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0 group-hover:scale-105 transition-transform"
+                                            style={{ backgroundColor: rankDetails.current_rank.color || '#EAB308' }}
+                                        >
+                                            <Trophy className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] uppercase tracking-widest font-black text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded-full border border-amber-400/20">
+                                                    Nivel #{rankDetails.current_rank.order}
+                                                </span>
+                                                {rankDetails.current_rank.bonus_percentage > 0 && (
+                                                    <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 font-mono">
+                                                        +{rankDetails.current_rank.bonus_percentage}% Bono Rendimiento
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h3 className="text-lg sm:text-xl font-black text-white font-montserrat mt-0.5">
+                                                Inversionista {rankDetails.current_rank.name}
+                                            </h3>
+                                            <p className="text-xs text-slate-300 mt-0.5">
+                                                {rankDetails.current_rank.benefits?.[0] || 'Disfruta de beneficios exclusivos por tu nivel de inversión'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 relative z-10">
+                                        {rankDetails.next_rank && (
+                                            <div className="space-y-1 sm:text-right">
+                                                <span className="text-[11px] text-slate-300 block font-medium">
+                                                    Siguiente Nivel: <strong className="text-amber-400 font-bold">{rankDetails.next_rank.name}</strong>
+                                                </span>
+                                                <div className="w-full sm:w-44 bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+                                                    <div 
+                                                        className="h-full rounded-full transition-all duration-500"
+                                                        style={{ 
+                                                            width: `${rankDetails.progress_percentage}%`,
+                                                            backgroundColor: rankDetails.next_rank.color || '#EAB308'
+                                                        }}
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] text-slate-400 block font-mono">
+                                                    Faltan ${(rankDetails.amount_needed || 0).toLocaleString('es-CO')} COP ({rankDetails.progress_percentage}%)
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsClubModalOpen(true)}
+                                            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-xs font-bold transition-all border border-white/20 flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-sm"
+                                        >
+                                            <Sparkles className="w-4 h-4 text-amber-400" />
+                                            <span>Club & Escalafón</span>
+                                            <ChevronRight className="w-4 h-4 text-slate-400" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             <DashboardKPIs 
                                 investedCapital={totalInvertido}
                                 finishedCapital={totalInvertidoFinalizado}
@@ -437,6 +514,12 @@ export const DashboardPage = () => {
                     </>
                 )
             )}
+
+            {/* Modal de Club de Beneficios & Rangos */}
+            <RankingsClubModal
+                isOpen={isClubModalOpen}
+                onClose={() => setIsClubModalOpen(false)}
+            />
         </div>
     );
 };

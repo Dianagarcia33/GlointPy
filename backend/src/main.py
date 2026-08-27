@@ -46,6 +46,35 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN rank_id INT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS investment_ranks (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(100) NOT NULL UNIQUE,
+                        slug VARCHAR(100) NOT NULL UNIQUE,
+                        min_investment DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        max_investment DECIMAL(15,2) NULL,
+                        bonus_percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+                        color VARCHAR(50) NOT NULL DEFAULT '#EAB308',
+                        icon VARCHAR(50) NOT NULL DEFAULT 'trophy',
+                        priority_withdrawal BOOLEAN NOT NULL DEFAULT FALSE,
+                        benefits JSON NULL,
+                        `order` INT NOT NULL DEFAULT 1,
+                        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_ranks_slug (slug),
+                        INDEX idx_ranks_order (`order`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating investment_ranks table: {e}")
+
+            try:
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_url VARCHAR(500) NULL"))
             except Exception:
                 pass
