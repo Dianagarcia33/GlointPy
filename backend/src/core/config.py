@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "super_secret_key_change_me_in_production"
     ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 horas (1 día completo)
     
     # Base de Datos
     DB_HOST: str
