@@ -4,6 +4,7 @@ import { paymentService } from '../services/paymentService';
 import { Withdrawal, PaginatedWithdrawals } from '../types';
 import { WithdrawalApprovalModal } from '../components/WithdrawalApprovalModal';
 import { BulkPayoutPreviewModal } from '../components/BulkPayoutPreviewModal';
+import { BulkApprovePreviewModal } from '../components/BulkApprovePreviewModal';
 import { bankAccountsService, DataBank } from '../../../../services/bankAccounts';
 import { Can } from '../../../../components/security/Can';
 
@@ -22,6 +23,7 @@ export const PaymentManagementPage: React.FC = () => {
   // Multi-selection states
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isBulkApproveModalOpen, setIsBulkApproveModalOpen] = useState(false);
   const [officialBanks, setOfficialBanks] = useState<DataBank[]>([]);
   const limit = 20;
 
@@ -109,35 +111,72 @@ export const PaymentManagementPage: React.FC = () => {
 
   const [isBulkProcessing, setIsBulkProcessing] = useState<boolean>(false);
 
-  const isSelectableWithdrawal = (w: Withdrawal) => {
+  // Determinar qué tipo de estado está seleccionado actualmente ('pendiente' | 'procesado' | null)
+  const currentSelectionType = useMemo<'pendiente' | 'procesado' | null>(() => {
+    if (selectedIds.size === 0) return null;
+    const all = data?.data || [];
+    const firstSelected = all.find(i => selectedIds.has(i.id));
+    if (!firstSelected) return null;
+    const st = (firstSelected.estado || '').toLowerCase().trim();
+    if (st === 'procesado' || st === 'en proceso' || st === 'en_proceso') return 'procesado';
+    return 'pendiente';
+  }, [data, selectedIds]);
+
+  // Validación estricta: si hay pendientes seleccionados, no se pueden seleccionar procesados y viceversa
+  const isItemSelectable = (w: Withdrawal) => {
     if (!w || !w.estado) return false;
     const st = w.estado.toLowerCase().trim();
-    return st === 'pendiente' || st === 'procesado' || st === 'en proceso' || st === 'en_proceso';
+    const isWPending = st === 'pendiente';
+    const isWProcesado = st === 'procesado' || st === 'en proceso' || st === 'en_proceso';
+
+    if (!isWPending && !isWProcesado) return false; // Aprobados, rechazados, cancelados nunca son seleccionables
+
+    // Si aún no hay selección activa, se puede iniciar con cualquier estado permitido
+    if (!currentSelectionType) {
+      if (statusFilter === 'pendiente') return isWPending;
+      if (statusFilter === 'procesado') return isWProcesado;
+      return true;
+    }
+
+    // Si la selección actual es de PENDIENTES, bloquear PROCESADOS
+    if (currentSelectionType === 'pendiente') {
+      return isWPending;
+    }
+
+    // Si la selección actual es de PROCESADOS, bloquear PENDIENTES
+    if (currentSelectionType === 'procesado') {
+      return isWProcesado;
+    }
+
+    return false;
   };
 
-  // Ítems seleccionables en la página (pendientes o procesados)
+  const getDisabledReason = (w: Withdrawal) => {
+    const st = (w.estado || '').toLowerCase().trim();
+    if (st === 'aprobado') return 'Esta solicitud ya está aprobada';
+    if (st === 'rechazado') return 'Esta solicitud fue rechazada';
+    if (st === 'cancelado') return 'Esta solicitud fue cancelada';
+    if (currentSelectionType === 'pendiente' && st !== 'pendiente') {
+      return 'No puedes seleccionar procesados mientras haya pendientes seleccionados';
+    }
+    if (currentSelectionType === 'procesado' && st === 'pendiente') {
+      return 'No puedes seleccionar pendientes mientras haya procesados seleccionados';
+    }
+    return 'Solo solicitudes pendientes o procesadas';
+  };
+
+  // Ítems seleccionables en la página actual
   const selectableItemsOnPage = useMemo(() => {
-    return filteredItems.filter(isSelectableWithdrawal);
-  }, [filteredItems]);
+    return filteredItems.filter(isItemSelectable);
+  }, [filteredItems, currentSelectionType, statusFilter]);
 
   const selectedWithdrawalsList = useMemo(() => {
     const all = data?.data || [];
-    return all.filter(i => selectedIds.has(i.id) && isSelectableWithdrawal(i));
+    return all.filter(i => selectedIds.has(i.id));
   }, [data, selectedIds]);
 
   const selectedTotalNet = useMemo(() => {
     return selectedWithdrawalsList.reduce((sum, i) => sum + parseFloat(i.monto_neto as any || i.monto || 0), 0);
-  }, [selectedWithdrawalsList]);
-
-  const hasProcesadoInSelection = useMemo(() => {
-    return selectedWithdrawalsList.some(i => {
-      const st = (i.estado || '').toLowerCase().trim();
-      return st === 'procesado' || st === 'en proceso' || st === 'en_proceso';
-    });
-  }, [selectedWithdrawalsList]);
-
-  const hasPendingInSelection = useMemo(() => {
-    return selectedWithdrawalsList.some(i => (i.estado || '').toLowerCase().trim() === 'pendiente');
   }, [selectedWithdrawalsList]);
 
   const isAllSelectableOnPageSelected = useMemo(() => {
@@ -159,7 +198,7 @@ export const PaymentManagementPage: React.FC = () => {
   };
 
   const toggleSelectOne = (withdrawal: Withdrawal) => {
-    if (!isSelectableWithdrawal(withdrawal)) return;
+    if (!isItemSelectable(withdrawal)) return;
     const next = new Set(selectedIds);
     if (next.has(withdrawal.id)) {
       next.delete(withdrawal.id);
@@ -174,13 +213,7 @@ export const PaymentManagementPage: React.FC = () => {
   };
 
   const handleBulkApprove = async () => {
-    const toApproveIds = selectedWithdrawalsList
-      .filter(i => {
-        const st = (i.estado || '').toLowerCase().trim();
-        return st === 'procesado' || st === 'en proceso' || st === 'en_proceso' || st === 'pendiente';
-      })
-      .map(i => i.id);
-
+    const toApproveIds = selectedWithdrawalsList.map(i => i.id);
     if (toApproveIds.length === 0) return;
     try {
       setIsBulkProcessing(true);
@@ -224,11 +257,20 @@ export const PaymentManagementPage: React.FC = () => {
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 sm:px-6 py-3.5 rounded-3xl shadow-2xl border border-slate-700/80 flex items-center gap-4 sm:gap-6 animate-in slide-in-from-bottom-5 duration-200 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-7 h-7 bg-brand-500 text-white rounded-full text-xs font-bold font-mono shadow-sm">
+            <span className={`flex items-center justify-center w-7 h-7 text-white rounded-full text-xs font-bold font-mono shadow-sm ${
+              currentSelectionType === 'procesado' ? 'bg-blue-600' : 'bg-brand-500'
+            }`}>
               {selectedIds.size}
             </span>
             <div>
-              <p className="text-xs font-bold leading-tight text-white">Seleccionados</p>
+              <p className="text-xs font-bold leading-tight text-white flex items-center gap-1.5">
+                <span>{currentSelectionType === 'procesado' ? 'Procesados' : 'Pendientes'}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono uppercase font-bold ${
+                  currentSelectionType === 'procesado' ? 'bg-blue-500/30 text-blue-300' : 'bg-emerald-500/30 text-emerald-300'
+                }`}>
+                  {selectedIds.size} seleccionados
+                </span>
+              </p>
               <p className="text-[11px] text-emerald-400 font-mono font-extrabold">{formatCurrency(selectedTotalNet)}</p>
             </div>
           </div>
@@ -236,7 +278,7 @@ export const PaymentManagementPage: React.FC = () => {
           <div className="h-7 w-px bg-slate-700" />
 
           <div className="flex items-center gap-2">
-            {hasPendingInSelection && (
+            {currentSelectionType === 'pendiente' && (
               <button
                 onClick={() => setIsBulkModalOpen(true)}
                 className="px-4 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-2 cursor-pointer"
@@ -246,14 +288,13 @@ export const PaymentManagementPage: React.FC = () => {
               </button>
             )}
 
-            {hasProcesadoInSelection && (
+            {currentSelectionType === 'procesado' && (
               <button
-                onClick={handleBulkApprove}
-                disabled={isBulkProcessing}
-                className="px-4 py-2 text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-md shadow-blue-600/30 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                onClick={() => setIsBulkApproveModalOpen(true)}
+                className="px-4 py-2 text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-md shadow-blue-600/30 transition-all flex items-center gap-2 cursor-pointer"
               >
-                {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Aprobar Pagos Procesados ({selectedWithdrawalsList.filter(i => (i.estado || '').toLowerCase().trim() !== 'pendiente').length})
+                <ShieldCheck className="w-4 h-4" />
+                Previsualizar Aprobación ({selectedIds.size})
               </button>
             )}
 
@@ -413,25 +454,24 @@ export const PaymentManagementPage: React.FC = () => {
           {/* Quick Bulk Action Button if Selected */}
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-2">
-              {hasPendingInSelection && (
+              {currentSelectionType === 'pendiente' && (
                 <button
                   type="button"
                   onClick={() => setIsBulkModalOpen(true)}
                   className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
-                  Dispersión ({selectedWithdrawalsList.filter(i => (i.estado || '').toLowerCase().trim() === 'pendiente').length})
+                  Dispersión ({selectedIds.size})
                 </button>
               )}
-              {hasProcesadoInSelection && (
+              {currentSelectionType === 'procesado' && (
                 <button
                   type="button"
-                  onClick={handleBulkApprove}
-                  disabled={isBulkProcessing}
-                  className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 disabled:opacity-50"
+                  onClick={() => setIsBulkApproveModalOpen(true)}
+                  className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
                 >
-                  {isBulkProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  Aprobar ({selectedWithdrawalsList.filter(i => (i.estado || '').toLowerCase().trim() !== 'pendiente').length})
+                  <ShieldCheck className="w-4 h-4" />
+                  Aprobar Procesados ({selectedIds.size})
                 </button>
               )}
             </div>
@@ -498,15 +538,16 @@ export const PaymentManagementPage: React.FC = () => {
                 </tr>
               ) : (
                 filteredItems.map((withdrawal) => {
-                  const isSelectable = isSelectableWithdrawal(withdrawal);
+                  const isSelectable = isItemSelectable(withdrawal);
                   const isSelected = selectedIds.has(withdrawal.id);
+                  const isReviewable = withdrawal.estado === 'pendiente' || withdrawal.estado === 'procesado';
                   return (
                     <tr 
                       key={withdrawal.id} 
                       className={`transition-colors group cursor-pointer ${
                         isSelected ? 'bg-brand-50/50 hover:bg-brand-50/70' : 'hover:bg-slate-50/80'
                       }`}
-                      onClick={() => isSelectable && setSelectedWithdrawal(withdrawal)}
+                      onClick={() => isReviewable && setSelectedWithdrawal(withdrawal)}
                     >
                       <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                         {isSelectable ? (
@@ -522,7 +563,7 @@ export const PaymentManagementPage: React.FC = () => {
                             type="checkbox"
                             disabled
                             checked={false}
-                            title="Solo se pueden seleccionar solicitudes pendientes o procesadas"
+                            title={getDisabledReason(withdrawal)}
                             className="w-4 h-4 rounded border-slate-200 text-slate-300 opacity-40 cursor-not-allowed"
                           />
                         )}
@@ -641,7 +682,7 @@ export const PaymentManagementPage: React.FC = () => {
         />
       )}
 
-      {/* Bulk Payout Modal */}
+      {/* Bulk Payout Modal (Pendientes -> Procesados + Excel) */}
       {isBulkModalOpen && (
         <BulkPayoutPreviewModal
           isOpen={isBulkModalOpen}
@@ -653,6 +694,20 @@ export const PaymentManagementPage: React.FC = () => {
           }}
           selectedWithdrawals={selectedWithdrawalsList}
           officialBanks={officialBanks}
+        />
+      )}
+
+      {/* Bulk Approve Modal (Procesados -> Aprobados) */}
+      {isBulkApproveModalOpen && (
+        <BulkApprovePreviewModal
+          isOpen={isBulkApproveModalOpen}
+          onClose={() => setIsBulkApproveModalOpen(false)}
+          onSuccess={() => {
+            clearSelection();
+            fetchWithdrawals();
+            setToast({ message: 'Solicitudes de retiro aprobadas exitosamente.', type: 'success' });
+          }}
+          selectedWithdrawals={selectedWithdrawalsList}
         />
       )}
     </div>
