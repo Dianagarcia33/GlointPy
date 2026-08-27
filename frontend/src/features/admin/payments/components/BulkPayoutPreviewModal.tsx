@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Download, CheckCircle2, AlertCircle, Loader2, FileSpreadsheet, Building2, ShieldCheck, ArrowRight, DollarSign, Info } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -34,9 +34,11 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
   selectedWithdrawals,
   officialBanks
 }) => {
-  const [reference, setReference] = useState<string>('LogyPay');
+  const [reference, setReference] = useState<string>('Gloint');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoDownloaded, setAutoDownloaded] = useState<boolean>(false);
+  const downloadedRef = useRef<boolean>(false);
 
   // Helper de normalización para macheo de banco a código ACH
   const normalize = (text: string = '') =>
@@ -125,7 +127,7 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
         ACCOUNT_TYPE: accountType,
         ACCOUNT_NUMBER: accountNumber,
         DEBIT_AMOUNT: amount,
-        REFERENCE: reference || 'LogyPay',
+        REFERENCE: reference || 'Gloint',
         bankNameOriginal: w.banco || 'No registrado'
       };
     });
@@ -134,8 +136,6 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
   const totalAmount = useMemo(() => {
     return rows.reduce((sum, r) => sum + r.DEBIT_AMOUNT, 0);
   }, [rows]);
-
-  if (!isOpen) return null;
 
   const handleDownloadExcel = () => {
     try {
@@ -172,11 +172,30 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const filename = `dispersion_pagos_${reference.toLowerCase()}_${dateStr}.xlsx`;
       XLSX.writeFile(workbook, filename);
+      setAutoDownloaded(true);
     } catch (err: any) {
       console.error('Error generando archivo Excel:', err);
       setError('Error al generar el archivo Excel de dispersión');
     }
   };
+
+  // Descarga automática inmediata al abrir el modal con registros seleccionados
+  useEffect(() => {
+    if (isOpen && rows.length > 0 && !downloadedRef.current) {
+      downloadedRef.current = true;
+      // Pequeño timeout para permitir que el modal se renderice primero
+      const timer = setTimeout(() => {
+        handleDownloadExcel();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+    if (!isOpen) {
+      downloadedRef.current = false;
+      setAutoDownloaded(false);
+    }
+  }, [isOpen, rows]);
+
+  if (!isOpen) return null;
 
   const handleProcessAll = async () => {
     try {
@@ -213,14 +232,19 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
               <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight font-montserrat flex items-center gap-2">
+              <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight font-montserrat flex flex-wrap items-center gap-2">
                 Previsualización de Dispersión de Pagos
                 <span className="text-xs px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 font-mono rounded-full border border-emerald-500/30">
                   {selectedWithdrawals.length} seleccionados
                 </span>
+                {autoDownloaded && (
+                  <span className="text-xs px-2.5 py-0.5 bg-emerald-600/90 text-white font-bold rounded-full flex items-center gap-1 shadow-xs animate-in fade-in">
+                    <Download className="w-3 h-3" /> Archivo Excel Descargado
+                  </span>
+                )}
               </h2>
               <p className="text-xs sm:text-sm text-slate-300">
-                Verifica la estructura formateada con códigos ACH antes de descargar el archivo y cambiar el estado.
+                La plantilla para dispersión bancaria fue generada. Revisa los datos y confirma para cambiar a procesados.
               </p>
             </div>
           </div>
@@ -242,7 +266,7 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
               type="text"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
-              placeholder="LogyPay"
+              placeholder="Gloint"
               className="px-3.5 py-1.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-2xs"
             />
           </div>

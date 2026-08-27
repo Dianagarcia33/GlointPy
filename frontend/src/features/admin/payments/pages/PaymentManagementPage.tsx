@@ -189,7 +189,7 @@ export const PaymentManagementPage: React.FC = () => {
               className="px-4 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-2 cursor-pointer"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              Previsualizar Dispersión (LogyPay)
+              Previsualizar Dispersión de Pagos
             </button>
 
             <button
@@ -350,7 +350,7 @@ export const PaymentManagementPage: React.FC = () => {
               className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              Dispersión LogyPay ({selectedIds.size})
+              Dispersión de Pagos ({selectedIds.size})
             </button>
           )}
         </div>
@@ -530,7 +530,7 @@ export const PaymentManagementPage: React.FC = () => {
         />
       )}
 
-      {/* Bulk Payout / LogyPay Modal */}
+      {/* Bulk Payout Modal */}
       {isBulkModalOpen && (
         <BulkPayoutPreviewModal
           isOpen={isBulkModalOpen}
