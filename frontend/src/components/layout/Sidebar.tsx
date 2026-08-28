@@ -27,7 +27,8 @@ import {
     ShieldCheck,
     Send,
     LifeBuoy,
-    Globe
+    Globe,
+    Layers
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
@@ -157,6 +158,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         <span className="flex-1 text-[13px] font-outfit">Mi Billetera</span>
                                     </NavLink>
                                 </Can>
+
+                                <NavLink to="/dashboard/shares-market" className={navLinkClass}>
+                                    <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                        <Layers className="w-[18px] h-[18px]" />
+                                    </span>
+                                    <span className="flex-1 text-[13px] font-outfit">Mercado de Acciones</span>
+                                </NavLink>
 
                                 <Can permission="bank_accounts:manage">
                                     <NavLink to="/dashboard/bank-accounts" className={navLinkClass}>
@@ -318,6 +326,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                 <Globe className="w-[18px] h-[18px]" />
                                             </span>
                                             <span className="flex-1 text-[13px] font-outfit">Apps Externas (Gloint Pay)</span>
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["admin.shares.manage", "admin.roles.manage", "admin.users.manage"]}>
+                                        <NavLink to="/dashboard/admin-shares" className={navLinkClass}>
+                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                                <Layers className="w-[18px] h-[18px]" />
+                                            </span>
+                                            <span className="flex-1 text-[13px] font-outfit">Mercado de Acciones (Admin)</span>
                                         </NavLink>
                                     </Can>
 

@@ -164,8 +164,74 @@ async def on_startup():
                         INDEX idx_ext_orders_user (user_id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS share_price_history (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        previous_price DECIMAL(15,2) NOT NULL,
+                        new_price DECIMAL(15,2) NOT NULL,
+                        change_percentage DECIMAL(6,2) DEFAULT 0.00 NOT NULL,
+                        justification_notes TEXT NOT NULL,
+                        admin_id BIGINT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_sph_created (created_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS share_issuances (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        title VARCHAR(255) NOT NULL,
+                        description TEXT NULL,
+                        total_shares_issued INT NOT NULL,
+                        available_shares INT NOT NULL,
+                        price_per_share DECIMAL(15,2) NOT NULL,
+                        is_active TINYINT(1) DEFAULT 1 NOT NULL,
+                        created_by BIGINT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS share_listings (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        seller_id BIGINT NOT NULL,
+                        shares_total INT NOT NULL,
+                        shares_available INT NOT NULL,
+                        shares_locked INT DEFAULT 0 NOT NULL,
+                        price_per_share DECIMAL(15,2) NOT NULL,
+                        status VARCHAR(50) DEFAULT 'active' NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_sl_seller (seller_id),
+                        INDEX idx_sl_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS share_trade_orders (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        listing_id BIGINT NULL,
+                        issuance_id BIGINT NULL,
+                        seller_id BIGINT NULL,
+                        buyer_id BIGINT NOT NULL,
+                        shares_quantity INT NOT NULL,
+                        price_per_share DECIMAL(15,2) NOT NULL,
+                        total_amount DECIMAL(15,2) NOT NULL,
+                        wallet_amount_used DECIMAL(15,2) DEFAULT 0.00 NOT NULL,
+                        surplus_amount DECIMAL(15,2) DEFAULT 0.00 NOT NULL,
+                        receipt_url VARCHAR(500) NULL,
+                        payment_method VARCHAR(50) DEFAULT 'full_wallet' NOT NULL,
+                        status VARCHAR(50) DEFAULT 'completed' NOT NULL,
+                        admin_notes TEXT NULL,
+                        approved_by BIGINT NULL,
+                        approved_at DATETIME NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_sto_buyer (buyer_id),
+                        INDEX idx_sto_seller (seller_id),
+                        INDEX idx_sto_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
             except Exception as e:
-                print(f"Error creating external_apps tables: {e}")
+                print(f"Error creating share_market tables: {e}")
 
             # Limpieza de valores nulos / escapados en referred_by
             try:

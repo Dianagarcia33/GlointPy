@@ -38,6 +38,8 @@ import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccoun
 import { CommercialDashboardPage } from "./features/commercial/pages/CommercialDashboardPage";
 import { BeneficiariesPage } from "./features/beneficiaries/pages/BeneficiariesPage";
 import { ReferralsPage } from "./features/referrals/pages/ReferralsPage";
+import { SharesMarketPage } from "./features/shares/pages/SharesMarketPage";
+import { AdminSharesPage } from "./features/admin/shares/pages/AdminSharesPage";
 import { AdminReferralsPage } from "./features/admin/referrals/pages/AdminReferralsPage";
 import { ChatPage } from "./features/chat/pages/ChatPage";
 import { CRMPage } from "./features/crm/pages/CRMPage";
@@ -136,6 +138,8 @@ function App() {
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
         <Route path="rankings" element={<RequirePermission permissions={["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]}><AdminRankingsPage /></RequirePermission>} />
+        <Route path="shares-market" element={<SharesMarketPage />} />
+        <Route path="admin-shares" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage", "admin.users.manage"]}><AdminSharesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<BeneficiariesPage />} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
         <Route path="admin-referrals" element={<RequirePermission permission="admin.users.manage"><AdminReferralsPage /></RequirePermission>} />
