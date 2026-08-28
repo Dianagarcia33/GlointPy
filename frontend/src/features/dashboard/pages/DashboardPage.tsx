@@ -366,71 +366,7 @@ export const DashboardPage = () => {
                                 dailyProfit={gananciaDiaria}
                             />
 
-                            {/* CLUB DE BENEFICIOS & RANKING BANNER */}
-                            {rankDetails?.current_rank && (
-                                <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden group">
-                                    <div className="flex items-center gap-4 relative z-10">
-                                        <div 
-                                            className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-xs shrink-0 group-hover:scale-105 transition-transform"
-                                            style={{ backgroundColor: rankDetails.current_rank.color || '#EAB308' }}
-                                        >
-                                            <Trophy className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] uppercase tracking-widest font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                                                    Nivel #{rankDetails.current_rank.order}
-                                                </span>
-                                                {rankDetails.current_rank.bonus_percentage > 0 && (
-                                                    <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
-                                                        +{rankDetails.current_rank.bonus_percentage}% Bono Rendimiento
-                                                    </span>
-                                                )}
-                                                {rankDetails.current_rank.priority_withdrawal && (
-                                                    <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50/80 px-2 py-0.5 rounded-md border border-amber-200">
-                                                        <Sparkles className="w-3 h-3 text-amber-600" /> Prioridad ACH
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <h3 className="text-lg font-black text-slate-900 font-montserrat mt-0.5">
-                                                Inversionista Nivel {rankDetails.current_rank.name}
-                                            </h3>
-                                            <p className="text-xs text-slate-500 font-medium mt-0.5">
-                                                {rankDetails.current_rank.benefits?.[0] || 'Disfruta de beneficios y bonos exclusivos por tu portafolio activo'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 relative z-10">
-                                        {rankDetails.next_rank && (
-                                            <div className="space-y-1 sm:text-right">
-                                                <span className="text-[11px] text-slate-500 block font-medium">
-                                                    Siguiente Nivel: <strong className="text-slate-900 font-bold font-montserrat">{rankDetails.next_rank.name}</strong>
-                                                </span>
-                                                <div className="w-full sm:w-44 bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
-                                                    <div 
-                                                        className="h-full rounded-full transition-all duration-500 bg-brand-500"
-                                                        style={{ width: `${rankDetails.progress_percentage}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-[10px] text-slate-400 block font-mono">
-                                                    Faltan ${(rankDetails.amount_needed || 0).toLocaleString('es-CO')} COP ({rankDetails.progress_percentage}%)
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsClubModalOpen(true)}
-                                            className="px-4 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-2xs"
-                                        >
-                                            <Sparkles className="w-4 h-4 text-brand-600" />
-                                            <span>Club & Escalafón</span>
-                                            <ChevronRight className="w-4 h-4 text-brand-500" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                            {/* CLUB DE BENEFICIOS & RANKING BANNER (Oculto para Inversionistas) */}
 
                             <DashboardKPIs 
                                 investedCapital={totalInvertido}
