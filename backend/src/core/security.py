@@ -35,10 +35,11 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
         expire = datetime.utcnow() + timedelta(minutes=minutes)
         
     to_encode = {"exp": expire, "sub": str(subject)}
+    algorithm = getattr(settings, 'ALGORITHM', 'HS256')
     encoded_jwt = jwt.encode(
         to_encode, 
         settings.SECRET_KEY, 
-        algorithm=settings.ALGORITHM
+        algorithm=algorithm
     )
     return encoded_jwt
 
@@ -50,10 +51,11 @@ def create_refresh_token(subject: Union[str, Any], expires_delta: timedelta = No
         expire = datetime.utcnow() + timedelta(days=7)
         
     to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
+    algorithm = getattr(settings, 'ALGORITHM', 'HS256')
     encoded_jwt = jwt.encode(
         to_encode, 
         settings.SECRET_KEY, 
-        algorithm=settings.ALGORITHM
+        algorithm=algorithm
     )
     return encoded_jwt
 
@@ -68,12 +70,14 @@ def create_password_reset_token(email: str, password_hash: str) -> str:
         "type": "reset_password",
         "hash_fragment": password_hash[-10:] if password_hash else ""
     }
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    algorithm = getattr(settings, 'ALGORITHM', 'HS256')
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=algorithm)
 
 def verify_password_reset_token(token: str) -> dict:
     """Verifica y decodifica un token de recuperación. Devuelve el payload si es válido."""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        algorithm = getattr(settings, 'ALGORITHM', 'HS256')
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[algorithm])
         if payload.get("type") != "reset_password":
             return None
         return payload
