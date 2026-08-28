@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 
-const INACTIVITY_TIMEOUT = 4 * 60 * 60 * 1000; // 4 horas de inactividad real (sin teclado/mouse)
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutos de inactividad
 
 export const useInactivityTimer = () => {
     const logout = useAuthStore((state) => state.logout);
