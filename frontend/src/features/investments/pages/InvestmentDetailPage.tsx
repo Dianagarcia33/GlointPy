@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchApi, getMediaUrl } from '../../../services/api';
 import { formatCurrency } from '../../../utils/format';
-import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar, Download, ShieldCheck, User } from 'lucide-react';
+import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar, Download, ShieldCheck, User, Hash } from 'lucide-react';
 import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
 import { investorDocumentsService, InvestorDocument } from '../../../services/investorDocuments';
@@ -143,7 +143,15 @@ export const InvestmentDetailPage = () => {
                                 <DollarSign className="w-8 h-8" />
                             </div>
                             <div>
-                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Contrato de Inversión</p>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Contrato de Inversión</p>
+                                    {(inv.assigned_code || inv.codigo_asignado) && (
+                                        <span className="text-xs font-mono font-extrabold text-brand-700 bg-brand-50 border border-brand-200 px-2.5 py-0.5 rounded-lg flex items-center gap-1 shadow-2xs">
+                                            <Hash className="w-3 h-3 text-brand-500" />
+                                            {inv.assigned_code || inv.codigo_asignado}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="flex items-baseline gap-3">
                                     <h1 className="text-3xl font-bold text-slate-900 font-montserrat">
                                         {formatCurrency(inv.monto)}
@@ -160,7 +168,9 @@ export const InvestmentDetailPage = () => {
                             <span className={`text-xs uppercase tracking-widest px-3 py-1.5 rounded-lg font-bold border ${statusConfig.classes}`}>
                                 {statusConfig.label}
                             </span>
-                            <p className="text-sm font-semibold text-slate-500">ID: #{inv.id}</p>
+                            <p className="text-sm font-semibold text-slate-500">
+                                Contrato: <strong className="text-slate-800 font-mono">{inv.assigned_code || inv.codigo_asignado || `#${inv.id}`}</strong>
+                            </p>
                         </div>
                     </div>
 
@@ -404,37 +414,6 @@ export const InvestmentDetailPage = () => {
                                 <div className="flex-1">
                                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Documentos Legales</h4>
                                     <p className="text-xs text-slate-500 mt-0.5">Tus contratos y certificados oficiales emitidos aparecerán aquí listos para descargar en formato PDF.</p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Movements / Retiros */}
-                        {inv.movements && inv.movements.length > 0 && (
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                                        <ArrowDownToLine className="w-4 h-4 text-brand-500" />
-                                        Movimientos & Solicitudes de Retiro
-                                    </h3>
-                                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono border border-slate-200">
-                                        {inv.movements.length} {inv.movements.length === 1 ? 'registro' : 'registros'}
-                                    </span>
-                                </div>
-                                <div className="space-y-2.5">
-                                    {inv.movements.map((m: any) => (
-                                        <div key={m.id} className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/80 flex items-center justify-between text-xs">
-                                            <div>
-                                                <span className="font-bold text-slate-900 capitalize">Retiro de {m.tipo}</span>
-                                                <span className="text-slate-400 text-[11px] block mt-0.5">{formatDate(m.fecha_solicitud)}</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="font-extrabold text-slate-900 font-mono block">-{formatCurrency(m.monto)}</span>
-                                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-brand-50 text-brand-700 border border-brand-200">
-                                                    {m.estado}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
                                 </div>
                             </div>
                         )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DollarSign, TrendingUp, Activity, Calendar, Clock, ChevronRight, FileText, ArrowDownToLine, Zap, Loader2 } from 'lucide-react';
+import { DollarSign, TrendingUp, Activity, Calendar, Clock, ChevronRight, FileText, ArrowDownToLine, Zap, Loader2, Hash } from 'lucide-react';
 import { formatCurrency } from '../../../utils/format';
 import { Investment } from '../../../services/investments';
 import { WithdrawalModal } from '../../wallets/components/WithdrawalModal';
@@ -28,6 +28,7 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
     };
     
     const statusConfig = getStatusConfig(inv.status || 'pending');
+    const assignedCode = inv.assigned_code || inv.codigo_asignado || (inv as any).assignedCode || (inv as any).codigo;
 
     // Financial Metrics
     const monto = parseInt(inv.monto as any) || 0;
@@ -102,7 +103,15 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                             <DollarSign className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Paquete de Inversión</p>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Paquete de Inversión</p>
+                                {assignedCode && (
+                                    <span className="text-[10px] font-mono font-extrabold text-brand-700 bg-brand-50 border border-brand-200 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                        <Hash className="w-2.5 h-2.5 text-brand-500" />
+                                        {assignedCode}
+                                    </span>
+                                )}
+                            </div>
                             <div className="flex items-baseline gap-2">
                                 <h4 className="text-xl font-bold text-slate-900 font-montserrat">
                                     {formatCurrency(parseInt(inv.paquete?.paquete_accion_adquirido || "0") || monto)}
@@ -148,6 +157,17 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
 
             {/* Financial Details */}
             <div className="p-6 space-y-4">
+                {assignedCode && (
+                    <div className="flex justify-between items-center text-sm bg-slate-50/90 px-3.5 py-2 rounded-xl border border-slate-200/80">
+                        <span className="text-slate-600 font-medium flex items-center gap-1.5 text-xs">
+                            <Hash className="w-3.5 h-3.5 text-brand-500" />
+                            Código Asignado
+                        </span>
+                        <span className="font-mono font-bold text-brand-800 text-xs bg-white px-2.5 py-1 rounded-lg border border-brand-200 shadow-2xs">
+                            {assignedCode}
+                        </span>
+                    </div>
+                )}
                 <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-600 font-medium">Capital Invertido</span>
                     <span className="font-semibold text-slate-900">{formatCurrency(monto)}</span>

@@ -21,6 +21,8 @@ export interface Investment {
   fecha_ingreso?: string;
   fecha_finalizacion?: string;
   aceleracion_dias?: number;
+  assigned_code?: string;
+  codigo_asignado?: string;
 
   paquete: PaqueteInversion;
 }
