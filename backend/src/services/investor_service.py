@@ -32,64 +32,10 @@ class InvestorService:
     ) -> dict:
         from sqlalchemy import or_, func
         
-        query = select(Investor)
-
-        # Scoping RBAC: Si el usuario es un asesor comercial / directivo de inversión y no es SuperAdmin/Admin
-        if current_user:
-            is_global_admin = current_user.is_superuser or any(
-                r in ['admin', 'administrador', 'superadmin', 'gerente'] 
-                for r in [getattr(ro, 'name', '').lower() for ro in getattr(current_user, 'roles', [])]
-            )
-
-            if not is_global_admin:
-                from src.models.commercial_sale import CommercialSale
-                from src.models.investment_request import InvestmentRequest
-
-                # 1. Documentos de clientes con ventas adjudicadas a este asesor
-                sales_res = await db.execute(
-                    select(CommercialSale.client_document).where(CommercialSale.commercial_id == current_user.id)
-                )
-                client_docs = [doc for doc in sales_res.scalars().all() if doc]
-
-                # 2. Solicitudes de inversión adjudicadas al asesor
-                client_uids = []
-                try:
-                    reqs_res = await db.execute(
-                        select(InvestmentRequest.user_id).where(
-                            InvestmentRequest.extra_data.isnot(None),
-                            or_(
-                                (InvestmentRequest.extra_data.op('->>')('$.commercial_id') == str(current_user.id)),
-                                (InvestmentRequest.extra_data.op('->>')('$.directivo_id') == str(current_user.id)),
-                                (InvestmentRequest.extra_data.op('->>')('$.advisor_id') == str(current_user.id))
-                            )
-                        )
-                    )
-                    client_uids = [uid for uid in reqs_res.scalars().all() if uid]
-                except Exception as e:
-                    logger.warning(f"Error consultando solicitudes de inversión adjudicadas para usuario {current_user.id}: {e}")
-
-                # 3. Menciones directas por código o nombre de asesor en referred_by
-                advisor_filters = [
-                    Investor.referred_by.ilike(f"%{current_user.name}%"),
-                    Investor.referred_by.ilike(f"%{current_user.email}%"),
-                    Investor.referred_by.ilike(f"%{current_user.id}%")
-                ]
-                if getattr(current_user, 'document_id', None):
-                    advisor_filters.append(Investor.referred_by.ilike(f"%{current_user.document_id}%"))
-
-                conditions = [or_(*advisor_filters)]
-                if client_docs:
-                    conditions.append(User.document_id.in_(client_docs))
-                if client_uids:
-                    conditions.append(User.id.in_(client_uids))
-
-                query = query.join(Investor.user).where(or_(*conditions))
+        query = select(Investor).join(Investor.user)
         
         if search:
             search_term = f"%{search}%"
-            # Join user si no se ha hecho
-            if not current_user or is_global_admin:
-                query = query.join(Investor.user)
             query = query.where(
                 or_(
                     Investor.assigned_code.ilike(search_term),
