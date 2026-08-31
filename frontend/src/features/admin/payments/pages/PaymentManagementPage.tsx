@@ -448,10 +448,10 @@ export const PaymentManagementPage: React.FC = () => {
           <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
             <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0"><Filter className="w-3.5 h-3.5" /> Tipo:</span>
             {[
-              { id: 'todos', label: 'Todos los Tipos' },
-              { id: 'rendimiento', label: '💰 Rendimientos' },
-              { id: 'capital', label: '🏦 Capital' },
-              { id: 'bono', label: '🎁 Bonos' }
+              { id: 'todos', label: 'Todos' },
+              { id: 'rendimiento', label: 'Rendimientos' },
+              { id: 'capital', label: 'Capital' },
+              { id: 'bono', label: 'Bonos' }
             ].map((t) => (
               <button
                 key={t.id}
