@@ -191,15 +191,133 @@ export const TicketsPage: React.FC = () => {
         }
     };
 
+    const translateStatus = (status: string) => {
+        const s = String(status || '').toLowerCase().trim().replace(/_/g, ' ');
+        switch (s) {
+            case 'open':
+            case 'abierto':
+                return 'Abierto';
+            case 'closed':
+            case 'cerrado':
+                return 'Cerrado';
+            case 'in progress':
+            case 'in_progress':
+            case 'processing':
+            case 'en progreso':
+            case 'en proceso':
+                return 'En Proceso';
+            case 'pending':
+            case 'pendiente':
+                return 'Pendiente';
+            case 'resolved':
+            case 'resuelto':
+                return 'Resuelto';
+            case 'waiting user':
+            case 'waiting_user':
+            case 'waiting client':
+            case 'waiting_client':
+            case 'esperando respuesta':
+                return 'Esperando Respuesta';
+            case 'rejected':
+            case 'rechazado':
+                return 'Rechazado';
+            case 'cancelled':
+            case 'cancelado':
+                return 'Cancelado';
+            default:
+                return status || 'Abierto';
+        }
+    };
+
+    const translateCategory = (cat: string) => {
+        const c = String(cat || '').toLowerCase().trim().replace(/_/g, ' ');
+        switch (c) {
+            case 'general':
+                return 'Consulta General';
+            case 'billing':
+            case 'payments':
+            case 'facturacion':
+            case 'pagos':
+                return 'Pagos / Facturación';
+            case 'technical':
+            case 'tech':
+            case 'tecnico':
+                return 'Soporte Técnico';
+            case 'deliveries':
+            case 'shipping':
+            case 'envios':
+                return 'Envíos / Pedidos';
+            case 'account':
+            case 'cuenta':
+                return 'Cuenta y Perfil';
+            case 'investments':
+            case 'inversiones':
+                return 'Inversiones';
+            case 'withdrawals':
+            case 'retiros':
+                return 'Retiros de Capital';
+            case 'kyc':
+                return 'Verificación KYC';
+            default:
+                return cat || 'General';
+        }
+    };
+
+    const translatePriority = (priority: string) => {
+        const p = String(priority || '').toLowerCase().trim();
+        switch (p) {
+            case 'low':
+            case 'baja':
+                return 'Baja';
+            case 'normal':
+            case 'medium':
+            case 'media':
+                return 'Normal';
+            case 'high':
+            case 'alta':
+                return 'Alta';
+            case 'urgent':
+            case 'urgente':
+            case 'critical':
+            case 'critica':
+                return 'Urgente';
+            default:
+                return priority || 'Normal';
+        }
+    };
+
+    const translateAuthorName = (authorName: string, authorType: string) => {
+        const t = String(authorType || '').toLowerCase().trim();
+        if (t === 'agent' || t === 'staff' || t === 'admin' || t === 'support') {
+            return authorName || 'Agente de Soporte';
+        }
+        if (t === 'system' || t === 'bot') {
+            return 'Sistema Automatizado';
+        }
+        if (!authorName || authorName.toLowerCase() === 'user' || authorName.toLowerCase() === 'client' || authorName.toLowerCase() === 'customer') {
+            return 'Tú (Inversionista)';
+        }
+        return authorName;
+    };
+
     const getStatusBadge = (status: string) => {
-        const s = (status || 'abierto').toLowerCase();
+        const s = String(status || '').toLowerCase().trim().replace(/_/g, ' ');
         if (s === 'abierto' || s === 'open') {
             return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">Abierto</span>;
         }
         if (s === 'cerrado' || s === 'closed') {
-            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Cerrado</span>;
+            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">Cerrado</span>;
         }
-        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200 capitalize">{s}</span>;
+        if (s === 'resuelto' || s === 'resolved') {
+            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Resuelto</span>;
+        }
+        if (s === 'en proceso' || s === 'en progreso' || s === 'in progress' || s === 'in_progress' || s === 'processing') {
+            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">En Proceso</span>;
+        }
+        if (s === 'esperando respuesta' || s === 'waiting user' || s === 'waiting_user' || s === 'waiting client' || s === 'waiting_client') {
+            return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">Esperando Respuesta</span>;
+        }
+        return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200">{translateStatus(status)}</span>;
     };
 
     return (
@@ -399,11 +517,11 @@ export const TicketsPage: React.FC = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
                                     <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">Categoría</span>
-                                    <span className="text-sm font-semibold text-slate-700 capitalize">{ticketDetails?.category || selectedTicket.category || 'General'}</span>
+                                    <span className="text-sm font-semibold text-slate-700">{translateCategory(ticketDetails?.category || selectedTicket.category)}</span>
                                 </div>
                                 <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
                                     <span className="block text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">Prioridad</span>
-                                    <span className="text-sm font-semibold text-slate-700 capitalize">{ticketDetails?.priority || selectedTicket.priority || 'Normal'}</span>
+                                    <span className="text-sm font-semibold text-slate-700">{translatePriority(ticketDetails?.priority || selectedTicket.priority)}</span>
                                 </div>
                             </div>
 
@@ -453,14 +571,14 @@ export const TicketsPage: React.FC = () => {
                                     {ticketDetails.comments.map((c: any, i: number) => {
                                         const isStaff = c.author_type === 'agent';
                                         return (
-                                            <div key={i} className={`flex ${isStaff ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-2 duration-200`}>
+                                             <div key={i} className={`flex ${isStaff ? 'justify-start' : 'justify-end'} animate-in fade-in slide-in-from-bottom-2 duration-200`}>
                                                 <div className={`p-4 rounded-2xl max-w-[90%] sm:max-w-[75%] shadow-sm ${
                                                     isStaff
                                                         ? 'bg-white border border-slate-200 rounded-tl-none' 
                                                         : 'bg-brand-50 border border-brand-100 rounded-tr-none'
                                                 }`}>
                                                     <div className="text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide flex items-center justify-between gap-4">
-                                                        <span>{c.author_name || (isStaff ? 'Agente de Soporte' : 'Usuario')}</span>
+                                                        <span>{translateAuthorName(c.author_name, c.author_type)}</span>
                                                         {c.created_at && (
                                                             <span className="text-[10px] text-slate-400 font-normal lowercase">
                                                                 {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -580,10 +698,10 @@ export const TicketsPage: React.FC = () => {
                                                 <div className="text-slate-500 font-normal mt-1 line-clamp-1 max-w-xs">{ticket.description}</div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-slate-600 capitalize">{ticket.category || 'N/A'}</span>
+                                                <span className="text-slate-600 font-medium">{translateCategory(ticket.category)}</span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-slate-600 capitalize">{ticket.priority || 'N/A'}</span>
+                                                <span className="text-slate-600 font-medium">{translatePriority(ticket.priority)}</span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 {getStatusBadge(ticket.status)}
