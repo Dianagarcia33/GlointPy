@@ -11,3 +11,7 @@ __pycache__
 *.pyc
 venv
 .venv
+backend/venv
+backend/.venv
+backend/uploads
+*.sql
