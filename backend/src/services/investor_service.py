@@ -52,12 +52,21 @@ class InvestorService:
                 client_docs = [doc for doc in sales_res.scalars().all() if doc]
 
                 # 2. Solicitudes de inversión adjudicadas al asesor
-                reqs_res = await db.execute(
-                    select(InvestmentRequest.user_id).where(
-                        (InvestmentRequest.extra_data.op('->>')('commercial_id') == str(current_user.id))
+                client_uids = []
+                try:
+                    reqs_res = await db.execute(
+                        select(InvestmentRequest.user_id).where(
+                            InvestmentRequest.extra_data.isnot(None),
+                            or_(
+                                (InvestmentRequest.extra_data.op('->>')('$.commercial_id') == str(current_user.id)),
+                                (InvestmentRequest.extra_data.op('->>')('$.directivo_id') == str(current_user.id)),
+                                (InvestmentRequest.extra_data.op('->>')('$.advisor_id') == str(current_user.id))
+                            )
+                        )
                     )
-                )
-                client_uids = [uid for uid in reqs_res.scalars().all() if uid]
+                    client_uids = [uid for uid in reqs_res.scalars().all() if uid]
+                except Exception as e:
+                    logger.warning(f"Error consultando solicitudes de inversión adjudicadas para usuario {current_user.id}: {e}")
 
                 # 3. Menciones directas por código o nombre de asesor en referred_by
                 advisor_filters = [
