@@ -60,6 +60,7 @@ class InvestmentRequestService:
         requests = result.scalars().all()
 
         # Si alguna solicitud no tiene 'investor' cargado pero es aumento de capital, popularlo automáticamente
+        user_ids_to_fetch = set()
         for req in requests:
             if not req.investor:
                 inv_id = None
@@ -83,6 +84,31 @@ class InvestmentRequestService:
                         .order_by(Investor.id.desc())
                     )
                     req.investor = inv_res.scalars().first()
+
+            if req.extra_data and isinstance(req.extra_data, dict):
+                for k in ["commercial_id", "directivo_id", "created_by_user_id", "advisor_id", "adviser_id"]:
+                    val = req.extra_data.get(k)
+                    if val is not None and str(val).isdigit():
+                        user_ids_to_fetch.add(int(val))
+
+        user_names_map = {}
+        if user_ids_to_fetch:
+            u_res = await db.execute(select(User.id, User.name).where(User.id.in_(user_ids_to_fetch)))
+            for row in u_res.all():
+                user_names_map[row[0]] = row[1]
+
+        for req in requests:
+            if req.extra_data and isinstance(req.extra_data, dict):
+                extra = dict(req.extra_data)
+                for k in ["commercial_id", "directivo_id", "created_by_user_id", "advisor_id", "adviser_id"]:
+                    val = extra.get(k)
+                    if val is not None and str(val).isdigit() and int(val) in user_names_map:
+                        u_name = user_names_map[int(val)]
+                        name_key = k.replace("_id", "_nombre")
+                        extra[name_key] = u_name
+                        if k in ["commercial_id", "directivo_id"]:
+                            extra["directivo_nombre"] = u_name
+                req.extra_data = extra
         
         return {
             "data": requests,

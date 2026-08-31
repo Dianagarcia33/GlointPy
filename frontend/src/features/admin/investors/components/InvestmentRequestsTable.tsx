@@ -483,7 +483,13 @@ export const InvestmentRequestsTable = () => {
                                       'contract_period_id',
                                       'is_upgrade',
                                       'es_aumento_capital',
-                                      'aumento_de_capital'
+                                      'aumento_de_capital',
+                                      'directivo_nombre',
+                                      'commercial_nombre',
+                                      'created_by_nombre',
+                                      'created_by_user_nombre',
+                                      'advisor_nombre',
+                                      'adviser_nombre'
                                     ];
 
                                     if (internalKeysToHide.includes(key)) return null;
@@ -520,7 +526,8 @@ export const InvestmentRequestsTable = () => {
 
                                     let displayVal: React.ReactNode = String(val);
                                     if (['directivo_id', 'commercial_id', 'created_by_user_id', 'created_by', 'advisor_id', 'adviser_id'].includes(key)) {
-                                      const resolvedName = resolveUserName(val);
+                                      const backendName = request.extra_data?.directivo_nombre || request.extra_data?.commercial_nombre || request.extra_data?.created_by_user_nombre || request.extra_data?.created_by_nombre || request.extra_data?.advisor_nombre;
+                                      const resolvedName = backendName || resolveUserName(val);
                                       displayVal = (
                                         <span className="font-bold text-slate-800">
                                           {resolvedName ? (
