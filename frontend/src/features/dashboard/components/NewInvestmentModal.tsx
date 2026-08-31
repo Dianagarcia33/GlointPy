@@ -150,7 +150,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
             formData.append('monto_billetera_usado', walletAmount.toString());
         }
         
-        if (referralCode.trim()) {
+        if (!isUpgrade && referralCode.trim()) {
             formData.append('codigo_referido', referralCode.trim());
         }
         
@@ -478,34 +478,36 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                 </div>
                             </div>
 
-                            {/* Referido */}
-                            <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <Link className="w-4 h-4 text-slate-400" />
-                                    Código de Referido (Opcional)
-                                </label>
-                                {myInvestments && myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).length > 0 ? (
-                                    <select 
-                                        value={referralCode}
-                                        onChange={(e) => setReferralCode(e.target.value)}
-                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 appearance-none"
-                                    >
-                                        <option value="">-- Sin código de referido --</option>
-                                        {myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).map((inv: any) => {
-                                            const code = inv.codigo_asignado || inv.assigned_code;
-                                            return (
-                                                <option key={inv.id} value={code}>
-                                                    {code} - {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(inv.monto)} ({inv.paquete?.acciones_otorgadas || 0} Acciones)
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
-                                ) : (
-                                    <div className="bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-400 font-medium italic text-sm">
-                                        No tienes códigos de referido disponibles.
-                                    </div>
-                                )}
-                            </div>
+                            {/* Referido (Solo para nuevas inversiones) */}
+                            {!isUpgrade && (
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <Link className="w-4 h-4 text-slate-400" />
+                                        Código de Referido (Opcional)
+                                    </label>
+                                    {myInvestments && myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).length > 0 ? (
+                                        <select 
+                                            value={referralCode}
+                                            onChange={(e) => setReferralCode(e.target.value)}
+                                            className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 appearance-none"
+                                        >
+                                            <option value="">-- Sin código de referido --</option>
+                                            {myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).map((inv: any) => {
+                                                const code = inv.codigo_asignado || inv.assigned_code;
+                                                return (
+                                                    <option key={inv.id} value={code}>
+                                                        {code} - {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(inv.monto)} ({inv.paquete?.acciones_otorgadas || 0} Acciones)
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    ) : (
+                                        <div className="bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-400 font-medium italic text-sm">
+                                            No tienes códigos de referido disponibles.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
                                 <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
