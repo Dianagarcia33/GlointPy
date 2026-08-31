@@ -18,6 +18,7 @@ export interface InvestmentRequest {
   user?: any;
   package?: any;
   investor?: any;
+  reviewer?: any;
 }
 
 export interface PaginatedInvestmentRequests {

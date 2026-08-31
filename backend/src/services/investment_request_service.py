@@ -24,6 +24,7 @@ class InvestmentRequestService:
         query = select(InvestmentRequest).options(
             selectinload(InvestmentRequest.user),
             selectinload(InvestmentRequest.package),
+            selectinload(InvestmentRequest.reviewer),
             selectinload(InvestmentRequest.investor).selectinload(Investor.package),
             selectinload(InvestmentRequest.investor).selectinload(Investor.period)
         )
@@ -59,7 +60,7 @@ class InvestmentRequestService:
         result = await db.execute(query)
         requests = result.scalars().all()
 
-        # Si alguna solicitud no tiene 'investor' cargado pero es aumento de capital, popularlo automáticamente
+        # Si alguna solicitud no tiene 'investor' cargado pero es aumento de capital o tiene investor_id, popularlo automáticamente
         user_ids_to_fetch = set()
         for req in requests:
             if not req.investor:
@@ -84,6 +85,9 @@ class InvestmentRequestService:
                         .order_by(Investor.id.desc())
                     )
                     req.investor = inv_res.scalars().first()
+
+            if req.reviewed_by:
+                user_ids_to_fetch.add(int(req.reviewed_by))
 
             if req.extra_data and isinstance(req.extra_data, dict):
                 for k in ["commercial_id", "directivo_id", "created_by_user_id", "advisor_id", "adviser_id"]:
