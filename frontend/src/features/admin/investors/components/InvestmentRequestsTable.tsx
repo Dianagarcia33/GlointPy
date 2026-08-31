@@ -5,8 +5,7 @@ import { periodsService, Period } from '../../../../services/periods';
 import { commercialService } from '../../../../services/commercial';
 import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
-import { formatCurrency } from '../../../../utils/format';
-import { getMediaUrl } from '../../../../services/api';
+import { getMediaUrl, fetchApi } from '../../../../services/api';
 import { sarlaftService } from '../../../../services/sarlaft';
 import { AdminSolicitudInversionModal } from './AdminSolicitudInversionModal';
 
@@ -59,14 +58,34 @@ export const InvestmentRequestsTable = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedRequestToReview, setSelectedRequestToReview] = useState<InvestmentRequest | null>(null);
   const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string; email?: string }>>([]);
+  const [allUsers, setAllUsers] = useState<Array<{ id: number; name: string; email?: string }>>([]);
   const [selectedCommercialId, setSelectedCommercialId] = useState<string>('');
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   useEffect(() => {
     commercialService.getPublicAdvisors()
-      .then(res => setCommercialUsers(res))
+      .then(res => setCommercialUsers(res || []))
       .catch(() => setCommercialUsers([]));
+
+    fetchApi('/users/')
+      .then((res: any) => {
+        const list = Array.isArray(res) ? res : res?.items || res?.data || [];
+        if (list.length > 0) {
+          setAllUsers(list);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const resolveUserName = (id: any) => {
+    if (!id) return '';
+    const numId = Number(id);
+    const foundCommercial = commercialUsers.find(u => u.id === numId);
+    if (foundCommercial) return foundCommercial.name;
+    const foundUser = allUsers.find(u => u.id === numId);
+    if (foundUser) return foundUser.name;
+    return '';
+  };
 
   useEffect(() => {
     if (selectedRequestToReview) {
@@ -469,7 +488,22 @@ export const InvestmentRequestsTable = () => {
 
                                     if (internalKeysToHide.includes(key)) return null;
 
+                                    // Evitar duplicar directivo_id y commercial_id si tienen el mismo valor
+                                    if (key === 'commercial_id' && request.extra_data?.directivo_id && String(request.extra_data.directivo_id) === String(val)) {
+                                      return null;
+                                    }
+                                    // Evitar mostrar created_by_user_id si es el mismo directivo_id o el mismo usuario solicitante
+                                    if (key === 'created_by_user_id' && (String(request.extra_data?.directivo_id) === String(val) || String(request.user_id) === String(val))) {
+                                      return null;
+                                    }
+
                                     const labels: Record<string, string> = {
+                                      directivo_id: 'Directivo de Inversiones',
+                                      commercial_id: 'Directivo de Inversiones',
+                                      created_by_user_id: 'Creado por',
+                                      created_by: 'Creado por',
+                                      advisor_id: 'Asesor Comercial',
+                                      adviser_id: 'Asesor Comercial',
                                       referred_by: 'Código Referido',
                                       referral_code: 'Código Referido',
                                       codigo_referido: 'Código Referido',
@@ -485,7 +519,20 @@ export const InvestmentRequestsTable = () => {
                                     const labelName = labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
                                     let displayVal: React.ReactNode = String(val);
-                                    if (typeof val === 'boolean') {
+                                    if (['directivo_id', 'commercial_id', 'created_by_user_id', 'created_by', 'advisor_id', 'adviser_id'].includes(key)) {
+                                      const resolvedName = resolveUserName(val);
+                                      displayVal = (
+                                        <span className="font-bold text-slate-800">
+                                          {resolvedName ? (
+                                            <>
+                                              {resolvedName} <span className="text-slate-400 font-normal font-mono text-[10px] ml-1">(ID #{val})</span>
+                                            </>
+                                          ) : (
+                                            `Usuario #${val}`
+                                          )}
+                                        </span>
+                                      );
+                                    } else if (typeof val === 'boolean') {
                                       displayVal = val ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">Sí</span> : 'No';
                                     } else if (Array.isArray(val)) {
                                       displayVal = <span className="text-brand-600 font-bold">{val.length} archivo(s) adjunto(s)</span>;
