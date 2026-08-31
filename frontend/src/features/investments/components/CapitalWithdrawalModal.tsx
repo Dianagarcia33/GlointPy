@@ -138,7 +138,7 @@ export const CapitalWithdrawalModal: React.FC<CapitalWithdrawalModalProps> = ({
                                     <span className="font-bold text-slate-900">{formatCurrency(montoDisponible)}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-slate-500 font-medium">Retención/Impuestos (3.2%)</span>
+                                    <span className="text-slate-500 font-medium">Costo Operativo & Retiro (3.2%)</span>
                                     <span className="font-semibold text-red-500">-{formatCurrency(tax)}</span>
                                 </div>
                                 <div className="pt-3 border-t border-slate-200 flex justify-between items-center">

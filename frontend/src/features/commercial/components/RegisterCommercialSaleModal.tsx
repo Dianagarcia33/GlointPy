@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User } from 'lucide-react';
 import { commercialService, CommercialClientCheckResponse, SearchClientResult } from '../../../services/commercial';
 import { useAuthStore } from '../../../store/authStore';
+import { getColombiaToday } from '../../../utils/format';
 
 interface RegisterCommercialSaleModalProps {
   isOpen: boolean;
@@ -39,15 +40,47 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [saleType, setSaleType] = useState<'contrato_nuevo' | 'reinversion' | 'referido'>('contrato_nuevo');
   const [amount, setAmount] = useState<string>('');
   const [referrerCode, setReferrerCode] = useState('');
-  const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [saleDate, setSaleDate] = useState<string>(getColombiaToday());
   const [isAlreadySettled, setIsAlreadySettled] = useState<boolean>(false);
 
   const [clientInfo, setClientInfo] = useState<CommercialClientCheckResponse | null>(null);
+  const [advisorAccumulatedDirect, setAdvisorAccumulatedDirect] = useState<number>(currentAccumulatedDirect);
+  const [isLoadingAdvisorData, setIsLoadingAdvisorData] = useState<boolean>(false);
   const [isAmountLocked, setIsAmountLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const shouldShowAsesorSelect = isTrueAdmin;
+
+  const resetFormState = () => {
+    setSearchTerm('');
+    setSearchResults([]);
+    setIsSearching(false);
+    setIsCheckingClient(false);
+    setClientDocument('');
+    setClientName('');
+    setSaleType('contrato_nuevo');
+    setAmount('');
+    setReferrerCode('');
+    setSaleDate(getColombiaToday());
+    setIsAlreadySettled(false);
+    setClientInfo(null);
+    setIsAmountLocked(false);
+    setIsSubmitting(false);
+    setError(null);
+  };
+
+  const handleClose = () => {
+    resetFormState();
+    onClose();
+  };
+
+  // Resetear el formulario completo cada vez que se abre el modal
+  useEffect(() => {
+    if (isOpen) {
+      resetFormState();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (shouldShowAsesorSelect && isOpen) {
@@ -59,6 +92,32 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         .catch(() => {});
     }
   }, [shouldShowAsesorSelect, isOpen]);
+
+  // Cargar el acumulado mensual vigente del asesor seleccionado
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchAdvisorAccum = async () => {
+      setIsLoadingAdvisorData(true);
+      try {
+        if (shouldShowAsesorSelect && targetCommercialId) {
+          const summary = await commercialService.getAdvisorSummary(targetCommercialId);
+          setAdvisorAccumulatedDirect(summary.direct_accumulated || 0);
+        } else if (!shouldShowAsesorSelect) {
+          const summary = await commercialService.getMySummary();
+          setAdvisorAccumulatedDirect(summary.direct_accumulated || 0);
+        } else {
+          setAdvisorAccumulatedDirect(currentAccumulatedDirect);
+        }
+      } catch (err) {
+        setAdvisorAccumulatedDirect(currentAccumulatedDirect);
+      } finally {
+        setIsLoadingAdvisorData(false);
+      }
+    };
+
+    fetchAdvisorAccum();
+  }, [isOpen, targetCommercialId, shouldShowAsesorSelect, currentAccumulatedDirect]);
 
   useEffect(() => {
     if (searchTerm.trim().length >= 2) {
@@ -76,6 +135,13 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   }, [searchTerm]);
 
   const selectSearchResult = (item: SearchClientResult) => {
+    // Resetear inmediatamente estados dependientes del cliente anterior
+    setClientInfo(null);
+    setAmount('');
+    setReferrerCode('');
+    setSaleType('contrato_nuevo');
+    setError(null);
+
     setClientDocument(item.document_id || searchTerm);
     setClientName(item.name);
     setSearchTerm(`${item.name} (${item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || ''})`);
@@ -84,8 +150,17 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     commercialService.checkClient(item.document_id || item.assigned_code || searchTerm)
       .then((res) => {
         setClientInfo(res);
-        if (res.forced_type) setSaleType(res.forced_type as any);
-        if (res.monto && res.monto > 0) setAmount(res.monto.toString());
+        if (res.forced_type) {
+          setSaleType(res.forced_type as any);
+        } else if (res.allowed_types && res.allowed_types.length > 0) {
+          setSaleType(res.allowed_types[0] as any);
+        }
+        if (res.client_name) setClientName(res.client_name);
+        if (res.monto && res.monto > 0) {
+          setAmount(res.monto.toString());
+        } else {
+          setAmount('');
+        }
       })
       .catch(() => {
         setClientInfo({
@@ -98,7 +173,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           forced_type: 'referido'
         });
         setSaleType('referido');
-        if (item.monto) setAmount(item.monto.toString());
+        if (item.monto && item.monto > 0) {
+          setAmount(item.monto.toString());
+        } else {
+          setAmount('');
+        }
       });
   };
 
@@ -119,6 +198,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       if (res.client_name) setClientName(res.client_name);
       if (res.monto && res.monto > 0) {
         setAmount(res.monto.toString());
+      } else {
+        setAmount('');
       }
     } catch (err: any) {
       setError(err.message || 'Error al validar el documento del cliente');
@@ -130,7 +211,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const numericAmount = Number(amount) || 0;
   const THRESHOLD = 36000000;
 
-  // Cálculo en vivo de la partición marginal o referido
+  // Cálculo en vivo de la partición marginal o referido basado en el acumulado real del asesor
   let estimatedCommission = 0;
   let tramoA = 0;
   let tramoB = 0;
@@ -140,16 +221,18 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     effectiveRate = 0.018;
     estimatedCommission = numericAmount * 0.018;
   } else {
-    if (currentAccumulatedDirect >= THRESHOLD) {
+    if (advisorAccumulatedDirect >= THRESHOLD) {
+      tramoA = 0;
       tramoB = numericAmount;
       effectiveRate = 0.035;
       estimatedCommission = numericAmount * 0.035;
-    } else if (currentAccumulatedDirect + numericAmount <= THRESHOLD) {
+    } else if (advisorAccumulatedDirect + numericAmount <= THRESHOLD) {
       tramoA = numericAmount;
+      tramoB = 0;
       effectiveRate = 0.030;
       estimatedCommission = numericAmount * 0.030;
     } else {
-      tramoA = THRESHOLD - currentAccumulatedDirect;
+      tramoA = Math.max(0, THRESHOLD - advisorAccumulatedDirect);
       tramoB = numericAmount - tramoA;
       estimatedCommission = (tramoA * 0.030) + (tramoB * 0.035);
       effectiveRate = numericAmount > 0 ? estimatedCommission / numericAmount : 0.030;
@@ -160,6 +243,10 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     e.preventDefault();
     if (!clientDocument.trim()) {
       setError('Por favor ingresa el documento del cliente');
+      return;
+    }
+    if (saleType === 'referido' && !referrerCode.trim()) {
+      setError('El Código del Cliente Recomendador (Origen) es obligatorio para registrar ventas de tipo Referido');
       return;
     }
     if (numericAmount <= 0) {
@@ -188,7 +275,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       }
 
       onSuccess();
-      onClose();
+      handleClose();
     } catch (err: any) {
       setError(err.message || 'Error al adjudicar la venta comercial');
     } finally {
@@ -212,7 +299,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
@@ -259,9 +346,16 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                 type="text"
                 value={searchTerm}
                 onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setClientDocument(e.target.value);
+                  const val = e.target.value;
+                  setSearchTerm(val);
+                  setClientDocument(val);
+                  // Limpiar datos del cliente anterior para evitar datos cruzados
+                  setClientName('');
                   setClientInfo(null);
+                  setAmount('');
+                  setSaleType('contrato_nuevo');
+                  setReferrerCode('');
+                  setError(null);
                 }}
                 onBlur={() => {
                   if (clientDocument && !clientInfo) {
@@ -402,15 +496,19 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           {saleType === 'referido' && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Código del Cliente Recomendador (Origen) <span className="text-slate-400 font-normal">(Opcional)</span>
+                Código del Cliente Recomendador (Origen) <span className="text-red-500 font-bold">* (Obligatorio)</span>
               </label>
               <input
                 type="text"
                 value={referrerCode}
                 onChange={(e) => setReferrerCode(e.target.value)}
-                placeholder="Ej. IG1974 (opcional)"
-                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 uppercase font-mono"
+                placeholder="Ej. IG1974 o código del recomendador"
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 uppercase font-mono font-bold text-slate-800"
+                required
               />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Asocia el código de la inversión o cliente de origen para garantizar la trazabilidad de la comisión.
+              </p>
             </div>
           )}
 
@@ -485,6 +583,20 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200 pb-1.5">
                 Previsualización del Cálculo de Comisión:
               </span>
+
+              {saleType !== 'referido' && (
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-[11px] text-slate-500 pb-1 gap-1 border-b border-slate-200/60">
+                  <span>Acumulado Previo del Asesor (Mes en Curso):</span>
+                  <span className="font-mono font-bold text-slate-700">
+                    ${advisorAccumulatedDirect.toLocaleString('es-CO')} COP
+                    {advisorAccumulatedDirect >= THRESHOLD ? (
+                      <span className="ml-1.5 text-emerald-700 font-extrabold">(Superó $36M → Tasa 3.5% Plana)</span>
+                    ) : (
+                      <span className="ml-1.5 text-amber-700 font-semibold">(Faltan ${(THRESHOLD - advisorAccumulatedDirect).toLocaleString('es-CO')} para 3.5%)</span>
+                    )}
+                  </span>
+                </div>
+              )}
               
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-600">Tasa Efectiva Aplicada:</span>
@@ -523,7 +635,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
             >

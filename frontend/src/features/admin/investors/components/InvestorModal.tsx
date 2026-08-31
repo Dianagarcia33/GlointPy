@@ -179,9 +179,10 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
                 <input
                     type="text"
                     value={referredBy}
-                    onChange={(e) => setReferredBy(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors"
-                    placeholder="Opcional"
+                    onChange={(e) => setReferredBy(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 25))}
+                    maxLength={25}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors uppercase font-mono text-sm"
+                    placeholder="Ej: IG1974 (Opcional)"
                 />
                 </div>
             </div>

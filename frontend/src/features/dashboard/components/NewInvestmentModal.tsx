@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Link, Wallet } from 'lucide-react';
+import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Link, Wallet, AlertCircle, Trash2, ShieldCheck } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
 import { compressImage } from '../../../utils/imageCompression';
@@ -27,6 +27,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
     const [useWallet, setUseWallet] = useState(false);
     const [walletAmount, setWalletAmount] = useState<number>(0);
     const [files, setFiles] = useState<FileList | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const { data: packages, isLoading: loadingPackages } = useQuery({
         queryKey: ['investment_packages'],
@@ -68,7 +69,29 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         setUseWallet(false);
         setWalletAmount(0);
         setFiles(null);
+        setSubmitError(null);
         onClose();
+    };
+
+    const handleFilesSelected = (selectedFiles: FileList | null) => {
+        setSubmitError(null);
+        if (!selectedFiles || selectedFiles.length === 0) {
+            setFiles(null);
+            return;
+        }
+        const MAX_SIZE_MB = 10;
+        const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            if (file.size > MAX_SIZE_BYTES) {
+                setSubmitError(`El archivo "${file.name}" (${(file.size / 1024 / 1024).toFixed(1)} MB) supera el tamaño máximo permitido de ${MAX_SIZE_MB} MB. Por favor comprímelo o adjunta un archivo más liviano.`);
+                setFiles(null);
+                const inputEl = document.getElementById('comprobantes') as HTMLInputElement;
+                if (inputEl) inputEl.value = '';
+                return;
+            }
+        }
+        setFiles(selectedFiles);
     };
 
     const createRequestMutation = useMutation({
@@ -80,11 +103,13 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my_investments'] });
+            setSubmitError(null);
             setStep(3);
         },
-        onError: (error) => {
+        onError: (error: any) => {
             console.error("Error creating request", error);
-            alert("Error al enviar la solicitud: " + error.message);
+            const msg = error.message || 'Error al enviar la solicitud de inversión.';
+            setSubmitError(msg);
         }
     });
 
@@ -96,7 +121,13 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         return parseFloat(pkg.value) || 0;
     };
 
+    const currentPackage = packages?.find((p: any) => p.id === currentPackageId);
+    const currentPackageValue = isUpgrade && currentPackage ? getPackageAmount(currentPackage) : 0;
+
     const packageAmount = getPackageAmount(selectedPackage);
+    const upgradeDifference = isUpgrade ? Math.max(0, packageAmount - currentPackageValue) : packageAmount;
+    const baseToPay = isUpgrade ? upgradeDifference : packageAmount;
+
     const monthlyYield = selectedPeriod ? packageAmount * (selectedPeriod.percentage / 100) : 0;
     const estimatedYield = selectedPeriod ? monthlyYield * selectedPeriod.months : 0;
     const dailyYield = selectedPeriod && selectedPeriod.days > 0 
@@ -104,8 +135,8 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         : monthlyYield / 30; // Fallback
     const totalReturn = packageAmount + estimatedYield;
 
-    const maxWalletAllowed = wallet ? wallet.balance : 0;
-    const amountToPay = packageAmount - (useWallet ? walletAmount : 0);
+    const maxWalletAllowed = wallet ? Math.min(wallet.balance, baseToPay) : 0;
+    const amountToPay = Math.max(0, baseToPay - (useWallet ? walletAmount : 0));
 
     const handleSubmit = async () => {
         if (!selectedPackage || !selectedPeriod) return;
@@ -119,7 +150,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
             formData.append('monto_billetera_usado', walletAmount.toString());
         }
         
-        if (referralCode.trim()) {
+        if (!isUpgrade && referralCode.trim()) {
             formData.append('codigo_referido', referralCode.trim());
         }
         
@@ -187,7 +218,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                         disabled={loadingPackages}
                                     >
                                         <option value="">-- Selecciona un paquete --</option>
-                                        {packages?.filter((pkg: any) => !isUpgrade || pkg.id !== currentPackageId).map((pkg: any) => (
+                                        {packages?.filter((pkg: any) => !isUpgrade || getPackageAmount(pkg) > currentPackageValue).map((pkg: any) => (
                                             <option key={pkg.id} value={pkg.id}>
                                                 {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.granted_shares} Acciones)
                                             </option>
@@ -313,11 +344,11 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                             <input 
                                                 type="number"
                                                 min="0"
-                                                max={Math.min(maxWalletAllowed, packageAmount)}
+                                                max={maxWalletAllowed}
                                                 value={walletAmount}
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value) || 0;
-                                                    setWalletAmount(Math.min(val, maxWalletAllowed, packageAmount));
+                                                    setWalletAmount(Math.min(val, maxWalletAllowed));
                                                 }}
                                                 className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-2 pl-8 pr-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500"
                                                 placeholder="Monto a usar"
@@ -327,30 +358,80 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                 )}
                             </div>
 
+                            {/* Error Alert Banner */}
+                            {submitError && (
+                                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3 text-red-700 text-xs font-semibold animate-in fade-in duration-200">
+                                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                                    <div className="flex-1 space-y-1">
+                                        <p className="font-bold text-sm">Error en la solicitud</p>
+                                        <p className="font-normal text-red-600 leading-relaxed">{submitError}</p>
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setSubmitError(null)}
+                                        className="p-1 text-red-400 hover:text-red-600 rounded-lg hover:bg-red-100/50 transition-colors"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Resumen de Pago */}
-                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                                <div className="flex justify-between items-center text-sm mb-2">
-                                    <span className="text-slate-600">Total Inversión:</span>
+                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2">
+                                {isUpgrade && (
+                                    <div className="flex justify-between items-center text-xs text-slate-500">
+                                        <span>Paquete Actual:</span>
+                                        <span className="font-semibold text-slate-700">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(currentPackageValue)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-600">{isUpgrade ? 'Nuevo Paquete Seleccionado:' : 'Total Inversión:'}</span>
                                     <span className="font-bold text-slate-800">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(packageAmount)}</span>
                                 </div>
+                                {isUpgrade && (
+                                    <div className="flex justify-between items-center text-sm font-semibold text-slate-800 border-t border-slate-200/60 pt-2">
+                                        <span>Diferencia por Aumento:</span>
+                                        <span className="font-bold text-slate-900">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(upgradeDifference)}</span>
+                                    </div>
+                                )}
                                 {useWallet && walletAmount > 0 && (
-                                    <div className="flex justify-between items-center text-sm mb-2 text-brand-600">
-                                        <span>Pago con Wallet:</span>
+                                    <div className="flex justify-between items-center text-sm text-brand-600">
+                                        <span>Abono con Billetera:</span>
                                         <span className="font-bold">-{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(walletAmount)}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center text-base border-t border-slate-200 pt-2 mt-2">
-                                    <span className="text-slate-800 font-bold">Total a transferir:</span>
-                                    <span className="font-black text-brand-600 text-lg">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amountToPay)}</span>
+                                    <span className="text-slate-800 font-bold">Total a transferir / consignar:</span>
+                                    <span className={`font-black text-lg ${amountToPay === 0 ? 'text-emerald-600' : 'text-brand-600'}`}>
+                                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amountToPay)}
+                                    </span>
                                 </div>
                             </div>
 
                             {/* Comprobantes */}
                             <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <Upload className="w-4 h-4 text-slate-400" />
-                                    Comprobantes de Pago
+                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Upload className="w-4 h-4 text-slate-400" />
+                                        <span>Comprobantes de Pago</span>
+                                    </div>
+                                    {amountToPay === 0 && (
+                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                            100% Cubierto con Billetera (Opcional)
+                                        </span>
+                                    )}
                                 </label>
+
+                                {amountToPay === 0 ? (
+                                    <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold mb-3">
+                                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        <div>
+                                            <p className="font-bold text-sm text-emerald-900">¡Diferencia 100% cubierta con tu Billetera!</p>
+                                            <p className="font-normal text-emerald-700 mt-0.5">El valor del aumento se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.</p>
+                                        </div>
+                                    </div>
+                                ) : null}
+
                                 <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-brand-400 transition-colors bg-slate-50">
                                     <input 
                                         type="file" 
@@ -358,22 +439,38 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                         multiple
                                         accept="image/*,.pdf"
                                         className="hidden"
-                                        onChange={(e) => setFiles(e.target.files)}
+                                        onChange={(e) => handleFilesSelected(e.target.files)}
                                     />
                                     <label htmlFor="comprobantes" className="cursor-pointer flex flex-col items-center">
                                         <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                                        <span className="text-sm font-semibold text-slate-700">Haz clic para subir o arrastra tus archivos</span>
-                                        <span className="text-xs text-slate-500 mt-1">Imágenes o PDF</span>
+                                        <span className="text-sm font-semibold text-slate-700">
+                                            {amountToPay === 0 ? 'Adjuntar soporte voluntario (opcional)' : 'Haz clic para subir o arrastra tus archivos'}
+                                        </span>
+                                        <span className="text-xs text-slate-500 mt-1">Imágenes (PNG, JPG, WEBP) o PDF • <strong>Máx. 10 MB por archivo</strong></span>
                                     </label>
                                     
                                     {files && files.length > 0 && (
                                         <div className="mt-4 pt-4 border-t border-slate-200 text-left space-y-2">
-                                            <p className="text-xs font-bold text-slate-500 uppercase">Archivos seleccionados:</p>
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs font-bold text-slate-500 uppercase">Archivos seleccionados:</p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setFiles(null);
+                                                        const inputEl = document.getElementById('comprobantes') as HTMLInputElement;
+                                                        if (inputEl) inputEl.value = '';
+                                                    }}
+                                                    className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    Quitar archivos
+                                                </button>
+                                            </div>
                                             {Array.from(files).map((file, i) => (
                                                 <div key={i} className="text-sm text-slate-700 flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-100">
                                                     <div className="w-2 h-2 rounded-full bg-brand-500"></div>
                                                     <span className="truncate flex-1">{file.name}</span>
-                                                    <span className="text-xs text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                                    <span className="text-xs font-mono text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -381,34 +478,36 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                 </div>
                             </div>
 
-                            {/* Referido */}
-                            <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <Link className="w-4 h-4 text-slate-400" />
-                                    Código de Referido (Opcional)
-                                </label>
-                                {myInvestments && myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).length > 0 ? (
-                                    <select 
-                                        value={referralCode}
-                                        onChange={(e) => setReferralCode(e.target.value)}
-                                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 appearance-none"
-                                    >
-                                        <option value="">-- Sin código de referido --</option>
-                                        {myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).map((inv: any) => {
-                                            const code = inv.codigo_asignado || inv.assigned_code;
-                                            return (
-                                                <option key={inv.id} value={code}>
-                                                    {code} - {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(inv.monto)} ({inv.paquete?.acciones_otorgadas || 0} Acciones)
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
-                                ) : (
-                                    <div className="bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-400 font-medium italic text-sm">
-                                        No tienes códigos de referido disponibles.
-                                    </div>
-                                )}
-                            </div>
+                            {/* Referido (Solo para nuevas inversiones) */}
+                            {!isUpgrade && (
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                        <Link className="w-4 h-4 text-slate-400" />
+                                        Código de Referido (Opcional)
+                                    </label>
+                                    {myInvestments && myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).length > 0 ? (
+                                        <select 
+                                            value={referralCode}
+                                            onChange={(e) => setReferralCode(e.target.value)}
+                                            className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 appearance-none"
+                                        >
+                                            <option value="">-- Sin código de referido --</option>
+                                            {myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).map((inv: any) => {
+                                                const code = inv.codigo_asignado || inv.assigned_code;
+                                                return (
+                                                    <option key={inv.id} value={code}>
+                                                        {code} - {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(inv.monto)} ({inv.paquete?.acciones_otorgadas || 0} Acciones)
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    ) : (
+                                        <div className="bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-400 font-medium italic text-sm">
+                                            No tienes códigos de referido disponibles.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
                                 <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />

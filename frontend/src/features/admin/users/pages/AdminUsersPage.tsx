@@ -4,14 +4,18 @@ import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X } from 'lucide-react';
+import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
+import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
+import { maskAccountNumber, formatAccountNumber, formatColombiaDate } from '../../../../utils/format';
 
 export const AdminUsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [revealedAccounts, setRevealedAccounts] = useState<Set<number>>(new Set());
   
   // Pagination & Filters state
   const [page, setPage] = useState(1);
@@ -28,6 +32,8 @@ export const AdminUsersPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [statementUser, setStatementUser] = useState<User | null>(null);
+  const [isGlobalStatementOpen, setIsGlobalStatementOpen] = useState(false);
 
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -70,6 +76,13 @@ export const AdminUsersPage = () => {
     } catch (err: any) {
       setError(err.message || 'Error al crear la billetera');
     }
+  };
+
+  const toggleRevealAccount = (accId: number) => {
+    const next = new Set(revealedAccounts);
+    if (next.has(accId)) next.delete(accId);
+    else next.add(accId);
+    setRevealedAccounts(next);
   };
 
   const fetchData = async () => {
@@ -183,15 +196,26 @@ export const AdminUsersPage = () => {
           </p>
         </div>
         
-        <Can permission="admin.users.manage">
+        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
           <button 
-            onClick={handleCreate}
-            className="relative z-10 flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+            onClick={() => setIsGlobalStatementOpen(true)}
+            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
+            title="Ver auditoría financiera y extracto general de la plataforma"
           >
-            <Plus className="w-4 h-4" />
-            <span>Crear Usuario</span>
+            <Landmark className="w-4 h-4 text-emerald-400" />
+            <span>Estado de Cuenta General</span>
           </button>
-        </Can>
+
+          <Can permission="admin.users.manage">
+            <button 
+              onClick={handleCreate}
+              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Crear Usuario</span>
+            </button>
+          </Can>
+        </div>
       </div>
       
       {/* Filters Bar */}
@@ -282,8 +306,8 @@ export const AdminUsersPage = () => {
                         <div className="text-slate-500 font-mono">{user.email}</div>
                         {user.document_id && <div className="text-slate-500">Doc: <strong className="font-bold text-slate-700">{user.document_id}</strong></div>}
                         {user.phone_number && <div className="text-slate-500">Tel: <strong className="font-bold text-slate-700">{user.phone_number}</strong></div>}
-                        {user.date_of_birth && <div className="text-slate-500">Nac: <strong className="font-bold text-slate-700">{new Date(user.date_of_birth).toLocaleDateString()}</strong></div>}
-                        <div className="text-[10px] text-slate-400">Reg: {new Date(user.created_at).toLocaleDateString()}</div>
+                        {user.date_of_birth && <div className="text-slate-500">Nac: <strong className="font-bold text-slate-700">{formatColombiaDate(user.date_of_birth)}</strong></div>}
+                        <div className="text-[10px] text-slate-400">Reg: {formatColombiaDate(user.created_at)}</div>
                       </div>
                     </div>
                   </td>
@@ -326,12 +350,27 @@ export const AdminUsersPage = () => {
                         </div>
                         {user.bank_accounts && user.bank_accounts.length > 0 ? (
                           <div className="space-y-1.5 w-48">
-                            {user.bank_accounts.map(acc => (
-                              <div key={acc.id} className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
-                                <div className="font-bold text-slate-800 truncate">{acc.banco} - {acc.tipo_cuenta}</div>
-                                <div className="text-slate-500 font-mono mt-0.5">{acc.numero_cuenta}</div>
-                              </div>
-                            ))}
+                            {user.bank_accounts.map(acc => {
+                              const isRevealed = revealedAccounts.has(acc.id);
+                              return (
+                                <div key={acc.id} className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                                  <div className="font-bold text-slate-800 truncate">{acc.banco} - {acc.tipo_cuenta}</div>
+                                  <div className="flex items-center justify-between gap-1 text-slate-600 font-mono mt-0.5">
+                                    <span className="select-all">
+                                      {isRevealed ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleRevealAccount(acc.id)}
+                                      className="p-0.5 text-slate-400 hover:text-brand-600 hover:bg-slate-200 rounded transition-colors cursor-pointer"
+                                      title={isRevealed ? "Ocultar número completo" : "Mostrar número completo"}
+                                    >
+                                      {isRevealed ? <EyeOff className="w-3 h-3 text-brand-600" /> : <Eye className="w-3 h-3" />}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="text-slate-400 italic">Sin cuentas registradas</div>
@@ -360,6 +399,14 @@ export const AdminUsersPage = () => {
                   <td className="px-6 py-4 text-center">
                     <Can permission="admin.users.manage">
                       <div className="flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => setStatementUser(user)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-slate-200 hover:border-brand-300 bg-white cursor-pointer shadow-2xs"
+                          title="Ver Estado de Cuenta & Extracto Financiero"
+                        >
+                          <Receipt className="w-3.5 h-3.5 text-brand-600" />
+                          <span>Estado de Cuenta</span>
+                        </button>
                         <button 
                           onClick={() => handleEdit(user)} 
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
@@ -392,22 +439,31 @@ export const AdminUsersPage = () => {
         </div>
         
         {/* Pagination Controls */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-          <div className="text-sm text-slate-500">
-            Mostrando <span className="font-medium text-slate-700">{users.length}</span> de <span className="font-medium text-slate-700">{total}</span> usuarios
+        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-slate-500">
+            {total > 0 ? (
+              <span>
+                Mostrando <strong className="font-bold text-slate-800">{(page - 1) * limit + 1}</strong> a <strong className="font-bold text-slate-800">{Math.min(page * limit, total)}</strong> de <strong className="font-bold text-slate-800">{total}</strong> usuarios <span className="text-slate-400 font-normal ml-1">(Página {page} de {Math.max(1, Math.ceil(total / limit))})</span>
+              </span>
+            ) : (
+              <span>0 usuarios</span>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button 
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
-              className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
             >
               Anterior
             </button>
+            <span className="px-2 font-mono text-slate-400 text-[11px]">
+              {page} / {Math.max(1, Math.ceil(total / limit))}
+            </span>
             <button 
               disabled={page * limit >= total}
               onClick={() => setPage(p => p + 1)}
-              className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
             >
               Siguiente
             </button>
@@ -471,6 +527,20 @@ export const AdminUsersPage = () => {
           setIsBulkModalOpen(false);
           fetchData();
         }}
+      />
+
+      {statementUser && (
+        <UserAccountStatementModal
+          isOpen={!!statementUser}
+          onClose={() => setStatementUser(null)}
+          userId={statementUser.id}
+          userName={statementUser.name}
+        />
+      )}
+
+      <GlobalAccountStatementModal
+        isOpen={isGlobalStatementOpen}
+        onClose={() => setIsGlobalStatementOpen(false)}
       />
     </div>
   );

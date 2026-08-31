@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import or_, func
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
@@ -53,6 +53,82 @@ class SimpleInvestorAuditResponse(InvestorBase):
             return base_date
         return base_date + relativedelta(days=self.period.days)
 
+    @computed_field
+    @property
+    def capital_total(self) -> float:
+        if self.package and self.package.value:
+            return float(self.package.value)
+        return 0.0
+
+    @computed_field
+    @property
+    def dias_totales(self) -> int:
+        if self.period and self.period.days:
+            return int(self.period.days)
+        if self.period and self.period.months:
+            return int(self.period.months * 30)
+        return 1
+
+    @computed_field
+    @property
+    def dias_transcurridos(self) -> int:
+        if not self.start_date:
+            return 0
+        from datetime import date
+        today = date.today()
+        start = self.start_date.date() if isinstance(self.start_date, datetime) else self.start_date
+        diff = (today - start).days
+        return max(0, diff)
+
+    @computed_field
+    @property
+    def capital_diario(self) -> float:
+        total = self.capital_total
+        dias = self.dias_totales
+        return (total / dias) if dias > 0 else 0.0
+
+    @computed_field
+    @property
+    def bloques_60_dias_cumplidos(self) -> int:
+        return self.dias_transcurridos // 60
+
+    @computed_field
+    @property
+    def capital_liberado(self) -> float:
+        monto = self.capital_total
+        diario = self.capital_diario
+        bloques = self.bloques_60_dias_cumplidos
+        liberado = (diario * 60) * bloques
+        return min(monto, liberado)
+
+    @computed_field
+    @property
+    def capital_retirado(self) -> float:
+        retirado = 0.0
+        if self.withdrawals:
+            for w in self.withdrawals:
+                tipo = str(getattr(w, 'tipo', '')).lower()
+                estado = str(getattr(w, 'estado', '')).lower()
+                if tipo == "capital" and estado in ["pendiente", "aprobado", "procesado"]:
+                    retirado += float(getattr(w, 'monto', 0) or getattr(w, 'monto_neto', 0) or 0)
+        return retirado
+
+    @computed_field
+    @property
+    def capital_disponible(self) -> float:
+        disp = self.capital_liberado - self.capital_retirado
+        return max(0.0, disp)
+
+    @computed_field
+    @property
+    def dias_proxima_liberacion(self) -> int:
+        transcurridos = self.dias_transcurridos
+        totales = self.dias_totales
+        if transcurridos >= totales:
+            return 0
+        proximo_hito = (self.bloques_60_dias_cumplidos + 1) * 60
+        return max(0, min(proximo_hito, totales) - transcurridos)
+
     model_config = ConfigDict(from_attributes=True)
 
 class AuditUserResponse(BaseModel):
@@ -64,8 +140,53 @@ class AuditUserResponse(BaseModel):
     is_active: bool
     wallet: Optional[WalletResponse] = None
     investments: List[SimpleInvestorAuditResponse] = []
-    
+
+    @computed_field
+    @property
+    def total_capital_invertido(self) -> float:
+        return sum(inv.capital_total for inv in self.investments)
+
+    @computed_field
+    @property
+    def total_capital_liberado(self) -> float:
+        return sum(inv.capital_liberado for inv in self.investments)
+
+    @computed_field
+    @property
+    def total_capital_retirado(self) -> float:
+        return sum(inv.capital_retirado for inv in self.investments)
+
+    @computed_field
+    @property
+    def total_capital_disponible(self) -> float:
+        return sum(inv.capital_disponible for inv in self.investments)
+
     model_config = ConfigDict(from_attributes=True)
+
+class AuditLogResponse(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    action: str
+    module: str
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    description: Optional[str] = None
+    details: Optional[Any] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class AuditLogPaginatedResponse(BaseModel):
+    total: int
+    page: int
+    limit: int
+    data: List[AuditLogResponse]
+    modules: List[str] = []
 
 class AuditUserPaginatedResponse(BaseModel):
     total: int
@@ -74,6 +195,84 @@ class AuditUserPaginatedResponse(BaseModel):
     data: List[AuditUserResponse]
 
 router = APIRouter()
+
+@router.get("/logs", response_model=AuditLogPaginatedResponse, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def get_audit_logs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
+    module: Optional[str] = None,
+    action: Optional[str] = None,
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna la pista de auditoría inmutable de seguridad y acciones administrativas (Audit Trail).
+    """
+    from src.models.audit_log import AuditLog
+
+    query = select(AuditLog)
+    
+    if module and module != "all":
+        query = query.where(AuditLog.module == module)
+        
+    if action:
+        query = query.where(AuditLog.action.ilike(f"%{action}%"))
+        
+    if status and status != "all":
+        query = query.where(AuditLog.status == status)
+        
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            or_(
+                AuditLog.user_name.ilike(search_term),
+                AuditLog.user_email.ilike(search_term),
+                AuditLog.action.ilike(search_term),
+                AuditLog.description.ilike(search_term),
+                AuditLog.entity_id.ilike(search_term),
+                AuditLog.ip_address.ilike(search_term)
+            )
+        )
+        
+    if start_date:
+        try:
+            s_date = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.where(AuditLog.created_at >= s_date)
+        except Exception:
+            pass
+            
+    if end_date:
+        try:
+            e_date = datetime.strptime(end_date, "%Y-%m-%d") + relativedelta(days=1)
+            query = query.where(AuditLog.created_at < e_date)
+        except Exception:
+            pass
+            
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+    
+    offset = (page - 1) * limit
+    query = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset(offset).limit(limit)
+    result = await db.execute(query)
+    data = result.scalars().all()
+    
+    # Get distinct available modules
+    modules_res = await db.execute(select(AuditLog.module).distinct())
+    modules = [m[0] for m in modules_res.fetchall() if m[0]]
+    if not modules:
+        modules = ["auth", "investments", "withdrawals", "users", "commercial", "audit", "documents"]
+        
+    return {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "data": data,
+        "modules": sorted(list(set(modules)))
+    }
 
 @router.get("/users", response_model=AuditUserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def get_audit_users(

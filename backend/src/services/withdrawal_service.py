@@ -158,8 +158,8 @@ class WithdrawalService:
         if not withdrawal:
             raise HTTPException(status_code=404, detail="Retiro no encontrado")
         
-        if withdrawal.estado != WithdrawalStatus.PENDING:
-            raise HTTPException(status_code=400, detail="Solo se pueden aprobar retiros pendientes")
+        if withdrawal.estado not in [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSED]:
+            raise HTTPException(status_code=400, detail="Solo se pueden aprobar retiros en estado pendiente o procesado")
 
         withdrawal.estado = WithdrawalStatus.APPROVED
         withdrawal.aprobado_por = admin_id
@@ -194,8 +194,8 @@ class WithdrawalService:
         if not withdrawal:
             raise HTTPException(status_code=404, detail="Retiro no encontrado")
         
-        if withdrawal.estado != WithdrawalStatus.PENDING:
-            raise HTTPException(status_code=400, detail="Solo se pueden rechazar retiros pendientes")
+        if withdrawal.estado not in [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSED]:
+            raise HTTPException(status_code=400, detail="Solo se pueden rechazar retiros en estado pendiente o procesado")
 
         withdrawal.estado = WithdrawalStatus.REJECTED
         withdrawal.motivo_rechazo = motivo_rechazo
@@ -329,5 +329,117 @@ class WithdrawalService:
         return {
             "message": f"Sincronización completada exitosamente. Se registraron {synced_count} retiros.",
             "synced_count": synced_count
+        }
+
+    @staticmethod
+    async def bulk_process_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int) -> Dict[str, Any]:
+        """
+        Actualiza masivamente una lista de retiros al estado 'procesado'.
+        """
+        if not withdrawal_ids:
+            raise HTTPException(status_code=400, detail="Debe proporcionar al menos un ID de retiro")
+
+        result = await db.execute(
+            select(Withdrawal).options(selectinload(Withdrawal.user)).where(Withdrawal.id.in_(withdrawal_ids))
+        )
+        withdrawals = result.scalars().all()
+
+        if not withdrawals:
+            raise HTTPException(status_code=404, detail="No se encontraron los retiros seleccionados")
+
+        now = datetime.utcnow()
+        updated_count = 0
+        user_notifications = []
+
+        # Validación de seguridad: Prevenir pagos dobles
+        invalid_withdrawals = [w for w in withdrawals if w.estado != WithdrawalStatus.PENDING]
+        if invalid_withdrawals:
+            invalid_ids = [str(w.id) for w in invalid_withdrawals]
+            raise HTTPException(
+                status_code=400,
+                detail=f"Los retiros #{', #'.join(invalid_ids)} no están en estado pendiente. Para evitar pagos dobles, solo se pueden procesar solicitudes pendientes."
+            )
+
+        for w in withdrawals:
+            w.estado = WithdrawalStatus.PROCESSED
+            w.procesado_por = admin_id
+            w.fecha_procesamiento = now
+            if not w.fecha_aprobacion:
+                w.aprobado_por = admin_id
+                w.fecha_aprobacion = now
+            updated_count += 1
+            user_notifications.append((w.user_id, w.id, w.monto_neto or w.monto))
+
+        await db.commit()
+
+        # Generar notificaciones push internas en background o bloque protegido
+        try:
+            from src.services.push_notification_service import PushNotificationService
+            for uid, wid, monto in user_notifications:
+                formatted_amount = f"${float(monto):,.0f}" if monto else "$0"
+                await PushNotificationService.create_and_send_notification(
+                    db=db,
+                    user_id=uid,
+                    title="¡Pago de Retiro Procesado!",
+                    message=f"Tu retiro #{wid} por valor de {formatted_amount} COP ha sido procesado exitosamente a través del sistema de dispersión.",
+                    type="retiro",
+                    link="/dashboard/wallet"
+                )
+        except Exception as err:
+            logger.warning(f"Error generando notificaciones de retiros procesados en lote: {err}")
+
+        return {
+            "message": f"Se marcaron exitosamente {updated_count} retiros como PROCESADOS.",
+            "processed_count": updated_count
+        }
+
+    @staticmethod
+    async def bulk_approve_withdrawals(db: AsyncSession, withdrawal_ids: List[int], admin_id: int) -> Dict[str, Any]:
+        """
+        Aprueba masivamente una lista de retiros que estén en estado 'procesado' o 'pendiente'.
+        """
+        if not withdrawal_ids:
+            raise HTTPException(status_code=400, detail="Debe proporcionar al menos un ID de retiro")
+
+        result = await db.execute(
+            select(Withdrawal).options(selectinload(Withdrawal.user)).where(Withdrawal.id.in_(withdrawal_ids))
+        )
+        withdrawals = result.scalars().all()
+
+        if not withdrawals:
+            raise HTTPException(status_code=404, detail="No se encontraron los retiros seleccionados")
+
+        now = datetime.utcnow()
+        updated_count = 0
+        user_notifications = []
+
+        for w in withdrawals:
+            if w.estado in [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSED]:
+                w.estado = WithdrawalStatus.APPROVED
+                w.aprobado_por = admin_id
+                w.fecha_aprobacion = now
+                updated_count += 1
+                user_notifications.append((w.user_id, w.id, w.monto_neto or w.monto))
+
+        await db.commit()
+
+        try:
+            from src.services.push_notification_service import PushNotificationService
+            for uid, wid, monto in user_notifications:
+                formatted_amount = f"${float(monto):,.0f}" if monto else "$0"
+                await PushNotificationService.create_and_send_notification(
+                    db=db,
+                    user_id=uid,
+                    title="¡Solicitud de Retiro Aprobada!",
+                    message=f"Tu solicitud de retiro #{wid} por valor de {formatted_amount} COP ha sido aprobada exitosamente.",
+                    type="retiro",
+                    link="/dashboard/wallet"
+                )
+        except Exception as err:
+            logger.warning(f"Error generando notificaciones de retiros aprobados en lote: {err}")
+
+        return {
+            "message": f"Se aprobaron exitosamente {updated_count} retiros.",
+            "approved_count": updated_count
         }
 

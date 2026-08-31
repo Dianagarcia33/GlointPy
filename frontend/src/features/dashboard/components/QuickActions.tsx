@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PlusCircle, ArrowDownToLine, FileText, History, HelpCircle, Terminal } from 'lucide-react';
 import { NewInvestmentModal } from './NewInvestmentModal';
 import { WithdrawalModal } from '../../wallets/components/WithdrawalModal';
@@ -15,7 +16,7 @@ interface ActionProps {
 const ActionButton = ({ icon, label, primary, isAdmin, onClick }: ActionProps & { onClick?: () => void }) => (
     <button 
         onClick={onClick}
-        className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all duration-300 hover:-translate-y-0.5 active:scale-95 ${
+        className={`flex items-center justify-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all duration-300 hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
             isAdmin ? 'bg-slate-900 text-white shadow-md hover:bg-slate-800' :
             primary 
                 ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20 hover:bg-brand-600 hover:shadow-lg hover:shadow-brand-500/30' 
@@ -27,6 +28,7 @@ const ActionButton = ({ icon, label, primary, isAdmin, onClick }: ActionProps & 
 );
 
 export const QuickActions = () => {
+    const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
     const { user } = useAuthStore();
@@ -62,7 +64,11 @@ export const QuickActions = () => {
                     onClick={() => setIsWithdrawalModalOpen(true)}
                 />
 
-                <ActionButton icon={<HelpCircle className="w-4 h-4" />} label="Soporte" />
+                <ActionButton 
+                    icon={<HelpCircle className="w-4 h-4 text-brand-600" />} 
+                    label="Soporte" 
+                    onClick={() => navigate('/dashboard/tickets')}
+                />
                 
             </div>
 

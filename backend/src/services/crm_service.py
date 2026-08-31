@@ -80,6 +80,43 @@ class CRMService:
         return await db.get(CRMProject, project_id)
 
     @staticmethod
+    async def update_project(db: AsyncSession, project_id: int, data: dict) -> CRMProject:
+        """Actualiza un Proyecto de Inversión en el CRM."""
+        project = await db.get(CRMProject, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        
+        if "code" in data and data["code"]:
+            project.code = data["code"].upper().strip()
+        if "name" in data and data["name"]:
+            project.name = data["name"].strip()
+        if "description" in data:
+            project.description = data["description"]
+        if "target_amount" in data and data["target_amount"] is not None:
+            project.target_amount = Decimal(str(data["target_amount"]))
+        if "status" in data and data["status"]:
+            project.status = data["status"]
+        if "start_date" in data:
+            project.start_date = data["start_date"]
+        if "end_date" in data:
+            project.end_date = data["end_date"]
+            
+        await db.commit()
+        await db.refresh(project)
+        return project
+
+    @staticmethod
+    async def delete_project(db: AsyncSession, project_id: int) -> bool:
+        """Elimina un Proyecto de Inversión en el CRM."""
+        project = await db.get(CRMProject, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        
+        await db.delete(project)
+        await db.commit()
+        return True
+
+    @staticmethod
     async def get_leads_by_project(
         db: AsyncSession, 
         project_id: int, 

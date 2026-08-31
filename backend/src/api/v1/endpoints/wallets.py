@@ -33,13 +33,15 @@ async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optiona
             
     return False, "Actualmente no se encuentra habilitada la ventana de retiros. Por favor consulta las fechas de retiro autorizadas en el sistema."
 
+from pydantic import BaseModel, Field
+
 class WalletWithdrawRequest(BaseModel):
-    monto: float
-    code: str
+    monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
+    code: str = Field(..., min_length=6, max_length=6)
     bank_account_id: Optional[int] = None
 
 class SendCodeRequest(BaseModel):
-    monto: float
+    monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
 
 @router.get("/me/balance")
 @router.get("/balance")
@@ -319,14 +321,37 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
     # Map Transactions
     for t in transactions:
         amount = float(t.amount)
-        origen = t.type
+        raw_type = (t.type or "").lower().strip().replace("-", "_")
+        
+        outflow_types = [
+            "transfer_out", "transfer sent", "transfer_sent", "transferencia enviada",
+            "withdrawal_request", "withdrawal", "retiro", "solicitud_retiro",
+            "investment_reservation", "investment_payment", "investment", "reserva_inversion",
+            "yield_payout_reversal", "debit", "egreso"
+        ]
+        
+        is_outflow = raw_type in outflow_types or amount < 0
+        direction = "out" if is_outflow else "in"
+        tipo_str = "egreso" if is_outflow else "ingreso"
             
+        # Sanitizar descripción para proteger privacidad de administradores y contrapartes
+        desc = t.description or ""
+        is_admin = current_user.is_superuser or (current_user.permissions and "admin.wallets.manage" in current_user.permissions)
+        if not is_admin:
+            import re
+            desc = re.sub(r'\(Admin:.*?\)', '', desc).strip()
+            if not desc or t.type == "admin_adjustment":
+                desc = "Ajuste de saldo administrativo autorizado"
+            desc = re.sub(r'\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)', '', desc)
+
         response.append({
             "id": f"t_{t.id}",
             "investor_id": None,
             "user_id": current_user.id,
-            "origen": origen,
-            "tipo": t.type,
+            "origen": t.type,
+            "tipo": tipo_str,
+            "type": t.type,
+            "direction": direction,
             "monto": abs(amount),
             "impuesto": 0,
             "monto_neto": abs(amount),
@@ -337,7 +362,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             "banco": None,
             "tipo_cuenta": None,
             "numero_cuenta": None,
-            "observaciones": t.description,
+            "observaciones": desc,
             "motivo_rechazo": None,
             "fecha_aprobacion": t.created_at.isoformat() if t.created_at else None,
             "fecha_procesamiento": t.created_at.isoformat() if t.created_at else None,
@@ -530,7 +555,7 @@ async def admin_adjust_wallet(
         wallet_id=wallet.id,
         amount=diff,
         type="admin_adjustment",
-        description=f"{req.description} (Admin: {current_user.name} / ID: {current_user.id})",
+        description=req.description.strip() if req.description else "Ajuste administrativo de saldo autorizado",
         reference_type="admin",
         reference_id=current_user.id,
         balance_after=wallet.balance
@@ -724,7 +749,7 @@ async def transfer_wallet_funds(
         type="transfer_out",
         reference_type="wallet_transfer",
         reference_id=recipient_wallet.id,
-        description=f"Transferencia enviada a {recipient.name} ({identifier})",
+        description=f"Transferencia enviada a {recipient.name}",
         balance_after=sender_wallet.balance
     )
     db.add(sender_tx)

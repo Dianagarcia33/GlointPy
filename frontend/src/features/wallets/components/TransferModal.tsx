@@ -206,14 +206,32 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">$</span>
               <input
                 type="number"
+                min={1000}
+                max={currentBalance > 0 ? currentBalance : 0}
+                step={1000}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="0"
-                className="w-full pl-8 pr-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                placeholder="Mínimo $1,000"
+                className={`w-full pl-8 pr-3.5 py-2.5 border rounded-xl text-sm font-bold text-slate-900 font-mono focus:outline-none focus:ring-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                  amount.trim() !== '' && (numericAmount < 1000 || numericAmount > currentBalance)
+                    ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/20'
+                    : 'border-slate-200 focus:ring-brand-500/20 focus:border-brand-500'
+                }`}
                 required
-                min="1000"
               />
             </div>
+            {amount.trim() !== '' && numericAmount > currentBalance && (
+              <p className="text-xs font-semibold text-rose-600 mt-1 flex items-center gap-1 animate-in fade-in">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                El monto ingresado supera tu saldo disponible (${currentBalance.toLocaleString('es-CO')} COP).
+              </p>
+            )}
+            {amount.trim() !== '' && numericAmount > 0 && numericAmount < 1000 && (
+              <p className="text-xs font-semibold text-rose-600 mt-1 flex items-center gap-1 animate-in fade-in">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                El monto mínimo de transferencia es de $1,000 COP.
+              </p>
+            )}
           </div>
 
           {/* Notas Opcionales */}
@@ -242,7 +260,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
             <button
               type="submit"
-              disabled={isSubmitting || !verifiedRecipient || numericAmount <= 0}
+              disabled={isSubmitting || !verifiedRecipient || numericAmount < 1000 || numericAmount > currentBalance}
               className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-500/20 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
               {isSubmitting ? (

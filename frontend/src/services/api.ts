@@ -31,7 +31,35 @@ export function getMediaUrl(path: string | null | undefined): string {
   return `${baseUrl}${cleanPath}`;
 }
 
+const inFlightRequests = new Map<string, Promise<any>>();
+
 export async function fetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+
+  // Deduplicate identical concurrent GET requests in-flight
+  if (isGet && !options.body) {
+    const cacheKey = `${method}:${endpoint}`;
+    if (inFlightRequests.has(cacheKey)) {
+      return inFlightRequests.get(cacheKey)!;
+    }
+
+    const promise = (async () => {
+      try {
+        return await executeFetchApi<T>(endpoint, options);
+      } finally {
+        inFlightRequests.delete(cacheKey);
+      }
+    })();
+
+    inFlightRequests.set(cacheKey, promise);
+    return promise;
+  }
+
+  return executeFetchApi<T>(endpoint, options);
+}
+
+async function executeFetchApi<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().accessToken;
   
   const headers = new Headers(options.headers || {});
@@ -47,16 +75,31 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
   const config: RequestInit = {
     ...options,
     headers,
+    credentials: options.credentials || 'include',
   };
 
+  const isIdempotent = !options.method || options.method.toUpperCase() === 'GET';
   let response: Response;
   try {
     response = await fetch(`${API_URL}${endpoint}`, config);
-  } catch (err: any) {
-    if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
-      throw new Error("No se pudo conectar con el servidor. Verifica tu conexión a internet o si tienes problemas de red (Network Error).");
+    if ((response.status === 502 || response.status === 503 || response.status === 504) && isIdempotent) {
+      // Reintento automático silencioso para mitigar micro-cortes
+      await new Promise(r => setTimeout(r, 600));
+      response = await fetch(`${API_URL}${endpoint}`, config);
     }
-    throw err;
+  } catch (err: any) {
+    if (isIdempotent && (err.name === 'TypeError' || err.message === 'Failed to fetch')) {
+      try {
+        await new Promise(r => setTimeout(r, 600));
+        response = await fetch(`${API_URL}${endpoint}`, config);
+      } catch (retryErr: any) {
+        throw new Error("No se pudo conectar con el servidor. Verifica tu conexión a internet o si tienes problemas de red (Network Error).");
+      }
+    } else if (err.name === 'TypeError' || err.message === 'Failed to fetch') {
+      throw new Error("No se pudo conectar con el servidor. Verifica tu conexión a internet o si tienes problemas de red (Network Error).");
+    } else {
+      throw err;
+    }
   }
 
   if (response.status === 401) {
@@ -69,6 +112,12 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
   }
 
   if (!response.ok) {
+    if (response.status === 413) {
+      throw new Error("El archivo adjunto es demasiado grande para el servidor. El tamaño máximo permitido es de 10 MB.");
+    }
+    if (response.status >= 500) {
+      throw new Error("El servicio no está disponible temporalmente. Por favor, intenta nuevamente en unos momentos.");
+    }
     const errorData = await response.json().catch(() => ({}));
     let errMsg = 'Error en la petición al servidor';
     if (errorData.detail) {
@@ -79,6 +128,10 @@ export async function fetchApi<T = any>(endpoint: string, options: RequestInit =
       } else {
         errMsg = JSON.stringify(errorData.detail);
       }
+    } else if (response.status === 404) {
+      errMsg = "El recurso solicitado no fue encontrado.";
+    } else if (response.status === 403) {
+      errMsg = "No tienes permisos suficientes para realizar esta acción.";
     }
     throw new Error(errMsg);
   }

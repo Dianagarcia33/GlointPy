@@ -63,6 +63,147 @@ export interface UserUpdate {
   role_ids?: number[];
 }
 
+export interface UserStatementSummary {
+  opening_balance: number;
+  total_credits: number;
+  total_debits: number;
+  closing_balance: number;
+  total_withdrawn_paid: number;
+  total_withdrawn_pending: number;
+  total_capital_invested: number;
+}
+
+export interface UserStatementTransaction {
+  id: number;
+  created_at: string;
+  type: string;
+  description: string;
+  amount: number;
+  is_credit: boolean;
+  balance_after: number;
+}
+
+export interface UserStatementWithdrawal {
+  id: number;
+  created_at: string;
+  fecha_solicitud: string;
+  fecha_aprobacion?: string | null;
+  tipo: string;
+  monto_bruto: number;
+  retencion: number;
+  monto_neto: number;
+  estado: string;
+  banco: string;
+  tipo_cuenta: string;
+  numero_cuenta: string;
+  metodo_pago: string;
+}
+
+export interface UserStatementInvestment {
+  id: number;
+  assigned_code: string;
+  capital: number;
+  porcentaje_mensual: number;
+  meses: number;
+  fecha_inicio: string;
+  estado: string;
+  observaciones: string;
+}
+
+export interface UserAccountStatement {
+  statement_date: string;
+  period: {
+    start_date: string;
+    end_date: string;
+  };
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    document_id: string;
+    phone_number: string;
+    date_of_birth?: string | null;
+    roles: string[];
+  };
+  bank_accounts: BankAccount[];
+  wallet: {
+    id?: number | null;
+    balance: number;
+    currency: string;
+    status: string;
+  };
+  summary: UserStatementSummary;
+  transactions: UserStatementTransaction[];
+  withdrawals: UserStatementWithdrawal[];
+  investments: UserStatementInvestment[];
+}
+
+export interface GlobalStatementTransaction {
+  id: number;
+  created_at: string;
+  user_id: number;
+  user_name: string;
+  user_document: string;
+  type: string;
+  raw_type: string;
+  description: string;
+  amount: number;
+  is_credit: boolean;
+  balance_after: number;
+}
+
+export interface GlobalStatementWithdrawal {
+  id: number;
+  created_at: string;
+  user_id: number;
+  user_name: string;
+  user_document: string;
+  bank_name: string;
+  account_number: string;
+  account_type: string;
+  amount: number;
+  gmf_tax: number;
+  net_amount: number;
+  status: string;
+  rejection_reason?: string | null;
+}
+
+export interface GlobalStatementInvestment {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_document: string;
+  assigned_code: string;
+  capital: number;
+  porcentaje_mensual: number;
+  meses: number;
+  fecha_inicio: string;
+  estado: string;
+  observaciones: string;
+}
+
+export interface GlobalAccountStatement {
+  statement_date: string;
+  period: {
+    start_date: string;
+    end_date: string;
+  };
+  summary: {
+    total_wallets_balance: number;
+    total_credits: number;
+    total_debits: number;
+    total_withdrawn_paid: number;
+    total_withdrawn_pending: number;
+    total_gmf_tax: number;
+    total_capital_active: number;
+    total_capital_finished: number;
+    active_investors_count: number;
+  };
+  transactions: GlobalStatementTransaction[];
+  withdrawals: GlobalStatementWithdrawal[];
+  investments: GlobalStatementInvestment[];
+}
+
 export const usersService = {
   getUsers: async (params?: { page?: number, limit?: number, search?: string, role_id?: number, is_active?: boolean, has_wallet?: boolean }): Promise<PaginatedUsers> => {
     const queryParams = new URLSearchParams();
@@ -112,5 +253,23 @@ export const usersService = {
     return await fetchApi(`/users/${userId}/create-wallet`, {
       method: 'POST',
     });
+  },
+
+  getUserStatement: async (userId: number, startDate?: string, endDate?: string): Promise<UserAccountStatement> => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    const qs = params.toString();
+    return await fetchApi(`/users/${userId}/statement${qs ? `?${qs}` : ''}`);
+  },
+
+  getGlobalStatement: async (params?: { startDate?: string; endDate?: string; userId?: number; txType?: string }): Promise<GlobalAccountStatement> => {
+    const queryParams = new URLSearchParams();
+    if (params?.startDate) queryParams.append('start_date', params.startDate);
+    if (params?.endDate) queryParams.append('end_date', params.endDate);
+    if (params?.userId) queryParams.append('user_id', params.userId.toString());
+    if (params?.txType) queryParams.append('tx_type', params.txType);
+    const qs = queryParams.toString();
+    return await fetchApi(`/users/statement/global${qs ? `?${qs}` : ''}`);
   },
 };

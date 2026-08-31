@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
-import { DollarSign, TrendingUp, Activity, Calendar, Clock, ChevronRight, FileText, ArrowDownToLine, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { DollarSign, TrendingUp, Activity, Calendar, Clock, ChevronRight, FileText, ArrowDownToLine, Zap, Loader2 } from 'lucide-react';
 import { formatCurrency } from '../../../utils/format';
 import { Investment } from '../../../services/investments';
 import { WithdrawalModal } from '../../wallets/components/WithdrawalModal';
+import { investorDocumentsService } from '../../../services/investorDocuments';
+import { printPaginatedDocument } from '../../../components/common/DocumentPagesPreview';
 
 interface InvestmentCardProps {
     investment: Investment;
 }
 
 export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) => {
+    const navigate = useNavigate();
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+    const [isDownloadingCert, setIsDownloadingCert] = useState(false);
     const inv = investment;
     
     // Status Logic
@@ -56,6 +61,36 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
         return new Date(dateStr).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
+    const handleDownloadCertificate = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (String(inv.id).startsWith('req_')) {
+            alert("El certificado oficial se generará automáticamente una vez sea aprobada la inversión.");
+            return;
+        }
+
+        setIsDownloadingCert(true);
+        try {
+            const docs = await investorDocumentsService.getMyDocuments(Number(inv.id));
+            if (docs && docs.length > 0) {
+                // Find certificate or first available legal document
+                const certDoc = docs.find(d => 
+                    (d.document_type || '').toLowerCase().includes('cert') || 
+                    (d.title || '').toLowerCase().includes('cert')
+                ) || docs[0];
+
+                printPaginatedDocument(certDoc.title, certDoc.html_content, certDoc.background_image);
+            } else {
+                // If no generated document found, navigate to contract detail page where documents are listed
+                navigate(`/dashboard/investments/${inv.id}`);
+            }
+        } catch (err) {
+            console.error("Error al obtener certificado:", err);
+            navigate(`/dashboard/investments/${inv.id}`);
+        } finally {
+            setIsDownloadingCert(false);
+        }
+    };
+
     return (
         <>
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all duration-300 overflow-hidden flex flex-col group">
@@ -68,9 +103,16 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                         </div>
                         <div>
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Paquete de Inversión</p>
-                            <h4 className="text-xl font-bold text-slate-900 font-montserrat">
-                                {formatCurrency(parseInt(inv.paquete?.paquete_accion_adquirido || "0"))}
-                            </h4>
+                            <div className="flex items-baseline gap-2">
+                                <h4 className="text-xl font-bold text-slate-900 font-montserrat">
+                                    {formatCurrency(parseInt(inv.paquete?.paquete_accion_adquirido || "0") || monto)}
+                                </h4>
+                                {((inv as any).periodo?.percentage || (inv as any).porcentaje_mensual) && (
+                                    <span className="text-xs font-extrabold text-emerald-600 font-montserrat bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                        {(inv as any).periodo?.percentage || (inv as any).porcentaje_mensual}% / mes
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -111,10 +153,21 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                     <span className="font-semibold text-slate-900">{formatCurrency(monto)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600 font-medium">Rendimiento Estimado</span>
+                    <span className="text-slate-600 font-medium">Rentabilidad del Contrato</span>
+                    <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs font-montserrat flex items-center gap-1">
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                        {(inv as any).periodo?.percentage 
+                            ? `${(inv as any).periodo.percentage}% mensual (${(inv as any).periodo.months || Math.round((inv.dias_contrato || 0) / 30)} meses)` 
+                            : (inv as any).porcentaje_mensual 
+                                ? `${(inv as any).porcentaje_mensual}% mensual` 
+                                : `+${rentabilidadPct}% total`}
+                    </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600 font-medium">Rendimiento Proyectado</span>
                     <div className="text-right">
                         <span className="font-bold text-brand-600 block">+{formatCurrency(rendimiento)}</span>
-                        <span className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-md">+{rentabilidadPct}%</span>
+                        <span className="text-[10px] font-bold text-emerald-600">+{rentabilidadPct}% acumulado</span>
                     </div>
                 </div>
                 {inv.liquidacion_diaria_rendimiento && (
@@ -144,20 +197,29 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
             {/* Action Bar */}
             <div className="px-3 py-3 border-t border-slate-200 flex items-center justify-between bg-white">
                 <div className="flex gap-2">
-                    <button className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="Descargar Certificado">
-                        <FileText className="w-4 h-4" />
+                    <button 
+                        onClick={handleDownloadCertificate}
+                        disabled={isDownloadingCert}
+                        className="p-2 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center" 
+                        title="Descargar Certificado Oficial / Documento Legal"
+                    >
+                        {isDownloadingCert ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+                        ) : (
+                            <FileText className="w-4 h-4" />
+                        )}
                     </button>
                     <button 
                         onClick={() => setIsWithdrawalModalOpen(true)}
-                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" 
+                        className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer" 
                         title="Solicitar Retiro"
                     >
                         <ArrowDownToLine className="w-4 h-4" />
                     </button>
                 </div>
                 <button 
-                    onClick={() => window.location.href = `/dashboard/investments/${inv.id}`}
-                    className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 px-3 py-2 hover:bg-brand-50 rounded-lg transition-colors"
+                    onClick={() => navigate(`/dashboard/investments/${inv.id}`)}
+                    className="flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 px-3 py-2 hover:bg-brand-50 rounded-lg transition-colors cursor-pointer"
                 >
                     Ver Detalles <ChevronRight className="w-4 h-4" />
                 </button>

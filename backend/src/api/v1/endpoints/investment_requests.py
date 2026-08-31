@@ -48,6 +48,19 @@ class ApproveRequestPayload(BaseModel):
 class RejectRequestPayload(BaseModel):
     rejection_reason: str
 
+    @classmethod
+    def validate_reason(cls, v: str) -> str:
+        clean = (v or "").strip()
+        if len(clean) < 10:
+            raise ValueError("El motivo de rechazo debe contener al menos 10 caracteres explicativos.")
+        if len(set(clean.lower().replace(" ", ""))) < 4:
+            raise ValueError("Por favor ingrese un motivo de rechazo válido y descriptivo para el usuario.")
+        return clean
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.rejection_reason = self.validate_reason(self.rejection_reason)
+
 @router.post("/{request_id}/approve", dependencies=[Depends(RequirePermission("admin.investments.approve"))])
 async def approve_investment_request(
     request_id: int,

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any
+from typing import Any, Optional
 
 from src.core.database import get_db
+from src.core.config import settings
 from src.core.security import create_access_token
 from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
 from src.schemas.user import UserResponse
@@ -12,17 +13,44 @@ from src.models.user import User
 
 router = APIRouter()
 
+def set_auth_cookie(response: Response, access_token: str, request: Optional[Request] = None):
+    # Dynamic secure detection (supports both HTTP staging and HTTPS production via reverse proxy)
+    is_secure = False
+    if request:
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        is_secure = (proto == "https")
+    elif getattr(settings, 'ENVIRONMENT', 'development') == 'production':
+        is_secure = True
+
+    max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 5)) * 60
+
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=is_secure,
+        samesite="lax",
+        max_age=max_age,
+        path="/"
+    )
+
+def clear_auth_cookie(response: Response):
+    response.delete_cookie(
+        key="access_token",
+        path="/"
+    )
+
 @router.post("/login", response_model=Token)
-async def login(login_data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)) -> Any:
+async def login(login_data: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Inicia sesión (Login). 
-    Recibe email y password, devuelve un Access Token.
+    Recibe email y password, devuelve un Access Token y establece la cookie HttpOnly.
     """
     user = await AuthService.authenticate_user(db, login_data, request=request)
 
-    
     # Generar token
     access_token = create_access_token(subject=user.id)
+    set_auth_cookie(response, access_token, request=request)
     
     return {
         "access_token": access_token,
@@ -30,14 +58,23 @@ async def login(login_data: LoginRequest, request: Request, db: AsyncSession = D
         "user": user
     }
 
+@router.post("/logout")
+async def logout(response: Response) -> Any:
+    """
+    Cierra sesión eliminando la cookie HttpOnly de autenticación.
+    """
+    clear_auth_cookie(response)
+    return {"message": "Sesión cerrada correctamente"}
+
 from src.schemas.auth import InvestorRegisterRequest
 @router.post("/register-investor", response_model=Token)
-async def register_investor(register_data: InvestorRegisterRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def register_investor(register_data: InvestorRegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Registra un inversionista con sus datos personales, bancarios, KYC y la solicitud de inversión.
     """
     user = await AuthService.register_investor(db, register_data)
     access_token = create_access_token(subject=user.id)
+    set_auth_cookie(response, access_token, request=request)
     
     return {
         "access_token": access_token,
@@ -46,15 +83,16 @@ async def register_investor(register_data: InvestorRegisterRequest, db: AsyncSes
     }
 
 @router.post("/force-change-password", response_model=Token)
-async def force_change_password(data: ForceChangePasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def force_change_password(data: ForceChangePasswordRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Cambia la contraseña de forma obligatoria cuando must_change_password = True.
-    Retorna el Token de acceso tras cambiarla exitosamente.
+    Retorna el Token de acceso tras cambiarla exitosamente y renueva la cookie.
     """
     user = await AuthService.force_change_password(db, data)
     
     # Generar token
     access_token = create_access_token(subject=user.id)
+    set_auth_cookie(response, access_token, request=request)
     
     return {
         "access_token": access_token,
@@ -103,28 +141,34 @@ async def upload_file(file: UploadFile = File(...)):
     """
     Sube un archivo de comprobante o documento KYC con validaciones de seguridad (máximo 10MB, UUID aleatorio).
     """
-    os.makedirs("uploads", exist_ok=True)
-    ext = os.path.splitext(file.filename)[1].lower()
-    
-    # Lista estricta de extensiones permitidas
-    allowed_extensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp']
-    if ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail="Extensión de archivo no permitida. Solo se permiten imágenes (JPG, PNG, WEBP) o documentos PDF.")
+    try:
+        os.makedirs("uploads/comprobantes", exist_ok=True)
+        os.makedirs("uploads", exist_ok=True)
+        ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".jpg"
         
-    # Verificar tamaño del archivo (máximo 10MB)
-    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-    file_bytes = await file.read()
-    if len(file_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="El archivo excede el tamaño máximo permitido de 10MB.")
+        # Lista estricta de extensiones permitidas
+        allowed_extensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp']
+        if ext not in allowed_extensions:
+            raise HTTPException(status_code=400, detail="Extensión de archivo no permitida. Solo se permiten imágenes (JPG, PNG, WEBP) o documentos PDF.")
+            
+        # Verificar tamaño del archivo (máximo 10MB)
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+        file_bytes = await file.read()
+        if len(file_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="El archivo excede el tamaño máximo permitido de 10MB.")
 
-    # Guardar usando UUID v4 aleatorio de alta entropía
-    filename = f"{uuid.uuid4()}{ext}"
-    file_path = os.path.join("uploads", filename)
-    
-    with open(file_path, "wb") as buffer:
-        buffer.write(file_bytes)
+        # Guardar usando UUID v4 aleatorio de alta entropía
+        filename = f"{uuid.uuid4()}{ext}"
+        file_path = os.path.join("uploads", "comprobantes", filename)
         
-    return {"path": f"/uploads/{filename}"}
+        with open(file_path, "wb") as buffer:
+            buffer.write(file_bytes)
+            
+        return {"path": f"/uploads/comprobantes/{filename}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar y guardar el archivo: {str(e)}")
 
 
 from sqlalchemy import select

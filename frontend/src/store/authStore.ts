@@ -18,6 +18,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (user: User, token: string) => void;
   logout: () => void;
+  setUser: (user: User | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -27,10 +28,20 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       isAuthenticated: false,
       login: (user, token) => set({ user, accessToken: token, isAuthenticated: true }),
-      logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
+      logout: () => {
+        const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api/v1';
+        fetch(`${baseUrl}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
+        set({ user: null, accessToken: null, isAuthenticated: false });
+      },
+      setUser: (user) => set({ user, isAuthenticated: !!user }),
     }),
     {
-      name: 'auth-storage', // Zustand guardará la sesión en LocalStorage automáticamente
+      name: 'auth-storage',
+      // Seguridad H-33 y H-34: NO almacenar tokens, PII ni flags de autorización en localStorage
+      // Únicamente se persiste el estado booleano de sesión
+      partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 );

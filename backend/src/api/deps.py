@@ -1,5 +1,7 @@
-from fastapi import Depends, HTTPException, status
+from __future__ import annotations
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
+from typing import Optional, Union, List
 from jose import jwt, JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -10,20 +12,28 @@ from src.core.database import get_db
 from src.models.user import User
 from src.models.security import Role
 
-# This expects the token to be sent to /api/v1/auth/login (standard OAuth2 form or JSON, we will support JSON for frontend)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# Token extraction: supports both Bearer header and HttpOnly cookies
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 async def get_current_user(
-    db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme)
+    request: Request,
+    db: AsyncSession = Depends(get_db), 
+    token: Optional[str] = Depends(oauth2_scheme)
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # 1. Check HttpOnly cookie first, then Authorization header, then query param token
+    auth_token = request.cookies.get("access_token") or token or request.query_params.get("token")
+    if not auth_token:
+        raise credentials_exception
+
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         user_id: str = payload.get("sub")
         if user_id is None:
@@ -49,23 +59,11 @@ class RequirePermission:
         if isinstance(required_permission, str):
             self.required_permissions = [required_permission]
         else:
-            self.required_permissions = required_permission
+            self.required_permissions = list(required_permission)
 
     def __call__(self, current_user: User = Depends(get_current_user)) -> User:
-        if current_user.is_superuser:
-            return current_user
-
-        user_roles = [r.name.lower() for r in getattr(current_user, 'roles', []) if hasattr(r, 'name')]
-        if any(r in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in user_roles):
-            return current_user
-            
-        user_perms = set(current_user.permissions) if hasattr(current_user, 'permissions') and current_user.permissions else set()
-        for role in current_user.roles:
-            if hasattr(role, 'permissions') and role.permissions:
-                for perm in role.permissions:
-                    user_perms.add(perm.name)
-                
-        if any(p in user_perms for p in self.required_permissions):
+        from src.core.pbac import PBACEngine
+        if PBACEngine.has_permission(current_user, self.required_permissions):
             return current_user
                 
         raise HTTPException(

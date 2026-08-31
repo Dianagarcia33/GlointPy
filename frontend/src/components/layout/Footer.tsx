@@ -50,9 +50,9 @@ export const Footer: React.FC = () => {
             <div>
               <h4 className="text-white font-bold mb-6 font-montserrat tracking-wide">Legal</h4>
               <ul className="space-y-4">
-                <li><Link to="/" className="text-sm text-slate-400 hover:text-white transition-colors">Términos y Condiciones</Link></li>
-                <li><Link to="/" className="text-sm text-slate-400 hover:text-white transition-colors">Política de Privacidad</Link></li>
-                <li><Link to="/" className="text-sm text-slate-400 hover:text-white transition-colors">Aviso Legal</Link></li>
+                <li><Link to="/terminos" className="text-sm text-slate-400 hover:text-white transition-colors">Términos y Condiciones</Link></li>
+                <li><Link to="/privacidad" className="text-sm text-slate-400 hover:text-white transition-colors">Política de Privacidad</Link></li>
+                <li><Link to="/legal" className="text-sm text-slate-400 hover:text-white transition-colors">Aviso Legal</Link></li>
               </ul>
             </div>
 

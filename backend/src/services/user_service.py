@@ -291,3 +291,507 @@ class UserService:
             "success": success_count,
             "errors": errors
         }
+
+    @staticmethod
+    async def get_user_account_statement(
+        db: AsyncSession,
+        user_id: int,
+        start_date_str: str = None,
+        end_date_str: str = None
+    ) -> dict:
+        from src.models.wallet import Wallet, WalletTransaction
+        from src.models.withdrawal import Withdrawal
+        from src.models.investor import Investor
+        from src.models.user_bank_account import UserBankAccount
+        from src.models.package import Package
+        from src.models.period import Period
+        from datetime import datetime, date, time
+        from sqlalchemy import desc, asc, and_
+
+        # 1. Fetch user with relations
+        user_res = await db.execute(
+            select(User)
+            .options(
+                selectinload(User.roles),
+                selectinload(User.bank_accounts),
+                selectinload(User.wallet)
+            )
+            .where(User.id == user_id)
+        )
+        user = user_res.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        # 2. Parse dates if provided
+        start_dt = None
+        end_dt = None
+        if start_date_str:
+            try:
+                start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
+            except Exception:
+                pass
+        if end_date_str:
+            try:
+                end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
+            except Exception:
+                pass
+
+        # 3. Fetch Wallet Transactions
+        wallet = user.wallet
+        wallet_transactions_list = []
+        opening_balance = 0.0
+        closing_balance = float(wallet.balance) if wallet else 0.0
+        total_credits = 0.0
+        total_debits = 0.0
+
+        if wallet:
+            # Query all transactions
+            t_query = select(WalletTransaction).where(WalletTransaction.wallet_id == wallet.id)
+            t_res = await db.execute(t_query.order_by(asc(WalletTransaction.created_at), asc(WalletTransaction.id)))
+            all_transactions = t_res.scalars().all()
+
+            for t in all_transactions:
+                t_dt = t.created_at
+                t_amount = float(t.amount or 0)
+                t_balance_after = float(t.balance_after or 0)
+
+                # If before start_dt, calculate opening balance
+                if start_dt and t_dt < start_dt:
+                    opening_balance = t_balance_after
+                    continue
+
+                # If after end_dt, skip from period list
+                if end_dt and t_dt > end_dt:
+                    continue
+
+                if t_amount >= 0:
+                    total_credits += t_amount
+                else:
+                    total_debits += abs(t_amount)
+
+                # Translate and format transaction type
+                tx_type_map = {
+                    "yield_payout": "Pago de Rendimientos",
+                    "yield payout": "Pago de Rendimientos",
+                    "bonus_payout": "Pago de Bono",
+                    "bonus payout": "Pago de Bono",
+                    "withdrawal_request": "Solicitud de Retiro",
+                    "withdrawal request": "Solicitud de Retiro",
+                    "withdrawal_refund": "Reembolso de Retiro",
+                    "withdrawal refund": "Reembolso de Retiro",
+                    "withdrawal_rejection": "Rechazo de Retiro",
+                    "withdrawal rejection": "Rechazo de Retiro",
+                    "investment_reservation": "Reserva de Inversión",
+                    "investment reservation": "Reserva de Inversión",
+                    "investment_payment": "Pago de Inversión",
+                    "investment payment": "Pago de Inversión",
+                    "transfer_received": "Transferencia Recibida",
+                    "transfer received": "Transferencia Recibida",
+                    "transfer_in": "Transferencia Recibida",
+                    "transfer in": "Transferencia Recibida",
+                    "transfer_sent": "Transferencia Enviada",
+                    "transfer sent": "Transferencia Enviada",
+                    "transfer_out": "Transferencia Enviada",
+                    "transfer out": "Transferencia Enviada",
+                    "yield_payout_reversed": "Rendimiento Revertido",
+                    "yield payout reversed": "Rendimiento Revertido",
+                    "yield_payout_reversal": "Reversión de Rendimiento",
+                    "yield payout reversal": "Reversión de Rendimiento",
+                    "admin_adjustment": "Ajuste Administrativo",
+                    "admin adjustment": "Ajuste Administrativo",
+                    "adjustment": "Ajuste de Saldo",
+                    "ingreso": "Abono / Rendimiento",
+                    "egreso": "Débito de Fondos",
+                    "capital_increase": "Aumento de Capital",
+                    "capital increase": "Aumento de Capital",
+                    "capital_withdrawal": "Retiro de Capital",
+                    "capital withdrawal": "Retiro de Capital",
+                    "pending_payout": "Pago Pendiente",
+                    "pending payout": "Pago Pendiente",
+                }
+                raw_type = (t.type or "").strip().lower()
+                clean_type = tx_type_map.get(raw_type, (t.type or "Movimiento").replace("_", " ").replace("-", " ").title())
+
+                wallet_transactions_list.append({
+                    "id": t.id,
+                    "created_at": t_dt.isoformat() if t_dt else None,
+                    "type": clean_type,
+                    "description": t.description or clean_type,
+                    "amount": t_amount,
+                    "is_credit": t_amount >= 0,
+                    "balance_after": t_balance_after
+                })
+
+        # 4. Fetch Withdrawals
+        w_query = select(Withdrawal).where(Withdrawal.user_id == user_id)
+        if start_dt:
+            w_query = w_query.where(Withdrawal.created_at >= start_dt)
+        if end_dt:
+            w_query = w_query.where(Withdrawal.created_at <= end_dt)
+
+        w_res = await db.execute(w_query.order_by(desc(Withdrawal.created_at)))
+        withdrawals = w_res.scalars().all()
+
+        withdrawals_list = []
+        total_withdrawn_paid = 0.0
+        total_withdrawn_pending = 0.0
+
+        for w in withdrawals:
+            w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else str(w.tipo)
+            w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+            monto_bruto = float(w.monto or 0)
+            monto_neto = float(w.monto_neto or w.monto or 0)
+            retencion = max(0.0, monto_bruto - monto_neto)
+
+            if w_estado.lower() in ["aprobado", "procesado"]:
+                total_withdrawn_paid += monto_neto
+            elif w_estado.lower() == "pendiente":
+                total_withdrawn_pending += monto_neto
+
+            withdrawals_list.append({
+                "id": w.id,
+                "created_at": w.created_at.isoformat() if w.created_at else None,
+                "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
+                "fecha_aprobacion": w.fecha_aprobacion.isoformat() if hasattr(w, 'fecha_aprobacion') and w.fecha_aprobacion else None,
+                "tipo": w_tipo,
+                "monto_bruto": monto_bruto,
+                "retencion": retencion,
+                "monto_neto": monto_neto,
+                "estado": w_estado,
+                "banco": w.banco or "N/A",
+                "tipo_cuenta": w.tipo_cuenta or "Ahorros",
+                "numero_cuenta": w.numero_cuenta or "N/A",
+                "metodo_pago": w.metodo_pago or "Transferencia Bancaria"
+            })
+
+        # 5. Fetch Active Investment Contracts
+        from dateutil.relativedelta import relativedelta
+
+        inv_res = await db.execute(
+            select(Investor)
+            .options(selectinload(Investor.package), selectinload(Investor.period))
+            .where(Investor.user_id == user_id)
+            .order_by(desc(Investor.created_at))
+        )
+        investors = inv_res.scalars().all()
+
+        investments_list = []
+        total_capital_invested = 0.0
+        today_date = date.today()
+
+        for inv in investors:
+            pkg_val = float(inv.package.value) if inv.package else 0.0
+            pct = float(inv.period.percentage) if inv.period else 0.0
+            months = int(inv.period.months) if inv.period else 12
+
+            inv_start = inv.start_date or inv.created_at
+            is_active = True
+            if inv_start:
+                start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
+                end_d = start_d + relativedelta(months=months)
+                if end_d <= today_date:
+                    is_active = False
+
+            estado = "Activo" if is_active else "Finalizado"
+            if is_active:
+                total_capital_invested += pkg_val
+
+            investments_list.append({
+                "id": inv.id,
+                "assigned_code": inv.assigned_code or f"#{inv.id}",
+                "capital": pkg_val,
+                "porcentaje_mensual": pct,
+                "meses": months,
+                "fecha_inicio": inv.start_date.isoformat() if inv.start_date else None,
+                "estado": estado,
+                "observaciones": inv.observations or ""
+            })
+
+        # 6. Consolidate Statement Payload
+        bank_accounts_list = [
+            {
+                "id": acc.id,
+                "banco": acc.banco,
+                "tipo_cuenta": acc.tipo_cuenta,
+                "numero_cuenta": acc.numero_cuenta,
+                "is_active": acc.is_active
+            }
+            for acc in (user.bank_accounts or [])
+        ]
+
+        return {
+            "statement_date": datetime.now().isoformat(),
+            "period": {
+                "start_date": start_date_str or "Inicio de Operaciones",
+                "end_date": end_date_str or datetime.now().strftime("%Y-%m-%d")
+            },
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "document_id": user.document_id or "N/A",
+                "phone_number": user.phone_number or "N/A",
+                "date_of_birth": user.date_of_birth.isoformat() if hasattr(user.date_of_birth, 'isoformat') and user.date_of_birth else str(user.date_of_birth) if user.date_of_birth else None,
+                "roles": [r.name for r in (user.roles or [])]
+            },
+            "bank_accounts": bank_accounts_list,
+            "wallet": {
+                "id": wallet.id if wallet else None,
+                "balance": float(wallet.balance) if wallet else 0.0,
+                "currency": wallet.currency if wallet else "COP",
+                "status": wallet.status.value if wallet and hasattr(wallet.status, 'value') else str(wallet.status) if wallet else "active"
+            },
+            "summary": {
+                "opening_balance": opening_balance,
+                "total_credits": total_credits,
+                "total_debits": total_debits,
+                "closing_balance": float(wallet.balance) if wallet else 0.0,
+                "total_withdrawn_paid": total_withdrawn_paid,
+                "total_withdrawn_pending": total_withdrawn_pending,
+                "total_capital_invested": total_capital_invested
+            },
+            "transactions": wallet_transactions_list,
+            "withdrawals": withdrawals_list,
+            "investments": investments_list
+        }
+
+    @staticmethod
+    async def get_global_account_statement(
+        db: AsyncSession,
+        start_date_str: str = None,
+        end_date_str: str = None,
+        user_id: int = None,
+        tx_type: str = None
+    ) -> dict:
+        from src.models.wallet import Wallet, WalletTransaction
+        from src.models.withdrawal import Withdrawal
+        from src.models.investor import Investor
+        from src.models.package import Package
+        from src.models.period import Period
+        from src.models.user import User
+        from datetime import datetime, date, time
+        from sqlalchemy import desc, asc, and_, func
+        from dateutil.relativedelta import relativedelta
+
+        # 1. Parse dates if provided
+        start_dt = None
+        end_dt = None
+        if start_date_str:
+            try:
+                start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
+            except Exception:
+                pass
+        if end_date_str:
+            try:
+                end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
+            except Exception:
+                pass
+
+        # 2. Fetch all wallets total current balance
+        total_wallets_balance_res = await db.execute(select(func.sum(Wallet.balance)))
+        total_wallets_balance = float(total_wallets_balance_res.scalar_one() or 0.0)
+
+        # 3. Fetch all Wallet Transactions joining Wallet and User
+        tx_query = (
+            select(WalletTransaction, User)
+            .join(Wallet, WalletTransaction.wallet_id == Wallet.id)
+            .join(User, Wallet.user_id == User.id)
+        )
+        if user_id:
+            tx_query = tx_query.where(User.id == user_id)
+        if start_dt:
+            tx_query = tx_query.where(WalletTransaction.created_at >= start_dt)
+        if end_dt:
+            tx_query = tx_query.where(WalletTransaction.created_at <= end_dt)
+
+        tx_res = await db.execute(tx_query.order_by(desc(WalletTransaction.created_at), desc(WalletTransaction.id)))
+        all_tx_records = tx_res.all()
+
+        tx_type_map = {
+            "yield_payout": "Pago de Rendimientos",
+            "yield payout": "Pago de Rendimientos",
+            "bonus_payout": "Pago de Bono",
+            "bonus payout": "Pago de Bono",
+            "withdrawal_request": "Solicitud de Retiro",
+            "withdrawal request": "Solicitud de Retiro",
+            "withdrawal_refund": "Reembolso de Retiro",
+            "withdrawal refund": "Reembolso de Retiro",
+            "withdrawal_rejection": "Rechazo de Retiro",
+            "withdrawal rejection": "Rechazo de Retiro",
+            "investment_reservation": "Reserva de Inversión",
+            "investment reservation": "Reserva de Inversión",
+            "investment_payment": "Pago de Inversión",
+            "investment payment": "Pago de Inversión",
+            "transfer_received": "Transferencia Recibida",
+            "transfer received": "Transferencia Recibida",
+            "transfer_in": "Transferencia Recibida",
+            "transfer in": "Transferencia Recibida",
+            "transfer_sent": "Transferencia Enviada",
+            "transfer sent": "Transferencia Enviada",
+            "transfer_out": "Transferencia Enviada",
+            "transfer out": "Transferencia Enviada",
+            "yield_payout_reversed": "Rendimiento Revertido",
+            "yield payout reversed": "Rendimiento Revertido",
+            "yield_payout_reversal": "Reversión de Rendimiento",
+            "yield payout reversal": "Reversión de Rendimiento",
+            "admin_adjustment": "Ajuste Administrativo",
+            "admin adjustment": "Ajuste Administrativo",
+            "adjustment": "Ajuste de Saldo",
+            "ingreso": "Abono / Rendimiento",
+            "egreso": "Débito de Fondos",
+            "capital_increase": "Aumento de Capital",
+            "capital increase": "Aumento de Capital",
+            "capital_withdrawal": "Retiro de Capital",
+            "capital withdrawal": "Retiro de Capital",
+            "pending_payout": "Pago Pendiente",
+            "pending payout": "Pago Pendiente",
+        }
+
+        transactions_list = []
+        total_credits = 0.0
+        total_debits = 0.0
+
+        for t, u in all_tx_records:
+            t_amount = float(t.amount or 0)
+            if t_amount >= 0:
+                total_credits += t_amount
+            else:
+                total_debits += abs(t_amount)
+
+            raw_type = (t.type or "").strip().lower()
+            clean_type = tx_type_map.get(raw_type, (t.type or "Movimiento").replace("_", " ").replace("-", " ").title())
+
+            if tx_type and clean_type != tx_type and raw_type != tx_type.lower():
+                continue
+
+            transactions_list.append({
+                "id": t.id,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "user_id": u.id,
+                "user_name": u.name,
+                "user_document": u.document_id or "N/A",
+                "type": clean_type,
+                "raw_type": t.type,
+                "description": t.description or clean_type,
+                "amount": t_amount,
+                "is_credit": t_amount >= 0,
+                "balance_after": float(t.balance_after or 0)
+            })
+
+        # 4. Fetch Withdrawals with User and Bank info
+        w_query = select(Withdrawal, User).join(User, Withdrawal.user_id == User.id)
+        if user_id:
+            w_query = w_query.where(User.id == user_id)
+        if start_dt:
+            w_query = w_query.where(Withdrawal.created_at >= start_dt)
+        if end_dt:
+            w_query = w_query.where(Withdrawal.created_at <= end_dt)
+
+        w_res = await db.execute(w_query.order_by(desc(Withdrawal.created_at)))
+        all_w_records = w_res.all()
+
+        withdrawals_list = []
+        total_withdrawn_paid = 0.0
+        total_withdrawn_pending = 0.0
+        total_gmf_tax = 0.0
+
+        for w, u in all_w_records:
+            w_status = w.estado.value if hasattr(w.estado, 'value') else str(w.estado or "pendiente")
+            monto_bruto = float(w.monto or 0)
+            monto_neto = float(w.monto_neto or w.monto or 0)
+            gmf = float(w.impuesto if hasattr(w, 'impuesto') and w.impuesto is not None else max(0.0, monto_bruto - monto_neto))
+
+            if w_status.lower() in ["aprobado", "approved", "pagado", "paid", "procesado", "processed", "completado"]:
+                total_withdrawn_paid += monto_neto
+                total_gmf_tax += gmf
+            elif w_status.lower() in ["pendiente", "pending"]:
+                total_withdrawn_pending += monto_neto
+
+            withdrawals_list.append({
+                "id": w.id,
+                "created_at": w.created_at.isoformat() if w.created_at else None,
+                "user_id": u.id,
+                "user_name": u.name,
+                "user_document": u.document_id or "N/A",
+                "bank_name": w.banco or "N/A",
+                "account_number": w.numero_cuenta or "N/A",
+                "account_type": w.tipo_cuenta or "Ahorros",
+                "amount": monto_bruto,
+                "gmf_tax": gmf,
+                "net_amount": monto_neto,
+                "status": w_status,
+                "rejection_reason": w.motivo_rechazo if hasattr(w, 'motivo_rechazo') else None
+            })
+
+        # 5. Fetch Active & Finished Investments
+        inv_query = (
+            select(Investor, User)
+            .join(User, Investor.user_id == User.id)
+            .options(selectinload(Investor.package), selectinload(Investor.period))
+        )
+        if user_id:
+            inv_query = inv_query.where(User.id == user_id)
+
+        inv_res = await db.execute(inv_query.order_by(desc(Investor.created_at)))
+        all_inv_records = inv_res.all()
+
+        investments_list = []
+        total_capital_active = 0.0
+        total_capital_finished = 0.0
+        today_date = date.today()
+        active_users_set = set()
+
+        for inv, u in all_inv_records:
+            pkg_val = float(inv.package.value) if inv.package else 0.0
+            pct = float(inv.period.percentage) if inv.period else 0.0
+            months = int(inv.period.months) if inv.period else 12
+
+            inv_start = inv.start_date or inv.created_at
+            is_active = True
+            if inv_start:
+                start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
+                end_d = start_d + relativedelta(months=months)
+                if end_d <= today_date:
+                    is_active = False
+
+            if is_active:
+                total_capital_active += pkg_val
+                active_users_set.add(u.id)
+            else:
+                total_capital_finished += pkg_val
+
+            investments_list.append({
+                "id": inv.id,
+                "user_id": u.id,
+                "user_name": u.name,
+                "user_document": u.document_id or "N/A",
+                "assigned_code": inv.assigned_code or f"#{inv.id}",
+                "capital": pkg_val,
+                "porcentaje_mensual": pct,
+                "meses": months,
+                "fecha_inicio": inv.start_date.isoformat() if inv.start_date else None,
+                "estado": "Activo" if is_active else "Finalizado",
+                "observaciones": inv.observations or ""
+            })
+
+        return {
+            "statement_date": datetime.now().isoformat(),
+            "period": {
+                "start_date": start_date_str or "Inicio de Operaciones",
+                "end_date": end_date_str or datetime.now().strftime("%Y-%m-%d")
+            },
+            "summary": {
+                "total_wallets_balance": total_wallets_balance,
+                "total_credits": total_credits,
+                "total_debits": total_debits,
+                "total_withdrawn_paid": total_withdrawn_paid,
+                "total_withdrawn_pending": total_withdrawn_pending,
+                "total_gmf_tax": total_gmf_tax,
+                "total_capital_active": total_capital_active,
+                "total_capital_finished": total_capital_finished,
+                "active_investors_count": len(active_users_set)
+            },
+            "transactions": transactions_list,
+            "withdrawals": withdrawals_list,
+            "investments": investments_list
+        }

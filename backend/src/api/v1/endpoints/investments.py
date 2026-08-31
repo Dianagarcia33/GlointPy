@@ -1,4 +1,6 @@
 
+import os
+import uuid
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,9 +10,10 @@ from datetime import date, datetime, timedelta
 from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
-from src.models.investment_request import InvestmentRequest
+from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
 from src.models.contract_history import ContractHistory
 from src.models.investor import Investor
+from src.models.package import Package
 
 from src.api.v1.endpoints.wallets import check_withdrawal_dates_active
 
@@ -105,6 +108,13 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             "aceleracion_dias": 0,
             "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
             "fecha_finalizacion": fecha_fin.isoformat() if fecha_fin else None,
+            "porcentaje_mensual": float(inv_record.period.percentage) if inv_record.period and inv_record.period.percentage else 0,
+            "periodo": {
+                "id": inv_record.period.id if inv_record.period else 0,
+                "percentage": float(inv_record.period.percentage) if inv_record.period and inv_record.period.percentage else 0,
+                "months": inv_record.period.months if inv_record.period else 0,
+                "days": dias_contrato
+            } if inv_record.period else None,
             "paquete": {
                 "id": inv_record.package.id if inv_record.package else 0,
                 "paquete_accion_adquirido": str(inv_record.package.value) if inv_record.package else "0",
@@ -114,6 +124,179 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
         investments.append(inv)
         
     return investments
+
+
+@router.post("/requests")
+async def create_investment_request(
+    paquete_inversion_id: int = Form(...),
+    monto: float = Form(...),
+    periodo_contrato: int = Form(...),
+    monto_billetera_usado: float = Form(0.0),
+    codigo_referido: str = Form(None),
+    is_upgrade: bool = Form(False),
+    investor_id: Optional[int] = Form(None),
+    user_id: Optional[int] = Form(None),
+    comprobantes: list[UploadFile] = File(default=[]),
+    current_user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    UPLOAD_DIR = "uploads/comprobantes"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    
+    comprobante_path = None
+    extra_paths = []
+    
+    if comprobantes:
+        for i, file in enumerate(comprobantes):
+            if file.filename:
+                file_ext = os.path.splitext(file.filename)[1] if os.path.splitext(file.filename)[1] else ".png"
+                filename = f"{uuid.uuid4()}{file_ext}"
+                file_path = os.path.join(UPLOAD_DIR, filename)
+                
+                content = await file.read()
+                with open(file_path, "wb") as f:
+                    f.write(content)
+                    
+                path_str = f"/{file_path}"
+                if i == 0:
+                    comprobante_path = path_str
+                else:
+                    extra_paths.append(path_str)
+                    
+    target_user_id = user_id or current_user.id
+    extra_data = {}
+
+    # Registrar el usuario creador para la adjudicación de la venta comercial
+    extra_data["created_by_user_id"] = current_user.id
+    extra_data["commercial_id"] = current_user.id
+    extra_data["directivo_id"] = current_user.id
+
+    if extra_paths:
+        extra_data["comprobantes_adicionales"] = extra_paths
+    if monto_billetera_usado > 0:
+        extra_data["monto_billetera_usado"] = monto_billetera_usado
+    if codigo_referido:
+        extra_data["codigo_referido"] = codigo_referido
+    if is_upgrade or investor_id:
+        extra_data["es_aumento_capital"] = True
+        extra_data["is_upgrade"] = True
+    if periodo_contrato:
+        extra_data["contract_period_id"] = periodo_contrato
+
+    if investor_id:
+        extra_data["investor_id"] = investor_id
+        extra_data["previous_contract_id"] = investor_id
+        inv_res = await db.execute(select(Investor).options(selectinload(Investor.package)).where(Investor.id == investor_id))
+        prev_inv = inv_res.scalars().first()
+        if prev_inv:
+            extra_data["previous_package_id"] = prev_inv.package_id
+            if prev_inv.package:
+                extra_data["previous_package_value"] = float(prev_inv.package.value)
+            extra_data["previous_period_id"] = prev_inv.period_id
+            if not user_id:
+                target_user_id = prev_inv.user_id
+
+    if paquete_inversion_id:
+        pkg_res = await db.execute(select(Package).where(Package.id == paquete_inversion_id))
+        target_pkg = pkg_res.scalars().first()
+        if target_pkg:
+            extra_data["new_package_id"] = target_pkg.id
+            extra_data["new_package_value"] = float(target_pkg.value)
+        
+    new_request = InvestmentRequest(
+        user_id=target_user_id,
+        investor_id=investor_id,
+        paquete_inversion_id=paquete_inversion_id,
+        monto=monto,
+        comprobante_path=comprobante_path,
+        status=InvestmentRequestStatus.pending,
+        extra_data=extra_data if extra_data else None
+    )
+    
+    db.add(new_request)
+    await db.flush()
+
+    if monto_billetera_usado > 0:
+        from decimal import Decimal
+        from src.models.wallet import Wallet, WalletStatus, WalletTransaction
+        wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == target_user_id))
+        wallet = wallet_res.scalars().first()
+        if not wallet or float(wallet.balance or 0.0) < monto_billetera_usado:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Saldo insuficiente en la billetera del usuario. Disponible: ${float(wallet.balance if wallet else 0.0):,.0f}"
+            )
+        
+        old_bal = float(wallet.balance or 0.0)
+        new_bal = old_bal - monto_billetera_usado
+        wallet.balance = Decimal(str(new_bal))
+        
+        w_tx = WalletTransaction(
+            wallet_id=wallet.id,
+            amount=Decimal(str(-monto_billetera_usado)),
+            type="investment_payment",
+            reference_type="investment_request",
+            reference_id=new_request.id,
+            description=f"Abono de billetera para solicitud de inversión #{new_request.id}",
+            balance_after=Decimal(str(new_bal))
+        )
+        db.add(w_tx)
+
+    try:
+        await db.commit()
+        await db.refresh(new_request)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    return {"message": "Solicitud creada exitosamente", "id": new_request.id}
+
+
+@router.get("/admin/search-user")
+async def admin_search_user(
+    query: Optional[str] = "", 
+    current_user = Depends(RequirePermission(["admin.investments.manage", "admin.investments.solicitud_inversion", "admin.investors.manage", "admin.investors.create"])), 
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Search users by name, email, or document for admin investment creation.
+    """
+    from src.models.user import User
+    from sqlalchemy import or_
+    
+    q = (query or "").strip()
+    if not q or len(q) < 2:
+        res = await db.execute(select(User).where(User.is_active == True).limit(30))
+        users = res.scalars().all()
+    else:
+        search_term = f"%{q}%"
+        res = await db.execute(
+            select(User).where(
+                User.is_active == True,
+                or_(
+                    User.name.ilike(search_term),
+                    User.email.ilike(search_term),
+                    User.document_id.ilike(search_term)
+                )
+            ).limit(30)
+        )
+        users = res.scalars().all()
+    
+    return [
+        {
+            "id": u.id,
+            "name": u.name,
+            "email": u.email,
+            "document_id": u.document_id,
+            "documento": u.document_id,
+            "numero_celular": getattr(u, "phone_number", getattr(u, "phone", "")),
+            "ciudad": getattr(u, "city", ""),
+            "banco": "",
+            "tipo_cuenta": "Ahorros",
+            "numero_cuenta": ""
+        }
+        for u in users
+    ]
 
 
 @router.get("/{investment_id}")
@@ -127,7 +310,13 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     from src.models.investment_request import InvestmentRequest
 
     today = date.today()
-    is_admin = current_user.is_superuser or any(r.name.lower() in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in getattr(current_user, 'roles', []))
+    user_perms = {p.name for r in getattr(current_user, 'roles', []) for p in getattr(r, 'permissions', [])}
+    is_admin = (
+        current_user.is_superuser
+        or 'admin.investors.manage' in user_perms
+        or 'admin.audits.manage' in user_perms
+        or any(r.name.lower() in ['admin', 'administrador', 'director', 'superadmin', 'gerente'] for r in getattr(current_user, 'roles', []))
+    )
     
     # 1. Is it a request?
     if str(investment_id).startswith("req_"):
@@ -708,180 +897,3 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
         raise HTTPException(status_code=500, detail=str(e))
         
     return {"message": "Retiro de capital solicitado exitosamente", "monto": capital_disponible}
-
-import os
-import uuid
-
-@router.post("/requests")
-async def create_investment_request(
-    paquete_inversion_id: int = Form(...),
-    monto: float = Form(...),
-    periodo_contrato: int = Form(...),
-    monto_billetera_usado: float = Form(0.0),
-    codigo_referido: str = Form(None),
-    is_upgrade: bool = Form(False),
-    investor_id: Optional[int] = Form(None),
-    user_id: Optional[int] = Form(None),
-    comprobantes: list[UploadFile] = File(default=[]),
-    current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
-    from src.models.package import Package
-    
-    UPLOAD_DIR = "uploads/comprobantes"
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    
-    comprobante_path = None
-    extra_paths = []
-    
-    if comprobantes:
-        for i, file in enumerate(comprobantes):
-            if file.filename:
-                file_ext = os.path.splitext(file.filename)[1] if os.path.splitext(file.filename)[1] else ".png"
-                filename = f"{uuid.uuid4()}{file_ext}"
-                file_path = os.path.join(UPLOAD_DIR, filename)
-                
-                content = await file.read()
-                with open(file_path, "wb") as f:
-                    f.write(content)
-                    
-                path_str = f"/{file_path}"
-                if i == 0:
-                    comprobante_path = path_str
-                else:
-                    extra_paths.append(path_str)
-                    
-    target_user_id = user_id or current_user.id
-    extra_data = {}
-
-    # Registrar el usuario creador para la adjudicación de la venta comercial
-    extra_data["created_by_user_id"] = current_user.id
-    extra_data["commercial_id"] = current_user.id
-    extra_data["directivo_id"] = current_user.id
-
-    if extra_paths:
-        extra_data["comprobantes_adicionales"] = extra_paths
-    if monto_billetera_usado > 0:
-        extra_data["monto_billetera_usado"] = monto_billetera_usado
-    if codigo_referido:
-        extra_data["codigo_referido"] = codigo_referido
-    if is_upgrade or investor_id:
-        extra_data["es_aumento_capital"] = True
-        extra_data["is_upgrade"] = True
-    if periodo_contrato:
-        extra_data["contract_period_id"] = periodo_contrato
-
-    if investor_id:
-        extra_data["investor_id"] = investor_id
-        extra_data["previous_contract_id"] = investor_id
-        inv_res = await db.execute(select(Investor).options(selectinload(Investor.package)).where(Investor.id == investor_id))
-        prev_inv = inv_res.scalars().first()
-        if prev_inv:
-            extra_data["previous_package_id"] = prev_inv.package_id
-            if prev_inv.package:
-                extra_data["previous_package_value"] = float(prev_inv.package.value)
-            extra_data["previous_period_id"] = prev_inv.period_id
-            if not user_id:
-                target_user_id = prev_inv.user_id
-
-    if paquete_inversion_id:
-        pkg_res = await db.execute(select(Package).where(Package.id == paquete_inversion_id))
-        target_pkg = pkg_res.scalars().first()
-        if target_pkg:
-            extra_data["new_package_id"] = target_pkg.id
-            extra_data["new_package_value"] = float(target_pkg.value)
-        
-    new_request = InvestmentRequest(
-        user_id=target_user_id,
-        investor_id=investor_id,
-        paquete_inversion_id=paquete_inversion_id,
-        monto=monto,
-        comprobante_path=comprobante_path,
-        status=InvestmentRequestStatus.pending,
-        extra_data=extra_data if extra_data else None
-    )
-    
-    db.add(new_request)
-    await db.flush()
-
-    if monto_billetera_usado > 0:
-        from decimal import Decimal
-        from src.models.wallet import Wallet, WalletStatus, WalletTransaction
-        wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == target_user_id))
-        wallet = wallet_res.scalars().first()
-        if not wallet or float(wallet.balance or 0.0) < monto_billetera_usado:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Saldo insuficiente en la billetera del usuario. Disponible: ${float(wallet.balance if wallet else 0.0):,.0f}"
-            )
-        
-        old_bal = float(wallet.balance or 0.0)
-        new_bal = old_bal - monto_billetera_usado
-        wallet.balance = Decimal(str(new_bal))
-        
-        w_tx = WalletTransaction(
-            wallet_id=wallet.id,
-            amount=Decimal(str(-monto_billetera_usado)),
-            type="investment_payment",
-            reference_type="investment_request",
-            reference_id=new_request.id,
-            description=f"Abono de billetera para solicitud de inversión #{new_request.id}",
-            balance_after=Decimal(str(new_bal))
-        )
-        db.add(w_tx)
-
-    try:
-        await db.commit()
-        await db.refresh(new_request)
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-        
-    return {"message": "Solicitud creada exitosamente", "id": new_request.id}
-
-@router.get("/admin/search-user")
-async def admin_search_user(
-    query: Optional[str] = "", 
-    current_user = Depends(RequirePermission(["admin.investments.manage", "admin.investments.solicitud_inversion", "admin.investors.manage", "admin.investors.create"])), 
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Search users by name, email, or document for admin investment creation.
-    """
-    from src.models.user import User
-    from sqlalchemy import or_
-    
-    q = (query or "").strip()
-    if not q or len(q) < 2:
-        res = await db.execute(select(User).where(User.is_active == True).limit(30))
-        users = res.scalars().all()
-    else:
-        search_term = f"%{q}%"
-        res = await db.execute(
-            select(User).where(
-                User.is_active == True,
-                or_(
-                    User.name.ilike(search_term),
-                    User.email.ilike(search_term),
-                    User.document_id.ilike(search_term)
-                )
-            ).limit(30)
-        )
-        users = res.scalars().all()
-    
-    return [
-        {
-            "id": u.id,
-            "name": u.name,
-            "email": u.email,
-            "document_id": u.document_id,
-            "documento": u.document_id,
-            "numero_celular": getattr(u, "phone_number", getattr(u, "phone", "")),
-            "ciudad": getattr(u, "city", ""),
-            "banco": "",
-            "tipo_cuenta": "Ahorros",
-            "numero_cuenta": ""
-        }
-        for u in users
-    ]

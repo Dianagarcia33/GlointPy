@@ -87,6 +87,27 @@ export const crmService = {
     });
   },
 
+  updateProject: async (projectId: number, data: {
+    code?: string;
+    name?: string;
+    description?: string;
+    target_amount?: number;
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<{ id: number; code: string }> => {
+    return fetchApi(`/crm/projects/${projectId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  deleteProject: async (projectId: number): Promise<{ message: string }> => {
+    return fetchApi(`/crm/projects/${projectId}`, {
+      method: 'DELETE'
+    });
+  },
+
   getProjectLeads: async (projectId: number, search?: string): Promise<CRMLead[]> => {
     const qStr = search ? `?search=${encodeURIComponent(search)}` : '';
     return fetchApi(`/crm/projects/${projectId}/leads${qStr}`);

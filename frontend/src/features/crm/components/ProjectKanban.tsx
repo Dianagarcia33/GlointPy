@@ -11,7 +11,9 @@ import {
   Trophy, 
   XCircle, 
   MessageSquare,
-  FileText
+  FileText,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { CRMProject, CRMLead, CRMLeadStage, crmService } from '../../../services/crmService';
 
@@ -21,6 +23,8 @@ interface ProjectKanbanProps {
   onSelectLead: (lead: CRMLead) => void;
   onCreateLead: () => void;
   onRefreshLeads: () => void;
+  onEditProject?: (project: CRMProject) => void;
+  onDeleteProject?: (project: CRMProject) => void;
 }
 
 export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
@@ -28,7 +32,9 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
   leads,
   onSelectLead,
   onCreateLead,
-  onRefreshLeads
+  onRefreshLeads,
+  onEditProject,
+  onDeleteProject
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -62,11 +68,34 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
       {/* Header del Kanban */}
       <div className="bg-white p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-3 py-1 bg-brand-50 text-brand-700 font-bold text-xs rounded-xl font-montserrat">
               {project.code}
             </span>
             <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-montserrat">{project.name}</h2>
+            
+            <div className="flex items-center gap-1 ml-2">
+              {onEditProject && (
+                <button
+                  type="button"
+                  onClick={() => onEditProject(project)}
+                  title="Editar Proyecto"
+                  className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all cursor-pointer"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              )}
+              {onDeleteProject && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteProject(project)}
+                  title="Eliminar Proyecto"
+                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-xs text-slate-500 mt-1 font-sans">
             Meta: <strong className="font-montserrat">${project.target_amount.toLocaleString('es-CO')} COP</strong> • Recaudado: <strong className="font-montserrat">${project.raised_amount.toLocaleString('es-CO')} COP ({project.progress_percentage}%)</strong>
@@ -98,77 +127,77 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
 
       {/* Tablero Kanban (6 Columnas) */}
       <div className="overflow-x-auto pb-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 min-w-[1150px]">
-          {stages.map((st) => {
-            const columnLeads = filteredLeads.filter((l) => l.stage === st.key);
-            const columnTotal = columnLeads.reduce((acc, l) => acc + (l.estimated_amount || 0), 0);
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 min-w-[1200px]">
+          {stages.map((stg, colIdx) => {
+            const columnLeads = filteredLeads.filter((l) => l.stage === stg.key);
+            const totalColAmount = columnLeads.reduce((acc, curr) => acc + (curr.estimated_amount || 0), 0);
 
             return (
-              <div key={st.key} className="flex flex-col bg-slate-100/70 rounded-3xl p-3 border border-slate-200/80 min-h-[550px]">
-                {/* Header Columna */}
-                <div className={`p-3.5 rounded-2xl border ${st.headerBg} mb-3 flex items-center justify-between shadow-xs`}>
-                  <div>
-                    <h3 className="text-xs font-extrabold text-slate-900 font-montserrat leading-tight">{st.title}</h3>
-                    <span className="text-[11px] text-slate-600 font-bold block mt-0.5 font-mono">
-                      ${columnTotal.toLocaleString('es-CO')}
+              <div key={stg.key} className="bg-slate-50/80 rounded-3xl p-3.5 border border-slate-200/80 flex flex-col h-[700px]">
+                {/* Header de Columna */}
+                <div className={`p-3 rounded-2xl border mb-3 flex flex-col justify-between ${stg.headerBg}`}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-xs text-slate-900 font-montserrat">{stg.title}</h3>
+                    <span className="w-5 h-5 rounded-full bg-white text-slate-900 text-[10px] font-bold flex items-center justify-center shadow-2xs font-montserrat">
+                      {columnLeads.length}
                     </span>
                   </div>
-                  <span className={`px-2.5 py-1 text-[11px] font-extrabold rounded-xl font-montserrat ${st.badgeColor}`}>
-                    {columnLeads.length}
+                  <span className="text-[10px] font-bold text-slate-500 mt-1 font-mono">
+                    ${totalColAmount.toLocaleString('es-CO')}
                   </span>
                 </div>
 
-                {/* Feed de Tarjetas de Prospectos */}
-                <div className="flex-1 space-y-3 overflow-y-auto pr-0.5">
-                  {columnLeads.length === 0 ? (
-                    <div className="p-4 text-center text-[11px] text-slate-400 border border-dashed border-slate-200 rounded-2xl font-sans">
-                      Sin prospectos
-                    </div>
-                  ) : (
-                    columnLeads.map((lead) => (
-                      <div
-                        key={lead.id}
-                        onClick={() => onSelectLead(lead)}
-                        className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs hover:shadow-md hover:border-brand-300 transition-all cursor-pointer group relative flex flex-col justify-between space-y-3"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between gap-1 mb-1">
-                            <h4 className="text-xs font-bold text-slate-900 font-montserrat group-hover:text-brand-600 transition-colors truncate">
-                              {lead.name}
-                            </h4>
-                          </div>
-
-                          <div className="text-xs font-extrabold text-emerald-700 font-mono">
-                            ${lead.estimated_amount.toLocaleString('es-CO')} COP
-                          </div>
+                {/* Lista de Tarjetas (Scrollable) */}
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                  {columnLeads.map((lead) => (
+                    <div
+                      key={lead.id}
+                      onClick={() => onSelectLead(lead)}
+                      className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md hover:border-brand-300 transition-all cursor-pointer group flex flex-col justify-between space-y-2"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-1">
+                          <h4 className="font-extrabold text-xs text-slate-900 group-hover:text-brand-600 transition-colors font-montserrat">
+                            {lead.name}
+                          </h4>
+                          {lead.source && (
+                            <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-sans shrink-0">
+                              {lead.source}
+                            </span>
+                          )}
                         </div>
 
-                        {/* Info secundaria */}
-                        <div className="text-[10px] text-slate-500 space-y-0.5 pt-2 border-t border-slate-100 font-sans">
-                          {lead.phone && <div className="truncate">📞 {lead.phone}</div>}
-                          <div className="truncate font-semibold text-slate-700">👤 {lead.commercial_name}</div>
-                        </div>
-
-                        {/* Botón rápido de movimiento si no está finalizado */}
-                        {st.key !== 'cierre_ganado' && st.key !== 'perdido' && (
-                          <div className="pt-1 flex items-center justify-end">
-                            <button
-                              onClick={(e) => {
-                                const nextIndex = stages.findIndex((s) => s.key === st.key) + 1;
-                                if (nextIndex < stages.length) {
-                                  handleQuickMove(e, lead.id, stages[nextIndex].key);
-                                }
-                              }}
-                              className="px-2.5 py-1 bg-slate-100 hover:bg-brand-50 text-slate-600 hover:text-brand-600 rounded-xl text-[10px] font-bold transition-all flex items-center gap-0.5 font-montserrat cursor-pointer"
-                              title="Avanzar a la siguiente etapa"
-                            >
-                              <span>Avanzar</span>
-                              <ChevronRight className="w-3 h-3" />
-                            </button>
+                        {lead.phone && (
+                          <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
+                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="truncate">{lead.phone}</span>
                           </div>
                         )}
                       </div>
-                    ))
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <span className="font-extrabold text-slate-900 font-mono text-[11px]">
+                          ${lead.estimated_amount.toLocaleString('es-CO')}
+                        </span>
+
+                        {/* Botón rápido mover a siguiente etapa */}
+                        {colIdx < stages.length - 2 && (
+                          <button
+                            onClick={(e) => handleQuickMove(e, lead.id, stages[colIdx + 1].key)}
+                            title={`Avanzar a ${stages[colIdx + 1].title}`}
+                            className="p-1 text-slate-300 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {columnLeads.length === 0 && (
+                    <div className="h-32 border-2 border-dashed border-slate-200/80 rounded-2xl flex items-center justify-center p-4 text-center">
+                      <span className="text-[11px] text-slate-400 font-medium font-sans">Sin prospectos</span>
+                    </div>
                   )}
                 </div>
               </div>

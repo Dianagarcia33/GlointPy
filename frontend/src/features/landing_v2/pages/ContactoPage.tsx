@@ -85,7 +85,7 @@ export function ContactoPage() {
                   </div>
                   <div>
                     <div className="font-black text-sm leading-tight" style={{ color: DARK }}>
-                      GLOINT INTERNATIONAL PARTNERS SAS
+                      GLOINT INTERNATIONAL PARTNERS S.A.S.
                     </div>
                     <div className="text-xs text-slate-400 mt-1 font-medium">NIT: 901702380-5</div>
                     <div className="text-xs text-slate-400 mt-0.5">Bogotá, Colombia</div>
@@ -203,12 +203,14 @@ export function ContactoPage() {
                   </div>
 
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold" style={{ color: DARK }}>
+                        <label htmlFor="contacto-nombre" className="text-xs font-semibold" style={{ color: DARK }}>
                           Nombre completo <span style={{ color: ORANGE }}>*</span>
                         </label>
                         <input
+                          id="contacto-nombre"
+                          name="nombre"
                           required
                           value={form.nombre}
                           onChange={(e) => setForm({ ...form, nombre: e.target.value })}
@@ -225,10 +227,12 @@ export function ContactoPage() {
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold" style={{ color: DARK }}>
+                        <label htmlFor="contacto-email" className="text-xs font-semibold" style={{ color: DARK }}>
                           Email <span style={{ color: ORANGE }}>*</span>
                         </label>
                         <input
+                          id="contacto-email"
+                          name="email"
                           required
                           type="email"
                           value={form.email}
@@ -247,10 +251,12 @@ export function ContactoPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold" style={{ color: DARK }}>Teléfono</label>
+                        <label htmlFor="contacto-telefono" className="text-xs font-semibold" style={{ color: DARK }}>Teléfono</label>
                         <input
+                          id="contacto-telefono"
+                          name="telefono"
                           value={form.telefono}
                           onChange={(e) => setForm({ ...form, telefono: e.target.value })}
                           placeholder={whatsappDisplay}
@@ -266,8 +272,10 @@ export function ContactoPage() {
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold" style={{ color: DARK }}>Asunto</label>
+                        <label htmlFor="contacto-asunto" className="text-xs font-semibold" style={{ color: DARK }}>Asunto</label>
                         <select
+                          id="contacto-asunto"
+                          name="asunto"
                           value={form.asunto}
                           onChange={(e) => setForm({ ...form, asunto: e.target.value })}
                           className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all appearance-none"
@@ -292,10 +300,12 @@ export function ContactoPage() {
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold" style={{ color: DARK }}>
+                      <label htmlFor="contacto-mensaje" className="text-xs font-semibold" style={{ color: DARK }}>
                         Mensaje <span style={{ color: ORANGE }}>*</span>
                       </label>
                       <textarea
+                        id="contacto-mensaje"
+                        name="mensaje"
                         required
                         rows={4}
                         value={form.mensaje}
@@ -313,20 +323,26 @@ export function ContactoPage() {
                       />
                     </div>
 
-                    <div className="flex items-start gap-2.5 py-1">
+                    <div className="flex items-start gap-2.5 py-2">
                       <input
                         id="accept-treatment"
+                        name="accept_treatment"
                         type="checkbox"
+                        required
                         checked={acceptedTerms}
                         onChange={(e) => setAcceptedTerms(e.target.checked)}
-                        className="mt-1 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300"
+                        className="mt-1 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer"
                       />
-                      <label htmlFor="accept-treatment" className="text-xs text-slate-500 leading-normal select-none">
-                        Acepto el tratamiento de mis datos personales de acuerdo con las{" "}
-                        <Link to="/terminos" className="underline font-semibold" style={{ color: ORANGE }}>
-                          políticas de privacidad
+                      <label htmlFor="accept-treatment" className="text-xs text-slate-500 leading-normal select-none cursor-pointer">
+                        <span className="font-semibold text-slate-700">Autorización obligatoria:</span> Autorizo el tratamiento de mis datos personales conforme a la{" "}
+                        <Link to="/privacidad" className="underline font-semibold" style={{ color: ORANGE }}>
+                          Política de Privacidad y Tratamiento de Datos
                         </Link>{" "}
-                        y condiciones de GLOINT.
+                        y los{" "}
+                        <Link to="/terminos" className="underline font-semibold" style={{ color: ORANGE }}>
+                          Términos y Condiciones
+                        </Link>{" "}
+                        de GLOINT INTERNATIONAL PARTNERS S.A.S. en cumplimiento de la Ley 1581 de 2012 (Hábeas Data). <span style={{ color: ORANGE }}>*</span>
                       </label>
                     </div>
 
@@ -334,7 +350,7 @@ export function ContactoPage() {
                       type="submit"
                       whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                       disabled={!acceptedTerms}
-                      className="w-full py-3.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full py-3.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-md transition-all"
                       style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})` }}
                     >
                       Enviar mensaje <ArrowRight size={16} />

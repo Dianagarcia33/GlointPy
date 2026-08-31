@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ShieldCheck, Loader2 } from 'lucide-react';
+import { ShieldCheck, Loader2, Trophy, Sparkles, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { Can } from '../../../components/security/Can';
 import { investmentsService, Investment } from '../../../services/investments';
 import { analyticsService, AdminAnalyticsDashboardData } from '../../../services/analytics';
+import { rankingsService, UserRankDetails } from '../../../services/rankings';
 import { HeroCard } from '../components/HeroCard';
 import { DashboardKPIs } from '../components/DashboardKPIs';
 import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
 import { DirectorDashboardView } from '../components/DirectorDashboardView';
+import { RankingsClubModal } from '../../investments/components/RankingsClubModal';
 
 /* SKELETON LOADERS */
 const AdminDashboardSkeleton = () => (
@@ -126,6 +128,8 @@ export const DashboardPage = () => {
     const [investments, setInvestments] = useState<Investment[]>([]);
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
+    const [isClubModalOpen, setIsClubModalOpen] = useState(false);
+    const [rankDetails, setRankDetails] = useState<UserRankDetails | null>(null);
 
     const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
@@ -155,11 +159,15 @@ export const DashboardPage = () => {
     useEffect(() => {
         if (!isSuperAdmin && !isDirectorOnly) {
             setLoading(true);
-            investmentsService.getMyInvestments()
-                .then(data => {
-                    setInvestments(Array.isArray(data) ? data : []);
+            Promise.all([
+                investmentsService.getMyInvestments(),
+                rankingsService.getMyRankDetails().catch(() => null)
+            ])
+                .then(([invData, rankData]) => {
+                    setInvestments(Array.isArray(invData) ? invData : []);
+                    if (rankData) setRankDetails(rankData);
                 })
-                .catch(err => console.error("Error al cargar inversiones:", err))
+                .catch(err => console.error("Error al cargar dashboard de inversionista:", err))
                 .finally(() => setLoading(false));
         }
     }, [user, isSuperAdmin, isDirectorOnly]);
@@ -358,12 +366,26 @@ export const DashboardPage = () => {
                                 dailyProfit={gananciaDiaria}
                             />
 
+                            {/* CLUB DE BENEFICIOS & RANKING BANNER (Oculto para Inversionistas) */}
+
                             <DashboardKPIs 
                                 investedCapital={totalInvertido}
                                 finishedCapital={totalInvertidoFinalizado}
                                 currentValue={totalPortafolio}
                                 accumulatedProfit={totalRendimiento}
                                 acquiredShares={totalAcciones}
+                                profitabilityPercent={rentabilidadGlobal}
+                                investments={investments}
+                                activeInvestments={activeInvestments}
+                                finishedInvestments={finishedInvestments}
+                                dailyProfit={gananciaDiaria}
+                                onCardClick={(type) => {
+                                    if (type === 'finished') {
+                                        setActiveTab('finished');
+                                    } else if (type === 'invested' || type === 'current' || type === 'profit' || type === 'shares') {
+                                        setActiveTab('approved');
+                                    }
+                                }}
                             />
                         </Can>
 
@@ -425,6 +447,12 @@ export const DashboardPage = () => {
                     </>
                 )
             )}
+
+            {/* Modal de Club de Beneficios & Rangos */}
+            <RankingsClubModal
+                isOpen={isClubModalOpen}
+                onClose={() => setIsClubModalOpen(false)}
+            />
         </div>
     );
 };

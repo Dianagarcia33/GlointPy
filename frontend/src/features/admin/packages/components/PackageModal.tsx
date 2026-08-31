@@ -35,8 +35,8 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (value === '' || Number(value) <= 0) {
-            setError('El valor del paquete debe ser mayor a 0');
+        if (value === '' || Number(value) < 10000) {
+            setError('El valor del paquete debe ser un monto válido mayor a $0 (mínimo $10.000 COP)');
             return;
         }
         
@@ -106,10 +106,10 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
                     )}
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700">Monto / Valor ($ COP) <span className="text-red-500">*</span></label>
+                        <label className="text-xs font-bold text-slate-700">Monto / Valor ($ COP) <span className="text-red-500">* (Mín. $10.000)</span></label>
                         <input
                             type="number"
-                            min="0"
+                            min="10000"
                             step="1000"
                             value={value}
                             onChange={(e) => setValue(e.target.value ? Number(e.target.value) : '')}

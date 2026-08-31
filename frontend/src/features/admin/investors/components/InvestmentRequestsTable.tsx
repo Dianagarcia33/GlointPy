@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
 import { commercialService } from '../../../../services/commercial';
-import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus } from 'lucide-react';
+import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { formatCurrency } from '../../../../utils/format';
 import { getMediaUrl } from '../../../../services/api';
@@ -95,10 +95,11 @@ export const InvestmentRequestsTable = () => {
   };
 
   const handleReject = async () => {
-    if (!rejectingId || !rejectionReason.trim()) return;
+    const cleanReason = rejectionReason.trim();
+    if (!rejectingId || cleanReason.length < 10) return;
     try {
       setIsProcessing(true);
-      await rejectInvestmentRequest(rejectingId, rejectionReason);
+      await rejectInvestmentRequest(rejectingId, cleanReason);
       setRejectingId(null);
       setRejectionReason('');
       await fetchData();
@@ -697,22 +698,31 @@ export const InvestmentRequestsTable = () => {
         </div>
 
         {/* Pagination Controls */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-          <div className="text-sm text-slate-500">
-            Mostrando <span className="font-medium text-slate-700">{requests.length}</span> de <span className="font-medium text-slate-700">{total}</span> solicitudes
+        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-slate-500">
+            {total > 0 ? (
+              <span>
+                Mostrando <strong className="font-bold text-slate-800">{(page - 1) * limit + 1}</strong> a <strong className="font-bold text-slate-800">{Math.min(page * limit, total)}</strong> de <strong className="font-bold text-slate-800">{total}</strong> solicitudes <span className="text-slate-400 font-normal ml-1">(Página {page} de {Math.max(1, Math.ceil(total / limit))})</span>
+              </span>
+            ) : (
+              <span>0 solicitudes</span>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button 
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
-              className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
             >
               Anterior
             </button>
+            <span className="px-2 font-mono text-slate-400 text-[11px]">
+              {page} / {Math.max(1, Math.ceil(total / limit))}
+            </span>
             <button 
               disabled={page * limit >= total}
               onClick={() => setPage(p => p + 1)}
-              className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
             >
               Siguiente
             </button>
@@ -723,26 +733,53 @@ export const InvestmentRequestsTable = () => {
       {/* Rejection Modal */}
       {rejectingId && createPortal(
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-20" style={{ margin: 0 }}>
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Rechazar Solicitud</h3>
-            <p className="text-sm text-slate-500 mb-4">Ingresa el motivo por el cual rechazas esta solicitud. El usuario podrá ver este motivo.</p>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-800">Rechazar Solicitud</h3>
+              <span className={`text-[11px] font-mono font-bold ${rejectionReason.trim().length >= 10 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {rejectionReason.trim().length} / mín. 10 caracteres
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">Ingresa o selecciona el motivo por el cual rechazas esta solicitud. El usuario podrá ver este motivo.</p>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Motivos Sugeridos:</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Comprobante de pago ilegible o incompleto.',
+                  'Monto transferido no coincide con el paquete.',
+                  'Comprobante no válido o duplicado.',
+                  'Documentación de identidad pendiente.'
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setRejectionReason(preset)}
+                    className="px-2 py-1 text-[10px] rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-left transition-colors cursor-pointer"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <textarea
-              className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none resize-none h-24 mb-4"
-              placeholder="Ej: El comprobante no es legible"
+              className="w-full border border-slate-300 rounded-lg p-3 text-xs focus:ring-2 focus:ring-brand-500 outline-none resize-none h-24"
+              placeholder="Explica la causa del rechazo (mínimo 10 caracteres)..."
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => { setRejectingId(null); setRejectionReason(''); }}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-sm transition-colors"
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-xs transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleReject}
-                disabled={isProcessing || !rejectionReason.trim()}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                disabled={isProcessing || rejectionReason.trim().length < 10}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-xs transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar Rechazo'}
               </button>
@@ -807,7 +844,7 @@ export const InvestmentRequestsTable = () => {
                           <span className="font-medium">
                             {(() => {
                               const p = periods.find(p => p.id === Number(selectedRequestToReview.extra_data?.contract_period_id));
-                              return p ? `${p.months} meses y ${p.days} días (${p.percentage}%)` : `ID: ${selectedRequestToReview.extra_data?.contract_period_id}`;
+                              return p ? `${p.months} meses (${p.days} días) - ${p.percentage}%` : `ID: ${selectedRequestToReview.extra_data?.contract_period_id}`;
                             })()}
                           </span>
                         </div>
@@ -857,29 +894,44 @@ export const InvestmentRequestsTable = () => {
 
               {selectedRequestToReview.comprobante_path ? (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-700">Comprobante de Pago</span>
+                    <span className="text-xs text-slate-500 font-mono">
+                      {selectedRequestToReview.comprobante_path.toLowerCase().endsWith('.pdf') ? 'Documento PDF' : 'Imagen'}
+                    </span>
                   </div>
-                  <div className="p-4 flex justify-center bg-slate-100 min-h-[200px]">
-                    <img 
-                      src={getMediaUrl(selectedRequestToReview.comprobante_path)} 
-                      alt="Comprobante" 
-                      className="max-h-[400px] object-contain rounded shadow-sm border border-slate-200"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (target.src !== FALLBACK_DOC_SVG) {
-                          target.src = FALLBACK_DOC_SVG;
-                        }
-                      }}
-                    />
+                  <div className="p-4 flex justify-center bg-slate-100 min-h-[220px]">
+                    {selectedRequestToReview.comprobante_path.toLowerCase().endsWith('.pdf') ? (
+                      <div className="w-full h-[450px] rounded-lg overflow-hidden border border-slate-200 bg-white shadow-xs">
+                        <iframe 
+                          src={`${getMediaUrl(selectedRequestToReview.comprobante_path)}#toolbar=0`} 
+                          title="Comprobante PDF" 
+                          className="w-full h-full border-0"
+                        />
+                      </div>
+                    ) : (
+                      <img 
+                        src={getMediaUrl(selectedRequestToReview.comprobante_path)} 
+                        alt="Comprobante" 
+                        className="max-h-[400px] object-contain rounded shadow-sm border border-slate-200"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (target.src !== FALLBACK_DOC_SVG) {
+                            target.src = FALLBACK_DOC_SVG;
+                          }
+                        }}
+                      />
+                    )}
                   </div>
-                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-right">
+                  <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">¿Problemas para visualizar?</span>
                     <a 
                       href={getMediaUrl(selectedRequestToReview.comprobante_path)} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-sm text-brand-600 font-medium hover:underline"
+                      className="text-sm text-brand-600 font-bold hover:text-brand-700 hover:underline flex items-center gap-1.5"
                     >
+                      <ExternalLink className="w-4 h-4" />
                       Abrir en nueva pestaña
                     </a>
                   </div>

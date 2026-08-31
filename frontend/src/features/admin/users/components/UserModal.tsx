@@ -90,18 +90,44 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.name || !formData.name.trim()) {
+      setError('El nombre del usuario es obligatorio');
+      return;
+    }
+    if (!formData.email || !formData.email.trim()) {
+      setError('El correo electrónico es obligatorio');
+      return;
+    }
+    if (!formData.document_id || !formData.document_id.trim()) {
+      setError('El documento de identidad es obligatorio');
+      return;
+    }
+    if (!formData.role_ids || formData.role_ids.length === 0) {
+      setError('Debes asignar al menos un rol al usuario');
+      return;
+    }
+
+    if (formData.date_of_birth) {
+      const dob = new Date(formData.date_of_birth);
+      const today = new Date();
+      if (dob > today) {
+        setError('La fecha de nacimiento no puede ser una fecha futura');
+        return;
+      }
+    }
+
     setIsSaving(true);
     setError(null);
 
     try {
       const payload: any = {
-        name: formData.name,
-        email: formData.email,
-        document_id: formData.document_id ? formData.document_id : null,
-        phone_number: formData.phone_number ? formData.phone_number : null,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        document_id: formData.document_id.trim(),
+        phone_number: formData.phone_number ? formData.phone_number.trim() : null,
         date_of_birth: formData.date_of_birth ? formData.date_of_birth : null,
         is_active: formData.is_active,
-        role_ids: formData.role_ids || []
+        role_ids: formData.role_ids
       };
       if (user) {
         await usersService.updateUser(user.id, payload as UserUpdate);
@@ -111,7 +137,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
       onSaved();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error al guardar el usuario');
+      setError(err.response?.data?.detail || err.message || 'Error al guardar el usuario');
     } finally {
       setIsSaving(false);
     }
@@ -221,10 +247,11 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700">Documento de Identidad</label>
+                  <label className="text-xs font-semibold text-slate-700">Documento de Identidad <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     name="document_id"
+                    required
                     value={formData.document_id || ''}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-mono text-slate-900"
@@ -249,6 +276,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
                   <input
                     type="date"
                     name="date_of_birth"
+                    max={new Date().toISOString().split('T')[0]}
                     value={formData.date_of_birth || ''}
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm text-slate-900"
@@ -275,8 +303,10 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">Roles Asignados</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 border border-slate-200 rounded-xl bg-slate-50/50">
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Roles Asignados <span className="text-red-500 font-bold">* (Mínimo un rol requerido)</span>
+                </label>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 border rounded-xl transition-colors ${(formData.role_ids || []).length === 0 ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200 bg-slate-50/50'}`}>
                   {roles.map((role) => (
                     <label key={role.id} className="flex items-center gap-2.5 p-2.5 bg-white hover:bg-slate-100/80 rounded-xl cursor-pointer text-xs border border-slate-200 transition-all">
                       <input
@@ -292,6 +322,11 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
                     </label>
                   ))}
                 </div>
+                {(formData.role_ids || []).length === 0 && (
+                  <p className="text-[11px] text-amber-700 mt-1.5 font-medium">
+                    ⚠️ Debes seleccionar al menos un rol para que el usuario cuente con permisos en el sistema.
+                  </p>
+                )}
               </div>
             </div>
           </form>

@@ -9,6 +9,8 @@ import { CommercialBonusGoalsWidget } from '../components/CommercialBonusGoalsWi
 import { AdminCommercialBonusesTable } from '../components/AdminCommercialBonusesTable';
 import { AdminCommercialFloorsMonitor } from '../components/AdminCommercialFloorsMonitor';
 import { Can } from '../../../components/security/Can';
+import { getColombiaToday, formatColombiaDate, formatCurrency } from '../../../utils/format';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -19,6 +21,8 @@ export const CommercialDashboardPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [selectedCommercialForSettle, setSelectedCommercialForSettle] = useState<number | null>(null);
+  const [saleToCancel, setSaleToCancel] = useState<number | null>(null);
+  const [isCancellingSale, setIsCancellingSale] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Filtros del Administrador
@@ -60,6 +64,13 @@ export const CommercialDashboardPage: React.FC = () => {
     enabled: isCommercialAdmin
   });
 
+  // Query para supervisar asesor seleccionado por el Administrador
+  const { data: advisorSummary, refetch: refetchAdvisorSummary } = useQuery<CommercialSummary>({
+    queryKey: ['advisor_commercial_summary', selectedCommercialId],
+    queryFn: () => commercialService.getAdvisorSummary(Number(selectedCommercialId)),
+    enabled: isCommercialAdmin && !!selectedCommercialId
+  });
+
   // Historial de Liquidaciones
   const { data: settlements, refetch: refetchSettlements } = useQuery<CommissionSettlement[]>({
     queryKey: ['commercial_settlements'],
@@ -97,16 +108,20 @@ export const CommercialDashboardPage: React.FC = () => {
     if (!isCommercialAdmin) refetchSummary();
   };
 
-  const handleDeleteSale = async (saleId: number) => {
-    if (!window.confirm('¿Estás seguro de anular esta venta comercial? Esta acción no se puede deshacer.')) return;
+  const handleConfirmCancelSale = async () => {
+    if (!saleToCancel) return;
+    setIsCancellingSale(true);
     try {
-      await commercialService.deleteSale(saleId);
+      await commercialService.deleteSale(saleToCancel);
       showToast('Venta comercial anulada correctamente', 'success');
+      setSaleToCancel(null);
       refetchAdminSummary();
       refetchAllSales();
       refetchLeaderboard();
     } catch (err: any) {
       showToast(err.message || 'Error al anular la venta', 'error');
+    } finally {
+      setIsCancellingSale(false);
     }
   };
 
@@ -240,10 +255,26 @@ export const CommercialDashboardPage: React.FC = () => {
           ) : (
             <>
               {/* Widget de Metas y Bonos en Curso */}
-              <CommercialBonusGoalsWidget
-                summary={summary}
-                dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
-              />
+              {!isCommercialAdmin ? (
+                <CommercialBonusGoalsWidget
+                  summary={summary}
+                  dailyClosuresCount={summary?.today_closures ?? (summary?.recent_sales?.filter((s: any) => s.sale_date === getColombiaToday()).length || 0)}
+                />
+              ) : selectedCommercialId && advisorSummary ? (
+                <div className="bg-slate-50 border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider font-montserrat">
+                      <Users className="w-4 h-4 text-brand-600" />
+                      <span>Metas y Pisos de: <strong className="text-brand-700 font-extrabold">{commercialUsers?.find(u => u.id.toString() === selectedCommercialId)?.name || `Asesor #${selectedCommercialId}`}</strong></span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-semibold">Supervisión en tiempo real</span>
+                  </div>
+                  <CommercialBonusGoalsWidget
+                    summary={advisorSummary}
+                    dailyClosuresCount={advisorSummary?.today_closures ?? (advisorSummary?.recent_sales?.filter((s: any) => s.sale_date === getColombiaToday()).length || 0)}
+                  />
+                </div>
+              ) : null}
 
           {/* Executive KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -421,7 +452,7 @@ export const CommercialDashboardPage: React.FC = () => {
                           </td>
                           <td className="py-3 px-3 text-center">
                             <button
-                              onClick={() => handleDeleteSale(s.id)}
+                              onClick={() => setSaleToCancel(s.id)}
                               title="Anular Venta Comercial"
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                             >
@@ -798,16 +829,16 @@ export const CommercialDashboardPage: React.FC = () => {
                 {settlements.map((st) => (
                   <tr key={st.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4 font-mono">
-                      {st.created_at ? new Date(st.created_at).toLocaleDateString('es-CO') : 'N/A'}
+                      {formatColombiaDate(st.created_at)}
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-800 font-montserrat">
                       {st.commercial_name}
                     </td>
                     <td className="py-3 px-4 text-center font-mono font-bold">
-                      {st.sales_count} cierres
+                      {st.sales_count} {st.sales_count === 1 ? 'cierre' : 'cierres'}
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
-                      ${(st.total_amount || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                      {formatCurrency(Number(st.total_amount) || 0)}
                     </td>
                     <td className="py-3 px-4">
                       {st.reference_code ? (
@@ -851,6 +882,19 @@ export const CommercialDashboardPage: React.FC = () => {
           initialCommercialId={selectedCommercialForSettle}
         />
       )}
+
+      {/* Modal de Confirmación para Anular Venta Comercial */}
+      <ConfirmationModal
+        isOpen={!!saleToCancel}
+        onClose={() => setSaleToCancel(null)}
+        onConfirm={handleConfirmCancelSale}
+        title="¿Anular Venta Comercial?"
+        description="Esta acción anulará el registro de la venta comercial seleccionada y recalculará las comisiones y acumulados del asesor. Esta acción no se puede deshacer."
+        confirmText="Sí, Anular Venta"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isCancellingSale}
+      />
 
       {/* Toast */}
       {toast && (

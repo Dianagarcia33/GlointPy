@@ -55,3 +55,7 @@ export const transferWalletFunds = async (data: {
     headers: { 'Content-Type': 'application/json' },
   });
 };
+
+export const getMyWallet = async (): Promise<{ balance: number | string; currency?: string }> => {
+  return await fetchApi('/wallets/me');
+};

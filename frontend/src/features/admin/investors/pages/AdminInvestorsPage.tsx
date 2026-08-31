@@ -14,11 +14,11 @@ import { InvestorBankAccountsModal } from '../components/InvestorBankAccountsMod
 import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInversionModal';
 import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { BulkDocumentModal } from '../components/BulkDocumentModal';
-import { DeleteAllDocumentsModal } from '../components/DeleteAllDocumentsModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber } from '../../../../utils/format';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
+import { usePermissions } from '../../../../hooks/usePermissions';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, investorCode, isDeleting }: any) => {
   if (!isOpen) return null;
@@ -128,6 +128,7 @@ export const AdminInvestorsPage = () => {
   );
 
   const navigate = useNavigate();
+  const { isAdmin } = usePermissions();
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +152,7 @@ export const AdminInvestorsPage = () => {
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
   const [userNameToAdjust, setUserNameToAdjust] = useState('');
+  const [assignedCodeToAdjust, setAssignedCodeToAdjust] = useState('');
   const [selectedInvestorForUpgrade, setSelectedInvestorForUpgrade] = useState<Investor | null>(null);
   const [selectedInvestorForBankAccounts, setSelectedInvestorForBankAccounts] = useState<Investor | null>(null);
   const [selectedInvestorForDocuments, setSelectedInvestorForDocuments] = useState<Investor | null>(null);
@@ -158,7 +160,6 @@ export const AdminInvestorsPage = () => {
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
   const [isBulkDocModalOpen, setIsBulkDocModalOpen] = useState(false);
-  const [isDeleteAllDocsModalOpen, setIsDeleteAllDocsModalOpen] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -290,13 +291,15 @@ export const AdminInvestorsPage = () => {
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <Users className="w-4 h-4 text-emerald-400" /> Control de Contratos & Inversiones
+            <Users className="w-4 h-4 text-emerald-400" /> {isAdmin() ? 'Control Global de Contratos & Inversiones' : 'Portafolio de Inversionistas Asignados'}
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Inversionistas
+            {isAdmin() ? 'Gestión de Inversionistas' : 'Mis Inversionistas'}
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
-            Administra los contratos activos, rendimientos proyectados, aumentos de capital y solicitudes de inversión.
+            {isAdmin() 
+              ? 'Administra los contratos activos, rendimientos proyectados, aumentos de capital y solicitudes de inversión globales.'
+              : 'Visualiza los contratos, rendimientos proyectados y solicitudes de inversión de tus clientes asignados.'}
           </p>
         </div>
         
@@ -310,23 +313,17 @@ export const AdminInvestorsPage = () => {
               <span>Solicitud de Inversión</span>
             </button>
           </Can>
-          <Can permission="admin.investors.manage">
-            <button 
-              onClick={() => setIsBulkDocModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all border border-slate-700/80 shadow-lg text-sm font-bold cursor-pointer shrink-0"
-            >
-              <Layers className="w-4 h-4 text-amber-400" />
-              <span>Generación Masiva</span>
-            </button>
-            <button 
-              onClick={() => setIsDeleteAllDocsModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-rose-950/40 text-rose-300 rounded-2xl hover:bg-rose-900/60 hover:text-white transition-all border border-rose-800/50 shadow-lg text-sm font-bold cursor-pointer shrink-0"
-              title="Eliminar todos los documentos y contratos generados en el sistema"
-            >
-              <Trash2 className="w-4 h-4 text-rose-400" />
-              <span>Vaciar Documentos</span>
-            </button>
-          </Can>
+          {isAdmin() && (
+            <Can permission="admin.investors.manage">
+              <button 
+                onClick={() => setIsBulkDocModalOpen(true)}
+                className="flex items-center gap-2 px-5 py-3 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all border border-slate-700/80 shadow-lg text-sm font-bold cursor-pointer shrink-0"
+              >
+                <Layers className="w-4 h-4 text-amber-400" />
+                <span>Generación Masiva</span>
+              </button>
+            </Can>
+          )}
           <Can permission="admin.investors.create">
             <button 
               onClick={handleCreate}
@@ -457,7 +454,7 @@ export const AdminInvestorsPage = () => {
                       </td>
                       <td className="px-4 py-3.5">
                         <button
-                          onClick={() => navigate(`/investments/${investor.id}`)}
+                          onClick={() => navigate(`/dashboard/investments/${investor.id}`)}
                           className="font-bold text-brand-600 hover:text-brand-800 hover:underline cursor-pointer text-left block"
                           title="Ver detalle de la inversión (Vista Inversionista)"
                         >
@@ -547,7 +544,7 @@ export const AdminInvestorsPage = () => {
                                 <button
                                   onClick={() => {
                                     setOpenActionMenuId(null);
-                                    navigate(`/investments/${investor.id}`);
+                                    navigate(`/dashboard/investments/${investor.id}`);
                                   }}
                                   className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-800 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer border-b border-slate-100"
                                 >
@@ -829,6 +826,7 @@ export const AdminInvestorsPage = () => {
                                                     currency: investor.user.wallet.currency || 'COP'
                                                   });
                                                   setUserNameToAdjust(investor.user.name);
+                                                  setAssignedCodeToAdjust(investor.assigned_code || `#${investor.id}`);
                                                 }
                                               }}
                                               className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors border border-transparent hover:border-brand-200 cursor-pointer"
@@ -998,22 +996,31 @@ export const AdminInvestorsPage = () => {
         </div>
 
         {/* Pagination Controls */}
-        <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-          <div className="text-sm text-slate-500">
-            Mostrando <span className="font-medium text-slate-700">{investors.length}</span> de <span className="font-medium text-slate-700">{total}</span> inversionistas
+        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-slate-500">
+            {total > 0 ? (
+              <span>
+                Mostrando <strong className="font-bold text-slate-800">{(page - 1) * limit + 1}</strong> a <strong className="font-bold text-slate-800">{Math.min(page * limit, total)}</strong> de <strong className="font-bold text-slate-800">{total}</strong> inversionistas <span className="text-slate-400 font-normal ml-1">(Página {page} de {Math.max(1, Math.ceil(total / limit))})</span>
+              </span>
+            ) : (
+              <span>0 inversionistas</span>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button 
               disabled={page === 1}
               onClick={() => setPage(p => Math.max(1, p - 1))}
-              className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
             >
               Anterior
             </button>
+            <span className="px-2 font-mono text-slate-400 text-[11px]">
+              {page} / {Math.max(1, Math.ceil(total / limit))}
+            </span>
             <button 
               disabled={page * limit >= total}
               onClick={() => setPage(p => p + 1)}
-              className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
             >
               Siguiente
             </button>
@@ -1077,14 +1084,19 @@ export const AdminInvestorsPage = () => {
 
       <WalletAdjustmentModal
         isOpen={!!walletToAdjust}
-        onClose={() => setWalletToAdjust(null)}
+        onClose={() => {
+          setWalletToAdjust(null);
+          setAssignedCodeToAdjust('');
+        }}
         onAdjusted={() => {
           setWalletToAdjust(null);
+          setAssignedCodeToAdjust('');
           setToast({ message: 'Saldo de billetera ajustado exitosamente', type: 'success' });
           fetchData();
         }}
         wallet={walletToAdjust}
         userName={userNameToAdjust}
+        assignedCode={assignedCodeToAdjust}
       />
 
       {toast && (
@@ -1144,15 +1156,6 @@ export const AdminInvestorsPage = () => {
           fetchData();
         }}
         totalInvestorsCount={total}
-      />
-
-      <DeleteAllDocumentsModal
-        isOpen={isDeleteAllDocsModalOpen}
-        onClose={() => setIsDeleteAllDocsModalOpen(false)}
-        onSuccess={(deletedCount) => {
-          setToast({ message: `¡Se eliminaron ${deletedCount} documentos con éxito!`, type: 'success' });
-          fetchData();
-        }}
       />
 
       <AdminCapitalWithdrawalModal

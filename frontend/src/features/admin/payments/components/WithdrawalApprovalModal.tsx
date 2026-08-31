@@ -70,16 +70,25 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
     }
   };
 
+  const REJECTION_PRESETS = [
+    'Datos bancarios erróneos o cuenta no coincide con el titular.',
+    'Fondos en proceso de verificación o auditoría de seguridad.',
+    'Documentación o validación de identidad KYC pendiente.',
+    'Solicitud duplicada o cancelada a petición del usuario.',
+    'Inconsistencia en el monto solicitado o comprobante bancario.'
+  ];
+
   const handleReject = async () => {
-    if (!rejectionReason.trim()) {
-      setError('Por favor, ingresa el motivo del rechazo.');
+    const cleanReason = rejectionReason.trim();
+    if (cleanReason.length < 10) {
+      setError('Por favor, ingresa un motivo de rechazo claro de al menos 10 caracteres explicativos.');
       return;
     }
     
     try {
       setIsProcessing(true);
       setError(null);
-      await paymentService.rejectWithdrawal(withdrawal.id, rejectionReason);
+      await paymentService.rejectWithdrawal(withdrawal.id, cleanReason);
       onUpdate();
       onClose();
     } catch (err: any) {
@@ -99,10 +108,23 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
               <DollarSign className="w-5 h-5 text-brand-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Revisar Solicitud de Retiro #{withdrawal.id}
-              </h2>
-              <p className="text-xs text-slate-500 font-medium">Verificación de fondos, datos bancarios y autorización de pago</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {withdrawal.estado === 'procesado' ? `Aprobar Retiro Procesado #${withdrawal.id}` : `Revisar Solicitud de Retiro #${withdrawal.id}`}
+                </h2>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                  withdrawal.estado === 'procesado' 
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                }`}>
+                  {withdrawal.estado}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                {withdrawal.estado === 'procesado' 
+                  ? 'Confirmación final de desembolso para marcar la solicitud como APROBADA.' 
+                  : 'Verificación de fondos, datos bancarios y autorización de pago'}
+              </p>
             </div>
           </div>
           <button 
@@ -156,7 +178,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
                 <span className="font-bold text-slate-800">{formatCurrency(withdrawal.monto)}</span>
               </div>
               <div>
-                <span className="text-slate-500 font-medium block text-[11px]">Deducciones / GMF (4x1000):</span>
+                <span className="text-slate-500 font-medium block text-[11px]">Costo Operativo & Retiro (3.2%):</span>
                 <span className="font-bold text-rose-600">-{formatCurrency(withdrawal.impuesto)}</span>
               </div>
               <div className="col-span-2 pt-3 border-t border-brand-200/80 flex justify-between items-center">
@@ -213,13 +235,35 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
 
           {/* Rejection Form */}
           {isRejecting && (
-            <div className="bg-rose-50/70 rounded-2xl p-5 border border-rose-200 space-y-2 animate-in fade-in slide-in-from-top-4">
-              <h3 className="font-bold text-xs text-rose-900 uppercase tracking-wide">Motivo del Rechazo de Retiro</h3>
+            <div className="bg-rose-50/70 rounded-2xl p-5 border border-rose-200 space-y-3 animate-in fade-in slide-in-from-top-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-xs text-rose-900 uppercase tracking-wide">Motivo del Rechazo de Retiro</h3>
+                <span className={`text-[11px] font-mono font-bold ${rejectionReason.trim().length >= 10 ? 'text-emerald-600' : 'text-rose-500'}`}>
+                  {rejectionReason.trim().length} / mín. 10 caracteres
+                </span>
+              </div>
               <p className="text-xs text-rose-700 font-medium">El saldo del retiro será reintegrado de inmediato a la billetera del usuario.</p>
+              
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-rose-900 uppercase tracking-wider">Motivos Predefinidos:</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {REJECTION_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setRejectionReason(preset)}
+                      className="px-2.5 py-1 text-[11px] rounded-lg bg-white border border-rose-200 hover:border-rose-400 text-rose-800 font-medium text-left transition-colors cursor-pointer hover:bg-rose-100/50"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Explica detalladamente la causa del rechazo..."
+                placeholder="Explica detalladamente la causa del rechazo (mínimo 10 caracteres)..."
                 className="w-full p-3 border border-rose-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-xs h-24 resize-none font-medium"
               />
             </div>
@@ -276,7 +320,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-emerald-600/20 cursor-pointer"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                Aprobar & Transferir
+                {withdrawal.estado === 'procesado' ? 'Confirmar Aprobación' : 'Aprobar & Transferir'}
               </button>
             )}
           </div>

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, notifications, tickets, investor_documents
+from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, notifications, tickets, investor_documents, uploads, banks, investment_ranks, external_apps, share_market
 
 api_router = APIRouter()
 
@@ -9,11 +9,15 @@ api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(periods.router, prefix="/periods", tags=["periods"])
 api_router.include_router(packages.router, prefix="/packages", tags=["packages"])
 api_router.include_router(investors.router, prefix="/investors", tags=["investors"])
+api_router.include_router(banks.router, prefix="/banks", tags=["banks"])
 api_router.include_router(bank_accounts.router, prefix="/bank-accounts", tags=["bank-accounts"])
 api_router.include_router(wallets.router, prefix="/wallets", tags=["wallets"])
 api_router.include_router(investments.router, prefix="/investments", tags=["investments"])
 api_router.include_router(investment_requests.router, prefix="/investment-requests", tags=["investment-requests"])
 api_router.include_router(withdrawals.router, prefix="/withdrawals", tags=["withdrawals"])
+api_router.include_router(investment_ranks.router, prefix="", tags=["rankings"])
+api_router.include_router(external_apps.router, prefix="", tags=["external-apps-pay"])
+api_router.include_router(share_market.router, prefix="/shares-market", tags=["shares-market"])
 
 api_router.include_router(system_events.router, prefix="/admin-system-events", tags=["system-events"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
@@ -29,3 +33,4 @@ api_router.include_router(crm_emails.router, prefix="", tags=["crm-emails"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
 api_router.include_router(investor_documents.router, prefix="", tags=["investor-documents"])
+api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])

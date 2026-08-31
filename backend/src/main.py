@@ -46,6 +46,35 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN rank_id INT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS investment_ranks (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(100) NOT NULL UNIQUE,
+                        slug VARCHAR(100) NOT NULL UNIQUE,
+                        min_investment DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                        max_investment DECIMAL(15,2) NULL,
+                        bonus_percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+                        color VARCHAR(50) NOT NULL DEFAULT '#EAB308',
+                        icon VARCHAR(50) NOT NULL DEFAULT 'trophy',
+                        priority_withdrawal BOOLEAN NOT NULL DEFAULT FALSE,
+                        benefits JSON NULL,
+                        `order` INT NOT NULL DEFAULT 1,
+                        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_ranks_slug (slug),
+                        INDEX idx_ranks_order (`order`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating investment_ranks table: {e}")
+
+            try:
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_url VARCHAR(500) NULL"))
             except Exception:
                 pass
@@ -86,8 +115,144 @@ async def on_startup():
             except Exception as e:
                 print(f"Error creating investor_documents table: {e}")
 
+            # Ajuste de consistencia para paquetes con 0 acciones
+            try:
+                await conn.execute(text("UPDATE packages SET granted_shares = 1 WHERE (value = 50000 OR value = 50000.00) AND (granted_shares = 0 OR granted_shares IS NULL)"))
+            except Exception:
+                pass
+
+            # Crear tablas external_apps y external_payment_orders si no existen
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS external_apps (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        description TEXT NULL,
+                        client_id VARCHAR(100) NOT NULL UNIQUE,
+                        api_key_hash VARCHAR(255) NOT NULL,
+                        webhook_url VARCHAR(500) NULL,
+                        webhook_secret VARCHAR(255) NULL,
+                        redirect_urls TEXT NULL,
+                        is_active TINYINT(1) DEFAULT 1 NOT NULL,
+                        created_by BIGINT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_ext_apps_client (client_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS external_payment_orders (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        payment_token VARCHAR(120) NOT NULL UNIQUE,
+                        app_id BIGINT NOT NULL,
+                        user_id BIGINT NULL,
+                        order_reference VARCHAR(255) NOT NULL,
+                        amount DECIMAL(15,2) NOT NULL,
+                        currency VARCHAR(3) DEFAULT 'COP' NOT NULL,
+                        description VARCHAR(500) NULL,
+                        status ENUM('pending','completed','cancelled','expired','failed') DEFAULT 'pending' NOT NULL,
+                        redirect_url VARCHAR(500) NULL,
+                        metadata_json TEXT NULL,
+                        webhook_status VARCHAR(50) DEFAULT 'pending' NOT NULL,
+                        webhook_attempts BIGINT DEFAULT 0 NOT NULL,
+                        webhook_response TEXT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        expires_at DATETIME NULL,
+                        completed_at DATETIME NULL,
+                        INDEX idx_ext_orders_token (payment_token),
+                        INDEX idx_ext_orders_app (app_id),
+                        INDEX idx_ext_orders_user (user_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS share_price_history (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        previous_price DECIMAL(15,2) NOT NULL,
+                        new_price DECIMAL(15,2) NOT NULL,
+                        change_percentage DECIMAL(6,2) DEFAULT 0.00 NOT NULL,
+                        justification_notes TEXT NOT NULL,
+                        admin_id BIGINT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_sph_created (created_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS share_issuances (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        title VARCHAR(255) NOT NULL,
+                        description TEXT NULL,
+                        total_shares_issued INT NOT NULL,
+                        available_shares INT NOT NULL,
+                        price_per_share DECIMAL(15,2) NOT NULL,
+                        is_active TINYINT(1) DEFAULT 1 NOT NULL,
+                        created_by BIGINT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS share_listings (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        seller_id BIGINT NOT NULL,
+                        shares_total INT NOT NULL,
+                        shares_available INT NOT NULL,
+                        shares_locked INT DEFAULT 0 NOT NULL,
+                        price_per_share DECIMAL(15,2) NOT NULL,
+                        status VARCHAR(50) DEFAULT 'active' NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_sl_seller (seller_id),
+                        INDEX idx_sl_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS share_trade_orders (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        listing_id BIGINT NULL,
+                        issuance_id BIGINT NULL,
+                        seller_id BIGINT NULL,
+                        buyer_id BIGINT NOT NULL,
+                        shares_quantity INT NOT NULL,
+                        price_per_share DECIMAL(15,2) NOT NULL,
+                        total_amount DECIMAL(15,2) NOT NULL,
+                        wallet_amount_used DECIMAL(15,2) DEFAULT 0.00 NOT NULL,
+                        surplus_amount DECIMAL(15,2) DEFAULT 0.00 NOT NULL,
+                        receipt_url VARCHAR(500) NULL,
+                        payment_method VARCHAR(50) DEFAULT 'full_wallet' NOT NULL,
+                        status VARCHAR(50) DEFAULT 'completed' NOT NULL,
+                        admin_notes TEXT NULL,
+                        approved_by BIGINT NULL,
+                        approved_at DATETIME NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_sto_buyer (buyer_id),
+                        INDEX idx_sto_seller (seller_id),
+                        INDEX idx_sto_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating share_market tables: {e}")
+
+            # Limpieza de valores nulos / escapados en referred_by
+            try:
+                await conn.execute(text("UPDATE investors SET referred_by = NULL WHERE referred_by = '\\\\N' OR referred_by = '\\N' OR referred_by = 'NULL' OR referred_by = ''"))
+            except Exception:
+                pass
+
         async with async_session_maker() as db:
             await seed_permissions_db(db)
+            try:
+                from src.services.commercial_sale_service import purge_ghost_bonuses
+                await purge_ghost_bonuses(db)
+            except Exception as pe:
+                print(f"Error purging ghost bonuses on startup: {pe}")
+
+            try:
+                from src.services.investment_rank_service import InvestmentRankService
+                await InvestmentRankService.sync_all_users_ranks(db)
+                print("🏆 Rangos de inversión sincronizados y asignados automáticamente.")
+            except Exception as re:
+                print(f"Error syncing user ranks on startup: {re}")
     except Exception as e:
         print(f"Error on startup database initialization/seeding: {e}")
 from fastapi.staticfiles import StaticFiles
@@ -96,12 +261,11 @@ import os
 # Create uploads directory if it doesn't exist
 os.makedirs("uploads", exist_ok=True)
 
-# Rutas de la API
-# Montar la carpeta uploads para servir archivos estáticos (imágenes y comprobantes)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-app.mount("/api/v1/uploads", StaticFiles(directory="uploads"), name="api_v1_uploads")
+# Rutas seguras y autenticadas para uploads
+from src.api.v1.endpoints import uploads
+app.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 
-# Aquí se agregarán los nuevos endpoints migradas gradualmente
+# Rutas de la API
 from src.api.v1.api import api_router
 app.include_router(api_router, prefix="/api/v1")
 

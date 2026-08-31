@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { periodsService, Period } from '../../../../services/periods';
-import { X, CalendarDays, Loader2 } from 'lucide-react';
+import { X, CalendarDays, Loader2, Info, AlertTriangle } from 'lucide-react';
 
 interface PeriodModalProps {
   isOpen: boolean;
@@ -42,10 +42,52 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
 
   if (!isOpen) return null;
 
+  const handleMonthsChange = (mVal: string) => {
+    const m = Math.max(0, parseInt(mVal) || 0);
+    // Auto-derivar días calendario estándar sugeridos
+    let suggestedDays = 0;
+    if (m > 0) {
+      if (m === 1) suggestedDays = 30;
+      else if (m === 6) suggestedDays = 182;
+      else if (m === 12) suggestedDays = 365;
+      else if (m === 24) suggestedDays = 730;
+      else suggestedDays = Math.round(m * 30.416);
+    }
+    setFormData(prev => ({
+      ...prev,
+      months: m,
+      days: suggestedDays
+    }));
+    setError(null);
+  };
+
+  const minAllowedDays = formData.months > 0 ? formData.months * 28 : 1;
+  const maxAllowedDays = formData.months > 0 ? formData.months * 32 : 3660;
+  const isDaysIncoherent = formData.months > 0 && formData.days > 0 && (formData.days < minAllowedDays || formData.days > maxAllowedDays);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
+
+    if (formData.percentage <= 0 || formData.percentage > 100) {
+      setError('La rentabilidad mensual debe ser mayor a 0% y menor o igual a 100%.');
+      return;
+    }
+
+    if (formData.months < 1) {
+      setError('El plazo en meses debe ser de al menos 1 mes.');
+      return;
+    }
+
+    // Validación estricta de coherencia Meses <-> Días
+    if (formData.days < minAllowedDays || formData.days > maxAllowedDays) {
+      setError(
+        `Incoherencia entre meses (${formData.months}) y días (${formData.days}). Para ${formData.months} meses, los días calendario deben estar comprendidos entre ${minAllowedDays} y ${maxAllowedDays} días.`
+      );
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       if (period) {
@@ -89,8 +131,9 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
 
         <form id="period-form" onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
           {error && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-600">
-              {error}
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-600 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -101,11 +144,13 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
             <input
               type="number"
               step="0.01"
+              min="0.01"
+              max="100"
               required
-              value={formData.percentage}
+              value={formData.percentage || ''}
               onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) || 0 })}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-900 font-montserrat"
-              placeholder="Ej. 1.5"
+              placeholder="Ej. 3.7"
             />
           </div>
 
@@ -116,11 +161,13 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
               </label>
               <input
                 type="number"
+                min="1"
+                max="120"
                 required
-                value={formData.months}
-                onChange={(e) => setFormData({ ...formData, months: parseInt(e.target.value) || 0 })}
+                value={formData.months || ''}
+                onChange={(e) => handleMonthsChange(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-900"
-                placeholder="Ej. 12"
+                placeholder="Ej. 6"
               />
             </div>
 
@@ -130,14 +177,36 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
               </label>
               <input
                 type="number"
+                min="1"
                 required
-                value={formData.days}
+                value={formData.days || ''}
                 onChange={(e) => setFormData({ ...formData, days: parseInt(e.target.value) || 0 })}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-900"
-                placeholder="Ej. 360"
+                className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm font-semibold text-slate-900 ${
+                  isDaysIncoherent 
+                    ? 'border-red-300 bg-red-50/50 focus:ring-2 focus:ring-red-500/20 focus:border-red-500' 
+                    : 'border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                }`}
+                placeholder="Ej. 182"
               />
             </div>
           </div>
+
+          {/* Banner informativo de coherencia */}
+          {formData.months > 0 && (
+            <div className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
+              isDaysIncoherent 
+                ? 'bg-amber-50 border-amber-200 text-amber-800 font-medium' 
+                : 'bg-brand-50/60 border-brand-100 text-brand-800'
+            }`}>
+              <Info className="w-4 h-4 shrink-0 mt-0.5 text-brand-600" />
+              <div className="space-y-0.5">
+                <span className="font-bold">Coherencia de Plazo:</span>
+                <p>
+                  Para <strong>{formData.months} {formData.months === 1 ? 'mes' : 'meses'}</strong>, el rango permitido es entre <strong>{minAllowedDays}</strong> y <strong>{maxAllowedDays} días</strong> (estándar sugerido: <strong>{Math.round(formData.months * (formData.months === 12 ? 365/12 : 30.416))} días</strong>).
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between mt-2">
             <div>
@@ -165,7 +234,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
           <button
             type="submit"
             form="period-form"
-            disabled={isLoading}
+            disabled={isLoading || isDaysIncoherent}
             className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 cursor-pointer"
           >
             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}

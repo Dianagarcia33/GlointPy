@@ -29,12 +29,17 @@ import { AdminPeriodsPage } from "./features/admin/periods/pages/AdminPeriodsPag
 import { AdminPackagesPage } from "./features/admin/packages/pages/AdminPackagesPage";
 import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvestorsPage";
 import { AdminTemplatesPage } from "./features/admin/templates/pages/AdminTemplatesPage";
+import { AdminRankingsPage } from "./features/admin/rankings/pages/AdminRankingsPage";
+import { AdminExternalAppsPage } from "./features/admin/external-apps/pages/AdminExternalAppsPage";
+import { GlointPayCheckoutPage } from "./features/checkout/pages/GlointPayCheckoutPage";
 import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
 import { CommercialDashboardPage } from "./features/commercial/pages/CommercialDashboardPage";
 import { BeneficiariesPage } from "./features/beneficiaries/pages/BeneficiariesPage";
 import { ReferralsPage } from "./features/referrals/pages/ReferralsPage";
+import { SharesMarketPage } from "./features/shares/pages/SharesMarketPage";
+import { AdminSharesPage } from "./features/admin/shares/pages/AdminSharesPage";
 import { AdminReferralsPage } from "./features/admin/referrals/pages/AdminReferralsPage";
 import { ChatPage } from "./features/chat/pages/ChatPage";
 import { CRMPage } from "./features/crm/pages/CRMPage";
@@ -44,6 +49,7 @@ import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
+import { fetchApi } from "./services/api";
 
 
 // Componente para proteger rutas (si no está logueado, lo manda al login)
@@ -63,6 +69,21 @@ const GuestRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   // Inicializamos el "Perro Guardián" de inactividad
   useInactivityTimer();
+
+  const { isAuthenticated, setUser, logout } = useAuthStore();
+
+  // Seguridad H-34: Al cargar la app, se hidrata el perfil y permisos en memoria desde el servidor
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      fetchApi('/auth/me')
+        .then((userData) => {
+          setUser(userData);
+        })
+        .catch(() => {
+          logout();
+        });
+    }
+  }, [isAuthenticated]);
 
   // Lógica de mantenimiento comentada
   // const isMaintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
@@ -88,6 +109,9 @@ function App() {
       <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
       <Route path="/force-change-password" element={<GuestRoute><ForceChangePasswordPage /></GuestRoute>} />
       
+      {/* Pasarela Pública Gloint Pay Checkout */}
+      <Route path="/pay/checkout" element={<GlointPayCheckoutPage />} />
+      
       {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
       <Route 
         path="/dashboard" 
@@ -108,10 +132,14 @@ function App() {
         <Route path="packages" element={<RequirePermission permission="admin.packages.manage"><AdminPackagesPage /></RequirePermission>} />
         <Route path="investors" element={<RequirePermission permission="admin.investors.manage"><AdminInvestorsPage /></RequirePermission>} />
         <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
+        <Route path="external-apps" element={<RequirePermission permissions={["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]}><AdminExternalAppsPage /></RequirePermission>} />
         <Route path="system-events" element={<RequirePermission permission="manage_system_events"><SystemEventsPage /></RequirePermission>} />
         <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
+        <Route path="rankings" element={<RequirePermission permissions={["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]}><AdminRankingsPage /></RequirePermission>} />
+        <Route path="shares-market" element={<SharesMarketPage />} />
+        <Route path="admin-shares" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage", "admin.users.manage"]}><AdminSharesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<BeneficiariesPage />} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
         <Route path="admin-referrals" element={<RequirePermission permission="admin.users.manage"><AdminReferralsPage /></RequirePermission>} />

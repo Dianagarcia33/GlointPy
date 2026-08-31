@@ -54,7 +54,9 @@ export const InvestmentDetailPage = () => {
 
     const formatDate = (dateStr?: string) => {
         if (!dateStr) return 'Pendiente';
-        return new Date(dateStr).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return 'Pendiente';
+        return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
     const statusConfig = inv.status === 'approved' 
@@ -142,9 +144,16 @@ export const InvestmentDetailPage = () => {
                             </div>
                             <div>
                                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Contrato de Inversión</p>
-                                <h1 className="text-3xl font-bold text-slate-900 font-montserrat">
-                                    {formatCurrency(inv.monto)}
-                                </h1>
+                                <div className="flex items-baseline gap-3">
+                                    <h1 className="text-3xl font-bold text-slate-900 font-montserrat">
+                                        {formatCurrency(inv.monto)}
+                                    </h1>
+                                    {(inv.periodo?.percentage || inv.porcentaje_mensual) && (
+                                        <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl font-montserrat">
+                                            {inv.periodo?.percentage || inv.porcentaje_mensual}% mensual
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
@@ -356,7 +365,7 @@ export const InvestmentDetailPage = () => {
                                                         {doc.document_type || 'Contrato'}
                                                     </span>
                                                     <span className="text-[11px] text-slate-400 font-medium">
-                                                        {new Date(doc.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        {formatDate(doc.created_at)}
                                                     </span>
                                                 </div>
                                                 <h4 className="text-sm font-bold text-slate-900 group-hover:text-brand-500 transition-colors line-clamp-2">
@@ -398,38 +407,103 @@ export const InvestmentDetailPage = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Movements / Retiros */}
+                        {inv.movements && inv.movements.length > 0 && (
+                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                                        <ArrowDownToLine className="w-4 h-4 text-brand-500" />
+                                        Movimientos & Solicitudes de Retiro
+                                    </h3>
+                                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono border border-slate-200">
+                                        {inv.movements.length} {inv.movements.length === 1 ? 'registro' : 'registros'}
+                                    </span>
+                                </div>
+                                <div className="space-y-2.5">
+                                    {inv.movements.map((m: any) => (
+                                        <div key={m.id} className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/80 flex items-center justify-between text-xs">
+                                            <div>
+                                                <span className="font-bold text-slate-900 capitalize">Retiro de {m.tipo}</span>
+                                                <span className="text-slate-400 text-[11px] block mt-0.5">{formatDate(m.fecha_solicitud)}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-extrabold text-slate-900 font-mono block">-{formatCurrency(m.monto)}</span>
+                                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-brand-50 text-brand-700 border border-brand-200">
+                                                    {m.estado}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 {/* Projection Table */}
                 {inv.projection && inv.projection.length > 0 && (
                     <div className="p-8 border-t border-slate-100 bg-white">
-                        <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest mb-6">Proyección de Rendimientos</h3>
-                        <div className="overflow-x-auto rounded-xl border border-slate-200">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-wider">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest">
+                                    Proyección de Rendimientos por Ciclos
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    Cortes periódicos de liquidación y estimación de rendimientos mensuales
+                                </p>
+                            </div>
+                            <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full border border-slate-200 font-mono">
+                                {inv.projection.length} ciclos
+                            </span>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                            <table className="w-full text-left text-xs whitespace-nowrap">
+                                <thead className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[11px] tracking-widest">
                                     <tr>
-                                        <th className="py-3 px-4">Periodo</th>
-                                        <th className="py-3 px-4">Fecha Esperada</th>
-                                        <th className="py-3 px-4">Rendimiento Estimado</th>
-                                        <th className="py-3 px-4">Estado</th>
+                                        <th className="py-3 px-4 text-center"># Ciclo</th>
+                                        <th className="py-3 px-4">Periodo de Liquidación</th>
+                                        <th className="py-3 px-4 text-center">Días</th>
+                                        <th className="py-3 px-4 text-right">Capital Base</th>
+                                        <th className="py-3 px-4 text-right">Rendimiento Generado</th>
+                                        <th className="py-3 px-4 text-center">Estado</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {inv.projection.map((proj: any, idx: number) => (
-                                        <tr key={idx} className="hover:bg-slate-50/50">
-                                            <td className="py-3 px-4 font-semibold text-slate-900">Mes {proj.mes}</td>
-                                            <td className="py-3 px-4 text-slate-500">{new Date(proj.fecha).toLocaleDateString('es-CO')}</td>
-                                            <td className="py-3 px-4 font-bold text-emerald-600">+{formatCurrency(proj.rendimiento)}</td>
-                                            <td className="py-3 px-4">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                                    proj.estado === 'pagado' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                                                }`}>
-                                                    {proj.estado}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                <tbody className="divide-y divide-slate-100 font-medium">
+                                    {inv.projection.map((proj: any, idx: number) => {
+                                        const isProcessed = (proj.estado || '').toLowerCase() === 'procesado' || (proj.estado || '').toLowerCase() === 'pagado';
+                                        return (
+                                            <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                                                <td className="py-3 px-4 text-center font-bold text-slate-900 font-mono">
+                                                    Ciclo {idx + 1}
+                                                </td>
+                                                <td className="py-3 px-4 text-slate-700">
+                                                    <span className="text-slate-500 font-mono">{formatDate(proj.fecha_inicio)}</span>
+                                                    <span className="text-slate-400 mx-1.5 font-bold">→</span>
+                                                    <span className="font-bold text-slate-900 font-mono">{formatDate(proj.fecha_fin)}</span>
+                                                </td>
+                                                <td className="py-3 px-4 text-center font-bold text-slate-800 font-mono">
+                                                    {proj.dias} días
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-mono text-slate-700">
+                                                    {formatCurrency(proj.capital_base || 0)}
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-bold text-emerald-600 font-mono text-xs">
+                                                    +{formatCurrency(proj.rendimiento || 0)}
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                                        isProcessed 
+                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                    }`}>
+                                                        {proj.estado || 'Proyectado'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

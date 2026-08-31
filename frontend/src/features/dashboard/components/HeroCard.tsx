@@ -47,9 +47,13 @@ export const HeroCard: React.FC<HeroCardProps> = ({
                         <h2 className="text-5xl md:text-6xl font-black font-montserrat tracking-tighter text-white drop-shadow-md">
                             {formatCurrency(totalPortfolio)}
                         </h2>
-                        <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm">
-                            <ArrowUpRight className="w-4 h-4" />
-                            +{profitabilityPercent.toFixed(2)}%
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm ${
+                            profitabilityPercent > 0 
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}>
+                            {profitabilityPercent > 0 && <ArrowUpRight className="w-4 h-4" />}
+                            {profitabilityPercent > 0 ? `+${profitabilityPercent.toFixed(2)}%` : '0.00%'}
                         </div>
                     </div>
 

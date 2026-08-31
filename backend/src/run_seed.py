@@ -24,6 +24,8 @@ PERMISSIONS = [
     {"name": "admin.users.manage", "description": "Gestionar usuarios y credenciales de la plataforma", "module": "users"},
     {"name": "admin.periods.manage", "description": "Gestionar periodos de inversión", "module": "periods"},
     {"name": "admin.packages.manage", "description": "Gestionar paquetes de inversión", "module": "packages"},
+    {"name": "admin.rankings.manage", "description": "Gestionar rankings y niveles de inversión", "module": "rankings"},
+    {"name": "admin.external_apps.manage", "description": "Gestionar aplicaciones externas conectadas y pasarela Gloint Pay", "module": "admin"},
     {"name": "admin.investors.manage", "description": "Gestionar contratos de inversionistas", "module": "investors"},
     {"name": "admin.investors.create", "description": "Crear nuevos contratos de inversión e inversionistas (Crear Inversión)", "module": "investors"},
     {"name": "admin.investors.wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Lápiz)", "module": "investors"},
@@ -78,14 +80,9 @@ async def seed_permissions_db(db):
     roles = roles_res.scalars().all()
 
     for role in roles:
-        # Si el rol ya tiene permisos asignados en la matriz, respetar la configuración manual del administrador
-        role_has_perms = await db.execute(
-            select(role_permissions).where(role_permissions.c.role_id == role.id)
-        )
-        if role_has_perms.first():
-            continue
-
         r_name = role.name.lower()
+        
+        # Superadmin / Admin siempre debe tener todos los permisos sincronizados
         if "super" in r_name or "admin" in r_name:
             for p_name, perm in all_perms_map.items():
                 check = await db.execute(select(role_permissions).where(
@@ -97,8 +94,17 @@ async def seed_permissions_db(db):
                         role_id=role.id,
                         permission_id=perm.id
                     ))
-            print(f"🔑 Permisos asignados al rol: {role.name}")
-        elif any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente"]):
+            print(f"🔑 Todos los permisos del sistema asignados al rol: {role.name}")
+            continue
+
+        # Para otros roles, verificar si ya tienen permisos configurados
+        role_has_perms = await db.execute(
+            select(role_permissions).where(role_permissions.c.role_id == role.id)
+        )
+        if role_has_perms.first():
+            continue
+
+        if any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente"]):
             commercial_perms = [
                 "director.dashboard.view", "commercial:view", 
                 "referrals:view", "admin.referrals.manage", "dashboard:view_kpis", "wallets:view", 

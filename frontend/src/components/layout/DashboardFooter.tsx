@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { APP_DISPLAY_VERSION } from '../../constants/appVersion';
 
 export const DashboardFooter = () => {
     return (
@@ -9,14 +11,14 @@ export const DashboardFooter = () => {
                 </div>
                 
                 <div className="flex flex-wrap justify-center items-center gap-4 md:gap-6 text-[13px] font-medium text-slate-400">
-                    <a href="#" className="hover:text-white transition-colors">Soporte</a>
-                    <a href="#" className="hover:text-white transition-colors">Términos</a>
-                    <a href="#" className="hover:text-white transition-colors">Privacidad</a>
+                    <Link to="/dashboard/tickets" className="hover:text-white transition-colors">Soporte</Link>
+                    <Link to="/terminos" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Términos</Link>
+                    <Link to="/privacidad" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Privacidad</Link>
                     
                     <div className="hidden md:block h-4 w-px bg-slate-700"></div>
                     
                     <span className="bg-slate-800 text-brand-400 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest border border-slate-700 uppercase">
-                        GLOINT 2.0.0.1
+                        {APP_DISPLAY_VERSION}
                     </span>
                 </div>
             </div>

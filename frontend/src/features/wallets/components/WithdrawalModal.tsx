@@ -238,16 +238,48 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a Retirar (COP)</label>
+                                    <label htmlFor="monto-retiro" className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a Retirar (COP)</label>
                                     <input 
                                         type="number" 
+                                        id="monto-retiro"
+                                        name="monto"
+                                        min={5000}
+                                        max={balance > 0 ? balance : 0}
+                                        step={1000}
                                         value={monto}
                                         onChange={(e) => setMonto(e.target.value)}
                                         placeholder="Mínimo $5,000"
-                                        disabled={!bankDetails || !canWithdraw}
-                                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium text-slate-900 outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                                        disabled={!bankDetails || !canWithdraw || balance <= 0}
+                                        className={`w-full px-4 py-3 bg-white border rounded-xl focus:ring-2 transition-all font-medium text-slate-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:bg-slate-50 disabled:text-slate-500 ${
+                                            monto.trim() !== '' && (montoNumber < 5000 || montoNumber > balance)
+                                                ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/20'
+                                                : 'border-slate-200 focus:border-brand-500 focus:ring-brand-500/20'
+                                        }`}
                                         required
                                     />
+                                    {monto.trim() !== '' && montoNumber > 0 && montoNumber < 5000 && (
+                                        <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1 animate-in fade-in duration-150">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            El monto mínimo para solicitar un retiro es de $5,000 COP.
+                                        </p>
+                                    )}
+                                    {monto.trim() !== '' && montoNumber > balance && (
+                                        <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1 animate-in fade-in duration-150">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            El monto ingresado ({formatCurrency(montoNumber)}) supera tu saldo máximo disponible ({formatCurrency(balance)}).
+                                        </p>
+                                    )}
+                                    {balance <= 0 && (
+                                        <p className="text-xs font-semibold text-amber-600 mt-1.5 flex items-center gap-1">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            No tienes saldo disponible para retirar en este momento.
+                                        </p>
+                                    )}
+                                    {(!monto || (montoNumber >= 5000 && montoNumber <= balance && balance > 0)) && (
+                                        <p className="text-[11px] text-slate-400 mt-1 font-medium">
+                                            Monto mínimo: $5,000 COP — Máximo disponible: {formatCurrency(balance)}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {bankAccounts.length > 0 && (
@@ -295,7 +327,7 @@ export const WithdrawalModal = ({ isOpen, onClose, onSuccess, availableBalance: 
                                     </div>
                                     <div className="flex justify-between text-sm">
                                         <span className="text-amber-700 flex items-center gap-1">
-                                            Impuestos/Comisión (3.2%): 
+                                            Costo Operativo & Retiro (3.2%): 
                                         </span>
                                         <span className="font-semibold text-red-600">-{formatCurrency(impuesto)}</span>
                                     </div>

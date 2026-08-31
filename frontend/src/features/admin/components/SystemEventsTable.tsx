@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Edit2, Trash2, Calendar, Clock, RotateCw, AlertCircle } from 'lucide-react';
 import { SystemEvent, systemEventsService } from '../../../services/systemEvents';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 interface SystemEventsTableProps {
   events: SystemEvent[];
@@ -13,17 +14,19 @@ interface SystemEventsTableProps {
 
 export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, isLoading, onEdit }) => {
   const queryClient = useQueryClient();
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: systemEventsService.deleteEvent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['systemEvents'] });
+      setDeletingId(null);
     }
   });
 
-  const handleDelete = (id: number) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este evento?')) {
-      deleteMutation.mutate(id);
+  const confirmDelete = () => {
+    if (deletingId) {
+      deleteMutation.mutate(deletingId);
     }
   };
 
@@ -116,7 +119,7 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
                     <span>Editar</span>
                   </button>
                   <button
-                    onClick={() => handleDelete(event.id)}
+                    onClick={() => setDeletingId(event.id)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
                     title="Eliminar evento"
                   >
@@ -129,6 +132,19 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
           ))}
         </tbody>
       </table>
+
+      {/* Modal de Confirmación para Eliminar Evento */}
+      <ConfirmationModal
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={confirmDelete}
+        title="¿Eliminar Evento del Sistema?"
+        description="Esta acción eliminará el evento o ventana de tiempo seleccionada. Esta acción no se puede deshacer."
+        confirmText="Sí, Eliminar Evento"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 };

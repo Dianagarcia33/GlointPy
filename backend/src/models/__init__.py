@@ -23,4 +23,9 @@ from src.models.device_token import UserDeviceToken
 from src.models.user_notification import UserNotification
 from src.models.admin_notification import AdminBroadcastLog
 from src.models.investor_document import InvestorDocument
+from src.models.audit_log import AuditLog
+from src.models.data_bank import DataBank
+from src.models.investment_rank import InvestmentRank
+from src.models.external_app import ExternalApp, ExternalPaymentOrder
+from src.models.share_market import SharePriceHistory, ShareIssuance, ShareListing, ShareTradeOrder
 

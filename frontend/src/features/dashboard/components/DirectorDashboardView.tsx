@@ -7,6 +7,7 @@ import { commercialService, CommercialSummary } from '../../../services/commerci
 import { DirectorAnalyticsCharts } from './DirectorAnalyticsCharts';
 import { CommercialBonusGoalsWidget } from '../../commercial/components/CommercialBonusGoalsWidget';
 import { Can } from '../../../components/security/Can';
+import { getColombiaToday } from '../../../utils/format';
 
 interface DirectorDashboardViewProps {
   isLoading?: boolean;
@@ -75,7 +76,7 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = () =>
       {/* Widget de Metas y Bonos en Curso del Directivo */}
       <CommercialBonusGoalsWidget
         summary={summary}
-        dailyClosuresCount={summary?.recent_sales?.filter(s => s.sale_date === new Date().toISOString().split('T')[0]).length || 0}
+        dailyClosuresCount={summary?.today_closures ?? (summary?.recent_sales?.filter((s: any) => s.sale_date === getColombiaToday()).length || 0)}
       />
 
       {/* KPI Cards Comerciales Ejecutivas */}
