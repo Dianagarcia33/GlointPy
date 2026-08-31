@@ -137,9 +137,9 @@ function App() {
         <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
-        <Route path="rankings" element={<RequirePermission permissions={["admin.rankings.manage", "admin.investors.manage", "admin.roles.manage", "admin.users.manage"]}><AdminRankingsPage /></RequirePermission>} />
-        <Route path="shares-market" element={<SharesMarketPage />} />
-        <Route path="admin-shares" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage", "admin.users.manage"]}><AdminSharesPage /></RequirePermission>} />
+        {/* Mercado de Acciones desactivado temporalmente */}
+        <Route path="shares-market" element={<Navigate to="/dashboard" replace />} />
+        <Route path="admin-shares" element={<Navigate to="/dashboard" replace />} />
         <Route path="beneficiaries" element={<BeneficiariesPage />} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
         <Route path="admin-referrals" element={<RequirePermission permission="admin.users.manage"><AdminReferralsPage /></RequirePermission>} />

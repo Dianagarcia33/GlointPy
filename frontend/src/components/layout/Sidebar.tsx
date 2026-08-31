@@ -159,13 +159,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </NavLink>
                                 </Can>
 
-                                <NavLink to="/dashboard/shares-market" className={navLinkClass}>
-                                    <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
-                                        <Layers className="w-[18px] h-[18px]" />
-                                    </span>
-                                    <span className="flex-1 text-[13px] font-outfit">Mercado de Acciones</span>
-                                </NavLink>
-
                                 <Can permission="bank_accounts:manage">
                                     <NavLink to="/dashboard/bank-accounts" className={navLinkClass}>
                                         <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
@@ -326,15 +319,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                 <Globe className="w-[18px] h-[18px]" />
                                             </span>
                                             <span className="flex-1 text-[13px] font-outfit">Apps Externas (Gloint Pay)</span>
-                                        </NavLink>
-                                    </Can>
-
-                                    <Can permissions={["admin.shares.manage", "admin.roles.manage", "admin.users.manage"]}>
-                                        <NavLink to="/dashboard/admin-shares" className={navLinkClass}>
-                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
-                                                <Layers className="w-[18px] h-[18px]" />
-                                            </span>
-                                            <span className="flex-1 text-[13px] font-outfit">Mercado de Acciones (Admin)</span>
                                         </NavLink>
                                     </Can>
 
