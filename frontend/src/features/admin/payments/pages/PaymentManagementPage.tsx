@@ -14,6 +14,7 @@ export const PaymentManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('todos');
+  const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [page, setPage] = useState(1);
@@ -46,7 +47,7 @@ export const PaymentManagementPage: React.FC = () => {
   const fetchWithdrawals = async () => {
     try {
       setLoading(true);
-      const res = await paymentService.getWithdrawals(page, limit, search, statusFilter, startDate, endDate);
+      const res = await paymentService.getWithdrawals(page, limit, search, statusFilter, startDate, endDate, typeFilter);
       setData(res);
     } catch (error) {
       console.error('Error fetching withdrawals:', error);
@@ -57,7 +58,7 @@ export const PaymentManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchWithdrawals();
-  }, [page, statusFilter, startDate, endDate]);
+  }, [page, statusFilter, typeFilter, startDate, endDate]);
 
   const handleSyncWalletDebits = async () => {
     try {
@@ -106,10 +107,7 @@ export const PaymentManagementPage: React.FC = () => {
     );
   };
 
-  const filteredItems = (data?.data || []).filter(item => {
-    if (statusFilter === 'todos') return true;
-    return item.estado.toLowerCase() === statusFilter.toLowerCase();
-  });
+  const filteredItems = data?.data || [];
 
   const [isBulkProcessing, setIsBulkProcessing] = useState<boolean>(false);
 
@@ -236,10 +234,14 @@ export const PaymentManagementPage: React.FC = () => {
     }
   };
 
-  // Calculate quick stats
-  const pendingCount = (data?.data || []).filter(i => i.estado === 'pendiente').length;
-  const approvedCount = (data?.data || []).filter(i => i.estado === 'aprobado' || i.estado === 'procesado').length;
-  const totalAmountPaid = (data?.data || [])
+  // Calculate quick stats (Globales no discriminados por página)
+  const totalRequestsCount = data?.summary?.total_count ?? (data?.total || 0);
+  const pendingCount = data?.summary?.pending_count ?? (data?.data || []).filter(i => i.estado === 'pendiente').length;
+  const pendingAmountTotal = data?.summary?.pending_amount_total ?? (data?.data || [])
+    .filter(i => i.estado === 'pendiente')
+    .reduce((sum, i) => sum + parseFloat(i.monto_neto as any || 0), 0);
+  const approvedCount = data?.summary?.approved_count ?? (data?.data || []).filter(i => i.estado === 'aprobado' || i.estado === 'procesado').length;
+  const totalAmountPaid = data?.summary?.total_amount_paid ?? (data?.data || [])
     .filter(i => i.estado === 'aprobado' || i.estado === 'procesado')
     .reduce((sum, i) => sum + parseFloat(i.monto_neto as any || 0), 0);
 
@@ -259,63 +261,60 @@ export const PaymentManagementPage: React.FC = () => {
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 sm:px-6 py-3.5 rounded-3xl shadow-2xl border border-slate-700/80 flex items-center gap-4 sm:gap-6 animate-in slide-in-from-bottom-5 duration-200 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <span className={`flex items-center justify-center w-7 h-7 text-white rounded-full text-xs font-bold font-mono shadow-sm ${
-              currentSelectionType === 'procesado' ? 'bg-blue-600' : 'bg-brand-500'
-            }`}>
-              {selectedIds.size}
+            <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-500"></span>
             </span>
             <div>
-              <p className="text-xs font-bold leading-tight text-white flex items-center gap-1.5">
-                <span>{currentSelectionType === 'procesado' ? 'Procesados' : 'Pendientes'}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono uppercase font-bold ${
-                  currentSelectionType === 'procesado' ? 'bg-blue-500/30 text-blue-300' : 'bg-emerald-500/30 text-emerald-300'
-                }`}>
-                  {selectedIds.size} seleccionados
-                </span>
+              <p className="text-xs font-bold font-montserrat">
+                {selectedIds.size} {selectedIds.size === 1 ? 'solicitud seleccionada' : 'solicitudes seleccionadas'}
               </p>
-              <p className="text-[11px] text-emerald-400 font-mono font-extrabold">{formatCurrency(selectedTotalNet)}</p>
+              <p className="text-[11px] text-slate-400">
+                Total neto: <span className="text-emerald-400 font-bold font-mono">{formatCurrency(selectedTotalNet)}</span>
+              </p>
             </div>
           </div>
 
-          <div className="h-7 w-px bg-slate-700" />
-
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 border-l border-slate-700 pl-4 sm:pl-6">
             {currentSelectionType === 'pendiente' && (
               <button
+                type="button"
                 onClick={() => setIsBulkModalOpen(true)}
-                className="px-4 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <FileSpreadsheet className="w-4 h-4" />
-                Previsualizar Dispersión
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Generar Dispersión Bancaria</span>
               </button>
             )}
 
             {currentSelectionType === 'procesado' && (
               <button
+                type="button"
                 onClick={() => setIsBulkApproveModalOpen(true)}
-                className="px-4 py-2 text-xs font-extrabold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-md shadow-blue-600/30 transition-all flex items-center gap-2 cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-2xl shadow-lg shadow-blue-600/30 transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <ShieldCheck className="w-4 h-4" />
-                Previsualizar Aprobación ({selectedIds.size})
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Aprobar / Marcar Pagados</span>
               </button>
             )}
 
             <button
+              type="button"
               onClick={clearSelection}
-              className="px-3 py-2 text-xs font-bold text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all cursor-pointer"
+              className="px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white rounded-2xl hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              Limpiar
+              Cancelar
             </button>
           </div>
         </div>
       )}
 
-      {/* Header Ejecutivo Principal (Estilo Panel Comercial) */}
+      {/* Header Banner (Estilo Panel Comercial) */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm border border-white/10">
-            <DollarSign className="w-4 h-4 text-emerald-400" /> Tesorería & Dispersión de Saldo
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
+            <DollarSign className="w-4 h-4 text-brand-400" /> Tesorería & Pagos
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
             Gestión de Pagos & Retiros
@@ -337,7 +336,7 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards Summary (Estilo Panel Comercial) */}
+      {/* KPI Cards Summary (Globales / Sin discriminar por paginación) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
@@ -347,21 +346,23 @@ export const PaymentManagementPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <p className="text-3xl font-extrabold text-slate-900 font-montserrat tracking-tight">{data?.total || 0}</p>
+            <p className="text-3xl font-extrabold text-slate-900 font-montserrat tracking-tight">{totalRequestsCount}</p>
             <p className="text-xs text-slate-500 font-medium mt-1">Registros en plataforma</p>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Pendientes por Revisar</span>
+            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Total Monto Pendiente</span>
             <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
               <Clock className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <p className="text-3xl font-extrabold text-amber-600 font-montserrat tracking-tight">{pendingCount}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">Requieren atención administrativa</p>
+            <p className="text-2xl font-extrabold text-amber-600 font-montserrat tracking-tight">{formatCurrency(pendingAmountTotal)}</p>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              <strong className="font-bold text-amber-700">{pendingCount}</strong> {pendingCount === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'} por revisar
+            </p>
           </div>
         </div>
 
@@ -441,54 +442,86 @@ export const PaymentManagementPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Filtro por Estado (Pestañas Responsivas) */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-bold">
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-0.5 sm:pb-0">
-            <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0"><Filter className="w-3.5 h-3.5" /> Estado:</span>
-            {['todos', 'pendiente', 'aprobado', 'procesado', 'rechazado'].map((st) => (
+        {/* Filtros Combinados: Tipo de Retiro y Estado */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+          {/* Filtro por Tipo / Origen */}
+          <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
+            <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0"><Filter className="w-3.5 h-3.5" /> Tipo:</span>
+            {[
+              { id: 'todos', label: 'Todos' },
+              { id: 'rendimiento', label: 'Rendimientos' },
+              { id: 'capital', label: 'Capital' },
+              { id: 'bono', label: 'Bonos' }
+            ].map((t) => (
               <button
-                key={st}
+                key={t.id}
                 type="button"
                 onClick={() => {
-                  setStatusFilter(st);
+                  setTypeFilter(t.id);
+                  setPage(1);
                   clearSelection();
                 }}
-                className={`py-1.5 px-3 rounded-xl transition-all capitalize shrink-0 cursor-pointer text-xs ${
-                  statusFilter === st 
-                    ? 'bg-slate-900 text-white shadow-xs' 
+                className={`py-1.5 px-3 rounded-xl transition-all shrink-0 cursor-pointer text-xs font-bold ${
+                  typeFilter === t.id 
+                    ? 'bg-brand-600 text-white shadow-xs' 
                     : 'text-slate-600 hover:bg-slate-200/60'
                 }`}
               >
-                {st}
+                {t.label}
               </button>
             ))}
           </div>
 
-          {/* Quick Bulk Action Button if Selected */}
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2">
-              {currentSelectionType === 'pendiente' && (
+          {/* Filtro por Estado */}
+          <div className="flex items-center justify-between gap-1.5 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0"><CheckCircle2 className="w-3.5 h-3.5" /> Estado:</span>
+              {['todos', 'pendiente', 'aprobado', 'procesado', 'rechazado'].map((st) => (
                 <button
+                  key={st}
                   type="button"
-                  onClick={() => setIsBulkModalOpen(true)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                  onClick={() => {
+                    setStatusFilter(st);
+                    setPage(1);
+                    clearSelection();
+                  }}
+                  className={`py-1.5 px-3 rounded-xl transition-all capitalize shrink-0 cursor-pointer text-xs font-bold ${
+                    statusFilter === st 
+                      ? 'bg-slate-900 text-white shadow-xs' 
+                      : 'text-slate-600 hover:bg-slate-200/60'
+                  }`}
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  Dispersión ({selectedIds.size})
+                  {st}
                 </button>
-              )}
-              {currentSelectionType === 'procesado' && (
-                <button
-                  type="button"
-                  onClick={() => setIsBulkApproveModalOpen(true)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  Aprobar Procesados ({selectedIds.size})
-                </button>
-              )}
+              ))}
             </div>
-          )}
+
+            {/* Quick Bulk Action Button if Selected */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2 pl-2">
+                {currentSelectionType === 'pendiente' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkModalOpen(true)}
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    Disp. ({selectedIds.size})
+                  </button>
+                )}
+                {currentSelectionType === 'procesado' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkApproveModalOpen(true)}
+                    className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Aprobar ({selectedIds.size})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
