@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Link, Wallet, AlertCircle, Trash2 } from 'lucide-react';
+import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Link, Wallet, AlertCircle, Trash2, ShieldCheck } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
 import { compressImage } from '../../../utils/imageCompression';
@@ -121,7 +121,13 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         return parseFloat(pkg.value) || 0;
     };
 
+    const currentPackage = packages?.find((p: any) => p.id === currentPackageId);
+    const currentPackageValue = isUpgrade && currentPackage ? getPackageAmount(currentPackage) : 0;
+
     const packageAmount = getPackageAmount(selectedPackage);
+    const upgradeDifference = isUpgrade ? Math.max(0, packageAmount - currentPackageValue) : packageAmount;
+    const baseToPay = isUpgrade ? upgradeDifference : packageAmount;
+
     const monthlyYield = selectedPeriod ? packageAmount * (selectedPeriod.percentage / 100) : 0;
     const estimatedYield = selectedPeriod ? monthlyYield * selectedPeriod.months : 0;
     const dailyYield = selectedPeriod && selectedPeriod.days > 0 
@@ -129,8 +135,8 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         : monthlyYield / 30; // Fallback
     const totalReturn = packageAmount + estimatedYield;
 
-    const maxWalletAllowed = wallet ? wallet.balance : 0;
-    const amountToPay = packageAmount - (useWallet ? walletAmount : 0);
+    const maxWalletAllowed = wallet ? Math.min(wallet.balance, baseToPay) : 0;
+    const amountToPay = Math.max(0, baseToPay - (useWallet ? walletAmount : 0));
 
     const handleSubmit = async () => {
         if (!selectedPackage || !selectedPeriod) return;
@@ -212,7 +218,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                         disabled={loadingPackages}
                                     >
                                         <option value="">-- Selecciona un paquete --</option>
-                                        {packages?.filter((pkg: any) => !isUpgrade || pkg.id !== currentPackageId).map((pkg: any) => (
+                                        {packages?.filter((pkg: any) => !isUpgrade || getPackageAmount(pkg) > currentPackageValue).map((pkg: any) => (
                                             <option key={pkg.id} value={pkg.id}>
                                                 {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(getPackageAmount(pkg))} ({pkg.granted_shares} Acciones)
                                             </option>
@@ -338,11 +344,11 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                             <input 
                                                 type="number"
                                                 min="0"
-                                                max={Math.min(maxWalletAllowed, packageAmount)}
+                                                max={maxWalletAllowed}
                                                 value={walletAmount}
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value) || 0;
-                                                    setWalletAmount(Math.min(val, maxWalletAllowed, packageAmount));
+                                                    setWalletAmount(Math.min(val, maxWalletAllowed));
                                                 }}
                                                 className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-2 pl-8 pr-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500"
                                                 placeholder="Monto a usar"
@@ -371,29 +377,61 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                             )}
 
                             {/* Resumen de Pago */}
-                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                                <div className="flex justify-between items-center text-sm mb-2">
-                                    <span className="text-slate-600">Total Inversión:</span>
+                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2">
+                                {isUpgrade && (
+                                    <div className="flex justify-between items-center text-xs text-slate-500">
+                                        <span>Paquete Actual:</span>
+                                        <span className="font-semibold text-slate-700">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(currentPackageValue)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-600">{isUpgrade ? 'Nuevo Paquete Seleccionado:' : 'Total Inversión:'}</span>
                                     <span className="font-bold text-slate-800">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(packageAmount)}</span>
                                 </div>
+                                {isUpgrade && (
+                                    <div className="flex justify-between items-center text-sm font-semibold text-slate-800 border-t border-slate-200/60 pt-2">
+                                        <span>Diferencia por Aumento:</span>
+                                        <span className="font-bold text-slate-900">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(upgradeDifference)}</span>
+                                    </div>
+                                )}
                                 {useWallet && walletAmount > 0 && (
-                                    <div className="flex justify-between items-center text-sm mb-2 text-brand-600">
-                                        <span>Pago con Wallet:</span>
+                                    <div className="flex justify-between items-center text-sm text-brand-600">
+                                        <span>Abono con Billetera:</span>
                                         <span className="font-bold">-{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(walletAmount)}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center text-base border-t border-slate-200 pt-2 mt-2">
-                                    <span className="text-slate-800 font-bold">Total a transferir:</span>
-                                    <span className="font-black text-brand-600 text-lg">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amountToPay)}</span>
+                                    <span className="text-slate-800 font-bold">Total a transferir / consignar:</span>
+                                    <span className={`font-black text-lg ${amountToPay === 0 ? 'text-emerald-600' : 'text-brand-600'}`}>
+                                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amountToPay)}
+                                    </span>
                                 </div>
                             </div>
 
                             {/* Comprobantes */}
                             <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <Upload className="w-4 h-4 text-slate-400" />
-                                    Comprobantes de Pago
+                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Upload className="w-4 h-4 text-slate-400" />
+                                        <span>Comprobantes de Pago</span>
+                                    </div>
+                                    {amountToPay === 0 && (
+                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                            100% Cubierto con Billetera (Opcional)
+                                        </span>
+                                    )}
                                 </label>
+
+                                {amountToPay === 0 ? (
+                                    <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold mb-3">
+                                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        <div>
+                                            <p className="font-bold text-sm text-emerald-900">¡Diferencia 100% cubierta con tu Billetera!</p>
+                                            <p className="font-normal text-emerald-700 mt-0.5">El valor del aumento se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.</p>
+                                        </div>
+                                    </div>
+                                ) : null}
+
                                 <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-brand-400 transition-colors bg-slate-50">
                                     <input 
                                         type="file" 
@@ -405,7 +443,9 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                     />
                                     <label htmlFor="comprobantes" className="cursor-pointer flex flex-col items-center">
                                         <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                                        <span className="text-sm font-semibold text-slate-700">Haz clic para subir o arrastra tus archivos</span>
+                                        <span className="text-sm font-semibold text-slate-700">
+                                            {amountToPay === 0 ? 'Adjuntar soporte voluntario (opcional)' : 'Haz clic para subir o arrastra tus archivos'}
+                                        </span>
                                         <span className="text-xs text-slate-500 mt-1">Imágenes (PNG, JPG, WEBP) o PDF • <strong>Máx. 10 MB por archivo</strong></span>
                                     </label>
                                     
