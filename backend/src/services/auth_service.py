@@ -179,8 +179,8 @@ class AuthService:
                 "banco": data.banco,
                 "tipo_cuenta": data.tipo_cuenta,
                 "numero_cuenta": data.numero_cuenta,
-                "kyc_docs": data.kyc_docs,
-                "contract_period_id": data.contract_period_id,
+                "kyc_docs": getattr(data, "kyc_docs", None),
+                "contract_period_id": getattr(data, "contract_period_id", None) or getattr(data, "periodo_id", None),
                 "referred_by": getattr(data, "referred_by", None),
                 "commercial_id": getattr(data, "commercial_id", None)
             }

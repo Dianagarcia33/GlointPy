@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional
+from typing import Optional, Any
 
 from src.schemas.user import UserResponse
 
@@ -33,7 +33,10 @@ class InvestorRegisterRequest(BaseModel):
     numero_cuenta: str
     monto: float
     paquete_id: int
+    periodo_id: Optional[int] = None
+    contract_period_id: Optional[int] = None
     comprobante_path: str
+    kyc_docs: Optional[Any] = None
     referred_by: Optional[str] = None
     commercial_id: Optional[int] = None
 
