@@ -771,7 +771,7 @@ export const InvestorRegistrationFlow = () => {
                                     >
                                         <option value="">Selecciona tu banco...</option>
                                         {availableBanks.map(b => (
-                                            <option key={b.id} value={b.banck}>{b.banck} (Cód: {b.code_banck})</option>
+                                            <option key={b.id} value={b.banck}>{b.banck}</option>
                                         ))}
                                         <option value="Otro">Otro / Cooperativa</option>
                                     </select>
