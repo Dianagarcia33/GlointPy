@@ -88,6 +88,7 @@ class WithdrawalService:
         stats_query = select(
             func.count(Withdrawal.id).label("total_count"),
             func.coalesce(func.sum(case((func.lower(Withdrawal.estado) == 'pendiente', 1), else_=0)), 0).label("pending_count"),
+            func.coalesce(func.sum(case((func.lower(Withdrawal.estado) == 'pendiente', Withdrawal.monto_neto), else_=0)), 0).label("pending_amount_total"),
             func.coalesce(func.sum(case((func.lower(Withdrawal.estado).in_(['aprobado', 'procesado']), 1), else_=0)), 0).label("approved_count"),
             func.coalesce(func.sum(case((func.lower(Withdrawal.estado).in_(['aprobado', 'procesado']), Withdrawal.monto_neto), else_=0)), 0).label("total_amount_paid")
         )
@@ -102,6 +103,7 @@ class WithdrawalService:
         summary_data = {
             "total_count": int(stats_row.total_count) if stats_row and stats_row.total_count is not None else 0,
             "pending_count": int(stats_row.pending_count) if stats_row and stats_row.pending_count is not None else 0,
+            "pending_amount_total": float(stats_row.pending_amount_total) if stats_row and stats_row.pending_amount_total is not None else 0.0,
             "approved_count": int(stats_row.approved_count) if stats_row and stats_row.approved_count is not None else 0,
             "total_amount_paid": float(stats_row.total_amount_paid) if stats_row and stats_row.total_amount_paid is not None else 0.0
         }

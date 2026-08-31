@@ -40,6 +40,7 @@ export interface Withdrawal {
 export interface WithdrawalSummaryStats {
   total_count: number;
   pending_count: number;
+  pending_amount_total: number;
   approved_count: number;
   total_amount_paid: number;
 }

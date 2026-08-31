@@ -65,6 +65,7 @@ class WithdrawalResponse(WithdrawalBase):
 class WithdrawalSummaryStats(BaseModel):
     total_count: int = 0
     pending_count: int = 0
+    pending_amount_total: float = 0.0
     approved_count: int = 0
     total_amount_paid: float = 0.0
 

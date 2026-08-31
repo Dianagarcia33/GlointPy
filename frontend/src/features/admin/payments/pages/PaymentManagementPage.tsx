@@ -237,6 +237,9 @@ export const PaymentManagementPage: React.FC = () => {
   // Calculate quick stats (Globales no discriminados por página)
   const totalRequestsCount = data?.summary?.total_count ?? (data?.total || 0);
   const pendingCount = data?.summary?.pending_count ?? (data?.data || []).filter(i => i.estado === 'pendiente').length;
+  const pendingAmountTotal = data?.summary?.pending_amount_total ?? (data?.data || [])
+    .filter(i => i.estado === 'pendiente')
+    .reduce((sum, i) => sum + parseFloat(i.monto_neto as any || 0), 0);
   const approvedCount = data?.summary?.approved_count ?? (data?.data || []).filter(i => i.estado === 'aprobado' || i.estado === 'procesado').length;
   const totalAmountPaid = data?.summary?.total_amount_paid ?? (data?.data || [])
     .filter(i => i.estado === 'aprobado' || i.estado === 'procesado')
@@ -350,14 +353,16 @@ export const PaymentManagementPage: React.FC = () => {
 
         <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Pendientes por Revisar</span>
+            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Total Monto Pendiente</span>
             <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
               <Clock className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <p className="text-3xl font-extrabold text-amber-600 font-montserrat tracking-tight">{pendingCount}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">Requieren atención administrativa</p>
+            <p className="text-2xl font-extrabold text-amber-600 font-montserrat tracking-tight">{formatCurrency(pendingAmountTotal)}</p>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              <strong className="font-bold text-amber-700">{pendingCount}</strong> {pendingCount === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'} por revisar
+            </p>
           </div>
         </div>
 
