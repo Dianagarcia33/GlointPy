@@ -57,6 +57,7 @@ class InvestmentRequestResponse(InvestmentRequestBase):
     user: Optional[SimpleUserResponse] = None
     package: Optional[SimplePackageResponse] = None
     investor: Optional[SimpleInvestorResponse] = None
+    reviewer: Optional[SimpleUserResponse] = None
 
     model_config = ConfigDict(from_attributes=True)
 

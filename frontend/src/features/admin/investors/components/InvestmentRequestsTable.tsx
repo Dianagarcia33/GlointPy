@@ -625,17 +625,19 @@ export const InvestmentRequestsTable = () => {
                                                 />
                                               </div>
                                               <span className="text-[10px] font-bold text-slate-700 truncate w-full group-hover:text-brand-600">{label}</span>
-                                            </a>
+                                          </a>
                                           );
                                         })}
                                       </div>
                                     </div>
                                   )}
 
-                                  {request.investor_id && (
+                                  {(request.investor_id || request.investor?.assigned_code) && (
                                     <div className="flex justify-between items-center py-1 border-t border-slate-100">
-                                      <span className="text-slate-500 font-medium">ID Inversionista Creado:</span>
-                                      <span className="font-mono font-bold text-slate-800">#{request.investor_id}</span>
+                                      <span className="text-slate-500 font-medium">Código Asignado:</span>
+                                      <span className="font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200 text-xs">
+                                        {request.investor?.assigned_code || (request.extra_data?.assigned_code || (request.extra_data?.codigo_asignado || `#IG${request.investor_id}`))}
+                                      </span>
                                     </div>
                                   )}
 
@@ -724,7 +726,29 @@ export const InvestmentRequestsTable = () => {
                                   <div className="space-y-2 text-xs">
                                     <div className="flex justify-between items-center">
                                       <span className="text-slate-500 font-medium">Revisado Por:</span>
-                                      <span className="font-semibold text-slate-800">{request.reviewed_by ? `Admin #${request.reviewed_by}` : 'N/A'}</span>
+                                      <span className="font-semibold text-slate-800">
+                                        {(() => {
+                                          if (request.reviewer?.name) {
+                                            return (
+                                              <>
+                                                {request.reviewer.name} <span className="text-slate-400 font-normal font-mono text-[10px] ml-1">(ID #{request.reviewed_by})</span>
+                                              </>
+                                            );
+                                          }
+                                          if (request.reviewed_by) {
+                                            const resolved = resolveUserName(request.reviewed_by);
+                                            if (resolved) {
+                                              return (
+                                                <>
+                                                  {resolved} <span className="text-slate-400 font-normal font-mono text-[10px] ml-1">(ID #{request.reviewed_by})</span>
+                                                </>
+                                              );
+                                            }
+                                            return `Usuario #${request.reviewed_by}`;
+                                          }
+                                          return 'N/A';
+                                        })()}
+                                      </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                       <span className="text-slate-500 font-medium">Fecha Revisión:</span>
