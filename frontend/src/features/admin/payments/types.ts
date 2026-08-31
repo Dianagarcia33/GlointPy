@@ -37,9 +37,17 @@ export interface Withdrawal {
   user?: SimpleUser;
 }
 
+export interface WithdrawalSummaryStats {
+  total_count: number;
+  pending_count: number;
+  approved_count: number;
+  total_amount_paid: number;
+}
+
 export interface PaginatedWithdrawals {
   data: Withdrawal[];
   total: number;
   page: number;
   limit: number;
+  summary?: WithdrawalSummaryStats;
 }

@@ -62,11 +62,18 @@ class WithdrawalResponse(WithdrawalBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class WithdrawalSummaryStats(BaseModel):
+    total_count: int = 0
+    pending_count: int = 0
+    approved_count: int = 0
+    total_amount_paid: float = 0.0
+
 class WithdrawalPaginatedResponse(BaseModel):
     data: List[WithdrawalResponse]
     total: int
     page: int
     limit: int
+    summary: Optional[WithdrawalSummaryStats] = None
 
 class WithdrawalRejectRequest(BaseModel):
     motivo_rechazo: str

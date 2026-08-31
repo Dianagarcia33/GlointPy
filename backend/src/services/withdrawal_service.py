@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, func
+from sqlalchemy import select, or_, func, case
 from sqlalchemy.orm import selectinload
 from typing import List, Optional, Dict, Any
 import logging
@@ -23,28 +23,28 @@ class WithdrawalService:
         limit: int = 20, 
         search: Optional[str] = None,
         status: Optional[str] = None,
+        tipo: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None
     ) -> Dict[str, Any]:
         filters = []
+        base_filters = []
         
         if search:
             search_pattern = f"%{search}%"
-            filters.append(
-                or_(
-                    User.name.ilike(search_pattern),
-                    User.email.ilike(search_pattern),
-                    User.document_id.ilike(search_pattern)
-                )
+            search_filter = or_(
+                User.name.ilike(search_pattern),
+                User.email.ilike(search_pattern),
+                User.document_id.ilike(search_pattern)
             )
-            
-        if status and status.lower() != 'todos':
-            filters.append(func.lower(Withdrawal.estado) == status.lower())
+            filters.append(search_filter)
+            base_filters.append(search_filter)
             
         if start_date:
             try:
                 sd = datetime.strptime(start_date, "%Y-%m-%d").date()
                 filters.append(Withdrawal.fecha_solicitud >= sd)
+                base_filters.append(Withdrawal.fecha_solicitud >= sd)
             except Exception:
                 pass
 
@@ -52,8 +52,16 @@ class WithdrawalService:
             try:
                 ed = datetime.strptime(end_date, "%Y-%m-%d").date()
                 filters.append(Withdrawal.fecha_solicitud <= ed)
+                base_filters.append(Withdrawal.fecha_solicitud <= ed)
             except Exception:
                 pass
+
+        if tipo and tipo.lower() != 'todos':
+            filters.append(func.lower(Withdrawal.tipo) == tipo.lower())
+            base_filters.append(func.lower(Withdrawal.tipo) == tipo.lower())
+
+        if status and status.lower() != 'todos':
+            filters.append(func.lower(Withdrawal.estado) == status.lower())
 
         query = select(Withdrawal).options(selectinload(Withdrawal.user))
         count_query = select(func.count(Withdrawal.id))
@@ -75,10 +83,31 @@ class WithdrawalService:
         
         result = await db.execute(query)
         withdrawals = result.scalars().all()
+
+        # Compute global summary statistics (across all records matching search, date and tipo filters)
+        stats_query = select(
+            func.count(Withdrawal.id).label("total_count"),
+            func.coalesce(func.sum(case((func.lower(Withdrawal.estado) == 'pendiente', 1), else_=0)), 0).label("pending_count"),
+            func.coalesce(func.sum(case((func.lower(Withdrawal.estado).in_(['aprobado', 'procesado']), 1), else_=0)), 0).label("approved_count"),
+            func.coalesce(func.sum(case((func.lower(Withdrawal.estado).in_(['aprobado', 'procesado']), Withdrawal.monto_neto), else_=0)), 0).label("total_amount_paid")
+        )
+        if search:
+            stats_query = stats_query.join(Withdrawal.user)
+        if base_filters:
+            stats_query = stats_query.filter(*base_filters)
+
+        stats_res = await db.execute(stats_query)
+        stats_row = stats_res.one_or_none()
+
+        summary_data = {
+            "total_count": int(stats_row.total_count) if stats_row and stats_row.total_count is not None else 0,
+            "pending_count": int(stats_row.pending_count) if stats_row and stats_row.pending_count is not None else 0,
+            "approved_count": int(stats_row.approved_count) if stats_row and stats_row.approved_count is not None else 0,
+            "total_amount_paid": float(stats_row.total_amount_paid) if stats_row and stats_row.total_amount_paid is not None else 0.0
+        }
         
         from src.schemas.withdrawal import WithdrawalResponse
         from fastapi import HTTPException
-        import traceback
         
         data_res = []
         for w in withdrawals:
@@ -92,7 +121,8 @@ class WithdrawalService:
             "data": data_res,
             "total": total,
             "page": page,
-            "limit": limit
+            "limit": limit,
+            "summary": summary_data
         }
 
     @staticmethod
