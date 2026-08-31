@@ -9,12 +9,13 @@ interface NewInvestmentModalProps {
     isOpen: boolean;
     onClose: () => void;
     currentPackageId?: number;
+    currentPackageAmount?: number;
     currentPeriodId?: number;
     investorId?: number;
     isUpgrade?: boolean;
 }
 
-export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentPeriodId, investorId, isUpgrade = false }: NewInvestmentModalProps) => {
+export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentPackageAmount, currentPeriodId, investorId, isUpgrade = false }: NewInvestmentModalProps) => {
     const queryClient = useQueryClient();
     
     // UI State
@@ -122,7 +123,9 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
     };
 
     const currentPackage = packages?.find((p: any) => p.id === currentPackageId);
-    const currentPackageValue = isUpgrade && currentPackage ? getPackageAmount(currentPackage) : 0;
+    const currentPackageValue = isUpgrade 
+        ? (currentPackage ? getPackageAmount(currentPackage) : (Number(currentPackageAmount) || 0)) 
+        : 0;
 
     const packageAmount = getPackageAmount(selectedPackage);
     const upgradeDifference = isUpgrade ? Math.max(0, packageAmount - currentPackageValue) : packageAmount;

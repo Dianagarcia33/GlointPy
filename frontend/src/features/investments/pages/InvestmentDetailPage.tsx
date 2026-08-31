@@ -88,6 +88,7 @@ export const InvestmentDetailPage = () => {
                 isUpgrade={true}
                 investorId={inv.id}
                 currentPackageId={inv.paquete?.id}
+                currentPackageAmount={inv.monto}
                 currentPeriodId={inv.periodo?.id}
             />
             
