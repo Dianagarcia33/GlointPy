@@ -19,6 +19,27 @@ export const InvestorRegistrationFlow = () => {
         queryFn: () => bankAccountsService.getBanks(),
         staleTime: 1000 * 60 * 30
     });
+
+    const DEFAULT_BANKS: DataBank[] = [
+        { id: 4, banck: "BANCOLOMBIA", code_banck: "1007" },
+        { id: 14, banck: "BANCO DAVIVIENDA SA", code_banck: "1051" },
+        { id: 36, banck: "NEQUI", code_banck: "1507" },
+        { id: 1, banck: "BANCO DE BOGOTÁ", code_banck: "1001" },
+        { id: 7, banck: "BBVA COLOMBIA", code_banck: "1013" },
+        { id: 37, banck: "DAVIPLATA", code_banck: "1551" },
+        { id: 9, banck: "BANCO DE OCCIDENTE", code_banck: "1023" },
+        { id: 15, banck: "BANCO AV VILLAS", code_banck: "1052" },
+        { id: 27, banck: "LULO BANK S.A", code_banck: "1070" },
+        { id: 11, banck: "BANCO CAJA SOCIAL BCSC SA", code_banck: "1032" },
+        { id: 33, banck: "CONFIAR COOPERATIVA FINANCIERA", code_banck: "1292" },
+        { id: 12, banck: "BANCO AGRARIO", code_banck: "1040" },
+        { id: 3, banck: "ITAU", code_banck: "1006" },
+        { id: 21, banck: "BANCO FALABELLA S.A.", code_banck: "1062" },
+        { id: 41, banck: "MOVII", code_banck: "1801" },
+        { id: 44, banck: "UALA", code_banck: "1804" }
+    ];
+
+    const availableBanks = (officialBanks && officialBanks.length > 0) ? officialBanks : DEFAULT_BANKS;
     
     // KYC Images States
     const [frontImage, setFrontImage] = useState<File | null>(null);
@@ -749,7 +770,7 @@ export const InvestorRegistrationFlow = () => {
                                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
                                     >
                                         <option value="">Selecciona tu banco...</option>
-                                        {officialBanks.map(b => (
+                                        {availableBanks.map(b => (
                                             <option key={b.id} value={b.banck}>{b.banck} (Cód: {b.code_banck})</option>
                                         ))}
                                         <option value="Otro">Otro / Cooperativa</option>

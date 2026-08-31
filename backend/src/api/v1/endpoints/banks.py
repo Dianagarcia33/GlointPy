@@ -11,6 +11,7 @@ from src.models.user import User
 
 router = APIRouter()
 
+@router.get("", response_model=List[DataBankResponse])
 @router.get("/", response_model=List[DataBankResponse])
 async def get_banks(
     search: Optional[str] = Query(None, description="Filtrar por nombre o código de banco"),
@@ -30,7 +31,25 @@ async def get_banks(
         )
     query = query.order_by(DataBank.banck.asc())
     result = await db.execute(query)
-    return result.scalars().all()
+    banks = result.scalars().all()
+
+    if not banks and not search:
+        try:
+            from src.seed_banks import BANKS_DATA
+            for b_info in BANKS_DATA:
+                b_obj = DataBank(
+                    id=b_info["id"],
+                    banck=b_info["banck"],
+                    code_banck=b_info["code_banck"]
+                )
+                db.add(b_obj)
+            await db.commit()
+            result = await db.execute(query)
+            banks = result.scalars().all()
+        except Exception:
+            await db.rollback()
+
+    return banks
 
 @router.get("/{bank_id}", response_model=DataBankResponse)
 async def get_bank(
