@@ -14,6 +14,11 @@ interface SettleCommissionsModalProps {
   selectedYear?: number;
 }
 
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
 export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
   isOpen,
   onClose,
@@ -67,7 +72,7 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
       return;
     }
     if (totalAmount <= 0) {
-      setError('El asesor seleccionado no tiene comisiones ni bonos pendientes de liquidar');
+      setError('El asesor seleccionado no tiene comisiones ni bonos pendientes de liquidar en este periodo');
       return;
     }
 
@@ -77,6 +82,8 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
     try {
       await commercialService.settleCommissions({
         commercial_id: selectedCommercialId,
+        month: selectedMonth,
+        year: selectedYear,
         reference_code: referenceCode.trim() || undefined,
         notes: notes.trim() || undefined
       });
@@ -88,6 +95,10 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  const periodLabel = selectedMonth && selectedMonth >= 1 && selectedMonth <= 12
+    ? `${MONTH_NAMES[selectedMonth - 1]} ${selectedYear || 2026}`
+    : 'Todo lo pendiente (Histórico acumulado)';
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
@@ -113,13 +124,21 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
         </div>
 
         {/* Formulario */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           {error && (
             <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
+
+          {/* Indicador de Periodo */}
+          <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+            <span className="text-xs font-semibold text-slate-600">Periodo a Liquidar:</span>
+            <span className="text-xs font-extrabold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-100">
+              📅 {periodLabel}
+            </span>
+          </div>
 
           {/* Seleccionar Asesor Beneficiario */}
           <div>

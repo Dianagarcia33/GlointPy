@@ -602,6 +602,16 @@ async def get_pending_settlement_breakdown(
     """
     Calcula el total de comisiones y bonos pendientes de liquidar para un comercial, con filtro opcional de mes y año.
     """
+    today = get_colombia_today()
+    target_year = year if (year and year > 2000) else today.year
+    target_month = month if (month and 1 <= month <= 12) else today.month
+
+    # Asegurar evaluación de bonos de piso para el periodo consultado
+    try:
+        await evaluate_monthly_floor_bonus(db, commercial_id, target_year, target_month)
+    except Exception as e:
+        print(f"Error evaluando bono mensual de piso: {e}")
+
     # Purgar y validar integridad de bonos antes de calcular liquidación
     await purge_ghost_bonuses(db, commercial_id)
 
@@ -916,28 +926,34 @@ async def settle_commissions(
     - Cambia status de ventas y bonos a 'liquidado'
     - Genera el registro de comprobante en CommissionSettlement
     """
-    sales_res = await db.execute(
-        select(CommercialSale)
-        .where(
-            CommercialSale.commercial_id == req.commercial_id,
-            CommercialSale.status == CommercialSaleStatus.pendiente
-        )
+    sales_query = select(CommercialSale).where(
+        CommercialSale.commercial_id == req.commercial_id,
+        CommercialSale.status == CommercialSaleStatus.pendiente
     )
+    if req.month and 1 <= req.month <= 12:
+        sales_query = sales_query.where(extract('month', CommercialSale.sale_date) == req.month)
+    if req.year and req.year > 2000:
+        sales_query = sales_query.where(extract('year', CommercialSale.sale_date) == req.year)
+
+    sales_res = await db.execute(sales_query)
     pending_sales = sales_res.scalars().all()
 
-    bonuses_res = await db.execute(
-        select(CommercialBonus)
-        .where(
-            CommercialBonus.commercial_id == req.commercial_id,
-            CommercialBonus.status == CommercialBonusStatus.pendiente
-        )
+    bonuses_query = select(CommercialBonus).where(
+        CommercialBonus.commercial_id == req.commercial_id,
+        CommercialBonus.status == CommercialBonusStatus.pendiente
     )
+    if req.month and 1 <= req.month <= 12:
+        bonuses_query = bonuses_query.where(extract('month', CommercialBonus.earned_date) == req.month)
+    if req.year and req.year > 2000:
+        bonuses_query = bonuses_query.where(extract('year', CommercialBonus.earned_date) == req.year)
+
+    bonuses_res = await db.execute(bonuses_query)
     pending_bonuses = bonuses_res.scalars().all()
 
     if not pending_sales and not pending_bonuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No hay comisiones ni bonos pendientes de liquidar para este asesor."
+            detail="No hay comisiones ni bonos pendientes de liquidar para este asesor en el periodo seleccionado."
         )
 
     sales_total = sum(Decimal(str(s.commission_amount)) for s in pending_sales)

@@ -58,6 +58,8 @@ class CommercialSaleResponse(BaseModel):
 
 class SettleCommissionsRequest(BaseModel):
     commercial_id: int
+    month: Optional[int] = None
+    year: Optional[int] = None
     reference_code: Optional[str] = None
     notes: Optional[str] = None
 

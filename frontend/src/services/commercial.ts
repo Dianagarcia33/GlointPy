@@ -264,6 +264,8 @@ export const commercialService = {
 
   settleCommissions: async (data: {
     commercial_id: number;
+    month?: number;
+    year?: number;
     reference_code?: string;
     notes?: string;
   }): Promise<any> => {
