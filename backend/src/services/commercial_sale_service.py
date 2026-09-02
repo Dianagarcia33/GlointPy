@@ -31,6 +31,7 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
         return []
         
     results = []
+    seen_codes = set()
     seen_user_ids = set()
     
     # 1. Buscar en Investors por código asignado (assigned_code) ej: IG1974
@@ -41,18 +42,22 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
             selectinload(Investor.package)
         )
         .where(Investor.assigned_code.ilike(f"%{term}%"))
-        .limit(10)
+        .order_by(Investor.id.desc())
+        .limit(15)
     )
     investors = inv_res.scalars().all()
     for inv in investors:
-        if inv.user and inv.user.id not in seen_user_ids:
-            seen_user_ids.add(inv.user.id)
+        code_key = inv.assigned_code or str(inv.id)
+        if code_key not in seen_codes:
+            seen_codes.add(code_key)
+            if inv.user:
+                seen_user_ids.add(inv.user.id)
             pkg_val = float(inv.package.value) if inv.package and inv.package.value else 0.0
             results.append({
-                "user_id": inv.user.id,
-                "name": inv.user.name,
-                "document_id": inv.user.document_id,
-                "email": inv.user.email,
+                "user_id": inv.user.id if inv.user else inv.user_id,
+                "name": inv.user.name if inv.user else "Cliente Inversionista",
+                "document_id": inv.user.document_id if inv.user else "",
+                "email": inv.user.email if inv.user else "",
                 "assigned_code": inv.assigned_code,
                 "monto": pkg_val,
                 "is_existing_client": True,
@@ -78,9 +83,10 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
     for u in users:
         if u.id not in seen_user_ids:
             seen_user_ids.add(u.id)
-            first_inv = u.investments[0] if u.investments else None
-            code = first_inv.assigned_code if first_inv else None
-            pkg_val = float(first_inv.package.value) if first_inv and first_inv.package else 0.0
+            sorted_invs = sorted(u.investments, key=lambda i: i.id, reverse=True) if u.investments else []
+            latest_inv = sorted_invs[0] if sorted_invs else None
+            code = latest_inv.assigned_code if latest_inv else None
+            pkg_val = float(latest_inv.package.value) if latest_inv and latest_inv.package and latest_inv.package.value else 0.0
             results.append({
                 "user_id": u.id,
                 "name": u.name,
@@ -88,8 +94,8 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
                 "email": u.email,
                 "assigned_code": code,
                 "monto": pkg_val,
-                "is_existing_client": True,
-                "forced_type": "referido"
+                "is_existing_client": bool(sorted_invs),
+                "forced_type": "referido" if sorted_invs else "contrato_nuevo"
             })
             
     return results
@@ -126,11 +132,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     cycle_start = get_current_commercial_cycle_start(today)
     cycle_start_dt = datetime(cycle_start.year, cycle_start.month, cycle_start.day)
 
-    # 1. Buscar usuario por documento
-    user_res = await db.execute(select(User).where(User.document_id == doc_clean))
-    user = user_res.scalars().first()
-
-    # 2. Buscar contratos de este cliente
+    # 1. Buscar contratos directamente por assigned_code o User.document_id
     investors_res = await db.execute(
         select(Investor)
         .options(
@@ -138,24 +140,35 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
             selectinload(Investor.package),
             selectinload(Investor.contract_histories)
         )
-        .join(User)
+        .outerjoin(User, Investor.user_id == User.id)
         .where(
             or_(
-                User.document_id == doc_clean,
-                Investor.assigned_code.ilike(doc_clean)
+                Investor.assigned_code.ilike(doc_clean),
+                User.document_id == doc_clean
             )
         )
+        .order_by(Investor.id.desc())
     )
     investors = investors_res.scalars().all()
+
+    # 2. Buscar usuario si no se encontró directamente
+    user = None
+    if investors and investors[0].user:
+        user = investors[0].user
+    else:
+        user_res = await db.execute(select(User).where(User.document_id == doc_clean))
+        user = user_res.scalars().first()
 
     if user and not investors:
         inv_by_user = await db.execute(
             select(Investor)
             .options(
+                selectinload(Investor.user),
                 selectinload(Investor.package),
                 selectinload(Investor.contract_histories)
             )
             .where(Investor.user_id == user.id)
+            .order_by(Investor.id.desc())
         )
         investors = inv_by_user.scalars().all()
 
@@ -170,20 +183,25 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
             "total_package_amount": 0.0,
             "previous_package_amount": 0.0,
             "increase_amount": 0.0,
-            "allowed_types": ["contrato_nuevo"],
+            "allowed_types": ["contrato_nuevo", "reinversion", "referido"],
             "forced_type": "contrato_nuevo"
         }
 
-    client_name = user.name if user else (investors[0].user.name if investors and investors[0].user else None)
-    client_doc = user.document_id if user and user.document_id else (investors[0].user.document_id if investors and investors[0].user else doc_clean)
-    pkg_val = float(investors[0].package.value) if investors and investors[0].package and investors[0].package.value else 0.0
-
-    # Extraer historial de aumentos
-    history_records = []
+    # Identificar el contrato exacto seleccionado (por código asignado) o el más reciente
+    target_inv = None
     for inv in investors:
-        if inv.contract_histories:
-            history_records.extend(inv.contract_histories)
-    
+        if inv.assigned_code and inv.assigned_code.strip().lower() == doc_clean.lower():
+            target_inv = inv
+            break
+    if not target_inv and investors:
+        target_inv = investors[0]
+
+    client_name = target_inv.user.name if target_inv and target_inv.user else (user.name if user else None)
+    client_doc = target_inv.user.document_id if target_inv and target_inv.user and target_inv.user.document_id else (user.document_id if user and user.document_id else doc_clean)
+    pkg_val = float(target_inv.package.value) if target_inv and target_inv.package and target_inv.package.value else 0.0
+
+    # Historial de aumentos únicamente del contrato seleccionado
+    history_records = list(target_inv.contract_histories or []) if target_inv else []
     previous_pkg_val = 0.0
     if history_records:
         history_records.sort(key=lambda h: (h.created_at or datetime.min, h.id), reverse=True)
@@ -193,12 +211,12 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     increase_amount = max(0.0, pkg_val - previous_pkg_val) if previous_pkg_val > 0 else pkg_val
 
     # Si el cliente ya tenía contratos anteriores
-    start_d0 = investors[0].start_date.date() if isinstance(investors[0].start_date, datetime) else investors[0].start_date
-    created_dt0 = investors[0].created_at or datetime(start_d0.year, start_d0.month, start_d0.day)
+    start_d0 = target_inv.start_date.date() if isinstance(target_inv.start_date, datetime) else target_inv.start_date
+    created_dt0 = target_inv.created_at or datetime(start_d0.year, start_d0.month, start_d0.day)
     is_brand_new = len(investors) == 1 and not history_records and (start_d0 >= cycle_start or created_dt0 >= cycle_start_dt)
 
     if not is_brand_new or previous_pkg_val > 0:
-        # INVERSIONISTA EXISTENTE: Todo aumento o nuevo contrato se clasifica como "referido" (1.8%)
+        # INVERSIONISTA EXISTENTE: Todo aumento o nuevo contrato
         commissionable_monto = increase_amount if previous_pkg_val > 0 else pkg_val
         return {
             "client_document": client_doc,
@@ -209,7 +227,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
             "total_package_amount": pkg_val,
             "previous_package_amount": previous_pkg_val,
             "increase_amount": increase_amount,
-            "allowed_types": ["referido"],
+            "allowed_types": ["referido", "reinversion", "contrato_nuevo"],
             "forced_type": "referido"
         }
 
@@ -223,7 +241,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
         "total_package_amount": pkg_val,
         "previous_package_amount": 0.0,
         "increase_amount": pkg_val,
-        "allowed_types": ["contrato_nuevo"],
+        "allowed_types": ["contrato_nuevo", "reinversion", "referido"],
         "forced_type": "contrato_nuevo"
     }
 

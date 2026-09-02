@@ -171,12 +171,14 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     setSaleType('contrato_nuevo');
     setError(null);
 
-    setClientDocument(item.document_id || searchTerm);
+    const effectiveDoc = item.document_id || item.assigned_code || searchTerm;
+    setClientDocument(effectiveDoc);
     setClientName(item.name);
     setSearchTerm(`${item.name} (${item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || ''})`);
     setSearchResults([]);
 
-    commercialService.checkClient(item.document_id || item.assigned_code || searchTerm)
+    const queryKey = item.assigned_code || item.document_id || searchTerm;
+    commercialService.checkClient(queryKey)
       .then((res) => {
         setClientInfo(res);
         if (res.forced_type) {
@@ -185,20 +187,22 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           setSaleType(res.allowed_types[0] as any);
         }
         if (res.client_name) setClientName(res.client_name);
-        if (res.monto && res.monto > 0) {
-          setAmount(res.monto.toString());
+        
+        const finalMonto = (res.monto && res.monto > 0) ? res.monto : (item.monto && item.monto > 0 ? item.monto : 0);
+        if (finalMonto > 0) {
+          setAmount(finalMonto.toString());
         } else {
           setAmount('');
         }
       })
       .catch(() => {
         setClientInfo({
-          client_document: item.document_id || searchTerm,
+          client_document: effectiveDoc,
           client_exists: true,
           is_existing_client: true,
           client_name: item.name,
           monto: item.monto,
-          allowed_types: ['referido'],
+          allowed_types: ['contrato_nuevo', 'reinversion', 'referido'],
           forced_type: 'referido'
         });
         setSaleType('referido');
