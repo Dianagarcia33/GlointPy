@@ -175,27 +175,50 @@ class InvestorService:
 
         # Si el referido ha cambiado o se ha removido
         if "referred_by" in update_data and new_referred_by != old_referred_by:
-            # 1. Si tenía un referido previo, eliminar las aceleraciones asociadas generadas a ese referente
+            # 1. Si tenía un referido previo, eliminar UNICAMENTE la aceleración correspondiente a este inversionista
             if old_referred_by:
                 old_referrer_res = await db.execute(
                     select(Investor).where(Investor.assigned_code == old_referred_by)
                 )
                 old_referrer_inv = old_referrer_res.scalars().first()
                 if old_referrer_inv:
-                    accs_res = await db.execute(
-                        select(Acceleration).where(
-                            Acceleration.investor_id == old_referrer_inv.id
+                    # Encontrar los IDs de solicitudes asociadas a ESTE inversionista
+                    my_req_res = await db.execute(
+                        select(InvestmentRequest.id).where(
+                            or_(
+                                InvestmentRequest.investor_id == db_investor.id,
+                                InvestmentRequest.user_id == db_investor.user_id
+                            )
                         )
                     )
-                    old_accs = accs_res.scalars().all()
-                    for acc in old_accs:
-                        # Si coincide el monto del bono (5%) o fue generado para este usuario
+                    my_req_ids = my_req_res.scalars().all()
+                    
+                    if my_req_ids:
+                        accs_res = await db.execute(
+                            select(Acceleration).where(
+                                Acceleration.investor_id == old_referrer_inv.id,
+                                Acceleration.investment_request_id.in_(my_req_ids)
+                            )
+                        )
+                        old_accs = accs_res.scalars().all()
+                        for acc in old_accs:
+                            await db.delete(acc)
+                    else:
+                        # Si no tiene request_id (creado manualmente), eliminar como máximo 1 aceleración que coincida con el bono exacto (5%)
                         pkg_val = float(db_investor.package.value or 0) if db_investor.package else 0.0
                         expected_bonus = pkg_val * 0.05
-                        if abs(float(acc.bonus_amount or 0) - expected_bonus) < 1.0 or acc.investment_request_id is not None:
-                            await db.delete(acc)
+                        if expected_bonus > 0:
+                            accs_res = await db.execute(
+                                select(Acceleration).where(
+                                    Acceleration.investor_id == old_referrer_inv.id,
+                                    Acceleration.bonus_amount == expected_bonus
+                                ).limit(1)
+                            )
+                            single_acc = accs_res.scalars().first()
+                            if single_acc:
+                                await db.delete(single_acc)
 
-            # 2. Si se ingresó un nuevo código de referido válido, crear la aceleración
+            # 2. Si se ingresó un nuevo código de referido válido, crear la aceleración para el nuevo referente
             if new_referred_by:
                 new_referrer_res = await db.execute(
                     select(Investor)
@@ -221,20 +244,15 @@ class InvestorService:
                     else:
                         days_to_reduce = 0.0
 
-                    # Obtain a valid investment_request_id to satisfy MySQL non-null table constraints
                     inv_req_res = await db.execute(
-                        select(InvestmentRequest).where(
+                        select(InvestmentRequest.id).where(
                             or_(
                                 InvestmentRequest.investor_id == db_investor.id,
                                 InvestmentRequest.user_id == db_investor.user_id
                             )
-                        )
+                        ).order_by(InvestmentRequest.id.desc()).limit(1)
                     )
-                    req = inv_req_res.scalars().first()
-                    req_id = req.id if req else None
-                    if not req_id:
-                        any_req = await db.execute(select(InvestmentRequest.id).limit(1))
-                        req_id = any_req.scalar()
+                    req_id = inv_req_res.scalar_one_or_none()
 
                     new_acc = Acceleration(
                         investor_id=new_referrer_inv.id,
