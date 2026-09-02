@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User, Percent, Edit3, RotateCcw, Sparkles } from 'lucide-react';
+import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User, Percent, Edit3, RotateCcw, Sparkles, Package as PackageIcon } from 'lucide-react';
 import { commercialService, CommercialClientCheckResponse, SearchClientResult } from '../../../services/commercial';
+import { packagesService, Package } from '../../../services/packages';
 import { useAuthStore } from '../../../store/authStore';
 import { getColombiaToday } from '../../../utils/format';
 
@@ -34,6 +35,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
   const [targetCommercialId, setTargetCommercialId] = useState<number | null>(null);
   const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string }>>([]);
+  const [packagesList, setPackagesList] = useState<Package[]>([]);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
 
   const [clientDocument, setClientDocument] = useState('');
   const [clientName, setClientName] = useState('');
@@ -74,6 +77,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     setError(null);
     setIsCustomRateActive(false);
     setCustomRatePct('');
+    setSelectedPackageId('');
   };
 
   const handleClose = () => {
@@ -81,12 +85,31 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     onClose();
   };
 
-  // Resetear el formulario completo cada vez que se abre el modal
+  // Resetear el formulario completo cada vez que se abre el modal y cargar paquetes
   useEffect(() => {
     if (isOpen) {
       resetFormState();
+      packagesService.getPackages()
+        .then((res) => setPackagesList(res.filter(p => p.is_active)))
+        .catch(() => {});
     }
   }, [isOpen]);
+
+  const handleSelectPackage = (pkgIdStr: string) => {
+    setSelectedPackageId(pkgIdStr);
+    if (!pkgIdStr) return;
+    const foundPkg = packagesList.find(p => p.id === Number(pkgIdStr));
+    if (foundPkg) {
+      const pkgVal = Number(foundPkg.value) || 0;
+      const prevVal = Number(clientInfo?.previous_package_amount || 0);
+      if (saleType === 'reinversion' && prevVal > 0) {
+        const diff = Math.max(0, pkgVal - prevVal);
+        setAmount(diff > 0 ? diff.toString() : pkgVal.toString());
+      } else {
+        setAmount(pkgVal.toString());
+      }
+    }
+  };
 
   useEffect(() => {
     if (shouldShowAsesorSelect && isOpen) {
@@ -472,12 +495,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('contrato_nuevo')}
-                disabled={clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('contrato_nuevo'))}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   saleType === 'contrato_nuevo'
                     ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                } ${clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('contrato_nuevo')) ? 'opacity-40 cursor-not-allowed' : ''}`}
+                }`}
               >
                 📄 Contrato Nuevo
               </button>
@@ -485,12 +507,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('reinversion')}
-                disabled={clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('reinversion'))}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   saleType === 'reinversion'
                     ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                } ${clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('reinversion')) ? 'opacity-40 cursor-not-allowed' : ''}`}
+                }`}
               >
                 🔄 Reinversión
               </button>
@@ -498,7 +519,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('referido')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   saleType === 'referido'
                     ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
@@ -508,6 +529,31 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               </button>
             </div>
           </div>
+
+          {/* Seleccionar Paquete de Inversión (Opcional - Catálogo) */}
+          {packagesList.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <PackageIcon className="w-3.5 h-3.5 text-brand-600" />
+                  Seleccionar Paquete de Inversión
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">Autocompleta el monto base</span>
+              </label>
+              <select
+                value={selectedPackageId}
+                onChange={(e) => handleSelectPackage(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer"
+              >
+                <option value="">-- Seleccionar paquete del catálogo --</option>
+                {packagesList.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    Paquete #{pkg.id} — ${Number(pkg.value).toLocaleString('es-CO')} COP ({pkg.granted_shares} acciones)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Código del Recomendador en caso de Referido */}
           {saleType === 'referido' && (

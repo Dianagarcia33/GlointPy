@@ -294,9 +294,7 @@ async def register_commercial_sale(
     classification = await check_client_classification(db, sale_data.client_document)
     
     final_sale_type = sale_data.sale_type
-    if classification.get("is_existing_client") or classification.get("forced_type") == "referido":
-        final_sale_type = CommercialSaleType.referido
-    elif sale_data.referrer_code or final_sale_type == CommercialSaleType.referido:
+    if sale_data.referrer_code and not final_sale_type:
         final_sale_type = CommercialSaleType.referido
         
     target_date = sale_data.sale_date if sale_data.sale_date else get_colombia_today()
