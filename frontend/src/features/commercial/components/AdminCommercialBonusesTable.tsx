@@ -6,15 +6,19 @@ import { commercialService, CommercialBonusSummaryItem } from '../../../services
 interface AdminCommercialBonusesTableProps {
   onSettleAdvisor: (commercialId: number) => void;
   canSettle: boolean;
+  month?: number;
+  year?: number;
 }
 
 export const AdminCommercialBonusesTable: React.FC<AdminCommercialBonusesTableProps> = ({
   onSettleAdvisor,
-  canSettle
+  canSettle,
+  month,
+  year
 }) => {
   const { data: bonusesSummary, isLoading } = useQuery<CommercialBonusSummaryItem[]>({
-    queryKey: ['commercial_bonuses_summary'],
-    queryFn: () => commercialService.getBonusesSummary()
+    queryKey: ['commercial_bonuses_summary', month, year],
+    queryFn: () => commercialService.getBonusesSummary({ month, year })
   });
 
   if (isLoading) {

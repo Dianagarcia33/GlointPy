@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Trophy, Plus, Zap, TrendingUp, DollarSign, Users, Award, ShieldAlert, CheckCircle2, AlertCircle, Download, Trash2, Filter, ShieldCheck, UserCheck, FileCheck, CreditCard } from 'lucide-react';
+import { Trophy, Plus, Zap, TrendingUp, DollarSign, Users, Award, ShieldAlert, CheckCircle2, AlertCircle, Download, Trash2, Filter, ShieldCheck, UserCheck, FileCheck, CreditCard, Calendar } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { commercialService, CommercialSummary, AdminCommercialSummary, LeaderboardResponse, CommercialSale, CommercialUserOption, CommissionSettlement } from '../../../services/commercial';
 import { RegisterCommercialSaleModal } from '../components/RegisterCommercialSaleModal';
@@ -12,10 +12,19 @@ import { Can } from '../../../components/security/Can';
 import { getColombiaToday, formatColombiaDate, formatCurrency } from '../../../utils/format';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
 export const CommercialDashboardPage: React.FC = () => {
   const { user } = useAuthStore();
   const isCommercialAdmin = user?.is_superuser === true || 
     user?.permissions?.includes('admin.commercial.manage') === true;
+
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentDate.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(currentDate.getFullYear());
 
   const [adminTab, setAdminTab] = useState<'overview' | 'floors'>('overview');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,23 +46,25 @@ export const CommercialDashboardPage: React.FC = () => {
 
   // Queries para Asesor Comercial
   const { data: summary, refetch: refetchSummary } = useQuery<CommercialSummary>({
-    queryKey: ['my_commercial_summary'],
-    queryFn: () => commercialService.getMySummary(),
+    queryKey: ['my_commercial_summary', selectedMonth, selectedYear],
+    queryFn: () => commercialService.getMySummary({ month: selectedMonth, year: selectedYear }),
     enabled: !isCommercialAdmin
   });
 
   // Queries para Administrador
   const { data: adminSummary, refetch: refetchAdminSummary } = useQuery<AdminCommercialSummary>({
-    queryKey: ['admin_commercial_summary'],
-    queryFn: () => commercialService.getAdminSummary(),
+    queryKey: ['admin_commercial_summary', selectedMonth, selectedYear],
+    queryFn: () => commercialService.getAdminSummary({ month: selectedMonth, year: selectedYear }),
     enabled: isCommercialAdmin
   });
 
   const { data: allSales, isLoading: isLoadingAllSales, refetch: refetchAllSales } = useQuery<CommercialSale[]>({
-    queryKey: ['all_commercial_sales', selectedCommercialId, selectedSaleType],
+    queryKey: ['all_commercial_sales', selectedCommercialId, selectedSaleType, selectedMonth, selectedYear],
     queryFn: () => commercialService.getAllSales({
       commercial_id: selectedCommercialId ? Number(selectedCommercialId) : undefined,
-      sale_type: selectedSaleType || undefined
+      sale_type: selectedSaleType || undefined,
+      month: selectedMonth,
+      year: selectedYear
     }),
     enabled: isCommercialAdmin
   });
@@ -66,8 +77,8 @@ export const CommercialDashboardPage: React.FC = () => {
 
   // Query para supervisar asesor seleccionado por el Administrador
   const { data: advisorSummary, refetch: refetchAdvisorSummary } = useQuery<CommercialSummary>({
-    queryKey: ['advisor_commercial_summary', selectedCommercialId],
-    queryFn: () => commercialService.getAdvisorSummary(Number(selectedCommercialId)),
+    queryKey: ['advisor_commercial_summary', selectedCommercialId, selectedMonth, selectedYear],
+    queryFn: () => commercialService.getAdvisorSummary(Number(selectedCommercialId), { month: selectedMonth, year: selectedYear }),
     enabled: isCommercialAdmin && !!selectedCommercialId
   });
 
@@ -79,8 +90,8 @@ export const CommercialDashboardPage: React.FC = () => {
 
   // Shared Query: Leaderboard
   const { data: leaderboardData, isLoading: isLoadingLeaderboard, refetch: refetchLeaderboard } = useQuery<LeaderboardResponse>({
-    queryKey: ['commercial_leaderboard'],
-    queryFn: () => commercialService.getLeaderboard()
+    queryKey: ['commercial_leaderboard', selectedMonth, selectedYear],
+    queryFn: () => commercialService.getLeaderboard({ month: selectedMonth, year: selectedYear })
   });
 
   // Query: Solicitudes de Inversión de Inversionistas Asignados al Directivo
@@ -218,6 +229,82 @@ export const CommercialDashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Barra Global de Filtro de Periodo (Mes y Año) */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-xs">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-montserrat block">
+              Periodo de Liquidación y Ventas:
+            </span>
+            <span className="text-base font-extrabold text-slate-900 font-montserrat">
+              {MONTH_NAMES[selectedMonth - 1]} {selectedYear}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Selector de Mes */}
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            className="bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer transition-colors"
+          >
+            {MONTH_NAMES.map((name, idx) => (
+              <option key={idx + 1} value={idx + 1}>
+                {name}
+              </option>
+            ))}
+          </select>
+
+          {/* Selector de Año */}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="bg-slate-50 hover:bg-slate-100/80 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 outline-none cursor-pointer transition-colors"
+          >
+            {[2024, 2025, 2026, 2027].map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+
+          {/* Botón Mes Anterior Rápido (ej: para liquidar Agosto) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedMonth === 1) {
+                setSelectedMonth(12);
+                setSelectedYear(selectedYear - 1);
+              } else {
+                setSelectedMonth(selectedMonth - 1);
+              }
+            }}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            title="Ver mes anterior"
+          >
+            ← Mes Anterior
+          </button>
+
+          {/* Botón Mes Actual */}
+          {(selectedMonth !== currentDate.getMonth() + 1 || selectedYear !== currentDate.getFullYear()) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMonth(currentDate.getMonth() + 1);
+                setSelectedYear(currentDate.getFullYear());
+              }}
+              className="px-3.5 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              Mes Actual
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* VISTA ADMINISTRADOR / DIRECTIVO */}
       {isCommercialAdmin ? (
         <>
@@ -251,7 +338,7 @@ export const CommercialDashboardPage: React.FC = () => {
           </div>
 
           {adminTab === 'floors' ? (
-            <AdminCommercialFloorsMonitor />
+            <AdminCommercialFloorsMonitor month={selectedMonth} year={selectedYear} />
           ) : (
             <>
               {/* Widget de Metas y Bonos en Curso */}
@@ -476,6 +563,8 @@ export const CommercialDashboardPage: React.FC = () => {
               setIsSettleModalOpen(true);
             }}
             canSettle={canSettle}
+            month={selectedMonth}
+            year={selectedYear}
           />
             </>
           )}
@@ -880,6 +969,8 @@ export const CommercialDashboardPage: React.FC = () => {
           commercialUsers={commercialUsers || []}
           sales={allSales || []}
           initialCommercialId={selectedCommercialForSettle}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
         />
       )}
 

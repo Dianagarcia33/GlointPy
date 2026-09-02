@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Dict, Set, List, Optional
 from fastapi import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,8 @@ from sqlalchemy import or_, and_, func, desc
 
 from src.models.chat import ChatRoom, ChatParticipant, ChatMessage
 from src.models.user import User
+
+logger = logging.getLogger(__name__)
 
 class ConnectionManager:
     """Gestiona conexiones activas de WebSockets por sala de chat y por usuario."""
@@ -50,6 +53,18 @@ class ConnectionManager:
                     to_remove.add(connection)
             for dead in to_remove:
                 self.room_connections[room_id].discard(dead)
+
+    async def send_to_user(self, user_id: int, message_data: dict):
+        """Envía un mensaje JSON a todos los sockets conectados del usuario."""
+        if user_id in self.user_connections:
+            to_remove = set()
+            for connection in self.user_connections[user_id]:
+                try:
+                    await connection.send_text(json.dumps(message_data))
+                except Exception:
+                    to_remove.add(connection)
+            for dead in to_remove:
+                self.user_connections[user_id].discard(dead)
 
     def is_user_online(self, user_id: int) -> bool:
         return user_id in self.user_connections and len(self.user_connections[user_id]) > 0
@@ -243,7 +258,7 @@ class ChatService:
         from datetime import datetime
         created_at_val = msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat()
 
-        return {
+        payload = {
             "type": "new_message",
             "id": msg.id,
             "room_id": room_id,
@@ -256,6 +271,50 @@ class ChatService:
             "is_read": False,
             "created_at": created_at_val
         }
+
+        # Obtener los demás participantes de la sala para enviarles la notificación Push y evento in-app
+        try:
+            part_res = await db.execute(
+                select(ChatParticipant.user_id)
+                .where(and_(ChatParticipant.room_id == room_id, ChatParticipant.user_id != sender_id))
+            )
+            recipient_ids = part_res.scalars().all()
+
+            if recipient_ids:
+                from src.services.push_notification_service import PushNotificationService
+                sender_name = sender.name if sender else "Nuevo mensaje"
+                preview_body = content if content else (f"📎 {file_name}" if file_name else "Nuevo archivo adjunto")
+                if len(preview_body) > 100:
+                    preview_body = preview_body[:97] + "..."
+
+                for r_id in recipient_ids:
+                    # Enviar evento por WebSocket directo al usuario si está conectado en otra vista
+                    await manager.send_to_user(r_id, {
+                        "type": "chat_notification",
+                        "room_id": room_id,
+                        "message": payload
+                    })
+
+                    # Transmitir alerta Push a sus dispositivos
+                    try:
+                        await PushNotificationService.send_push_to_user(
+                            db=db,
+                            user_id=r_id,
+                            title=f"💬 {sender_name}",
+                            body=preview_body,
+                            data={
+                                "type": "chat",
+                                "room_id": str(room_id),
+                                "sender_id": str(sender_id),
+                                "link": f"/dashboard/chat?room={room_id}"
+                            }
+                        )
+                    except Exception as push_err:
+                        logger.warning(f"Error enviando push de chat a usuario {r_id}: {push_err}")
+        except Exception as err:
+            logger.warning(f"Error procesando alertas para sala de chat {room_id}: {err}")
+
+        return payload
 
     @staticmethod
     async def is_participant(db: AsyncSession, room_id: int, user_id: int) -> bool:

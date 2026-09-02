@@ -47,6 +47,7 @@ import { CRMInboxPage } from "./features/crm/pages/CRMInboxPage";
 import { AdminNotificationsPage } from "./features/admin/notifications/pages/AdminNotificationsPage";
 import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
 import { fetchApi } from "./services/api";
@@ -67,8 +68,9 @@ const GuestRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  // Inicializamos el "Perro Guardián" de inactividad
+  // Inicializamos el "Perro Guardián" de inactividad y registro de notificaciones Push
   useInactivityTimer();
+  usePushNotifications();
 
   const { isAuthenticated, setUser, logout } = useAuthStore();
 
