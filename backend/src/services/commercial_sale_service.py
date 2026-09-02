@@ -587,14 +587,10 @@ async def purge_ghost_bonuses(db: AsyncSession, commercial_id: Optional[int] = N
         )
         daily_sales = daily_sales_res.scalars().all()
 
-        seen_investor_ids = set()
         seen_ref_trees = set()
         valid_sales = []
         for s in daily_sales:
-            if s.investor_id in seen_investor_ids:
-                continue
-            seen_investor_ids.add(s.investor_id)
-            ref_key = getattr(s, 'investor_referred_by', None) or (s.extra_data.get('referred_by') if s.extra_data else None)
+            ref_key = str(s.referrer_code or s.referrer_client_id or s.client_document or s.id).strip()
             if ref_key and ref_key in seen_ref_trees:
                 continue
             if ref_key:
