@@ -30,7 +30,6 @@ export const ChatQuickAccess: React.FC<ChatQuickAccessProps> = ({ isDark = false
   const loadChatRooms = async () => {
     if (!isAuthenticated) return;
     try {
-      setLoading(true);
       const data = await fetchApi('/chat/rooms');
       setRooms(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -40,8 +39,31 @@ export const ChatQuickAccess: React.FC<ChatQuickAccessProps> = ({ isDark = false
     }
   };
 
+  // Cargar salas al montar y consultar periódicamente en segundo plano (cada 15s)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    loadChatRooms();
+
+    const interval = setInterval(() => {
+      loadChatRooms();
+    }, 15000);
+
+    const handleFocus = () => {
+      loadChatRooms();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isAuthenticated]);
+
   const handleToggle = () => {
     if (!isOpen) {
+      setLoading(true);
       loadChatRooms();
     }
     setIsOpen(!isOpen);
