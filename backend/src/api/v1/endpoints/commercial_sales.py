@@ -453,7 +453,7 @@ async def get_public_commercial_advisors(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint público y sin autenticación para listar los Directivos de Inversión.
+    Endpoint público para listar los Directivos de Inversión y Administradores.
     """
     stmt = (
         select(User)
@@ -467,12 +467,14 @@ async def get_public_commercial_advisors(
     commercial_users = []
     for u in users:
         role_names = [r.name.lower() for r in (u.roles or [])]
-        has_commercial_role = any(
-            any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director"])
-            and not any(inv_kw in r_name for inv_kw in ["inversionista", "investor"])
-            for r_name in role_names
+        is_commercial_or_admin = (
+            u.is_superuser or 
+            any(
+                any(kw in r_name for kw in ["admin", "directiv", "comercial", "asesor", "lider", "director", "gerente"])
+                for r_name in role_names
+            )
         )
-        if has_commercial_role:
+        if is_commercial_or_admin:
             commercial_users.append({
                 "id": u.id,
                 "name": u.name or u.email,
@@ -488,7 +490,7 @@ async def get_commercial_users_list(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Retorna la lista de usuarios con roles directivos/comerciales activos.
+    Retorna la lista de usuarios con roles directivos/comerciales y administradores activos.
     """
     stmt = (
         select(User)
@@ -502,12 +504,14 @@ async def get_commercial_users_list(
     commercial_users = []
     for u in users:
         role_names = [r.name.lower() for r in (u.roles or [])]
-        has_commercial_role = any(
-            any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director"])
-            and not any(inv_kw in r_name for inv_kw in ["inversionista", "investor"])
-            for r_name in role_names
+        is_commercial_or_admin = (
+            u.is_superuser or 
+            any(
+                any(kw in r_name for kw in ["admin", "directiv", "comercial", "asesor", "lider", "director", "gerente"])
+                for r_name in role_names
+            )
         )
-        if has_commercial_role:
+        if is_commercial_or_admin:
             commercial_users.append({
                 "id": u.id,
                 "name": u.name or u.email,

@@ -63,7 +63,8 @@ export const InvestmentRequestsTable = () => {
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
 
   useEffect(() => {
-    commercialService.getPublicAdvisors()
+    commercialService.getCommercialUsers()
+      .catch(() => commercialService.getPublicAdvisors())
       .then(res => setCommercialUsers(res || []))
       .catch(() => setCommercialUsers([]));
 
