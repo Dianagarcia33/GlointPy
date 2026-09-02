@@ -357,6 +357,7 @@ class InvestmentRequestService:
             else:
                 raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
 
+        previous_contract_val = 0.0
         if existing_investor and (is_upgrade or req.investor_id):
             # --- FLUJO DE AUMENTO DE CAPITAL ---
             from decimal import Decimal
@@ -365,6 +366,7 @@ class InvestmentRequestService:
             from src.models.contract_history import ContractHistory
             from src.services.yield_calculator import calculate_investment_yield
 
+            previous_contract_val = float(existing_investor.package.value or 0.0) if existing_investor.package else 0.0
             today = datetime.utcnow().date()
             start_d = existing_investor.start_date.date() if existing_investor.start_date else today
 
@@ -555,19 +557,29 @@ class InvestmentRequestService:
                 doc_val = str((req.extra_data or {}).get("documento") or (investor_user and investor_user.document_id) or f"USER-{req.user_id}")
                 name_val = str((req.extra_data or {}).get("nombre_completo") or (investor_user and investor_user.name) or "Cliente Inversionista")
                 
-                c_sale_create = CommercialSaleCreate(
-                    client_document=doc_val,
-                    client_name=name_val,
-                    sale_type=sale_type_str,
-                    amount=float(req.monto),
-                    referrer_code=referred_code
-                )
-                await register_commercial_sale(
-                    db,
-                    commercial_id=int(c_id),
-                    sale_data=c_sale_create
-                )
-                logger.info(f"Venta comercial de ${req.monto} adjudicada automáticamente al Directivo #{c_id}")
+                # Para Aumento de Capital (upgrade / reinversión con contrato previo), la venta comercial
+                # debe ser únicamente por el valor neto del aumento (diferencia), no por el monto total del paquete.
+                # Ejemplo: Si un contrato pasó de $17M a $20M, la venta comercial debe ser por $3M ($20M - $17M).
+                is_capital_upgrade = bool(is_upgrade or existing_investor is not None or req.investor_id)
+                if is_capital_upgrade and previous_contract_val > 0:
+                    sale_amount = max(0.0, float(req.monto) - previous_contract_val)
+                else:
+                    sale_amount = float(req.monto)
+
+                if sale_amount > 0:
+                    c_sale_create = CommercialSaleCreate(
+                        client_document=doc_val,
+                        client_name=name_val,
+                        sale_type=sale_type_str,
+                        amount=sale_amount,
+                        referrer_code=referred_code
+                    )
+                    await register_commercial_sale(
+                        db,
+                        commercial_id=int(c_id),
+                        sale_data=c_sale_create
+                    )
+                    logger.info(f"Venta comercial de ${sale_amount} (Aumento neto / Venta) adjudicada automáticamente al Directivo #{c_id}")
             except Exception as e:
                 logger.error(f"Error al adjudicar venta comercial automática al Directivo #{c_id}: {e}")
 
