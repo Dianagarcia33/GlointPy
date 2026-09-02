@@ -302,10 +302,21 @@ async def register_commercial_sale(
     target_date = sale_data.sale_date if sale_data.sale_date else get_colombia_today()
     amount = sale_data.amount
     
-    # 2. Calcular comisión marginal sobre la fecha de la venta
+    # 2. Calcular comisión marginal sugerida o aplicar tasa personalizada manual por el Administrador
     comm_amount, comm_rate, tramo_a, tramo_b = await calculate_marginal_commission(
         db, commercial_id, final_sale_type, amount, target_date
     )
+
+    if sale_data.custom_commission_rate is not None and sale_data.custom_commission_rate >= 0:
+        comm_rate = sale_data.custom_commission_rate
+        comm_amount = amount * comm_rate
+        tramo_a = Decimal("0.00")
+        tramo_b = Decimal("0.00")
+    elif sale_data.custom_commission_amount is not None and sale_data.custom_commission_amount >= 0:
+        comm_amount = sale_data.custom_commission_amount
+        comm_rate = (comm_amount / amount) if amount > 0 else Decimal("0.00")
+        tramo_a = Decimal("0.00")
+        tramo_b = Decimal("0.00")
     
     sale_status = CommercialSaleStatus.liquidado if sale_data.is_already_settled else CommercialSaleStatus.pendiente
 

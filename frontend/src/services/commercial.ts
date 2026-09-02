@@ -157,6 +157,8 @@ export const commercialService = {
     amount: number;
     referrer_code?: string;
     sale_date?: string;
+    custom_commission_rate?: number;
+    custom_commission_amount?: number;
     is_already_settled?: boolean;
   }): Promise<CommercialSale> => {
     return await fetchApi('/commercial/sales', {
@@ -175,6 +177,8 @@ export const commercialService = {
       amount: number;
       referrer_code?: string;
       sale_date?: string;
+      custom_commission_rate?: number;
+      custom_commission_amount?: number;
       is_already_settled?: boolean;
     }
   ): Promise<CommercialSale> => {
