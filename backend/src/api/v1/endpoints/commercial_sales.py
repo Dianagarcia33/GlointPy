@@ -82,18 +82,18 @@ async def create_admin_sale(
     sale = await register_commercial_sale(db, target_commercial_id, sale_data)
     return sale
 
-async def build_commercial_summary_data(commercial_id: int, db: AsyncSession) -> Dict[str, Any]:
+async def build_commercial_summary_data(commercial_id: int, db: AsyncSession, month: Optional[int] = None, year: Optional[int] = None) -> Dict[str, Any]:
     today = get_colombia_today()
-    year = today.year
-    month = today.month
+    target_year = year if (year and year > 2000) else today.year
+    target_month = month if (month and 1 <= month <= 12) else today.month
     
     direct_res = await db.execute(
         select(func.coalesce(func.sum(CommercialSale.amount), 0))
         .where(
             CommercialSale.commercial_id == commercial_id,
             CommercialSale.sale_type.in_([CommercialSaleType.contrato_nuevo, CommercialSaleType.reinversion]),
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
     )
     direct_accumulated = float(direct_res.scalar() or 0)
@@ -103,8 +103,8 @@ async def build_commercial_summary_data(commercial_id: int, db: AsyncSession) ->
         .where(
             CommercialSale.commercial_id == commercial_id,
             CommercialSale.sale_type == CommercialSaleType.referido,
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
     )
     referral_accumulated = float(ref_res.scalar() or 0)
@@ -114,8 +114,8 @@ async def build_commercial_summary_data(commercial_id: int, db: AsyncSession) ->
         select(func.coalesce(func.sum(CommercialSale.commission_amount), 0))
         .where(
             CommercialSale.commercial_id == commercial_id,
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
     )
     total_commissions = float(comm_res.scalar() or 0)
@@ -128,8 +128,8 @@ async def build_commercial_summary_data(commercial_id: int, db: AsyncSession) ->
         select(func.count(CommercialSale.id))
         .where(
             CommercialSale.commercial_id == commercial_id,
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
     )
     monthly_closures = int(monthly_closures_res.scalar() or 0)
@@ -181,23 +181,27 @@ async def build_commercial_summary_data(commercial_id: int, db: AsyncSession) ->
 
 @router.get("/my-summary", dependencies=[Depends(RequirePermission("commercial:view"))])
 async def get_my_commercial_summary(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2020, le=2050),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Resumen en tiempo real para el comercial en sesión.
+    Resumen en tiempo real para el comercial en sesión con filtro opcional de mes y año.
     """
-    return await build_commercial_summary_data(current_user.id, db)
+    return await build_commercial_summary_data(current_user.id, db, month=month, year=year)
 
 @router.get("/advisor-summary/{commercial_id}", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_advisor_commercial_summary(
     commercial_id: int,
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2020, le=2050),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Resumen comercial y progreso de metas de un asesor específico para supervisión de administradores.
     """
-    return await build_commercial_summary_data(commercial_id, db)
+    return await build_commercial_summary_data(commercial_id, db, month=month, year=year)
 
 @router.get("/my-assigned-investments", dependencies=[Depends(RequirePermission(["director.dashboard.view", "commercial:view"]))])
 async def get_my_assigned_investments(
@@ -296,25 +300,23 @@ async def get_my_assigned_investments(
 
 @router.get("/admin-summary", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_admin_commercial_summary(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2020, le=2050),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Consolidado ejecutivo global para Administradores / Jefes de Ventas:
-    - Ventas Totales del equipo en el mes
-    - Comisiones totales calculadas a liquidar
-    - Total de cierres adjudicados
-    - Asesor Líder del mes
+    Consolidado ejecutivo global para Administradores / Jefes de Ventas con filtro opcional de mes y año.
     """
     today = get_colombia_today()
-    year = today.year
-    month = today.month
+    target_year = year if (year and year > 2000) else today.year
+    target_month = month if (month and 1 <= month <= 12) else today.month
     
     total_sales_res = await db.execute(
         select(func.coalesce(func.sum(CommercialSale.amount), 0))
         .where(
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
     )
     global_sales = float(total_sales_res.scalar() or 0)
@@ -322,8 +324,8 @@ async def get_admin_commercial_summary(
     total_comm_res = await db.execute(
         select(func.coalesce(func.sum(CommercialSale.commission_amount), 0))
         .where(
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
     )
     global_commissions = float(total_comm_res.scalar() or 0)
@@ -331,8 +333,8 @@ async def get_admin_commercial_summary(
     count_res = await db.execute(
         select(func.count(CommercialSale.id))
         .where(
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
     )
     total_closures = int(count_res.scalar() or 0)
@@ -344,8 +346,8 @@ async def get_admin_commercial_summary(
             func.sum(CommercialSale.amount).label("vol")
         )
         .where(
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
         .group_by(CommercialSale.commercial_id)
         .order_by(desc(func.sum(CommercialSale.amount)))
@@ -363,18 +365,22 @@ async def get_admin_commercial_summary(
         "global_sales": global_sales,
         "global_commissions": global_commissions,
         "total_closures": total_closures,
-        "leader_name": leader_name
+        "leader_name": leader_name,
+        "month": target_month,
+        "year": target_year
     }
 
 @router.get("/all-sales", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_all_commercial_sales(
     commercial_id: Optional[int] = None,
     sale_type: Optional[str] = None,
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2020, le=2050),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Listado general de todas las ventas comerciales para auditoría del Administrador.
+    Listado general de todas las ventas comerciales para auditoría del Administrador con filtros opcionales de mes y año.
     """
     stmt = (
         select(CommercialSale)
@@ -386,6 +392,10 @@ async def get_all_commercial_sales(
         stmt = stmt.where(CommercialSale.commercial_id == commercial_id)
     if sale_type:
         stmt = stmt.where(CommercialSale.sale_type == sale_type)
+    if month and 1 <= month <= 12:
+        stmt = stmt.where(extract('month', CommercialSale.sale_date) == month)
+    if year and year > 2000:
+        stmt = stmt.where(extract('year', CommercialSale.sale_date) == year)
         
     res = await db.execute(stmt)
     sales = res.scalars().all()
@@ -417,32 +427,33 @@ async def delete_commercial_sale(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Permite al Administrador anular/eliminar una venta errónea y recalcular bonos.
+    Permite anular una venta comercial registrada erróneamente.
     """
     sale_res = await db.execute(select(CommercialSale).where(CommercialSale.id == sale_id))
     sale = sale_res.scalars().first()
     if not sale:
-        raise HTTPException(status_code=404, detail="Venta comercial no encontrada")
-        
-    commercial_id = sale.commercial_id
-    sale_date = sale.sale_date
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
 
+    if sale.status == CommercialSaleStatus.liquidado:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede anular una venta que ya ha sido liquidada y pagada."
+        )
+
+    comm_id = sale.commercial_id
     await db.delete(sale)
     await db.commit()
 
     # Re-evaluar y revertir bonos de piso y metas diarias si ya no se sustentan en ventas vigentes
-    if sale_date:
-        await evaluate_daily_bonus(db, commercial_id, sale_date)
-        await evaluate_monthly_floor_bonus(db, commercial_id, sale_date.year, sale_date.month)
-    await purge_ghost_bonuses(db, commercial_id)
+    await purge_ghost_bonuses(db, comm_id)
+    return None
 
 @router.get("/public-advisors")
-async def get_public_advisors(
+async def get_public_commercial_advisors(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint público para listar Directivos de Inversión / Asesores
-    en los formularios de registro de nuevos usuarios sin requerir token.
+    Endpoint público y sin autenticación para listar los Directivos de Inversión.
     """
     stmt = (
         select(User)
@@ -451,39 +462,33 @@ async def get_public_advisors(
         .order_by(User.name.asc())
     )
     res = await db.execute(stmt)
-    all_users = res.scalars().all()
-
-    sales_users_res = await db.execute(select(CommercialSale.commercial_id).distinct())
-    sales_user_ids = set(sales_users_res.scalars().all())
-
+    users = res.scalars().all()
+    
     commercial_users = []
-    for u in all_users:
+    for u in users:
         role_names = [r.name.lower() for r in (u.roles or [])]
-        
         has_commercial_role = any(
             any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director"])
             and not any(inv_kw in r_name for inv_kw in ["inversionista", "investor"])
             for r_name in role_names
         )
-
-        if has_commercial_role or u.id in sales_user_ids:
+        if has_commercial_role:
             commercial_users.append({
                 "id": u.id,
-                "name": u.name,
+                "name": u.name or u.email,
                 "email": u.email,
-                "document_id": u.document_id
+                "document_id": u.document_id,
+                "phone_number": u.phone_number
             })
-
+            
     return commercial_users
 
-@router.get("/commercial-users", dependencies=[Depends(RequirePermission("commercial:view"))])
-async def get_commercial_users(
-    current_user: User = Depends(get_current_user),
+@router.get("/commercial-users", dependencies=[Depends(RequirePermission(["admin.commercial.manage", "commercial:view"]))])
+async def get_commercial_users_list(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Retorna únicamente el listado de usuarios con rol de Directivo de Inversión / Comercial
-    para asignación en el modal del Administrador.
+    Retorna la lista de usuarios con roles directivos/comerciales activos.
     """
     stmt = (
         select(User)
@@ -492,44 +497,40 @@ async def get_commercial_users(
         .order_by(User.name.asc())
     )
     res = await db.execute(stmt)
-    all_users = res.scalars().all()
-
-    sales_users_res = await db.execute(select(CommercialSale.commercial_id).distinct())
-    sales_user_ids = set(sales_users_res.scalars().all())
-
+    users = res.scalars().all()
+    
     commercial_users = []
-    for u in all_users:
+    for u in users:
         role_names = [r.name.lower() for r in (u.roles or [])]
-        
-        # Filtro estricto: Debe tener un rol comercial (Directivo, Comercial, Asesor, Director, Líder)
-        # y NO ser un usuario únicamente cliente 'Inversionista'
         has_commercial_role = any(
             any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director"])
             and not any(inv_kw in r_name for inv_kw in ["inversionista", "investor"])
             for r_name in role_names
         )
-
-        if has_commercial_role or u.id in sales_user_ids:
+        if has_commercial_role:
             commercial_users.append({
                 "id": u.id,
-                "name": u.name,
+                "name": u.name or u.email,
                 "email": u.email,
-                "document_id": u.document_id
+                "document_id": u.document_id,
+                "phone_number": u.phone_number
             })
-
+            
     return commercial_users
 
 @router.get("/leaderboard", dependencies=[Depends(RequirePermission("commercial:view"))])
 async def get_commercial_leaderboard(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2020, le=2050),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Ranking de Ventas (Leaderboard) en tiempo real para el mes en curso.
+    Ranking de Ventas (Leaderboard) en tiempo real con filtro opcional de mes y año.
     """
     today = get_colombia_today()
-    year = today.year
-    month = today.month
+    target_year = year if (year and year > 2000) else today.year
+    target_month = month if (month and 1 <= month <= 12) else today.month
     
     sales_stmt = (
         select(
@@ -539,8 +540,8 @@ async def get_commercial_leaderboard(
             func.min(CommercialSale.created_at).label("first_closure_at")
         )
         .where(
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
+            extract('year', CommercialSale.sale_date) == target_year,
+            extract('month', CommercialSale.sale_date) == target_month
         )
         .group_by(CommercialSale.commercial_id)
         .order_by(
@@ -586,36 +587,46 @@ async def get_commercial_leaderboard(
 
     return {
         "leaderboard": leaderboard,
-        "my_rank": current_user_rank
+        "my_rank": current_user_rank,
+        "month": target_month,
+        "year": target_year
     }
 
 @router.get("/pending-settlement/{commercial_id}", dependencies=[Depends(RequirePermission("commercial:view"))])
 async def get_pending_settlement_breakdown(
     commercial_id: int,
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2020, le=2050),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Calcula el total de comisiones y bonos pendientes de liquidar para un comercial.
+    Calcula el total de comisiones y bonos pendientes de liquidar para un comercial, con filtro opcional de mes y año.
     """
     # Purgar y validar integridad de bonos antes de calcular liquidación
     await purge_ghost_bonuses(db, commercial_id)
 
-    sales_res = await db.execute(
-        select(CommercialSale)
-        .where(
-            CommercialSale.commercial_id == commercial_id,
-            CommercialSale.status == CommercialSaleStatus.pendiente
-        )
+    sales_query = select(CommercialSale).where(
+        CommercialSale.commercial_id == commercial_id,
+        CommercialSale.status == CommercialSaleStatus.pendiente
     )
+    if month and 1 <= month <= 12:
+        sales_query = sales_query.where(extract('month', CommercialSale.sale_date) == month)
+    if year and year > 2000:
+        sales_query = sales_query.where(extract('year', CommercialSale.sale_date) == year)
+
+    sales_res = await db.execute(sales_query)
     pending_sales = sales_res.scalars().all()
 
-    bonuses_res = await db.execute(
-        select(CommercialBonus)
-        .where(
-            CommercialBonus.commercial_id == commercial_id,
-            CommercialBonus.status == CommercialBonusStatus.pendiente
-        )
+    bonuses_query = select(CommercialBonus).where(
+        CommercialBonus.commercial_id == commercial_id,
+        CommercialBonus.status == CommercialBonusStatus.pendiente
     )
+    if month and 1 <= month <= 12:
+        bonuses_query = bonuses_query.where(extract('month', CommercialBonus.earned_date) == month)
+    if year and year > 2000:
+        bonuses_query = bonuses_query.where(extract('year', CommercialBonus.earned_date) == year)
+
+    bonuses_res = await db.execute(bonuses_query)
     pending_bonuses = bonuses_res.scalars().all()
 
     sales_amount = sum(float(s.commission_amount) for s in pending_sales)
@@ -646,10 +657,12 @@ async def get_pending_settlement_breakdown(
 
 @router.get("/bonuses-summary", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_all_bonuses_summary(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2020, le=2050),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Retorna la auditoría de bonos acumulados y pendientes de todos los asesores/directivos.
+    Retorna la auditoría de bonos acumulados y pendientes de todos los asesores/directivos con filtro opcional de mes y año.
     """
     try:
         # Purgar y validar integridad de bonos
@@ -662,6 +675,8 @@ async def get_all_bonuses_summary(
         all_users = users_res.scalars().all()
 
         today = get_colombia_today()
+        target_year = year if (year and year > 2000) else today.year
+        target_month = month if (month and 1 <= month <= 12) else today.month
         result = []
 
         for u in all_users:
@@ -693,8 +708,8 @@ async def get_all_bonuses_summary(
                 select(func.coalesce(func.sum(CommercialSale.amount), 0))
                 .where(
                     CommercialSale.commercial_id == u.id,
-                    extract('year', CommercialSale.sale_date) == today.year,
-                    extract('month', CommercialSale.sale_date) == today.month
+                    extract('year', CommercialSale.sale_date) == target_year,
+                    extract('month', CommercialSale.sale_date) == target_month
                 )
             )
             monthly_volume = float(monthly_sales_res.scalar() or 0)
@@ -728,11 +743,12 @@ async def get_all_bonuses_summary(
 
 @router.get("/floors-monitoring", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_floors_monitoring(
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=2020, le=2050),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Retorna el monitoreo de pisos de todos los directivos/asesores comerciales.
-    Requiere permiso 'admin.commercial.manage'.
+    Retorna el monitoreo de pisos de todos los directivos/asesores comerciales con filtro opcional de mes y año.
     """
     try:
         stmt = (
@@ -748,6 +764,8 @@ async def get_floors_monitoring(
         sales_user_ids = set(sales_users_res.scalars().all())
 
         today = get_colombia_today()
+        target_year = year if (year and year > 2000) else today.year
+        target_month = month if (month and 1 <= month <= 12) else today.month
         
         ordered_floors = [
             {"level": 1, "label": "Piso 1", "target": 18000000.0, "bonus": 360000.0},
@@ -780,8 +798,8 @@ async def get_floors_monitoring(
                 )
                 .where(
                     CommercialSale.commercial_id == u.id,
-                    extract('year', CommercialSale.sale_date) == today.year,
-                    extract('month', CommercialSale.sale_date) == today.month
+                    extract('year', CommercialSale.sale_date) == target_year,
+                    extract('month', CommercialSale.sale_date) == target_month
                 )
             )
             m_row = monthly_sales_res.first()
@@ -868,7 +886,9 @@ async def get_floors_monitoring(
                 "directivos_con_piso": directivos_con_piso,
                 "total_monthly_volume": total_monthly_volume,
                 "projected_floor_bonuses_total": projected_floor_bonuses_total,
-                "average_volume_per_directivo": average_volume
+                "average_volume_per_directivo": average_volume,
+                "month": target_month,
+                "year": target_year
             },
             "items": items
         }

@@ -185,22 +185,36 @@ export const commercialService = {
     });
   },
 
-  getMySummary: async (): Promise<CommercialSummary> => {
-    return await fetchApi('/commercial/my-summary');
+  getMySummary: async (params?: { month?: number; year?: number }): Promise<CommercialSummary> => {
+    const query = new URLSearchParams();
+    if (params?.month) query.append('month', params.month.toString());
+    if (params?.year) query.append('year', params.year.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return await fetchApi(`/commercial/my-summary${qs}`);
   },
 
-  getAdvisorSummary: async (commercialId: number): Promise<CommercialSummary> => {
-    return await fetchApi(`/commercial/advisor-summary/${commercialId}`);
+  getAdvisorSummary: async (commercialId: number, params?: { month?: number; year?: number }): Promise<CommercialSummary> => {
+    const query = new URLSearchParams();
+    if (params?.month) query.append('month', params.month.toString());
+    if (params?.year) query.append('year', params.year.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return await fetchApi(`/commercial/advisor-summary/${commercialId}${qs}`);
   },
 
-  getAdminSummary: async (): Promise<AdminCommercialSummary> => {
-    return await fetchApi('/commercial/admin-summary');
+  getAdminSummary: async (params?: { month?: number; year?: number }): Promise<AdminCommercialSummary> => {
+    const query = new URLSearchParams();
+    if (params?.month) query.append('month', params.month.toString());
+    if (params?.year) query.append('year', params.year.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return await fetchApi(`/commercial/admin-summary${qs}`);
   },
 
-  getAllSales: async (params?: { commercial_id?: number; sale_type?: string }): Promise<CommercialSale[]> => {
+  getAllSales: async (params?: { commercial_id?: number; sale_type?: string; month?: number; year?: number }): Promise<CommercialSale[]> => {
     const query = new URLSearchParams();
     if (params?.commercial_id) query.append('commercial_id', params.commercial_id.toString());
     if (params?.sale_type) query.append('sale_type', params.sale_type);
+    if (params?.month) query.append('month', params.month.toString());
+    if (params?.year) query.append('year', params.year.toString());
     const queryString = query.toString() ? `?${query.toString()}` : '';
     return await fetchApi(`/commercial/all-sales${queryString}`);
   },
@@ -224,16 +238,28 @@ export const commercialService = {
     return data;
   },
 
-  getLeaderboard: async (): Promise<LeaderboardResponse> => {
-    return await fetchApi('/commercial/leaderboard');
+  getLeaderboard: async (params?: { month?: number; year?: number }): Promise<LeaderboardResponse> => {
+    const query = new URLSearchParams();
+    if (params?.month) query.append('month', params.month.toString());
+    if (params?.year) query.append('year', params.year.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return await fetchApi(`/commercial/leaderboard${qs}`);
   },
 
-  getPendingSettlementBreakdown: async (commercialId: number): Promise<PendingSettlementBreakdown> => {
-    return await fetchApi(`/commercial/pending-settlement/${commercialId}`);
+  getPendingSettlementBreakdown: async (commercialId: number, params?: { month?: number; year?: number }): Promise<PendingSettlementBreakdown> => {
+    const query = new URLSearchParams();
+    if (params?.month) query.append('month', params.month.toString());
+    if (params?.year) query.append('year', params.year.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return await fetchApi(`/commercial/pending-settlement/${commercialId}${qs}`);
   },
 
-  getBonusesSummary: async (): Promise<CommercialBonusSummaryItem[]> => {
-    return await fetchApi('/commercial/bonuses-summary');
+  getBonusesSummary: async (params?: { month?: number; year?: number }): Promise<CommercialBonusSummaryItem[]> => {
+    const query = new URLSearchParams();
+    if (params?.month) query.append('month', params.month.toString());
+    if (params?.year) query.append('year', params.year.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return await fetchApi(`/commercial/bonuses-summary${qs}`);
   },
 
   settleCommissions: async (data: {
@@ -253,8 +279,12 @@ export const commercialService = {
     return await fetchApi(`/commercial/settlements${query}`);
   },
 
-  getFloorsMonitoring: async (): Promise<CommercialFloorsMonitoringResponse> => {
-    return await fetchApi('/commercial/floors-monitoring');
+  getFloorsMonitoring: async (params?: { month?: number; year?: number }): Promise<CommercialFloorsMonitoringResponse> => {
+    const query = new URLSearchParams();
+    if (params?.month) query.append('month', params.month.toString());
+    if (params?.year) query.append('year', params.year.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return await fetchApi(`/commercial/floors-monitoring${qs}`);
   },
 
   getMyAssignedInvestments: async (): Promise<{ assigned_investments: AssignedInvestmentItem[]; total: number }> => {

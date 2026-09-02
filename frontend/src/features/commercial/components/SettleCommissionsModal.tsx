@@ -10,6 +10,8 @@ interface SettleCommissionsModalProps {
   commercialUsers: CommercialUserOption[];
   sales: CommercialSale[];
   initialCommercialId?: number | null;
+  selectedMonth?: number;
+  selectedYear?: number;
 }
 
 export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
@@ -17,7 +19,9 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
   onClose,
   onSuccess,
   commercialUsers,
-  initialCommercialId
+  initialCommercialId,
+  selectedMonth,
+  selectedYear
 }) => {
   const [selectedCommercialId, setSelectedCommercialId] = useState<number | null>(initialCommercialId || null);
   const [breakdown, setBreakdown] = useState<PendingSettlementBreakdown | null>(null);
@@ -40,12 +44,12 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
   useEffect(() => {
     if (isOpen && selectedCommercialId) {
       setIsLoadingBreakdown(true);
-      commercialService.getPendingSettlementBreakdown(selectedCommercialId)
+      commercialService.getPendingSettlementBreakdown(selectedCommercialId, { month: selectedMonth, year: selectedYear })
         .then((res) => setBreakdown(res))
         .catch(() => setBreakdown(null))
         .finally(() => setIsLoadingBreakdown(false));
     }
-  }, [isOpen, selectedCommercialId]);
+  }, [isOpen, selectedCommercialId, selectedMonth, selectedYear]);
 
   if (!isOpen) return null;
 

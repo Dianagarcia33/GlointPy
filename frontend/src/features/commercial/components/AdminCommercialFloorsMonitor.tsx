@@ -14,14 +14,27 @@ const FLOOR_LEVELS = [
   { level: 8, label: 'Piso 8', target: 200000000, bonus: 3600000, color: 'from-rose-600 to-red-600' },
 ];
 
-export const AdminCommercialFloorsMonitor: React.FC = () => {
+interface AdminCommercialFloorsMonitorProps {
+  month?: number;
+  year?: number;
+}
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+export const AdminCommercialFloorsMonitor: React.FC<AdminCommercialFloorsMonitorProps> = ({
+  month,
+  year
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'achieved' | 'in_progress' | 'no_sales'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   const { data, isLoading, refetch } = useQuery<CommercialFloorsMonitoringResponse>({
-    queryKey: ['commercial_floors_monitoring'],
-    queryFn: () => commercialService.getFloorsMonitoring()
+    queryKey: ['commercial_floors_monitoring', month, year],
+    queryFn: () => commercialService.getFloorsMonitoring({ month, year })
   });
 
   const summary = data?.summary;
