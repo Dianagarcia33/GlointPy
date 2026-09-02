@@ -365,59 +365,16 @@ class InvestmentRequestService:
             from src.models.wallet import Wallet, WalletStatus, WalletTransaction
             from src.models.contract_history import ContractHistory
             from src.services.yield_calculator import calculate_investment_yield
-            import re
 
             previous_contract_val = float(existing_investor.package.value or 0.0) if existing_investor.package else 0.0
             today = datetime.utcnow().date()
-            contract_start_d = existing_investor.start_date.date() if existing_investor.start_date else today
+            start_d = existing_investor.start_date.date() if existing_investor.start_date else today
 
-            # Buscar la fecha del último rendimiento pagado/liquidado para este contrato en WalletTransaction
-            last_paid_date = None
-            try:
-                tx_query = (
-                    select(WalletTransaction)
-                    .join(Wallet, Wallet.id == WalletTransaction.wallet_id)
-                    .where(
-                        Wallet.user_id == req.user_id,
-                        or_(
-                            (WalletTransaction.reference_id == existing_investor.id) & (WalletTransaction.reference_type.in_(["rendimiento_inversion", "yield", "investment_upgrade"])),
-                            WalletTransaction.description.ilike(f"%{existing_investor.assigned_code}%"),
-                            WalletTransaction.description.ilike(f"%Contrato #{existing_investor.id}%")
-                        )
-                    )
-                    .order_by(WalletTransaction.created_at.desc(), WalletTransaction.id.desc())
-                )
-                tx_res = await db.execute(tx_query)
-                past_txs = tx_res.scalars().all()
-                for tx in past_txs:
-                    if tx.description:
-                        # Buscar patrón de fecha final del rango: "al YYYY-MM-DD"
-                        match = re.search(r"al\s+(\d{4}-\d{2}-\d{2})", tx.description)
-                        if match:
-                            try:
-                                last_paid_date = datetime.strptime(match.group(1), "%Y-%m-%d").date()
-                                break
-                            except Exception:
-                                pass
-                    if tx.created_at and not last_paid_date:
-                        last_paid_date = tx.created_at.date()
-                        break
-            except Exception as e:
-                logger.warning(f"Error consultando último pago de rendimiento para contrato #{existing_investor.id}: {e}")
+            # 1. Liquidar rendimientos generados hasta hoy
+            yield_res = calculate_investment_yield(existing_investor, start_d, today)
+            accrued_yield = float(yield_res.total_yield or 0.0)
 
-            # Fecha inicial para el cálculo de rendimientos pendientes no liquidados
-            if last_paid_date:
-                calc_start_d = max(contract_start_d, last_paid_date)
-            else:
-                calc_start_d = contract_start_d
-
-            # 1. Liquidar únicamente rendimientos de días pendientes no transferidos
-            accrued_yield = 0.0
-            if calc_start_d < today:
-                yield_res = calculate_investment_yield(existing_investor, calc_start_d, today)
-                accrued_yield = float(yield_res.total_yield or 0.0)
-
-            # 2. Transferir rendimientos a la Wallet del usuario sólo si hay saldo pendiente
+            # 2. Transferir rendimientos a la Wallet del usuario
             if accrued_yield > 0:
                 wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == req.user_id))
                 wallet = wallet_res.scalars().first()
@@ -436,14 +393,14 @@ class InvestmentRequestService:
                     type="yield",
                     reference_type="investment_upgrade",
                     reference_id=existing_investor.id,
-                    description=f"Rendimiento liquidado fraccional por aumento de capital del {calc_start_d} al {today} (Contrato #{existing_investor.id})",
+                    description=f"Rendimiento liquidado por aumento de capital (Contrato #{existing_investor.id})",
                     balance_after=Decimal(str(new_balance))
                 )
                 db.add(tx)
 
             # 3. Guardar snapshot en ContractHistory
             old_days = existing_investor.period.days if existing_investor.period else 365
-            fecha_fin_prev = contract_start_d + timedelta(days=int(old_days))
+            fecha_fin_prev = start_d + timedelta(days=int(old_days))
             old_pkg_val = float(existing_investor.package.value or 0) if existing_investor.package else float(req.monto)
             old_pct = f"{existing_investor.period.percentage}%" if existing_investor.period else "0%"
 
@@ -451,7 +408,7 @@ class InvestmentRequestService:
                 investor_id=existing_investor.id,
                 paquete_inversion_id=existing_investor.package_id,
                 contract_period_id=existing_investor.period_id,
-                fecha_inicio=contract_start_d,
+                fecha_inicio=start_d,
                 fecha_fin=fecha_fin_prev,
                 dias_contrato=int(old_days),
                 total_contrato=Decimal(str(old_pkg_val)),
@@ -459,7 +416,7 @@ class InvestmentRequestService:
                 rendimiento_total_generado=Decimal(str(accrued_yield)),
                 rendimiento_total_pagado=Decimal(str(accrued_yield)),
                 motivo="Aumento de capital",
-                observaciones=f"Actualización de contrato de paquete #{existing_investor.package_id} a paquete #{req.paquete_inversion_id}. Rango liquidado: {calc_start_d} a {today}"
+                observaciones=f"Actualización de contrato de paquete #{existing_investor.package_id} a paquete #{req.paquete_inversion_id}"
             )
             db.add(history)
 
@@ -470,7 +427,7 @@ class InvestmentRequestService:
             existing_investor.start_date = datetime.utcnow()
 
             req.investor_id = existing_investor.id
-            logger.info(f"Contrato #{existing_investor.id} actualizado por Aumento de Capital. Rendimientos liquidados (rango {calc_start_d} a {today}): {accrued_yield}")
+            logger.info(f"Contrato #{existing_investor.id} actualizado por Aumento de Capital. Rendimientos liquidados a la wallet: {accrued_yield}")
 
         else:
             # --- FLUJO DE INVERSIÓN INICIAL (NUEVO CONTRATO) ---
