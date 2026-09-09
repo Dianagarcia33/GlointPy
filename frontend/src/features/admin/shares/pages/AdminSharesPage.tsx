@@ -73,8 +73,25 @@ export const AdminSharesPage: React.FC = () => {
         fetchData();
     }, []);
 
-    const currentPrice = priceHistory[0]?.new_price || 50000;
-    const currentAvailableShares = priceHistory[0]?.new_available_shares ?? 0;
+    const currentPrice = priceHistory[0]?.new_price || issuances[0]?.price_per_share || 50000;
+    const currentAvailableShares = (priceHistory[0]?.new_available_shares !== undefined && priceHistory[0]?.new_available_shares !== null && priceHistory[0]?.new_available_shares > 0)
+        ? priceHistory[0]?.new_available_shares
+        : (issuances.reduce((sum, i) => sum + (i.available_shares || 0), 0));
+
+    // Sincronizar campos del formulario para que no aparezcan vacíos
+    useEffect(() => {
+        if (newPrice === '' && currentPrice) {
+            setNewPrice(currentPrice);
+        }
+        if (newAvailableShares === '' && currentAvailableShares !== undefined) {
+            setNewAvailableShares(currentAvailableShares);
+        }
+    }, [currentPrice, currentAvailableShares]);
+
+    const handleOpenIssuanceModal = () => {
+        setIssuancePrice(currentPrice);
+        setIsIssuanceModalOpen(true);
+    };
 
     const handleUpdatePrice = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -104,8 +121,6 @@ export const AdminSharesPage: React.FC = () => {
                 Number(newAvailableShares)
             );
             setPriceSuccess(true);
-            setNewPrice('');
-            setNewAvailableShares('');
             setJustificationNotes('');
             await fetchData();
         } catch (err: any) {
@@ -117,7 +132,8 @@ export const AdminSharesPage: React.FC = () => {
 
     const handleCreateIssuance = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!issuanceTitle || !issuanceQuantity || !issuancePrice) return;
+        const priceToUse = issuancePrice !== '' ? Number(issuancePrice) : currentPrice;
+        if (!issuanceTitle || !issuanceQuantity || !priceToUse) return;
 
         try {
             setIssuanceLoading(true);
@@ -125,7 +141,7 @@ export const AdminSharesPage: React.FC = () => {
                 title: issuanceTitle,
                 description: issuanceDescription,
                 total_shares_issued: Number(issuanceQuantity),
-                price_per_share: Number(issuancePrice)
+                price_per_share: priceToUse
             });
             setIsIssuanceModalOpen(false);
             setIssuanceTitle('');
@@ -191,7 +207,7 @@ export const AdminSharesPage: React.FC = () => {
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                     <button
-                        onClick={() => setIsIssuanceModalOpen(true)}
+                        onClick={handleOpenIssuanceModal}
                         className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer font-montserrat"
                     >
                         <Plus className="w-4 h-4" />
@@ -693,16 +709,21 @@ export const AdminSharesPage: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-slate-700 block mb-1">Precio Unitario ($ COP)</label>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="text-xs font-bold text-slate-700 block">Precio Unitario ($ COP)</label>
+                                        <span className="text-[10px] text-emerald-600 font-bold">Oficial: ${currentPrice.toLocaleString('es-CO')}</span>
+                                    </div>
                                     <input
                                         type="number"
                                         min={1}
                                         value={issuancePrice}
-                                        onChange={(e) => setIssuancePrice(parseFloat(e.target.value) || '')}
-                                        placeholder="Ej. 50000"
+                                        onChange={(e) => setIssuancePrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        placeholder={`Precio actual: $${currentPrice.toLocaleString('es-CO')}`}
                                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-brand-500 outline-hidden"
-                                        required
                                     />
+                                    <span className="text-[10px] text-slate-400 block mt-1">
+                                        Toma el precio oficial actual automáticamente
+                                    </span>
                                 </div>
                             </div>
                             <div className="flex items-center justify-end gap-3 pt-2">
