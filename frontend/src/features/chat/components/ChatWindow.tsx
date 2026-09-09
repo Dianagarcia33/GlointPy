@@ -21,7 +21,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
 import { chatService, ChatRoom, ChatMessage } from '../../../services/chatService';
 import { getMediaUrl } from '../../../services/api';
-import { formatChatTime } from '../../../utils/format';
+import { 
+  formatChatTime, 
+  isSameChatDay, 
+  getChatDayDivider, 
+  formatChatMessageFullDate 
+} from '../../../utils/format';
 
 interface ChatWindowProps {
   room: ChatRoom | null;
@@ -276,139 +281,155 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
         )}
 
         <AnimatePresence initial={false}>
-          {messages.map((msg) => {
+          {messages.map((msg, idx) => {
             const isMe = msg.sender_id === currentUserId;
             const hasFile = Boolean(msg.file_url);
             const isImg = isImageFile(msg.file_type, msg.file_url);
             const fullFileUrl = msg.file_url ? getMediaUrl(msg.file_url) : '';
 
+            const prevMsg = idx > 0 ? messages[idx - 1] : null;
+            const isNewDay = !prevMsg || !isSameChatDay(prevMsg.created_at, msg.created_at);
+
             return (
-              <motion.div
-                key={msg.id}
-                id={`msg-${msg.id}`}
-                initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.2 }}
-                className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} transition-all duration-300`}
-              >
-                <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {/* Contenedor del Mensaje */}
-                  <div
-                    className={`max-w-[85%] md:max-w-[70%] p-3.5 rounded-2xl text-sm transition-all ${
-                      isMe
-                        ? 'bg-gradient-to-r from-brand-500 to-amber-600 text-white rounded-br-none shadow-sm shadow-brand-500/10'
-                        : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-none shadow-xs'
-                    }`}
-                  >
-                    {/* Cita/Respuesta del mensaje previo */}
-                    {msg.reply_to && (
-                      <div
-                        onClick={() => scrollToMessage(msg.reply_to!.id)}
-                        className={`mb-2.5 p-2 rounded-xl border-l-4 text-xs cursor-pointer transition-all ${
-                          isMe
-                            ? 'bg-black/20 border-white/90 text-white/95 hover:bg-black/30'
-                            : 'bg-slate-100 border-brand-500 text-slate-700 hover:bg-slate-200/70'
-                        }`}
-                        title="Haz clic para ver el mensaje citado"
-                      >
-                        <div className="flex items-center gap-1 font-bold text-[11px] mb-0.5">
-                          <Reply className="w-3 h-3 rotate-180 opacity-80" />
-                          <span className={isMe ? 'text-white' : 'text-brand-700 font-outfit'}>
-                            {msg.reply_to.sender_name}
-                          </span>
+              <React.Fragment key={msg.id}>
+                {/* Separador de Día (ej. "Hoy", "Ayer", "Lunes, 7 de septiembre") */}
+                {isNewDay && (
+                  <div className="flex items-center justify-center my-3 sticky top-1 z-10 pointer-events-none">
+                    <span className="bg-slate-200/90 backdrop-blur-xs text-slate-700 text-[11px] font-semibold font-outfit px-3 py-0.5 rounded-full shadow-2xs border border-slate-300/80 pointer-events-auto">
+                      {getChatDayDivider(msg.created_at)}
+                    </span>
+                  </div>
+                )}
+
+                <motion.div
+                  id={`msg-${msg.id}`}
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.2 }}
+                  className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} transition-all duration-300`}
+                >
+                  <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {/* Contenedor del Mensaje */}
+                    <div
+                      className={`max-w-[85%] md:max-w-[70%] p-3.5 rounded-2xl text-sm transition-all ${
+                        isMe
+                          ? 'bg-gradient-to-r from-brand-500 to-amber-600 text-white rounded-br-none shadow-sm shadow-brand-500/10'
+                          : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-none shadow-xs'
+                      }`}
+                    >
+                      {/* Cita/Respuesta del mensaje previo */}
+                      {msg.reply_to && (
+                        <div
+                          onClick={() => scrollToMessage(msg.reply_to!.id)}
+                          className={`mb-2.5 p-2 rounded-xl border-l-4 text-xs cursor-pointer transition-all ${
+                            isMe
+                              ? 'bg-black/20 border-white/90 text-white/95 hover:bg-black/30'
+                              : 'bg-slate-100 border-brand-500 text-slate-700 hover:bg-slate-200/70'
+                          }`}
+                          title="Haz clic para ver el mensaje citado"
+                        >
+                          <div className="flex items-center gap-1 font-bold text-[11px] mb-0.5">
+                            <Reply className="w-3 h-3 rotate-180 opacity-80" />
+                            <span className={isMe ? 'text-white' : 'text-brand-700 font-outfit'}>
+                              {msg.reply_to.sender_name}
+                            </span>
+                          </div>
+                          <p className="line-clamp-1 italic text-[11px] opacity-90">
+                            {msg.reply_to.content || (msg.reply_to.file_name ? `📎 ${msg.reply_to.file_name}` : 'Archivo adjunto')}
+                          </p>
                         </div>
-                        <p className="line-clamp-1 italic text-[11px] opacity-90">
-                          {msg.reply_to.content || (msg.reply_to.file_name ? `📎 ${msg.reply_to.file_name}` : 'Archivo adjunto')}
-                        </p>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Nombre del autor si no soy yo */}
-                    {!isMe && (
-                      <span className="text-[11px] font-bold font-outfit text-brand-600 block mb-1">
-                        {msg.sender_name}
-                      </span>
-                    )}
+                      {/* Nombre del autor si no soy yo */}
+                      {!isMe && (
+                        <span className="text-[11px] font-bold font-outfit text-brand-600 block mb-1">
+                          {msg.sender_name}
+                        </span>
+                      )}
 
-                    {/* Renderizado de Archivo / Imagen Adjunta */}
-                    {hasFile && (
-                      <div className="mb-2">
-                        {isImg ? (
-                          <div className="relative group/img overflow-hidden rounded-xl border border-black/10 max-w-sm bg-slate-900/5">
-                            <img
-                              src={fullFileUrl}
-                              alt={msg.file_name || 'Imagen adjunta'}
-                              className="max-h-60 w-full object-cover rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
-                              onClick={() => setActiveImageModal(fullFileUrl)}
-                            />
-                            <a
-                              href={fullFileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="absolute top-2 right-2 p-1.5 bg-slate-900/70 hover:bg-slate-900 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity backdrop-blur-xs"
-                              title="Abrir imagen completa"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
-                        ) : (
-                          <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
-                            isMe ? 'bg-white/10 border-white/20 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                          }`}>
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className={`p-2 rounded-lg ${isMe ? 'bg-white/20 text-white' : 'bg-brand-50 text-brand-600 border border-brand-100'}`}>
-                                <FileText className="w-5 h-5 flex-shrink-0" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold truncate leading-tight font-outfit">{msg.file_name || 'Archivo adjunto'}</p>
-                                <span className={`text-[10px] ${isMe ? 'text-amber-100' : 'text-slate-400'}`}>Documento</span>
-                              </div>
+                      {/* Renderizado de Archivo / Imagen Adjunta */}
+                      {hasFile && (
+                        <div className="mb-2">
+                          {isImg ? (
+                            <div className="relative group/img overflow-hidden rounded-xl border border-black/10 max-w-sm bg-slate-900/5">
+                              <img
+                                src={fullFileUrl}
+                                alt={msg.file_name || 'Imagen adjunta'}
+                                className="max-h-60 w-full object-cover rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
+                                onClick={() => setActiveImageModal(fullFileUrl)}
+                              />
+                              <a
+                                href={fullFileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="absolute top-2 right-2 p-1.5 bg-slate-900/70 hover:bg-slate-900 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity backdrop-blur-xs"
+                                title="Abrir imagen completa"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
                             </div>
-                            <a
-                              href={fullFileUrl}
-                              download={msg.file_name || 'adjunto'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`p-2 rounded-lg transition-all flex items-center justify-center flex-shrink-0 ${
-                                isMe 
-                                  ? 'bg-white/20 hover:bg-white/30 text-white' 
-                                  : 'bg-white hover:bg-brand-50 text-brand-600 border border-slate-200 shadow-xs'
-                              }`}
-                              title="Descargar archivo"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
-                          </div>
+                          ) : (
+                            <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
+                              isMe ? 'bg-white/10 border-white/20 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                            }`}>
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`p-2 rounded-lg ${isMe ? 'bg-white/20 text-white' : 'bg-brand-50 text-brand-600 border border-brand-100'}`}>
+                                  <FileText className="w-5 h-5 flex-shrink-0" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold truncate leading-tight font-outfit">{msg.file_name || 'Archivo adjunto'}</p>
+                                  <span className={`text-[10px] ${isMe ? 'text-amber-100' : 'text-slate-400'}`}>Documento</span>
+                                </div>
+                              </div>
+                              <a
+                                href={fullFileUrl}
+                                download={msg.file_name || 'adjunto'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`p-2 rounded-lg transition-all flex items-center justify-center flex-shrink-0 ${
+                                  isMe 
+                                    ? 'bg-white/20 hover:bg-white/30 text-white' 
+                                    : 'bg-white hover:bg-brand-50 text-brand-600 border border-slate-200 shadow-xs'
+                                }`}
+                                title="Descargar archivo"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Texto del mensaje */}
+                      {msg.content && (
+                        <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+                      )}
+
+                      <div 
+                        className={`flex items-center justify-end gap-1 mt-1 text-[10px] cursor-default ${isMe ? 'text-amber-100' : 'text-slate-400'}`}
+                        title={formatChatMessageFullDate(msg.created_at)}
+                      >
+                        <span>{formatChatTime(msg.created_at)}</span>
+                        {isMe && (
+                          msg.is_read ? <CheckCheck className="w-3.5 h-3.5 text-amber-200" /> : <Check className="w-3.5 h-3.5 opacity-80" />
                         )}
                       </div>
-                    )}
-
-                    {/* Texto del mensaje */}
-                    {msg.content && (
-                      <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
-                    )}
-
-                    <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-amber-100' : 'text-slate-400'}`}>
-                      <span>{formatChatTime(msg.created_at)}</span>
-                      {isMe && (
-                        msg.is_read ? <CheckCheck className="w-3.5 h-3.5 text-amber-200" /> : <Check className="w-3.5 h-3.5 opacity-80" />
-                      )}
                     </div>
-                  </div>
 
-                  {/* Botón de Respuesta al pasar el cursor */}
-                  {canSend && (
-                    <button
-                      type="button"
-                      onClick={() => handleStartReply(msg)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-brand-600 hover:bg-white bg-white/80 rounded-full shadow-xs border border-slate-200/80 flex-shrink-0 active:scale-95"
-                      title="Responder a este mensaje"
-                    >
-                      <Reply className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </motion.div>
+                    {/* Botón de Respuesta al pasar el cursor */}
+                    {canSend && (
+                      <button
+                        type="button"
+                        onClick={() => handleStartReply(msg)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-brand-600 hover:bg-white bg-white/80 rounded-full shadow-xs border border-slate-200/80 flex-shrink-0 active:scale-95"
+                        title="Responder a este mensaje"
+                      >
+                        <Reply className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              </React.Fragment>
             );
           })}
         </AnimatePresence>
