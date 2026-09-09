@@ -251,6 +251,31 @@ async def on_startup():
             except Exception as e:
                 print(f"Error creating share_market tables: {e}")
 
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS wallet_recharges (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        user_id BIGINT NOT NULL,
+                        wallet_id BIGINT NOT NULL,
+                        amount DECIMAL(15,2) NOT NULL,
+                        status VARCHAR(50) DEFAULT 'pending' NOT NULL,
+                        payment_method VARCHAR(100) DEFAULT 'Transferencia Bancaria' NOT NULL,
+                        reference_number VARCHAR(100) NULL,
+                        receipt_url VARCHAR(500) NOT NULL,
+                        user_notes TEXT NULL,
+                        admin_notes TEXT NULL,
+                        reviewed_by BIGINT NULL,
+                        reviewed_at DATETIME NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_wr_user (user_id),
+                        INDEX idx_wr_wallet (wallet_id),
+                        INDEX idx_wr_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating wallet_recharges table: {e}")
+
             # Limpieza de valores nulos / escapados en referred_by
             try:
                 await conn.execute(text("UPDATE investors SET referred_by = NULL WHERE referred_by = '\\\\N' OR referred_by = '\\N' OR referred_by = 'NULL' OR referred_by = ''"))
