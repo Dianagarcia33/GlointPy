@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -27,7 +28,6 @@ import {
   Send,
   ArrowRight,
   CornerDownLeft,
-  Sparkles,
   Command
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -52,11 +52,11 @@ const MODULES_CATALOG: ModuleItem[] = [
   {
     id: 'dashboard',
     title: 'Dashboard General',
-    description: 'Resumen financiero, métricas de rendimiento y estado de tu cuenta',
+    description: 'Resumen financiero, métricas de rendimiento y estado global de tu cuenta',
     path: '/dashboard',
     category: 'Principal',
     icon: Home,
-    keywords: ['inicio', 'resumen', 'metricas', 'graficos', 'principal', 'estadisticas', 'home']
+    keywords: ['inicio', 'resumen', 'metricas', 'graficos', 'principal', 'estadisticas', 'home', 'panel']
   },
   {
     id: 'chat',
@@ -82,7 +82,7 @@ const MODULES_CATALOG: ModuleItem[] = [
   {
     id: 'wallet',
     title: 'Mi Billetera (Wallet)',
-    description: 'Gestión de saldo disponible, recargas con comprobante, retiros y transferencias',
+    description: 'Saldo disponible, recargas de billetera, retiros y transferencias',
     path: '/dashboard/wallet',
     category: 'Finanzas y Cuenta',
     icon: Wallet,
@@ -179,7 +179,7 @@ const MODULES_CATALOG: ModuleItem[] = [
   {
     id: 'payments-admin',
     title: 'Gestión de Pagos & Tesorería',
-    description: 'Supervisión de solicitudes de retiro, recargas con comprobante y dispersión bancaria',
+    description: 'Supervisión de solicitudes de retiro, recargas de billetera y dispersión bancaria',
     path: '/dashboard/payments',
     category: 'Administración',
     icon: ArrowDownToLine,
@@ -340,31 +340,26 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchCardRef = useRef<HTMLDivElement>(null);
 
   const { hasPermission, hasAnyPermission, hasAllPermissions, isAdmin } = usePermissions();
 
   // 1. Filtrar módulos según los permisos estrictos del usuario
   const allowedModules = useMemo(() => {
     return MODULES_CATALOG.filter(mod => {
-      // Si el módulo es exclusivo para administradores
       if (mod.isAdminOnly && !isAdmin()) return false;
-      // Si el módulo es exclusivo para NO administradores (ej. Mis Referidos en perfil inversionista)
       if (mod.isNonAdminOnly && isAdmin()) return false;
 
-      // Validación por permiso único
       if (mod.permission) {
         return hasPermission(mod.permission);
       }
 
-      // Validación por array de permisos
       if (mod.permissions && mod.permissions.length > 0) {
         return mod.requireAll 
           ? hasAllPermissions(mod.permissions) 
           : hasAnyPermission(mod.permissions);
       }
 
-      // Si no requiere permisos específicos, está disponible para todo usuario autenticado
       return true;
     });
   }, [hasPermission, hasAnyPermission, hasAllPermissions, isAdmin]);
@@ -374,15 +369,12 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
     const cleanQuery = normalize(query);
     
     return allowedModules.filter(mod => {
-      // Filtro por categoría seleccionada
       if (selectedCategory !== 'all' && mod.category !== selectedCategory) {
         return false;
       }
 
-      // Si no hay texto de búsqueda, mostrar todos los permitidos de esa categoría
       if (!cleanQuery) return true;
 
-      // Coincidencias en título, descripción, categoría o palabras clave
       const matchTitle = normalize(mod.title).includes(cleanQuery);
       const matchDesc = normalize(mod.description).includes(cleanQuery);
       const matchCategory = normalize(mod.category).includes(cleanQuery);
@@ -392,7 +384,6 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
     });
   }, [allowedModules, query, selectedCategory]);
 
-  // Reset del índice seleccionado cuando cambian los resultados
   useEffect(() => {
     setSelectedIndex(0);
   }, [query, selectedCategory]);
@@ -423,20 +414,6 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
       setQuery('');
       setSelectedCategory('all');
     }
-  }, [isOpen]);
-
-  // Cerrar al hacer clic fuera del modal
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
   // Navegación hacia un módulo
@@ -475,7 +452,6 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
     }
   };
 
-  // Categorías presentes en los módulos permitidos para el usuario
   const availableCategories = useMemo(() => {
     const cats = new Set(allowedModules.map(m => m.category));
     return ['all', ...Array.from(cats)];
@@ -484,38 +460,40 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
   const getCategoryBadgeClass = (category: string) => {
     switch (category) {
       case 'Finanzas y Cuenta':
-        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'Comercial & CRM':
-        return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+        return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'Administración':
-        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
       default:
-        return 'bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/20';
+        return 'bg-amber-50 text-amber-700 border-amber-200';
     }
   };
 
   return (
     <>
-      {/* 1. Botón / Barra de activación en la Navbar */}
-      <div className="flex items-center">
+      {/* 1. Botón Buscador en la Navbar (Estilo Inputs Premium Gloint) */}
+      <div className="w-full flex items-center justify-center">
         {/* Desktop Search Trigger */}
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`hidden sm:flex items-center gap-3 px-3.5 py-2 rounded-2xl transition-all duration-200 cursor-pointer text-xs font-medium border ${
+          className={`hidden sm:flex items-center justify-between w-full max-w-sm lg:max-w-md px-3.5 py-1.5 rounded-2xl transition-all duration-200 cursor-pointer text-xs font-medium border ${
             isDark
-              ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700/80 hover:border-slate-600 shadow-xs'
+              ? 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700/80 hover:border-slate-600 shadow-inner'
               : 'bg-slate-100 hover:bg-slate-200/80 text-slate-600 border-slate-200 shadow-xs'
           }`}
           title="Buscar módulos del sistema (Ctrl + K)"
         >
-          <Search className="w-3.5 h-3.5 text-brand-400 shrink-0" />
-          <span className="truncate max-w-[150px] md:max-w-[180px] lg:max-w-[220px]">
-            Buscar módulos...
-          </span>
-          <span className={`ml-auto flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold font-mono tracking-tighter border ${
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Search className="w-4 h-4 text-brand-400 shrink-0" />
+            <span className="truncate text-slate-400">
+              Buscar módulos o funciones...
+            </span>
+          </div>
+          <span className={`ml-2 flex items-center gap-0.5 px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono tracking-tighter border shrink-0 ${
             isDark
-              ? 'bg-slate-900/80 text-slate-400 border-slate-700'
+              ? 'bg-slate-900 text-slate-400 border-slate-700'
               : 'bg-white text-slate-500 border-slate-300 shadow-2xs'
           }`}>
             <Command className="w-2.5 h-2.5" /> K
@@ -538,16 +516,22 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
         </button>
       </div>
 
-      {/* 2. Modal / Command Palette Flotante */}
-      {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-16 sm:pt-24 px-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-150">
+      {/* 2. Modal / Command Palette Flotante montado en document.body mediante createPortal */}
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-start justify-center pt-16 sm:pt-24 px-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setIsOpen(false)}
+        >
           <div
-            ref={searchContainerRef}
-            className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-150 flex flex-col max-h-[80vh]"
+            ref={searchCardRef}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-200 flex flex-col max-h-[82vh] font-inter"
           >
-            {/* Header / Input */}
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3 bg-slate-50/50 dark:bg-slate-900/50">
-              <Search className="w-5 h-5 text-brand-500 shrink-0" />
+            {/* Header / Input Principal */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50/70">
+              <div className="p-2 rounded-xl bg-brand-50 text-brand-600 border border-brand-100 shrink-0">
+                <Search className="w-5 h-5" />
+              </div>
               <input
                 ref={inputRef}
                 type="text"
@@ -555,13 +539,13 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleInputKeyDown}
-                className="w-full bg-transparent text-slate-900 dark:text-white placeholder-slate-400 text-sm sm:text-base font-medium outline-none"
+                className="w-full bg-transparent text-slate-900 placeholder-slate-400 text-sm sm:text-base font-semibold outline-none font-montserrat"
               />
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery('')}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
                   title="Limpiar búsqueda"
                 >
                   <X className="w-4 h-4" />
@@ -570,23 +554,23 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="hidden sm:inline-flex px-2 py-1 rounded-lg text-[11px] font-bold text-slate-400 bg-slate-200/60 dark:bg-slate-800 border border-slate-300/60 dark:border-slate-700 cursor-pointer hover:text-slate-700 dark:hover:text-white"
+                className="hidden sm:inline-flex px-2.5 py-1 rounded-xl text-xs font-bold text-slate-500 bg-slate-200/60 hover:bg-slate-200 border border-slate-300/60 transition-colors cursor-pointer"
               >
                 ESC
               </button>
             </div>
 
-            {/* Category Filter Pills */}
-            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto text-xs font-semibold bg-slate-50/30 dark:bg-slate-900/30">
+            {/* Pestañas de Filtrado por Categoría */}
+            <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-1.5 overflow-x-auto text-xs font-semibold bg-slate-50/30 scrollbar-none">
               {availableCategories.map(cat => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 rounded-xl transition-all shrink-0 cursor-pointer capitalize text-[11px] ${
+                  className={`px-3 py-1.5 rounded-xl transition-all shrink-0 cursor-pointer capitalize text-xs ${
                     selectedCategory === cat
-                      ? 'bg-slate-900 dark:bg-brand-500 text-white shadow-xs font-bold'
-                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800 font-medium'
+                      ? 'bg-slate-900 text-white shadow-xs font-bold'
+                      : 'text-slate-600 hover:bg-slate-200/60 font-medium'
                   }`}
                 >
                   {cat === 'all' ? 'Todos los módulos' : cat}
@@ -594,22 +578,24 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
               ))}
             </div>
 
-            {/* Results List */}
+            {/* Lista de Resultados */}
             <div
               ref={resultsContainerRef}
-              className="p-3 overflow-y-auto flex-1 space-y-1 divide-y divide-slate-100 dark:divide-slate-800/40"
+              className="p-3 overflow-y-auto flex-1 space-y-1 divide-y divide-slate-100"
             >
               {filteredModules.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 space-y-2">
-                  <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                <div className="py-12 text-center text-slate-400 space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
                     <Search className="w-6 h-6" />
                   </div>
-                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    No se encontraron módulos permitidos
-                  </p>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    No tienes acceso a un módulo con ese nombre o no coincide con los términos de búsqueda.
-                  </p>
+                  <div>
+                    <p className="text-sm font-bold text-slate-800 font-montserrat">
+                      No se encontraron módulos disponibles
+                    </p>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                      No tienes acceso a un módulo con ese nombre o no coincide con los términos de búsqueda.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 filteredModules.map((mod, idx) => {
@@ -622,25 +608,25 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
                       data-search-item
                       onClick={() => handleSelectModule(mod)}
                       onMouseEnter={() => setSelectedIndex(idx)}
-                      className={`group flex items-center justify-between p-3 rounded-2xl transition-all cursor-pointer ${
+                      className={`group flex items-center justify-between p-3.5 rounded-2xl transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-brand-50 dark:bg-brand-500/15 border border-brand-200/80 dark:border-brand-500/30'
-                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'
+                          ? 'bg-brand-50/80 border border-brand-200 shadow-xs'
+                          : 'hover:bg-slate-50 border border-transparent'
                       }`}
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         <div
                           className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
                             isSelected
-                              ? 'bg-brand-500 text-white shadow-md shadow-brand-500/30'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                              ? 'bg-gradient-to-br from-brand-500 to-amber-600 text-white shadow-md shadow-brand-500/25'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200/60'
                           }`}
                         >
                           <IconComponent className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-slate-900 dark:text-white font-montserrat truncate">
+                            <span className="font-bold text-sm text-slate-900 font-montserrat truncate">
                               {mod.title}
                             </span>
                             <span
@@ -651,26 +637,21 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
                               {mod.category}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          <p className="text-xs text-slate-500 truncate mt-0.5">
                             {mod.description}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 pl-3 shrink-0">
-                        {isSelected && (
-                          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 dark:text-brand-400 animate-in fade-in">
-                            <span>Ir al módulo</span>
+                        {isSelected ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-brand-600 animate-in fade-in">
+                            <span className="hidden sm:inline">Ir al módulo</span>
                             <CornerDownLeft className="w-3.5 h-3.5" />
                           </span>
+                        ) : (
+                          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors" />
                         )}
-                        <ArrowRight
-                          className={`w-4 h-4 transition-transform ${
-                            isSelected
-                              ? 'text-brand-500 translate-x-1'
-                              : 'text-slate-300 dark:text-slate-600'
-                          }`}
-                        />
                       </div>
                     </div>
                   );
@@ -678,31 +659,32 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
               )}
             </div>
 
-            {/* Footer / Shortcuts Help */}
-            <div className="px-5 py-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 flex items-center justify-between">
+            {/* Footer con Atajos */}
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1.5">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-mono">
+                  <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono shadow-2xs">
                     ↑
                   </kbd>
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-mono">
+                  <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono shadow-2xs">
                     ↓
                   </kbd>{' '}
                   Navegar
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-[10px] font-mono">
+                  <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono shadow-2xs">
                     ↵
                   </kbd>{' '}
-                  Abrir
+                  Seleccionar
                 </span>
               </div>
-              <span className="font-medium text-slate-400">
-                {filteredModules.length} {filteredModules.length === 1 ? 'módulo disponible' : 'módulos disponibles'}
+              <span className="font-bold text-slate-600 font-mono text-[11px]">
+                {filteredModules.length} {filteredModules.length === 1 ? 'módulo' : 'módulos'}
               </span>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

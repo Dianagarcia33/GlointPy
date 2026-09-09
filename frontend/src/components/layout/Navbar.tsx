@@ -159,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
               </Link>
             </div>
           ) : isAuthenticated ? (
-            <div className="hidden md:flex items-center justify-center z-20 absolute left-1/2 transform -translate-x-1/2 w-full max-w-xs lg:max-w-sm">
+            <div className="hidden md:flex items-center justify-center z-20 absolute left-1/2 transform -translate-x-1/2 w-full max-w-md lg:max-w-lg px-4">
               <NavbarModuleSearch isDark={isDashboard || !isSolid} />
             </div>
           ) : null}
