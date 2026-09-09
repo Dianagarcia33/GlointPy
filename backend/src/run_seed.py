@@ -54,6 +54,9 @@ PERMISSIONS = [
     {"name": "beneficiaries:view", "description": "Ver y gestionar beneficiarios", "module": "beneficiaries"},
     {"name": "referrals:view", "description": "Ver y gestionar referidos potenciales", "module": "referrals"},
     {"name": "admin.referrals.manage", "description": "Gestionar referidos potenciales comerciales", "module": "referrals"},
+    {"name": "chat:view", "description": "Acceder y ver el módulo de chat en tiempo real", "module": "chat"},
+    {"name": "chat:send", "description": "Escribir mensajes y enviar archivos en el chat", "module": "chat"},
+    {"name": "admin.chat.manage", "description": "Administrar y supervisar salas de chat", "module": "chat"},
 ]
 
 async def seed_permissions_db(db):

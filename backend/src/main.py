@@ -51,6 +51,16 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN reply_to_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE chat_rooms ADD COLUMN created_by BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS investment_ranks (
                         id INT AUTO_INCREMENT PRIMARY KEY,

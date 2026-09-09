@@ -10,9 +10,11 @@ class ChatRoom(Base):
     name = Column(String(255), nullable=True)
     type = Column(String(50), nullable=False, default="direct")  # 'direct', 'support', 'group'
     is_active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
+    creator = relationship("User", foreign_keys=[created_by])
     participants = relationship("ChatParticipant", back_populates="room", cascade="all, delete-orphan")
     messages = relationship("ChatMessage", back_populates="room", cascade="all, delete-orphan")
 
@@ -35,6 +37,7 @@ class ChatMessage(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
     room_id = Column(BigInteger, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
     sender_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    reply_to_id = Column(BigInteger, ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True, index=True)
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, nullable=False, default=False)
     file_url = Column(String(500), nullable=True)
@@ -43,4 +46,5 @@ class ChatMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     room = relationship("ChatRoom", back_populates="messages")
-    sender = relationship("User")
+    sender = relationship("User", foreign_keys=[sender_id])
+    reply_to = relationship("ChatMessage", remote_side=[id], foreign_keys=[reply_to_id])
