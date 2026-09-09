@@ -74,15 +74,19 @@ function App() {
 
   const { isAuthenticated, setUser, logout } = useAuthStore();
 
-  // Seguridad H-34: Al cargar la app, se hidrata el perfil y permisos en memoria desde el servidor
+  // Al cargar la app, se hidrata o refresca el perfil y permisos en memoria desde el servidor
   React.useEffect(() => {
     if (isAuthenticated) {
       fetchApi('/auth/me')
         .then((userData) => {
-          setUser(userData);
+          if (userData) {
+            setUser(userData);
+          }
         })
-        .catch(() => {
-          logout();
+        .catch((err) => {
+          // Si el token es inválido o expiró (401), fetchApi ejecuta logout() automáticamente.
+          // Si es un fallo temporal de red o 500, mantenemos la sesión persistida.
+          console.warn('Error al verificar sesión en /auth/me:', err);
         });
     }
   }, [isAuthenticated]);
