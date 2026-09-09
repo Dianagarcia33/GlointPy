@@ -35,7 +35,7 @@ export const usePermissions = () => {
         if (userRoles && Array.isArray(userRoles)) {
             return userRoles.some((r: any) => {
                 const name = typeof r === 'string' ? r : r?.name;
-                return name?.toLowerCase().includes('admin') || name?.toLowerCase().includes('super') || name?.toLowerCase().includes('director');
+                return name?.toLowerCase().includes('admin') || name?.toLowerCase().includes('super');
             });
         }
         return false;
@@ -57,11 +57,10 @@ export const usePermissions = () => {
         return reqVariants.some(rv => allUserVariants.has(rv));
     };
 
-    // Devuelve true si el usuario tiene el permiso o es superusuario/admin
+    // Devuelve true si el usuario tiene el permiso o es superusuario
     const hasPermission = (permission: string) => {
         if (!user) return false;
         if (isSuperuser()) return true;
-        if (isAdmin()) return true;
         if (!user.permissions || !Array.isArray(user.permissions)) return false;
         return matchSinglePermission(permission, user.permissions);
     };
@@ -70,7 +69,6 @@ export const usePermissions = () => {
     const hasAllPermissions = (permissions: string[]) => {
         if (!user) return false;
         if (isSuperuser()) return true;
-        if (isAdmin()) return true;
         if (!user.permissions || !Array.isArray(user.permissions)) return false;
         return permissions.every(p => matchSinglePermission(p, user.permissions!));
     };
@@ -79,7 +77,6 @@ export const usePermissions = () => {
     const hasAnyPermission = (permissions: string[]) => {
         if (!user) return false;
         if (isSuperuser()) return true;
-        if (isAdmin()) return true;
         if (!user.permissions || !Array.isArray(user.permissions)) return false;
         return permissions.some(p => matchSinglePermission(p, user.permissions!));
     };

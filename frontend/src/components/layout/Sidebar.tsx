@@ -302,7 +302,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permissions={["admin.rankings.manage", "admin.investors.manage", "admin.users.manage", "admin.roles.manage"]}>
+                                    <Can permissions={["admin.rankings.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/rankings" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <Trophy className="w-[18px] h-[18px]" />
@@ -320,7 +320,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permissions={["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]}>
+                                    <Can permissions={["admin.external_apps.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/external-apps" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <Globe className="w-[18px] h-[18px]" />
@@ -329,7 +329,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permissions={["admin.shares.manage", "admin.roles.manage", "admin.users.manage"]}>
+                                    <Can permissions={["admin.shares.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/admin-shares" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <Layers className="w-[18px] h-[18px]" />
@@ -356,7 +356,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permissions={["admin.referrals.manage", "referrals:view", "admin.users.manage", "admin.roles.manage"]}>
+                                    <Can permissions={["admin.referrals.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/admin-referrals" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <UserPlus className="w-[18px] h-[18px]" />
@@ -410,7 +410,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permissions={["admin.notifications.manage", "admin.users.manage", "admin.roles.manage"]}>
+                                    <Can permissions={["admin.notifications.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/admin-notifications" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <Send className="w-[18px] h-[18px]" />

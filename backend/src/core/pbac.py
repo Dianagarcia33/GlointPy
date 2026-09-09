@@ -62,15 +62,15 @@ class PBACEngine:
     @staticmethod
     def has_permission(user: User, required_permission: str) -> bool:
         """Verifica si el usuario tiene un permiso específico."""
-        # 1. Bypass para Superusuario / Admin
-        if getattr(user, 'is_superuser', False) or getattr(user, 'is_admin', False):
+        # 1. Bypass únicamente para Superusuario del sistema
+        if getattr(user, 'is_superuser', False):
             return True
 
-        # Bypass para roles SuperAdmin / Admin / Directores
+        # Bypass solo para el rol superadmin raíz explícito
         if hasattr(user, 'roles') and user.roles:
             for role in user.roles:
                 role_name = getattr(role, 'name', '').lower()
-                if any(kw in role_name for kw in ['super', 'admin', 'gerente', 'director']):
+                if role_name in ['superadmin', 'super admin', 'superuser']:
                     return True
         
         # 2. Verificar lista de permisos calculada del usuario con resolución normalizada

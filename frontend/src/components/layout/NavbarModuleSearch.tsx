@@ -99,6 +99,7 @@ const MODULES_CATALOG: ModuleItem[] = [
     path: '/dashboard/shares-market',
     category: 'Finanzas y Cuenta',
     icon: Layers,
+    permissions: ['shares:access', 'wallets:view', 'admin.shares.manage'],
     keywords: ['acciones', 'comprar acciones', 'vender acciones', 'mercado', 'portafolio', 'titulos', 'valor de accion', 'rendimiento']
   },
   {
@@ -108,6 +109,7 @@ const MODULES_CATALOG: ModuleItem[] = [
     path: '/dashboard/investments',
     category: 'Finanzas y Cuenta',
     icon: Briefcase,
+    permissions: ['dashboard:view_investments', 'wallets:view', 'admin.investors.manage', 'director.dashboard.view'],
     keywords: ['inversiones', 'paquetes', 'contratos', 'rendimientos', 'capital', 'fondos invertidos', 'ganancias']
   },
   {
@@ -203,7 +205,7 @@ const MODULES_CATALOG: ModuleItem[] = [
     path: '/dashboard/rankings',
     category: 'Administración',
     icon: Trophy,
-    permissions: ['admin.rankings.manage', 'admin.investors.manage', 'admin.users.manage', 'admin.roles.manage'],
+    permissions: ['admin.rankings.manage', 'admin.roles.manage'],
     keywords: ['rankings', 'niveles', 'puntos', 'comisiones de red', 'ascensos', 'escalafones']
   },
   {
@@ -213,7 +215,7 @@ const MODULES_CATALOG: ModuleItem[] = [
     path: '/dashboard/admin-shares',
     category: 'Administración',
     icon: Layers,
-    permissions: ['admin.shares.manage', 'admin.roles.manage', 'admin.users.manage'],
+    permissions: ['admin.shares.manage', 'admin.roles.manage'],
     keywords: ['emision de acciones', 'precio de accion', 'curvas de crecimiento', 'acciones admin', 'valorizacion', 'trazabilidad', 'graficas']
   },
   {
@@ -223,7 +225,7 @@ const MODULES_CATALOG: ModuleItem[] = [
     path: '/dashboard/external-apps',
     category: 'Administración',
     icon: Globe,
-    permissions: ['admin.external_apps.manage', 'admin.roles.manage', 'admin.users.manage'],
+    permissions: ['admin.external_apps.manage', 'admin.roles.manage'],
     keywords: ['gloint pay', 'pasarela de pagos', 'api keys', 'webhooks', 'apps externas', 'checkout', 'integraciones']
   },
   {
@@ -253,7 +255,7 @@ const MODULES_CATALOG: ModuleItem[] = [
     path: '/dashboard/admin-referrals',
     category: 'Administración',
     icon: UserPlus,
-    permissions: ['admin.referrals.manage', 'referrals:view', 'admin.users.manage', 'admin.roles.manage'],
+    permissions: ['admin.referrals.manage', 'admin.roles.manage'],
     keywords: ['arbol de referidos', 'referidos admin', 'red de afiliados', 'patrocinadores', 'multinivel']
   },
   {
@@ -313,7 +315,7 @@ const MODULES_CATALOG: ModuleItem[] = [
     path: '/dashboard/admin-notifications',
     category: 'Administración',
     icon: Send,
-    permissions: ['admin.notifications.manage', 'admin.users.manage', 'admin.roles.manage'],
+    permissions: ['admin.notifications.manage', 'admin.roles.manage'],
     keywords: ['notificaciones push admin', 'comunicados', 'avisos masivos', 'broadcast', 'mensajes globales']
   }
 ];
