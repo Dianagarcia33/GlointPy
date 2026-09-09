@@ -9,6 +9,7 @@ import {
     X
 } from 'lucide-react';
 import { shareMarketService, ShareTradeOrder, SharePriceHistory, ShareIssuance } from '../../../../services/shareMarket';
+import { ShareGrowthChart } from '../components/ShareGrowthChart';
 
 export const AdminSharesPage: React.FC = () => {
     const [pendingOrders, setPendingOrders] = useState<ShareTradeOrder[]>([]);
@@ -192,6 +193,14 @@ export const AdminSharesPage: React.FC = () => {
                     <span className="text-[11px] text-slate-500 font-medium block">Capitalización disponible</span>
                 </div>
             </div>
+
+            {/* Gráfica de Curvas de Crecimiento */}
+            <ShareGrowthChart
+                priceHistory={priceHistory}
+                issuances={issuances}
+                currentPrice={currentPrice}
+                currentAvailableShares={currentAvailableShares}
+            />
 
             {/* Navigation Tabs */}
             <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
