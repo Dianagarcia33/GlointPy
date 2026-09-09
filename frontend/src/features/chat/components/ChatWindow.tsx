@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Send, 
   Circle, 
@@ -20,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
 import { chatService, ChatRoom, ChatMessage } from '../../../services/chatService';
 import { getMediaUrl } from '../../../services/api';
+import { formatChatTime } from '../../../utils/format';
 
 interface ChatWindowProps {
   room: ChatRoom | null;
@@ -387,12 +389,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                     )}
 
                     <div className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${isMe ? 'text-amber-100' : 'text-slate-400'}`}>
-                      <span>
-                        {new Date(msg.created_at).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
+                      <span>{formatChatTime(msg.created_at)}</span>
                       {isMe && (
                         msg.is_read ? <CheckCheck className="w-3.5 h-3.5 text-amber-200" /> : <Check className="w-3.5 h-3.5 opacity-80" />
                       )}
@@ -532,8 +529,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
       </div>
 
       {/* Modal Visor de Imagen Completa */}
-      {activeImageModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setActiveImageModal(null)}>
+      {activeImageModal && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150" 
+          style={{ margin: 0 }}
+          onClick={() => setActiveImageModal(null)}
+        >
           <div className="relative max-w-4xl w-full max-h-[90vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
             <img src={activeImageModal} alt="Vista completa" className="max-h-[85vh] max-w-full object-contain rounded-2xl shadow-2xl border border-white/10" />
             <button
@@ -543,13 +544,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
               <X className="w-6 h-6" />
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal / Panel de Miembros del Grupo */}
-      {showMembersModal && isGroup && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setShowMembersModal(false)}>
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-fade-in" onClick={(e) => e.stopPropagation()}>
+      {showMembersModal && isGroup && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150" 
+          style={{ margin: 0 }}
+          onClick={() => setShowMembersModal(false)}
+        >
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-brand-600" />
@@ -587,7 +593,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

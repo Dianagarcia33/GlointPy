@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Dict, Set, List, Optional
 from fastapi import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,15 @@ from src.models.chat import ChatRoom, ChatParticipant, ChatMessage
 from src.models.user import User
 
 logger = logging.getLogger(__name__)
+
+def _format_datetime_utc(dt: Optional[datetime]) -> Optional[str]:
+    """Serializa un datetime en formato ISO-8601 asegurando el sufijo UTC 'Z'."""
+    if not dt:
+        return None
+    iso = dt.isoformat()
+    if dt.tzinfo is None and not iso.endswith("Z"):
+        return iso + "Z"
+    return iso
 
 class ConnectionManager:
     """Gestiona conexiones activas de WebSockets por sala de chat y por usuario."""
@@ -237,7 +247,7 @@ class ChatService:
                     "file_url": getattr(last_msg, "file_url", None),
                     "file_name": getattr(last_msg, "file_name", None),
                     "file_type": getattr(last_msg, "file_type", None),
-                    "created_at": last_msg.created_at.isoformat() if last_msg.created_at else None,
+                    "created_at": _format_datetime_utc(last_msg.created_at),
                     "is_read": last_msg.is_read
                 } if last_msg else None
             })
@@ -288,7 +298,7 @@ class ChatService:
                     "file_type": getattr(m.reply_to, "file_type", None)
                 } if m.reply_to else None,
                 "is_read": m.is_read,
-                "created_at": m.created_at.isoformat() if m.created_at else None
+                "created_at": _format_datetime_utc(m.created_at)
             }
             for m in messages
         ]
@@ -354,8 +364,7 @@ class ChatService:
                     "file_type": getattr(quoted, "file_type", None)
                 }
 
-        from datetime import datetime
-        created_at_val = msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat()
+        created_at_val = _format_datetime_utc(msg.created_at) if msg.created_at else datetime.now(timezone.utc).isoformat()
 
         payload = {
             "type": "new_message",

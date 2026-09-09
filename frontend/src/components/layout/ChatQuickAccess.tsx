@@ -3,6 +3,7 @@ import { MessageSquare, ArrowRight, Loader2, UserCheck, MessageCircle } from 'lu
 import { useNavigate } from 'react-router-dom';
 import { fetchApi } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { formatChatTime } from '../../utils/format';
 
 interface ChatQuickAccessProps {
   isDark?: boolean;
@@ -174,7 +175,7 @@ export const ChatQuickAccess: React.FC<ChatQuickAccessProps> = ({ isDark = false
                         </p>
                         {room.last_message?.created_at && (
                           <span className="text-[10px] text-slate-400 font-medium">
-                            {new Date(room.last_message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {formatChatTime(room.last_message.created_at)}
                           </span>
                         )}
                       </div>

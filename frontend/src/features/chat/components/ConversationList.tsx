@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MessageSquare, UserPlus, Search, Circle, Users } from 'lucide-react';
 import { ChatRoom, ChatUser } from '../../../services/chatService';
+import { formatChatTime } from '../../../utils/format';
 
 interface ConversationListProps {
   rooms: ChatRoom[];
@@ -104,10 +105,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     </div>
                     {room.last_message?.created_at && (
                       <span className="text-[10px] text-slate-400 ml-1 flex-shrink-0">
-                        {new Date(room.last_message.created_at).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {formatChatTime(room.last_message.created_at)}
                       </span>
                     )}
                   </div>

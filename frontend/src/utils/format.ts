@@ -70,6 +70,33 @@ export const formatColombiaDate = (dateStr: string | Date | null | undefined): s
     return d.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
+/**
+ * Formatea la hora de un mensaje del chat a la hora local del usuario,
+ * asegurando que si la fecha viene en UTC sin sufijo 'Z' (comportamiento habitual de MySQL/backend),
+ * sea interpretada como UTC y convertida correctamente a la zona horaria local.
+ */
+export const formatChatTime = (dateStr?: string | Date | null): string => {
+    if (!dateStr) return '';
+    let d: Date;
+    if (typeof dateStr === 'string') {
+        const clean = dateStr.trim();
+        if (!clean.includes('Z') && !clean.includes('+') && clean.includes('T')) {
+            d = new Date(clean + 'Z');
+        } else {
+            d = new Date(clean);
+        }
+    } else {
+        d = dateStr;
+    }
+
+    if (isNaN(d.getTime())) return '';
+
+    return d.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
 export const TRANSACTION_TYPE_TRANSLATIONS: Record<string, string> = {
     'yield_payout': 'Pago de Rendimientos',
     'yield payout': 'Pago de Rendimientos',
