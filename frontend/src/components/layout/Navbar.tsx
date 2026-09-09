@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
 import { NotificationBell } from './NotificationBell';
 import { ChatQuickAccess } from './ChatQuickAccess';
+import { NavbarModuleSearch } from './NavbarModuleSearch';
 import { Can } from '../security/Can';
 
 const logo = "/logo.png";
@@ -157,7 +158,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                 CONTACTO
               </Link>
             </div>
-          )}
+          ) : isAuthenticated ? (
+            <div className="hidden md:flex items-center justify-center z-20 absolute left-1/2 transform -translate-x-1/2 w-full max-w-xs lg:max-w-sm">
+              <NavbarModuleSearch isDark={isDashboard || !isSolid} />
+            </div>
+          ) : null}
 
           {/* Actions */}
           <div className="hidden md:flex items-center space-x-4 z-20">
@@ -259,6 +264,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-2 z-20">
+            {isAuthenticated && (
+              <NavbarModuleSearch isDark={isDashboard || !isSolid} />
+            )}
+
             {isDashboard && onToggleMobileSidebar && (
               <button
                 type="button"
