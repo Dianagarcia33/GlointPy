@@ -38,73 +38,127 @@ export const ShareGrowthChart: React.FC<ShareGrowthChartProps> = ({
             notes?: string;
         }> = [];
 
-        // 1. Si hay historial en la bitácora
-        if (priceHistory && priceHistory.length > 0) {
-            const sorted = [...priceHistory].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        // 1. Si tenemos emisiones registradas (las emisiones creadas por el admin)
+        if (issuances && issuances.length > 0) {
+            // Ordenar de la más antigua a la más reciente
+            const sortedIss = [...issuances].sort((a, b) => {
+                const timeDiff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                return timeDiff !== 0 ? timeDiff : a.id - b.id;
+            });
 
-            // Punto base previo si hubo cambio respecto al anterior
-            if (sorted.length === 1 && sorted[0].previous_price && sorted[0].previous_price !== sorted[0].new_price) {
+            // Verificar si hay fechas en el mismo día para dar un formato de fecha claro
+            const sameDayFormat = sortedIss.length > 1 && sortedIss.every(
+                i => new Date(i.created_at).toDateString() === new Date(sortedIss[0].created_at).toDateString()
+            );
+
+            let accumulatedShares = 0;
+            sortedIss.forEach((iss, idx) => {
+                const d = new Date(iss.created_at);
+                accumulatedShares += (iss.total_shares_issued || iss.available_shares || 0);
+                const prevPrice = idx > 0 ? sortedIss[idx - 1].price_per_share : iss.price_per_share;
+                const changePct = idx > 0 && prevPrice > 0 
+                    ? ((iss.price_per_share - prevPrice) / prevPrice) * 100 
+                    : 0;
+
+                const dayStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+                const timeStr = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+
                 points.push({
-                    label: 'Base Inicial',
+                    label: `Emisión #${iss.id}${iss.title ? `: ${iss.title}` : ''}`,
+                    date: sameDayFormat ? `E#${iss.id} (${timeStr})` : dayStr,
+                    fullDate: `${dayStr}, ${timeStr}`,
+                    price: iss.price_per_share,
+                    shares: accumulatedShares,
+                    changePct: Math.round(changePct * 10) / 10,
+                    notes: iss.description || iss.title
+                });
+            });
+
+            // Si solo hay 1 emisión registrada
+            if (points.length === 1) {
+                // Verificar si en priceHistory hay un precio anterior registrado válido
+                const validOlderHistory = priceHistory?.find(
+                    h => h.previous_price && Number(h.previous_price) > 0 && Number(h.previous_price) !== points[0].price
+                );
+
+                if (validOlderHistory) {
+                    const prevPrice = Number(validOlderHistory.previous_price);
+                    const diffPct = ((points[0].price - prevPrice) / prevPrice) * 100;
+                    points.unshift({
+                        label: 'Valor Previo Registrado',
+                        date: 'Inicio',
+                        fullDate: 'Precio anterior de partida',
+                        price: prevPrice,
+                        shares: Number(validOlderHistory.previous_available_shares || 0),
+                        changePct: 0,
+                        notes: 'Punto de partida anterior'
+                    });
+                    points[1].changePct = Math.round(diffPct * 10) / 10;
+                } else {
+                    // Si no hay precio anterior, mantenemos el valor real registrado sin inventar reducciones artificiales
+                    points.unshift({
+                        label: `${points[0].label} (Inicio)`,
+                        date: 'Inicio',
+                        fullDate: 'Inicio de la emisión',
+                        price: points[0].price,
+                        shares: points[0].shares,
+                        changePct: 0,
+                        notes: 'Valor inicial de la emisión'
+                    });
+                }
+            }
+        }
+        // 2. Si no hay emisiones pero hay registros en la bitácora de auditoría
+        else if (priceHistory && priceHistory.length > 0) {
+            const sortedHist = [...priceHistory].sort((a, b) => {
+                const timeDiff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                return timeDiff !== 0 ? timeDiff : a.id - b.id;
+            });
+
+            const sameDayFormat = sortedHist.length > 1 && sortedHist.every(
+                h => new Date(h.created_at).toDateString() === new Date(sortedHist[0].created_at).toDateString()
+            );
+
+            // Si solo hay un registro pero tenía previous_price distinto
+            if (sortedHist.length === 1 && sortedHist[0].previous_price && Number(sortedHist[0].previous_price) > 0 && Number(sortedHist[0].previous_price) !== Number(sortedHist[0].new_price)) {
+                points.push({
+                    label: 'Valor Previo',
                     date: 'Inicio',
-                    fullDate: 'Valor Base Inicial',
-                    price: sorted[0].previous_price,
-                    shares: sorted[0].previous_available_shares || 0,
+                    fullDate: 'Valor base inicial',
+                    price: Number(sortedHist[0].previous_price),
+                    shares: Number(sortedHist[0].previous_available_shares || 0),
                     changePct: 0,
                     notes: 'Punto de partida previo'
                 });
             }
 
-            sorted.forEach((item) => {
+            sortedHist.forEach((item) => {
                 const d = new Date(item.created_at);
+                const dayStr = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+                const timeStr = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+
                 points.push({
                     label: `Reg #${item.id}`,
-                    date: d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }),
-                    fullDate: d.toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
-                    price: item.new_price,
-                    shares: item.new_available_shares ?? 0,
-                    changePct: item.change_percentage,
+                    date: sameDayFormat ? `Reg #${item.id} (${timeStr})` : dayStr,
+                    fullDate: `${dayStr}, ${timeStr}`,
+                    price: Number(item.new_price),
+                    shares: Number(item.new_available_shares ?? 0),
+                    changePct: Number(item.change_percentage),
                     notes: item.justification_notes
                 });
             });
-        } 
-        // 2. Si no hay historial pero hay emisiones
-        else if (issuances && issuances.length > 0) {
-            const sorted = [...issuances].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-            let runningShares = 0;
 
-            sorted.forEach((iss, idx) => {
-                const d = new Date(iss.created_at);
-                runningShares += iss.available_shares;
-                const prevPrice = idx > 0 ? sorted[idx - 1].price_per_share : iss.price_per_share;
-                const changePct = prevPrice > 0 ? ((iss.price_per_share - prevPrice) / prevPrice) * 100 : 0;
-
-                points.push({
-                    label: `Emisión #${iss.id}`,
-                    date: d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }),
-                    fullDate: d.toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
-                    price: iss.price_per_share,
-                    shares: runningShares,
-                    changePct: Math.round(changePct * 100) / 100,
-                    notes: iss.title
+            if (points.length === 1) {
+                points.unshift({
+                    label: `${points[0].label} (Inicio)`,
+                    date: 'Inicio',
+                    fullDate: 'Registro inicial',
+                    price: points[0].price,
+                    shares: points[0].shares,
+                    changePct: 0,
+                    notes: 'Punto de partida'
                 });
-            });
-        }
-
-        // Si solo tenemos 1 punto registrado, creamos un punto de partida inicial suave
-        // para que la curva muestre el crecimiento visualmente desde la base
-        if (points.length === 1) {
-            const single = points[0];
-            const basePrice = Math.max(1, Math.round(single.price * 0.7)); // 30% menor como base visual
-            points.unshift({
-                label: 'Base Previa',
-                date: 'Inicio',
-                fullDate: 'Punto de partida',
-                price: basePrice,
-                shares: 0,
-                changePct: 0,
-                notes: 'Valor de referencia inicial'
-            });
+            }
         }
 
         return points;
@@ -131,8 +185,8 @@ export const ShareGrowthChart: React.FC<ShareGrowthChartProps> = ({
 
     const formatShortAxis = (val: number) => {
         if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
-        if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
-        return `$${val}`;
+        if (val >= 100000) return `$${(val / 1000).toFixed(0)}K`;
+        return `$${val.toLocaleString('es-CO')}`;
     };
 
     const CustomTooltip = ({ active, payload }: any) => {
@@ -147,7 +201,7 @@ export const ShareGrowthChart: React.FC<ShareGrowthChartProps> = ({
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
                         <Calendar className="w-3 h-3 text-slate-500" />
-                        {p.date}
+                        {p.fullDate}
                     </span>
                 </div>
 
@@ -283,7 +337,7 @@ export const ShareGrowthChart: React.FC<ShareGrowthChartProps> = ({
                                 />
 
                                 <YAxis 
-                                    width={75}
+                                    width={80}
                                     tickFormatter={viewMode === 'price' ? formatShortAxis : (val) => val.toLocaleString('es-CO')}
                                     tick={{ fontSize: 11, fill: '#64748B', fontWeight: 600 }}
                                     axisLine={false}

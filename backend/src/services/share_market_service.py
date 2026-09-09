@@ -564,6 +564,8 @@ class ShareMarketService:
     @staticmethod
     async def create_issuance(db: AsyncSession, admin_id: int, title: str, description: Optional[str], total_shares: int, price_per_share: float) -> ShareIssuance:
         """Crea una nueva emisión de acciones corporativas y la sincroniza con el stock y la bitácora del fondo."""
+        # 1. Obtener precio y stock ANTES de crear la nueva emisión
+        previous_price = await ShareMarketService.get_current_price(db)
         current_available_shares = await ShareMarketService.get_current_available_shares(db)
         new_total_shares = current_available_shares + total_shares
 
@@ -582,13 +584,19 @@ class ShareMarketService:
         desc_info = f" - {description}" if description else ""
         justification = f"Emisión de Acciones #{issuance.id}: '{title}'{desc_info}. Stock emitido: {total_shares} acciones a ${price_per_share:,.0f} COP."
 
-        await ShareMarketService.update_official_price(
-            db=db,
-            new_price=price_per_share,
+        diff = price_per_share - previous_price
+        pct = (diff / previous_price * 100) if previous_price > 0 else 0.0
+
+        history = SharePriceHistory(
+            previous_price=Decimal(str(previous_price)),
+            new_price=Decimal(str(price_per_share)),
+            change_percentage=Decimal(str(round(pct, 2))),
+            previous_available_shares=current_available_shares,
+            new_available_shares=new_total_shares,
             justification_notes=justification,
-            admin_id=admin_id,
-            available_shares=new_total_shares
+            admin_id=admin_id
         )
+        db.add(history)
 
         await db.commit()
         await db.refresh(issuance)
