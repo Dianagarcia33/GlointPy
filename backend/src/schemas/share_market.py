@@ -2,16 +2,19 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
-# --- Esquemas de Valoración ---
+# --- Esquemas de Valoración & Creación de Acciones ---
 class SharePriceUpdate(BaseModel):
-    new_price: float = Field(..., gt=0, description="Nuevo precio oficial de la acción")
-    justification_notes: str = Field(..., min_length=5, description="Motivo / justificación obligatoria del cambio de precio")
+    new_price: float = Field(..., gt=0, description="Precio de la acción en COP")
+    available_shares: Optional[int] = Field(None, ge=0, description="Cantidad de acciones disponibles")
+    justification_notes: str = Field(..., min_length=5, description="Motivo / justificación obligatoria para la trazabilidad")
 
 class SharePriceHistoryOut(BaseModel):
     id: int
     previous_price: float
     new_price: float
     change_percentage: float
+    previous_available_shares: int = 0
+    new_available_shares: int = 0
     justification_notes: str
     admin_id: Optional[int] = None
     admin_name: Optional[str] = None

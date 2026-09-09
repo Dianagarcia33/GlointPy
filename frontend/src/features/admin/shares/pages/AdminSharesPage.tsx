@@ -25,8 +25,9 @@ export const AdminSharesPage: React.FC = () => {
     const [issuances, setIssuances] = useState<ShareIssuance[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Formulario de Valoración
+    // Formulario de Valoración y Cantidad Disponible
     const [newPrice, setNewPrice] = useState<number | ''>('');
+    const [newAvailableShares, setNewAvailableShares] = useState<number | ''>('');
     const [justificationNotes, setJustificationNotes] = useState<string>('');
     const [priceLoading, setPriceLoading] = useState(false);
     const [priceSuccess, setPriceSuccess] = useState(false);
@@ -46,7 +47,7 @@ export const AdminSharesPage: React.FC = () => {
     const [decisionNotes, setDecisionNotes] = useState('');
     const [decisionLoading, setDecisionLoading] = useState(false);
 
-    const [activeTab, setActiveTab] = useState<'pending' | 'valuation' | 'issuances' | 'audit'>('pending');
+    const [activeTab, setActiveTab] = useState<'pending' | 'valuation' | 'issuances' | 'audit'>('valuation');
 
     const fetchData = async () => {
         try {
@@ -73,6 +74,7 @@ export const AdminSharesPage: React.FC = () => {
     }, []);
 
     const currentPrice = priceHistory[0]?.new_price || 50000;
+    const currentAvailableShares = priceHistory[0]?.new_available_shares ?? 0;
 
     const handleUpdatePrice = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -84,20 +86,30 @@ export const AdminSharesPage: React.FC = () => {
             return;
         }
 
+        if (newAvailableShares === '' || Number(newAvailableShares) < 0) {
+            setPriceError("Ingresa la cantidad de acciones disponibles (0 o más).");
+            return;
+        }
+
         if (!justificationNotes || justificationNotes.trim().length < 5) {
-            setPriceError("Es obligatorio ingresar un motivo o justificación detallada para el cambio de precio.");
+            setPriceError("Es obligatorio ingresar un motivo o justificación detallada para el cambio.");
             return;
         }
 
         try {
             setPriceLoading(true);
-            await shareMarketService.updateOfficialPrice(Number(newPrice), justificationNotes);
+            await shareMarketService.updateOfficialPrice(
+                Number(newPrice), 
+                justificationNotes, 
+                Number(newAvailableShares)
+            );
             setPriceSuccess(true);
             setNewPrice('');
+            setNewAvailableShares('');
             setJustificationNotes('');
             await fetchData();
         } catch (err: any) {
-            setPriceError(err.message || "Error al actualizar el precio.");
+            setPriceError(err.message || "Error al actualizar los parámetros de acciones.");
         } finally {
             setPriceLoading(false);
         }
@@ -195,7 +207,23 @@ export const AdminSharesPage: React.FC = () => {
                     <span className="text-2xl font-black text-emerald-600 font-mono block">
                         ${currentPrice.toLocaleString('es-CO')} COP
                     </span>
-                    <span className="text-[11px] text-slate-500 font-medium block">Valoración de referencia</span>
+                    <span className="text-[11px] text-slate-500 font-medium block">Valor por acción Gloint</span>
+                </div>
+
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Acciones Disponibles</span>
+                    <span className="text-2xl font-black text-brand-600 font-mono block">
+                        {currentAvailableShares.toLocaleString('es-CO')} Unds
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-medium block">Stock disponible del fondo</span>
+                </div>
+
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Valor Total en Stock</span>
+                    <span className="text-2xl font-black text-indigo-600 font-mono block">
+                        ${(currentPrice * currentAvailableShares).toLocaleString('es-CO')} COP
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-medium block">Capitalización disponible</span>
                 </div>
 
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
@@ -205,26 +233,18 @@ export const AdminSharesPage: React.FC = () => {
                     </span>
                     <span className="text-[11px] text-slate-500 font-medium block">Por verificar comprobante</span>
                 </div>
-
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Operaciones</span>
-                    <span className="text-2xl font-black text-slate-900 font-mono block">
-                        {allOrders.length}
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-medium block">Compras y transferencias</span>
-                </div>
-
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Emisiones Corporativas</span>
-                    <span className="text-2xl font-black text-brand-600 font-mono block">
-                        {issuances.length}
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-medium block">Lotes de títulos activos</span>
-                </div>
             </div>
 
             {/* Navigation Tabs */}
             <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
+                <button
+                    onClick={() => setActiveTab('valuation')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                        activeTab === 'valuation' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                >
+                    Precio & Acciones Disponibles (Bitácora)
+                </button>
                 <button
                     onClick={() => setActiveTab('pending')}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
@@ -232,14 +252,6 @@ export const AdminSharesPage: React.FC = () => {
                     }`}
                 >
                     Aprobación de Excedentes ({pendingOrders.length})
-                </button>
-                <button
-                    onClick={() => setActiveTab('valuation')}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
-                        activeTab === 'valuation' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                >
-                    Valoración & Justificación Obligatoria
                 </button>
                 <button
                     onClick={() => setActiveTab('issuances')}
@@ -361,7 +373,7 @@ export const AdminSharesPage: React.FC = () => {
                 </div>
             )}
 
-            {/* TAB CONTENT: VALORACIÓN & JUSTIFICACIÓN OBLIGATORIA */}
+            {/* TAB CONTENT: VALORACIÓN & CONFIGURACIÓN DE ACCIONES */}
             {activeTab === 'valuation' && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     
@@ -372,15 +384,15 @@ export const AdminSharesPage: React.FC = () => {
                                 <DollarSign className="w-5 h-5" />
                             </div>
                             <div>
-                                <h3 className="text-base font-black text-slate-900 font-montserrat">Actualizar Valor Oficial de la Acción</h3>
-                                <p className="text-xs text-slate-500 font-medium">Define el precio de referencia en la plataforma</p>
+                                <h3 className="text-base font-black text-slate-900 font-montserrat">Configurar Acciones del Fondo</h3>
+                                <p className="text-xs text-slate-500 font-medium">Define el precio y la cantidad de acciones disponibles con trazabilidad</p>
                             </div>
                         </div>
 
                         {priceSuccess && (
                             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center gap-2">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                                <span>¡Precio oficial actualizado exitosamente y registrado en la bitácora!</span>
+                                <span>¡Parámetros actualizados exitosamente y registrados en la bitácora de auditoría!</span>
                             </div>
                         )}
 
@@ -394,7 +406,7 @@ export const AdminSharesPage: React.FC = () => {
                         <form onSubmit={handleUpdatePrice} className="space-y-4">
                             <div>
                                 <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                                    Nuevo Precio por Acción ($ COP) <span className="text-rose-500">*</span>
+                                    Precio Oficial por Acción ($ COP) <span className="text-rose-500">*</span>
                                 </label>
                                 <input
                                     type="number"
@@ -403,6 +415,21 @@ export const AdminSharesPage: React.FC = () => {
                                     onChange={(e) => setNewPrice(parseFloat(e.target.value) || '')}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono"
                                     placeholder={`Precio actual: $${currentPrice.toLocaleString('es-CO')} COP`}
+                                    required
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                                    Cantidad de Acciones Disponibles (Unds) <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={newAvailableShares}
+                                    onChange={(e) => setNewAvailableShares(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono"
+                                    placeholder={`Stock actual: ${currentAvailableShares.toLocaleString('es-CO')} Unds`}
                                     required
                                 />
                             </div>
@@ -419,17 +446,17 @@ export const AdminSharesPage: React.FC = () => {
                                     value={justificationNotes}
                                     onChange={(e) => setJustificationNotes(e.target.value)}
                                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-medium focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-xs"
-                                    placeholder="Explica detalladamente la razón financiera, balance corporativo o revalorización de la empresa para este cambio de precio..."
+                                    placeholder="Explica la razón corporativa, balance financiero o actualización del inventario para dejar constancia en la bitácora..."
                                     required
                                 />
                             </div>
 
                             <button
                                 type="submit"
-                                disabled={priceLoading || !newPrice || !justificationNotes.trim()}
-                                className="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 font-montserrat"
+                                disabled={priceLoading || !newPrice || newAvailableShares === '' || !justificationNotes.trim()}
+                                className="w-full py-3.5 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 font-montserrat"
                             >
-                                {priceLoading ? "Guardando en Bitácora..." : "Actualizar y Registrar en Auditoría"}
+                                {priceLoading ? "Guardando en Bitácora..." : "Guardar y Registrar en Bitácora"}
                             </button>
                         </form>
                     </div>
@@ -438,36 +465,65 @@ export const AdminSharesPage: React.FC = () => {
                     <div className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xs">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                             <div>
-                                <h3 className="text-base font-black text-slate-900 font-montserrat">Historial de Valoraciones & Auditoría</h3>
-                                <p className="text-xs text-slate-500 font-medium">Bitácora inmutable de cambios de precio</p>
+                                <h3 className="text-base font-black text-slate-900 font-montserrat">Bitácora de Trazabilidad & Auditoría</h3>
+                                <p className="text-xs text-slate-500 font-medium">Historial inmutable de precio y cantidad de acciones disponibles</p>
                             </div>
                             <span className="text-xs font-mono text-slate-400 font-bold">{priceHistory.length} Registros</span>
                         </div>
 
-                        <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-                            {priceHistory.map((item) => (
-                                <div key={item.id} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono font-black text-slate-900 text-sm">
-                                                ${item.new_price.toLocaleString('es-CO')} COP
-                                            </span>
-                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full font-mono ${
-                                                item.change_percentage >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                                            }`}>
-                                                {item.change_percentage >= 0 ? `+${item.change_percentage}%` : `${item.change_percentage}%`}
+                        <div className="space-y-4 max-h-[550px] overflow-y-auto pr-1">
+                            {priceHistory.map((item) => {
+                                const prevShares = item.previous_available_shares ?? 0;
+                                const newShares = item.new_available_shares ?? 0;
+                                const diffShares = newShares - prevShares;
+
+                                return (
+                                    <div key={item.id} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {/* Precio */}
+                                                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                                                    <span className="text-[10px] text-slate-400 font-bold">PRECIO:</span>
+                                                    <span className="font-mono font-black text-slate-900">
+                                                        ${item.new_price.toLocaleString('es-CO')}
+                                                    </span>
+                                                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full font-mono ${
+                                                        item.change_percentage >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                                    }`}>
+                                                        {item.change_percentage >= 0 ? `+${item.change_percentage}%` : `${item.change_percentage}%`}
+                                                    </span>
+                                                </div>
+
+                                                {/* Stock de Acciones */}
+                                                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                                                    <span className="text-[10px] text-slate-400 font-bold">STOCK:</span>
+                                                    <span className="font-mono font-black text-brand-600">
+                                                        {newShares.toLocaleString('es-CO')} Unds
+                                                    </span>
+                                                    {diffShares !== 0 && (
+                                                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full font-mono ${
+                                                            diffShares > 0 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                        }`}>
+                                                            {diffShares > 0 ? `+${diffShares}` : `${diffShares}`}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <span className="text-[11px] text-slate-400 font-mono">
+                                                {new Date(item.created_at).toLocaleString('es-CO')}
                                             </span>
                                         </div>
-                                        <span className="text-[11px] text-slate-400 font-mono">
-                                            {new Date(item.created_at).toLocaleString('es-CO')}
-                                        </span>
+
+                                        <div className="text-xs bg-white p-3 rounded-xl border border-slate-200 text-slate-700 font-medium">
+                                            <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
+                                                Admin responsable: {item.admin_name || 'Administrador'}
+                                            </span>
+                                            "{item.justification_notes}"
+                                        </div>
                                     </div>
-                                    <div className="text-xs bg-white p-3 rounded-xl border border-slate-200 text-slate-700 font-medium">
-                                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Admin: {item.admin_name}</span>
-                                        "{item.justification_notes}"
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 

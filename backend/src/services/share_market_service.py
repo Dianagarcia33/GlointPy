@@ -35,22 +35,47 @@ class ShareMarketService:
         return 50000.0  # Valor base inicial en COP
 
     @staticmethod
-    async def update_official_price(db: AsyncSession, new_price: float, justification_notes: str, admin_id: int) -> SharePriceHistory:
-        """Actualiza el precio oficial de la acción con nota/justificación obligatoria."""
+    async def get_current_available_shares(db: AsyncSession) -> int:
+        """Obtiene la cantidad actual de acciones disponibles definida por el admin."""
+        result = await db.execute(
+            select(SharePriceHistory)
+            .order_by(SharePriceHistory.id.desc())
+            .limit(1)
+        )
+        latest = result.scalar_one_or_none()
+        if latest and getattr(latest, 'new_available_shares', None) is not None:
+            return int(latest.new_available_shares)
+        return 0
+
+    @staticmethod
+    async def update_official_price(
+        db: AsyncSession, 
+        new_price: float, 
+        justification_notes: str, 
+        admin_id: int,
+        available_shares: Optional[int] = None
+    ) -> SharePriceHistory:
+        """Actualiza el precio oficial y la cantidad de acciones disponibles con trazabilidad obligatoria."""
         if not justification_notes or not justification_notes.strip() or len(justification_notes.strip()) < 5:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Es obligatorio ingresar un motivo o justificación detallada para cambiar el valor de la acción."
+                detail="Es obligatorio ingresar un motivo o justificación detallada para registrar el cambio en la bitácora."
             )
 
         current_price = await ShareMarketService.get_current_price(db)
+        current_available_shares = await ShareMarketService.get_current_available_shares(db)
+        
         diff = new_price - current_price
         pct = (diff / current_price * 100) if current_price > 0 else 0.0
+
+        new_shares = available_shares if available_shares is not None else current_available_shares
 
         history = SharePriceHistory(
             previous_price=Decimal(str(current_price)),
             new_price=Decimal(str(new_price)),
             change_percentage=Decimal(str(round(pct, 2))),
+            previous_available_shares=current_available_shares,
+            new_available_shares=new_shares,
             justification_notes=justification_notes.strip(),
             admin_id=admin_id
         )
@@ -61,7 +86,7 @@ class ShareMarketService:
 
     @staticmethod
     async def get_price_history(db: AsyncSession) -> List[dict]:
-        """Obtiene la bitácora histórica completa de variaciones de precio y notas."""
+        """Obtiene la bitácora histórica completa de variaciones de precio, cantidad disponible y notas."""
         result = await db.execute(
             select(SharePriceHistory)
             .options(selectinload(SharePriceHistory.admin))
@@ -74,6 +99,8 @@ class ShareMarketService:
                 "previous_price": float(r.previous_price),
                 "new_price": float(r.new_price),
                 "change_percentage": float(r.change_percentage),
+                "previous_available_shares": int(getattr(r, 'previous_available_shares', 0) or 0),
+                "new_available_shares": int(getattr(r, 'new_available_shares', 0) or 0),
                 "justification_notes": r.justification_notes,
                 "admin_id": r.admin_id,
                 "admin_name": r.admin.name if r.admin else "Administrador",

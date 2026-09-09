@@ -186,6 +186,14 @@ async def on_startup():
                         INDEX idx_sph_created (created_at)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
+                try:
+                    await conn.execute(text("ALTER TABLE share_price_history ADD COLUMN previous_available_shares INT NOT NULL DEFAULT 0"))
+                except Exception:
+                    pass
+                try:
+                    await conn.execute(text("ALTER TABLE share_price_history ADD COLUMN new_available_shares INT NOT NULL DEFAULT 0"))
+                except Exception:
+                    pass
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS share_issuances (
                         id BIGINT AUTO_INCREMENT PRIMARY KEY,

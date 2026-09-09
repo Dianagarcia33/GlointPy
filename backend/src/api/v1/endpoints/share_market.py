@@ -141,18 +141,21 @@ async def update_official_share_price(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Actualiza el precio oficial de la acción. Requiere obligatoriamente motivo/justificación."""
+    """Actualiza el precio oficial y la cantidad de acciones disponibles. Requiere obligatoriamente motivo/justificación."""
     record = await ShareMarketService.update_official_price(
         db=db,
         new_price=payload.new_price,
         justification_notes=payload.justification_notes,
-        admin_id=current_user.id
+        admin_id=current_user.id,
+        available_shares=payload.available_shares
     )
     return {
         "id": record.id,
         "previous_price": float(record.previous_price),
         "new_price": float(record.new_price),
         "change_percentage": float(record.change_percentage),
+        "previous_available_shares": record.previous_available_shares,
+        "new_available_shares": record.new_available_shares,
         "justification_notes": record.justification_notes,
         "admin_id": record.admin_id,
         "admin_name": current_user.name,

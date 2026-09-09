@@ -16,6 +16,8 @@ export interface SharePriceHistory {
     previous_price: number;
     new_price: number;
     change_percentage: number;
+    previous_available_shares?: number;
+    new_available_shares?: number;
     justification_notes: string;
     admin_id?: number;
     admin_name?: string;
@@ -117,11 +119,12 @@ export const shareMarketService = {
     getMyOrders: () => fetchApi<ShareTradeOrder[]>('/shares-market/my-orders'),
 
     // Administrador
-    updateOfficialPrice: (newPrice: number, justificationNotes: string) =>
+    updateOfficialPrice: (newPrice: number, justificationNotes: string, availableShares?: number) =>
         fetchApi<SharePriceHistory>('/shares-market/admin/price', {
             method: 'POST',
             body: JSON.stringify({
                 new_price: newPrice,
+                available_shares: availableShares,
                 justification_notes: justificationNotes
             })
         }),
