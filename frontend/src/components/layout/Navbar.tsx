@@ -98,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
           </div>
 
           {/* Desktop Nav - Oculto si está en el Dashboard */}
-          {!isDashboard && (
+          {!isDashboard ? (
             <div className="hidden md:flex items-center justify-center space-x-8 z-20 absolute left-1/2 transform -translate-x-1/2">
               <Link to="/" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
                 INICIO
