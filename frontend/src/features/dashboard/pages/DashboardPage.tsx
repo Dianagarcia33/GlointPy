@@ -13,6 +13,7 @@ import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
 import { DirectorDashboardView } from '../components/DirectorDashboardView';
 import { RankingsClubModal } from '../../investments/components/RankingsClubModal';
+import { DashboardEventWidget } from '../../events/components/DashboardEventWidget';
 
 /* SKELETON LOADERS */
 const AdminDashboardSkeleton = () => (
@@ -241,6 +242,9 @@ export const DashboardPage = () => {
     return (
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
+            {/* Widget Oficial de Evento Gloint Power Tech */}
+            <DashboardEventWidget />
+
             {/* VISTA DIRECTIVO DE INVERSIONES SOLO */}
             {isDirectorOnly ? (
                 <DirectorDashboardView />

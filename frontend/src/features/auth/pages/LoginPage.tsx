@@ -5,6 +5,7 @@ import { fetchApi } from '../../../services/api';
 import { useAuthStore } from '../../../store/authStore';
 import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
+import { LoginEventBanner } from '../components/LoginEventBanner';
 
 export const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -17,6 +18,14 @@ export const LoginPage = () => {
     useEffect(() => {
         window.scrollTo(0, 0);
     }, []);
+
+    const handleInvestorBannerClick = () => {
+        sessionStorage.setItem('gloint_open_rsvp', 'true');
+        const emailInput = document.getElementById('email');
+        if (emailInput) {
+            emailInput.focus();
+        }
+    };
 
     const loginMutation = useMutation({
         mutationFn: async (credentials: any) => {
@@ -68,6 +77,8 @@ export const LoginPage = () => {
             title="Iniciar Sesión" 
             subtitle="Accede a tu cuenta en el ecosistema GLOINT y descubre nuevas oportunidades para tu negocio."
             icon={<LockKeyhole className="w-7 h-7" />}
+            maxWidthClass="max-w-xl"
+            topBanner={<LoginEventBanner onInvestorClick={handleInvestorBannerClick} />}
         >
             <form onSubmit={handleSubmit} method="post" className="space-y-5">
                 <div>

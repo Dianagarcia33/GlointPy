@@ -5,6 +5,7 @@ import { Unidades } from '../components/Unidades';
 import { InvestmentSection } from '../components/InvestmentSection';
 import { PlaceSection } from '../components/PlaceSection';
 import { TechSection } from '../components/TechSection';
+import { EventRegistrationSection } from '../components/EventRegistrationSection';
 import { WhyGloint } from '../components/WhyGloint';
 import { Stats } from '../components/Stats';
 import { Aliados } from '../components/Aliados';
@@ -19,6 +20,7 @@ export function LandingHome() {
       <InvestmentSection />
       <PlaceSection />
       <TechSection />
+      <EventRegistrationSection />
       <WhyGloint />
       <Stats />
       <Aliados />

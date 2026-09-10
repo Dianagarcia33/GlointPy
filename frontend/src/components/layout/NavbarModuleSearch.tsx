@@ -26,6 +26,7 @@ import {
   Settings,
   FileText,
   Send,
+  Sparkles,
   ArrowRight,
   CornerDownLeft,
   Command
@@ -317,6 +318,16 @@ const MODULES_CATALOG: ModuleItem[] = [
     icon: Send,
     permissions: ['admin.notifications.manage', 'admin.roles.manage'],
     keywords: ['notificaciones push admin', 'comunicados', 'avisos masivos', 'broadcast', 'mensajes globales']
+  },
+  {
+    id: 'admin-events',
+    title: 'Evento Gloint Power Tech',
+    description: 'Gestión del evento oficial, aforos presenciales y lista de asistentes confirmados',
+    path: '/dashboard/events',
+    category: 'Administración',
+    icon: Sparkles,
+    permissions: ['admin.events.manage', 'admin.roles.manage'],
+    keywords: ['evento', 'gloint power tech', 'asistentes', 'rsvp', 'aforo', 'presencial', 'invitados', 'conferencia']
   }
 ];
 

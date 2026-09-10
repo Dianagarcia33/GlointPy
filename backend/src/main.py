@@ -276,6 +276,52 @@ async def on_startup():
             except Exception as e:
                 print(f"Error creating wallet_recharges table: {e}")
 
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS events (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        title VARCHAR(255) NOT NULL,
+                        slug VARCHAR(100) NOT NULL UNIQUE,
+                        description TEXT NULL,
+                        event_date DATETIME NULL,
+                        location VARCHAR(255) NULL,
+                        virtual_url VARCHAR(500) NULL,
+                        capacity_in_person INT NOT NULL DEFAULT 100,
+                        is_active TINYINT(1) NOT NULL DEFAULT 1,
+                        banner_active TINYINT(1) NOT NULL DEFAULT 1,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_event_slug (slug)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_attendees (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        user_id BIGINT NULL,
+                        attendee_type VARCHAR(20) NOT NULL DEFAULT 'investor',
+                        full_name VARCHAR(255) NOT NULL,
+                        email VARCHAR(255) NOT NULL,
+                        phone VARCHAR(50) NULL,
+                        document_id VARCHAR(50) NULL,
+                        city VARCHAR(100) NULL,
+                        attendance_mode VARCHAR(20) NOT NULL DEFAULT 'in_person',
+                        has_companion TINYINT(1) NOT NULL DEFAULT 0,
+                        companion_name VARCHAR(255) NULL,
+                        seats_reserved INT NOT NULL DEFAULT 1,
+                        status VARCHAR(20) NOT NULL DEFAULT 'confirmed',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_ea_event (event_id),
+                        INDEX idx_ea_user (user_id),
+                        INDEX idx_ea_email (email),
+                        INDEX idx_ea_mode (attendance_mode),
+                        INDEX idx_ea_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating events tables: {e}")
+
             # Limpieza de valores nulos / escapados en referred_by
             try:
                 await conn.execute(text("UPDATE investors SET referred_by = NULL WHERE referred_by = '\\\\N' OR referred_by = '\\N' OR referred_by = 'NULL' OR referred_by = ''"))
@@ -296,6 +342,13 @@ async def on_startup():
                 print("🏆 Rangos de inversión sincronizados y asignados automáticamente.")
             except Exception as re:
                 print(f"Error syncing user ranks on startup: {re}")
+
+            try:
+                from src.services.event_service import EventService
+                await EventService.get_or_create_default_event(db)
+                print("🎟️ Evento Gloint Power Tech verificado/inicializado.")
+            except Exception as ee:
+                print(f"Error initializing default event: {ee}")
     except Exception as e:
         print(f"Error on startup database initialization/seeding: {e}")
 from fastapi.staticfiles import StaticFiles

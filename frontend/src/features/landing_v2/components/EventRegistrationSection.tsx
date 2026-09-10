@@ -1,0 +1,462 @@
+import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
+import { 
+  Sparkles, 
+  Calendar, 
+  MapPin, 
+  Clock, 
+  Users, 
+  Video, 
+  CheckCircle2, 
+  AlertCircle, 
+  Loader2, 
+  User, 
+  Mail, 
+  Phone, 
+  ArrowRight,
+  ShieldCheck
+} from "lucide-react";
+import { getActiveEvent, registerPublicAttendee, EventData } from "../../../services/events";
+import { DARK, DARK2, GOLD, ORANGE } from "../utils/constants";
+import { Badge } from "./Badge";
+
+export function EventRegistrationSection() {
+  const [eventData, setEventData] = useState<EventData | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [documentId, setDocumentId] = useState("");
+  const [attendanceMode, setAttendanceMode] = useState<"in_person" | "virtual">("in_person");
+  const [hasCompanion, setHasCompanion] = useState(false);
+  const [companionName, setCompanionName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    getActiveEvent()
+      .then((data) => {
+        setEventData(data);
+        if (data?.is_full_in_person) {
+          setAttendanceMode("virtual");
+        }
+      })
+      .catch((err) => console.warn("Error cargando evento en landing:", err));
+  }, []);
+
+  if (!eventData || !eventData.is_active) {
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!fullName.trim() || !email.trim()) {
+      setError("Por favor completa tu nombre y correo electrónico.");
+      return;
+    }
+
+    if (attendanceMode === "in_person") {
+      const seatsNeeded = hasCompanion ? 2 : 1;
+      if (eventData.available_in_person < seatsNeeded) {
+        setError(`Lo sentimos, solo quedan ${eventData.available_in_person} cupos presenciales disponibles. Te invitamos a participar en modalidad Virtual.`);
+        return;
+      }
+    }
+
+    try {
+      setSubmitting(true);
+      await registerPublicAttendee({
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        city: city.trim() || undefined,
+        document_id: documentId.trim() || undefined,
+        attendance_mode: attendanceMode,
+        has_companion: attendanceMode === "in_person" ? hasCompanion : false,
+        companion_name: (attendanceMode === "in_person" && hasCompanion) ? companionName.trim() : undefined,
+      });
+
+      setSuccess(true);
+      // Refrescar datos de cupos
+      const updated = await getActiveEvent();
+      setEventData(updated);
+    } catch (err: any) {
+      console.error("Error al registrar asistente:", err);
+      setError(err.message || "Ocurrió un error al procesar tu registro.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const formattedDate = eventData.event_date 
+    ? new Date(eventData.event_date).toLocaleDateString("es-CO", { 
+        weekday: "long", 
+        year: "numeric", 
+        month: "long", 
+        day: "numeric" 
+      })
+    : "Próximamente";
+
+  const formattedTime = eventData.event_date
+    ? new Date(eventData.event_date).toLocaleTimeString("es-CO", { 
+        hour: "2-digit", 
+        minute: "2-digit" 
+      })
+    : "18:00 COT";
+
+  return (
+    <section id="gloint-power-tech" className="py-24 relative overflow-hidden font-inter" style={{ background: DARK }}>
+      
+      {/* Glow ambiental */}
+      <div 
+        className="absolute top-1/2 -right-32 w-96 h-96 rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(234,179,8,0.12) 0%, transparent 70%)" }}
+      />
+      <div 
+        className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)" }}
+      />
+
+      <div className="max-w-6xl mx-auto px-6 relative z-10">
+        
+        <div className="grid lg:grid-cols-12 gap-12 items-center">
+          
+          {/* Columna Izquierda: Información del Evento */}
+          <div className="lg:col-span-6 space-y-6">
+            
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold font-montserrat">
+              <Sparkles size={14} className="text-amber-400" />
+              <span>Gran Lanzamiento Tecnológico</span>
+            </div>
+
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white font-montserrat tracking-tight leading-tight">
+              {eventData.title}
+            </h2>
+
+            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+              {eventData.description || "Descubre de primera mano los nuevos productos, ecosistemas digitales y tecnologías de alto impacto que transformarán el modelo de inversión y comercio en Gloint."}
+            </p>
+
+            {/* Ficha rápida */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-1">
+                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-montserrat uppercase">
+                  <Calendar size={15} />
+                  <span>Fecha</span>
+                </div>
+                <p className="text-white text-xs font-semibold capitalize">{formattedDate}</p>
+                <p className="text-slate-400 text-[11px] flex items-center gap-1">
+                  <Clock size={12} /> {formattedTime}
+                </p>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-1">
+                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-montserrat uppercase">
+                  <MapPin size={15} />
+                  <span>Ubicación</span>
+                </div>
+                <p className="text-white text-xs font-semibold">{eventData.location?.split('•')[0] || 'Auditorio Principal'}</p>
+                <p className="text-slate-400 text-[11px] truncate">{eventData.location?.split('•')[1] || 'Bogotá, Colombia'}</p>
+              </div>
+            </div>
+
+            {/* Aforo presencial monitor */}
+            <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs ${
+              eventData.is_full_in_person
+                ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+            }`}>
+              <div className="flex items-center gap-2.5 font-medium">
+                <Users size={18} className="shrink-0" />
+                <span>
+                  {eventData.is_full_in_person
+                    ? 'Aforo presencial completo. Puedes asegurar tu cupo en transmisión Virtual.'
+                    : `Quedan ${eventData.available_in_person} cupos presenciales disponibles (Aforo de ${eventData.capacity_in_person}).`}
+                </span>
+              </div>
+              {!eventData.is_full_in_person && (
+                <span className="font-bold text-emerald-300 bg-emerald-500/20 px-2.5 py-1 rounded-full border border-emerald-500/30 shrink-0 font-mono text-[11px]">
+                  {eventData.available_in_person} disponibles
+                </span>
+              )}
+            </div>
+
+            {/* Beneficios */}
+            <div className="space-y-2 pt-2 text-xs text-slate-300">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                <span>Presentación en vivo del nuevo portafolio de productos Gloint.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                <span>Espacio de networking y coctel para asistentes presenciales.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                <span>Transmisión interactiva en alta definición con sala de preguntas.</span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Columna Derecha: Formulario para No Inversionistas */}
+          <div className="lg:col-span-6">
+            
+            <div className="bg-slate-900/90 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md relative overflow-hidden">
+              
+              <div className="mb-6">
+                <span className="text-[11px] font-bold text-amber-400 font-montserrat uppercase tracking-wider block">
+                  Registro Abierto al Público
+                </span>
+                <h3 className="text-xl font-bold text-white font-montserrat mt-0.5">
+                  Confirma tu Asistencia Gratis
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Si no eres inversionista registrado, diligencia tus datos para reservar tu cupo oficial.
+                </p>
+              </div>
+
+              {success ? (
+                <div className="py-12 text-center space-y-4 animate-in zoom-in-95">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
+                    <CheckCircle2 size={32} />
+                  </div>
+                  <h4 className="text-2xl font-bold text-white font-montserrat">
+                    ¡Registro Exitoso!
+                  </h4>
+                  <p className="text-sm text-slate-300 max-w-sm mx-auto">
+                    Hemos reservado tu lugar para <strong>Gloint Power Tech</strong> en modalidad{" "}
+                    <strong className="text-amber-400 capitalize">{attendanceMode === "in_person" ? "Presencial" : "Virtual"}</strong>.
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Recibirás las instrucciones de acceso y confirmación en <strong>{email}</strong>.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSuccess(false);
+                      setFullName("");
+                      setEmail("");
+                      setPhone("");
+                      setCity("");
+                    }}
+                    className="mt-4 px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Registrar a otra persona
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  
+                  {error && (
+                    <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-start gap-2 animate-in fade-in">
+                      <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-400" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  {/* Nombre */}
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-1">
+                      Nombre Completo <span className="text-amber-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <User size={15} className="text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        required
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Ej. Juan Gómez"
+                        className="w-full pl-10 pr-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Correo y Teléfono */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-300 block mb-1">
+                        Correo Electrónico <span className="text-amber-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <Mail size={15} className="text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="nombre@correo.com"
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-300 block mb-1">
+                        WhatsApp / Teléfono
+                      </label>
+                      <div className="relative">
+                        <Phone size={15} className="text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          placeholder="Ej. 3101234567"
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ciudad y Documento */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-300 block mb-1">
+                        Ciudad
+                      </label>
+                      <input
+                        type="text"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder="Ej. Bogotá, Cali..."
+                        className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-300 block mb-1">
+                        N° Documento (Opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={documentId}
+                        onChange={(e) => setDocumentId(e.target.value)}
+                        placeholder="Cédula o ID"
+                        className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Selector de Modalidad */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                      Modalidad de Asistencia <span className="text-amber-400">*</span>
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        disabled={eventData.is_full_in_person}
+                        onClick={() => setAttendanceMode("in_person")}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          attendanceMode === "in_person"
+                            ? "bg-amber-500/20 border-amber-400 text-white"
+                            : eventData.is_full_in_person
+                              ? "bg-white/5 border-white/5 text-slate-500 opacity-50 cursor-not-allowed"
+                              : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <MapPin size={16} className={attendanceMode === "in_person" ? "text-amber-400" : "text-slate-400"} />
+                          {eventData.is_full_in_person && (
+                            <span className="text-[9px] font-bold text-rose-300 bg-rose-500/20 px-1.5 py-0.5 rounded-full">
+                              Agotado
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs font-bold font-montserrat">Presencial</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAttendanceMode("virtual");
+                          setHasCompanion(false);
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          attendanceMode === "virtual"
+                            ? "bg-amber-500/20 border-amber-400 text-white"
+                            : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <Video size={16} className={attendanceMode === "virtual" ? "text-amber-400" : "text-slate-400"} />
+                          <span className="text-[9px] font-semibold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                            Online
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold font-montserrat">Virtual</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Acompañante */}
+                  {attendanceMode === "in_person" && (
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-2 text-xs animate-in fade-in">
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hasCompanion}
+                          onChange={(e) => setHasCompanion(e.target.checked)}
+                          className="w-4 h-4 text-amber-500 rounded-md border-white/20 bg-white/10 focus:ring-amber-400 cursor-pointer"
+                        />
+                        <span className="font-semibold text-slate-200">
+                          Asistiré con un acompañante (Descuenta 2 cupos)
+                        </span>
+                      </label>
+
+                      {hasCompanion && (
+                        <input
+                          type="text"
+                          value={companionName}
+                          onChange={(e) => setCompanionName(e.target.value)}
+                          placeholder="Nombre del acompañante (Opcional)"
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-400 font-medium"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Botón de Enviar */}
+                  <button
+                    type="submit"
+                    disabled={submitting || (attendanceMode === "in_person" && eventData.is_full_in_person)}
+                    className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs font-montserrat uppercase tracking-wider transition-all shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin text-slate-950" />
+                        <span>Confirmando Reserva...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Reservar mi Lugar</span>
+                        <ArrowRight size={15} />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 pt-1">
+                    <ShieldCheck size={13} className="text-amber-400" />
+                    <span>Tu registro es 100% gratuito y seguro.</span>
+                  </div>
+
+                </form>
+              )}
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+  );
+}

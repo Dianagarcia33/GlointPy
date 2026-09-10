@@ -8,9 +8,17 @@ interface AuthLayoutProps {
   subtitle: string;
   icon?: React.ReactNode;
   maxWidthClass?: string;
+  topBanner?: React.ReactNode;
 }
 
-export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, icon, maxWidthClass = "max-w-md" }) => {
+export const AuthLayout: React.FC<AuthLayoutProps> = ({ 
+  children, 
+  title, 
+  subtitle, 
+  icon, 
+  maxWidthClass = "max-w-md",
+  topBanner
+}) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-inter relative">
       
@@ -29,9 +37,15 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
 
       <Navbar />
 
-      <main className="flex-grow flex items-center justify-center px-4 pt-10 pb-12 relative z-10">
+      <main className="flex-grow flex flex-col items-center justify-center px-4 pt-10 pb-12 relative z-10">
+        {topBanner && (
+          <div className={`w-full ${maxWidthClass} relative z-20 mt-12 mb-2`}>
+            {topBanner}
+          </div>
+        )}
+
         {/* Centered Overlapping Card */}
-        <div className={`w-full ${maxWidthClass} bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-6 sm:p-10 relative z-20 mt-12 transition-all duration-300`}>
+        <div className={`w-full ${maxWidthClass} bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 p-6 sm:p-10 relative z-20 ${topBanner ? 'mt-2' : 'mt-12'} transition-all duration-300`}>
           {/* Titles */}
           <div className="text-center mb-8">
             {icon && (

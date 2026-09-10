@@ -29,4 +29,5 @@ from src.models.investment_rank import InvestmentRank
 from src.models.external_app import ExternalApp, ExternalPaymentOrder
 from src.models.share_market import SharePriceHistory, ShareIssuance, ShareListing, ShareTradeOrder
 from src.models.wallet_recharge import WalletRecharge
+from src.models.event import Event, EventAttendee
 
