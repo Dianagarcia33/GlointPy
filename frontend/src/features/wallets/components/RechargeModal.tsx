@@ -13,6 +13,7 @@ import {
     Loader2
 } from 'lucide-react';
 import { createWalletRecharge } from '../../../services/wallets';
+import { GLOINT_BANK_INFO } from '../../../constants/contactInfo';
 
 interface RechargeModalProps {
     isOpen: boolean;
@@ -29,13 +30,7 @@ const PRESET_AMOUNTS = [
     2000000
 ];
 
-const BANK_INFO = {
-    bank: 'Bancolombia',
-    accountType: 'Cuenta de Ahorros',
-    accountNumber: '245-000124-88',
-    holder: 'Gloint S.A.S.',
-    nit: '901.554.892-1'
-};
+const BANK_INFO = GLOINT_BANK_INFO;
 
 export const RechargeModal: React.FC<RechargeModalProps> = ({
     isOpen,
@@ -209,7 +204,17 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                             <div className="grid grid-cols-2 gap-3 text-xs pt-1">
                                 <div>
                                     <span className="text-[10px] text-slate-400 block">Titular de la Cuenta:</span>
-                                    <span className="font-bold text-white block">{BANK_INFO.holder}</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="font-bold text-white block text-[11px] leading-tight break-words">{BANK_INFO.holder}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopy(BANK_INFO.holder, 'holder')}
+                                            className="text-slate-400 hover:text-emerald-400 transition-colors p-1 shrink-0"
+                                            title="Copiar Titular"
+                                        >
+                                            {copiedField === 'holder' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div>
                                     <span className="text-[10px] text-slate-400 block">NIT:</span>

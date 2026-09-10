@@ -16,3 +16,11 @@ export const CONTACT_INFO = {
     instagram: "https://www.instagram.com/gloint.oficial/?hl=es"
   }
 };
+
+export const GLOINT_BANK_INFO = {
+  bank: "Bancolombia",
+  accountType: "Cuenta de Ahorros",
+  accountNumber: "67400002873",
+  holder: "GLOINT INTERNATIONAL PARTNERS SAS",
+  nit: "901702380"
+};

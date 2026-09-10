@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, ShoppingBag, Wallet, Building2, UploadCloud, AlertCircle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { X, ShoppingBag, Wallet, Building2, UploadCloud, AlertCircle, CheckCircle2, ShieldAlert, Copy, Check } from 'lucide-react';
 import { shareMarketService, ShareListing } from '../../../services/shareMarket';
+import { GLOINT_BANK_INFO } from '../../../constants/contactInfo';
 
 interface BuySharesModalProps {
     isOpen: boolean;
@@ -22,6 +23,13 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
+
+    const handleCopy = (text: string, field: string) => {
+        navigator.clipboard.writeText(text);
+        setCopiedField(field);
+        setTimeout(() => setCopiedField(null), 2000);
+    };
 
     if (!isOpen || !listing) return null;
 
@@ -195,10 +203,41 @@ export const BuySharesModal: React.FC<BuySharesModalProps> = ({
                                     <span>Datos Bancarios Oficiales de Gloint para Transferencia</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 pt-1">
-                                    <div><strong>Banco:</strong> Bancolombia</div>
-                                    <div><strong>Tipo:</strong> Cuenta de Ahorros</div>
-                                    <div><strong>Titular:</strong> Gloint S.A.S.</div>
-                                    <div><strong>NIT:</strong> 901.554.892-1</div>
+                                    <div><strong>Banco:</strong> {GLOINT_BANK_INFO.bank}</div>
+                                    <div><strong>Tipo:</strong> {GLOINT_BANK_INFO.accountType}</div>
+                                    <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5">
+                                        <span><strong>No. Cuenta:</strong> <span className="font-mono font-bold text-slate-900 bg-slate-200/70 px-1.5 py-0.5 rounded">{GLOINT_BANK_INFO.accountNumber}</span></span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopy(GLOINT_BANK_INFO.accountNumber, 'acc')}
+                                            className="text-slate-400 hover:text-brand-600 transition-colors p-0.5"
+                                            title="Copiar Número de Cuenta"
+                                        >
+                                            {copiedField === 'acc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span><strong>NIT:</strong> <span className="font-mono font-semibold text-slate-800">{GLOINT_BANK_INFO.nit}</span></span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopy(GLOINT_BANK_INFO.nit, 'nit')}
+                                            className="text-slate-400 hover:text-brand-600 transition-colors p-0.5"
+                                            title="Copiar NIT"
+                                        >
+                                            {copiedField === 'nit' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                        </button>
+                                    </div>
+                                    <div className="col-span-2 flex items-center gap-1.5">
+                                        <span><strong>Titular:</strong> <span className="font-semibold text-slate-800">{GLOINT_BANK_INFO.holder}</span></span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopy(GLOINT_BANK_INFO.holder, 'holder')}
+                                            className="text-slate-400 hover:text-brand-600 transition-colors p-0.5"
+                                            title="Copiar Titular"
+                                        >
+                                            {copiedField === 'holder' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
