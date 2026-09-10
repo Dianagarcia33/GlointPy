@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check, Landmark } from 'lucide-react';
+import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check, Landmark, ArrowDownToLine, ArrowDownLeft } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
 import { Withdrawal, PaginatedWithdrawals } from '../types';
 import { WithdrawalApprovalModal } from '../components/WithdrawalApprovalModal';
@@ -8,8 +8,13 @@ import { BulkApprovePreviewModal } from '../components/BulkApprovePreviewModal';
 import { GlobalAccountStatementModal } from '../../users/components/GlobalAccountStatementModal';
 import { bankAccountsService, DataBank } from '../../../../services/bankAccounts';
 import { Can } from '../../../../components/security/Can';
+import { AdminRechargesManager } from '../components/AdminRechargesManager';
+import { getAllRechargesAdmin } from '../../../../services/wallets';
 
 export const PaymentManagementPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'withdrawals' | 'recharges'>('withdrawals');
+  const [pendingRechargesCount, setPendingRechargesCount] = useState<number>(0);
+
   const [data, setData] = useState<PaginatedWithdrawals | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -35,6 +40,11 @@ export const PaymentManagementPage: React.FC = () => {
     bankAccountsService.getBanks()
       .then(banks => setOfficialBanks(banks))
       .catch(err => console.error('Error loading banks:', err));
+
+    // Load initial count of pending recharges for tab badge
+    getAllRechargesAdmin('pending')
+      .then(items => setPendingRechargesCount(items?.length || 0))
+      .catch(err => console.error('Error loading pending recharges count:', err));
   }, []);
 
   useEffect(() => {
@@ -317,10 +327,10 @@ export const PaymentManagementPage: React.FC = () => {
             <DollarSign className="w-4 h-4 text-brand-400" /> Tesorería & Pagos
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Pagos & Retiros
+            Gestión de Pagos & Tesorería
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
-            Supervisión de solicitudes de retiro, verificación de cuentas bancarias en la bóveda, sincronización de débitos y recibos de transferencia.
+            Supervisión integral de solicitudes de retiro, recargas de billetera de inversionistas, verificación bancaria y auditoría contable.
           </p>
         </div>
 
@@ -336,6 +346,49 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Selector de Pestañas: Retiros vs Recargas */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 max-w-md shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setActiveTab('withdrawals')}
+          className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === 'withdrawals'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <ArrowDownToLine className="w-4 h-4 text-brand-600" />
+          <span>Retiros de Fondos</span>
+          {pendingCount > 0 && (
+            <span className="px-2 py-0.5 bg-amber-500 text-slate-900 font-black rounded-full text-[10px]">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('recharges')}
+          className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === 'recharges'
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
+          <span>Recargas de Billetera</span>
+          {pendingRechargesCount > 0 && (
+            <span className="px-2 py-0.5 bg-emerald-500 text-white font-black rounded-full text-[10px]">
+              {pendingRechargesCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'recharges' ? (
+        <AdminRechargesManager onPendingCountChange={setPendingRechargesCount} />
+      ) : (
+        <>
       {/* KPI Cards Summary (Globales / Sin discriminar por paginación) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
@@ -716,6 +769,8 @@ export const PaymentManagementPage: React.FC = () => {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* Approval Modal */}
       {selectedWithdrawal && (

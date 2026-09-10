@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { MessageSquare, UserPlus, Search, Circle } from 'lucide-react';
+import { MessageSquare, UserPlus, Search, Circle, Users } from 'lucide-react';
 import { ChatRoom, ChatUser } from '../../../services/chatService';
+import { formatConversationDate } from '../../../utils/format';
 
 interface ConversationListProps {
   rooms: ChatRoom[];
@@ -33,7 +34,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         <button
           onClick={onStartNewChat}
           className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold shadow-sm shadow-brand-500/20 active:scale-95"
-          title="Iniciar nuevo chat"
+          title="Iniciar nuevo chat o grupo"
         >
           <UserPlus className="w-4 h-4" />
           <span>Nuevo</span>
@@ -63,6 +64,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         ) : (
           filteredRooms.map((room) => {
             const isSelected = room.id === selectedRoomId;
+            const isGroup = room.type === 'group';
+
             return (
               <button
                 key={room.id}
@@ -75,10 +78,14 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               >
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center font-bold text-white shadow-sm font-outfit text-sm">
-                    {room.name.charAt(0).toUpperCase()}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm font-outfit text-sm ${
+                    isGroup
+                      ? 'bg-gradient-to-tr from-brand-600 via-amber-500 to-emerald-500'
+                      : 'bg-gradient-to-tr from-brand-500 to-amber-400'
+                  }`}>
+                    {isGroup ? <Users className="w-5 h-5" /> : room.name.charAt(0).toUpperCase()}
                   </div>
-                  {room.other_participant?.is_online && (
+                  {!isGroup && room.other_participant?.is_online && (
                     <Circle className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500 absolute -bottom-0.5 -right-0.5 ring-2 ring-white rounded-full" />
                   )}
                 </div>
@@ -86,20 +93,35 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className={`text-sm truncate ${isSelected ? 'text-brand-950 font-semibold' : 'text-slate-900 font-medium'}`}>
-                      {room.name}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`text-sm truncate ${isSelected ? 'text-brand-950 font-semibold' : 'text-slate-900 font-medium'}`}>
+                        {room.name}
+                      </span>
+                      {isGroup && (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-brand-50 text-brand-700 border border-brand-200/80 flex-shrink-0">
+                          Grupo
+                        </span>
+                      )}
+                    </div>
                     {room.last_message?.created_at && (
-                      <span className="text-[10px] text-slate-400 ml-1">
-                        {new Date(room.last_message.created_at).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                      <span className="text-[10px] text-slate-400 ml-1 flex-shrink-0">
+                        {formatConversationDate(room.last_message.created_at)}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-slate-500 truncate mt-0.5">
-                    {room.last_message ? room.last_message.content : 'Sin mensajes aún'}
+                    {room.last_message ? (
+                      isGroup && room.last_message.sender_name ? (
+                        <span>
+                          <span className="font-medium text-slate-600">{room.last_message.sender_name}: </span>
+                          {room.last_message.content || '📎 Archivo adjunto'}
+                        </span>
+                      ) : (
+                        room.last_message.content || '📎 Archivo adjunto'
+                      )
+                    ) : (
+                      'Sin mensajes aún'
+                    )}
                   </p>
                 </div>
 

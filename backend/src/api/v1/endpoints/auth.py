@@ -22,7 +22,7 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
     elif getattr(settings, 'ENVIRONMENT', 'development') == 'production':
         is_secure = True
 
-    max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 5)) * 60
+    max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 1440)) * 60
 
     response.set_cookie(
         key="access_token",

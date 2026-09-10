@@ -70,6 +70,128 @@ export const formatColombiaDate = (dateStr: string | Date | null | undefined): s
     return d.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
+/**
+ * Parsea una fecha de chat asegurando que los timestamps UTC de MySQL sin sufijo 'Z'
+ * sean interpretados correctamente como UTC.
+ */
+export const parseChatDate = (dateStr?: string | Date | null): Date | null => {
+    if (!dateStr) return null;
+    let d: Date;
+    if (typeof dateStr === 'string') {
+        const clean = dateStr.trim();
+        if (!clean.includes('Z') && !clean.includes('+') && clean.includes('T')) {
+            d = new Date(clean + 'Z');
+        } else {
+            d = new Date(clean);
+        }
+    } else {
+        d = dateStr;
+    }
+    return isNaN(d.getTime()) ? null : d;
+};
+
+/**
+ * Determina si dos fechas corresponden al mismo día del calendario en la zona local del usuario.
+ */
+export const isSameChatDay = (date1?: string | Date | null, date2?: string | Date | null): boolean => {
+    const d1 = parseChatDate(date1);
+    const d2 = parseChatDate(date2);
+    if (!d1 || !d2) return false;
+    return (
+        d1.getFullYear() === d2.getFullYear() &&
+        d1.getMonth() === d2.getMonth() &&
+        d1.getDate() === d2.getDate()
+    );
+};
+
+/**
+ * Formatea la hora de un mensaje del chat a la hora local del usuario.
+ */
+export const formatChatTime = (dateStr?: string | Date | null): string => {
+    const d = parseChatDate(dateStr);
+    if (!d) return '';
+    return d.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
+/**
+ * Retorna el texto para el separador/divisor de días en el feed del chat
+ * (ej. "Hoy", "Ayer", "Miércoles, 9 de septiembre").
+ */
+export const getChatDayDivider = (dateStr?: string | Date | null): string => {
+    const d = parseChatDate(dateStr);
+    if (!d) return '';
+    const now = new Date();
+
+    if (isSameChatDay(d, now)) {
+        return 'Hoy';
+    }
+
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (isSameChatDay(d, yesterday)) {
+        return 'Ayer';
+    }
+
+    const isCurrentYear = d.getFullYear() === now.getFullYear();
+    const formatted = d.toLocaleDateString('es-CO', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: isCurrentYear ? undefined : 'numeric'
+    });
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+};
+
+/**
+ * Formatea la fecha para la lista de conversaciones y accesos rápidos:
+ * - Si es hoy: muestra la hora ("11:44 a. m.")
+ * - Si fue ayer: muestra "Ayer"
+ * - Si fue en los últimos 6 días: muestra el día ("Lun", "Mar", "Mié", etc.)
+ * - Si fue anterior: muestra la fecha en formato corto "DD/MM/YYYY"
+ */
+export const formatConversationDate = (dateStr?: string | Date | null): string => {
+    const d = parseChatDate(dateStr);
+    if (!d) return '';
+    const now = new Date();
+
+    if (isSameChatDay(d, now)) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (isSameChatDay(d, yesterday)) {
+        return 'Ayer';
+    }
+
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 7 && diffDays >= 0) {
+        const dayName = d.toLocaleDateString('es-CO', { weekday: 'short' });
+        return dayName.charAt(0).toUpperCase() + dayName.slice(1);
+    }
+
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+/**
+ * Formatea la fecha y hora completa para tooltips o descripciones largas.
+ */
+export const formatChatMessageFullDate = (dateStr?: string | Date | null): string => {
+    const d = parseChatDate(dateStr);
+    if (!d) return '';
+    return d.toLocaleDateString('es-CO', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
 export const TRANSACTION_TYPE_TRANSLATIONS: Record<string, string> = {
     'yield_payout': 'Pago de Rendimientos',
     'yield payout': 'Pago de Rendimientos',

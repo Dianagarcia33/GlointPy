@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Wallet, ArrowDownToLine, ArrowRightLeft, Clock, CheckCircle2, XCircle, AlertCircle, ArrowUpToLine, ChevronRight, Send, TrendingUp } from 'lucide-react';
+import { Wallet, ArrowDownToLine, ArrowRightLeft, Clock, CheckCircle2, XCircle, AlertCircle, ArrowUpToLine, ChevronRight, Send, TrendingUp, FileText } from 'lucide-react';
 import { Can } from '../../../components/security/Can';
 import { fetchApi } from '../../../services/api';
 import { WithdrawalModal } from '../components/WithdrawalModal';
 import { MovementDetailModal } from '../components/MovementDetailModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
 import { TransferModal } from '../components/TransferModal';
+import { RechargeModal } from '../components/RechargeModal';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
+import { getMyRecharges, cancelMyRecharge, WalletRecharge } from '../../../services/wallets';
 
 export interface Movement {
     id: number | string;
@@ -59,29 +61,35 @@ export const WalletsPage = () => {
     const [bankDetails, setBankDetails] = useState<any>(null);
     const [movements, setMovements] = useState<Movement[]>([]);
     const [withdrawals, setWithdrawals] = useState<Movement[]>([]);
+    const [recharges, setRecharges] = useState<WalletRecharge[]>([]);
     const [activeTab, setActiveTab] = useState<'movements' | 'withdrawals'>('movements');
     const [loading, setLoading] = useState(true);
     
     // Modals state
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
+    const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
     const [isNewInvestmentModalOpen, setIsNewInvestmentModalOpen] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
     const [cancellingWithdrawalId, setCancellingWithdrawalId] = useState<number | null>(null);
     const [isCancellingWithdrawal, setIsCancellingWithdrawal] = useState(false);
+    const [cancellingRechargeId, setCancellingRechargeId] = useState<number | null>(null);
+    const [isCancellingRecharge, setIsCancellingRecharge] = useState(false);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [balanceRes, movementsRes, withdrawalsRes] = await Promise.all([
+            const [balanceRes, movementsRes, withdrawalsRes, rechargesRes] = await Promise.all([
                 fetchApi('/wallets/me/balance'),
                 fetchApi('/wallets/me/movements'),
-                fetchApi('/wallets/me/withdrawals')
+                fetchApi('/wallets/me/withdrawals'),
+                getMyRecharges()
             ]);
             setBalance(balanceRes.balance || 0);
             setBankDetails(balanceRes.bank_details || null);
             setMovements(movementsRes || []);
             setWithdrawals(withdrawalsRes || []);
+            setRecharges(rechargesRes || []);
         } catch (error) {
             console.error('Error fetching wallet data:', error);
         } finally {
@@ -117,6 +125,20 @@ export const WalletsPage = () => {
         }
     };
 
+    const handleConfirmCancelRecharge = async () => {
+        if (!cancellingRechargeId) return;
+        setIsCancellingRecharge(true);
+        try {
+            await cancelMyRecharge(cancellingRechargeId);
+            setCancellingRechargeId(null);
+            fetchData();
+        } catch (error) {
+            console.error('Error cancelling recharge:', error);
+        } finally {
+            setIsCancellingRecharge(false);
+        }
+    };
+
     const formatDate = (dateString: string | null) => {
         if (!dateString) return '-';
         return new Date(dateString).toLocaleDateString('es-CO', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -139,6 +161,12 @@ export const WalletsPage = () => {
 
     return (
         <Can permission="wallets:view">
+            <RechargeModal
+                isOpen={isRechargeModalOpen}
+                onClose={() => setIsRechargeModalOpen(false)}
+                onSuccess={() => fetchData()}
+            />
+
             <WithdrawalModal 
                 isOpen={isWithdrawalModalOpen} 
                 onClose={() => setIsWithdrawalModalOpen(false)} 
@@ -222,7 +250,16 @@ export const WalletsPage = () => {
                             </Can>
 
                     {/* Actions Card */}
-                    <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-4">
+                    <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
+                        {/* Botón Recargar Billetera */}
+                        <button 
+                            onClick={() => setIsRechargeModalOpen(true)}
+                            className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer font-montserrat"
+                        >
+                            <ArrowDownToLine className="w-5 h-5" />
+                            Recargar Billetera
+                        </button>
+
                         <Can permission="wallets:request_withdrawal">
                             <button 
                                 onClick={() => setIsWithdrawalModalOpen(true)}
@@ -404,7 +441,113 @@ export const WalletsPage = () => {
                             )}
                         </div>
 
-                        {/* Tabla 2: Solicitudes de Retiro (Debajo de la tabla de movimientos) */}
+                        {/* Tabla 2: Solicitudes de Recarga de Saldo */}
+                        <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                                        <ArrowDownToLine className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900 font-montserrat">Solicitudes de Recarga de Saldo</h2>
+                                        <p className="text-xs text-slate-500 mt-0.5">Estado de tus comprobantes de recarga y consignaciones a la empresa</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setIsRechargeModalOpen(true)}
+                                    className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat"
+                                >
+                                    <ArrowDownToLine className="w-3.5 h-3.5" />
+                                    <span>Nueva Recarga</span>
+                                </button>
+                            </div>
+
+                            {recharges.length > 0 ? (
+                                <div className="space-y-3">
+                                    {recharges.map((r) => {
+                                        const status = getStatusConfig(r.status);
+                                        return (
+                                            <div 
+                                                key={r.id}
+                                                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/20 transition-all gap-4"
+                                            >
+                                                <div className="flex items-center gap-4 flex-1">
+                                                    <div className="p-3 rounded-xl flex-shrink-0 bg-emerald-50 text-emerald-600">
+                                                        <ArrowDownToLine className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-900 font-montserrat">
+                                                            Recarga de Billetera ({r.payment_method})
+                                                        </p>
+                                                        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
+                                                            <span>{formatDate(r.created_at || null)}</span>
+                                                            <span>•</span>
+                                                            <span className={`inline-flex items-center gap-1 ${status.color}`}>
+                                                                <status.icon className="w-3 h-3" />
+                                                                {status.text}
+                                                            </span>
+                                                            {r.reference_number && (
+                                                                <>
+                                                                    <span>•</span>
+                                                                    <span className="font-mono text-slate-600">Ref: {r.reference_number}</span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                        {(r.user_notes || r.admin_notes) && (
+                                                            <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg truncate">
+                                                                {r.admin_notes ? `Motivo/Admin: ${r.admin_notes}` : r.user_notes}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center justify-between sm:justify-end gap-3">
+                                                    <div className="text-right">
+                                                        <p className="font-bold font-montserrat text-emerald-600">
+                                                            +{formatCurrency(r.amount)}
+                                                        </p>
+                                                    </div>
+
+                                                    {r.receipt_url && (
+                                                        <a 
+                                                            href={r.receipt_url.startsWith('/') ? r.receipt_url : `/api/v1/${r.receipt_url}`}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                                                        >
+                                                            <FileText className="w-3.5 h-3.5" />
+                                                            <span>Comprobante</span>
+                                                        </a>
+                                                    )}
+                                                    
+                                                    {r.status === 'pending' && (
+                                                        <button 
+                                                            onClick={() => setCancellingRechargeId(r.id)}
+                                                            className="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-medium rounded-lg text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                                                        >
+                                                            <XCircle className="w-3.5 h-3.5" />
+                                                            Cancelar
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl space-y-2">
+                                    <p className="text-slate-500 font-medium">No tienes solicitudes de recarga recientes.</p>
+                                    <button
+                                        onClick={() => setIsRechargeModalOpen(true)}
+                                        className="text-xs text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer underline font-montserrat"
+                                    >
+                                        Crear tu primera recarga de billetera
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Tabla 3: Solicitudes de Retiro (Debajo de la tabla de recargas) */}
                         <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm">
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-3">
@@ -498,6 +641,19 @@ export const WalletsPage = () => {
                     cancelText="Mantener Retiro"
                     variant="warning"
                     isLoading={isCancellingWithdrawal}
+                />
+
+                {/* Modal de Confirmación para Cancelar Recarga */}
+                <ConfirmationModal
+                    isOpen={!!cancellingRechargeId}
+                    onClose={() => setCancellingRechargeId(null)}
+                    onConfirm={handleConfirmCancelRecharge}
+                    title="¿Cancelar Solicitud de Recarga?"
+                    description="Esta solicitud de recarga será cancelada y no será procesada por la administración."
+                    confirmText="Sí, Cancelar Solicitud"
+                    cancelText="Mantener Solicitud"
+                    variant="warning"
+                    isLoading={isCancellingRecharge}
                 />
             </div>
         </Can>

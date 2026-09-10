@@ -78,17 +78,25 @@ async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncS
             res = await db.execute(stmt)
             inv_req = res.scalars().first()
             if not inv_req:
-                # Also check commercial sales
-                cs_stmt = select(CommercialSale).where(
-                    (CommercialSale.commercial_id == current_user.id) &
-                    (CommercialSale.comprobante_path.like(f"%{filename_only}"))
+                # Also check wallet recharges owned by current user
+                from src.models.wallet_recharge import WalletRecharge
+                wr_stmt = select(WalletRecharge).where(
+                    (WalletRecharge.user_id == current_user.id) &
+                    (WalletRecharge.receipt_url.like(f"%{filename_only}"))
                 )
-                cs_res = await db.execute(cs_stmt)
-                if not cs_res.scalars().first():
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="No tienes autorización para acceder a este comprobante."
+                wr_res = await db.execute(wr_stmt)
+                if not wr_res.scalars().first():
+                    # Also check commercial sales
+                    cs_stmt = select(CommercialSale).where(
+                        (CommercialSale.commercial_id == current_user.id) &
+                        (CommercialSale.comprobante_path.like(f"%{filename_only}"))
                     )
+                    cs_res = await db.execute(cs_stmt)
+                    if not cs_res.scalars().first():
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="No tienes autorización para acceder a este comprobante."
+                        )
         elif category == "receipts":
             stmt = select(Withdrawal).where(
                 (Withdrawal.user_id == current_user.id) &

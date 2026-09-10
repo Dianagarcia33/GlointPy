@@ -17,6 +17,14 @@ export interface ChatMessage {
   file_url?: string | null;
   file_name?: string | null;
   file_type?: string | null;
+  reply_to?: {
+    id: number;
+    sender_id: number;
+    sender_name: string;
+    content: string;
+    file_name?: string | null;
+    file_type?: string | null;
+  } | null;
   is_read: boolean;
   created_at: string;
 }
@@ -26,6 +34,8 @@ export interface ChatRoom {
   name: string;
   type: 'direct' | 'support' | 'group';
   other_participant?: ChatUser;
+  participants?: ChatUser[];
+  participants_count?: number;
   unread_count: number;
   last_message?: ChatMessage | null;
 }
@@ -45,15 +55,26 @@ export const chatService = {
     });
   },
 
+  createGroupRoom: async (name: string, participantIds: number[]): Promise<{ room_id: number; name: string }> => {
+    return fetchApi('/chat/rooms/group', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        participant_ids: participantIds
+      })
+    });
+  },
+
   getRoomMessages: async (roomId: number): Promise<ChatMessage[]> => {
     return fetchApi(`/chat/rooms/${roomId}/messages`);
   },
 
-  uploadFile: async (roomId: number, file: File, content?: string): Promise<ChatMessage> => {
+  uploadFile: async (roomId: number, file: File, content?: string, replyToId?: number | null): Promise<ChatMessage> => {
     const formData = new FormData();
     formData.append('room_id', roomId.toString());
     formData.append('file', file);
     if (content) formData.append('content', content);
+    if (replyToId) formData.append('reply_to_id', replyToId.toString());
     return fetchApi('/chat/upload', {
       method: 'POST',
       body: formData

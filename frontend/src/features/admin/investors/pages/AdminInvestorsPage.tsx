@@ -399,7 +399,7 @@ export const AdminInvestorsPage = () => {
           </div>
 
       <div className="bg-white rounded-3xl shadow-xs border border-slate-200">
-        <div className="overflow-x-auto min-h-[380px]">
+        <div className="overflow-x-auto min-h-[440px] pb-16">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
@@ -431,10 +431,11 @@ export const AdminInvestorsPage = () => {
                 </tr>
               ) : (
                 investors.map((investor, index) => {
-                  const isNearBottom = index >= Math.max(0, investors.length - 4);
+                  const isNearBottom = investors.length > 4 && index >= investors.length - 2;
+                  const isMenuOpen = openActionMenuId === investor.id;
                   return (
                   <React.Fragment key={investor.id}>
-                    <tr className="hover:bg-slate-50/80 transition-colors">
+                    <tr className={`hover:bg-slate-50/80 transition-colors ${isMenuOpen ? 'relative z-30' : ''}`}>
                       <td className="px-4 py-4 w-10 text-center">
                         {investor.user && ((investor.user.bank_accounts && investor.user.bank_accounts.length > 0) || investor.user.wallet || investor.period) && (
                           <button 

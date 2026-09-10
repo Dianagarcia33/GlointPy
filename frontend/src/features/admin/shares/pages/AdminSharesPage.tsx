@@ -1,22 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
     Layers, 
-    TrendingUp, 
     CheckCircle2, 
-    XCircle, 
-    FileText, 
-    AlertCircle, 
-    Sparkles, 
     Plus, 
     Eye, 
-    DollarSign, 
-    ShieldCheck, 
     Clock, 
     RefreshCw,
-    X,
-    User
+    X
 } from 'lucide-react';
 import { shareMarketService, ShareTradeOrder, SharePriceHistory, ShareIssuance } from '../../../../services/shareMarket';
+import { ShareGrowthChart } from '../components/ShareGrowthChart';
 
 export const AdminSharesPage: React.FC = () => {
     const [pendingOrders, setPendingOrders] = useState<ShareTradeOrder[]>([]);
@@ -24,13 +17,6 @@ export const AdminSharesPage: React.FC = () => {
     const [priceHistory, setPriceHistory] = useState<SharePriceHistory[]>([]);
     const [issuances, setIssuances] = useState<ShareIssuance[]>([]);
     const [loading, setLoading] = useState(true);
-
-    // Formulario de Valoración
-    const [newPrice, setNewPrice] = useState<number | ''>('');
-    const [justificationNotes, setJustificationNotes] = useState<string>('');
-    const [priceLoading, setPriceLoading] = useState(false);
-    const [priceSuccess, setPriceSuccess] = useState(false);
-    const [priceError, setPriceError] = useState<string | null>(null);
 
     // Modal de Emisión de Acciones
     const [isIssuanceModalOpen, setIsIssuanceModalOpen] = useState(false);
@@ -46,7 +32,7 @@ export const AdminSharesPage: React.FC = () => {
     const [decisionNotes, setDecisionNotes] = useState('');
     const [decisionLoading, setDecisionLoading] = useState(false);
 
-    const [activeTab, setActiveTab] = useState<'pending' | 'valuation' | 'issuances' | 'audit'>('pending');
+    const [activeTab, setActiveTab] = useState<'issuances' | 'pending' | 'valuation' | 'audit'>('issuances');
 
     const fetchData = async () => {
         try {
@@ -72,35 +58,20 @@ export const AdminSharesPage: React.FC = () => {
         fetchData();
     }, []);
 
-    const currentPrice = priceHistory[0]?.new_price || 50000;
+    // Valores oficiales tomados directamente de las emisiones registradas por el Administrador
+    const latestIssuance = issuances[0];
+    const currentPrice = latestIssuance ? latestIssuance.price_per_share : (priceHistory[0]?.new_price || 50000);
+    const currentAvailableShares = issuances.length > 0 
+        ? issuances.reduce((sum, i) => sum + (i.available_shares || 0), 0)
+        : (priceHistory[0]?.new_available_shares ?? 0);
+    const totalIssuedShares = issuances.reduce((sum, i) => sum + (i.total_shares_issued || 0), 0);
 
-    const handleUpdatePrice = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setPriceError(null);
-        setPriceSuccess(false);
-
-        if (!newPrice || Number(newPrice) <= 0) {
-            setPriceError("Ingresa un precio válido mayor a 0.");
-            return;
-        }
-
-        if (!justificationNotes || justificationNotes.trim().length < 5) {
-            setPriceError("Es obligatorio ingresar un motivo o justificación detallada para el cambio de precio.");
-            return;
-        }
-
-        try {
-            setPriceLoading(true);
-            await shareMarketService.updateOfficialPrice(Number(newPrice), justificationNotes);
-            setPriceSuccess(true);
-            setNewPrice('');
-            setJustificationNotes('');
-            await fetchData();
-        } catch (err: any) {
-            setPriceError(err.message || "Error al actualizar el precio.");
-        } finally {
-            setPriceLoading(false);
-        }
+    const handleOpenIssuanceModal = () => {
+        setIssuancePrice('');
+        setIssuanceQuantity('');
+        setIssuanceTitle('');
+        setIssuanceDescription('');
+        setIsIssuanceModalOpen(true);
     };
 
     const handleCreateIssuance = async (e: React.FormEvent) => {
@@ -179,7 +150,7 @@ export const AdminSharesPage: React.FC = () => {
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                     <button
-                        onClick={() => setIsIssuanceModalOpen(true)}
+                        onClick={handleOpenIssuanceModal}
                         className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer font-montserrat"
                     >
                         <Plus className="w-4 h-4" />
@@ -191,40 +162,56 @@ export const AdminSharesPage: React.FC = () => {
             {/* Quick Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Precio Oficial Actual</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Precio de la Acción</span>
                     <span className="text-2xl font-black text-emerald-600 font-mono block">
                         ${currentPrice.toLocaleString('es-CO')} COP
                     </span>
-                    <span className="text-[11px] text-slate-500 font-medium block">Valoración de referencia</span>
+                    <span className="text-[11px] text-slate-500 font-medium block">Registrado por el Administrador</span>
                 </div>
 
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Órdenes Pendientes</span>
-                    <span className="text-2xl font-black text-amber-600 font-mono block">
-                        {pendingOrders.length}
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-medium block">Por verificar comprobante</span>
-                </div>
-
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Operaciones</span>
-                    <span className="text-2xl font-black text-slate-900 font-mono block">
-                        {allOrders.length}
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-medium block">Compras y transferencias</span>
-                </div>
-
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Emisiones Corporativas</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Acciones Disponibles</span>
                     <span className="text-2xl font-black text-brand-600 font-mono block">
-                        {issuances.length}
+                        {currentAvailableShares.toLocaleString('es-CO')} Unds
                     </span>
-                    <span className="text-[11px] text-slate-500 font-medium block">Lotes de títulos activos</span>
+                    <span className="text-[11px] text-slate-500 font-medium block">Stock disponible del fondo</span>
+                </div>
+
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Acciones Emitidas</span>
+                    <span className="text-2xl font-black text-indigo-600 font-mono block">
+                        {totalIssuedShares.toLocaleString('es-CO')} Unds
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-medium block">Total emisiones creadas</span>
+                </div>
+
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Valor Total en Stock</span>
+                    <span className="text-2xl font-black text-slate-900 font-mono block">
+                        ${(currentPrice * currentAvailableShares).toLocaleString('es-CO')} COP
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-medium block">Capitalización disponible</span>
                 </div>
             </div>
 
+            {/* Gráfica de Curvas de Crecimiento */}
+            <ShareGrowthChart
+                priceHistory={priceHistory}
+                issuances={issuances}
+                currentPrice={currentPrice}
+                currentAvailableShares={currentAvailableShares}
+            />
+
             {/* Navigation Tabs */}
             <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
+                <button
+                    onClick={() => setActiveTab('issuances')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                        activeTab === 'issuances' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                >
+                    Emisiones de Acciones ({issuances.length})
+                </button>
                 <button
                     onClick={() => setActiveTab('pending')}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
@@ -239,15 +226,7 @@ export const AdminSharesPage: React.FC = () => {
                         activeTab === 'valuation' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
-                    Valoración & Justificación Obligatoria
-                </button>
-                <button
-                    onClick={() => setActiveTab('issuances')}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
-                        activeTab === 'issuances' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                >
-                    Emisiones de Acciones ({issuances.length})
+                    Bitácora de Auditoría ({priceHistory.length})
                 </button>
                 <button
                     onClick={() => setActiveTab('audit')}
@@ -361,116 +340,78 @@ export const AdminSharesPage: React.FC = () => {
                 </div>
             )}
 
-            {/* TAB CONTENT: VALORACIÓN & JUSTIFICACIÓN OBLIGATORIA */}
+            {/* TAB CONTENT: BITÁCORA DE TRAZABILIDAD & AUDITORÍA */}
             {activeTab === 'valuation' && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    
-                    {/* Formulario de Actualización */}
-                    <div className="lg:col-span-5 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xs h-fit">
-                        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                            <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                                <DollarSign className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-base font-black text-slate-900 font-montserrat">Actualizar Valor Oficial de la Acción</h3>
-                                <p className="text-xs text-slate-500 font-medium">Define el precio de referencia en la plataforma</p>
-                            </div>
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                        <div>
+                            <h3 className="text-base font-black text-slate-900 font-montserrat">Bitácora de Trazabilidad & Auditoría</h3>
+                            <p className="text-xs text-slate-500 font-medium">Historial inmutable de precio y cantidad de acciones registradas por el administrador</p>
                         </div>
-
-                        {priceSuccess && (
-                            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                                <span>¡Precio oficial actualizado exitosamente y registrado en la bitácora!</span>
-                            </div>
-                        )}
-
-                        {priceError && (
-                            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                                <span>{priceError}</span>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleUpdatePrice} className="space-y-4">
-                            <div>
-                                <label className="text-xs font-bold text-slate-700 block mb-1.5">
-                                    Nuevo Precio por Acción ($ COP) <span className="text-rose-500">*</span>
-                                </label>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    value={newPrice}
-                                    onChange={(e) => setNewPrice(parseFloat(e.target.value) || '')}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono"
-                                    placeholder={`Precio actual: $${currentPrice.toLocaleString('es-CO')} COP`}
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <label className="text-xs font-bold text-slate-700">
-                                        Motivo / Justificación Obligatoria <span className="text-rose-500">*</span>
-                                    </label>
-                                    <span className="text-[10px] text-slate-400 font-medium">Requerido por auditoría</span>
-                                </div>
-                                <textarea
-                                    rows={4}
-                                    value={justificationNotes}
-                                    onChange={(e) => setJustificationNotes(e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-medium focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-xs"
-                                    placeholder="Explica detalladamente la razón financiera, balance corporativo o revalorización de la empresa para este cambio de precio..."
-                                    required
-                                />
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={priceLoading || !newPrice || !justificationNotes.trim()}
-                                className="w-full py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2 font-montserrat"
-                            >
-                                {priceLoading ? "Guardando en Bitácora..." : "Actualizar y Registrar en Auditoría"}
-                            </button>
-                        </form>
+                        <span className="text-xs font-mono text-slate-400 font-bold">{priceHistory.length} Registros</span>
                     </div>
 
-                    {/* Timeline de Cambios */}
-                    <div className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xs">
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                            <div>
-                                <h3 className="text-base font-black text-slate-900 font-montserrat">Historial de Valoraciones & Auditoría</h3>
-                                <p className="text-xs text-slate-500 font-medium">Bitácora inmutable de cambios de precio</p>
-                            </div>
-                            <span className="text-xs font-mono text-slate-400 font-bold">{priceHistory.length} Registros</span>
+                    {priceHistory.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 space-y-2">
+                            <Clock className="w-8 h-8 mx-auto text-slate-300" />
+                            <p className="text-xs font-medium">No hay registros de auditoría aún. Al registrar nuevas emisiones quedará trazabilidad inmutable aquí.</p>
                         </div>
+                    ) : (
+                        <div className="space-y-4 max-h-[550px] overflow-y-auto pr-1">
+                            {priceHistory.map((item) => {
+                                const prevShares = item.previous_available_shares ?? 0;
+                                const newShares = item.new_available_shares ?? 0;
+                                const diffShares = newShares - prevShares;
 
-                        <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-                            {priceHistory.map((item) => (
-                                <div key={item.id} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-2">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono font-black text-slate-900 text-sm">
-                                                ${item.new_price.toLocaleString('es-CO')} COP
-                                            </span>
-                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full font-mono ${
-                                                item.change_percentage >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                                            }`}>
-                                                {item.change_percentage >= 0 ? `+${item.change_percentage}%` : `${item.change_percentage}%`}
+                                return (
+                                    <div key={item.id} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {/* Precio */}
+                                                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                                                    <span className="text-[10px] text-slate-400 font-bold">PRECIO:</span>
+                                                    <span className="font-mono font-black text-slate-900">
+                                                        ${item.new_price.toLocaleString('es-CO')}
+                                                    </span>
+                                                    <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full font-mono ${
+                                                        item.change_percentage >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                                    }`}>
+                                                        {item.change_percentage >= 0 ? `+${item.change_percentage}%` : `${item.change_percentage}%`}
+                                                    </span>
+                                                </div>
+
+                                                {/* Stock de Acciones */}
+                                                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                                                    <span className="text-[10px] text-slate-400 font-bold">STOCK:</span>
+                                                    <span className="font-mono font-black text-brand-600">
+                                                        {newShares.toLocaleString('es-CO')} Unds
+                                                    </span>
+                                                    {diffShares !== 0 && (
+                                                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full font-mono ${
+                                                            diffShares > 0 ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                        }`}>
+                                                            {diffShares > 0 ? `+${diffShares}` : `${diffShares}`}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <span className="text-[11px] text-slate-400 font-mono">
+                                                {new Date(item.created_at).toLocaleString('es-CO')}
                                             </span>
                                         </div>
-                                        <span className="text-[11px] text-slate-400 font-mono">
-                                            {new Date(item.created_at).toLocaleString('es-CO')}
-                                        </span>
-                                    </div>
-                                    <div className="text-xs bg-white p-3 rounded-xl border border-slate-200 text-slate-700 font-medium">
-                                        <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Admin: {item.admin_name}</span>
-                                        "{item.justification_notes}"
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
 
+                                        <div className="text-xs bg-white p-3 rounded-xl border border-slate-200 text-slate-700 font-medium">
+                                            <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">
+                                                Admin responsable: {item.admin_name || 'Administrador'}
+                                            </span>
+                                            "{item.justification_notes}"
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -625,28 +566,35 @@ export const AdminSharesPage: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs font-bold text-slate-700 block mb-1">Total Acciones</label>
+                                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                                        Total Acciones a Emitir <span className="text-rose-500">*</span>
+                                    </label>
                                     <input
                                         type="number"
                                         min={1}
                                         value={issuanceQuantity}
-                                        onChange={(e) => setIssuanceQuantity(parseInt(e.target.value) || '')}
+                                        onChange={(e) => setIssuanceQuantity(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                                         placeholder="Ej. 1000"
                                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-brand-500 outline-hidden"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-slate-700 block mb-1">Precio Unitario ($ COP)</label>
+                                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                                        Valor por Acción ($ COP) <span className="text-rose-500">*</span>
+                                    </label>
                                     <input
                                         type="number"
                                         min={1}
                                         value={issuancePrice}
-                                        onChange={(e) => setIssuancePrice(parseFloat(e.target.value) || '')}
-                                        placeholder="Ej. 50000"
+                                        onChange={(e) => setIssuancePrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                        placeholder={`Ej. ${currentPrice ? currentPrice.toLocaleString('es-CO') : '50000'}`}
                                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-brand-500 outline-hidden"
                                         required
                                     />
+                                    <span className="text-[10px] text-slate-400 block mt-1">
+                                        Este valor regirá como el precio de las acciones
+                                    </span>
                                 </div>
                             </div>
                             <div className="flex items-center justify-end gap-3 pt-2">

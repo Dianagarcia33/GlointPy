@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User } from 'lucide-react';
+import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User, Percent, Edit3, RotateCcw, Sparkles, Package as PackageIcon } from 'lucide-react';
 import { commercialService, CommercialClientCheckResponse, SearchClientResult } from '../../../services/commercial';
+import { packagesService, Package } from '../../../services/packages';
 import { useAuthStore } from '../../../store/authStore';
 import { getColombiaToday } from '../../../utils/format';
 
@@ -34,6 +35,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
   const [targetCommercialId, setTargetCommercialId] = useState<number | null>(null);
   const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string }>>([]);
+  const [packagesList, setPackagesList] = useState<Package[]>([]);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
 
   const [clientDocument, setClientDocument] = useState('');
   const [clientName, setClientName] = useState('');
@@ -49,6 +52,10 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [isAmountLocked, setIsAmountLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Estados para personalización manual de porcentaje por el Administrador
+  const [isCustomRateActive, setIsCustomRateActive] = useState<boolean>(false);
+  const [customRatePct, setCustomRatePct] = useState<string>('');
 
   const shouldShowAsesorSelect = isTrueAdmin;
 
@@ -68,6 +75,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     setIsAmountLocked(false);
     setIsSubmitting(false);
     setError(null);
+    setIsCustomRateActive(false);
+    setCustomRatePct('');
+    setSelectedPackageId('');
   };
 
   const handleClose = () => {
@@ -75,12 +85,31 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     onClose();
   };
 
-  // Resetear el formulario completo cada vez que se abre el modal
+  // Resetear el formulario completo cada vez que se abre el modal y cargar paquetes
   useEffect(() => {
     if (isOpen) {
       resetFormState();
+      packagesService.getPackages()
+        .then((res) => setPackagesList(res.filter(p => p.is_active)))
+        .catch(() => {});
     }
   }, [isOpen]);
+
+  const handleSelectPackage = (pkgIdStr: string) => {
+    setSelectedPackageId(pkgIdStr);
+    if (!pkgIdStr) return;
+    const foundPkg = packagesList.find(p => p.id === Number(pkgIdStr));
+    if (foundPkg) {
+      const pkgVal = Number(foundPkg.value) || 0;
+      const prevVal = Number(clientInfo?.previous_package_amount || 0);
+      if (saleType === 'reinversion' && prevVal > 0) {
+        const diff = Math.max(0, pkgVal - prevVal);
+        setAmount(diff > 0 ? diff.toString() : pkgVal.toString());
+      } else {
+        setAmount(pkgVal.toString());
+      }
+    }
+  };
 
   useEffect(() => {
     if (shouldShowAsesorSelect && isOpen) {
@@ -142,12 +171,14 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     setSaleType('contrato_nuevo');
     setError(null);
 
-    setClientDocument(item.document_id || searchTerm);
+    const effectiveDoc = item.document_id || item.assigned_code || searchTerm;
+    setClientDocument(effectiveDoc);
     setClientName(item.name);
     setSearchTerm(`${item.name} (${item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || ''})`);
     setSearchResults([]);
 
-    commercialService.checkClient(item.document_id || item.assigned_code || searchTerm)
+    const queryKey = item.assigned_code || item.document_id || searchTerm;
+    commercialService.checkClient(queryKey)
       .then((res) => {
         setClientInfo(res);
         if (res.forced_type) {
@@ -156,20 +187,22 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
           setSaleType(res.allowed_types[0] as any);
         }
         if (res.client_name) setClientName(res.client_name);
-        if (res.monto && res.monto > 0) {
-          setAmount(res.monto.toString());
+        
+        const finalMonto = (res.monto && res.monto > 0) ? res.monto : (item.monto && item.monto > 0 ? item.monto : 0);
+        if (finalMonto > 0) {
+          setAmount(finalMonto.toString());
         } else {
           setAmount('');
         }
       })
       .catch(() => {
         setClientInfo({
-          client_document: item.document_id || searchTerm,
+          client_document: effectiveDoc,
           client_exists: true,
           is_existing_client: true,
           client_name: item.name,
           monto: item.monto,
-          allowed_types: ['referido'],
+          allowed_types: ['contrato_nuevo', 'reinversion', 'referido'],
           forced_type: 'referido'
         });
         setSaleType('referido');
@@ -211,33 +244,39 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const numericAmount = Number(amount) || 0;
   const THRESHOLD = 36000000;
 
-  // Cálculo en vivo de la partición marginal o referido basado en el acumulado real del asesor
-  let estimatedCommission = 0;
+  // 1. Cálculo sugerido por el sistema según reglas comerciales
+  let systemSuggestedRate = 0.03;
   let tramoA = 0;
   let tramoB = 0;
-  let effectiveRate = 0.03;
 
   if (saleType === 'referido') {
-    effectiveRate = 0.018;
-    estimatedCommission = numericAmount * 0.018;
+    systemSuggestedRate = 0.018;
   } else {
     if (advisorAccumulatedDirect >= THRESHOLD) {
       tramoA = 0;
       tramoB = numericAmount;
-      effectiveRate = 0.035;
-      estimatedCommission = numericAmount * 0.035;
+      systemSuggestedRate = 0.035;
     } else if (advisorAccumulatedDirect + numericAmount <= THRESHOLD) {
       tramoA = numericAmount;
       tramoB = 0;
-      effectiveRate = 0.030;
-      estimatedCommission = numericAmount * 0.030;
+      systemSuggestedRate = 0.030;
     } else {
       tramoA = Math.max(0, THRESHOLD - advisorAccumulatedDirect);
       tramoB = numericAmount - tramoA;
-      estimatedCommission = (tramoA * 0.030) + (tramoB * 0.035);
-      effectiveRate = numericAmount > 0 ? estimatedCommission / numericAmount : 0.030;
+      const baseComm = (tramoA * 0.030) + (tramoB * 0.035);
+      systemSuggestedRate = numericAmount > 0 ? baseComm / numericAmount : 0.030;
     }
   }
+
+  // 2. Tasa efectiva final (Sugerida por Sistema vs Personalizada por el Administrador)
+  let effectiveRate = systemSuggestedRate;
+  if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '') {
+    const parsedCustom = parseFloat(customRatePct) / 100;
+    if (!isNaN(parsedCustom) && parsedCustom >= 0) {
+      effectiveRate = parsedCustom;
+    }
+  }
+  const estimatedCommission = numericAmount * effectiveRate;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,7 +297,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     setError(null);
 
     try {
-      const payload = {
+      const payload: any = {
         client_document: clientDocument.trim(),
         client_name: clientName.trim() || undefined,
         sale_type: saleType,
@@ -267,6 +306,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         sale_date: saleDate || undefined,
         is_already_settled: isAlreadySettled
       };
+
+      if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '') {
+        payload.custom_commission_rate = effectiveRate;
+        payload.custom_commission_amount = estimatedCommission;
+      }
 
       if (isTrueAdmin && targetCommercialId) {
         await commercialService.createAdminSale(targetCommercialId, payload);
@@ -455,12 +499,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('contrato_nuevo')}
-                disabled={clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('contrato_nuevo'))}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   saleType === 'contrato_nuevo'
                     ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                } ${clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('contrato_nuevo')) ? 'opacity-40 cursor-not-allowed' : ''}`}
+                }`}
               >
                 📄 Contrato Nuevo
               </button>
@@ -468,12 +511,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('reinversion')}
-                disabled={clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('reinversion'))}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   saleType === 'reinversion'
                     ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
-                } ${clientInfo?.forced_type === 'referido' || (clientInfo?.allowed_types && !clientInfo.allowed_types.includes('reinversion')) ? 'opacity-40 cursor-not-allowed' : ''}`}
+                }`}
               >
                 🔄 Reinversión
               </button>
@@ -481,7 +523,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('referido')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                   saleType === 'referido'
                     ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
                     : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
@@ -491,6 +533,31 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               </button>
             </div>
           </div>
+
+          {/* Seleccionar Paquete de Inversión (Opcional - Catálogo) */}
+          {packagesList.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <PackageIcon className="w-3.5 h-3.5 text-brand-600" />
+                  Seleccionar Paquete de Inversión
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">Autocompleta el monto base</span>
+              </label>
+              <select
+                value={selectedPackageId}
+                onChange={(e) => handleSelectPackage(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer"
+              >
+                <option value="">-- Seleccionar paquete del catálogo --</option>
+                {packagesList.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    Paquete #{pkg.id} — ${Number(pkg.value).toLocaleString('es-CO')} COP ({pkg.granted_shares} acciones)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Código del Recomendador en caso de Referido */}
           {saleType === 'referido' && (
@@ -577,12 +644,19 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
             )}
           </div>
 
-          {/* Previsualización en Vivo del Cálculo Marginal */}
+          {/* Previsualización en Vivo del Cálculo Marginal y Personalización */}
           {numericAmount > 0 && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200 pb-1.5">
-                Previsualización del Cálculo de Comisión:
-              </span>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between items-center border-b border-slate-200 pb-1.5">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Cálculo y Liquidación de Comisión:
+                </span>
+                {isTrueAdmin && (
+                  <span className="text-[10px] font-extrabold text-brand-600 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full">
+                    👑 Modo Administrador
+                  </span>
+                )}
+              </div>
 
               {saleType !== 'referido' && (
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-[11px] text-slate-500 pb-1 gap-1 border-b border-slate-200/60">
@@ -590,22 +664,88 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                   <span className="font-mono font-bold text-slate-700">
                     ${advisorAccumulatedDirect.toLocaleString('es-CO')} COP
                     {advisorAccumulatedDirect >= THRESHOLD ? (
-                      <span className="ml-1.5 text-emerald-700 font-extrabold">(Superó $36M → Tasa 3.5% Plana)</span>
+                      <span className="ml-1.5 text-emerald-700 font-extrabold">(Superó $36M → Sugerido 3.5%)</span>
                     ) : (
                       <span className="ml-1.5 text-amber-700 font-semibold">(Faltan ${(THRESHOLD - advisorAccumulatedDirect).toLocaleString('es-CO')} para 3.5%)</span>
                     )}
                   </span>
                 </div>
               )}
-              
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-600">Tasa Efectiva Aplicada:</span>
-                <span className="font-extrabold text-brand-600 text-sm">
-                  {(effectiveRate * 100).toFixed(2)}%
-                </span>
+
+              {/* Tasa Sugerida vs Personalizada */}
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-2.5 bg-white border border-slate-200 rounded-xl gap-2">
+                <div className="flex items-center gap-2">
+                  <Percent className="w-4 h-4 text-brand-600 shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 block">Porcentaje de Comisión:</span>
+                    <span className="text-[10px] text-slate-400">
+                      Sugerido por sistema: <strong>{(systemSuggestedRate * 100).toFixed(2)}%</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {isTrueAdmin ? (
+                  !isCustomRateActive ? (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-extrabold text-brand-700 text-sm bg-brand-50 border border-brand-100 px-2.5 py-1 rounded-lg">
+                        {(systemSuggestedRate * 100).toFixed(2)}%
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomRateActive(true);
+                          setCustomRatePct((systemSuggestedRate * 100).toFixed(2));
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Cambiar porcentaje de comisión manualmente"
+                      >
+                        <Edit3 className="w-3 h-3" /> Modificar %
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative w-28">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={customRatePct}
+                          onChange={(e) => setCustomRatePct(e.target.value)}
+                          placeholder={(systemSuggestedRate * 100).toFixed(2)}
+                          className="w-full pl-2.5 pr-6 py-1 border-2 border-brand-500 rounded-lg text-xs font-bold font-mono text-brand-900 bg-brand-50/30 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                          autoFocus
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-brand-600">%</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomRateActive(false);
+                          setCustomRatePct('');
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                        title="Restaurar sugerencia automática del sistema"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <span className="font-mono font-extrabold text-brand-700 text-sm">
+                    {(effectiveRate * 100).toFixed(2)}%
+                  </span>
+                )}
               </div>
 
-              {saleType !== 'referido' && (tramoA > 0 || tramoB > 0) && (
+              {isCustomRateActive && (
+                <p className="text-[11px] text-brand-700 bg-brand-50/80 border border-brand-200 p-2 rounded-lg font-medium flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 text-brand-600" />
+                  <span>Se aplicará el <strong>{(effectiveRate * 100).toFixed(2)}%</strong> configurado manualmente por el Administrador.</span>
+                </p>
+              )}
+
+              {saleType !== 'referido' && !isCustomRateActive && (tramoA > 0 || tramoB > 0) && (
                 <div className="space-y-1 text-[11px] bg-white p-2.5 rounded-lg border border-slate-200/70 mt-1">
                   {tramoA > 0 && (
                     <div className="flex justify-between text-slate-600">
@@ -623,8 +763,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               )}
 
               <div className="flex justify-between items-center text-sm font-bold pt-2 border-t border-slate-200">
-                <span className="text-slate-800">Comisión Directa Calculada:</span>
-                <span className="text-emerald-700 text-base">
+                <span className="text-slate-800">Comisión Directa a Liquidar:</span>
+                <span className="text-emerald-700 text-base font-mono font-extrabold">
                   +${estimatedCommission.toLocaleString('es-CO', { maximumFractionDigits: 0 })} COP
                 </span>
               </div>

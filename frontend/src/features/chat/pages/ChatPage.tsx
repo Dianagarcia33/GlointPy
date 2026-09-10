@@ -69,6 +69,17 @@ export const ChatPage: React.FC = () => {
     }
   };
 
+  const handleCreateGroup = async (name: string, participantIds: number[]) => {
+    try {
+      const newRoom = await chatService.createGroupRoom(name, participantIds);
+      await fetchRooms();
+      setSelectedRoomId(newRoom.room_id);
+    } catch (err: any) {
+      alert(err.message || 'Error al crear grupo');
+      throw err;
+    }
+  };
+
   // Si el usuario no posee el permiso PBAC `chat:view`
   if (!canViewChat) {
     return (
@@ -111,11 +122,12 @@ export const ChatPage: React.FC = () => {
         />
       </div>
 
-      {/* Modal para iniciar chat */}
+      {/* Modal para iniciar chat o grupo */}
       <NewChatModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSelectUser={handleStartDirectChat}
+        onCreateGroup={handleCreateGroup}
       />
     </div>
   );

@@ -10,6 +10,8 @@ class SharePriceHistory(Base):
     previous_price = Column(Numeric(15, 2), nullable=False)
     new_price = Column(Numeric(15, 2), nullable=False)
     change_percentage = Column(Numeric(6, 2), nullable=False, default=0.00)
+    previous_available_shares = Column(Integer, nullable=False, default=0)
+    new_available_shares = Column(Integer, nullable=False, default=0)
     justification_notes = Column(Text, nullable=False)  # Obligatorio para cualquier cambio
     admin_id = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     

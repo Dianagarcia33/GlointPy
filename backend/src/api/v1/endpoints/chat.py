@@ -1,7 +1,9 @@
 import os
 import uuid
 import shutil
+import json
 from typing import List, Optional
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Query, File, UploadFile, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -83,6 +85,30 @@ async def get_or_create_direct_room(
     room = await ChatService.get_or_create_direct_room(db, current_user.id, target_user_id)
     return {"room_id": room.id}
 
+class CreateGroupRoomRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)
+    participant_ids: List[int]
+
+@router.post("/rooms/group", dependencies=[Depends(RequirePermission("chat:send"))])
+async def create_group_room(
+    body: CreateGroupRoomRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Crea una sala de chat grupal con los miembros seleccionados."""
+    if not body.name.strip():
+        raise HTTPException(status_code=400, detail="El nombre del grupo es obligatorio")
+    if not body.participant_ids or len(body.participant_ids) < 1:
+        raise HTTPException(status_code=400, detail="Debes seleccionar al menos un participante para el grupo")
+
+    room = await ChatService.create_group_room(
+        db=db,
+        creator_id=current_user.id,
+        name=body.name.strip(),
+        participant_ids=body.participant_ids
+    )
+    return {"room_id": room.id, "name": room.name}
+
 @router.get("/rooms/{room_id}/messages", dependencies=[Depends(RequirePermission("chat:view"))])
 async def get_room_messages(
     room_id: int,
@@ -115,6 +141,7 @@ async def mark_room_as_read(
 async def upload_chat_file(
     room_id: int = Form(...),
     content: Optional[str] = Form(""),
+    reply_to_id: Optional[int] = Form(None),
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -152,7 +179,8 @@ async def upload_chat_file(
         content=msg_content,
         file_url=file_url,
         file_name=file_name,
-        file_type=file_type
+        file_type=file_type,
+        reply_to_id=reply_to_id
     )
 
     # Broadcast en tiempo real a todos los clientes en la sala
@@ -215,15 +243,54 @@ async def websocket_chat_endpoint(
             if not data_text.strip():
                 continue
 
+            # Parsear mensaje JSON estructurado o texto plano
+            try:
+                payload_in = json.loads(data_text)
+            except Exception:
+                payload_in = {"content": data_text}
+
+            msg_type = payload_in.get("type", "message") if isinstance(payload_in, dict) else "message"
+
+            # 1. Evento de "Escribiendo..." (Typing indicator)
+            if msg_type == "typing":
+                is_typing = bool(payload_in.get("is_typing", False))
+                typing_event = {
+                    "type": "user_typing",
+                    "room_id": room_id,
+                    "user_id": user.id,
+                    "user_name": user.name,
+                    "is_typing": is_typing
+                }
+                await manager.broadcast_to_room_except(room_id, typing_event, exclude_websocket=websocket)
+                continue
+
+            # 2. Envío de mensaje normal o respuesta
             if not PBACEngine.has_permission(user, "chat:send"):
                 await websocket.send_json({
                     "error": "No tienes permiso para enviar mensajes (chat:send)"
                 })
                 continue
 
+            content = payload_in.get("content", "").strip() if isinstance(payload_in, dict) else str(data_text).strip()
+            if not content:
+                continue
+
+            reply_to_id = None
+            if isinstance(payload_in, dict) and payload_in.get("reply_to_id"):
+                try:
+                    reply_to_id = int(payload_in["reply_to_id"])
+                except (ValueError, TypeError):
+                    reply_to_id = None
+
             try:
                 async with async_session_maker() as db:
-                    saved_msg = await ChatService.save_message(db, room_id, user.id, data_text)
+                    saved_msg = await ChatService.save_message(
+                        db=db,
+                        room_id=room_id,
+                        sender_id=user.id,
+                        content=content,
+                        reply_to_id=reply_to_id
+                    )
                     await manager.broadcast_to_room(room_id, saved_msg)
             except Exception as msg_err:
                 print(f"⚠️ Error procesando mensaje en sala {room_id}: {msg_err}")

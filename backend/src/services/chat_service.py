@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Dict, Set, List, Optional
 from fastapi import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,15 @@ from src.models.chat import ChatRoom, ChatParticipant, ChatMessage
 from src.models.user import User
 
 logger = logging.getLogger(__name__)
+
+def _format_datetime_utc(dt: Optional[datetime]) -> Optional[str]:
+    """Serializa un datetime en formato ISO-8601 asegurando el sufijo UTC 'Z'."""
+    if not dt:
+        return None
+    iso = dt.isoformat()
+    if dt.tzinfo is None and not iso.endswith("Z"):
+        return iso + "Z"
+    return iso
 
 class ConnectionManager:
     """Gestiona conexiones activas de WebSockets por sala de chat y por usuario."""
@@ -47,6 +57,20 @@ class ConnectionManager:
         if room_id in self.room_connections:
             to_remove = set()
             for connection in self.room_connections[room_id]:
+                try:
+                    await connection.send_text(json.dumps(message_data))
+                except Exception:
+                    to_remove.add(connection)
+            for dead in to_remove:
+                self.room_connections[room_id].discard(dead)
+
+    async def broadcast_to_room_except(self, room_id: int, message_data: dict, exclude_websocket: Optional[WebSocket] = None):
+        """Envía un mensaje JSON a todos los sockets conectados a una sala especifica excepto al socket excluido."""
+        if room_id in self.room_connections:
+            to_remove = set()
+            for connection in self.room_connections[room_id]:
+                if exclude_websocket and connection == exclude_websocket:
+                    continue
                 try:
                     await connection.send_text(json.dumps(message_data))
                 except Exception:
@@ -106,6 +130,47 @@ class ChatService:
         return new_room
 
     @staticmethod
+    async def create_group_room(
+        db: AsyncSession,
+        creator_id: int,
+        name: str,
+        participant_ids: List[int]
+    ) -> ChatRoom:
+        """Crea una sala de chat grupal con múltiples participantes."""
+        all_ids = set(participant_ids)
+        all_ids.add(creator_id)
+
+        clean_name = name.strip() if name and name.strip() else "Nuevo Grupo"
+        new_room = ChatRoom(
+            name=clean_name,
+            type="group",
+            is_active=True,
+            created_by=creator_id
+        )
+        db.add(new_room)
+        await db.flush()
+
+        for uid in all_ids:
+            p = ChatParticipant(room_id=new_room.id, user_id=uid)
+            db.add(p)
+
+        creator_res = await db.execute(select(User).where(User.id == creator_id))
+        creator = creator_res.scalars().first()
+        creator_name = creator.name if creator else "Un usuario"
+
+        welcome_msg = ChatMessage(
+            room_id=new_room.id,
+            sender_id=creator_id,
+            content=f"🎉 {creator_name} creó el grupo \"{clean_name}\"",
+            is_read=False
+        )
+        db.add(welcome_msg)
+
+        await db.commit()
+        await db.refresh(new_room)
+        return new_room
+
+    @staticmethod
     async def get_user_rooms(db: AsyncSession, user_id: int) -> List[dict]:
         """Obtiene la lista de salas de chat activas en las que participa el usuario."""
         stmt = (
@@ -144,23 +209,35 @@ class ChatService:
             unread_res = await db.execute(unread_stmt)
             unread_count = unread_res.scalar() or 0
 
-            # Identificar el otro participante si es un chat directo
+            # Identificar participantes
             other_participant = None
+            participants_list = []
             for p in room.participants:
-                if p.user_id != user_id:
-                    other_participant = {
+                if p.user:
+                    p_data = {
                         "id": p.user.id,
                         "name": p.user.name,
                         "email": p.user.email,
                         "is_online": manager.is_user_online(p.user.id)
                     }
-                    break
+                    participants_list.append(p_data)
+                    if p.user_id != user_id and not other_participant:
+                        other_participant = p_data
+
+            room_name = room.name
+            if not room_name:
+                if room.type == "group":
+                    room_name = "Grupo de chat"
+                else:
+                    room_name = other_participant["name"] if other_participant else "Chat"
 
             rooms_data.append({
                 "id": room.id,
-                "name": room.name or (other_participant["name"] if other_participant else "Chat"),
+                "name": room_name,
                 "type": room.type,
-                "other_participant": other_participant,
+                "other_participant": other_participant if room.type == "direct" else None,
+                "participants": participants_list,
+                "participants_count": len(room.participants),
                 "unread_count": unread_count,
                 "last_message": {
                     "id": last_msg.id,
@@ -170,7 +247,7 @@ class ChatService:
                     "file_url": getattr(last_msg, "file_url", None),
                     "file_name": getattr(last_msg, "file_name", None),
                     "file_type": getattr(last_msg, "file_type", None),
-                    "created_at": last_msg.created_at.isoformat() if last_msg.created_at else None,
+                    "created_at": _format_datetime_utc(last_msg.created_at),
                     "is_read": last_msg.is_read
                 } if last_msg else None
             })
@@ -191,7 +268,10 @@ class ChatService:
 
         stmt = (
             select(ChatMessage)
-            .options(selectinload(ChatMessage.sender))
+            .options(
+                selectinload(ChatMessage.sender),
+                selectinload(ChatMessage.reply_to).selectinload(ChatMessage.sender)
+            )
             .where(ChatMessage.room_id == room_id)
             .order_by(desc(ChatMessage.created_at))
             .limit(limit)
@@ -209,8 +289,16 @@ class ChatService:
                 "file_url": getattr(m, "file_url", None),
                 "file_name": getattr(m, "file_name", None),
                 "file_type": getattr(m, "file_type", None),
+                "reply_to": {
+                    "id": m.reply_to.id,
+                    "sender_id": m.reply_to.sender_id,
+                    "sender_name": m.reply_to.sender.name if m.reply_to.sender else "Usuario",
+                    "content": m.reply_to.content,
+                    "file_name": getattr(m.reply_to, "file_name", None),
+                    "file_type": getattr(m.reply_to, "file_type", None)
+                } if m.reply_to else None,
                 "is_read": m.is_read,
-                "created_at": m.created_at.isoformat() if m.created_at else None
+                "created_at": _format_datetime_utc(m.created_at)
             }
             for m in messages
         ]
@@ -235,12 +323,14 @@ class ChatService:
         content: str,
         file_url: Optional[str] = None,
         file_name: Optional[str] = None,
-        file_type: Optional[str] = None
+        file_type: Optional[str] = None,
+        reply_to_id: Optional[int] = None
     ) -> dict:
         """Guarda un mensaje en MySQL y lo prepara para retransmisión por WebSockets."""
         msg = ChatMessage(
             room_id=room_id,
             sender_id=sender_id,
+            reply_to_id=reply_to_id,
             content=content,
             file_url=file_url,
             file_name=file_name,
@@ -255,8 +345,26 @@ class ChatService:
         res = await db.execute(select(User).where(User.id == sender_id))
         sender = res.scalars().first()
 
-        from datetime import datetime
-        created_at_val = msg.created_at.isoformat() if msg.created_at else datetime.utcnow().isoformat()
+        # Cargar mensaje respondido si existe
+        reply_to_payload = None
+        if reply_to_id:
+            quoted_res = await db.execute(
+                select(ChatMessage)
+                .options(selectinload(ChatMessage.sender))
+                .where(ChatMessage.id == reply_to_id)
+            )
+            quoted = quoted_res.scalars().first()
+            if quoted:
+                reply_to_payload = {
+                    "id": quoted.id,
+                    "sender_id": quoted.sender_id,
+                    "sender_name": quoted.sender.name if quoted.sender else "Usuario",
+                    "content": quoted.content,
+                    "file_name": getattr(quoted, "file_name", None),
+                    "file_type": getattr(quoted, "file_type", None)
+                }
+
+        created_at_val = _format_datetime_utc(msg.created_at) if msg.created_at else datetime.now(timezone.utc).isoformat()
 
         payload = {
             "type": "new_message",
@@ -268,6 +376,7 @@ class ChatService:
             "file_url": file_url,
             "file_name": file_name,
             "file_type": file_type,
+            "reply_to": reply_to_payload,
             "is_read": False,
             "created_at": created_at_val
         }

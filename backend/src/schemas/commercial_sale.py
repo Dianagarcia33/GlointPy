@@ -26,6 +26,8 @@ class CommercialSaleCreate(BaseModel):
     amount: Decimal
     referrer_code: Optional[str] = None
     sale_date: Optional[date] = None
+    custom_commission_rate: Optional[Decimal] = None
+    custom_commission_amount: Optional[Decimal] = None
     is_already_settled: bool = False
     settlement_notes: Optional[str] = None
 
@@ -58,6 +60,8 @@ class CommercialSaleResponse(BaseModel):
 
 class SettleCommissionsRequest(BaseModel):
     commercial_id: int
+    month: Optional[int] = None
+    year: Optional[int] = None
     reference_code: Optional[str] = None
     notes: Optional[str] = None
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -802,4 +802,381 @@ async def transfer_wallet_funds(
         "recipient_name": recipient.name,
         "new_balance": float(sender_wallet.balance)
     }
+
+
+# ==========================================================
+# GESTIÓN DE RECARGAS DE BILLETERA (INVESTOR & ADMIN)
+# ==========================================================
+
+class RejectRechargeRequest(BaseModel):
+    reason: str
+
+class ApproveRechargeRequest(BaseModel):
+    admin_notes: Optional[str] = None
+
+@router.post("/me/recharge")
+async def create_wallet_recharge(
+    amount: float = Form(..., description="Monto a recargar en COP"),
+    payment_method: str = Form("Transferencia Bancaria"),
+    reference_number: Optional[str] = Form(None),
+    notes: Optional[str] = Form(None),
+    receipt: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permite al inversionista solicitar una recarga de saldo adjuntando su comprobante bancario.
+    """
+    import os
+    import uuid
+    import shutil
+    from datetime import datetime
+    from decimal import Decimal
+    from src.models.wallet_recharge import WalletRecharge
+    from src.models.wallet import Wallet
+
+    if amount < 5000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El monto mínimo de recarga es de $5.000 COP."
+        )
+
+    # Validar extensión del comprobante
+    filename = receipt.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    allowed_exts = [".jpg", ".jpeg", ".png", ".webp", ".pdf"]
+    if ext not in allowed_exts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Formato de comprobante no válido. Use JPG, PNG, WEBP o PDF."
+        )
+
+    # Verificar o crear la billetera del usuario
+    w_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
+    wallet = w_res.scalars().first()
+    if not wallet:
+        wallet = Wallet(user_id=current_user.id, balance=Decimal("0.00"), currency="COP")
+        db.add(wallet)
+        await db.flush()
+
+    # Guardar archivo seguro en uploads/comprobantes
+    upload_dir = "uploads/comprobantes"
+    os.makedirs(upload_dir, exist_ok=True)
+    unique_filename = f"recarga_{current_user.id}_{int(datetime.utcnow().timestamp())}_{uuid.uuid4().hex[:8]}{ext}"
+    dest_path = os.path.join(upload_dir, unique_filename)
+
+    with open(dest_path, "wb") as buffer:
+        shutil.copyfileobj(receipt.file, buffer)
+
+    receipt_url = f"/uploads/comprobantes/{unique_filename}"
+
+    recharge = WalletRecharge(
+        user_id=current_user.id,
+        wallet_id=wallet.id,
+        amount=Decimal(str(amount)),
+        status="pending",
+        payment_method=payment_method.strip(),
+        reference_number=reference_number.strip() if reference_number else None,
+        receipt_url=receipt_url,
+        user_notes=notes.strip() if notes else None
+    )
+    db.add(recharge)
+    await db.commit()
+    await db.refresh(recharge)
+
+    return {
+        "message": "Solicitud de recarga enviada con éxito. El saldo será acreditado una vez validado el comprobante bancario.",
+        "recharge": {
+            "id": recharge.id,
+            "amount": float(recharge.amount),
+            "status": recharge.status,
+            "payment_method": recharge.payment_method,
+            "reference_number": recharge.reference_number,
+            "receipt_url": recharge.receipt_url,
+            "created_at": recharge.created_at.isoformat() if recharge.created_at else None
+        }
+    }
+
+
+@router.get("/me/recharges")
+async def get_my_recharges(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene el historial de solicitudes de recarga del inversionista autenticado.
+    """
+    from src.models.wallet_recharge import WalletRecharge
+
+    stmt = (
+        select(WalletRecharge)
+        .where(WalletRecharge.user_id == current_user.id)
+        .order_by(WalletRecharge.created_at.desc())
+    )
+    res = await db.execute(stmt)
+    recharges = res.scalars().all()
+
+    return [
+        {
+            "id": r.id,
+            "amount": float(r.amount),
+            "status": r.status,
+            "payment_method": r.payment_method,
+            "reference_number": r.reference_number,
+            "receipt_url": r.receipt_url,
+            "user_notes": r.user_notes,
+            "admin_notes": r.admin_notes,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None
+        }
+        for r in recharges
+    ]
+
+
+@router.post("/me/recharges/{recharge_id}/cancel")
+async def cancel_my_recharge(
+    recharge_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permite al inversionista cancelar una solicitud de recarga que aún esté pendiente.
+    """
+    from src.models.wallet_recharge import WalletRecharge
+
+    stmt = select(WalletRecharge).where(
+        WalletRecharge.id == recharge_id,
+        WalletRecharge.user_id == current_user.id
+    )
+    res = await db.execute(stmt)
+    recharge = res.scalars().first()
+
+    if not recharge:
+        raise HTTPException(status_code=404, detail="Solicitud de recarga no encontrada.")
+
+    if recharge.status != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Solo se pueden cancelar recargas en estado pendiente (estado actual: {recharge.status})."
+        )
+
+    recharge.status = "cancelled"
+    recharge.admin_notes = "Cancelada por el usuario"
+    await db.commit()
+
+    return {"message": "Solicitud de recarga cancelada exitosamente."}
+
+
+@router.get("/admin/recharges", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+async def get_all_recharges_admin(
+    status_filter: Optional[str] = None,
+    search: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Lista las solicitudes de recargas para el administrador con filtros y datos de usuario.
+    """
+    from sqlalchemy.orm import selectinload
+    from src.models.wallet_recharge import WalletRecharge
+
+    stmt = (
+        select(WalletRecharge)
+        .options(
+            selectinload(WalletRecharge.user),
+            selectinload(WalletRecharge.reviewer)
+        )
+        .order_by(WalletRecharge.created_at.desc())
+    )
+
+    if status_filter and status_filter.lower() != "todos" and status_filter.lower() != "all":
+        stmt = stmt.where(WalletRecharge.status == status_filter.lower().strip())
+
+    res = await db.execute(stmt)
+    recharges = res.scalars().all()
+
+    output = []
+    search_term = (search or "").lower().strip()
+
+    for r in recharges:
+        user_name = r.user.name if r.user else "Usuario Desconocido"
+        user_email = r.user.email if r.user else ""
+        user_doc = r.user.document_id if r.user else ""
+        reviewer_name = r.reviewer.name if r.reviewer else None
+
+        if search_term:
+            matches_search = (
+                search_term in user_name.lower() or
+                search_term in user_email.lower() or
+                search_term in str(user_doc).lower() or
+                search_term in str(r.reference_number or "").lower() or
+                search_term in str(r.id)
+            )
+            if not matches_search:
+                continue
+
+        output.append({
+            "id": r.id,
+            "user_id": r.user_id,
+            "user_name": user_name,
+            "user_email": user_email,
+            "user_document": user_doc,
+            "amount": float(r.amount),
+            "status": r.status,
+            "payment_method": r.payment_method,
+            "reference_number": r.reference_number,
+            "receipt_url": r.receipt_url,
+            "user_notes": r.user_notes,
+            "admin_notes": r.admin_notes,
+            "reviewed_by": r.reviewed_by,
+            "reviewer_name": reviewer_name,
+            "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None
+        })
+
+    return output
+
+
+@router.post("/admin/recharges/{recharge_id}/approve", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+async def approve_wallet_recharge_admin(
+    recharge_id: int,
+    payload: Optional[ApproveRechargeRequest] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Aprueba una solicitud de recarga de billetera, acredita el saldo y registra la transacción de ingreso.
+    """
+    from datetime import datetime
+    from decimal import Decimal
+    from src.models.wallet_recharge import WalletRecharge
+    from src.models.wallet import Wallet, WalletTransaction
+    from src.services.push_notification_service import PushNotificationService
+
+    stmt = select(WalletRecharge).where(WalletRecharge.id == recharge_id)
+    res = await db.execute(stmt)
+    recharge = res.scalars().first()
+
+    if not recharge:
+        raise HTTPException(status_code=404, detail="Solicitud de recarga no encontrada.")
+
+    if recharge.status != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Solo se pueden procesar recargas en estado pendiente. Estado actual: {recharge.status}."
+        )
+
+    # Cargar billetera del usuario
+    w_res = await db.execute(select(Wallet).where(Wallet.id == recharge.wallet_id))
+    wallet = w_res.scalars().first()
+    if not wallet:
+        w_res2 = await db.execute(select(Wallet).where(Wallet.user_id == recharge.user_id))
+        wallet = w_res2.scalars().first()
+
+    if not wallet:
+        wallet = Wallet(user_id=recharge.user_id, balance=Decimal("0.00"), currency="COP")
+        db.add(wallet)
+        await db.flush()
+
+    # Acreditar saldo en la billetera
+    recharge_amount = Decimal(str(recharge.amount))
+    wallet.balance = Decimal(str(wallet.balance)) + recharge_amount
+
+    # Crear la transacción de ingreso en wallet_transactions
+    notes_detail = f" - {payload.admin_notes.strip()}" if payload and payload.admin_notes else ""
+    tx = WalletTransaction(
+        wallet_id=wallet.id,
+        amount=recharge_amount,
+        type="wallet_recharge",
+        reference_type="wallet_recharge",
+        reference_id=recharge.id,
+        description=f"Recarga de saldo aprobada ({recharge.payment_method}){notes_detail}",
+        balance_after=wallet.balance
+    )
+    db.add(tx)
+
+    # Actualizar estado de la recarga
+    recharge.status = "approved"
+    recharge.reviewed_by = current_user.id
+    recharge.reviewed_at = datetime.utcnow()
+    if payload and payload.admin_notes:
+        recharge.admin_notes = payload.admin_notes.strip()
+
+    await db.commit()
+
+    # Notificar al inversionista
+    try:
+        formatted_monto = f"${float(recharge_amount):,.0f} COP"
+        await PushNotificationService.create_and_send_notification(
+            db=db,
+            user_id=recharge.user_id,
+            title="¡Recarga de Saldo Aprobada!",
+            message=f"Tu recarga por {formatted_monto} ha sido aprobada y acreditada en tu billetera.",
+            type="billetera",
+            link="/dashboard/wallet"
+        )
+    except Exception as err:
+        print(f"Warning sending recharge approval notification: {err}")
+
+    return {
+        "message": "Recarga aprobada exitosamente y saldo acreditado en la billetera.",
+        "new_balance": float(wallet.balance)
+    }
+
+
+@router.post("/admin/recharges/{recharge_id}/reject", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+async def reject_wallet_recharge_admin(
+    recharge_id: int,
+    payload: RejectRechargeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Rechaza una solicitud de recarga de billetera ingresando motivo de rechazo obligatorio.
+    """
+    from datetime import datetime
+    from decimal import Decimal
+    from src.models.wallet_recharge import WalletRecharge
+    from src.services.push_notification_service import PushNotificationService
+
+    if not payload.reason or len(payload.reason.strip()) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Es obligatorio indicar el motivo del rechazo."
+        )
+
+    stmt = select(WalletRecharge).where(WalletRecharge.id == recharge_id)
+    res = await db.execute(stmt)
+    recharge = res.scalars().first()
+
+    if not recharge:
+        raise HTTPException(status_code=404, detail="Solicitud de recarga no encontrada.")
+
+    if recharge.status != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Solo se pueden procesar recargas en estado pendiente. Estado actual: {recharge.status}."
+        )
+
+    recharge.status = "rejected"
+    recharge.reviewed_by = current_user.id
+    recharge.reviewed_at = datetime.utcnow()
+    recharge.admin_notes = payload.reason.strip()
+
+    await db.commit()
+
+    # Notificar al inversionista
+    try:
+        formatted_monto = f"${float(recharge.amount):,.0f} COP"
+        await PushNotificationService.create_and_send_notification(
+            db=db,
+            user_id=recharge.user_id,
+            title="Recarga Rechazada",
+            message=f"Tu solicitud de recarga por {formatted_monto} fue rechazada: {payload.reason.strip()}",
+            type="billetera",
+            link="/dashboard/wallet"
+        )
+    except Exception as err:
+        print(f"Warning sending recharge rejection notification: {err}")
+
+    return {"message": "Solicitud de recarga rechazada."}
 

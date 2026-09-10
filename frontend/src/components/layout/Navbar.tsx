@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
 import { NotificationBell } from './NotificationBell';
 import { ChatQuickAccess } from './ChatQuickAccess';
+import { NavbarModuleSearch } from './NavbarModuleSearch';
 import { Can } from '../security/Can';
 
 const logo = "/logo.png";
@@ -97,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
           </div>
 
           {/* Desktop Nav - Oculto si está en el Dashboard */}
-          {!isDashboard && (
+          {!isDashboard ? (
             <div className="hidden md:flex items-center justify-center space-x-8 z-20 absolute left-1/2 transform -translate-x-1/2">
               <Link to="/" className={`text-sm font-semibold transition-colors duration-200 ${!isDashboard && isSolid ? 'text-slate-600 hover:text-slate-900' : 'text-white/80 hover:text-white'}`}>
                 INICIO
@@ -157,7 +158,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                 CONTACTO
               </Link>
             </div>
-          )}
+          ) : isAuthenticated ? (
+            <div className="hidden md:flex items-center justify-center z-20 absolute left-1/2 transform -translate-x-1/2 w-full max-w-md lg:max-w-lg px-4">
+              <NavbarModuleSearch isDark={isDashboard || !isSolid} />
+            </div>
+          ) : null}
 
           {/* Actions */}
           <div className="hidden md:flex items-center space-x-4 z-20">
@@ -259,6 +264,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-2 z-20">
+            {isAuthenticated && (
+              <NavbarModuleSearch isDark={isDashboard || !isSolid} />
+            )}
+
             {isDashboard && onToggleMobileSidebar && (
               <button
                 type="button"

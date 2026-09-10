@@ -74,15 +74,19 @@ function App() {
 
   const { isAuthenticated, setUser, logout } = useAuthStore();
 
-  // Seguridad H-34: Al cargar la app, se hidrata el perfil y permisos en memoria desde el servidor
+  // Al cargar la app, se hidrata o refresca el perfil y permisos en memoria desde el servidor
   React.useEffect(() => {
     if (isAuthenticated) {
       fetchApi('/auth/me')
         .then((userData) => {
-          setUser(userData);
+          if (userData) {
+            setUser(userData);
+          }
         })
-        .catch(() => {
-          logout();
+        .catch((err) => {
+          // Si el token es inválido o expiró (401), fetchApi ejecuta logout() automáticamente.
+          // Si es un fallo temporal de red o 500, mantenemos la sesión persistida.
+          console.warn('Error al verificar sesión en /auth/me:', err);
         });
     }
   }, [isAuthenticated]);
@@ -125,8 +129,8 @@ function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
-        <Route path="investments" element={<InvestmentsPage />} />
-        <Route path="investments/:id" element={<InvestmentDetailPage />} />
+        <Route path="investments" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentsPage /></RequirePermission>} />
+        <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
         <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />
@@ -134,22 +138,23 @@ function App() {
         <Route path="packages" element={<RequirePermission permission="admin.packages.manage"><AdminPackagesPage /></RequirePermission>} />
         <Route path="investors" element={<RequirePermission permission="admin.investors.manage"><AdminInvestorsPage /></RequirePermission>} />
         <Route path="payments" element={<RequirePermission permission="admin.payments.manage"><PaymentManagementPage /></RequirePermission>} />
-        <Route path="external-apps" element={<RequirePermission permissions={["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]}><AdminExternalAppsPage /></RequirePermission>} />
+        <Route path="external-apps" element={<RequirePermission permissions={["admin.external_apps.manage", "admin.roles.manage"]}><AdminExternalAppsPage /></RequirePermission>} />
         <Route path="system-events" element={<RequirePermission permission="manage_system_events"><SystemEventsPage /></RequirePermission>} />
-        <Route path="bank-accounts" element={<BankAccountsVaultPage />} />
+        <Route path="bank-accounts" element={<RequirePermission permission="bank_accounts:manage"><BankAccountsVaultPage /></RequirePermission>} />
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
-        {/* Mercado de Acciones desactivado temporalmente */}
-        <Route path="shares-market" element={<Navigate to="/dashboard" replace />} />
-        <Route path="admin-shares" element={<Navigate to="/dashboard" replace />} />
-        <Route path="beneficiaries" element={<BeneficiariesPage />} />
+        {/* Mercado de Acciones */}
+        <Route path="shares-market" element={<RequirePermission permissions={["shares:access", "wallets:view", "admin.shares.manage"]}><SharesMarketPage /></RequirePermission>} />
+        <Route path="admin-shares" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage"]}><AdminSharesPage /></RequirePermission>} />
+        <Route path="beneficiaries" element={<RequirePermission permission="beneficiaries:view"><BeneficiariesPage /></RequirePermission>} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
-        <Route path="admin-referrals" element={<RequirePermission permission="admin.users.manage"><AdminReferralsPage /></RequirePermission>} />
+        <Route path="admin-referrals" element={<RequirePermission permissions={["admin.referrals.manage", "admin.roles.manage"]}><AdminReferralsPage /></RequirePermission>} />
+        <Route path="rankings" element={<RequirePermission permissions={["admin.rankings.manage", "admin.roles.manage"]}><AdminRankingsPage /></RequirePermission>} />
         <Route path="tickets" element={<TicketsPage />} />
         <Route path="chat" element={<RequirePermission permission="chat:view"><ChatPage /></RequirePermission>} />
         <Route path="crm" element={<RequirePermission permission="crm:view"><CRMPage /></RequirePermission>} />
         <Route path="crm/inbox" element={<RequirePermission permission="crm:view"><CRMInboxPage /></RequirePermission>} />
-        <Route path="admin-notifications" element={<RequirePermission permission="admin.users.manage"><AdminNotificationsPage /></RequirePermission>} />
+        <Route path="admin-notifications" element={<RequirePermission permissions={["admin.notifications.manage", "admin.roles.manage"]}><AdminNotificationsPage /></RequirePermission>} />
       </Route>
 
 

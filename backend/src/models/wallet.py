@@ -23,6 +23,7 @@ class Wallet(Base):
     # Relationships
     user = relationship("User", back_populates="wallet")
     transactions = relationship("WalletTransaction", back_populates="wallet", cascade="all, delete-orphan")
+    recharges = relationship("WalletRecharge", back_populates="wallet", cascade="all, delete-orphan")
 
 class WalletTransaction(Base):
     __tablename__ = "wallet_transactions"

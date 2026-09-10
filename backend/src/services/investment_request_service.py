@@ -331,7 +331,7 @@ class InvestmentRequestService:
             )
             existing_investor = inv_res.scalars().first()
 
-        if not existing_investor and (is_upgrade or req.investor_id):
+        if not existing_investor:
             inv_res = await db.execute(
                 select(Investor)
                 .options(
@@ -358,7 +358,12 @@ class InvestmentRequestService:
                 raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
 
         previous_contract_val = 0.0
-        if existing_investor and (is_upgrade or req.investor_id):
+        if req.extra_data and isinstance(req.extra_data, dict) and req.extra_data.get("previous_package_value"):
+            previous_contract_val = float(req.extra_data["previous_package_value"])
+        elif existing_investor and existing_investor.package and existing_investor.package.value:
+            previous_contract_val = float(existing_investor.package.value)
+
+        if existing_investor and (is_upgrade or req.investor_id or previous_contract_val > 0):
             # --- FLUJO DE AUMENTO DE CAPITAL ---
             from decimal import Decimal
             from datetime import timedelta
@@ -366,7 +371,6 @@ class InvestmentRequestService:
             from src.models.contract_history import ContractHistory
             from src.services.yield_calculator import calculate_investment_yield
 
-            previous_contract_val = float(existing_investor.package.value or 0.0) if existing_investor.package else 0.0
             today = datetime.utcnow().date()
             start_d = existing_investor.start_date.date() if existing_investor.start_date else today
 
@@ -553,16 +557,18 @@ class InvestmentRequestService:
                 from src.services.commercial_sale_service import register_commercial_sale
                 from src.schemas.commercial_sale import CommercialSaleCreate
                 
-                sale_type_str = "referido" if referred_code else ("reinversion" if (is_upgrade or existing_investor is not None) else "contrato_nuevo")
+                sale_type_str = "referido" if referred_code else ("reinversion" if (is_upgrade or existing_investor is not None or previous_contract_val > 0) else "contrato_nuevo")
                 doc_val = str((req.extra_data or {}).get("documento") or (investor_user and investor_user.document_id) or f"USER-{req.user_id}")
                 name_val = str((req.extra_data or {}).get("nombre_completo") or (investor_user and investor_user.name) or "Cliente Inversionista")
                 
                 # Para Aumento de Capital (upgrade / reinversión con contrato previo), la venta comercial
                 # debe ser únicamente por el valor neto del aumento (diferencia), no por el monto total del paquete.
                 # Ejemplo: Si un contrato pasó de $17M a $20M, la venta comercial debe ser por $3M ($20M - $17M).
-                is_capital_upgrade = bool(is_upgrade or existing_investor is not None or req.investor_id)
+                is_capital_upgrade = bool(is_upgrade or existing_investor is not None or req.investor_id or previous_contract_val > 0)
                 if is_capital_upgrade and previous_contract_val > 0:
                     sale_amount = max(0.0, float(req.monto) - previous_contract_val)
+                    if sale_amount <= 0:
+                        sale_amount = float(req.monto)
                 else:
                     sale_amount = float(req.monto)
 

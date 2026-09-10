@@ -23,34 +23,82 @@ class ShareMarketService:
 
     @staticmethod
     async def get_current_price(db: AsyncSession) -> float:
-        """Obtiene el último precio oficial de la acción registrado en el historial."""
+        """Obtiene el precio de la acción registrado por el admin en la última emisión o historial."""
+        # 1. Prioridad: Última emisión corporativa registrada por el admin
+        iss_result = await db.execute(
+            select(ShareIssuance)
+            .order_by(ShareIssuance.id.desc())
+            .limit(1)
+        )
+        latest_iss = iss_result.scalar_one_or_none()
+        if latest_iss and latest_iss.price_per_share is not None and float(latest_iss.price_per_share) > 0:
+            return float(latest_iss.price_per_share)
+
+        # 2. Historial de precio si existe
         result = await db.execute(
             select(SharePriceHistory)
             .order_by(SharePriceHistory.id.desc())
             .limit(1)
         )
         latest = result.scalar_one_or_none()
-        if latest:
+        if latest and latest.new_price is not None and float(latest.new_price) > 0:
             return float(latest.new_price)
-        return 50000.0  # Valor base inicial en COP
+
+        return 50000.0  # Valor base inicial si no hay emisiones ni historial
 
     @staticmethod
-    async def update_official_price(db: AsyncSession, new_price: float, justification_notes: str, admin_id: int) -> SharePriceHistory:
-        """Actualiza el precio oficial de la acción con nota/justificación obligatoria."""
+    async def get_current_available_shares(db: AsyncSession) -> int:
+        """Obtiene la cantidad total de acciones disponibles registradas por el admin."""
+        # 1. Suma de acciones disponibles de las emisiones activas creadas por el admin
+        iss_result = await db.execute(
+            select(func.coalesce(func.sum(ShareIssuance.available_shares), 0))
+            .where(ShareIssuance.is_active == True)
+        )
+        total_from_iss = int(iss_result.scalar_one() or 0)
+        if total_from_iss > 0:
+            return total_from_iss
+
+        # 2. Historial si no hay en emisiones
+        result = await db.execute(
+            select(SharePriceHistory)
+            .order_by(SharePriceHistory.id.desc())
+            .limit(1)
+        )
+        latest = result.scalar_one_or_none()
+        if latest and getattr(latest, 'new_available_shares', None) is not None and int(latest.new_available_shares) > 0:
+            return int(latest.new_available_shares)
+
+        return 0
+
+    @staticmethod
+    async def update_official_price(
+        db: AsyncSession, 
+        new_price: float, 
+        justification_notes: str, 
+        admin_id: int,
+        available_shares: Optional[int] = None
+    ) -> SharePriceHistory:
+        """Actualiza el precio oficial y la cantidad de acciones disponibles con trazabilidad obligatoria."""
         if not justification_notes or not justification_notes.strip() or len(justification_notes.strip()) < 5:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Es obligatorio ingresar un motivo o justificación detallada para cambiar el valor de la acción."
+                detail="Es obligatorio ingresar un motivo o justificación detallada para registrar el cambio en la bitácora."
             )
 
         current_price = await ShareMarketService.get_current_price(db)
+        current_available_shares = await ShareMarketService.get_current_available_shares(db)
+        
         diff = new_price - current_price
         pct = (diff / current_price * 100) if current_price > 0 else 0.0
+
+        new_shares = available_shares if available_shares is not None else current_available_shares
 
         history = SharePriceHistory(
             previous_price=Decimal(str(current_price)),
             new_price=Decimal(str(new_price)),
             change_percentage=Decimal(str(round(pct, 2))),
+            previous_available_shares=current_available_shares,
+            new_available_shares=new_shares,
             justification_notes=justification_notes.strip(),
             admin_id=admin_id
         )
@@ -61,7 +109,7 @@ class ShareMarketService:
 
     @staticmethod
     async def get_price_history(db: AsyncSession) -> List[dict]:
-        """Obtiene la bitácora histórica completa de variaciones de precio y notas."""
+        """Obtiene la bitácora histórica completa de variaciones de precio, cantidad disponible y notas."""
         result = await db.execute(
             select(SharePriceHistory)
             .options(selectinload(SharePriceHistory.admin))
@@ -74,6 +122,8 @@ class ShareMarketService:
                 "previous_price": float(r.previous_price),
                 "new_price": float(r.new_price),
                 "change_percentage": float(r.change_percentage),
+                "previous_available_shares": int(getattr(r, 'previous_available_shares', 0) or 0),
+                "new_available_shares": int(getattr(r, 'new_available_shares', 0) or 0),
                 "justification_notes": r.justification_notes,
                 "admin_id": r.admin_id,
                 "admin_name": r.admin.name if r.admin else "Administrador",
@@ -511,10 +561,14 @@ class ShareMarketService:
         await db.refresh(order)
         return order
 
-    # --- Emisión Corporativa de Acciones ---
     @staticmethod
     async def create_issuance(db: AsyncSession, admin_id: int, title: str, description: Optional[str], total_shares: int, price_per_share: float) -> ShareIssuance:
-        """Crea una nueva emisión de acciones corporativas."""
+        """Crea una nueva emisión de acciones corporativas y la sincroniza con el stock y la bitácora del fondo."""
+        # 1. Obtener precio y stock ANTES de crear la nueva emisión
+        previous_price = await ShareMarketService.get_current_price(db)
+        current_available_shares = await ShareMarketService.get_current_available_shares(db)
+        new_total_shares = current_available_shares + total_shares
+
         issuance = ShareIssuance(
             title=title,
             description=description,
@@ -525,6 +579,25 @@ class ShareMarketService:
             is_active=True
         )
         db.add(issuance)
+        await db.flush()
+
+        desc_info = f" - {description}" if description else ""
+        justification = f"Emisión de Acciones #{issuance.id}: '{title}'{desc_info}. Stock emitido: {total_shares} acciones a ${price_per_share:,.0f} COP."
+
+        diff = price_per_share - previous_price
+        pct = (diff / previous_price * 100) if previous_price > 0 else 0.0
+
+        history = SharePriceHistory(
+            previous_price=Decimal(str(previous_price)),
+            new_price=Decimal(str(price_per_share)),
+            change_percentage=Decimal(str(round(pct, 2))),
+            previous_available_shares=current_available_shares,
+            new_available_shares=new_total_shares,
+            justification_notes=justification,
+            admin_id=admin_id
+        )
+        db.add(history)
+
         await db.commit()
         await db.refresh(issuance)
         return issuance
