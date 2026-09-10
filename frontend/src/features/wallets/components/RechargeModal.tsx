@@ -30,7 +30,13 @@ const PRESET_AMOUNTS = [
     2000000
 ];
 
-const BANK_INFO = GLOINT_BANK_INFO;
+const BANK_INFO = {
+    bank: 'Bancolombia S.A.',
+    accountType: 'Cuenta de Ahorros',
+    accountNumber: '67400002873',
+    holder: 'GLOINT INTERNATIONAL PARTNERS SAS',
+    nit: '901702380'
+};
 
 export const RechargeModal: React.FC<RechargeModalProps> = ({
     isOpen,
@@ -105,11 +111,11 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                        <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
                             <ArrowDownToLine className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black text-slate-900 tracking-tight">
+                            <h3 className="text-lg font-black text-slate-900 tracking-tight font-montserrat">
                                 Recargar Billetera
                             </h3>
                             <p className="text-xs text-slate-500 font-medium">
@@ -130,7 +136,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                         <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto animate-bounce">
                             <CheckCircle2 className="w-8 h-8" />
                         </div>
-                        <h4 className="text-lg font-bold text-slate-900">¡Recarga en Proceso!</h4>
+                        <h4 className="text-lg font-bold text-slate-900 font-montserrat">¡Recarga en Proceso!</h4>
                         <p className="text-xs text-slate-600 max-w-md mx-auto font-medium">
                             {successMessage}
                         </p>
@@ -163,7 +169,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value)))}
                                     placeholder="Ej. 100000"
-                                    className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base font-mono font-black text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-hidden transition-all"
+                                    className="w-full pl-8 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base font-mono font-black text-slate-900 focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all"
                                     required
                                 />
                             </div>
@@ -177,7 +183,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                         onClick={() => handlePresetClick(val)}
                                         className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                                             amount === val
-                                                ? 'bg-emerald-600 text-white shadow-xs'
+                                                ? 'bg-brand-500 text-white shadow-xs'
                                                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                                         }`}
                                     >
@@ -188,65 +194,75 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                         </div>
 
                         {/* Datos Bancarios Oficiales de Gloint */}
-                        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-4.5 space-y-3 shadow-md relative overflow-hidden">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Building2 className="w-4 h-4 text-emerald-400" />
-                                    <span className="text-xs font-bold text-emerald-400 tracking-wide uppercase">
-                                        Cuenta Oficial de la Empresa
-                                    </span>
+                        <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4.5 space-y-3">
+                            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
+                                        <Building2 className="w-4 h-4 text-brand-600" />
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-bold text-slate-900 block font-montserrat">
+                                            Datos Bancarios Oficiales de Gloint
+                                        </span>
+                                        <span className="text-[10px] text-slate-500 font-medium block">
+                                            Transferencia para recarga de billetera
+                                        </span>
+                                    </div>
                                 </div>
-                                <span className="text-[10px] font-mono bg-white/10 px-2 py-0.5 rounded-full text-slate-300">
-                                    Bancolombia
+                                <span className="text-[11px] font-bold text-brand-700 bg-brand-50 border border-brand-200/70 px-2.5 py-0.5 rounded-full shadow-2xs">
+                                    {BANK_INFO.bank}
                                 </span>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
                                 <div>
-                                    <span className="text-[10px] text-slate-400 block">Titular de la Cuenta:</span>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="font-bold text-white block text-[11px] leading-tight break-words">{BANK_INFO.holder}</span>
+                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Titular de la Cuenta</span>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span className="font-bold text-slate-800 text-xs leading-tight break-words">{BANK_INFO.holder}</span>
                                         <button
                                             type="button"
                                             onClick={() => handleCopy(BANK_INFO.holder, 'holder')}
-                                            className="text-slate-400 hover:text-emerald-400 transition-colors p-1 shrink-0"
+                                            className="text-slate-400 hover:text-brand-600 transition-colors p-1 shrink-0"
                                             title="Copiar Titular"
                                         >
-                                            {copiedField === 'holder' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                            {copiedField === 'holder' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                                         </button>
                                     </div>
                                 </div>
+
                                 <div>
-                                    <span className="text-[10px] text-slate-400 block">NIT:</span>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="font-bold text-white font-mono">{BANK_INFO.nit}</span>
+                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">NIT</span>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span className="font-bold text-slate-800 font-mono text-xs">{BANK_INFO.nit}</span>
                                         <button
                                             type="button"
                                             onClick={() => handleCopy(BANK_INFO.nit, 'nit')}
-                                            className="text-slate-400 hover:text-emerald-400 transition-colors p-1"
+                                            className="text-slate-400 hover:text-brand-600 transition-colors p-1 shrink-0"
                                             title="Copiar NIT"
                                         >
-                                            {copiedField === 'nit' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                            {copiedField === 'nit' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                                         </button>
                                     </div>
                                 </div>
+
                                 <div>
-                                    <span className="text-[10px] text-slate-400 block">Tipo de Cuenta:</span>
-                                    <span className="font-bold text-white block">{BANK_INFO.accountType}</span>
+                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Tipo de Cuenta</span>
+                                    <span className="font-bold text-slate-800 text-xs block mt-0.5">{BANK_INFO.accountType}</span>
                                 </div>
+
                                 <div>
-                                    <span className="text-[10px] text-slate-400 block">Número de Cuenta:</span>
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="font-bold text-white font-mono text-sm text-emerald-300">
+                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Número de Cuenta</span>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="font-mono font-bold text-sm text-slate-900 bg-white border border-slate-300/80 px-2.5 py-1 rounded-xl shadow-2xs select-all">
                                             {BANK_INFO.accountNumber}
                                         </span>
                                         <button
                                             type="button"
                                             onClick={() => handleCopy(BANK_INFO.accountNumber, 'acc')}
-                                            className="text-slate-400 hover:text-emerald-400 transition-colors p-1"
-                                            title="Copiar Número"
+                                            className="text-slate-400 hover:text-brand-600 transition-colors p-1.5 bg-white border border-slate-200 rounded-lg hover:border-brand-300 shadow-2xs"
+                                            title="Copiar Número de Cuenta"
                                         >
-                                            {copiedField === 'acc' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                            {copiedField === 'acc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                                         </button>
                                     </div>
                                 </div>
@@ -262,7 +278,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                 <select
                                     value={paymentMethod}
                                     onChange={(e) => setPaymentMethod(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-hidden"
                                 >
                                     <option value="Transferencia Bancolombia">Transferencia Bancolombia</option>
                                     <option value="Nequi">Nequi</option>
@@ -281,7 +297,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                     value={referenceNumber}
                                     onChange={(e) => setReferenceNumber(e.target.value)}
                                     placeholder="Ej. REF-983421"
-                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:ring-2 focus:ring-brand-500 outline-hidden"
                                 />
                             </div>
                         </div>
@@ -292,7 +308,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                 Adjuntar Comprobante de Transferencia (JPG, PNG, PDF) <span className="text-rose-500">*</span>
                             </label>
                             
-                            <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-50/60 hover:bg-emerald-50/20 relative group">
+                            <div className="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-50/60 hover:bg-brand-50/20 relative group">
                                 <input
                                     type="file"
                                     accept="image/jpeg,image/png,image/webp,application/pdf"
@@ -301,7 +317,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                     required
                                 />
                                 <div className="space-y-1">
-                                    <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-emerald-500 mx-auto transition-colors" />
+                                    <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-brand-500 mx-auto transition-colors" />
                                     <p className="text-xs font-bold text-slate-700 block truncate">
                                         {receiptFile ? receiptFile.name : "Haz clic o arrastra tu comprobante aquí"}
                                     </p>
@@ -322,13 +338,13 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
                                 placeholder="Ej. Transferencia desde cuenta personal"
-                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-brand-500 outline-hidden"
                             />
                         </div>
 
                         {/* Seguridad y Disclaimer */}
                         <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-start gap-2 text-[11px] text-slate-500">
-                            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <ShieldCheck className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
                             <span>
                                 Tu solicitud quedará en estado <strong>Pendiente</strong> y se acreditará inmediatamente en tu saldo una vez confirmada por el área financiera.
                             </span>
@@ -347,7 +363,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                                className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
                             >
                                 {loading ? (
                                     <>
