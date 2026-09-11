@@ -99,7 +99,8 @@ const MODULES_CATALOG: ModuleItem[] = [
     path: '/dashboard/shares-market',
     category: 'Finanzas y Cuenta',
     icon: Layers,
-    permissions: ['shares:access', 'wallets:view', 'admin.shares.manage'],
+    permissions: ['admin.shares.manage', 'admin.roles.manage'],
+    isAdminOnly: true,
     keywords: ['acciones', 'comprar acciones', 'vender acciones', 'mercado', 'portafolio', 'titulos', 'valor de accion', 'rendimiento']
   },
   {
