@@ -48,6 +48,7 @@ import { AdminNotificationsPage } from "./features/admin/notifications/pages/Adm
 import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
+import { useVersionChecker } from "./hooks/useVersionChecker";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
 import { fetchApi } from "./services/api";
@@ -68,9 +69,10 @@ const GuestRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  // Inicializamos el "Perro Guardián" de inactividad y registro de notificaciones Push
+  // Inicializamos el "Perro Guardián" de inactividad, registro Push y detector de versiones
   useInactivityTimer();
   usePushNotifications();
+  useVersionChecker();
 
   const { isAuthenticated, setUser, logout } = useAuthStore();
 
