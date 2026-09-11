@@ -285,15 +285,7 @@ export const InvestorRegistrationFlow = () => {
                 user.roles_list = Array.from(rolesList);
             }
             loginAction(user, data.access_token);
-
-            if ('caches' in window) {
-                try {
-                    caches.keys().then((names) => {
-                        names.forEach((name) => caches.delete(name));
-                    });
-                } catch (_) {}
-            }
-            window.location.href = '/dashboard';
+            navigate('/dashboard');
         },
     });
 

@@ -53,15 +53,7 @@ export const ForceChangePasswordPage = () => {
                 user || { id: 1, name: email.split('@')[0], email, is_active: true }, 
                 data.access_token
             );
-
-            if ('caches' in window) {
-                try {
-                    caches.keys().then((names) => {
-                        names.forEach((name) => caches.delete(name));
-                    });
-                } catch (_) {}
-            }
-            window.location.href = '/dashboard';
+            navigate('/dashboard');
         },
     });
 
