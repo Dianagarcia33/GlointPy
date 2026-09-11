@@ -145,7 +145,7 @@ function App() {
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
         {/* Mercado de Acciones */}
-        <Route path="shares-market" element={<RequirePermission permissions={["shares:access", "wallets:view", "admin.shares.manage"]}><SharesMarketPage /></RequirePermission>} />
+        <Route path="shares-market" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage"]}><SharesMarketPage /></RequirePermission>} />
         <Route path="admin-shares" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage"]}><AdminSharesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<RequirePermission permission="beneficiaries:view"><BeneficiariesPage /></RequirePermission>} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
