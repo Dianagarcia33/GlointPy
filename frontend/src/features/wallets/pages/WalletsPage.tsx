@@ -251,6 +251,14 @@ export const WalletsPage = () => {
 
                     {/* Actions Card */}
                     <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
+                        {/* Botón Recargar Billetera */}
+                        <button 
+                            onClick={() => setIsRechargeModalOpen(true)}
+                            className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer font-montserrat"
+                        >
+                            <ArrowDownToLine className="w-5 h-5" />
+                            Recargar Billetera
+                        </button>
 
                         <Can permission="wallets:request_withdrawal">
                             <button 
@@ -445,6 +453,13 @@ export const WalletsPage = () => {
                                         <p className="text-xs text-slate-500 mt-0.5">Estado de tus comprobantes de recarga y consignaciones a la empresa</p>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={() => setIsRechargeModalOpen(true)}
+                                    className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat"
+                                >
+                                    <ArrowDownToLine className="w-3.5 h-3.5" />
+                                    <span>Nueva Recarga</span>
+                                </button>
                             </div>
 
                             {recharges.length > 0 ? (
@@ -522,6 +537,12 @@ export const WalletsPage = () => {
                             ) : (
                                 <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl space-y-2">
                                     <p className="text-slate-500 font-medium">No tienes solicitudes de recarga recientes.</p>
+                                    <button
+                                        onClick={() => setIsRechargeModalOpen(true)}
+                                        className="text-xs text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer underline font-montserrat"
+                                    >
+                                        Crear tu primera recarga de billetera
+                                    </button>
                                 </div>
                             )}
                         </div>
