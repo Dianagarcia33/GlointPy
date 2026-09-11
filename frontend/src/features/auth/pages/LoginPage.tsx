@@ -47,7 +47,16 @@ export const LoginPage = () => {
                 user || { id: 1, name: email.split('@')[0], email, is_active: true }, 
                 data.access_token
             );
-            navigate('/dashboard');
+
+            // Limpiar caché local y forzar descarga fresca del bundle desde el servidor
+            if ('caches' in window) {
+                try {
+                    caches.keys().then((names) => {
+                        names.forEach((name) => caches.delete(name));
+                    });
+                } catch (_) {}
+            }
+            window.location.href = '/dashboard';
         },
         onError: (error: any) => {
             if (error.message === 'MUST_CHANGE_PASSWORD') {
