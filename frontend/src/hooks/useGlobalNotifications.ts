@@ -59,34 +59,41 @@ export const useGlobalNotifications = () => {
         try {
           const data = JSON.parse(event.data);
           
-          if (data.type === 'chat_notification') {
-            const roomId = data.room_id;
-            const message = data.message;
-            
-            // Verificar si el usuario ya está en esa sala de chat
-            const isCurrentlyInRoom = location.pathname.includes('/dashboard/chat') && 
-                                      location.search.includes(`room=${roomId}`);
+          if (data.type === 'chat_notification' || data.type === 'new_room') {
+            // Notificar a toda la aplicación (en especial a ChatPage) que la lista de chats cambió
+            window.dispatchEvent(new CustomEvent('gloint:chat_updated', { detail: data }));
 
-            if (!isCurrentlyInRoom) {
-              // 1. Reproducir sonido
-              playBeep();
+            if (data.type === 'chat_notification') {
+              const roomId = data.room_id;
+              const message = data.message;
+              
+              // Verificar si el usuario ya está en esa sala de chat
+              const isCurrentlyInRoom = location.pathname.includes('/dashboard/chat') && 
+                                        location.search.includes(`room=${roomId}`);
 
-              // 2. Mostrar notificación de escritorio
-              if ('Notification' in window && Notification.permission === 'granted') {
-                const title = `💬 Nuevo mensaje de ${message.sender_name}`;
-                const body = message.content || '📎 Archivo adjunto';
-                
-                const notification = new Notification(title, {
-                  body,
-                  icon: '/logo192.png', // Asumiendo que existe un logo genérico
-                  tag: `chat-room-${roomId}`
-                });
+              if (!isCurrentlyInRoom) {
+                // 1. Reproducir sonido
+                playBeep();
 
-                notification.onclick = () => {
-                  window.focus();
-                  window.location.href = `/dashboard/chat?room=${roomId}`;
-                };
+                // 2. Mostrar notificación de escritorio
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  const title = `💬 Nuevo mensaje de ${message.sender_name}`;
+                  const body = message.content || '📎 Archivo adjunto';
+                  
+                  const notification = new Notification(title, {
+                    body,
+                    icon: '/logo192.png',
+                    tag: `chat-room-${roomId}`
+                  });
+
+                  notification.onclick = () => {
+                    window.focus();
+                    window.location.href = `/dashboard/chat?room=${roomId}`;
+                  };
+                }
               }
+            } else if (data.type === 'new_room') {
+              playBeep();
             }
           }
         } catch (err) {

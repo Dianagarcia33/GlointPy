@@ -19,11 +19,11 @@ export const ChatPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Cargar salas al entrar
-  const fetchRooms = async () => {
+  // Cargar salas al entrar o refrescar en tiempo real
+  const fetchRooms = async (isBackground = false) => {
     if (!canViewChat) return;
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const data = await chatService.getRooms();
       setRooms(data);
 
@@ -43,7 +43,7 @@ export const ChatPage: React.FC = () => {
     } catch (err) {
       console.error('Error al cargar salas de chat:', err);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
@@ -57,6 +57,22 @@ export const ChatPage: React.FC = () => {
 
   useEffect(() => {
     fetchRooms();
+
+    const handleChatUpdated = () => {
+      fetchRooms(true);
+    };
+
+    window.addEventListener('gloint:chat_updated', handleChatUpdated);
+
+    // Sondeo ligero de respaldo en segundo plano cada 12 segundos mientras esté en la vista de chat
+    const pollTimer = setInterval(() => {
+      fetchRooms(true);
+    }, 12000);
+
+    return () => {
+      window.removeEventListener('gloint:chat_updated', handleChatUpdated);
+      clearInterval(pollTimer);
+    };
   }, [canViewChat, window.location.search]);
 
   const handleStartDirectChat = async (targetUserId: number) => {

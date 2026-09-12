@@ -141,6 +141,16 @@ class ChatService:
         db.add_all([p1, p2])
         await db.commit()
         await db.refresh(new_room)
+
+        for uid in [user_id1, user_id2]:
+            try:
+                await manager.send_to_user(uid, {
+                    "type": "new_room",
+                    "room_id": new_room.id
+                })
+            except Exception:
+                pass
+
         return new_room
 
     @staticmethod
@@ -184,6 +194,16 @@ class ChatService:
 
         await db.commit()
         await db.refresh(new_room)
+
+        for uid in all_ids:
+            try:
+                await manager.send_to_user(uid, {
+                    "type": "new_room",
+                    "room_id": new_room.id
+                })
+            except Exception:
+                pass
+
         return new_room
 
     @staticmethod
