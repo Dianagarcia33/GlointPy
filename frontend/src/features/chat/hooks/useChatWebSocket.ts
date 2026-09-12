@@ -92,7 +92,7 @@ export function useChatWebSocket(roomId: number | null) {
             const { message_id, reactions } = data;
             setMessages((prev) =>
               prev.map((msg) =>
-                msg.id === message_id ? { ...msg, reactions } : msg
+                Number(msg.id) === Number(message_id) ? { ...msg, reactions } : msg
               )
             );
           } else if (data.error) {
@@ -129,6 +129,15 @@ export function useChatWebSocket(roomId: number | null) {
     };
   }, [roomId]);
 
+  // Función para actualizar manualmente o de forma optimista las reacciones de un mensaje
+  const updateMessageReactions = useCallback((messageId: number, reactions: any[]) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        Number(msg.id) === Number(messageId) ? { ...msg, reactions } : msg
+      )
+    );
+  }, []);
+
   // Función para notificar estado de "escribiendo..."
   const sendTypingStatus = useCallback((isTyping: boolean) => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
@@ -159,6 +168,7 @@ export function useChatWebSocket(roomId: number | null) {
     isConnected,
     error,
     sendMessage,
-    sendTypingStatus
+    sendTypingStatus,
+    updateMessageReactions
   };
 }

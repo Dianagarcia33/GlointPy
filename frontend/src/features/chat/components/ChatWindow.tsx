@@ -53,7 +53,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { messages, typingUsers, isConnected, error, sendMessage, sendTypingStatus } = useChatWebSocket(room ? room.id : null);
+  const { messages, typingUsers, isConnected, error, sendMessage, sendTypingStatus, updateMessageReactions } = useChatWebSocket(room ? room.id : null);
 
   const initialLoadRef = useRef<boolean>(true);
   const currentRoomIdRef = useRef<number | null>(null);
@@ -89,7 +89,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
   const handleToggleReaction = async (messageId: number, emoji: string) => {
     setReactionPickerMsgId(null);
     try {
-      await chatService.toggleReaction(messageId, emoji);
+      const res = await chatService.toggleReaction(messageId, emoji);
+      if (res && res.reactions) {
+        updateMessageReactions(messageId, res.reactions);
+      }
     } catch (err: any) {
       console.error('Error al alternar reacción:', err);
     }
