@@ -17,6 +17,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { getActiveEvent, registerPublicAttendee, EventData } from "../../../services/events";
+import { useColombiaCities } from "../../../hooks/useColombiaCities";
 import { DARK, DARK2, GOLD, ORANGE } from "../utils/constants";
 import { Badge } from "./Badge";
 
@@ -25,12 +26,25 @@ export function EventRegistrationSection() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("");
   const [documentId, setDocumentId] = useState("");
   const [attendanceMode, setAttendanceMode] = useState<"in_person" | "virtual">("in_person");
   const [hasCompanion, setHasCompanion] = useState(false);
   const [companionName, setCompanionName] = useState("");
   const [loading, setLoading] = useState(false);
+  const {
+    departments,
+    cities,
+    selectedDepartmentId,
+    selectedCity,
+    customCity,
+    loadingDepartments,
+    loadingCities,
+    handleDepartmentChange,
+    setSelectedCity,
+    setCustomCity,
+    finalCity,
+    reset: resetCities,
+  } = useColombiaCities();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -73,7 +87,7 @@ export function EventRegistrationSection() {
         full_name: fullName.trim(),
         email: email.trim(),
         phone: phone.trim() || undefined,
-        city: city.trim() || undefined,
+        city: finalCity.trim() || undefined,
         document_id: documentId.trim() || undefined,
         attendance_mode: attendanceMode,
         has_companion: attendanceMode === "in_person" ? hasCompanion : false,
@@ -242,7 +256,8 @@ export function EventRegistrationSection() {
                       setFullName("");
                       setEmail("");
                       setPhone("");
-                      setCity("");
+                      setDocumentId("");
+                      resetCities();
                     }}
                     className="mt-4 px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
@@ -313,33 +328,92 @@ export function EventRegistrationSection() {
                     </div>
                   </div>
 
-                  {/* Ciudad y Documento */}
+                  {/* Departamento y Ciudad */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-slate-300 block mb-1">
-                        Ciudad
+                      <label className="text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                        <span>Departamento</span>
+                        {loadingDepartments && <span className="text-[10px] text-amber-400 font-normal">Cargando...</span>}
                       </label>
-                      <input
-                        type="text"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        placeholder="Ej. Bogotá, Cali..."
-                        className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
-                      />
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <MapPin className="h-4 w-4 text-slate-400" />
+                        </div>
+                        <select
+                          value={selectedDepartmentId}
+                          onChange={(e) => handleDepartmentChange(e.target.value)}
+                          disabled={loadingDepartments}
+                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 transition-all font-medium cursor-pointer disabled:opacity-60"
+                        >
+                          <option value="" className="bg-slate-900 text-white">
+                            {loadingDepartments ? "Cargando..." : "Selecciona..."}
+                          </option>
+                          {departments.map((d) => (
+                            <option key={d.id} value={d.id} className="bg-slate-900 text-white">
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     <div>
+                      <label className="text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                        <span>Ciudad</span>
+                        {loadingCities && <span className="text-[10px] text-amber-400 font-normal">Cargando...</span>}
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <MapPin className="h-4 w-4 text-slate-400" />
+                        </div>
+                        <select
+                          value={selectedCity}
+                          onChange={(e) => setSelectedCity(e.target.value)}
+                          disabled={!selectedDepartmentId || loadingCities}
+                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 transition-all font-medium cursor-pointer disabled:opacity-60"
+                        >
+                          <option value="" className="bg-slate-900 text-white">
+                            {loadingCities 
+                              ? "Cargando..." 
+                              : (!selectedDepartmentId ? "Elige departamento..." : "Selecciona...")}
+                          </option>
+                          {cities.map((c) => (
+                            <option key={c.id} value={c.name} className="bg-slate-900 text-white">
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedCity === "Otra" && (
+                    <div>
                       <label className="text-xs font-semibold text-slate-300 block mb-1">
-                        N° Documento (Opcional)
+                        ¿Qué ciudad? *
                       </label>
                       <input
                         type="text"
-                        value={documentId}
-                        onChange={(e) => setDocumentId(e.target.value)}
-                        placeholder="Cédula o ID"
+                        required
+                        value={customCity}
+                        onChange={(e) => setCustomCity(e.target.value)}
+                        placeholder="Escribe el nombre de tu ciudad"
                         className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
                       />
                     </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-300 block mb-1">
+                      N° Documento (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={documentId}
+                      onChange={(e) => setDocumentId(e.target.value)}
+                      placeholder="Cédula o ID"
+                      className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                    />
                   </div>
 
                   {/* Selector de Modalidad */}
