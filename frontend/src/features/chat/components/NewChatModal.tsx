@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, User, Circle, Users, MessageSquare, Check, Loader2 } from 'lucide-react';
+import { X, Search, User, Circle, Users, MessageSquare, Check, Loader2, Camera, ImagePlus, Trash2 } from 'lucide-react';
 import { chatService, ChatUser } from '../../../services/chatService';
 
 interface NewChatModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectUser: (userId: number) => void;
-  onCreateGroup?: (name: string, participantIds: number[]) => Promise<void>;
+  onCreateGroup?: (name: string, participantIds: number[], avatar?: File | null) => Promise<void>;
 }
 
 export const NewChatModal: React.FC<NewChatModalProps> = ({
@@ -21,6 +21,9 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   const [search, setSearch] = useState('');
   const [groupName, setGroupName] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [submittingGroup, setSubmittingGroup] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +36,14 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
       setSelectedUserIds([]);
       setSearch('');
       setActiveTab('direct');
+      setAvatarFile(null);
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+        setAvatarPreview(null);
+      }
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
 
       chatService.getUsers()
         .then((data) => {
@@ -43,6 +54,11 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
           setError(err.message || 'Error al cargar usuarios');
         })
         .finally(() => setLoading(false));
+    } else {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+        setAvatarPreview(null);
+      }
     }
   }, [isOpen]);
 
@@ -57,6 +73,40 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
     setSelectedUserIds((prev) =>
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
     );
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Por favor selecciona un archivo de imagen válido (JPG, PNG, WEBP)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen de perfil no debe superar 5 MB');
+      return;
+    }
+
+    setAvatarFile(file);
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+    setAvatarPreview(URL.createObjectURL(file));
+    setError(null);
+  };
+
+  const handleRemoveAvatar = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setAvatarFile(null);
+    if (avatarPreview) {
+      URL.revokeObjectURL(avatarPreview);
+      setAvatarPreview(null);
+    }
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = '';
+    }
   };
 
   const handleCreateGroupSubmit = async (e: React.FormEvent) => {
@@ -74,7 +124,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
     try {
       setSubmittingGroup(true);
       setError(null);
-      await onCreateGroup(groupName.trim(), selectedUserIds);
+      await onCreateGroup(groupName.trim(), selectedUserIds, avatarFile);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Error al crear el grupo');
@@ -202,6 +252,69 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
         {activeTab === 'group' && (
           <form onSubmit={handleCreateGroupSubmit} className="flex flex-col flex-1 min-h-0">
             <div className="p-4 space-y-3 border-b border-slate-100 bg-white">
+              {/* Foto de perfil del grupo */}
+              <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-slate-50/80 border border-slate-200/80">
+                <div
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="relative group w-14 h-14 rounded-full border-2 border-dashed border-slate-300 hover:border-brand-500 bg-white flex items-center justify-center cursor-pointer overflow-hidden transition-all shadow-2xs flex-shrink-0"
+                  title="Haz clic para seleccionar una foto de perfil para el grupo"
+                >
+                  {avatarPreview ? (
+                    <>
+                      <img
+                        src={avatarPreview}
+                        alt="Foto del grupo"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-slate-400 group-hover:text-brand-500 transition-colors">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                  )}
+                </div>
+
+                <input
+                  type="file"
+                  ref={avatarInputRef}
+                  onChange={handleAvatarChange}
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                />
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="block text-xs font-semibold text-slate-800 font-outfit">
+                      Foto de Perfil
+                    </span>
+                    {avatarFile && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveAvatar}
+                        className="text-[11px] text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1 transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Quitar</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                    {avatarFile ? avatarFile.name : 'Opcional · JPG, PNG, WEBP (máx. 5MB)'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="mt-1 text-xs text-brand-600 hover:text-brand-700 font-medium inline-flex items-center gap-1 transition-colors"
+                  >
+                    <ImagePlus className="w-3.5 h-3.5" />
+                    <span>{avatarFile ? 'Cambiar foto' : 'Subir foto de grupo'}</span>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 font-outfit mb-1">
                   Nombre del Grupo *

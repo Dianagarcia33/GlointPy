@@ -69,9 +69,9 @@ export const ChatPage: React.FC = () => {
     }
   };
 
-  const handleCreateGroup = async (name: string, participantIds: number[]) => {
+  const handleCreateGroup = async (name: string, participantIds: number[], avatar?: File | null) => {
     try {
-      const newRoom = await chatService.createGroupRoom(name, participantIds);
+      const newRoom = await chatService.createGroupRoom(name, participantIds, avatar);
       await fetchRooms();
       setSelectedRoomId(newRoom.room_id);
     } catch (err: any) {

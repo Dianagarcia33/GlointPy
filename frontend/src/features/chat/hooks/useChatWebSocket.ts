@@ -88,6 +88,13 @@ export function useChatWebSocket(roomId: number | null) {
                 setTypingUsers((prev) => prev.filter((n) => n !== user_name));
               }
             }
+          } else if (data.type === 'message_reaction') {
+            const { message_id, reactions } = data;
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === message_id ? { ...msg, reactions } : msg
+              )
+            );
           } else if (data.error) {
             setError(data.error);
           }

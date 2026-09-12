@@ -53,6 +53,7 @@ import { useVersionChecker } from "./hooks/useVersionChecker";
 import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
 import { fetchApi } from "./services/api";
+import { useGlobalNotifications } from "./hooks/useGlobalNotifications";
 
 
 // Componente para proteger rutas (si no está logueado, lo manda al login)
@@ -74,6 +75,9 @@ function App() {
   useInactivityTimer();
   usePushNotifications();
   useVersionChecker();
+  
+  // Inicializamos el listener global de notificaciones en tiempo real
+  useGlobalNotifications();
 
   const { isAuthenticated, setUser, logout } = useAuthStore();
 

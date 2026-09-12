@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MessageSquare, UserPlus, Search, Circle, Users } from 'lucide-react';
 import { ChatRoom, ChatUser } from '../../../services/chatService';
+import { getMediaUrl } from '../../../services/api';
 import { formatConversationDate } from '../../../utils/format';
 
 interface ConversationListProps {
@@ -78,13 +79,21 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               >
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm font-outfit text-sm ${
-                    isGroup
-                      ? 'bg-gradient-to-tr from-brand-600 via-amber-500 to-emerald-500'
-                      : 'bg-gradient-to-tr from-brand-500 to-amber-400'
-                  }`}>
-                    {isGroup ? <Users className="w-5 h-5" /> : room.name.charAt(0).toUpperCase()}
-                  </div>
+                  {room.avatar_url ? (
+                    <img
+                      src={getMediaUrl(room.avatar_url)}
+                      alt={room.name}
+                      className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200/80"
+                    />
+                  ) : (
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm font-outfit text-sm ${
+                      isGroup
+                        ? 'bg-gradient-to-tr from-brand-600 via-amber-500 to-emerald-500'
+                        : 'bg-gradient-to-tr from-brand-500 to-amber-400'
+                    }`}>
+                      {isGroup ? <Users className="w-5 h-5" /> : room.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   {!isGroup && room.other_participant?.is_online && (
                     <Circle className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500 absolute -bottom-0.5 -right-0.5 ring-2 ring-white rounded-full" />
                   )}

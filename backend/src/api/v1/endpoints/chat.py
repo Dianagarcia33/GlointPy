@@ -85,29 +85,65 @@ async def get_or_create_direct_room(
     room = await ChatService.get_or_create_direct_room(db, current_user.id, target_user_id)
     return {"room_id": room.id}
 
-class CreateGroupRoomRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=150)
-    participant_ids: List[int]
-
 @router.post("/rooms/group", dependencies=[Depends(RequirePermission("chat:send"))])
 async def create_group_room(
-    body: CreateGroupRoomRequest,
+    name: str = Form(...),
+    participant_ids: str = Form(...),
+    avatar: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Crea una sala de chat grupal con los miembros seleccionados."""
-    if not body.name.strip():
+    """Crea una sala de chat grupal con los miembros seleccionados y una foto opcional."""
+    if not name or not name.strip():
         raise HTTPException(status_code=400, detail="El nombre del grupo es obligatorio")
-    if not body.participant_ids or len(body.participant_ids) < 1:
+
+    # Parsear participant_ids (soporta array JSON o separados por comas)
+    try:
+        parsed_ids = json.loads(participant_ids)
+        if not isinstance(parsed_ids, list):
+            parsed_ids = [int(participant_ids)]
+        else:
+            parsed_ids = [int(x) for x in parsed_ids]
+    except Exception:
+        try:
+            parsed_ids = [int(x.strip()) for x in participant_ids.split(",") if x.strip()]
+        except Exception:
+            raise HTTPException(status_code=400, detail="Formato de participantes inválido")
+
+    if not parsed_ids or len(parsed_ids) < 1:
         raise HTTPException(status_code=400, detail="Debes seleccionar al menos un participante para el grupo")
+
+    avatar_url = None
+    if avatar and avatar.filename:
+        allowed_mimes = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+        if avatar.content_type and avatar.content_type not in allowed_mimes:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Formato de imagen inválido. Solo se admiten imágenes JPG, PNG, WEBP o GIF"
+            )
+
+        upload_dir = os.path.join("uploads", "avatars")
+        os.makedirs(upload_dir, exist_ok=True)
+
+        file_ext = os.path.splitext(avatar.filename)[1] if avatar.filename else ".jpg"
+        if not file_ext:
+            file_ext = ".jpg"
+        unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+        file_path = os.path.join(upload_dir, unique_filename)
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(avatar.file, buffer)
+
+        avatar_url = f"/uploads/avatars/{unique_filename}"
 
     room = await ChatService.create_group_room(
         db=db,
         creator_id=current_user.id,
-        name=body.name.strip(),
-        participant_ids=body.participant_ids
+        name=name.strip(),
+        participant_ids=parsed_ids,
+        avatar_url=avatar_url
     )
-    return {"room_id": room.id, "name": room.name}
+    return {"room_id": room.id, "name": room.name, "avatar_url": room.avatar_url}
 
 @router.get("/rooms/{room_id}/messages", dependencies=[Depends(RequirePermission("chat:view"))])
 async def get_room_messages(
@@ -136,6 +172,55 @@ async def mark_room_as_read(
     """Marca todos los mensajes de una sala como leídos."""
     await ChatService.mark_room_as_read(db, room_id, current_user.id)
     return {"message": "Mensajes marcados como leídos"}
+
+class ToggleReactionRequest(BaseModel):
+    emoji: str = Field(..., min_length=1, max_length=50)
+
+@router.post("/messages/{message_id}/reactions", dependencies=[Depends(RequirePermission("chat:send"))])
+async def toggle_message_reaction(
+    message_id: int,
+    body: ToggleReactionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Agrega o retira una reacción con emoji de un mensaje de chat (toggle) y notifica por WebSockets."""
+    emoji_clean = body.emoji.strip()
+    if not emoji_clean:
+        raise HTTPException(status_code=400, detail="El emoji es obligatorio")
+
+    # Obtener el mensaje para verificar membresía de sala
+    stmt = select(ChatMessage).where(ChatMessage.id == message_id)
+    res = await db.execute(stmt)
+    msg = res.scalars().first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Mensaje no encontrado")
+
+    is_part = await ChatService.is_participant(db, msg.room_id, current_user.id)
+    if not is_part and not PBACEngine.has_permission(current_user, "admin.chat.manage"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No eres participante de esta sala de chat"
+        )
+
+    result = await ChatService.toggle_reaction(
+        db=db,
+        message_id=message_id,
+        user_id=current_user.id,
+        emoji=emoji_clean
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="No se pudo procesar la reacción")
+
+    # Transmitir el evento en tiempo real a todos los miembros de la sala
+    event_payload = {
+        "type": "message_reaction",
+        "room_id": result["room_id"],
+        "message_id": message_id,
+        "reactions": result["reactions"]
+    }
+    await manager.broadcast_to_room(result["room_id"], event_payload)
+
+    return result
 
 @router.post("/upload", dependencies=[Depends(RequirePermission("chat:send"))])
 async def upload_chat_file(
@@ -301,3 +386,46 @@ async def websocket_chat_endpoint(
     except Exception as e:
         print(f"⚠️ Conexión WebSocket cerrada: {e}")
         manager.disconnect(websocket, room_id, user.id)
+
+@router.websocket("/ws/notifications/global")
+async def websocket_global_notifications(
+    websocket: WebSocket,
+    token: str = Query(...)
+):
+    """Endpoint en tiempo real para notificaciones globales del usuario (sin sala específica)."""
+    # 1. Autenticar JWT desde query token
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id_str: str = payload.get("sub")
+        if not user_id_str:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido")
+            return
+        user_id = int(user_id_str)
+    except JWTError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido")
+        return
+
+    # No requerimos checar permisos 'chat:view' aquí si solo recibe pushes generales,
+    # pero podemos verificar si el usuario existe y está activo
+    async with async_session_maker() as db:
+        user_res = await db.execute(select(User).where(User.id == user_id))
+        user = user_res.scalars().first()
+        if not user or not user.is_active:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Usuario inactivo o no encontrado")
+            return
+
+    # Conectar al manager usando el nuevo método user-only
+    await manager.connect_user_only(websocket, user.id)
+    try:
+        # Mantener viva la conexión para recibir pushes
+        while True:
+            # Puedes recibir ping o algún payload de presencia si hace falta
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        manager.disconnect_user_only(websocket, user.id)
+    except Exception as e:
+        print(f"⚠️ Conexión WebSocket global cerrada para user {user.id}: {e}")
+        manager.disconnect_user_only(websocket, user.id)
+

@@ -8,6 +8,17 @@ export interface ChatUser {
   is_online?: boolean;
 }
 
+export interface MessageReactionUser {
+  id: number;
+  name: string;
+}
+
+export interface MessageReactionGroup {
+  emoji: string;
+  count: number;
+  users: MessageReactionUser[];
+}
+
 export interface ChatMessage {
   id: number;
   room_id: number;
@@ -25,6 +36,7 @@ export interface ChatMessage {
     file_name?: string | null;
     file_type?: string | null;
   } | null;
+  reactions?: MessageReactionGroup[];
   is_read: boolean;
   created_at: string;
 }
@@ -33,6 +45,7 @@ export interface ChatRoom {
   id: number;
   name: string;
   type: 'direct' | 'support' | 'group';
+  avatar_url?: string | null;
   other_participant?: ChatUser;
   participants?: ChatUser[];
   participants_count?: number;
@@ -55,13 +68,16 @@ export const chatService = {
     });
   },
 
-  createGroupRoom: async (name: string, participantIds: number[]): Promise<{ room_id: number; name: string }> => {
+  createGroupRoom: async (name: string, participantIds: number[], avatar?: File | null): Promise<{ room_id: number; name: string; avatar_url?: string | null }> => {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('participant_ids', JSON.stringify(participantIds));
+    if (avatar) {
+      formData.append('avatar', avatar);
+    }
     return fetchApi('/chat/rooms/group', {
       method: 'POST',
-      body: JSON.stringify({
-        name,
-        participant_ids: participantIds
-      })
+      body: formData
     });
   },
 
@@ -87,9 +103,22 @@ export const chatService = {
     });
   },
 
+  toggleReaction: async (messageId: number, emoji: string): Promise<{ room_id: number; message_id: number; reactions: MessageReactionGroup[] }> => {
+    return fetchApi(`/chat/messages/${messageId}/reactions`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji })
+    });
+  },
+
   getWebSocketUrl: (roomId: number): string => {
     const token = useAuthStore.getState().accessToken;
     let wsBaseUrl = API_URL.replace(/^http/, 'ws');
     return `${wsBaseUrl}/chat/ws/${roomId}?token=${encodeURIComponent(token || '')}`;
+  },
+
+  getGlobalWebSocketUrl: (): string => {
+    const token = useAuthStore.getState().accessToken;
+    let wsBaseUrl = API_URL.replace(/^http/, 'ws');
+    return `${wsBaseUrl}/chat/ws/notifications/global?token=${encodeURIComponent(token || '')}`;
   }
 };

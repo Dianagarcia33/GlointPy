@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import or_, and_, func, desc
 
-from src.models.chat import ChatRoom, ChatParticipant, ChatMessage
+from src.models.chat import ChatRoom, ChatParticipant, ChatMessage, ChatMessageReaction
 from src.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,20 @@ class ConnectionManager:
             if not self.room_connections[room_id]:
                 del self.room_connections[room_id]
 
+        if user_id in self.user_connections:
+            self.user_connections[user_id].discard(websocket)
+            if not self.user_connections[user_id]:
+                del self.user_connections[user_id]
+
+    async def connect_user_only(self, websocket: WebSocket, user_id: int):
+        """Conecta un WebSocket únicamente al pool de notificaciones del usuario, sin sala de chat específica."""
+        await websocket.accept()
+        if user_id not in self.user_connections:
+            self.user_connections[user_id] = set()
+        self.user_connections[user_id].add(websocket)
+
+    def disconnect_user_only(self, websocket: WebSocket, user_id: int):
+        """Desconecta un WebSocket del pool de notificaciones del usuario."""
         if user_id in self.user_connections:
             self.user_connections[user_id].discard(websocket)
             if not self.user_connections[user_id]:
@@ -134,9 +148,10 @@ class ChatService:
         db: AsyncSession,
         creator_id: int,
         name: str,
-        participant_ids: List[int]
+        participant_ids: List[int],
+        avatar_url: Optional[str] = None
     ) -> ChatRoom:
-        """Crea una sala de chat grupal con múltiples participantes."""
+        """Crea una sala de chat grupal con múltiples participantes y foto opcional."""
         all_ids = set(participant_ids)
         all_ids.add(creator_id)
 
@@ -145,7 +160,8 @@ class ChatService:
             name=clean_name,
             type="group",
             is_active=True,
-            created_by=creator_id
+            created_by=creator_id,
+            avatar_url=avatar_url
         )
         db.add(new_room)
         await db.flush()
@@ -235,6 +251,7 @@ class ChatService:
                 "id": room.id,
                 "name": room_name,
                 "type": room.type,
+                "avatar_url": getattr(room, "avatar_url", None),
                 "other_participant": other_participant if room.type == "direct" else None,
                 "participants": participants_list,
                 "participants_count": len(room.participants),
@@ -255,6 +272,27 @@ class ChatService:
         return rooms_data
 
     @staticmethod
+    def _serialize_reactions(reactions: List[ChatMessageReaction]) -> List[dict]:
+        """Agrupa reacciones por emoji y devuelve conteos y usuarios."""
+        grouped: Dict[str, dict] = {}
+        for r in reactions:
+            if not r.emoji:
+                continue
+            if r.emoji not in grouped:
+                grouped[r.emoji] = {
+                    "emoji": r.emoji,
+                    "count": 0,
+                    "users": []
+                }
+            grouped[r.emoji]["count"] += 1
+            if r.user:
+                grouped[r.emoji]["users"].append({
+                    "id": r.user.id,
+                    "name": r.user.name
+                })
+        return list(grouped.values())
+
+    @staticmethod
     async def get_room_messages(db: AsyncSession, room_id: int, user_id: Optional[int] = None, limit: int = 50) -> List[dict]:
         """Obtiene el historial de mensajes de una sala de chat y marca como leídos los mensajes recibidos."""
         if user_id:
@@ -270,7 +308,8 @@ class ChatService:
             select(ChatMessage)
             .options(
                 selectinload(ChatMessage.sender),
-                selectinload(ChatMessage.reply_to).selectinload(ChatMessage.sender)
+                selectinload(ChatMessage.reply_to).selectinload(ChatMessage.sender),
+                selectinload(ChatMessage.reactions).selectinload(ChatMessageReaction.user)
             )
             .where(ChatMessage.room_id == room_id)
             .order_by(desc(ChatMessage.created_at))
@@ -297,11 +336,66 @@ class ChatService:
                     "file_name": getattr(m.reply_to, "file_name", None),
                     "file_type": getattr(m.reply_to, "file_type", None)
                 } if m.reply_to else None,
+                "reactions": ChatService._serialize_reactions(getattr(m, "reactions", [])),
                 "is_read": m.is_read,
                 "created_at": _format_datetime_utc(m.created_at)
             }
             for m in messages
         ]
+
+    @staticmethod
+    async def toggle_reaction(
+        db: AsyncSession,
+        message_id: int,
+        user_id: int,
+        emoji: str
+    ) -> Optional[dict]:
+        """Agrega o remueve la reacción de un usuario a un mensaje (toggle) y devuelve el resumen."""
+        # 1. Buscar el mensaje para asegurar que existe y obtener el room_id
+        msg_res = await db.execute(
+            select(ChatMessage)
+            .where(ChatMessage.id == message_id)
+        )
+        msg = msg_res.scalars().first()
+        if not msg:
+            return None
+
+        # 2. Buscar si la reacción ya existe
+        stmt = select(ChatMessageReaction).where(
+            ChatMessageReaction.message_id == message_id,
+            ChatMessageReaction.user_id == user_id,
+            ChatMessageReaction.emoji == emoji
+        )
+        existing_res = await db.execute(stmt)
+        existing = existing_res.scalars().first()
+
+        if existing:
+            await db.delete(existing)
+        else:
+            new_reaction = ChatMessageReaction(
+                message_id=message_id,
+                user_id=user_id,
+                emoji=emoji
+            )
+            db.add(new_reaction)
+
+        await db.commit()
+
+        # 3. Consultar las reacciones actualizadas del mensaje
+        reactions_stmt = (
+            select(ChatMessageReaction)
+            .options(selectinload(ChatMessageReaction.user))
+            .where(ChatMessageReaction.message_id == message_id)
+        )
+        reactions_res = await db.execute(reactions_stmt)
+        updated_reactions = reactions_res.scalars().all()
+
+        serialized = ChatService._serialize_reactions(updated_reactions)
+        return {
+            "room_id": msg.room_id,
+            "message_id": message_id,
+            "reactions": serialized
+        }
 
     @staticmethod
     async def mark_room_as_read(db: AsyncSession, room_id: int, user_id: int) -> bool:
@@ -377,6 +471,7 @@ class ChatService:
             "file_name": file_name,
             "file_type": file_type,
             "reply_to": reply_to_payload,
+            "reactions": [],
             "is_read": False,
             "created_at": created_at_val
         }

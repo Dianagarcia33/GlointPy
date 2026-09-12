@@ -15,7 +15,8 @@ import {
   ExternalLink,
   Reply,
   Users,
-  Info
+  Info,
+  Smile
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
@@ -35,6 +36,8 @@ interface ChatWindowProps {
   onBack?: () => void;
 }
 
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '👏'];
+
 export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, canSend, onBack }) => {
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -43,6 +46,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
   const [activeImageModal, setActiveImageModal] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [reactionPickerMsgId, setReactionPickerMsgId] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -68,14 +72,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
     }
   }, [room?.id]);
 
-  // Limpieza al desmontar
+  // Limpieza al desmontar y listener de clic para cerrar selector de reacciones
   useEffect(() => {
+    const handleGlobalClick = () => {
+      setReactionPickerMsgId(null);
+    };
+    window.addEventListener('click', handleGlobalClick);
     return () => {
+      window.removeEventListener('click', handleGlobalClick);
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
     };
   }, []);
+
+  const handleToggleReaction = async (messageId: number, emoji: string) => {
+    setReactionPickerMsgId(null);
+    try {
+      await chatService.toggleReaction(messageId, emoji);
+    } catch (err: any) {
+      console.error('Error al alternar reacción:', err);
+    }
+  };
 
   // Auto-scroll al final del chat
   useEffect(() => {
@@ -216,13 +234,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
           )}
 
           {/* Avatar (individual vs grupo) */}
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm font-outfit ${
-            isGroup
-              ? 'bg-gradient-to-tr from-brand-600 via-amber-500 to-emerald-500'
-              : 'bg-gradient-to-tr from-brand-500 to-amber-400'
-          }`}>
-            {isGroup ? <Users className="w-5 h-5" /> : room.name.charAt(0).toUpperCase()}
-          </div>
+          {room.avatar_url ? (
+            <img
+              src={getMediaUrl(room.avatar_url)}
+              alt={room.name}
+              className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200/80"
+            />
+          ) : (
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm font-outfit ${
+              isGroup
+                ? 'bg-gradient-to-tr from-brand-600 via-amber-500 to-emerald-500'
+                : 'bg-gradient-to-tr from-brand-500 to-amber-400'
+            }`}>
+              {isGroup ? <Users className="w-5 h-5" /> : room.name.charAt(0).toUpperCase()}
+            </div>
+          )}
 
           <div>
             <div className="flex items-center gap-2">
@@ -309,14 +335,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                   className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} transition-all duration-300`}
                 >
                   <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {/* Contenedor del Mensaje */}
-                    <div
-                      className={`max-w-[85%] md:max-w-[70%] p-3.5 rounded-2xl text-sm transition-all ${
-                        isMe
-                          ? 'bg-gradient-to-r from-brand-500 to-amber-600 text-white rounded-br-none shadow-sm shadow-brand-500/10'
-                          : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-none shadow-xs'
-                      }`}
-                    >
+                    {/* Contenedor del Mensaje y Reacciones */}
+                    <div className="flex flex-col max-w-[85%] md:max-w-[70%]">
+                      <div
+                        className={`p-3.5 rounded-2xl text-sm transition-all ${
+                          isMe
+                            ? 'bg-gradient-to-r from-brand-500 to-amber-600 text-white rounded-br-none shadow-sm shadow-brand-500/10'
+                            : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-none shadow-xs'
+                        }`}
+                      >
                       {/* Cita/Respuesta del mensaje previo */}
                       {msg.reply_to && (
                         <div
@@ -416,18 +443,85 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                       </div>
                     </div>
 
-                    {/* Botón de Respuesta al pasar el cursor */}
-                    {canSend && (
+                    {/* Reacciones asignadas al mensaje */}
+                    {msg.reactions && msg.reactions.length > 0 && (
+                      <div className={`flex flex-wrap gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        {msg.reactions.map((r) => {
+                          const hasReacted = r.users.some((u) => u.id === currentUserId);
+                          const userNamesList = r.users.map((u) => (u.id === currentUserId ? 'Tú' : u.name)).join(', ');
+                          return (
+                            <button
+                              key={r.emoji}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleReaction(msg.id, r.emoji);
+                              }}
+                              title={userNamesList}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all border shadow-2xs active:scale-95 ${
+                                hasReacted
+                                  ? 'bg-brand-50 border-brand-300 text-brand-700 font-semibold shadow-xs'
+                                  : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
+                              }`}
+                            >
+                              <span className="text-xs">{r.emoji}</span>
+                              <span className="text-[10px] font-medium">{r.count}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Botones de acción al pasar el cursor (Reacción y Respuesta) */}
+                  {canSend && (
+                    <div className="relative flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      {/* Botón Reaccionar */}
+                      <div className="relative" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => setReactionPickerMsgId(reactionPickerMsgId === msg.id ? null : msg.id)}
+                          className={`p-1.5 text-slate-400 hover:text-amber-500 hover:bg-white bg-white/80 rounded-full shadow-xs border border-slate-200/80 flex-shrink-0 active:scale-95 transition-all ${
+                            reactionPickerMsgId === msg.id ? 'text-amber-500 bg-white ring-2 ring-brand-400/50' : ''
+                          }`}
+                          title="Reaccionar con un emoji"
+                        >
+                          <Smile className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Popover flotante de emojis rápidos */}
+                        {reactionPickerMsgId === msg.id && (
+                          <div
+                            className={`absolute z-30 bottom-full mb-1.5 flex items-center gap-1 p-1 bg-white rounded-full shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-100 ${
+                              isMe ? 'right-0' : 'left-0'
+                            }`}
+                          >
+                            {QUICK_REACTIONS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                onClick={() => handleToggleReaction(msg.id, emoji)}
+                                className="w-7 h-7 flex items-center justify-center hover:scale-125 hover:bg-slate-100 rounded-full text-base transition-transform active:scale-110"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Botón de Respuesta */}
                       <button
                         type="button"
                         onClick={() => handleStartReply(msg)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-brand-600 hover:bg-white bg-white/80 rounded-full shadow-xs border border-slate-200/80 flex-shrink-0 active:scale-95"
+                        className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-white bg-white/80 rounded-full shadow-xs border border-slate-200/80 flex-shrink-0 active:scale-95"
                         title="Responder a este mensaje"
                       >
                         <Reply className="w-3.5 h-3.5" />
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                </div>
                 </motion.div>
               </React.Fragment>
             );
@@ -578,9 +672,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
         >
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-brand-600" />
-                <h3 className="text-slate-900 font-bold font-outfit text-base">Miembros del Grupo</h3>
+              <div className="flex items-center gap-3">
+                {room.avatar_url ? (
+                  <img
+                    src={getMediaUrl(room.avatar_url)}
+                    alt={room.name}
+                    className="w-8 h-8 rounded-full object-cover shadow-2xs border border-slate-200"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600 shadow-2xs">
+                    <Users className="w-4 h-4" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-slate-900 font-bold font-outfit text-base leading-tight">Miembros del Grupo</h3>
+                  <p className="text-[11px] text-slate-500">{room.name}</p>
+                </div>
               </div>
               <button
                 onClick={() => setShowMembersModal(false)}

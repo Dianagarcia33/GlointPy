@@ -11,6 +11,7 @@ class ChatRoom(Base):
     type = Column(String(50), nullable=False, default="direct")  # 'direct', 'support', 'group'
     is_active = Column(Boolean, nullable=False, default=True)
     created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    avatar_url = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
@@ -48,3 +49,17 @@ class ChatMessage(Base):
     room = relationship("ChatRoom", back_populates="messages")
     sender = relationship("User", foreign_keys=[sender_id])
     reply_to = relationship("ChatMessage", remote_side=[id], foreign_keys=[reply_to_id])
+    reactions = relationship("ChatMessageReaction", back_populates="message", cascade="all, delete-orphan")
+
+
+class ChatMessageReaction(Base):
+    __tablename__ = "chat_message_reactions"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    message_id = Column(BigInteger, ForeignKey("chat_messages.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    emoji = Column(String(50), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    message = relationship("ChatMessage", back_populates="reactions")
+    user = relationship("User")

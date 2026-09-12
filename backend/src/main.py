@@ -61,6 +61,11 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE chat_rooms ADD COLUMN avatar_url VARCHAR(500) NULL"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS investment_ranks (
                         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -98,6 +103,22 @@ async def on_startup():
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN file_type VARCHAR(50) NULL"))
             except Exception:
                 pass
+
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS chat_message_reactions (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        message_id BIGINT NOT NULL,
+                        user_id BIGINT NOT NULL,
+                        emoji VARCHAR(50) NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_cmr_msg (message_id),
+                        INDEX idx_cmr_user (user_id),
+                        UNIQUE KEY uq_msg_user_emoji (message_id, user_id, emoji)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating chat_message_reactions table: {e}")
 
             try:
                 await conn.execute(text("ALTER TABLE templates ADD COLUMN background_image LONGTEXT NULL"))
