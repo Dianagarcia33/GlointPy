@@ -103,6 +103,22 @@ async def seed_permissions_db(db):
             print(f"🔑 Todos los permisos del sistema asignados al rol: {role.name}")
             continue
 
+        # Asegurar permisos de Chat a todos los roles operativos/comerciales/administrativos
+        if any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente", "operaciones", "contabilidad"]):
+            for chat_p in ["chat:view", "chat:send"]:
+                if chat_p in all_perms_map:
+                    perm = all_perms_map[chat_p]
+                    check = await db.execute(select(role_permissions).where(
+                        (role_permissions.c.role_id == role.id) & 
+                        (role_permissions.c.permission_id == perm.id)
+                    ))
+                    if not check.first():
+                        await db.execute(insert(role_permissions).values(
+                            role_id=role.id,
+                            permission_id=perm.id
+                        ))
+                        print(f"💬 Permiso {chat_p} asignado a: {role.name}")
+
         # Para otros roles, verificar si ya tienen permisos configurados
         role_has_perms = await db.execute(
             select(role_permissions).where(role_permissions.c.role_id == role.id)

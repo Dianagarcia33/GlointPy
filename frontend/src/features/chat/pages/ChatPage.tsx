@@ -11,8 +11,8 @@ export const ChatPage: React.FC = () => {
   const { hasPermission } = usePermissions();
   const user = useAuthStore((state) => state.user);
 
-  const canViewChat = hasPermission('chat:view');
-  const canSendChat = hasPermission('chat:send');
+  const canViewChat = hasPermission('chat:view') || !!user?.is_superuser;
+  const canSendChat = hasPermission('chat:send') || hasPermission('chat:view') || !!user?.is_superuser;
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);

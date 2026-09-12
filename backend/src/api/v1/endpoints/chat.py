@@ -176,7 +176,7 @@ async def mark_room_as_read(
 class ToggleReactionRequest(BaseModel):
     emoji: str = Field(..., min_length=1, max_length=50)
 
-@router.post("/messages/{message_id}/reactions", dependencies=[Depends(RequirePermission("chat:send"))])
+@router.post("/messages/{message_id}/reactions")
 async def toggle_message_reaction(
     message_id: int,
     body: ToggleReactionRequest,

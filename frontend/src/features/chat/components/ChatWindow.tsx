@@ -88,6 +88,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
   const handleToggleReaction = async (messageId: number, emoji: string) => {
     setReactionPickerMsgId(null);
+
+    // Actualización optimista inmediata en la UI
+    const targetMsg = messages.find((m) => Number(m.id) === Number(messageId));
+    const previousReactions = targetMsg?.reactions ? JSON.parse(JSON.stringify(targetMsg.reactions)) : [];
+
+    let updatedReactions = previousReactions.map((r: any) => ({
+      ...r,
+      users: [...(r.users || [])]
+    }));
+
+    const existingGroup = updatedReactions.find((r: any) => r.emoji === emoji);
+    const hasAlreadyReacted = existingGroup ? existingGroup.users.some((u: any) => Number(u.id) === Number(currentUserId)) : false;
+
+    if (hasAlreadyReacted && existingGroup) {
+      existingGroup.users = existingGroup.users.filter((u: any) => Number(u.id) !== Number(currentUserId));
+      existingGroup.count = Math.max(0, existingGroup.count - 1);
+      updatedReactions = updatedReactions.filter((r: any) => r.count > 0);
+    } else if (existingGroup) {
+      existingGroup.users.push({ id: currentUserId, name: 'Tú' });
+      existingGroup.count += 1;
+    } else {
+      updatedReactions.push({
+        emoji,
+        count: 1,
+        users: [{ id: currentUserId, name: 'Tú' }]
+      });
+    }
+
+    updateMessageReactions(messageId, updatedReactions);
+
     try {
       const res = await chatService.toggleReaction(messageId, emoji);
       if (res && res.reactions) {
@@ -95,6 +125,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
       }
     } catch (err: any) {
       console.error('Error al alternar reacción:', err);
+      // Revertir a la versión anterior si ocurrió un error
+      updateMessageReactions(messageId, previousReactions);
+      alert(err.message || 'No se pudo registrar la reacción en el servidor');
     }
   };
 
@@ -478,14 +511,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
                   {/* Botones de acción al pasar el cursor (Reacción y Respuesta) */}
                   {canSend && (
-                    <div className="relative flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <div className={`relative flex items-center gap-1 transition-opacity flex-shrink-0 ${
+                      reactionPickerMsgId === msg.id ? 'opacity-100 z-30' : 'opacity-0 group-hover:opacity-100'
+                    }`}>
                       {/* Botón Reaccionar */}
                       <div className="relative" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          onClick={() => setReactionPickerMsgId(reactionPickerMsgId === msg.id ? null : msg.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReactionPickerMsgId(reactionPickerMsgId === msg.id ? null : msg.id);
+                          }}
                           className={`p-1.5 text-slate-400 hover:text-amber-500 hover:bg-white bg-white/80 rounded-full shadow-xs border border-slate-200/80 flex-shrink-0 active:scale-95 transition-all ${
-                            reactionPickerMsgId === msg.id ? 'text-amber-500 bg-white ring-2 ring-brand-400/50' : ''
+                            reactionPickerMsgId === msg.id ? 'text-amber-500 bg-white ring-2 ring-brand-400/50 shadow-md' : ''
                           }`}
                           title="Reaccionar con un emoji"
                         >
@@ -495,7 +533,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                         {/* Popover flotante de emojis rápidos */}
                         {reactionPickerMsgId === msg.id && (
                           <div
-                            className={`absolute z-30 bottom-full mb-1.5 flex items-center gap-1 p-1 bg-white rounded-full shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-100 ${
+                            onClick={(e) => e.stopPropagation()}
+                            className={`absolute z-40 bottom-full mb-2 flex items-center gap-1 p-1 bg-white/95 backdrop-blur-md rounded-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-100 ${
                               isMe ? 'right-0' : 'left-0'
                             }`}
                           >
@@ -503,8 +542,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                               <button
                                 key={emoji}
                                 type="button"
-                                onClick={() => handleToggleReaction(msg.id, emoji)}
-                                className="w-7 h-7 flex items-center justify-center hover:scale-125 hover:bg-slate-100 rounded-full text-base transition-transform active:scale-110"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleReaction(msg.id, emoji);
+                                }}
+                                className="w-7 h-7 flex items-center justify-center hover:scale-125 hover:bg-slate-100 rounded-full text-base transition-transform active:scale-110 cursor-pointer"
                               >
                                 {emoji}
                               </button>
