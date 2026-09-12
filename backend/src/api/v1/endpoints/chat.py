@@ -14,6 +14,7 @@ from src.core.database import get_db, async_session_maker
 from src.core.config import settings
 from src.models.user import User
 from src.models.security import Role
+from src.models.chat import ChatMessage, ChatRoom, ChatParticipant
 from src.core.pbac import PBACEngine
 from src.api.dependencies.auth_deps import get_current_user, RequirePermission
 from src.services.chat_service import ChatService, manager
