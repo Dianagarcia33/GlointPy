@@ -359,6 +359,7 @@ class ChatService:
         msg = msg_res.scalars().first()
         if not msg:
             return None
+        room_id = msg.room_id
 
         # 2. Buscar si la reacción ya existe
         stmt = select(ChatMessageReaction).where(
@@ -392,7 +393,7 @@ class ChatService:
 
         serialized = ChatService._serialize_reactions(updated_reactions)
         return {
-            "room_id": msg.room_id,
+            "room_id": room_id,
             "message_id": message_id,
             "reactions": serialized
         }
