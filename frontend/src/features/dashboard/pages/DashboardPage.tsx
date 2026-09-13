@@ -242,8 +242,8 @@ export const DashboardPage = () => {
     return (
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
-            {/* Widget Oficial de Evento Gloint Power Tech */}
-            <DashboardEventWidget />
+            {/* Widget Oficial de Evento Gloint Power Tech (Exclusivo para Inversionistas) */}
+            {!isSuperAdmin && !isDirectorOnly && <DashboardEventWidget />}
 
             {/* VISTA DIRECTIVO DE INVERSIONES SOLO */}
             {isDirectorOnly ? (

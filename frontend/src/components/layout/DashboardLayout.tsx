@@ -19,7 +19,7 @@ export const DashboardLayout = () => {
             </div>
             
             {/* Contenedor principal debajo de la Navbar */}
-            <div className="flex-1 flex pt-16 relative z-0 overflow-hidden">
+            <div className="flex-1 flex pt-16 relative overflow-hidden">
                 
                 {/* Menú Lateral para pantallas medianas o grandes */}
                 <div className="hidden md:block border-r border-slate-200 bg-white">

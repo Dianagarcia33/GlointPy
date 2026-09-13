@@ -1,15 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, Calendar, MapPin, Users, CheckCircle2, ArrowRight } from 'lucide-react';
 import { getActiveEvent, getMyEventRegistration, EventData, AttendeeData } from '../../../services/events';
 import { InvestorEventRsvpModal } from './InvestorEventRsvpModal';
+import { useAuthStore } from '../../../store/authStore';
 
 export const DashboardEventWidget: React.FC = () => {
+  const { user } = useAuthStore();
   const [eventData, setEventData] = useState<EventData | null>(null);
   const [myRegistration, setMyRegistration] = useState<AttendeeData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Determinar si el usuario es staff/administrativo/comercial (excluir del widget)
+  const isInvestor = useMemo(() => {
+    if (!user) return false;
+    if (user.is_superuser) return false;
+
+    const userRoles = [
+      ...(user.roles_list || []),
+      ...((user.roles || []).map((r: any) => (typeof r === 'string' ? r : r?.name || '')))
+    ].map(r => String(r).toLowerCase());
+
+    const hasStaffRole = userRoles.some(r => 
+      ['admin', 'super', 'director', 'directiv', 'comercial', 'asesor', 'gerente', 'lider', 'auditor'].some(kw => r.includes(kw))
+    ) || (user.permissions || []).some(p => 
+      ['admin.', 'commercial:', 'director.'].some(kw => p.toLowerCase().includes(kw))
+    );
+
+    return !hasStaffRole;
+  }, [user]);
+
   useEffect(() => {
+    if (!isInvestor) {
+      setLoading(false);
+      return;
+    }
+
     loadData();
 
     // Si venía con intención desde el banner de login
@@ -18,7 +44,7 @@ export const DashboardEventWidget: React.FC = () => {
       sessionStorage.removeItem('gloint_open_rsvp');
       setIsModalOpen(true);
     }
-  }, []);
+  }, [isInvestor]);
 
   const loadData = async () => {
     try {
@@ -35,7 +61,7 @@ export const DashboardEventWidget: React.FC = () => {
     }
   };
 
-  if (loading || !eventData || !eventData.is_active || !eventData.banner_active) {
+  if (!isInvestor || loading || !eventData || !eventData.is_active || !eventData.banner_active) {
     return null;
   }
 
