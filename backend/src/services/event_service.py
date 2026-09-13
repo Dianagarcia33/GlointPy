@@ -120,18 +120,21 @@ class EventService:
         inv_res = await db.execute(investor_query)
         investor = inv_res.scalars().first()
 
-        full_name = current_user.name
-        phone = current_user.phone
-        document_id = None
-        city = None
+        full_name = getattr(current_user, "name", "")
+        phone = getattr(current_user, "phone_number", None) or getattr(current_user, "phone", None)
+        document_id = getattr(current_user, "document_id", None)
+        city = getattr(current_user, "city", None)
 
         if investor:
-            inv_name = f"{investor.first_name or ''} {investor.last_name or ''}".strip()
-            if inv_name:
-                full_name = inv_name
-            phone = investor.phone or phone
-            document_id = investor.document_id
-            city = investor.city
+            first_name = getattr(investor, "first_name", None)
+            last_name = getattr(investor, "last_name", None)
+            if first_name or last_name:
+                inv_name = f"{first_name or ''} {last_name or ''}".strip()
+                if inv_name:
+                    full_name = inv_name
+            phone = getattr(investor, "phone", None) or getattr(investor, "phone_number", None) or phone
+            document_id = getattr(investor, "document_id", None) or document_id
+            city = getattr(investor, "city", None) or city
 
         if attendee:
             # Actualizar registro existente
