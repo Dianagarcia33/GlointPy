@@ -60,6 +60,31 @@ class ConvertLeadSchema(BaseModel):
     referrer_code: Optional[str] = None
     commission_rate: float = 0.035  # 3.5% por defecto
 
+class ChatbotLeadCreateSchema(BaseModel):
+    name: str
+    email: EmailStr
+    phone: str
+    city: Optional[str] = None
+    department: Optional[str] = None
+    package_id: Optional[int] = None
+    package_value: Optional[float] = None
+    package_name: Optional[str] = None
+    investment_goal: Optional[str] = None
+    preferred_contact_time: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/public/chatbot-lead")
+async def register_public_chatbot_lead(
+    data: ChatbotLeadCreateSchema,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint público para captar prospectos calificados desde el Chatbot Web de la Landing.
+    Asigna equitativamente (Round-Robin) a los Directivos de Inversión y envía notificaciones por correo.
+    """
+    return await CRMService.register_chatbot_lead(db, data.dict())
+
 
 @router.get("/kpis", dependencies=[Depends(RequirePermission("crm:view"))])
 async def get_crm_kpis(

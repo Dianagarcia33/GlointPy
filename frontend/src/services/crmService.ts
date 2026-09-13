@@ -165,5 +165,30 @@ export const crmService = {
       method: 'POST',
       body: JSON.stringify(data || {})
     });
+  },
+
+  registerChatbotLead: async (data: {
+    name: string;
+    email: string;
+    phone: string;
+    city?: string;
+    department?: string;
+    package_id?: number;
+    package_value?: number;
+    package_name?: string;
+    investment_goal?: string;
+    preferred_contact_time?: string;
+    notes?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    lead_id: number;
+    assigned_commercial?: { id: number; name: string };
+  }> => {
+    return fetchApi('/crm/public/chatbot-lead', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };
+

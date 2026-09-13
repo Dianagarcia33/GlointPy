@@ -195,3 +195,93 @@ class EmailService:
         </html>
         """
         return EmailService.send_html_email(to_email, subject, html_content)
+
+    @staticmethod
+    def send_chatbot_lead_investor_confirmation(
+        to_email: str,
+        investor_name: str,
+        director_name: str,
+        package_name: str,
+        preferred_time: str = None
+    ) -> bool:
+        subject = "Solicitud de Asesoría de Inversión Recibida - GLOINT Investment"
+        time_text = f"<p style='color: #475569; margin: 4px 0; font-size: 13px;'><strong>Horario preferido de llamada:</strong> {preferred_time}</p>" if preferred_time else ""
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px;">
+                <h2 style="color: #0f172a; margin: 0; font-size: 22px;">GLOINT Investment</h2>
+                <p style="color: #d97706; font-size: 13px; font-weight: bold; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;">Gestión Estratégica de Capital</p>
+            </div>
+            
+            <p style="color: #1e293b; font-size: 15px; line-height: 1.6;">
+                Estimado/a <strong>{investor_name}</strong>,
+            </p>
+            <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                Agradecemos tu interés en formar parte de nuestro fondo de inversión. Hemos recibido satisfactoriamente tu solicitud de asesoría personalizada para el paquete <strong>{package_name}</strong>.
+            </p>
+            
+            <div style="background-color: #f8fafc; border-left: 4px solid #d97706; padding: 16px; border-radius: 6px; margin: 20px 0;">
+                <h4 style="margin: 0 0 10px 0; color: #0f172a; font-size: 14px;">Asignación a Mesa Directiva</h4>
+                <p style="color: #475569; margin: 4px 0; font-size: 13px;"><strong>Director de Inversión Asignado:</strong> {director_name}</p>
+                <p style="color: #475569; margin: 4px 0; font-size: 13px;"><strong>Paquete de Interés:</strong> {package_name}</p>
+                {time_text}
+            </div>
+            
+            <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                Tu director asignado se comunicará contigo vía telefónica o por este medio para presentarte los indicadores de rendimiento, contratos de garantía y resolver cualquier inquietud de forma personalizada.
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
+                <p style="margin: 0;">GLOINT International Partners • Bogotá, Colombia</p>
+                <p style="margin: 4px 0 0 0;">Este es un mensaje automático de confirmación de solicitud.</p>
+            </div>
+        </div>
+        """
+        return EmailService.send_html_email(to_email, subject, html_content)
+
+    @staticmethod
+    def send_chatbot_lead_director_notification(
+        to_email: str,
+        director_name: str,
+        lead_data: dict
+    ) -> bool:
+        investor_name = lead_data.get("name", "Prospecto")
+        subject = f"🎯 Nuevo Prospecto Asignado: {investor_name} - GLOINT CRM"
+        pkg_name = lead_data.get("package_name") or f"${lead_data.get('package_value', 0):,.0f} COP"
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px;">
+                <h2 style="color: #0f172a; margin: 0; font-size: 22px;">Asignación de Lead Calificado</h2>
+                <p style="color: #059669; font-size: 13px; font-weight: bold; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;">Chatbot Landing Web • CRM Gloint</p>
+            </div>
+            
+            <p style="color: #1e293b; font-size: 15px; line-height: 1.6;">
+                Hola <strong>{director_name}</strong>,
+            </p>
+            <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                Se te ha asignado un nuevo prospecto de inversión de manera equitativa a través del Chatbot de la Landing Page. A continuación los detalles para tu contacto y cierre:
+            </p>
+            
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 18px; border-radius: 8px; margin: 20px 0;">
+                <table style="width: 100%; font-size: 13px; color: #334155; line-height: 1.8;">
+                    <tr><td style="font-weight: bold; width: 150px;">Inversionista:</td><td>{lead_data.get('name')}</td></tr>
+                    <tr><td style="font-weight: bold;">Teléfono / WhatsApp:</td><td><a href="tel:{lead_data.get('phone')}" style="color: #2563eb; text-decoration: none;">{lead_data.get('phone')}</a></td></tr>
+                    <tr><td style="font-weight: bold;">Correo:</td><td><a href="mailto:{lead_data.get('email')}" style="color: #2563eb; text-decoration: none;">{lead_data.get('email')}</a></td></tr>
+                    <tr><td style="font-weight: bold;">Ciudad / Dpto:</td><td>{lead_data.get('city', 'N/A')} ({lead_data.get('department', '')})</td></tr>
+                    <tr><td style="font-weight: bold;">Paquete de Interés:</td><td style="color: #d97706; font-weight: bold;">{pkg_name}</td></tr>
+                    <tr><td style="font-weight: bold;">Objetivo:</td><td>{lead_data.get('investment_goal', 'Inversión')}</td></tr>
+                    <tr><td style="font-weight: bold;">Horario de contacto:</td><td>{lead_data.get('preferred_contact_time', 'Indiferente')}</td></tr>
+                </table>
+            </div>
+            
+            <p style="color: #334155; font-size: 13px; line-height: 1.6;">
+                El prospecto ya está registrado en tu tablero de <strong>CRM Leads</strong> en la etapa <em>Lead Entrante</em>.
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
+                © 2026 GLOINT International Partners. Sistema de Asignación Comercial.
+            </div>
+        </div>
+        """
+        return EmailService.send_html_email(to_email, subject, html_content)
+

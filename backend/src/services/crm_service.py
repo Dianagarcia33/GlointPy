@@ -8,6 +8,8 @@ from decimal import Decimal
 from src.models.crm import CRMProject, CRMLead, CRMActivity, CRMProjectStatus, CRMLeadStage, CRMActivityType
 from src.models.user import User
 from src.models.commercial_sale import CommercialSale
+from datetime import datetime
+from src.services.email_service import EmailService
 
 class CRMService:
     @staticmethod
@@ -287,3 +289,163 @@ class CRMService:
             "won_amount": float(won_amount),
             "conversion_rate": conversion_rate
         }
+
+    @staticmethod
+    async def get_or_create_default_project(db: AsyncSession) -> CRMProject:
+        """Obtiene un proyecto activo del CRM o crea uno por defecto para los leads del fondo."""
+        stmt = select(CRMProject).where(CRMProject.status == CRMProjectStatus.ACTIVO).order_by(CRMProject.id.asc())
+        res = await db.execute(stmt)
+        project = res.scalars().first()
+        if not project:
+            stmt_any = select(CRMProject).order_by(CRMProject.id.asc())
+            res_any = await db.execute(stmt_any)
+            project = res_any.scalars().first()
+            
+        if not project:
+            project = CRMProject(
+                code="FONDO-GLOINT",
+                name="Fondo Gloint Investment",
+                description="Proyecto general para prospectos calificados e inversionistas captados vía chatbot y web.",
+                target_amount=Decimal("1000000000.00"),
+                status=CRMProjectStatus.ACTIVO,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            db.add(project)
+            await db.commit()
+            await db.refresh(project)
+            
+        return project
+
+    @staticmethod
+    async def assign_commercial_round_robin(db: AsyncSession) -> Optional[User]:
+        """
+        Selecciona de manera equitativa (Round-Robin) al siguiente Directivo de Inversión / Comercial activo.
+        """
+        stmt = (
+            select(User)
+            .options(selectinload(User.roles))
+            .where(User.is_active == True)
+            .order_by(User.id.asc())
+        )
+        res = await db.execute(stmt)
+        all_users = res.scalars().all()
+        
+        directivos = []
+        for u in all_users:
+            role_names = [r.name.lower() for r in (u.roles or [])]
+            is_directivo = any(
+                any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente"])
+                for r_name in role_names
+            )
+            if is_directivo:
+                directivos.append(u)
+                
+        # Si no hay usuarios con rol directivo explícito, incluir superusuarios o cualquier usuario activo
+        if not directivos:
+            for u in all_users:
+                if u.is_superuser:
+                    directivos.append(u)
+                    
+        if not directivos and all_users:
+            directivos = [all_users[0]]
+            
+        if not directivos:
+            return None
+
+        # Contar cuántos leads provenientes del chatbot tiene asignado cada directivo
+        directivo_ids = [d.id for d in directivos]
+        count_stmt = (
+            select(CRMLead.commercial_id, func.count(CRMLead.id))
+            .where(
+                CRMLead.commercial_id.in_(directivo_ids),
+                CRMLead.source == "Chatbot"
+            )
+            .group_by(CRMLead.commercial_id)
+        )
+        count_res = await db.execute(count_stmt)
+        counts_map = {row[0]: row[1] for row in count_res.all()}
+
+        # Ordenar equitativamente por menor cantidad de leads asignados (desempate por ID)
+        directivos.sort(key=lambda d: (counts_map.get(d.id, 0), d.id))
+        return directivos[0]
+
+    @staticmethod
+    async def register_chatbot_lead(db: AsyncSession, data: dict) -> dict:
+        """
+        Registra un lead desde el chatbot, le asigna un directivo equitativamente (Round-Robin),
+        crea la nota con el perfil y envía las notificaciones por correo electrónico.
+        """
+        project = await CRMService.get_or_create_default_project(db)
+        assigned_commercial = await CRMService.assign_commercial_round_robin(db)
+
+        amount_val = Decimal(str(data.get("package_value") or 0))
+
+        lead = CRMLead(
+            project_id=project.id,
+            name=data["name"].strip(),
+            email=data["email"].strip().lower(),
+            phone=data["phone"].strip(),
+            estimated_amount=amount_val,
+            stage=CRMLeadStage.LEAD_ENTRANTE,
+            source="Chatbot",
+            commercial_id=assigned_commercial.id if assigned_commercial else None,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(lead)
+        await db.flush()
+
+        # Registrar actividad inicial con todos los detalles recogidos
+        if assigned_commercial:
+            detail_lines = [
+                f"📍 Ubicación: {data.get('city') or 'No especificada'} ({data.get('department') or ''})",
+                f"💼 Paquete de interés: {data.get('package_name') or f'${amount_val:,.0f} COP'}",
+                f"🎯 Objetivo: {data.get('investment_goal') or 'Inversión General'}",
+                f"⏰ Horario preferido de contacto: {data.get('preferred_contact_time') or 'Indiferente'}",
+            ]
+            if data.get("notes"):
+                detail_lines.append(f"📝 Notas adicionales: {data.get('notes')}")
+
+            note = CRMActivity(
+                lead_id=lead.id,
+                user_id=assigned_commercial.id,
+                type=CRMActivityType.NOTA,
+                title="Prospecto calificado por Chatbot Web",
+                description="\n".join(detail_lines),
+                created_at=datetime.utcnow()
+            )
+            db.add(note)
+
+        await db.commit()
+        await db.refresh(lead)
+
+        # Enviar correos
+        try:
+            if assigned_commercial and assigned_commercial.email:
+                EmailService.send_chatbot_lead_director_notification(
+                    to_email=assigned_commercial.email,
+                    director_name=assigned_commercial.name or assigned_commercial.email,
+                    lead_data=data
+                )
+
+            EmailService.send_chatbot_lead_investor_confirmation(
+                to_email=data["email"].strip(),
+                investor_name=data["name"].strip(),
+                director_name=assigned_commercial.name if assigned_commercial else "Mesa Directiva",
+                package_name=data.get("package_name") or f"${amount_val:,.0f} COP",
+                preferred_time=data.get("preferred_contact_time")
+            )
+        except Exception as e:
+            print(f"Error enviando correos de lead chatbot: {e}")
+
+        return {
+            "success": True,
+            "message": "Prospecto registrado y asignado exitosamente",
+            "lead_id": lead.id,
+            "assigned_commercial": {
+                "id": assigned_commercial.id,
+                "name": assigned_commercial.name
+            } if assigned_commercial else None
+        }
+
