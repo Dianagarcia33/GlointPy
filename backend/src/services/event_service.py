@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, text
+from sqlalchemy import func, text, desc
 from fastapi import HTTPException
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
@@ -100,9 +100,9 @@ class EventService:
         query = select(EventAttendee).where(
             EventAttendee.event_id == event.id,
             EventAttendee.user_id == current_user.id
-        )
+        ).order_by(desc(EventAttendee.id))
         result = await db.execute(query)
-        attendee = result.scalar_one_or_none()
+        attendee = result.scalars().first()
 
         # Verificar capacidad presencial
         if mode == "in_person":
@@ -115,10 +115,10 @@ class EventService:
                     detail=f"No hay suficientes cupos presenciales disponibles (solicitados: {seats_needed}, disponibles: {max(0, available)}). Puedes registrarte en modalidad Virtual."
                 )
 
-        # Obtener datos de inversionista si existen
-        investor_query = select(Investor).where(Investor.user_id == current_user.id)
+        # Obtener datos de inversionista si existen (puede tener múltiples contratos o registros de inversionista)
+        investor_query = select(Investor).where(Investor.user_id == current_user.id).order_by(desc(Investor.id))
         inv_res = await db.execute(investor_query)
-        investor = inv_res.scalar_one_or_none()
+        investor = inv_res.scalars().first()
 
         full_name = current_user.name
         phone = current_user.phone
@@ -185,9 +185,9 @@ class EventService:
         query = select(EventAttendee).where(
             EventAttendee.event_id == event.id,
             EventAttendee.email == clean_email
-        )
+        ).order_by(desc(EventAttendee.id))
         result = await db.execute(query)
-        attendee = result.scalar_one_or_none()
+        attendee = result.scalars().first()
 
         if mode == "in_person":
             exclude_id = attendee.id if attendee else None
@@ -238,9 +238,9 @@ class EventService:
             EventAttendee.event_id == event.id,
             EventAttendee.user_id == user_id,
             EventAttendee.status == "confirmed"
-        )
+        ).order_by(desc(EventAttendee.id))
         result = await db.execute(query)
-        attendee = result.scalar_one_or_none()
+        attendee = result.scalars().first()
         if attendee:
             return AttendeeResponse.from_orm(attendee)
         return None
