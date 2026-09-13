@@ -9,6 +9,7 @@ export const DashboardLayout = () => {
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const location = useLocation();
     const isChatPage = location.pathname.includes('/dashboard/chat');
+    const isFullHeightPage = isChatPage || location.pathname.includes('/dashboard/crm/inbox');
 
     return (
         <div className="h-screen bg-slate-100 flex flex-col relative font-inter text-slate-900 overflow-hidden">
@@ -56,7 +57,7 @@ export const DashboardLayout = () => {
                 )}
 
                 {/* Área de contenido dinámico */}
-                {isChatPage ? (
+                {isFullHeightPage ? (
                     <main className="flex-1 flex flex-col overflow-hidden relative">
                         <div className="p-3 lg:p-4 flex-1 flex flex-col overflow-hidden">
                             <div className="w-full flex-1 flex flex-col overflow-hidden">

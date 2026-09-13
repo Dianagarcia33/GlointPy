@@ -70,6 +70,48 @@ async def send_crm_email(
     return {"message": "Correo enviado exitosamente", "data": result}
 
 
+@router.post("/{email_id}/read", dependencies=[Depends(RequirePermission("crm:view"))])
+async def mark_crm_email_as_read(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Marca un correo como leído."""
+    res = await CRMEmailService.mark_email_read(db=db, email_id=email_id, is_read=True)
+    if not res:
+        raise HTTPException(status_code=404, detail="Correo no encontrado")
+    return {"message": "Correo marcado como leído", **res}
+
+
+@router.post("/{email_id}/toggle-read", dependencies=[Depends(RequirePermission("crm:view"))])
+async def toggle_crm_email_read(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Alterna el estado de leído/no leído de un correo."""
+    email_rec = await CRMEmailService.mark_email_read(db=db, email_id=email_id, is_read=None)
+    # If None, let's fetch and toggle
+    from src.models.crm_email import CRMEmail
+    email_item = await db.get(CRMEmail, email_id)
+    if not email_item:
+        raise HTTPException(status_code=404, detail="Correo no encontrado")
+    email_item.is_read = not email_item.is_read
+    db.add(email_item)
+    await db.commit()
+    return {"id": email_item.id, "is_read": email_item.is_read}
+
+
+@router.post("/read-all", dependencies=[Depends(RequirePermission("crm:view"))])
+async def mark_all_crm_emails_as_read(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Marca todos los correos recibidos como leídos."""
+    updated = await CRMEmailService.mark_all_read(db=db, user_id=current_user.id)
+    return {"message": "Todos los correos han sido marcados como leídos", "count": updated}
+
+
 class SyncEmailSchema(BaseModel):
     imap_user: Optional[str] = None
     imap_pass: Optional[str] = None

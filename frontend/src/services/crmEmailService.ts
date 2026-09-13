@@ -74,5 +74,23 @@ export const crmEmailService = {
       method: 'POST',
       body: JSON.stringify({ imap_pass: imapPass, save_password: savePassword })
     });
+  },
+
+  markAsRead: async (emailId: number): Promise<{ message: string; id: number; is_read: boolean }> => {
+    return fetchApi(`/crm/emails/${emailId}/read`, {
+      method: 'POST'
+    });
+  },
+
+  toggleRead: async (emailId: number): Promise<{ id: number; is_read: boolean }> => {
+    return fetchApi(`/crm/emails/${emailId}/toggle-read`, {
+      method: 'POST'
+    });
+  },
+
+  markAllAsRead: async (): Promise<{ message: string; count: number }> => {
+    return fetchApi('/crm/emails/read-all', {
+      method: 'POST'
+    });
   }
 };

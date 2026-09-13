@@ -24,9 +24,27 @@ class CRMEmailService:
         )
 
         if folder == "inbox":
-            stmt = stmt.where(CRMEmail.direction == CRMEmailDirection.INBOUND)
+            stmt = stmt.where(
+                and_(
+                    or_(
+                        CRMEmail.direction.in_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
+                        CRMEmail.status.in_([CRMEmailStatus.RECEIVED, "received"])
+                    ),
+                    CRMEmail.direction.notin_(["outbound", "OUTBOUND", CRMEmailDirection.OUTBOUND]),
+                    CRMEmail.status.notin_([CRMEmailStatus.SENT, CRMEmailStatus.DELIVERED, "sent", "delivered"])
+                )
+            )
         elif folder == "sent":
-            stmt = stmt.where(and_(CRMEmail.direction == CRMEmailDirection.OUTBOUND, CRMEmail.user_id == user_id))
+            stmt = stmt.where(
+                and_(
+                    or_(
+                        CRMEmail.direction.in_(["outbound", "OUTBOUND", CRMEmailDirection.OUTBOUND]),
+                        CRMEmail.status.in_([CRMEmailStatus.SENT, CRMEmailStatus.DELIVERED, "sent", "delivered"])
+                    ),
+                    CRMEmail.direction.notin_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
+                    CRMEmail.status.notin_([CRMEmailStatus.RECEIVED, "received"])
+                )
+            )
 
         if search:
             stmt = stmt.where(or_(
@@ -87,6 +105,38 @@ class CRMEmailService:
             }
             for e in emails
         ]
+
+    @staticmethod
+    async def mark_email_read(db: AsyncSession, email_id: int, is_read: bool = True) -> Optional[dict]:
+        """Marca un correo específico como leído o no leído."""
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec:
+            return None
+        email_rec.is_read = is_read
+        db.add(email_rec)
+        await db.commit()
+        return {"id": email_rec.id, "is_read": email_rec.is_read}
+
+    @staticmethod
+    async def mark_all_read(db: AsyncSession, user_id: int) -> int:
+        """Marca todos los correos recibidos como leídos."""
+        from sqlalchemy import update
+        stmt = (
+            update(CRMEmail)
+            .where(
+                and_(
+                    or_(
+                        CRMEmail.direction.in_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
+                        CRMEmail.status.in_([CRMEmailStatus.RECEIVED, "received"])
+                    ),
+                    CRMEmail.is_read == False
+                )
+            )
+            .values(is_read=True)
+        )
+        res = await db.execute(stmt)
+        await db.commit()
+        return res.rowcount
 
     @staticmethod
     async def send_crm_email(

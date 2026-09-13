@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { 
   Inbox, 
   Send, 
   Search, 
   Mail, 
+  MailOpen,
   FileText, 
   Plus, 
   User, 
@@ -27,8 +28,12 @@ import {
   Clock,
   CheckCheck,
   ChevronRight,
+  ChevronLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  List
 } from 'lucide-react';
 import { crmEmailService, CRMEmail, CRMEmailTemplate } from '../../../services/crmEmailService';
 import { useAuthStore } from '../../../store/authStore';
@@ -61,11 +66,17 @@ const formatEmailDate = (dateStr: string) => {
 export const CRMInboxPage: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [folder, setFolder] = useState<'inbox' | 'sent'>('inbox');
   const [filterType, setFilterType] = useState<'all' | 'leads' | 'unread'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmail, setSelectedEmail] = useState<CRMEmail | null>(null);
+
+  // Estados de compactación responsiva (para pantallas medianas y optimización de espacio)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isReaderExpanded, setIsReaderExpanded] = useState(false);
+  const [isDenseList, setIsDenseList] = useState(false);
 
   // Formulario de Respuesta Rápida (Quick Reply)
   const [quickReplyText, setQuickReplyText] = useState('');
@@ -106,6 +117,19 @@ export const CRMInboxPage: React.FC = () => {
     queryFn: () => crmEmailService.getEmails({ folder, search: searchTerm }),
     refetchInterval: 10000,
     refetchIntervalInBackground: true
+  });
+
+  // Query: Contadores de bandeja independientes para Recibidos y Enviados
+  const { data: inboxList = [], refetch: refetchInboxCount } = useQuery<CRMEmail[]>({
+    queryKey: ['crm_emails_count', 'inbox'],
+    queryFn: () => crmEmailService.getEmails({ folder: 'inbox' }),
+    refetchInterval: 15000,
+  });
+
+  const { data: sentList = [], refetch: refetchSentCount } = useQuery<CRMEmail[]>({
+    queryKey: ['crm_emails_count', 'sent'],
+    queryFn: () => crmEmailService.getEmails({ folder: 'sent' }),
+    refetchInterval: 15000,
   });
 
   // Escuchar eventos en tiempo real desde el WebSocket global para actualizar la bandeja de inmediato
@@ -297,18 +321,79 @@ export const CRMInboxPage: React.FC = () => {
     }
   };
 
+  // Manejo interactivo de lectura
+  const handleSelectEmail = async (email: CRMEmail) => {
+    setSelectedEmail(email);
+    if (!email.is_read) {
+      // Actualización optimista inmediata
+      setSelectedEmail({ ...email, is_read: true });
+      queryClient.setQueryData<CRMEmail[]>(['crm_emails', folder, searchTerm], (old) => {
+        if (!old) return old;
+        return old.map((item) => (item.id === email.id ? { ...item, is_read: true } : item));
+      });
+      queryClient.setQueryData<CRMEmail[]>(['crm_emails_count', 'inbox'], (old) => {
+        if (!old) return old;
+        return old.map((item) => (item.id === email.id ? { ...item, is_read: true } : item));
+      });
+      try {
+        await crmEmailService.markAsRead(email.id);
+        queryClient.invalidateQueries({ queryKey: ['crm_emails_count'] });
+      } catch (err) {
+        console.error('Error al marcar correo como leído:', err);
+      }
+    }
+  };
+
+  const handleToggleRead = async (email: CRMEmail) => {
+    const nextReadState = !email.is_read;
+    setSelectedEmail({ ...email, is_read: nextReadState });
+    queryClient.setQueryData<CRMEmail[]>(['crm_emails', folder, searchTerm], (old) => {
+      if (!old) return old;
+      return old.map((item) => (item.id === email.id ? { ...item, is_read: nextReadState } : item));
+    });
+    queryClient.setQueryData<CRMEmail[]>(['crm_emails_count', 'inbox'], (old) => {
+      if (!old) return old;
+      return old.map((item) => (item.id === email.id ? { ...item, is_read: nextReadState } : item));
+    });
+    try {
+      await crmEmailService.toggleRead(email.id);
+      queryClient.invalidateQueries({ queryKey: ['crm_emails_count'] });
+      showToast(nextReadState ? 'Correo marcado como leído' : 'Correo marcado como no leído', 'success');
+    } catch (err) {
+      console.error('Error al alternar estado de lectura:', err);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await crmEmailService.markAllAsRead();
+      queryClient.invalidateQueries({ queryKey: ['crm_emails'] });
+      queryClient.invalidateQueries({ queryKey: ['crm_emails_count'] });
+      showToast('Todos los correos recibidos fueron marcados como leídos', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Error al marcar correos', 'error');
+    }
+  };
+
   // Filtrado de correos según la pestaña activa
   const filteredEmails = emails.filter((e) => {
+    // Garantizar separación absoluta en frontend
+    if (folder === 'inbox' && (e.direction === 'outbound' || e.status === 'sent' || e.status === 'delivered')) return false;
+    if (folder === 'sent' && (e.direction === 'inbound' || e.status === 'received')) return false;
     if (filterType === 'leads' && !e.lead_name) return false;
     if (filterType === 'unread' && e.is_read) return false;
     return true;
   });
 
+  const totalInboxCount = inboxList.length;
+  const unreadInboxCount = inboxList.filter((e) => !e.is_read).length;
+  const totalSentCount = sentList.length;
+
   const unreadCount = emails.filter((e) => !e.is_read).length;
   const leadsCount = emails.filter((e) => !!e.lead_name).length;
 
   return (
-    <div className="w-full h-[calc(100vh-5.5rem)] flex flex-col space-y-3 pb-2 animate-in fade-in duration-200">
+    <div className="w-full h-full flex flex-col space-y-2.5 overflow-hidden animate-in fade-in duration-200">
       
       {/* Barra Superior Compacta (Reemplaza al banner gigante y ahorra ~240px de altura) */}
       <div className="bg-white border border-slate-200/80 rounded-2xl px-4 py-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 shrink-0">
@@ -360,6 +445,20 @@ export const CRMInboxPage: React.FC = () => {
 
         {/* Acciones Rápidas */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Botón para Compactar / Expandir panel de opciones (Ideal para pantallas medianas) */}
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer shadow-2xs border hidden md:flex ${
+              isSidebarCollapsed
+                ? 'bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+            }`}
+            title={isSidebarCollapsed ? "Expandir panel de carpetas" : "Compactar panel de carpetas (ahorrar espacio)"}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5 text-brand-600" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+            <span className="hidden lg:inline">{isSidebarCollapsed ? 'Expandir Menú' : 'Compactar'}</span>
+          </button>
+
           <button
             onClick={handleSyncButtonClick}
             disabled={syncing}
@@ -401,126 +500,262 @@ export const CRMInboxPage: React.FC = () => {
       {/* Workspace de 3 Columnas Proporcional (Full-Height) */}
       <div className="flex-1 bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden flex flex-col md:flex-row min-h-0">
         
-        {/* Columna 1: Carpetas y Filtros (Estrecha y Eficiente: ~200px) */}
-        <div className="w-full md:w-52 shrink-0 border-b md:border-b-0 md:border-r border-slate-200/80 bg-slate-50/40 p-3 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-2 mb-1.5 font-montserrat">
-                Bandejas
-              </span>
-              <nav className="space-y-1">
+        {/* Columna 1: Carpetas y Filtros (Estrecha normal ~208px o Compacta ~60px) */}
+        {isSidebarCollapsed ? (
+          <div className="w-full md:w-16 shrink-0 border-b md:border-b-0 md:border-r border-slate-200/80 bg-slate-50/50 py-3 px-2 flex flex-col justify-between items-center transition-all duration-200">
+            <div className="space-y-4 flex flex-col items-center w-full">
+              {/* Botón para expandir panel */}
+              <button
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-300 transition-all cursor-pointer shadow-2xs"
+                title="Expandir panel lateral"
+              >
+                <ChevronRight className="w-4 h-4 text-brand-600" />
+              </button>
+
+              <div className="w-8 h-px bg-slate-200/80" />
+
+              {/* Iconos de Bandejas */}
+              <nav className="space-y-2 flex flex-col items-center w-full">
                 <button
                   onClick={() => { setFolder('inbox'); setSelectedEmail(null); }}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-all font-montserrat cursor-pointer ${
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl relative transition-all cursor-pointer ${
                     folder === 'inbox' 
                       ? 'bg-brand-500 text-white shadow-2xs' 
                       : 'text-slate-600 hover:bg-slate-200/60'
                   }`}
+                  title={`Bandeja de Recibidos (${totalInboxCount} correos${unreadInboxCount > 0 ? `, ${unreadInboxCount} no leídos` : ''})`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Inbox className="w-3.5 h-3.5" />
-                    <span>Recibidos</span>
-                  </div>
-                  {folder === 'inbox' && emails.length > 0 && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${folder === 'inbox' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                      {emails.length}
-                    </span>
+                  <Inbox className="w-4 h-4" />
+                  {unreadInboxCount > 0 && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white absolute top-1 right-1 shadow-xs animate-pulse" />
                   )}
                 </button>
 
                 <button
                   onClick={() => { setFolder('sent'); setSelectedEmail(null); }}
-                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-all font-montserrat cursor-pointer ${
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all cursor-pointer ${
                     folder === 'sent' 
                       ? 'bg-brand-500 text-white shadow-2xs' 
                       : 'text-slate-600 hover:bg-slate-200/60'
                   }`}
+                  title={`Correos Enviados (${totalSentCount} correos)`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Enviados</span>
-                  </div>
-                  {folder === 'sent' && emails.length > 0 && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${folder === 'sent' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                      {emails.length}
-                    </span>
-                  )}
+                  <Send className="w-4 h-4" />
                 </button>
               </nav>
-            </div>
 
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-2 mb-1.5 font-montserrat">
-                Filtros Rápidos
-              </span>
-              <div className="space-y-1">
+              <div className="w-8 h-px bg-slate-200/80" />
+
+              {/* Iconos de Filtros */}
+              <div className="space-y-2 flex flex-col items-center w-full">
                 <button
                   onClick={() => setFilterType('all')}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                    filterType === 'all' ? 'bg-slate-200/80 text-slate-900 font-bold' : 'text-slate-500 hover:bg-slate-100'
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all cursor-pointer ${
+                    filterType === 'all' ? 'bg-slate-200/90 text-slate-900 font-bold' : 'text-slate-500 hover:bg-slate-100'
                   }`}
+                  title={`Todos los correos (${emails.length})`}
                 >
-                  <span>Todos</span>
-                  <span className="text-[10px] text-slate-400">{emails.length}</span>
+                  <MailOpen className="w-4 h-4" />
                 </button>
 
                 <button
                   onClick={() => setFilterType('leads')}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl relative transition-all cursor-pointer ${
                     filterType === 'leads' ? 'bg-amber-100 text-amber-900 font-bold' : 'text-slate-500 hover:bg-slate-100'
                   }`}
+                  title={`Con Prospecto (${leadsCount})`}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    Con Prospecto
-                  </span>
-                  <span className="text-[10px] text-slate-400">{leadsCount}</span>
+                  <User className="w-4 h-4 text-amber-600" />
                 </button>
 
                 <button
                   onClick={() => setFilterType('unread')}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl relative transition-all cursor-pointer ${
                     filterType === 'unread' ? 'bg-blue-100 text-blue-900 font-bold' : 'text-slate-500 hover:bg-slate-100'
                   }`}
+                  title={`No leídos (${unreadCount})`}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    No leídos
-                  </span>
-                  <span className="text-[10px] text-slate-400">{unreadCount}</span>
+                  <Mail className="w-4 h-4 text-blue-600" />
+                  {unreadCount > 0 && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white absolute top-1 right-1" />
+                  )}
                 </button>
               </div>
             </div>
-          </div>
 
-          <div className="pt-3 border-t border-slate-200/80 hidden md:block">
-            <div className="flex items-center gap-2 p-2 bg-white rounded-xl border border-slate-200/60 shadow-2xs">
-              <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold text-slate-700 truncate font-montserrat">SSL Seguro</p>
-                <p className="text-[9px] text-slate-400 truncate font-mono">host81:993</p>
+            <div className="hidden md:block pt-3">
+              <div className="w-9 h-9 rounded-xl bg-white border border-slate-200/60 shadow-2xs flex items-center justify-center text-emerald-500" title="SSL Seguro host81:993">
+                <ShieldCheck className="w-4 h-4" />
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="w-full md:w-52 shrink-0 border-b md:border-b-0 md:border-r border-slate-200/80 bg-slate-50/40 p-3 flex flex-col justify-between transition-all duration-200 overflow-y-auto">
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between px-2 mb-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-montserrat">
+                    Bandejas
+                  </span>
+                  <button
+                    onClick={() => setIsSidebarCollapsed(true)}
+                    className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer hidden md:block"
+                    title="Compactar opciones (ahorrar espacio)"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <nav className="space-y-1">
+                  <button
+                    onClick={() => { setFolder('inbox'); setSelectedEmail(null); }}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-all font-montserrat cursor-pointer ${
+                      folder === 'inbox' 
+                        ? 'bg-brand-500 text-white shadow-2xs' 
+                        : 'text-slate-600 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Inbox className="w-3.5 h-3.5" />
+                      <span>Recibidos</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {unreadInboxCount > 0 && (
+                        <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full shadow-xs ${
+                          folder === 'inbox' ? 'bg-white text-brand-600' : 'bg-blue-600 text-white'
+                        }`}>
+                          {unreadInboxCount}
+                        </span>
+                      )}
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                        folder === 'inbox' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {totalInboxCount}
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => { setFolder('sent'); setSelectedEmail(null); }}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-all font-montserrat cursor-pointer ${
+                      folder === 'sent' 
+                        ? 'bg-brand-500 text-white shadow-2xs' 
+                        : 'text-slate-600 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Enviados</span>
+                    </div>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      folder === 'sent' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {totalSentCount}
+                    </span>
+                  </button>
+                </nav>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-2 mb-1.5 font-montserrat">
+                  Filtros Rápidos
+                </span>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setFilterType('all')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      filterType === 'all' ? 'bg-slate-200/80 text-slate-900 font-bold' : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>Todos</span>
+                    <span className="text-[10px] text-slate-400">{emails.length}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setFilterType('leads')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      filterType === 'leads' ? 'bg-amber-100 text-amber-900 font-bold' : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      Con Prospecto
+                    </span>
+                    <span className="text-[10px] text-slate-400">{leadsCount}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setFilterType('unread')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      filterType === 'unread' ? 'bg-blue-100 text-blue-900 font-bold' : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      No leídos
+                    </span>
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded-full border border-blue-200/60">
+                      {unreadCount}
+                    </span>
+                  </button>
+
+                  {unreadCount > 0 && folder === 'inbox' && (
+                    <button
+                      onClick={handleMarkAllAsRead}
+                      className="w-full text-left px-2.5 py-1.5 text-[11px] font-bold text-brand-600 hover:text-brand-800 hover:bg-brand-50 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <CheckCheck className="w-3 h-3" />
+                      <span>Marcar todo como leído</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-200/80 hidden md:block">
+              <div className="flex items-center gap-2 p-2 bg-white rounded-xl border border-slate-200/60 shadow-2xs">
+                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-700 truncate font-montserrat">SSL Seguro</p>
+                  <p className="text-[9px] text-slate-400 truncate font-mono">host81:993</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Columna 2: Lista de Correos (~360px) */}
-        <div className={`w-full md:w-80 lg:w-96 shrink-0 border-b md:border-b-0 md:border-r border-slate-200/80 flex flex-col h-full bg-white ${selectedEmail ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`w-full md:w-80 lg:w-96 shrink-0 border-b md:border-b-0 md:border-r border-slate-200/80 flex flex-col h-full bg-white transition-all duration-200 ${
+          selectedEmail ? (isReaderExpanded ? 'hidden' : 'hidden md:flex') : 'flex'
+        }`}>
           
-          {/* Header de la lista con contador */}
+          {/* Header de la lista con contador y botón de compactar lista */}
           <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
             <span className="text-xs font-bold text-slate-700 font-montserrat flex items-center gap-1.5">
               <span>{folder === 'inbox' ? 'Bandeja de Entrada' : 'Correos Enviados'}</span>
               <span className="text-[11px] font-normal text-slate-400">({filteredEmails.length})</span>
             </span>
-            {filterType !== 'all' && (
-              <button 
-                onClick={() => setFilterType('all')} 
-                className="text-[10px] font-bold text-brand-600 hover:underline"
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsDenseList(!isDenseList)}
+                className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                  isDenseList 
+                    ? 'bg-brand-50 text-brand-700 border-brand-200 shadow-2xs' 
+                    : 'text-slate-400 hover:text-slate-700 border-slate-200/60 hover:bg-slate-100'
+                }`}
+                title={isDenseList ? "Cambiar a vista detallada" : "Compactar lista (modo denso)"}
               >
-                Limpiar filtro
+                <List className="w-3.5 h-3.5" />
               </button>
-            )}
+              {filterType !== 'all' && (
+                <button 
+                  onClick={() => setFilterType('all')} 
+                  className="text-[10px] font-bold text-brand-600 hover:underline"
+                >
+                  Limpiar filtro
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Búsqueda en móvil si no está visible la de arriba */}
@@ -554,49 +789,87 @@ export const CRMInboxPage: React.FC = () => {
                 const targetEmail = folder === 'sent' ? e.recipient_email : e.sender_email;
                 const initial = (targetEmail || 'U')[0].toUpperCase();
                 const isSelected = selectedEmail?.id === e.id;
+                const isUnread = !e.is_read;
                 const snippet = getEmailSnippet(e.body_html);
 
                 return (
                   <div
                     key={e.id}
-                    onClick={() => setSelectedEmail(e)}
-                    className={`p-3 transition-all cursor-pointer space-y-1 relative group ${
+                    onClick={() => handleSelectEmail(e)}
+                    className={`transition-all cursor-pointer relative group border-l-4 ${
+                      isDenseList ? 'p-2.5 space-y-1' : 'p-3.5 space-y-1.5'
+                    } ${
                       isSelected 
-                        ? 'bg-brand-50/80 border-l-4 border-brand-500' 
-                        : !e.is_read 
-                          ? 'bg-white font-semibold hover:bg-slate-50/80' 
-                          : 'bg-white/60 hover:bg-slate-50 text-slate-600'
+                        ? 'bg-brand-50/90 border-brand-500 shadow-xs' 
+                        : isUnread 
+                          ? 'bg-blue-50/40 hover:bg-blue-50/70 border-blue-600 shadow-2xs' 
+                          : 'bg-white hover:bg-slate-50/80 border-transparent text-slate-600'
                     }`}
                   >
                     <div className="flex items-center justify-between text-xs gap-2">
                       <div className="flex items-center gap-2 min-w-0">
+                        {/* Indicador de no leído: punto azul vibrante */}
+                        {isUnread ? (
+                          <span 
+                            className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0 ring-4 ring-blue-100 shadow-xs" 
+                            title="No leído"
+                          />
+                        ) : (
+                          <span className="w-2.5 h-2.5 shrink-0 flex items-center justify-center">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-200" />
+                          </span>
+                        )}
+
                         {/* Avatar con inicial */}
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
-                          e.lead_name ? 'bg-amber-500' : 'bg-slate-600'
+                          isUnread ? 'bg-blue-600 shadow-xs' : e.lead_name ? 'bg-amber-500' : 'bg-slate-500'
                         }`}>
                           {initial}
                         </div>
-                        <span className={`text-xs truncate font-montserrat ${!e.is_read ? 'font-extrabold text-slate-900' : 'font-bold text-slate-700'}`}>
-                          {targetEmail}
+
+                        {/* Remitente o Destinatario claramente indicado */}
+                        <div className="flex items-center gap-1.5 min-w-0 truncate">
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded shrink-0 uppercase tracking-wider ${
+                            folder === 'sent' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/50' : 'bg-slate-100 text-slate-500 border border-slate-200/60'
+                          }`}>
+                            {folder === 'sent' ? 'Para' : 'De'}
+                          </span>
+                          <span className={`text-xs truncate font-montserrat ${
+                            isUnread ? 'font-extrabold text-slate-950' : 'font-semibold text-slate-700'
+                          }`}>
+                            {targetEmail}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isUnread && (
+                          <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded text-[9px] font-extrabold uppercase tracking-tight shadow-2xs">
+                            Nuevo
+                          </span>
+                        )}
+                        <span className={`text-[10px] font-mono ${isUnread ? 'text-blue-900 font-bold' : 'text-slate-400'}`}>
+                          {formatEmailDate(e.created_at)}
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                        {formatEmailDate(e.created_at)}
-                      </span>
                     </div>
 
-                    <h4 className={`text-xs line-clamp-1 font-montserrat leading-snug pl-8 ${!e.is_read ? 'font-bold text-slate-900' : 'text-slate-800'}`}>
+                    <h4 className={`text-xs line-clamp-1 font-montserrat leading-snug pl-7 ${
+                      isUnread ? 'font-extrabold text-slate-950' : 'font-medium text-slate-700'
+                    }`}>
                       {e.subject || '(Sin asunto)'}
                     </h4>
 
                     {snippet && (
-                      <p className="text-[11px] text-slate-400 line-clamp-2 pl-8 font-sans leading-tight">
+                      <p className={`text-[11px] ${isDenseList ? 'line-clamp-1' : 'line-clamp-2'} pl-7 font-sans leading-relaxed ${
+                        isUnread ? 'text-slate-700 font-medium' : 'text-slate-400'
+                      }`}>
                         {snippet}
                       </p>
                     )}
                     
                     {e.lead_name && (
-                      <div className="pl-8 pt-0.5">
+                      <div className="pl-7 pt-0.5">
                         <span className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-amber-50 text-amber-800 font-bold text-[9px] rounded-md border border-amber-200/60 font-montserrat">
                           👤 {e.lead_name}
                         </span>
@@ -618,22 +891,85 @@ export const CRMInboxPage: React.FC = () => {
               <div className="px-5 py-3 border-b border-slate-200/80 bg-white flex items-center justify-between gap-3 shrink-0 shadow-2xs">
                 <div className="flex items-center gap-2 min-w-0">
                   <button
-                    onClick={() => setSelectedEmail(null)}
-                    className="md:hidden p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
+                    onClick={() => {
+                      if (isReaderExpanded) {
+                        setIsReaderExpanded(false);
+                      } else {
+                        setSelectedEmail(null);
+                      }
+                    }}
+                    className={`${isReaderExpanded ? 'flex' : 'md:hidden'} p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg cursor-pointer`}
                     title="Volver a la lista"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <h2 className="text-sm md:text-base font-extrabold text-slate-900 font-montserrat truncate">
-                    {selectedEmail.subject || '(Sin asunto)'}
-                  </h2>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                        selectedEmail.direction === 'inbound' || selectedEmail.status === 'received'
+                          ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      }`}>
+                        {selectedEmail.direction === 'inbound' || selectedEmail.status === 'received' ? '📥 Recibido' : '📤 Enviado'}
+                      </span>
+                      <h2 className="text-sm md:text-base font-extrabold text-slate-900 font-montserrat truncate">
+                        {selectedEmail.subject || '(Sin asunto)'}
+                      </h2>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  {/* Botón para Maximizar / Dividir Vista en pantallas medianas */}
+                  <button
+                    onClick={() => setIsReaderExpanded(!isReaderExpanded)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold font-montserrat transition-all border cursor-pointer hidden md:flex ${
+                      isReaderExpanded
+                        ? 'bg-brand-500 text-white border-brand-500 shadow-2xs'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                    }`}
+                    title={isReaderExpanded ? "Restaurar vista dividida (mostrar lista de correos)" : "Maximizar área de lectura (ocultar lista)"}
+                  >
+                    {isReaderExpanded ? (
+                      <>
+                        <Minimize2 className="w-3.5 h-3.5" />
+                        <span className="hidden lg:inline">Dividir Vista</span>
+                      </>
+                    ) : (
+                      <>
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        <span className="hidden lg:inline">Maximizar</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Botón de alternar Leído / No leído */}
+                  <button
+                    onClick={() => handleToggleRead(selectedEmail)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold font-montserrat transition-all border cursor-pointer ${
+                      selectedEmail.is_read
+                        ? 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200'
+                        : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 shadow-2xs'
+                    }`}
+                    title={selectedEmail.is_read ? 'Marcar como no leído' : 'Marcar como leído'}
+                  >
+                    {selectedEmail.is_read ? (
+                      <>
+                        <Mail className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="hidden sm:inline">Marcar no leído</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCheck className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="hidden sm:inline">Marcar leído</span>
+                      </>
+                    )}
+                  </button>
+
                   {selectedEmail.lead_id && (
                     <button
                       onClick={() => navigate('/dashboard/crm')}
-                      className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold font-montserrat transition-all"
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold font-montserrat transition-all cursor-pointer"
                       title="Ver ficha completa en el CRM"
                     >
                       <span>Prospecto: {selectedEmail.lead_name}</span>
@@ -645,7 +981,7 @@ export const CRMInboxPage: React.FC = () => {
                       setIsQuickReplyExpanded(true);
                       setTimeout(() => quickReplyRef.current?.focus(), 50);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-lg text-xs font-bold font-montserrat transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-lg text-xs font-bold font-montserrat transition-all cursor-pointer"
                   >
                     <Reply className="w-3.5 h-3.5" />
                     <span>Responder</span>
@@ -660,27 +996,36 @@ export const CRMInboxPage: React.FC = () => {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-sm">
-                        {(selectedEmail.sender_email || 'U')[0].toUpperCase()}
+                        {((selectedEmail.direction === 'inbound' ? selectedEmail.sender_email : selectedEmail.recipient_email) || 'U')[0].toUpperCase()}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-bold text-slate-900 font-montserrat">
+                            <span className="text-xs text-slate-400 font-semibold mr-1">De:</span>
                             {selectedEmail.sender_email}
                           </p>
-                          {selectedEmail.direction === 'inbound' && (
-                            <span className="px-1.5 py-0.2 bg-blue-50 text-blue-700 border border-blue-200/60 rounded text-[9px] font-bold">
-                              Entrante
-                            </span>
-                          )}
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            selectedEmail.direction === 'inbound' || selectedEmail.status === 'received'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                          }`}>
+                            {selectedEmail.direction === 'inbound' || selectedEmail.status === 'received' ? 'Recibido' : 'Enviado'}
+                          </span>
                         </div>
-                        <p className="text-xs text-slate-500 font-sans">
-                          Para: <span className="text-slate-700 font-medium">{selectedEmail.recipient_email}</span>
+                        <p className="text-xs text-slate-500 font-sans mt-0.5">
+                          <span className="text-slate-400 font-semibold mr-1">Para:</span>
+                          <span className="text-slate-800 font-medium">{selectedEmail.recipient_email}</span>
                         </p>
                       </div>
                     </div>
-                    <span className="text-xs text-slate-400 font-mono shrink-0">
-                      {new Date(selectedEmail.created_at).toLocaleString()}
-                    </span>
+                    <div className="text-right shrink-0">
+                      <span className="text-xs text-slate-500 font-mono block">
+                        {new Date(selectedEmail.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                      </span>
+                      <span className={`text-[10px] font-bold ${selectedEmail.is_read ? 'text-slate-400' : 'text-blue-600 font-extrabold'}`}>
+                        {selectedEmail.is_read ? '✓ Leído' : '● No leído'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

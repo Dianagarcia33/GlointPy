@@ -40,7 +40,7 @@ class CRMEmail(Base):
         nullable=False,
         default="sent"
     )
-    is_read = Column(Boolean, default=True)
+    is_read = Column(Boolean, default=False)
     
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
