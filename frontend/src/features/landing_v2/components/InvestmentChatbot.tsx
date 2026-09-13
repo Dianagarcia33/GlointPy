@@ -181,8 +181,8 @@ export function InvestmentChatbot() {
       ? Number(customPackageValue) 
       : (selectedPackage?.value || 0);
     const resolvedPackageName = isCustomPackage
-      ? `$${Number(customPackageValue):,.0f} COP (Monto Personalizado)`
-      : (selectedPackage?.paquete_accion_adquirido || `$${resolvedValue:,.0f} COP`);
+      ? `$${Number(customPackageValue).toLocaleString('es-CO')} COP (Monto Personalizado)`
+      : (selectedPackage?.paquete_accion_adquirido || `$${resolvedValue.toLocaleString('es-CO')} COP`);
 
     try {
       setSubmitting(true);
@@ -494,7 +494,7 @@ export function InvestmentChatbot() {
                     <div className="flex justify-end">
                       <div className="bg-slate-900 text-white rounded-2xl rounded-tr-xs px-3.5 py-2 text-xs font-medium max-w-[80%]">
                         {isCustomPackage 
-                          ? `$${Number(customPackageValue):,.0f} COP` 
+                          ? `$${Number(customPackageValue).toLocaleString('es-CO')} COP` 
                           : selectedPackage?.paquete_accion_adquirido}
                       </div>
                     </div>
@@ -761,7 +761,7 @@ export function InvestmentChatbot() {
                     <a
                       href={`https://wa.me/573209573995?text=${encodeURIComponent(
                         `Hola, acabo de solicitar asesoría en Gloint para el paquete de inversión ${
-                          isCustomPackage ? `$${Number(customPackageValue):,.0f} COP` : selectedPackage?.paquete_accion_adquirido
+                          isCustomPackage ? `$${Number(customPackageValue).toLocaleString('es-CO')} COP` : selectedPackage?.paquete_accion_adquirido
                         }. Mi nombre es ${fullName}.`
                       )}`}
                       target="_blank"
