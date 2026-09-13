@@ -63,7 +63,7 @@ export function InvestmentChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasPrompted, setHasPrompted] = useState(false);
   
-  // Datos reales de la base de datos (/auth/public/config)
+  // Paquetes y Periodos PREDEFINIDOS desde la base de datos (/auth/public/config)
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [periods, setPeriods] = useState<PeriodItem[]>([]);
   const [loadingConfig, setLoadingConfig] = useState(false);
@@ -73,12 +73,10 @@ export function InvestmentChatbot() {
   const [isTyping, setIsTyping] = useState(false);
   const [inputText, setInputText] = useState('');
 
-  // Selección activa del usuario
+  // Paquete y periodo seleccionados
   const [selectedPackage, setSelectedPackage] = useState<PackageItem | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodItem | null>(null);
   const [activeCalculation, setActiveCalculation] = useState<RealCalculation | null>(null);
-  const [isCustomPackage, setIsCustomPackage] = useState(false);
-  const [customPackageValue, setCustomPackageValue] = useState('');
 
   // Formulario de contacto
   const [fullName, setFullName] = useState('');
@@ -91,7 +89,7 @@ export function InvestmentChatbot() {
   const [assignedDirector, setAssignedDirector] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Hook de departamentos y ciudades de Colombia
+  // Hook de departamentos y municipios de Colombia
   const {
     departments,
     cities,
@@ -120,7 +118,7 @@ export function InvestmentChatbot() {
     }
   }, [messages, isTyping, isOpen]);
 
-  // Cargar paquetes y periodos REALES desde la base de datos
+  // Cargar paquetes y periodos predefinidos desde /auth/public/config
   useEffect(() => {
     const loadConfig = async () => {
       try {
@@ -170,17 +168,17 @@ export function InvestmentChatbot() {
     return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Cálculo real utilizando la fórmula oficial de Gloint
-  const calculateRealProjection = (monto: number, periodo: PeriodItem, pkg?: PackageItem | null): RealCalculation => {
+  // Cálculo real con la fórmula oficial de Gloint
+  const calculateRealProjection = (monto: number, periodo: PeriodItem, pkg: PackageItem): RealCalculation => {
     const percentage = Number(periodo.percentage) || 0;
     const months = Number(periodo.months) || 0;
 
     const rendimientoMensual = monto * (percentage / 100);
     const rendimientoTotal = rendimientoMensual * months;
     const totalContrato = monto + rendimientoTotal;
-    const granted_shares = pkg?.granted_shares || 0;
+    const granted_shares = pkg.granted_shares || 0;
 
-    const packageName = pkg?.paquete_accion_adquirido || `$${monto.toLocaleString('es-CO')} COP`;
+    const packageName = pkg.paquete_accion_adquirido;
 
     return {
       monto,
@@ -190,7 +188,7 @@ export function InvestmentChatbot() {
       totalContrato,
       granted_shares,
       packageName,
-      packageId: pkg?.id
+      packageId: pkg.id
     };
   };
 
@@ -210,14 +208,14 @@ export function InvestmentChatbot() {
         {
           id: 'welcome-2',
           sender: 'bot',
-          text: 'Soy tu asistente de inversión. Te ayudaré a proyectar los rendimientos de nuestros paquetes vigentes y a coordinar una reunión privada con uno de nuestros directivos de inversión.',
+          text: 'Soy tu asistente de inversión. Te ayudaré a proyectar los rendimientos de nuestros paquetes predefinidos y a coordinar una reunión privada con uno de nuestros directivos de inversión.',
           timestamp: getTimeString(),
           type: 'text'
         },
         {
           id: 'welcome-3',
           sender: 'bot',
-          text: 'A continuación puedes seleccionar el paquete de inversión que deseas consultar o ingresar un valor personalizado:',
+          text: 'Por favor selecciona a continuación el paquete de inversión que deseas consultar:',
           timestamp: getTimeString(),
           type: 'options_packages'
         }
@@ -228,9 +226,7 @@ export function InvestmentChatbot() {
   // Usuario selecciona un paquete oficial
   const handleSelectPackage = (pkg: PackageItem) => {
     setSelectedPackage(pkg);
-    setIsCustomPackage(false);
 
-    // Si hay periodos disponibles, usar el primero o el ya seleccionado
     const defaultPeriod = selectedPeriod || (periods.length > 0 ? periods[0] : null);
 
     const userMsg: ChatMessage = {
@@ -253,7 +249,7 @@ export function InvestmentChatbot() {
           {
             id: `bot-no-period-${Date.now()}`,
             sender: 'bot',
-            text: `Has seleccionado el paquete de $${Number(pkg.value).toLocaleString('es-CO')} COP. Para darte todos los detalles y el contrato formal, continuemos con tu información para asignarte a un directivo:`,
+            text: `Has seleccionado el paquete de ${pkg.paquete_accion_adquirido}. Para coordinar la reunión con tu directivo asignado, continuemos con tu información:`,
             timestamp: getTimeString(),
             type: 'text'
           }
@@ -262,21 +258,20 @@ export function InvestmentChatbot() {
         return;
       }
 
-      // Si hay más de un periodo disponible, le permitimos elegir el plazo real
+      // Si hay más de un periodo en la base de datos, le permitimos elegir el plazo
       if (periods.length > 1) {
         setMessages(prev => [
           ...prev,
           {
             id: `bot-choose-period-${Date.now()}`,
             sender: 'bot',
-            text: `Excelente elección. Para el paquete de **$${Number(pkg.value).toLocaleString('es-CO')} COP**, ¿a qué plazo de inversión te gustaría proyectar tu contrato?`,
+            text: `Excelente elección. Para el paquete de **${pkg.paquete_accion_adquirido}**, ¿a qué plazo de contrato deseas proyectar tu rentabilidad?`,
             timestamp: getTimeString(),
             type: 'options_periods',
             data: { pkg }
           }
         ]);
       } else {
-        // Si hay solo un periodo en la base de datos, mostramos la proyección directa
         const calc = calculateRealProjection(pkg.value, defaultPeriod, pkg);
         setActiveCalculation(calc);
         setMessages(prev => [
@@ -290,16 +285,16 @@ export function InvestmentChatbot() {
           }
         ]);
       }
-    }, 600);
+    }, 500);
   };
 
   // Usuario selecciona un plazo/periodo real de la base de datos
-  const handleSelectPeriod = (period: PeriodItem, pkg?: PackageItem | null, customVal?: number) => {
+  const handleSelectPeriod = (period: PeriodItem, pkg?: PackageItem | null) => {
     setSelectedPeriod(period);
-    const monto = customVal || pkg?.value || activeCalculation?.monto || (selectedPackage?.value || 0);
     const targetPkg = pkg || selectedPackage;
+    if (!targetPkg) return;
 
-    const calc = calculateRealProjection(monto, period, targetPkg);
+    const calc = calculateRealProjection(targetPkg.value, period, targetPkg);
     setActiveCalculation(calc);
 
     const userMsg: ChatMessage = {
@@ -325,65 +320,6 @@ export function InvestmentChatbot() {
           data: calc
         }
       ]);
-    }, 500);
-  };
-
-  // Manejo de monto personalizado
-  const handleCustomPackageSubmit = (amountNum: number) => {
-    if (!amountNum || amountNum <= 0) {
-      return;
-    }
-
-    setIsCustomPackage(true);
-    setSelectedPackage(null);
-    setCustomPackageValue(amountNum.toString());
-
-    const userMsg: ChatMessage = {
-      id: `user-custom-${Date.now()}`,
-      sender: 'user',
-      text: `Deseo simular una inversión de $${amountNum.toLocaleString('es-CO')} COP`,
-      timestamp: getTimeString(),
-      type: 'text'
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    setIsTyping(true);
-
-    setTimeout(() => {
-      setIsTyping(false);
-      const defaultPeriod = selectedPeriod || (periods.length > 0 ? periods[0] : null);
-
-      if (!defaultPeriod) {
-        handleProceedToLocation();
-        return;
-      }
-
-      if (periods.length > 1) {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: `bot-custom-period-choice-${Date.now()}`,
-            sender: 'bot',
-            text: `Perfecto. Para una inversión de **$${amountNum.toLocaleString('es-CO')} COP**, ¿a qué plazo de contrato deseas proyectar tu rentabilidad?`,
-            timestamp: getTimeString(),
-            type: 'options_periods',
-            data: { customVal: amountNum }
-          }
-        ]);
-      } else {
-        const calc = calculateRealProjection(amountNum, defaultPeriod, null);
-        setActiveCalculation(calc);
-        setMessages(prev => [
-          ...prev,
-          {
-            id: `bot-sim-card-${Date.now()}`,
-            sender: 'bot',
-            timestamp: getTimeString(),
-            type: 'simulation_card',
-            data: calc
-          }
-        ]);
-      }
     }, 500);
   };
 
@@ -449,8 +385,8 @@ export function InvestmentChatbot() {
     }
 
     const selectedDept = departments.find(d => d.id.toString() === selectedDepartmentId);
-    const resolvedValue = activeCalculation?.monto || (selectedPackage?.value || 0);
-    const resolvedPackageName = activeCalculation?.packageName || selectedPackage?.paquete_accion_adquirido || `$${resolvedValue.toLocaleString('es-CO')} COP`;
+    const resolvedValue = selectedPackage?.value || activeCalculation?.monto || 0;
+    const resolvedPackageName = selectedPackage?.paquete_accion_adquirido || activeCalculation?.packageName || '';
 
     try {
       setSubmitting(true);
@@ -465,7 +401,7 @@ export function InvestmentChatbot() {
         package_name: resolvedPackageName,
         investment_goal: 'Asesoría Directiva',
         preferred_contact_time: preferredTime,
-        notes: `Origen: Chatbot Concierge. Plazo: ${selectedPeriod?.months || 'N/A'} meses (${selectedPeriod?.percentage || 'N/A'}% mensual). Rendimiento Mensual Est: $${activeCalculation?.rendimientoMensual?.toLocaleString('es-CO') || 'N/A'}. Total Contrato: $${activeCalculation?.totalContrato?.toLocaleString('es-CO') || 'N/A'}. Horario: ${preferredTime}`
+        notes: `Origen: Chatbot Concierge. Paquete: ${resolvedPackageName}. Plazo: ${selectedPeriod?.months || 'N/A'} meses (${selectedPeriod?.percentage || 'N/A'}% mensual). Rendimiento Mensual Est: $${activeCalculation?.rendimientoMensual?.toLocaleString('es-CO') || 'N/A'}. Total Contrato: $${activeCalculation?.totalContrato?.toLocaleString('es-CO') || 'N/A'}. Horario: ${preferredTime}`
       });
 
       const directorName = res?.assigned_commercial?.name || 'Mesa Directiva de Inversiones';
@@ -502,7 +438,7 @@ export function InvestmentChatbot() {
     }
   };
 
-  // Motor de respuesta libre basado estrictamente en la base de datos real
+  // Motor de respuesta libre estricto y sin datos inventados
   const processFreeTextInput = (text: string) => {
     const raw = text.trim();
     if (!raw) return;
@@ -522,26 +458,21 @@ export function InvestmentChatbot() {
       setIsTyping(false);
       const lower = raw.toLowerCase();
 
-      // 1. Detección de montos numéricos (ej. "40 millones", "30000000")
-      let detectedAmount: number | null = null;
-      const millionMatch = lower.match(/(\d+(?:[\.,]\d+)?)\s*(?:millones?|mill?|palos?|m\b)/i);
-      if (millionMatch) {
-        const numPart = parseFloat(millionMatch[1].replace(',', '.'));
-        if (!isNaN(numPart)) {
-          detectedAmount = Math.round(numPart * 1000000);
-        }
-      } else {
-        const cleanNumber = lower.replace(/[^\d]/g, '');
-        if (cleanNumber.length >= 6) {
-          const parsed = parseInt(cleanNumber, 10);
-          if (!isNaN(parsed) && parsed > 0) {
-            detectedAmount = parsed;
+      // 1. Si el usuario escribe una cifra o monto
+      const cleanDigits = lower.replace(/[^\d]/g, '');
+      const hasNumberWord = lower.includes('millon') || lower.includes('palo') || lower.includes('monto') || cleanDigits.length >= 6;
+      
+      if (hasNumberWord) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `bot-pkgs-only-${Date.now()}`,
+            sender: 'bot',
+            text: 'En GLOINT operamos exclusivamente con **paquetes de inversión predefinidos**. Por favor selecciona a continuación el paquete oficial que más se adapte a tu capital:',
+            timestamp: getTimeString(),
+            type: 'options_packages'
           }
-        }
-      }
-
-      if (detectedAmount && detectedAmount > 0) {
-        handleCustomPackageSubmit(detectedAmount);
+        ]);
         return;
       }
 
@@ -581,14 +512,14 @@ export function InvestmentChatbot() {
         return;
       }
 
-      // 3. Consulta de paquetes vigentes
-      if (lower.includes('paquete') || lower.includes('monto') || lower.includes('cuanto') || lower.includes('cuánto')) {
+      // 3. Consulta de paquetes predefinidos
+      if (lower.includes('paquete') || lower.includes('cuanto') || lower.includes('cuánto')) {
         setMessages(prev => [
           ...prev,
           {
             id: `bot-pkgs-${Date.now()}`,
             sender: 'bot',
-            text: 'Aquí tienes los paquetes de inversión registrados actualmente en la plataforma:',
+            text: 'Aquí tienes los paquetes de inversión predefinidos en la plataforma:',
             timestamp: getTimeString(),
             type: 'options_packages'
           }
@@ -624,7 +555,7 @@ export function InvestmentChatbot() {
         return;
       }
 
-      // Respuesta por defecto orientando hacia la asesoría del directivo
+      // Respuesta por defecto orientando hacia la selección de paquete o directivo
       setMessages(prev => [
         ...prev,
         {
@@ -643,8 +574,6 @@ export function InvestmentChatbot() {
     setSelectedPackage(null);
     setSelectedPeriod(periods.length > 0 ? periods[0] : null);
     setActiveCalculation(null);
-    setIsCustomPackage(false);
-    setCustomPackageValue('');
     setFullName('');
     setEmail('');
     setPhone('');
@@ -833,7 +762,7 @@ export function InvestmentChatbot() {
                           </div>
                         )}
 
-                        {/* Opciones de Paquetes Reales de la BD */}
+                        {/* Opciones de Paquetes Predefinidos de la BD */}
                         {msg.type === 'options_packages' && (
                           <div className="space-y-2 pt-1">
                             {loadingConfig ? (
@@ -842,60 +771,31 @@ export function InvestmentChatbot() {
                                 <span>Cargando paquetes del sistema...</span>
                               </div>
                             ) : (
-                              <>
-                                <div className="grid grid-cols-1 gap-2 max-h-52 overflow-y-auto pr-1">
-                                  {packages.map((pkg) => (
-                                    <button
-                                      key={pkg.id}
-                                      type="button"
-                                      onClick={() => handleSelectPackage(pkg)}
-                                      className="w-full p-2.5 bg-white hover:bg-amber-50/80 border border-slate-200 hover:border-amber-400 rounded-xl transition-all text-left shadow-xs flex items-center justify-between group cursor-pointer"
-                                    >
-                                      <div>
-                                        <p className="font-bold text-slate-900 text-xs group-hover:text-amber-700">
-                                          {pkg.paquete_accion_adquirido}
+                              <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto pr-1">
+                                {packages.map((pkg) => (
+                                  <button
+                                    key={pkg.id}
+                                    type="button"
+                                    onClick={() => handleSelectPackage(pkg)}
+                                    className="w-full p-2.5 bg-white hover:bg-amber-50/80 border border-slate-200 hover:border-amber-400 rounded-xl transition-all text-left shadow-xs flex items-center justify-between group cursor-pointer"
+                                  >
+                                    <div>
+                                      <p className="font-bold text-slate-900 text-xs group-hover:text-amber-700">
+                                        {pkg.paquete_accion_adquirido}
+                                      </p>
+                                      {pkg.granted_shares ? (
+                                        <p className="text-[10px] text-slate-500 font-medium">
+                                          {pkg.granted_shares} acciones otorgadas
                                         </p>
-                                        {pkg.granted_shares ? (
-                                          <p className="text-[10px] text-slate-500 font-medium">
-                                            {pkg.granted_shares} acciones otorgadas
-                                          </p>
-                                        ) : null}
-                                      </div>
-                                      <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded-lg group-hover:bg-amber-100 group-hover:text-amber-800 transition-colors">
-                                        <Calculator size={12} />
-                                        <span>Proyectar</span>
-                                      </div>
-                                    </button>
-                                  ))}
-                                </div>
-
-                                {/* Entrada para monto libre */}
-                                <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs space-y-2">
-                                  <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                                    <Calculator size={13} className="text-amber-500" />
-                                    <span>¿Deseas simular otro valor de inversión?</span>
-                                  </label>
-                                  <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                      <span className="absolute left-2.5 top-2 text-slate-400 font-bold">$</span>
-                                      <input
-                                        type="number"
-                                        placeholder="Ej: 25000000"
-                                        value={customPackageValue}
-                                        onChange={(e) => setCustomPackageValue(e.target.value)}
-                                        className="w-full pl-6 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:border-amber-500"
-                                      />
+                                      ) : null}
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCustomPackageSubmit(Number(customPackageValue))}
-                                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold text-xs rounded-lg cursor-pointer"
-                                    >
-                                      Simular
-                                    </button>
-                                  </div>
-                                </div>
-                              </>
+                                    <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded-lg group-hover:bg-amber-100 group-hover:text-amber-800 transition-colors">
+                                      <Calculator size={12} />
+                                      <span>Seleccionar</span>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
                             )}
                           </div>
                         )}
@@ -907,7 +807,7 @@ export function InvestmentChatbot() {
                               <button
                                 key={period.id}
                                 type="button"
-                                onClick={() => handleSelectPeriod(period, msg.data?.pkg, msg.data?.customVal)}
+                                onClick={() => handleSelectPeriod(period, msg.data?.pkg)}
                                 className="w-full p-2.5 bg-white hover:bg-amber-50/80 border border-slate-200 hover:border-amber-400 rounded-xl transition-all text-left shadow-xs flex items-center justify-between group cursor-pointer"
                               >
                                 <div>
@@ -924,16 +824,16 @@ export function InvestmentChatbot() {
                           </div>
                         )}
 
-                        {/* Tarjeta de Proyección Oficial (Fórmula real de Gloint) */}
+                        {/* Tarjeta de Proyección Oficial */}
                         {msg.type === 'simulation_card' && msg.data && (
                           <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white rounded-2xl p-4 shadow-lg border border-amber-500/30 space-y-3">
                             <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                               <div>
                                 <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">
-                                  {msg.data.packageName}
+                                  Paquete Seleccionado
                                 </span>
                                 <h4 className="text-base font-black text-white font-montserrat">
-                                  ${Number(msg.data.monto).toLocaleString('es-CO')} COP
+                                  {msg.data.packageName}
                                 </h4>
                               </div>
                               <div className="px-2 py-1 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-bold flex items-center gap-1">
@@ -1181,7 +1081,7 @@ export function InvestmentChatbot() {
                               </div>
                             </div>
 
-                            {/* Enlace opcional y voluntario de WhatsApp (sin costo de API) */}
+                            {/* Enlace voluntario de WhatsApp */}
                             <a
                               href={`https://wa.me/573209573995?text=${encodeURIComponent(
                                 `Hola, acabo de solicitar asesoría en Gloint para el paquete ${msg.data.pkgName}. Mi nombre es ${fullName}.`
@@ -1211,7 +1111,7 @@ export function InvestmentChatbot() {
                 </div>
               ))}
 
-              {/* Indicador de escritura del Bot */}
+              {/* Indicador de escritura */}
               {isTyping && (
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center shrink-0 text-xs font-bold">
@@ -1240,7 +1140,7 @@ export function InvestmentChatbot() {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Escribe tu consulta o un monto..."
+                  placeholder="Pregunta sobre paquetes o escribe tu duda..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   className="flex-1 px-3.5 py-2 bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-amber-500 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none transition-colors"
