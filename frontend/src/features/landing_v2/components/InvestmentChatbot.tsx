@@ -1064,7 +1064,7 @@ export function InvestmentChatbot() {
                               </label>
                               <select
                                 value={selectedDepartmentId}
-                                onChange={handleDepartmentChange}
+                                onChange={(e) => handleDepartmentChange(e.target.value)}
                                 disabled={loadingDepartments}
                                 className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-amber-500"
                               >
