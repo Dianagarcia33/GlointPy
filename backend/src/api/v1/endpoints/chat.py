@@ -246,6 +246,17 @@ async def upload_chat_file(
 
     # Generar nombre único de archivo
     file_ext = os.path.splitext(file.filename)[1] if file.filename else ""
+    if not file_ext and file.content_type:
+        ext_map = {
+            "image/png": ".png",
+            "image/jpeg": ".jpg",
+            "image/jpg": ".jpg",
+            "image/webp": ".webp",
+            "image/gif": ".gif",
+            "application/pdf": ".pdf",
+        }
+        file_ext = ext_map.get(file.content_type.lower(), ".png" if file.content_type.startswith("image/") else "")
+
     unique_filename = f"{uuid.uuid4().hex}{file_ext}"
     file_path = os.path.join(upload_dir, unique_filename)
 
@@ -253,10 +264,11 @@ async def upload_chat_file(
         shutil.copyfileobj(file.file, buffer)
 
     file_url = f"/api/v1/uploads/chat/{unique_filename}"
-    file_name = file.filename or "archivo_adjunto"
+    file_name = file.filename if file.filename and file.filename != "blob" else f"imagen_{uuid.uuid4().hex[:6]}{file_ext}"
     file_type = file.content_type or "application/octet-stream"
 
-    msg_content = content.strip() if content and content.strip() else f"📎 Adjunto: {file_name}"
+    default_caption = "📷 Imagen adjunta" if file_type.startswith("image/") else f"📎 Adjunto: {file_name}"
+    msg_content = content.strip() if content and content.strip() else default_caption
 
     saved_msg = await ChatService.save_message(
         db=db,
