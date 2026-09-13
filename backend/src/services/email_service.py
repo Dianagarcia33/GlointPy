@@ -222,13 +222,13 @@ class EmailService:
             
             <div style="background-color: #f8fafc; border-left: 4px solid #d97706; padding: 16px; border-radius: 6px; margin: 20px 0;">
                 <h4 style="margin: 0 0 10px 0; color: #0f172a; font-size: 14px;">Asignación a Mesa Directiva</h4>
-                <p style="color: #475569; margin: 4px 0; font-size: 13px;"><strong>Director de Inversión Asignado:</strong> {director_name}</p>
+                <p style="color: #475569; margin: 4px 0; font-size: 13px;"><strong>Directivo de Inversión Asignado:</strong> {director_name}</p>
                 <p style="color: #475569; margin: 4px 0; font-size: 13px;"><strong>Paquete de Interés:</strong> {package_name}</p>
                 {time_text}
             </div>
             
             <p style="color: #334155; font-size: 14px; line-height: 1.6;">
-                Tu director asignado se comunicará contigo vía telefónica o por este medio para presentarte los indicadores de rendimiento, contratos de garantía y resolver cualquier inquietud de forma personalizada.
+                Tu directivo asignado se comunicará contigo vía telefónica o por este medio para presentarte los indicadores de rendimiento, contratos de garantía y resolver cualquier inquietud de forma personalizada.
             </p>
             
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">

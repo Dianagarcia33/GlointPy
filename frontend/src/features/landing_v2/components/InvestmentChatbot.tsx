@@ -357,7 +357,7 @@ export function InvestmentChatbot() {
                 </div>
                 <div className="bg-white border border-slate-200/80 rounded-2xl rounded-tl-xs p-3.5 shadow-xs max-w-[85%] text-xs text-slate-800 leading-relaxed">
                   <p className="font-semibold text-slate-900 mb-1">¡Bienvenido a Gloint Investment!</p>
-                  Soy tu asistente ejecutivo. Te ayudaré a calificar tu perfil para asignarte una <strong>reunión privada con uno de nuestros directores de inversión</strong>.
+                  Soy tu asistente ejecutivo. Te ayudaré a calificar tu perfil para asignarte una <strong>reunión privada con uno de nuestros directivos de inversión</strong>.
                 </div>
               </div>
 
@@ -510,7 +510,7 @@ export function InvestmentChatbot() {
                       G
                     </div>
                     <div className="bg-white border border-slate-200/80 rounded-2xl rounded-tl-xs p-3.5 shadow-xs max-w-[85%] text-xs text-slate-800">
-                      Perfecto. Para asignarte al director correspondiente, <strong>¿en qué departamento y ciudad te encuentras?</strong>
+                      Perfecto. Para asignarte al directivo correspondiente, <strong>¿en qué departamento y ciudad te encuentras?</strong>
                     </div>
                   </div>
 
@@ -602,7 +602,7 @@ export function InvestmentChatbot() {
                     </div>
                     <div className="bg-white border border-slate-200/80 rounded-2xl rounded-tl-xs p-3.5 shadow-xs max-w-[85%] text-xs text-slate-800 leading-relaxed">
                       <p className="font-semibold text-emerald-600 mb-1">¡Tu perfil califica para atención prioritaria!</p>
-                      Diligencia tus datos de contacto para remitirte a tu <strong>director asignado</strong>.
+                      Diligencia tus datos de contacto para remitirte a tu <strong>directivo asignado</strong>.
                     </div>
                   </div>
 
@@ -702,7 +702,7 @@ export function InvestmentChatbot() {
                         {submitting ? (
                           <>
                             <Loader2 size={16} className="animate-spin" />
-                            <span>Asignando a Director...</span>
+                            <span>Asignando a Directivo...</span>
                           </>
                         ) : (
                           <>
@@ -734,7 +734,7 @@ export function InvestmentChatbot() {
                       ¡Solicitud Asignada con Éxito!
                     </h4>
                     <p className="text-xs text-slate-600">
-                      Hemos asignado tu solicitud de manera prioritaria a:
+                      Hemos asignado tu solicitud de manera prioritaria a nuestro directivo:
                     </p>
                     <p className="text-sm font-black text-amber-600 font-montserrat">
                       {assignedDirector}
