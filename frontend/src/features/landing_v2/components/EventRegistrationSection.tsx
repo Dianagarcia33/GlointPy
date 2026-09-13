@@ -123,16 +123,16 @@ export function EventRegistrationSection() {
     : "18:00 COT";
 
   return (
-    <section id="gloint-power-tech" className="py-24 relative overflow-hidden font-inter" style={{ background: DARK }}>
+    <section id="gloint-power-tech" className="py-24 relative overflow-hidden font-inter bg-gradient-to-b from-slate-50 via-white to-slate-50 border-y border-slate-200/80">
       
-      {/* Glow ambiental */}
+      {/* Glow ambiental sutil */}
       <div 
         className="absolute top-1/2 -right-32 w-96 h-96 rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(234,179,8,0.12) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%)" }}
       />
       <div 
-        className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%)" }}
+        className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)" }}
       />
 
       <div className="max-w-6xl mx-auto px-6 relative z-10">
@@ -142,50 +142,50 @@ export function EventRegistrationSection() {
           {/* Columna Izquierda: Información del Evento */}
           <div className="lg:col-span-6 space-y-6">
             
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold font-montserrat">
-              <Sparkles size={14} className="text-amber-400" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold font-montserrat shadow-xs">
+              <Sparkles size={14} className="text-amber-500" />
               <span>Gran Lanzamiento Tecnológico</span>
             </div>
 
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white font-montserrat tracking-tight leading-tight">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 font-montserrat tracking-tight leading-tight">
               {eventData.title}
             </h2>
 
-            <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+            <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
               {eventData.description || "Descubre de primera mano los nuevos productos, ecosistemas digitales y tecnologías de alto impacto que transformarán el modelo de inversión y comercio en Gloint."}
             </p>
 
             {/* Ficha rápida */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-1">
-                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-montserrat uppercase">
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-1 shadow-xs hover:border-amber-300 transition-colors">
+                <div className="flex items-center gap-2 text-amber-600 text-xs font-bold font-montserrat uppercase">
                   <Calendar size={15} />
                   <span>Fecha</span>
                 </div>
-                <p className="text-white text-xs font-semibold capitalize">{formattedDate}</p>
-                <p className="text-slate-400 text-[11px] flex items-center gap-1">
+                <p className="text-slate-900 text-xs font-semibold capitalize">{formattedDate}</p>
+                <p className="text-slate-500 text-[11px] flex items-center gap-1">
                   <Clock size={12} /> {formattedTime}
                 </p>
               </div>
 
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-1">
-                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-montserrat uppercase">
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-4 space-y-1 shadow-xs hover:border-amber-300 transition-colors">
+                <div className="flex items-center gap-2 text-amber-600 text-xs font-bold font-montserrat uppercase">
                   <MapPin size={15} />
                   <span>Ubicación</span>
                 </div>
-                <p className="text-white text-xs font-semibold">{eventData.location?.split('•')[0] || 'Auditorio Principal'}</p>
-                <p className="text-slate-400 text-[11px] truncate">{eventData.location?.split('•')[1] || 'Bogotá, Colombia'}</p>
+                <p className="text-slate-900 text-xs font-semibold">{eventData.location?.split('•')[0] || 'Auditorio Principal'}</p>
+                <p className="text-slate-500 text-[11px] truncate">{eventData.location?.split('•')[1] || 'Bogotá, Colombia'}</p>
               </div>
             </div>
 
             {/* Aforo presencial monitor */}
             <div className={`p-4 rounded-2xl border flex items-center justify-between text-xs ${
               eventData.is_full_in_person
-                ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                ? 'bg-rose-50 border-rose-200 text-rose-700'
+                : 'bg-emerald-50/80 border-emerald-200 text-emerald-800'
             }`}>
               <div className="flex items-center gap-2.5 font-medium">
-                <Users size={18} className="shrink-0" />
+                <Users size={18} className="shrink-0 text-emerald-600" />
                 <span>
                   {eventData.is_full_in_person
                     ? 'Aforo presencial completo. Puedes asegurar tu cupo en transmisión Virtual.'
@@ -193,24 +193,24 @@ export function EventRegistrationSection() {
                 </span>
               </div>
               {!eventData.is_full_in_person && (
-                <span className="font-bold text-emerald-300 bg-emerald-500/20 px-2.5 py-1 rounded-full border border-emerald-500/30 shrink-0 font-mono text-[11px]">
+                <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300 shrink-0 font-mono text-[11px]">
                   {eventData.available_in_person} disponibles
                 </span>
               )}
             </div>
 
             {/* Beneficios */}
-            <div className="space-y-2 pt-2 text-xs text-slate-300">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+            <div className="space-y-2.5 pt-2 text-xs text-slate-700 font-medium">
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
                 <span>Presentación en vivo del nuevo portafolio de productos Gloint.</span>
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
                 <span>Espacio de networking y coctel para asistentes presenciales.</span>
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+              <div className="flex items-center gap-2.5">
+                <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
                 <span>Transmisión interactiva en alta definición con sala de preguntas.</span>
               </div>
             </div>
@@ -220,33 +220,33 @@ export function EventRegistrationSection() {
           {/* Columna Derecha: Formulario para No Inversionistas */}
           <div className="lg:col-span-6">
             
-            <div className="bg-slate-900/90 border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-md relative overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/60 relative overflow-hidden">
               
               <div className="mb-6">
-                <span className="text-[11px] font-bold text-amber-400 font-montserrat uppercase tracking-wider block">
+                <span className="text-[11px] font-bold text-amber-600 font-montserrat uppercase tracking-wider block">
                   Registro Abierto al Público
                 </span>
-                <h3 className="text-xl font-bold text-white font-montserrat mt-0.5">
+                <h3 className="text-xl font-bold text-slate-900 font-montserrat mt-0.5">
                   Confirma tu Asistencia Gratis
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Si no eres inversionista registrado, diligencia tus datos para reservar tu cupo oficial.
                 </p>
               </div>
 
               {success ? (
                 <div className="py-12 text-center space-y-4 animate-in zoom-in-95">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-sm">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
                     <CheckCircle2 size={32} />
                   </div>
-                  <h4 className="text-2xl font-bold text-white font-montserrat">
+                  <h4 className="text-2xl font-bold text-slate-900 font-montserrat">
                     ¡Registro Exitoso!
                   </h4>
-                  <p className="text-sm text-slate-300 max-w-sm mx-auto">
+                  <p className="text-sm text-slate-600 max-w-sm mx-auto">
                     Hemos reservado tu lugar para <strong>Gloint Power Tech</strong> en modalidad{" "}
-                    <strong className="text-amber-400 capitalize">{attendanceMode === "in_person" ? "Presencial" : "Virtual"}</strong>.
+                    <strong className="text-amber-600 capitalize">{attendanceMode === "in_person" ? "Presencial" : "Virtual"}</strong>.
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-500">
                     Recibirás las instrucciones de acceso y confirmación en <strong>{email}</strong>.
                   </p>
                   <button
@@ -259,7 +259,7 @@ export function EventRegistrationSection() {
                       setDocumentId("");
                       resetCities();
                     }}
-                    className="mt-4 px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    className="mt-4 px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
                     Registrar a otra persona
                   </button>
@@ -268,26 +268,26 @@ export function EventRegistrationSection() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   
                   {error && (
-                    <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-start gap-2 animate-in fade-in">
-                      <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-400" />
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2 animate-in fade-in">
+                      <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-500" />
                       <span>{error}</span>
                     </div>
                   )}
 
                   {/* Nombre */}
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
-                      Nombre Completo <span className="text-amber-400">*</span>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Nombre Completo <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
-                      <User size={15} className="text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <User size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
                         required
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="Ej. Juan Gómez"
-                        className="w-full pl-10 pr-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                       />
                     </div>
                   </div>
@@ -295,34 +295,34 @@ export function EventRegistrationSection() {
                   {/* Correo y Teléfono */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-slate-300 block mb-1">
-                        Correo Electrónico <span className="text-amber-400">*</span>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                        Correo Electrónico <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <Mail size={15} className="text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <Mail size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         <input
                           type="email"
                           required
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="nombre@correo.com"
-                          className="w-full pl-10 pr-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-slate-300 block mb-1">
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
                         WhatsApp / Teléfono
                       </label>
                       <div className="relative">
-                        <Phone size={15} className="text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <Phone size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         <input
                           type="tel"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="Ej. 3101234567"
-                          className="w-full pl-10 pr-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
                     </div>
@@ -331,9 +331,9 @@ export function EventRegistrationSection() {
                   {/* Departamento y Ciudad */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
                         <span>Departamento</span>
-                        {loadingDepartments && <span className="text-[10px] text-amber-400 font-normal">Cargando...</span>}
+                        {loadingDepartments && <span className="text-[10px] text-amber-600 font-normal">Cargando...</span>}
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -343,13 +343,13 @@ export function EventRegistrationSection() {
                           value={selectedDepartmentId}
                           onChange={(e) => handleDepartmentChange(e.target.value)}
                           disabled={loadingDepartments}
-                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 transition-all font-medium cursor-pointer disabled:opacity-60"
+                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium cursor-pointer disabled:opacity-60"
                         >
-                          <option value="" className="bg-slate-900 text-white">
+                          <option value="">
                             {loadingDepartments ? "Cargando..." : "Selecciona..."}
                           </option>
                           {departments.map((d) => (
-                            <option key={d.id} value={d.id} className="bg-slate-900 text-white">
+                            <option key={d.id} value={d.id}>
                               {d.name}
                             </option>
                           ))}
@@ -358,9 +358,9 @@ export function EventRegistrationSection() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
                         <span>Ciudad</span>
-                        {loadingCities && <span className="text-[10px] text-amber-400 font-normal">Cargando...</span>}
+                        {loadingCities && <span className="text-[10px] text-amber-600 font-normal">Cargando...</span>}
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -370,15 +370,15 @@ export function EventRegistrationSection() {
                           value={selectedCity}
                           onChange={(e) => setSelectedCity(e.target.value)}
                           disabled={!selectedDepartmentId || loadingCities}
-                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-900/80 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 transition-all font-medium cursor-pointer disabled:opacity-60"
+                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium cursor-pointer disabled:opacity-60"
                         >
-                          <option value="" className="bg-slate-900 text-white">
+                          <option value="">
                             {loadingCities 
                               ? "Cargando..." 
                               : (!selectedDepartmentId ? "Elige departamento..." : "Selecciona...")}
                           </option>
                           {cities.map((c) => (
-                            <option key={c.id} value={c.name} className="bg-slate-900 text-white">
+                            <option key={c.id} value={c.name}>
                               {c.name}
                             </option>
                           ))}
@@ -389,7 +389,7 @@ export function EventRegistrationSection() {
 
                   {selectedCity === "Otra" && (
                     <div>
-                      <label className="text-xs font-semibold text-slate-300 block mb-1">
+                      <label className="text-xs font-bold text-slate-700 block mb-1">
                         ¿Qué ciudad? *
                       </label>
                       <input
@@ -398,13 +398,13 @@ export function EventRegistrationSection() {
                         value={customCity}
                         onChange={(e) => setCustomCity(e.target.value)}
                         placeholder="Escribe el nombre de tu ciudad"
-                        className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                       />
                     </div>
                   )}
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-300 block mb-1">
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
                       N° Documento (Opcional)
                     </label>
                     <input
@@ -412,14 +412,14 @@ export function EventRegistrationSection() {
                       value={documentId}
                       onChange={(e) => setDocumentId(e.target.value)}
                       placeholder="Cédula o ID"
-                      className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-all font-medium"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                     />
                   </div>
 
                   {/* Selector de Modalidad */}
                   <div className="space-y-1.5 pt-1">
-                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                      Modalidad de Asistencia <span className="text-amber-400">*</span>
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                      Modalidad de Asistencia <span className="text-rose-500">*</span>
                     </label>
 
                     <div className="grid grid-cols-2 gap-2.5">
@@ -429,16 +429,16 @@ export function EventRegistrationSection() {
                         onClick={() => setAttendanceMode("in_person")}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           attendanceMode === "in_person"
-                            ? "bg-amber-500/20 border-amber-400 text-white"
+                            ? "bg-amber-50/80 border-2 border-amber-500 text-slate-900 font-bold shadow-xs"
                             : eventData.is_full_in_person
-                              ? "bg-white/5 border-white/5 text-slate-500 opacity-50 cursor-not-allowed"
-                              : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                              ? "bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <MapPin size={16} className={attendanceMode === "in_person" ? "text-amber-400" : "text-slate-400"} />
+                          <MapPin size={16} className={attendanceMode === "in_person" ? "text-amber-600" : "text-slate-400"} />
                           {eventData.is_full_in_person && (
-                            <span className="text-[9px] font-bold text-rose-300 bg-rose-500/20 px-1.5 py-0.5 rounded-full">
+                            <span className="text-[9px] font-bold text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded-full">
                               Agotado
                             </span>
                           )}
@@ -454,13 +454,13 @@ export function EventRegistrationSection() {
                         }}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           attendanceMode === "virtual"
-                            ? "bg-amber-500/20 border-amber-400 text-white"
-                            : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                            ? "bg-amber-50/80 border-2 border-amber-500 text-slate-900 font-bold shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                         }`}
                       >
                         <div className="flex items-center justify-between mb-1">
-                          <Video size={16} className={attendanceMode === "virtual" ? "text-amber-400" : "text-slate-400"} />
-                          <span className="text-[9px] font-semibold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded-full">
+                          <Video size={16} className={attendanceMode === "virtual" ? "text-amber-600" : "text-slate-400"} />
+                          <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
                             Online
                           </span>
                         </div>
@@ -471,15 +471,15 @@ export function EventRegistrationSection() {
 
                   {/* Acompañante */}
                   {attendanceMode === "in_person" && (
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-2 text-xs animate-in fade-in">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 text-xs animate-in fade-in">
                       <label className="flex items-center gap-2.5 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={hasCompanion}
                           onChange={(e) => setHasCompanion(e.target.checked)}
-                          className="w-4 h-4 text-amber-500 rounded-md border-white/20 bg-white/10 focus:ring-amber-400 cursor-pointer"
+                          className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-400 cursor-pointer"
                         />
-                        <span className="font-semibold text-slate-200">
+                        <span className="font-semibold text-slate-800">
                           Asistiré con un acompañante (Descuenta 2 cupos)
                         </span>
                       </label>
@@ -490,7 +490,7 @@ export function EventRegistrationSection() {
                           value={companionName}
                           onChange={(e) => setCompanionName(e.target.value)}
                           placeholder="Nombre del acompañante (Opcional)"
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-400 font-medium"
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 font-medium"
                         />
                       )}
                     </div>
@@ -500,11 +500,11 @@ export function EventRegistrationSection() {
                   <button
                     type="submit"
                     disabled={submitting || (attendanceMode === "in_person" && eventData.is_full_in_person)}
-                    className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold text-xs font-montserrat uppercase tracking-wider transition-all shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs font-montserrat uppercase tracking-wider transition-all shadow-md shadow-amber-500/25 active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     {submitting ? (
                       <>
-                        <Loader2 size={16} className="animate-spin text-slate-950" />
+                        <Loader2 size={16} className="animate-spin text-white" />
                         <span>Confirmando Reserva...</span>
                       </>
                     ) : (
@@ -515,8 +515,8 @@ export function EventRegistrationSection() {
                     )}
                   </button>
 
-                  <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 pt-1">
-                    <ShieldCheck size={13} className="text-amber-400" />
+                  <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 pt-1">
+                    <ShieldCheck size={13} className="text-amber-500" />
                     <span>Tu registro es 100% gratuito y seguro.</span>
                   </div>
 
