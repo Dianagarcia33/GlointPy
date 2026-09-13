@@ -1,5 +1,12 @@
 import { fetchApi } from './api';
 
+export interface EmailAttachment {
+  filename: string;
+  file_url: string;
+  content_type?: string;
+  size?: number;
+}
+
 export interface CRMEmail {
   id: number;
   lead_id?: number | null;
@@ -15,6 +22,7 @@ export interface CRMEmail {
   body_html: string;
   status: 'draft' | 'sent' | 'delivered' | 'failed' | 'received';
   is_read: boolean;
+  attachments?: EmailAttachment[];
   created_at: string;
 }
 
@@ -42,12 +50,22 @@ export const crmEmailService = {
     return fetchApi('/crm/emails/templates');
   },
 
+  uploadAttachment: async (file: File): Promise<EmailAttachment> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetchApi('/crm/emails/upload-attachment', {
+      method: 'POST',
+      body: formData
+    });
+  },
+
   sendEmail: async (data: {
     recipient_email: string;
     subject: string;
     body_html: string;
     lead_id?: number;
     project_id?: number;
+    attachments?: EmailAttachment[];
   }): Promise<{ message: string; data: CRMEmail }> => {
     return fetchApi('/crm/emails/send', {
       method: 'POST',

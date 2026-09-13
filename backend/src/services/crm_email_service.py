@@ -1,3 +1,8 @@
+import json
+import os
+import uuid
+import re
+import mimetypes
 from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -8,6 +13,16 @@ from src.models.crm_email import CRMEmail, CRMEmailDirection, CRMEmailStatus
 from src.models.crm import CRMLead, CRMProject, CRMActivity, CRMActivityType
 from src.models.user import User
 from src.services.email_service import EmailService
+
+def _parse_attachments(att_raw: Optional[str]) -> List[dict]:
+    if not att_raw:
+        return []
+    try:
+        data = json.loads(att_raw)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
 
 class CRMEmailService:
     @staticmethod
@@ -73,6 +88,7 @@ class CRMEmailService:
                 "body_html": e.body_html,
                 "status": e.status,
                 "is_read": e.is_read,
+                "attachments": _parse_attachments(e.attachments),
                 "created_at": e.created_at.isoformat() if e.created_at else None
             }
             for e in emails
@@ -101,6 +117,7 @@ class CRMEmailService:
                 "subject": e.subject,
                 "body_html": e.body_html,
                 "status": e.status,
+                "attachments": _parse_attachments(e.attachments),
                 "created_at": e.created_at.isoformat() if e.created_at else None
             }
             for e in emails
@@ -146,7 +163,8 @@ class CRMEmailService:
         subject: str, 
         body_html: str,
         lead_id: Optional[int] = None,
-        project_id: Optional[int] = None
+        project_id: Optional[int] = None,
+        attachments: Optional[List[dict]] = None
     ) -> dict:
         """Envía un correo comercial a través de Resend, guarda la copia en la BD y registra la actividad."""
         # Si no especifica lead_id pero el correo coincide con un lead
@@ -158,13 +176,14 @@ class CRMEmailService:
                 if not project_id:
                     project_id = found_lead.project_id
 
-        # Enviar vía Resend API con Reply-To al correo corporativo del asesor
+        # Enviar vía Resend API con Reply-To al correo corporativo del asesor y adjuntos
         success = EmailService.send_crm_custom_email(
             to_email=recipient_email.strip(),
             subject=subject.strip(),
             html_content=body_html,
             from_name=user.name,
-            reply_to_email=user.email
+            reply_to_email=user.email,
+            attachments=attachments
         )
 
         email_record = CRMEmail(
@@ -177,7 +196,8 @@ class CRMEmailService:
             subject=subject.strip(),
             body_html=body_html,
             status=CRMEmailStatus.SENT if success else CRMEmailStatus.FAILED,
-            is_read=True
+            is_read=True,
+            attachments=json.dumps(attachments) if attachments else None
         )
         db.add(email_record)
         await db.commit()
@@ -185,11 +205,12 @@ class CRMEmailService:
 
         # Registrar automáticamente la actividad en el timeline del prospecto
         if lead_id:
+            att_suffix = f" ({len(attachments)} adjunto{'s' if len(attachments) > 1 else ''})" if attachments else ""
             activity = CRMActivity(
                 lead_id=lead_id,
                 user_id=user.id,
                 type=CRMActivityType.NOTA,
-                title=f"📧 Correo enviado: {subject[:60]}",
+                title=f"📧 Correo enviado: {subject[:60]}{att_suffix}",
                 description=f"Enviado a {recipient_email}. Asesor: {user.name}"
             )
             db.add(activity)
@@ -200,6 +221,7 @@ class CRMEmailService:
             "status": email_record.status,
             "subject": email_record.subject,
             "recipient_email": email_record.recipient_email,
+            "attachments": attachments or [],
             "created_at": email_record.created_at.isoformat() if email_record.created_at else None
         }
 
@@ -339,20 +361,113 @@ class CRMEmailService:
                         if existing.scalars().first():
                             continue
 
-                        # Extraer cuerpo del mensaje
+                        # Extraer cuerpo del mensaje, imágenes inline y archivos adjuntos
                         body_html = ""
+                        body_text = ""
+                        attachments = []
+                        cid_map = {}
+
+                        def decode_mime_string(header_val):
+                            if not header_val:
+                                return ""
+                            try:
+                                decoded_parts = decode_header(header_val)
+                                res = []
+                                for part_bytes, enc in decoded_parts:
+                                    if isinstance(part_bytes, bytes):
+                                        res.append(part_bytes.decode(enc or "utf-8", errors="ignore"))
+                                    else:
+                                        res.append(str(part_bytes))
+                                return "".join(res)
+                            except Exception:
+                                return str(header_val)
+
                         if msg.is_multipart():
                             for part in msg.walk():
-                                content_type = part.get_content_type()
-                                if content_type == "text/html":
-                                    body_html = part.get_payload(decode=True).decode(errors="ignore")
-                                    break
-                                elif content_type == "text/plain" and not body_html:
-                                    text_content = part.get_payload(decode=True).decode(errors="ignore")
-                                    body_html = f"<pre style='font-family: sans-serif;'>{text_content}</pre>"
+                                if part.get_content_maintype() == "multipart":
+                                    continue
+
+                                c_type = part.get_content_type()
+                                c_disp = str(part.get("Content-Disposition") or "")
+                                filename = part.get_filename()
+                                cid = part.get("Content-ID")
+
+                                if filename:
+                                    filename = decode_mime_string(filename)
+
+                                is_attachment = ("attachment" in c_disp.lower()) or bool(filename)
+
+                                # Si no es adjunto y es texto plano o HTML del mensaje principal
+                                if not is_attachment and not filename and not cid:
+                                    if c_type == "text/html" and not body_html:
+                                        try:
+                                            body_html = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8", errors="ignore")
+                                        except Exception:
+                                            body_html = part.get_payload(decode=True).decode(errors="ignore")
+                                        continue
+                                    elif c_type == "text/plain" and not body_text:
+                                        try:
+                                            body_text = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8", errors="ignore")
+                                        except Exception:
+                                            body_text = part.get_payload(decode=True).decode(errors="ignore")
+                                        continue
+
+                                # Es un archivo adjunto o una imagen (inline o adjunta)
+                                payload = part.get_payload(decode=True)
+                                if not payload:
+                                    continue
+
+                                if not filename:
+                                    ext = mimetypes.guess_extension(c_type) or ".bin"
+                                    filename = f"adjunto_{uuid.uuid4().hex[:6]}{ext}"
+
+                                safe_fname = re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
+                                unique_name = f"{uuid.uuid4().hex[:10]}_{safe_fname}"
+                                target_dir = os.path.join("uploads", "email_attachments")
+                                os.makedirs(target_dir, exist_ok=True)
+                                target_path = os.path.join(target_dir, unique_name)
+
+                                try:
+                                    with open(target_path, "wb") as f:
+                                        f.write(payload)
+
+                                    file_rel_url = f"/uploads/email_attachments/{unique_name}"
+
+                                    if cid:
+                                        clean_cid = cid.strip("<>").strip()
+                                        cid_map[clean_cid] = f"/api/v1{file_rel_url}"
+
+                                    attachments.append({
+                                        "filename": filename,
+                                        "file_url": file_rel_url,
+                                        "content_type": c_type,
+                                        "size": len(payload)
+                                    })
+                                except Exception as save_err:
+                                    print(f"Error guardando adjunto {filename}: {save_err}")
+
+                            if not body_html and body_text:
+                                body_html = f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{body_text}</pre>"
                         else:
-                            text_content = msg.get_payload(decode=True).decode(errors="ignore")
-                            body_html = f"<pre style='font-family: sans-serif;'>{text_content}</pre>"
+                            c_type = msg.get_content_type()
+                            raw_payload = msg.get_payload(decode=True)
+                            if raw_payload:
+                                if c_type == "text/html":
+                                    try:
+                                        body_html = raw_payload.decode(msg.get_content_charset() or "utf-8", errors="ignore")
+                                    except Exception:
+                                        body_html = raw_payload.decode(errors="ignore")
+                                else:
+                                    try:
+                                        t = raw_payload.decode(msg.get_content_charset() or "utf-8", errors="ignore")
+                                    except Exception:
+                                        t = raw_payload.decode(errors="ignore")
+                                    body_html = f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{t}</pre>"
+
+                        # Reemplazar URLs de imágenes inline cid:... con la ruta servible del backend
+                        if body_html and cid_map:
+                            for cid_val, local_url in cid_map.items():
+                                body_html = re.sub(rf'cid:{re.escape(cid_val)}', local_url, body_html, flags=re.IGNORECASE)
 
                         # Vincular con Prospecto CRM si existe
                         lead_res = await db.execute(select(CRMLead).where(CRMLead.email == sender_email.lower()))
@@ -368,7 +483,8 @@ class CRMEmailService:
                             subject=subject,
                             body_html=body_html or "<p>(Sin contenido)</p>",
                             status=CRMEmailStatus.RECEIVED,
-                            is_read=False
+                            is_read=False,
+                            attachments=json.dumps(attachments) if attachments else None
                         )
                         db.add(email_rec)
                         await db.commit()
@@ -376,11 +492,12 @@ class CRMEmailService:
 
                         # Registrar en timeline de actividades
                         if lead:
+                            att_suffix = f" ({len(attachments)} adjunto{'s' if len(attachments) > 1 else ''})" if attachments else ""
                             activity = CRMActivity(
                                 lead_id=lead.id,
                                 user_id=user.id,
                                 type=CRMActivityType.NOTA,
-                                title=f"📩 Correo recibido de {lead.name}: {subject[:50]}",
+                                title=f"📩 Correo recibido de {lead.name}: {subject[:50]}{att_suffix}",
                                 description=f"Recibido desde {sender_email}"
                             )
                             db.add(activity)

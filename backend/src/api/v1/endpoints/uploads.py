@@ -35,8 +35,8 @@ async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncS
     category = parts[0] if len(parts) > 1 else "root"
     filename_only = os.path.basename(target_path)
 
-    # 2. Public / semi-public templates and avatars assets (letterhead images, general assets, avatars)
-    if category in ["templates", "public", "avatars"]:
+    # 2. Public / semi-public templates and avatars assets (letterhead images, general assets, avatars, email attachments)
+    if category in ["templates", "public", "avatars", "email_attachments"]:
         mime_type, _ = mimetypes.guess_type(target_path)
         return FileResponse(
             target_path,

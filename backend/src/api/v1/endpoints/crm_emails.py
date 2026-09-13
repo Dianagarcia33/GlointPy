@@ -1,5 +1,8 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import os
+import uuid
+import re
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
 
@@ -17,6 +20,38 @@ class SendEmailSchema(BaseModel):
     body_html: str
     lead_id: Optional[int] = None
     project_id: Optional[int] = None
+    attachments: Optional[List[dict]] = None
+
+@router.post("/upload-attachment", dependencies=[Depends(RequirePermission("crm:leads:manage"))])
+async def upload_crm_email_attachment(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Sube un archivo o imagen adjunta para correos comerciales."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Nombre de archivo inválido.")
+        
+    target_dir = os.path.join("uploads", "email_attachments")
+    os.makedirs(target_dir, exist_ok=True)
+    
+    safe_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename)
+    unique_filename = f"{uuid.uuid4().hex[:10]}_{safe_name}"
+    file_path = os.path.join(target_dir, unique_filename)
+    
+    content = await file.read()
+    max_size = 15 * 1024 * 1024 # 15MB
+    if len(content) > max_size:
+        raise HTTPException(status_code=413, detail="El archivo excede el tamaño máximo permitido de 15MB.")
+        
+    with open(file_path, "wb") as f:
+        f.write(content)
+        
+    return {
+        "filename": file.filename,
+        "file_url": f"/uploads/email_attachments/{unique_filename}",
+        "content_type": file.content_type or "application/octet-stream",
+        "size": len(content)
+    }
 
 @router.get("", dependencies=[Depends(RequirePermission("crm:view"))])
 async def get_crm_emails(
@@ -64,7 +99,8 @@ async def send_crm_email(
         subject=data.subject,
         body_html=data.body_html,
         lead_id=data.lead_id,
-        project_id=data.project_id
+        project_id=data.project_id,
+        attachments=data.attachments
     )
 
     return {"message": "Correo enviado exitosamente", "data": result}

@@ -41,6 +41,7 @@ class CRMEmail(Base):
         default="sent"
     )
     is_read = Column(Boolean, default=False)
+    attachments = Column(Text, nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 

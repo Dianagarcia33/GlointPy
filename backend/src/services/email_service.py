@@ -1,3 +1,4 @@
+from typing import Optional, List
 import resend
 from src.core.config import settings
 
@@ -68,11 +69,12 @@ class EmailService:
         subject: str, 
         html_content: str, 
         from_name: str = "GLOINT Comercial",
-        reply_to_email: str = None
+        reply_to_email: str = None,
+        attachments: Optional[List[dict]] = None
     ) -> bool:
         if not settings.RESEND_API_KEY:
             print("WARNING: RESEND_API_KEY is not set. Skipping CRM email dispatch.")
-            print(f"Mock Email to {to_email} | Subject: {subject}")
+            print(f"Mock Email to {to_email} | Subject: {subject} | Attachments: {len(attachments or [])}")
             return True
 
         resend.api_key = settings.RESEND_API_KEY
@@ -85,6 +87,30 @@ class EmailService:
         }
         if reply_to_email:
             email_payload["reply_to"] = reply_to_email
+
+        if attachments:
+            import os
+            resend_attachments = []
+            for att in attachments:
+                file_url = att.get("file_url", "")
+                filename = att.get("filename", "adjunto")
+                clean_path = file_url.lstrip("/")
+                if clean_path.startswith("api/v1/uploads/"):
+                    clean_path = clean_path.replace("api/v1/uploads/", "uploads/")
+                local_path = os.path.abspath(clean_path)
+                
+                if os.path.exists(local_path) and os.path.isfile(local_path):
+                    with open(local_path, "rb") as f:
+                        file_bytes = list(f.read())
+                    att_payload = {
+                        "filename": filename,
+                        "content": file_bytes
+                    }
+                    if att.get("content_type"):
+                        att_payload["content_type"] = att["content_type"]
+                    resend_attachments.append(att_payload)
+            if resend_attachments:
+                email_payload["attachments"] = resend_attachments
 
         try:
             resend.Emails.send(email_payload)

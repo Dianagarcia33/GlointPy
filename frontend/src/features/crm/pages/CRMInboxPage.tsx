@@ -33,10 +33,50 @@ import {
   PanelLeftOpen,
   Filter,
   ArrowLeft,
-  List
+  List,
+  Paperclip,
+  Download,
+  Image as ImageIcon,
+  FileArchive,
+  FileSpreadsheet,
+  FileCode,
+  Eye
 } from 'lucide-react';
-import { crmEmailService, CRMEmail, CRMEmailTemplate } from '../../../services/crmEmailService';
+import { crmEmailService, CRMEmail, CRMEmailTemplate, EmailAttachment } from '../../../services/crmEmailService';
 import { useAuthStore } from '../../../store/authStore';
+import { getMediaUrl } from '../../../services/api';
+
+// Utilidad para formatear tamaños de archivo
+const formatFileSize = (bytes?: number) => {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+// Utilidad para verificar si un archivo es imagen
+const isImageAttachment = (att: EmailAttachment) => {
+  if (att.content_type?.startsWith('image/')) return true;
+  return /\.(png|jpe?g|gif|webp|svg)$/i.test(att.filename);
+};
+
+// Icono por tipo de archivo
+const getFileIcon = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+    return <ImageIcon className="w-4 h-4 text-purple-600" />;
+  }
+  if (['xls', 'xlsx', 'csv'].includes(ext)) {
+    return <FileSpreadsheet className="w-4 h-4 text-emerald-600" />;
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+    return <FileArchive className="w-4 h-4 text-amber-600" />;
+  }
+  if (['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+    return <FileText className="w-4 h-4 text-rose-600" />;
+  }
+  return <FileCode className="w-4 h-4 text-slate-500" />;
+};
 
 // Utilidad para extraer snippet de texto plano desde HTML
 const getEmailSnippet = (html: string) => {
@@ -92,6 +132,19 @@ export const CRMInboxPage: React.FC = () => {
   const [bodyHtml, setBodyHtml] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [sending, setSending] = useState(false);
+
+  // Adjuntos para Redactar Correo
+  const [composerAttachments, setComposerAttachments] = useState<EmailAttachment[]>([]);
+  const [uploadingComposerFiles, setUploadingComposerFiles] = useState(false);
+  const composerFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Adjuntos para Respuesta Rápida
+  const [quickReplyAttachments, setQuickReplyAttachments] = useState<EmailAttachment[]>([]);
+  const [uploadingQuickReplyFiles, setUploadingQuickReplyFiles] = useState(false);
+  const quickReplyFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Vista previa lightbox para imágenes
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Sincronización IMAP cPanel & Auto-Sync
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
@@ -249,6 +302,39 @@ export const CRMInboxPage: React.FC = () => {
     }
   };
 
+  const handleFileUpload = async (
+    files: FileList | null, 
+    target: 'composer' | 'quickReply'
+  ) => {
+    if (!files || files.length === 0) return;
+    
+    const isComposer = target === 'composer';
+    if (isComposer) setUploadingComposerFiles(true);
+    else setUploadingQuickReplyFiles(true);
+
+    try {
+      const uploadPromises = Array.from(files).map(file => crmEmailService.uploadAttachment(file));
+      const newAttachments = await Promise.all(uploadPromises);
+
+      if (isComposer) {
+        setComposerAttachments(prev => [...prev, ...newAttachments]);
+      } else {
+        setQuickReplyAttachments(prev => [...prev, ...newAttachments]);
+      }
+      showToast(`${newAttachments.length} archivo(s) adjuntado(s) exitosamente`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Error al subir archivo adjunto', 'error');
+    } finally {
+      if (isComposer) {
+        setUploadingComposerFiles(false);
+        if (composerFileInputRef.current) composerFileInputRef.current.value = '';
+      } else {
+        setUploadingQuickReplyFiles(false);
+        if (quickReplyFileInputRef.current) quickReplyFileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recipient.trim() || !subject.trim() || !bodyHtml.trim()) {
@@ -261,13 +347,15 @@ export const CRMInboxPage: React.FC = () => {
       await crmEmailService.sendEmail({
         recipient_email: recipient.trim(),
         subject: subject.trim(),
-        body_html: bodyHtml
+        body_html: bodyHtml,
+        attachments: composerAttachments.length > 0 ? composerAttachments : undefined
       });
       showToast('¡Correo comercial enviado exitosamente!', 'success');
       setIsComposerOpen(false);
       setRecipient('');
       setSubject('');
       setBodyHtml('');
+      setComposerAttachments([]);
       refetchEmails();
     } catch (err: any) {
       showToast(err.message || 'Error al enviar el correo', 'error');
@@ -295,10 +383,12 @@ export const CRMInboxPage: React.FC = () => {
         subject: replySubject,
         body_html: quickReplyText.trim().replace(/\n/g, '<br/>'),
         lead_id: selectedEmail.lead_id || undefined,
-        project_id: selectedEmail.project_id || undefined
+        project_id: selectedEmail.project_id || undefined,
+        attachments: quickReplyAttachments.length > 0 ? quickReplyAttachments : undefined
       });
       showToast('¡Respuesta enviada exitosamente!', 'success');
       setQuickReplyText('');
+      setQuickReplyAttachments([]);
       setIsQuickReplyExpanded(false);
       refetchEmails();
     } catch (err: any) {
@@ -864,6 +954,11 @@ export const CRMInboxPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {e.attachments && e.attachments.length > 0 && (
+                          <span title={`${e.attachments.length} archivo(s) adjunto(s)`} className="text-slate-400">
+                            <Paperclip className="w-3 h-3" />
+                          </span>
+                        )}
                         {isUnread && (
                           <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded text-[9px] font-extrabold uppercase tracking-tight shadow-2xs">
                             Nuevo
@@ -1057,6 +1152,90 @@ export const CRMInboxPage: React.FC = () => {
                     dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }}
                   />
                 </div>
+
+                {/* Lista de Archivos Adjuntos e Imágenes */}
+                {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+                  <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-4 md:p-5 space-y-3 shadow-2xs">
+                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-700 font-montserrat">
+                        <Paperclip className="w-4 h-4 text-brand-500" />
+                        <span>Archivos y Documentos Adjuntos ({selectedEmail.attachments.length})</span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {selectedEmail.attachments.reduce((acc, a) => acc + (a.size || 0), 0) > 0 && 
+                          formatFileSize(selectedEmail.attachments.reduce((acc, a) => acc + (a.size || 0), 0))}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {selectedEmail.attachments.map((att, idx) => {
+                        const isImg = isImageAttachment(att);
+                        const downloadUrl = getMediaUrl(att.file_url);
+
+                        return (
+                          <div 
+                            key={idx}
+                            className="flex items-center justify-between p-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-2xs group"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                              {isImg ? (
+                                <div 
+                                  onClick={() => setPreviewImage(downloadUrl)}
+                                  className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-200 bg-slate-100 cursor-pointer relative group/thumb"
+                                  title="Clic para ver imagen completa"
+                                >
+                                  <img 
+                                    src={downloadUrl} 
+                                    alt={att.filename} 
+                                    className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform" 
+                                  />
+                                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                    <Eye className="w-3 h-3" />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="w-9 h-9 rounded-lg bg-brand-50 text-brand-600 border border-brand-100 flex items-center justify-center shrink-0">
+                                  {getFileIcon(att.filename)}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-slate-800 truncate" title={att.filename}>
+                                  {att.filename}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-mono">
+                                  {att.size ? formatFileSize(att.size) : 'Archivo adjunto'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              {isImg && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImage(downloadUrl)}
+                                  className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Ver imagen"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <a
+                                href={downloadUrl}
+                                download={att.filename}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                                title="Descargar archivo"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Caja de Respuesta Rápida (Docked at Bottom) */}
@@ -1105,26 +1284,76 @@ export const CRMInboxPage: React.FC = () => {
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-brand-500 focus:bg-white resize-none font-sans leading-relaxed"
                     />
 
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsQuickReplyExpanded(false);
-                          setQuickReplyText('');
-                        }}
-                        className="text-xs text-slate-400 hover:text-slate-600 font-medium"
-                      >
-                        Cancelar
-                      </button>
+                    {/* Chips de adjuntos de respuesta rápida */}
+                    {quickReplyAttachments.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200/80 rounded-xl">
+                        {quickReplyAttachments.map((att, idx) => (
+                          <div 
+                            key={idx} 
+                            className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] text-slate-700 shadow-2xs font-sans"
+                          >
+                            <Paperclip className="w-3 h-3 text-brand-500 shrink-0" />
+                            <span className="max-w-[150px] truncate font-medium">{att.filename}</span>
+                            {att.size && <span className="text-[9px] text-slate-400">({formatFileSize(att.size)})</span>}
+                            <button
+                              type="button"
+                              onClick={() => setQuickReplyAttachments(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-slate-400 hover:text-red-500 ml-0.5"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                      <button
-                        type="submit"
-                        disabled={quickReplySending || !quickReplyText.trim()}
-                        className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold font-montserrat transition-all shadow-sm shadow-brand-500/20 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                      >
-                        {quickReplySending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                        <span>Enviar Respuesta</span>
-                      </button>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={quickReplyFileInputRef}
+                          type="file"
+                          multiple
+                          onChange={(e) => handleFileUpload(e.target.files, 'quickReply')}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          disabled={uploadingQuickReplyFiles}
+                          onClick={() => quickReplyFileInputRef.current?.click()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold font-montserrat transition-all cursor-pointer disabled:opacity-50"
+                          title="Adjuntar archivos o imágenes"
+                        >
+                          {uploadingQuickReplyFiles ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
+                          ) : (
+                            <Paperclip className="w-3.5 h-3.5 text-brand-500" />
+                          )}
+                          <span>Adjuntar</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsQuickReplyExpanded(false);
+                            setQuickReplyText('');
+                            setQuickReplyAttachments([]);
+                          }}
+                          className="text-xs text-slate-400 hover:text-slate-600 font-medium"
+                        >
+                          Cancelar
+                        </button>
+
+                        <button
+                          type="submit"
+                          disabled={quickReplySending || uploadingQuickReplyFiles || !quickReplyText.trim()}
+                          className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold font-montserrat transition-all shadow-sm shadow-brand-500/20 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                        >
+                          {quickReplySending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          <span>Enviar Respuesta</span>
+                        </button>
+                      </div>
                     </div>
                   </form>
                 )}
@@ -1229,19 +1458,70 @@ export const CRMInboxPage: React.FC = () => {
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-brand-500 font-sans resize-none leading-relaxed"
                   />
                 </div>
+
+                {/* Adjuntos en el Compositor */}
+                {composerAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200/80 rounded-xl max-h-24 overflow-y-auto">
+                    {composerAttachments.map((att, idx) => (
+                      <div 
+                        key={idx} 
+                        className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-[11px] text-slate-700 shadow-2xs font-sans"
+                      >
+                        <Paperclip className="w-3 h-3 text-brand-500 shrink-0" />
+                        <span className="max-w-[140px] truncate font-medium">{att.filename}</span>
+                        {att.size && <span className="text-[9px] text-slate-400 font-mono">({formatFileSize(att.size)})</span>}
+                        <button
+                          type="button"
+                          onClick={() => setComposerAttachments(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-slate-400 hover:text-red-500 ml-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsComposerOpen(false)}
-                  className="text-xs text-slate-400 hover:text-slate-600 font-montserrat"
-                >
-                  Descartar
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={composerFileInputRef}
+                    type="file"
+                    multiple
+                    onChange={(e) => handleFileUpload(e.target.files, 'composer')}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    disabled={uploadingComposerFiles}
+                    onClick={() => composerFileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold font-montserrat transition-all cursor-pointer disabled:opacity-50"
+                    title="Adjuntar archivos o imágenes"
+                  >
+                    {uploadingComposerFiles ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
+                    ) : (
+                      <Paperclip className="w-3.5 h-3.5 text-brand-500" />
+                    )}
+                    <span>Adjuntar</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsComposerOpen(false);
+                      setComposerAttachments([]);
+                    }}
+                    className="text-xs text-slate-400 hover:text-slate-600 font-montserrat"
+                  >
+                    Descartar
+                  </button>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={sending}
+                  disabled={sending || uploadingComposerFiles}
                   className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold font-montserrat transition-all shadow-sm shadow-brand-500/25 flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
@@ -1351,6 +1631,49 @@ export const CRMInboxPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Lightbox de Vista Previa de Imágenes */}
+      {previewImage && (
+        <div 
+          onClick={() => setPreviewImage(null)}
+          className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="relative max-w-4xl max-h-[90vh] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center p-3"
+          >
+            <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-white">
+              <span className="text-xs font-mono text-slate-300">Vista Previa de Imagen</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewImage}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors"
+                  title="Descargar"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
+                <button
+                  onClick={() => setPreviewImage(null)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  title="Cerrar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="overflow-auto max-h-[75vh] flex items-center justify-center">
+              <img 
+                src={previewImage} 
+                alt="Vista previa" 
+                className="max-h-[72vh] max-w-full object-contain rounded-lg shadow-lg"
+              />
+            </div>
           </div>
         </div>
       )}

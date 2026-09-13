@@ -123,6 +123,11 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE crm_emails ADD COLUMN attachments TEXT NULL"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS investment_ranks (
                         id INT AUTO_INCREMENT PRIMARY KEY,
