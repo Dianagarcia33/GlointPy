@@ -37,12 +37,17 @@ interface ChatWindowProps {
   onBack?: () => void;
 }
 
+interface AttachedFileItem {
+  id: string;
+  file: File;
+  previewUrl: string | null;
+}
+
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '👏'];
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, canSend, onBack }) => {
   const [inputText, setInputText] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFileItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [activeImageModal, setActiveImageModal] = useState<string | null>(null);
@@ -68,6 +73,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
       setReplyingTo(null);
       setShowMembersModal(false);
       setInputText('');
+      setAttachedFiles((prev) => {
+        prev.forEach((item) => {
+          if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+        });
+        return [];
+      });
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
@@ -101,20 +112,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
     }));
 
     const existingGroup = updatedReactions.find((r: any) => r.emoji === emoji);
-    const hasAlreadyReacted = existingGroup ? existingGroup.users.some((u: any) => Number(u.id) === Number(currentUserId)) : false;
 
-    if (hasAlreadyReacted && existingGroup) {
-      existingGroup.users = existingGroup.users.filter((u: any) => Number(u.id) !== Number(currentUserId));
-      existingGroup.count = Math.max(0, existingGroup.count - 1);
-      updatedReactions = updatedReactions.filter((r: any) => r.count > 0);
-    } else if (existingGroup) {
-      existingGroup.users.push({ id: currentUserId, name: 'Tú' });
-      existingGroup.count += 1;
+    if (existingGroup) {
+      const userIndex = existingGroup.users.indexOf(currentUserId);
+      if (userIndex > -1) {
+        existingGroup.users.splice(userIndex, 1);
+        existingGroup.count -= 1;
+        if (existingGroup.count <= 0) {
+          updatedReactions = updatedReactions.filter((r: any) => r.emoji !== emoji);
+        }
+      } else {
+        existingGroup.users.push(currentUserId);
+        existingGroup.count += 1;
+      }
     } else {
       updatedReactions.push({
         emoji,
         count: 1,
-        users: [{ id: currentUserId, name: 'Tú' }]
+        users: [currentUserId]
       });
     }
 
@@ -122,20 +137,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
     try {
       const res = await chatService.toggleReaction(messageId, emoji);
-      if (res && res.reactions) {
-        updateMessageReactions(messageId, res.reactions);
-      }
-    } catch (err: any) {
-      console.error('Error al alternar reacción:', err);
-      // Revertir a la versión anterior si ocurrió un error
+      updateMessageReactions(messageId, res.reactions);
+    } catch (err) {
       updateMessageReactions(messageId, previousReactions);
-      alert(err.message || 'No se pudo registrar la reacción en el servidor');
     }
   };
 
-  // Auto-scroll al final del chat
+  // Scroll al fondo al recibir mensajes o cambiar sala
   useEffect(() => {
     if (!messagesEndRef.current) return;
+
     if (initialLoadRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
       initialLoadRef.current = false;
@@ -160,28 +171,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
     }
   };
 
-  // Procesar archivo seleccionado o pegado
-  const processSelectedFile = (file: File) => {
-    setSelectedFile(file);
+  // Agregar múltiples archivos seleccionados, pegados o arrastrados
+  const addFiles = (newFiles: File[]) => {
+    if (!newFiles || newFiles.length === 0) return;
 
-    if (file.type.startsWith('image/')) {
-      const url = URL.createObjectURL(file);
-      setFilePreview(url);
-    } else {
-      setFilePreview(null);
-    }
+    const items: AttachedFileItem[] = newFiles.map((file) => {
+      const isImg = file.type.startsWith('image/');
+      return {
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        file,
+        previewUrl: isImg ? URL.createObjectURL(file) : null
+      };
+    });
 
-    // Foco automático en el input de texto para permitir redactar un comentario o pulsar Enter inmediatamente
+    setAttachedFiles((prev) => [...prev, ...items]);
+
     setTimeout(() => {
       textInputRef.current?.focus();
     }, 50);
   };
 
-  // Manejar selección desde el explorador de archivos
+  // Manejar selección desde el explorador de archivos (soporta selección múltiple)
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    processSelectedFile(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    addFiles(Array.from(files));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // Manejar pegado directo de imágenes (Ctrl+V / Cmd+V)
@@ -192,6 +209,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
     const items = clipboardData.items;
     if (!items || items.length === 0) return;
 
+    const pastedImageFiles: File[] = [];
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (item.type.startsWith('image/')) {
@@ -199,11 +218,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
         if (file) {
           e.preventDefault();
           const ext = file.type.split('/')[1] || 'png';
-          const namedFile = new File([file], `imagen_pegada_${Date.now()}.${ext}`, { type: file.type || 'image/png' });
-          processSelectedFile(namedFile);
-          return;
+          const namedFile = new File([file], `imagen_pegada_${Date.now()}_${i + 1}.${ext}`, { type: file.type || 'image/png' });
+          pastedImageFiles.push(namedFile);
         }
       }
+    }
+
+    if (pastedImageFiles.length > 0) {
+      addFiles(pastedImageFiles);
     }
   };
 
@@ -227,7 +249,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
     };
   }, [room?.id, canSend, isConnected, uploading]);
 
-  // Manejadores de Arrastrar y Soltar (Drag & Drop)
+  // Manejadores de Arrastrar y Soltar (Drag & Drop múltiple)
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -248,18 +270,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
     setIsDraggingOver(false);
     if (!canSend || !isConnected || uploading) return;
 
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processSelectedFile(file);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      addFiles(Array.from(files));
     }
   };
 
-  const handleClearFile = () => {
-    setSelectedFile(null);
-    if (filePreview) {
-      URL.revokeObjectURL(filePreview);
-      setFilePreview(null);
-    }
+  const handleRemoveFile = (id: string) => {
+    setAttachedFiles((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((item) => item.id !== id);
+    });
+  };
+
+  const handleClearAllFiles = () => {
+    attachedFiles.forEach((item) => {
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+    setAttachedFiles([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -283,22 +316,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!inputText.trim() && !selectedFile) || !canSend || !room) return;
+    if ((!inputText.trim() && attachedFiles.length === 0) || !canSend || !room) return;
 
     sendTypingStatus(false);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
     const replyId = replyingTo?.id || null;
 
-    if (selectedFile) {
+    if (attachedFiles.length > 0) {
       try {
         setUploading(true);
-        await chatService.uploadFile(room.id, selectedFile, inputText, replyId);
+        const filesToSend = attachedFiles.map((a) => a.file);
+        await chatService.uploadFiles(room.id, filesToSend, inputText, replyId);
         setInputText('');
-        handleClearFile();
+        handleClearAllFiles();
         setReplyingTo(null);
       } catch (err: any) {
-        alert(err.message || 'Error al subir archivo');
+        alert(err.message || 'Error al subir archivo(s)');
       } finally {
         setUploading(false);
       }
@@ -717,53 +751,80 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
         </div>
       )}
 
-      {/* Bar de Vista Previa de Archivo seleccionado o imagen pegada antes de enviar */}
-      {selectedFile && (
-        <div className="px-4 py-2.5 bg-slate-100/95 border-t border-slate-200 flex items-center justify-between gap-3 animate-in fade-in">
-          <div className="flex items-center gap-3 min-w-0">
-            {filePreview ? (
-              <div className="relative shrink-0">
-                <img src={filePreview} alt="Vista previa" className="w-12 h-12 object-cover rounded-xl border border-slate-300 shadow-2xs" />
-                <span className="absolute -bottom-1 -right-1 p-0.5 bg-brand-500 text-white rounded-full shadow-2xs">
-                  <ImageIcon className="w-2.5 h-2.5" />
-                </span>
-              </div>
-            ) : (
-              <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 text-brand-600 flex items-center justify-center shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
+      {/* Barra de Vista Previa de Archivos/Imágenes adjuntos (soporta múltiples) */}
+      {attachedFiles.length > 0 && (
+        <div className="px-4 py-2.5 bg-slate-100/95 border-t border-slate-200 animate-in fade-in">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-xs font-bold text-slate-700 font-outfit flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 bg-brand-100 text-brand-700 text-[10px] font-bold rounded-md">
+                {attachedFiles.length} {attachedFiles.length === 1 ? 'archivo adjunto' : 'archivos adjuntos'}
+              </span>
+              <span className="text-[11px] font-normal text-slate-500">
+                Presiona Enter para enviar o escribe un comentario
+              </span>
+            </span>
+            {attachedFiles.length > 1 && (
+              <button
+                type="button"
+                onClick={handleClearAllFiles}
+                className="text-[11px] font-medium text-slate-500 hover:text-red-600 transition-colors"
+              >
+                Quitar todos
+              </button>
             )}
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <p className="text-xs font-bold text-slate-800 truncate font-outfit">{selectedFile.name}</p>
-                {filePreview && (
-                  <span className="px-1.5 py-0.2 bg-brand-100 text-brand-700 text-[10px] font-bold rounded-md whitespace-nowrap">
-                    Imagen lista
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-slate-500 truncate">
-                {(selectedFile.size / 1024).toFixed(1)} KB • Presiona Enter para enviar o escribe un comentario
-              </p>
-            </div>
           </div>
-          <button
-            type="button"
-            onClick={handleClearFile}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-all shrink-0"
-            title="Quitar adjunto"
-          >
-            <X className="w-4 h-4" />
-          </button>
+
+          <div className="flex items-center gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-300">
+            {attachedFiles.map((item) => (
+              <div
+                key={item.id}
+                className="relative group flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl p-1.5 pr-2.5 shrink-0 shadow-2xs hover:border-slate-300 transition-all max-w-[220px]"
+              >
+                {item.previewUrl ? (
+                  <div className="relative shrink-0">
+                    <img
+                      src={item.previewUrl}
+                      alt={item.file.name}
+                      className="w-10 h-10 object-cover rounded-lg border border-slate-200"
+                    />
+                    <span className="absolute -bottom-1 -right-1 p-0.5 bg-brand-500 text-white rounded-full shadow-2xs">
+                      <ImageIcon className="w-2 h-2" />
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-brand-50 border border-brand-200 text-brand-600 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-slate-800 truncate font-outfit" title={item.file.name}>
+                    {item.file.name}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {(item.file.size / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFile(item.id)}
+                  className="w-5 h-5 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all shrink-0 ml-1"
+                  title="Quitar este archivo"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Input Box */}
       <div className="p-3.5 bg-white border-t border-slate-200">
         <form onSubmit={handleSend} className="flex items-center gap-2">
-          {/* Input oculto para adjuntos */}
+          {/* Input oculto para adjuntos (permite selección múltiple) */}
           <input
             type="file"
+            multiple
             ref={fileInputRef}
             onChange={handleFileSelect}
             className="hidden"
@@ -775,7 +836,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
             disabled={!canSend || !isConnected || uploading}
             onClick={() => fileInputRef.current?.click()}
             className="p-3 text-slate-500 hover:text-brand-600 hover:bg-brand-50 disabled:opacity-40 rounded-xl transition-all font-medium flex items-center justify-center border border-transparent hover:border-brand-200"
-            title="Adjuntar archivo o imagen (también puedes pegar con Ctrl+V)"
+            title="Adjuntar imágenes o archivos (selección múltiple o Ctrl+V)"
           >
             <Paperclip className="w-5 h-5" />
           </button>
@@ -785,9 +846,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
             type="text"
             placeholder={
               canSend 
-                ? (selectedFile 
-                    ? "Escribe un comentario opcional para la imagen (o presiona Enter)..." 
-                    : (replyingTo ? `Escribe una respuesta a ${replyingTo.sender_name}...` : "Escribe un mensaje o pega una imagen (Ctrl+V)..."))
+                ? (attachedFiles.length > 0 
+                    ? `Escribe un comentario opcional para ${attachedFiles.length === 1 ? 'la imagen' : 'las imágenes'} (o presiona Enter)...` 
+                    : (replyingTo ? `Escribe una respuesta a ${replyingTo.sender_name}...` : "Escribe un mensaje o pega imágenes (Ctrl+V)..."))
                 : "Sin permiso para enviar mensajes"
             }
             disabled={!canSend || !isConnected || uploading}
@@ -799,9 +860,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
           <button
             type="submit"
-            disabled={!canSend || (!inputText.trim() && !selectedFile) || !isConnected || uploading}
+            disabled={!canSend || (!inputText.trim() && attachedFiles.length === 0) || !isConnected || uploading}
             className="p-3 bg-brand-500 hover:bg-brand-600 disabled:bg-slate-100 disabled:text-slate-400 text-white rounded-xl transition-all font-medium flex items-center justify-center shadow-sm shadow-brand-500/20 active:scale-95 min-w-[44px]"
-            title="Enviar mensaje o imagen"
+            title="Enviar mensaje o imágenes"
           >
             {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>

@@ -97,6 +97,18 @@ export const chatService = {
     });
   },
 
+  uploadFiles: async (roomId: number, files: File[], content?: string, replyToId?: number | null): Promise<ChatMessage | ChatMessage[]> => {
+    const formData = new FormData();
+    formData.append('room_id', roomId.toString());
+    files.forEach(f => formData.append('files', f));
+    if (content) formData.append('content', content);
+    if (replyToId) formData.append('reply_to_id', replyToId.toString());
+    return fetchApi('/chat/upload', {
+      method: 'POST',
+      body: formData
+    });
+  },
+
   markAsRead: async (roomId: number): Promise<{ message: string }> => {
     return fetchApi(`/chat/rooms/${roomId}/read`, {
       method: 'POST'

@@ -228,11 +228,12 @@ async def upload_chat_file(
     room_id: int = Form(...),
     content: Optional[str] = Form(""),
     reply_to_id: Optional[int] = Form(None),
-    file: UploadFile = File(...),
+    files: Optional[List[UploadFile]] = File(None),
+    file: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Sube un archivo/imagen adjunta en el chat, lo guarda y transmite el mensaje en tiempo real."""
+    """Sube uno o múltiples archivos/imágenes adjuntos en el chat, los guarda y transmite en tiempo real."""
     is_part = await ChatService.is_participant(db, room_id, current_user.id)
     if not is_part and not PBACEngine.has_permission(current_user, "admin.chat.manage"):
         raise HTTPException(
@@ -240,51 +241,76 @@ async def upload_chat_file(
             detail="No eres participante de esta sala de chat"
         )
 
+    # Recopilar todos los archivos enviados (soporta 'files' múltiple o 'file' individual)
+    all_files: List[UploadFile] = []
+    if files and len(files) > 0:
+        all_files.extend(files)
+    elif file is not None:
+        all_files.append(file)
+
+    if not all_files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se proporcionó ningún archivo para subir"
+        )
+
     # Crear carpeta de destino
     upload_dir = os.path.join("uploads", "chat")
     os.makedirs(upload_dir, exist_ok=True)
 
-    # Generar nombre único de archivo
-    file_ext = os.path.splitext(file.filename)[1] if file.filename else ""
-    if not file_ext and file.content_type:
-        ext_map = {
-            "image/png": ".png",
-            "image/jpeg": ".jpg",
-            "image/jpg": ".jpg",
-            "image/webp": ".webp",
-            "image/gif": ".gif",
-            "application/pdf": ".pdf",
-        }
-        file_ext = ext_map.get(file.content_type.lower(), ".png" if file.content_type.startswith("image/") else "")
+    saved_messages = []
 
-    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
-    file_path = os.path.join(upload_dir, unique_filename)
+    for idx, f in enumerate(all_files):
+        # Generar nombre único de archivo
+        file_ext = os.path.splitext(f.filename)[1] if f.filename else ""
+        if not file_ext and f.content_type:
+            ext_map = {
+                "image/png": ".png",
+                "image/jpeg": ".jpg",
+                "image/jpg": ".jpg",
+                "image/webp": ".webp",
+                "image/gif": ".gif",
+                "application/pdf": ".pdf",
+            }
+            file_ext = ext_map.get(f.content_type.lower(), ".png" if f.content_type.startswith("image/") else "")
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+        file_path = os.path.join(upload_dir, unique_filename)
 
-    file_url = f"/api/v1/uploads/chat/{unique_filename}"
-    file_name = file.filename if file.filename and file.filename != "blob" else f"imagen_{uuid.uuid4().hex[:6]}{file_ext}"
-    file_type = file.content_type or "application/octet-stream"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(f.file, buffer)
 
-    default_caption = "📷 Imagen adjunta" if file_type.startswith("image/") else f"📎 Adjunto: {file_name}"
-    msg_content = content.strip() if content and content.strip() else default_caption
+        file_url = f"/api/v1/uploads/chat/{unique_filename}"
+        file_name = f.filename if f.filename and f.filename != "blob" else f"imagen_{uuid.uuid4().hex[:6]}{file_ext}"
+        file_type = f.content_type or "application/octet-stream"
 
-    saved_msg = await ChatService.save_message(
-        db=db,
-        room_id=room_id,
-        sender_id=current_user.id,
-        content=msg_content,
-        file_url=file_url,
-        file_name=file_name,
-        file_type=file_type,
-        reply_to_id=reply_to_id
-    )
+        # Si el usuario escribió un texto/comentario, se asocia al primer archivo
+        if idx == 0 and content and content.strip():
+            msg_content = content.strip()
+        else:
+            default_caption = "📷 Imagen adjunta" if file_type.startswith("image/") else f"📎 Adjunto: {file_name}"
+            msg_content = default_caption
 
-    # Broadcast en tiempo real a todos los clientes en la sala
-    await manager.broadcast_to_room(room_id, saved_msg)
+        saved_msg = await ChatService.save_message(
+            db=db,
+            room_id=room_id,
+            sender_id=current_user.id,
+            content=msg_content,
+            file_url=file_url,
+            file_name=file_name,
+            file_type=file_type,
+            reply_to_id=reply_to_id if idx == 0 else None
+        )
 
-    return saved_msg
+        # Broadcast en tiempo real a todos los clientes en la sala
+        await manager.broadcast_to_room(room_id, saved_msg)
+        saved_messages.append(saved_msg)
+
+    # Si fue un solo archivo, retornar el objeto ChatMessage individual para retrocompatibilidad
+    if len(saved_messages) == 1:
+        return saved_messages[0]
+
+    return saved_messages
 
 
 @router.websocket("/ws/{room_id}")
