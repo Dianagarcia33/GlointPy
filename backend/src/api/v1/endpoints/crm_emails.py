@@ -73,6 +73,43 @@ async def send_crm_email(
 class SyncEmailSchema(BaseModel):
     imap_user: Optional[str] = None
     imap_pass: Optional[str] = None
+    save_password: Optional[bool] = True
+
+class EmailSettingsSchema(BaseModel):
+    imap_password: Optional[str] = None
+
+@router.get("/settings", dependencies=[Depends(RequirePermission("crm:view"))])
+async def get_email_settings(
+    current_user: User = Depends(get_current_user)
+):
+    """Retorna si el usuario tiene contraseña de correo guardada para sincronización automática."""
+    from src.core.config import settings
+    has_pass = bool(current_user.imap_password) or bool(settings.IMAP_PASSWORD)
+    return {
+        "has_saved_password": has_pass,
+        "email": current_user.email,
+        "host": settings.IMAP_HOST,
+        "port": settings.IMAP_PORT
+    }
+
+@router.post("/settings", dependencies=[Depends(RequirePermission("crm:view"))])
+async def update_email_settings(
+    data: EmailSettingsSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Guarda o borra la contraseña de correo institucional del usuario."""
+    from src.core.config import settings
+    if data.imap_password and data.imap_password.strip():
+        current_user.imap_password = data.imap_password.strip()
+    else:
+        current_user.imap_password = None
+    db.add(current_user)
+    await db.commit()
+    return {
+        "message": "Configuración de correo actualizada exitosamente",
+        "has_saved_password": bool(current_user.imap_password) or bool(settings.IMAP_PASSWORD)
+    }
 
 @router.post("/sync", dependencies=[Depends(RequirePermission("crm:view"))])
 async def sync_imap_emails(
@@ -85,5 +122,6 @@ async def sync_imap_emails(
         db=db,
         user=current_user,
         imap_user=data.imap_user if data else None,
-        imap_pass=data.imap_pass if data else None
+        imap_pass=data.imap_pass if data else None,
+        save_password=data.save_password if data and data.save_password is not None else True
     )

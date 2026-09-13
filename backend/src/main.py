@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,9 +19,50 @@ app = FastAPI(
     version="1.0.0"
 )
 
+async def background_imap_sync_worker():
+    """Worker en segundo plano que revisa periódicamente cPanel IMAP para sincronizar correos entrantes automáticamente."""
+    from src.core.database import async_session_maker
+    from src.models.user import User
+    from src.services.crm_email_service import CRMEmailService
+    from src.services.chat_service import manager
+    from sqlalchemy.future import select
+
+    # Esperar 20 segundos tras el arranque para no competir con el arranque inicial
+    await asyncio.sleep(20)
+
+    while True:
+        try:
+            async with async_session_maker() as db:
+                stmt = select(User).where(User.imap_password.isnot(None)).where(User.is_active == True)
+                res = await db.execute(stmt)
+                users = res.scalars().all()
+
+                for u in users:
+                    try:
+                        sync_res = await CRMEmailService.sync_imap_emails(db=db, user=u)
+                        if sync_res.get("synced_count", 0) > 0:
+                            # Notificar al usuario vía WebSocket global
+                            await manager.send_to_user(u.id, {
+                                "type": "crm_new_email",
+                                "synced_count": sync_res["synced_count"],
+                                "sender_email": u.email,
+                                "message": f"Tienes {sync_res['synced_count']} nuevo(s) correo(s) en tu bandeja comercial"
+                            })
+                    except Exception as err:
+                        print(f"Error en sincronización background para {u.email}: {err}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"Error en ciclo background_imap_sync_worker: {e}")
+
+        # Comprobar cada 45 segundos
+        await asyncio.sleep(45)
+
 @app.on_event("startup")
 async def on_startup():
     try:
+        # Iniciar worker en segundo plano para sincronización automática de correos
+        asyncio.create_task(background_imap_sync_worker())
         import src.models
         from src.core.database import engine, Base, async_session_maker
         from src.run_seed import seed_permissions_db
@@ -57,6 +99,11 @@ async def on_startup():
 
             try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN locked_until DATETIME NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN imap_password TEXT NULL"))
             except Exception:
                 pass
 

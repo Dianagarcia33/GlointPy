@@ -1,8 +1,9 @@
-from sqlalchemy import Column, BigInteger, String, Integer, DateTime, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, BigInteger, String, Integer, DateTime, Boolean, JSON, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.core.database import Base
 from src.models.security import user_roles
+from src.core.encryption import EncryptedString
 
 class User(Base):
     __tablename__ = 'users'
@@ -19,6 +20,9 @@ class User(Base):
     # Directivo de Inversión Asignado
     commercial_id = Column(BigInteger, ForeignKey('users.id'), nullable=True)
     
+    # Credencial IMAP para sincronización automática de correo corporativo (encriptada con Fernet)
+    imap_password = Column(EncryptedString, nullable=True)
+
     # Campo JSON para dar permisos granulares a un usuario específico
     # sin necesidad de crear un rol. Ej: {"wallets:delete": true, "users:create": false}
     permissions_override = Column(JSON, nullable=True, default={})

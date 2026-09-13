@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Inbox, 
@@ -14,7 +14,10 @@ import {
   Loader2,
   Sparkles,
   RefreshCw,
-  Lock
+  Lock,
+  Key,
+  ShieldCheck,
+  Trash2
 } from 'lucide-react';
 import { crmEmailService, CRMEmail, CRMEmailTemplate } from '../../../services/crmEmailService';
 import { useAuthStore } from '../../../store/authStore';
@@ -33,18 +36,45 @@ export const CRMInboxPage: React.FC = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [sending, setSending] = useState(false);
 
-  // Sincronización IMAP cPanel
+  // Sincronización IMAP cPanel & Auto-Sync
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [imapPass, setImapPass] = useState('');
+  const [savePasswordCheck, setSavePasswordCheck] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [clearingPassword, setClearingPassword] = useState(false);
+  const autoSyncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Query: Correos
+  // Query: Ajustes de Correo (saber si el usuario tiene contraseña guardada)
+  const { data: emailSettings, refetch: refetchSettings } = useQuery({
+    queryKey: ['crm_email_settings'],
+    queryFn: () => crmEmailService.getEmailSettings()
+  });
+
+  const hasSavedPassword = emailSettings?.has_saved_password ?? false;
+
+  // Query: Correos con refresco automático en tiempo real cada 10 segundos
   const { data: emails = [], isLoading: loadingEmails, refetch: refetchEmails } = useQuery<CRMEmail[]>({
     queryKey: ['crm_emails', folder, searchTerm],
-    queryFn: () => crmEmailService.getEmails({ folder, search: searchTerm })
+    queryFn: () => crmEmailService.getEmails({ folder, search: searchTerm }),
+    refetchInterval: 10000,
+    refetchIntervalInBackground: true
   });
+
+  // Escuchar eventos en tiempo real desde el WebSocket global para actualizar la bandeja de inmediato
+  useEffect(() => {
+    const handleEmailReceived = (e: any) => {
+      refetchEmails();
+      const count = e.detail?.synced_count || 1;
+      showToast(`📩 ¡${count === 1 ? 'Nuevo correo entrante recibido' : `${count} nuevos correos recibidos`}!`, 'success');
+    };
+
+    window.addEventListener('gloint:email_received', handleEmailReceived);
+    return () => {
+      window.removeEventListener('gloint:email_received', handleEmailReceived);
+    };
+  }, [refetchEmails]);
 
   // Query: Plantillas
   const { data: templates = [] } = useQuery<CRMEmailTemplate[]>({
@@ -56,6 +86,62 @@ export const CRMInboxPage: React.FC = () => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
+
+  // Función principal de sincronización (manual o automática en segundo plano)
+  const runSync = async (passToSend?: string, shouldSave: boolean = true, isSilent: boolean = false) => {
+    try {
+      if (!isSilent) setSyncing(true);
+      const res = await crmEmailService.syncEmails(passToSend, shouldSave);
+      
+      if (res.needs_password) {
+        if (!isSilent) {
+          setIsSyncModalOpen(true);
+          if (res.error) {
+            showToast(`Contraseña requerida o incorrecta: ${res.error}`, 'error');
+          }
+        }
+      } else if (res.error) {
+        if (!isSilent) {
+          showToast(`Error al sincronizar: ${res.error}`, 'error');
+        }
+      } else {
+        if (!isSilent) {
+          if (res.synced_count > 0) {
+            showToast(`¡${res.synced_count} nuevos correos importados!`, 'success');
+          } else {
+            showToast(res.message || 'Bandeja sincronizada. No hay nuevos correos.', 'success');
+          }
+        }
+        refetchEmails();
+        refetchSettings();
+      }
+    } catch (err: any) {
+      if (!isSilent) {
+        showToast(err.message || 'Error al conectar con el servidor de correo', 'error');
+      }
+    } finally {
+      if (!isSilent) setSyncing(false);
+    }
+  };
+
+  // Sincronización automática periódica en segundo plano cuando la contraseña ya está guardada
+  useEffect(() => {
+    if (hasSavedPassword) {
+      // Sincronización inicial inmediata al entrar a la bandeja
+      runSync(undefined, true, true);
+
+      // Chequeo periódico con el servidor IMAP cada 25 segundos
+      autoSyncIntervalRef.current = setInterval(() => {
+        runSync(undefined, true, true);
+      }, 25000);
+    }
+
+    return () => {
+      if (autoSyncIntervalRef.current) {
+        clearInterval(autoSyncIntervalRef.current);
+      }
+    };
+  }, [hasSavedPassword]);
 
   const handleApplyTemplate = (templateId: string) => {
     setSelectedTemplateId(templateId);
@@ -93,27 +179,39 @@ export const CRMInboxPage: React.FC = () => {
     }
   };
 
-  const handleSyncIMAP = async (e: React.FormEvent) => {
+  const handleSyncIMAPSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imapPass.trim()) {
-      showToast('Ingresa la contraseña de tu cuenta institucional para autenticar la lectura', 'error');
+    if (!imapPass.trim() && !hasSavedPassword) {
+      showToast('Ingresa la contraseña de tu cuenta institucional para sincronizar', 'error');
       return;
     }
+    
+    await runSync(imapPass.trim() || undefined, savePasswordCheck, false);
+    setIsSyncModalOpen(false);
+    setImapPass('');
+  };
+
+  const handleClearSavedPassword = async () => {
     try {
-      setSyncing(true);
-      const res = await crmEmailService.syncEmails(imapPass.trim());
-      if (res.error) {
-        showToast(`Error de sincronización: ${res.error}`, 'error');
-      } else {
-        showToast(res.message || 'Sincronización de bandeja completada exitosamente', 'success');
-        setIsSyncModalOpen(false);
-        setImapPass('');
-        refetchEmails();
-      }
+      setClearingPassword(true);
+      await crmEmailService.updateEmailSettings('');
+      showToast('Contraseña de correo eliminada. Ya no se sincronizará automáticamente.', 'success');
+      refetchSettings();
+      setIsSyncModalOpen(false);
     } catch (err: any) {
-      showToast(err.message || 'Error al conectar con el servidor de correo corporativo', 'error');
+      showToast(err.message || 'Error al eliminar la contraseña', 'error');
     } finally {
-      setSyncing(false);
+      setClearingPassword(false);
+    }
+  };
+
+  const handleSyncButtonClick = () => {
+    if (hasSavedPassword) {
+      // Sincronización instantánea con 1 clic usando la clave recordada
+      runSync(undefined, true, false);
+    } else {
+      // Abre el modal para configurar la clave por primera vez
+      setIsSyncModalOpen(true);
     }
   };
 
@@ -124,27 +222,49 @@ export const CRMInboxPage: React.FC = () => {
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="px-3 py-1 bg-brand-500/20 text-brand-300 text-xs font-bold rounded-full border border-brand-500/30 uppercase tracking-wider font-montserrat">
               Bandeja Corporativa • Conexión Segura SSL
             </span>
+            {hasSavedPassword ? (
+              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-xs font-bold rounded-full border border-emerald-500/30 flex items-center gap-1.5 font-montserrat">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Auto-Sincronización Activa
+              </span>
+            ) : (
+              <span className="px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-full border border-amber-500/30 font-montserrat">
+                Configuración de clave pendiente
+              </span>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
             Bandeja de Correos Comercial
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
-            Envía propuestas comerciales y sincroniza las respuestas de tus prospectos de forma segura y centralizada.
+            Envía propuestas comerciales y sincroniza automáticamente las respuestas de tus prospectos de forma segura y centralizada.
           </p>
         </div>
 
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <button
-            onClick={() => setIsSyncModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer font-montserrat"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>Sincronizar Bandeja</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleSyncButtonClick}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer font-montserrat disabled:opacity-50"
+              title={hasSavedPassword ? "Sincronizar ahora con tu clave guardada" : "Configurar contraseña institucional"}
+            >
+              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin text-brand-300' : ''}`} />
+              <span>{syncing ? 'Sincronizando...' : (hasSavedPassword ? 'Sincronizar Ahora' : 'Configurar Sincronización')}</span>
+            </button>
+
+            <button
+              onClick={() => setIsSyncModalOpen(true)}
+              className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all border border-white/10 backdrop-blur-sm cursor-pointer"
+              title="Configuración de contraseña de correo"
+            >
+              <Key className="w-4 h-4" />
+            </button>
+          </div>
           
           <button
             onClick={() => setIsComposerOpen(true)}
@@ -386,18 +506,20 @@ export const CRMInboxPage: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Sincronizar cPanel IMAP */}
+      {/* Modal Sincronizar cPanel IMAP & Configuración */}
       {isSyncModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
-                  <RefreshCw className="w-5 h-5" />
+                  <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 font-montserrat">Sincronizar Bandeja Corporativa</h2>
-                  <p className="text-xs text-slate-500">Servicio de Correo Seguro • IMAP SSL</p>
+                  <h2 className="text-base font-bold text-slate-900 font-montserrat">
+                    {hasSavedPassword ? 'Configuración de Correo' : 'Activar Sincronización Automática'}
+                  </h2>
+                  <p className="text-xs text-slate-500">Servicio de Correo IMAP SSL • host81.latinoamericahosting.com</p>
                 </div>
               </div>
               <button onClick={() => setIsSyncModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer">
@@ -405,13 +527,27 @@ export const CRMInboxPage: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSyncIMAP} className="space-y-4">
-              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-2xl text-xs text-blue-900 font-sans">
-                Se sincronizará la casilla <strong className="font-montserrat">{user?.email}</strong> con el servidor institucional para traer las respuestas de tus prospectos.
-              </div>
+            <form onSubmit={handleSyncIMAPSubmit} className="space-y-4">
+              {hasSavedPassword ? (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-1.5">
+                  <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold font-montserrat">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Contraseña guardada y encriptada</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 leading-relaxed font-sans">
+                    Tu casilla <strong className="font-montserrat">{user?.email}</strong> se sincroniza automáticamente cada 60 segundos en segundo plano. Si cambiaste tu clave institucional en cPanel, ingrésala abajo para actualizarla.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-2xl text-xs text-blue-900 font-sans leading-relaxed">
+                  Ingresa la contraseña de tu cuenta institucional <strong className="font-montserrat">{user?.email}</strong> una sola vez. Se guardará de forma encriptada para sincronizar las respuestas de tus prospectos en segundo plano sin volvértela a pedir.
+                </div>
+              )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Contraseña de la Casilla Corporativa *</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">
+                  {hasSavedPassword ? 'Nueva Contraseña (opcional)' : 'Contraseña de la Casilla Corporativa *'}
+                </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                   <input
@@ -424,21 +560,47 @@ export const CRMInboxPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end gap-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsSyncModalOpen(false)}
-                  className="px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all font-montserrat cursor-pointer"
-                >
-                  Cancelar
-                </button>
+              {!hasSavedPassword && (
+                <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={savePasswordCheck}
+                    onChange={(e) => setSavePasswordCheck(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
+                  />
+                  <span>Recordar contraseña de forma segura para sincronizar automáticamente</span>
+                </label>
+              )}
+
+              <div className="pt-3 flex items-center justify-between gap-2 border-t border-slate-100">
+                {hasSavedPassword ? (
+                  <button
+                    type="button"
+                    disabled={clearingPassword}
+                    onClick={handleClearSavedPassword}
+                    className="px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all flex items-center gap-1 font-montserrat cursor-pointer disabled:opacity-50"
+                    title="Eliminar la contraseña guardada"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Desvincular clave</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsSyncModalOpen(false)}
+                    className="px-4 py-3 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all font-montserrat cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                )}
+
                 <button
                   type="submit"
-                  disabled={syncing || !imapPass.trim()}
-                  className="px-6 py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-2xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-2 disabled:opacity-50 font-montserrat cursor-pointer"
+                  disabled={syncing || (!hasSavedPassword && !imapPass.trim())}
+                  className="px-6 py-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-2xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-2 disabled:opacity-50 font-montserrat cursor-pointer ml-auto"
                 >
                   {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  <span>Conectar & Leer</span>
+                  <span>{hasSavedPassword && !imapPass.trim() ? 'Sincronizar Ahora' : 'Guardar & Sincronizar'}</span>
                 </button>
               </div>
             </form>

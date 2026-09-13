@@ -95,6 +95,24 @@ export const useGlobalNotifications = () => {
             } else if (data.type === 'new_room') {
               playBeep();
             }
+          } else if (data.type === 'crm_new_email') {
+            // Notificar a toda la aplicación (en especial a CRMInboxPage)
+            window.dispatchEvent(new CustomEvent('gloint:email_received', { detail: data }));
+            playBeep();
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const title = `📩 Nuevo Correo de Cliente`;
+              const body = data.message || 'Has recibido una nueva respuesta en tu bandeja comercial.';
+              const notification = new Notification(title, {
+                body,
+                icon: '/logo192.png',
+                tag: 'crm-email-notification'
+              });
+              notification.onclick = () => {
+                window.focus();
+                window.location.href = '/crm/inbox';
+              };
+            }
           }
         } catch (err) {
           console.error('Error procesando notificación global:', err);

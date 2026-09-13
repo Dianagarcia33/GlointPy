@@ -55,10 +55,24 @@ export const crmEmailService = {
     });
   },
 
-  syncEmails: async (imapPass?: string): Promise<{ synced_count: number; message: string; error?: string }> => {
+  getEmailSettings: async (): Promise<{ has_saved_password: boolean; email: string; host: string; port: number }> => {
+    return fetchApi('/crm/emails/settings');
+  },
+
+  updateEmailSettings: async (imapPassword?: string): Promise<{ message: string; has_saved_password: boolean }> => {
+    return fetchApi('/crm/emails/settings', {
+      method: 'POST',
+      body: JSON.stringify({ imap_password: imapPassword })
+    });
+  },
+
+  syncEmails: async (
+    imapPass?: string, 
+    savePassword?: boolean
+  ): Promise<{ synced_count: number; message: string; has_saved_password?: boolean; needs_password?: boolean; error?: string }> => {
     return fetchApi('/crm/emails/sync', {
       method: 'POST',
-      body: JSON.stringify({ imap_pass: imapPass })
+      body: JSON.stringify({ imap_pass: imapPass, save_password: savePassword })
     });
   }
 };

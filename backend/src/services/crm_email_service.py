@@ -215,7 +215,8 @@ class CRMEmailService:
         db: AsyncSession, 
         user: User, 
         imap_user: Optional[str] = None, 
-        imap_pass: Optional[str] = None
+        imap_pass: Optional[str] = None,
+        save_password: bool = True
     ) -> dict:
         """Sincroniza la bandeja de entrada de cPanel (host81.latinoamericahosting.com:993) buscando respuestas de prospectos."""
         import imaplib
@@ -226,12 +227,14 @@ class CRMEmailService:
         host = settings.IMAP_HOST or "host81.latinoamericahosting.com"
         port = settings.IMAP_PORT or 993
         username = imap_user or settings.IMAP_USER or user.email
-        password = imap_pass or settings.IMAP_PASSWORD
+        password = imap_pass or user.imap_password or settings.IMAP_PASSWORD
 
         if not password:
             return {
                 "synced_count": 0,
-                "message": f"Servidor cPanel IMAP ({host}:993) listo. Ingresa la contraseña de la cuenta para sincronizar."
+                "needs_password": True,
+                "has_saved_password": False,
+                "message": f"Servidor cPanel IMAP ({host}:993) listo. Ingresa la contraseña de la cuenta para sincronizar automáticamente."
             }
 
         synced_count = 0
@@ -240,6 +243,12 @@ class CRMEmailService:
             mail = imaplib.IMAP4_SSL(host, port)
             mail.login(username, password)
             mail.select("INBOX")
+
+            # Si el inicio de sesión fue exitoso y se envió una contraseña para guardar
+            if imap_pass and save_password and user.imap_password != imap_pass:
+                user.imap_password = imap_pass
+                db.add(user)
+                await db.commit()
 
             # Buscar últimos 20 correos
             status, messages = mail.search(None, "ALL")
@@ -330,9 +339,17 @@ class CRMEmailService:
             mail.logout()
         except Exception as e:
             print(f"Error al sincronizar IMAP cPanel: {e}")
-            return {"synced_count": synced_count, "error": str(e)}
+            is_auth_err = "AUTHENTICATIONFAILED" in str(e).upper() or "LOGIN FAILED" in str(e).upper()
+            return {
+                "synced_count": synced_count, 
+                "error": str(e),
+                "needs_password": is_auth_err,
+                "has_saved_password": bool(user.imap_password or settings.IMAP_PASSWORD)
+            }
 
         return {
             "synced_count": synced_count,
+            "has_saved_password": bool(user.imap_password or settings.IMAP_PASSWORD),
+            "needs_password": False,
             "message": f"Sincronización exitosa con cPanel ({host}). {synced_count} nuevos correos importados."
         }
