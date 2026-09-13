@@ -106,7 +106,9 @@ export const CRMInboxPage: React.FC = () => {
   // Query: Ajustes de Correo (saber si el usuario tiene contraseña guardada)
   const { data: emailSettings, refetch: refetchSettings } = useQuery({
     queryKey: ['crm_email_settings'],
-    queryFn: () => crmEmailService.getEmailSettings()
+    queryFn: () => crmEmailService.getEmailSettings(),
+    staleTime: 0,
+    refetchOnMount: 'always'
   });
 
   const hasSavedPassword = emailSettings?.has_saved_password ?? false;
@@ -115,6 +117,9 @@ export const CRMInboxPage: React.FC = () => {
   const { data: emails = [], isLoading: loadingEmails, refetch: refetchEmails } = useQuery<CRMEmail[]>({
     queryKey: ['crm_emails', folder, searchTerm],
     queryFn: () => crmEmailService.getEmails({ folder, search: searchTerm }),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     refetchInterval: 10000,
     refetchIntervalInBackground: true
   });
@@ -123,19 +128,35 @@ export const CRMInboxPage: React.FC = () => {
   const { data: inboxList = [], refetch: refetchInboxCount } = useQuery<CRMEmail[]>({
     queryKey: ['crm_emails_count', 'inbox'],
     queryFn: () => crmEmailService.getEmails({ folder: 'inbox' }),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     refetchInterval: 15000,
   });
 
   const { data: sentList = [], refetch: refetchSentCount } = useQuery<CRMEmail[]>({
     queryKey: ['crm_emails_count', 'sent'],
     queryFn: () => crmEmailService.getEmails({ folder: 'sent' }),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
     refetchInterval: 15000,
   });
+
+  // Refresco forzado al montar para garantizar datos 100% actualizados sin requerir F5
+  useEffect(() => {
+    refetchEmails();
+    refetchInboxCount();
+    refetchSentCount();
+    refetchSettings();
+  }, []);
 
   // Escuchar eventos en tiempo real desde el WebSocket global para actualizar la bandeja de inmediato
   useEffect(() => {
     const handleEmailReceived = (e: any) => {
       refetchEmails();
+      refetchInboxCount();
+      refetchSentCount();
       const count = e.detail?.synced_count || 1;
       showToast(`📩 ¡${count === 1 ? 'Nuevo correo recibido' : `${count} nuevos correos recibidos`}!`, 'success');
     };
@@ -144,7 +165,7 @@ export const CRMInboxPage: React.FC = () => {
     return () => {
       window.removeEventListener('gloint:email_received', handleEmailReceived);
     };
-  }, [refetchEmails]);
+  }, [refetchEmails, refetchInboxCount, refetchSentCount]);
 
   // Query: Plantillas
   const { data: templates = [] } = useQuery<CRMEmailTemplate[]>({

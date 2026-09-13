@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { chatService } from '../services/chatService';
 import { useAuthStore } from '../store/authStore';
 import { useLocation } from 'react-router-dom';
@@ -30,6 +31,7 @@ const playBeep = () => {
 };
 
 export const useGlobalNotifications = () => {
+  const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const location = useLocation();
   const socketRef = useRef<WebSocket | null>(null);
@@ -96,7 +98,12 @@ export const useGlobalNotifications = () => {
               playBeep();
             }
           } else if (data.type === 'crm_new_email') {
-            // Notificar a toda la aplicación (en especial a CRMInboxPage)
+            // Invalidar queries de correos globalmente para que al entrar a la bandeja esté al día de inmediato
+            queryClient.invalidateQueries({ queryKey: ['crm_emails'] });
+            queryClient.invalidateQueries({ queryKey: ['crm_emails_count'] });
+            queryClient.invalidateQueries({ queryKey: ['crm_email_settings'] });
+
+            // Notificar a toda la aplicación (en especial a CRMInboxPage si está montada)
             window.dispatchEvent(new CustomEvent('gloint:email_received', { detail: data }));
             playBeep();
 
@@ -110,7 +117,7 @@ export const useGlobalNotifications = () => {
               });
               notification.onclick = () => {
                 window.focus();
-                window.location.href = '/crm/inbox';
+                window.location.href = '/dashboard/crm/inbox';
               };
             }
           }
