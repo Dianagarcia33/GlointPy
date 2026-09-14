@@ -74,6 +74,10 @@ export interface Investor {
   daily_capital_amount?: number;
   has_capital_withdrawal?: boolean;
   total_capital_withdrawn?: number;
+  total_days_reduced?: number;
+  is_accelerated?: boolean;
+  effective_days?: number;
+  is_finalized?: boolean;
 }
 
 export const getInvestors = async (params?: { page?: number; limit?: number; search?: string; has_history?: boolean }): Promise<{ data: Investor[]; total: number }> => {

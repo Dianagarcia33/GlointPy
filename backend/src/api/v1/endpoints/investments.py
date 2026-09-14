@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
@@ -70,13 +71,24 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
         fecha_ingreso = inv_record.start_date
         fecha_fin = None
         dias_contrato = 0
+        dias_reducidos_totales = 0.0
+
+        if hasattr(inv_record, 'accelerations') and inv_record.accelerations:
+            for acc in inv_record.accelerations:
+                if acc.applied:
+                    dias_reducidos_totales += float(acc.days_to_reduce or 0)
 
         if fecha_ingreso and inv_record.period:
             inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
-            dias_base = getattr(inv_record.period, 'days', 0) or (inv_record.period.months * 30 if inv_record.period.months else 0)
-            fecha_fin_date = inv_start + timedelta(days=dias_base)
+            if inv_record.period.months:
+                fecha_fin_orig = inv_start + relativedelta(months=inv_record.period.months)
+                dias_base = (fecha_fin_orig - inv_start).days
+            else:
+                dias_base = getattr(inv_record.period, 'days', 0) or (inv_record.period.months * 30 if inv_record.period.months else 0)
+            
+            dias_contrato = max(1, int(dias_base - dias_reducidos_totales))
+            fecha_fin_date = inv_start + timedelta(days=dias_contrato)
             fecha_fin = datetime.combine(fecha_fin_date, datetime.min.time()) if isinstance(fecha_ingreso, datetime) else fecha_fin_date
-            dias_contrato = dias_base
 
         # Contrato en curso (fecha_fin > hoy) es ACTIVO, vencido (fecha_fin <= hoy) es FINALIZADO
         is_active = True
@@ -105,7 +117,7 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
             "rendimiento_total_contrato": rendimiento_total,
             "liquidacion_diaria_rendimiento": rendimiento_total / dias_contrato if dias_contrato > 0 else 0,
             "dias_contrato": dias_contrato,
-            "aceleracion_dias": 0,
+            "aceleracion_dias": round(dias_reducidos_totales, 2),
             "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
             "fecha_finalizacion": fecha_fin.isoformat() if fecha_fin else None,
             "porcentaje_mensual": float(inv_record.period.percentage) if inv_record.period and inv_record.period.percentage else 0,

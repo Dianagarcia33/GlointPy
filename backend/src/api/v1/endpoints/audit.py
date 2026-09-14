@@ -36,6 +36,8 @@ from pydantic import computed_field
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
 
+from src.schemas.acceleration import AccelerationResponse
+
 class SimpleInvestorAuditResponse(InvestorBase):
     id: int
     created_at: datetime
@@ -43,7 +45,28 @@ class SimpleInvestorAuditResponse(InvestorBase):
     package: Optional[PackageResponse] = None
     period: Optional[PeriodResponse] = None
     contract_histories: Optional[list[ContractHistoryResponse]] = None
+    accelerations: Optional[list[AccelerationResponse]] = None
     withdrawals: Optional[list[WithdrawalResponse]] = None
+
+    @computed_field
+    @property
+    def total_days_reduced(self) -> float:
+        if not self.accelerations:
+            return 0.0
+        return float(sum(acc.days_to_reduce or 0.0 for acc in self.accelerations if acc.applied))
+
+    @computed_field
+    @property
+    def dias_totales(self) -> int:
+        if not self.period:
+            return 1
+        base_date = self.start_date or datetime.utcnow()
+        if self.period.months:
+            fecha_fin_orig = base_date + relativedelta(months=self.period.months)
+            dias_orig = (fecha_fin_orig.date() - base_date.date()).days
+        else:
+            dias_orig = int(self.period.days or 0)
+        return max(1, int(round(dias_orig - self.total_days_reduced)))
 
     @computed_field
     @property
@@ -51,23 +74,7 @@ class SimpleInvestorAuditResponse(InvestorBase):
         base_date = self.start_date or datetime.utcnow()
         if not self.period:
             return base_date
-        return base_date + relativedelta(days=self.period.days)
-
-    @computed_field
-    @property
-    def capital_total(self) -> float:
-        if self.package and self.package.value:
-            return float(self.package.value)
-        return 0.0
-
-    @computed_field
-    @property
-    def dias_totales(self) -> int:
-        if self.period and self.period.days:
-            return int(self.period.days)
-        if self.period and self.period.months:
-            return int(self.period.months * 30)
-        return 1
+        return base_date + relativedelta(days=self.dias_totales)
 
     @computed_field
     @property

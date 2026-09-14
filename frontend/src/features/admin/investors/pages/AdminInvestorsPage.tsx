@@ -16,7 +16,7 @@ import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { BulkDocumentModal } from '../components/BulkDocumentModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { usePermissions } from '../../../../hooks/usePermissions';
 
@@ -495,8 +495,37 @@ export const AdminInvestorsPage = () => {
                           {investor.package ? `$${Number(investor.package.value).toLocaleString('es-CO')} COP` : 'Desconocido'}
                         </span>
                         <div className="text-xs text-slate-500 mt-1">
-                            {investor.period ? `${investor.period.months}m ${investor.period.days || (investor.period.months * 30)}d (${investor.period.percentage}%)` : ''}
+                            {investor.period ? (
+                              <span>
+                                {investor.period.months}m {investor.effective_days !== undefined ? investor.effective_days : (investor.period.days || (investor.period.months * 30))}d ({investor.period.percentage}%)
+                              </span>
+                            ) : ''}
                         </div>
+                        {(() => {
+                          const now = new Date().getTime();
+                          const start = investor.start_date ? new Date(investor.start_date).getTime() : now;
+                          const effectiveDays = investor.effective_days !== undefined
+                            ? investor.effective_days
+                            : Math.max(1, (investor.period?.days || (investor.period?.months ? investor.period.months * 30 : 0)) - (investor.total_days_reduced || 0));
+                          const elapsedDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                          const isFinalized = Boolean(
+                            investor.is_finalized || 
+                            (effectiveDays > 0 && elapsedDays >= effectiveDays) || 
+                            (now >= new Date(investor.end_date).getTime())
+                          );
+
+                          if (isFinalized) {
+                            return (
+                              <div className="mt-1 flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                                  <Clock className="w-3 h-3 text-purple-600" />
+                                  Finalizado
+                                </span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </td>
                       <td className="px-4 py-3.5 text-center">
                         {(() => {
@@ -519,6 +548,47 @@ export const AdminInvestorsPage = () => {
                       </td>
                       <Can permission="admin.investors.manage">
                         <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                          {(() => {
+                            const now = new Date().getTime();
+                            const start = investor.start_date ? new Date(investor.start_date).getTime() : now;
+                            const effectiveDays = investor.effective_days !== undefined
+                              ? investor.effective_days
+                              : Math.max(1, (investor.period?.days || (investor.period?.months ? investor.period.months * 30 : 0)) - (investor.total_days_reduced || 0));
+                            const elapsedDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+                            const isFinalized = Boolean(
+                              investor.is_finalized || 
+                              (effectiveDays > 0 && elapsedDays >= effectiveDays) || 
+                              (now >= new Date(investor.end_date).getTime())
+                            );
+
+                            const totalPkg = investor.package ? Number(investor.package.value) : 0;
+                            const alreadyWithdrawn = investor.withdrawals
+                              ? investor.withdrawals.reduce((sum: number, w: any) => {
+                                  const wTipo = typeof w.tipo === 'object' ? w.tipo?.value : w.tipo;
+                                  const wEstado = typeof w.estado === 'object' ? w.estado?.value : w.estado;
+                                  if (String(wTipo).toLowerCase() === 'capital' && ['pendiente', 'aprobado', 'procesado'].includes(String(wEstado).toLowerCase())) {
+                                    return sum + Number(w.monto || 0);
+                                  }
+                                  return sum;
+                                }, 0)
+                              : 0;
+                            const hasCapital = (totalPkg - alreadyWithdrawn) > 0;
+
+                            if (isFinalized && hasCapital) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedInvestorForCapitalWithdrawal(investor)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 mr-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-all cursor-pointer"
+                                  title="Contrato finalizado con capital pendiente por liquidar"
+                                >
+                                  <Wallet className="w-3.5 h-3.5" />
+                                  <span>Liquidar</span>
+                                </button>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="relative inline-block text-left action-menu-container">
                             <button 
                               onClick={(e) => {
@@ -600,9 +670,15 @@ export const AdminInvestorsPage = () => {
                                 {(() => {
                                   const now = new Date().getTime();
                                   const start = investor.start_date ? new Date(investor.start_date).getTime() : now;
-                                  const totalDays = investor.period ? (investor.period.days || (investor.period.months * 30)) : 0;
+                                  const effectiveDays = investor.effective_days !== undefined
+                                    ? investor.effective_days
+                                    : Math.max(1, (investor.period?.days || (investor.period?.months ? investor.period.months * 30 : 0)) - (investor.total_days_reduced || 0));
                                   const elapsedDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-                                  const isFinalized = totalDays > 0 && elapsedDays >= totalDays;
+                                  const isFinalized = Boolean(
+                                    investor.is_finalized || 
+                                    (effectiveDays > 0 && elapsedDays >= effectiveDays) || 
+                                    (now >= new Date(investor.end_date).getTime())
+                                  );
 
                                   const totalPkg = investor.package ? Number(investor.package.value) : 0;
                                   const alreadyWithdrawn = investor.withdrawals
@@ -685,22 +761,32 @@ export const AdminInvestorsPage = () => {
                               </div>
                               <div>
                                 <span className="text-slate-400 block text-[10px] uppercase font-bold">Fecha Finalización</span>
-                                <span className="text-emerald-700 font-extrabold text-sm">{new Date(investor.end_date).toLocaleDateString()}</span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-emerald-700 font-extrabold text-sm">{new Date(investor.end_date).toLocaleDateString()}</span>
+                                  {((investor.total_days_reduced && investor.total_days_reduced > 0) || (investor.accelerations && investor.accelerations.length > 0)) && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200" title="Contrato acelerado por bonos de referido">
+                                      <Zap className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                                      Acelerado (-{(investor.total_days_reduced || investor.accelerations?.reduce((s, a) => s + Number(a.days_to_reduce || 0), 0) || 0).toFixed(1)}d)
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <div>
                                 <span className="text-slate-400 block text-[10px] uppercase font-bold">Avance del Contrato</span>
                                 {(() => {
                                   const now = new Date().getTime();
                                   const start = new Date(investor.start_date).getTime();
-                                  const totalDays = investor.period ? investor.period.days : 0;
+                                  const effectiveDays = investor.effective_days !== undefined
+                                    ? investor.effective_days
+                                    : Math.max(1, (investor.period?.days || 0) - (investor.total_days_reduced || 0));
                                   const elapsedRaw = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-                                  const elapsed = Math.max(0, Math.min(elapsedRaw, totalDays));
-                                  const progress = totalDays > 0 ? Math.round((elapsed / totalDays) * 100) : 0;
+                                  const elapsed = Math.max(0, Math.min(elapsedRaw, effectiveDays));
+                                  const progress = effectiveDays > 0 ? Math.min(100, Math.round((elapsed / effectiveDays) * 100)) : 0;
                                   
                                   return (
                                     <div className="space-y-1 mt-0.5">
                                       <div className="flex justify-between text-[10px]">
-                                        <span className="text-brand-600 font-extrabold">{elapsed} / {totalDays} días ({progress}%)</span>
+                                        <span className="text-brand-600 font-extrabold">{elapsed} / {effectiveDays} días ({progress}%)</span>
                                       </div>
                                       <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                                         <div 
@@ -718,9 +804,15 @@ export const AdminInvestorsPage = () => {
                             {(() => {
                               const now = new Date().getTime();
                               const start = investor.start_date ? new Date(investor.start_date).getTime() : now;
-                              const totalDays = investor.period ? (investor.period.days || (investor.period.months * 30)) : 0;
+                              const effectiveDays = investor.effective_days !== undefined
+                                ? investor.effective_days
+                                : Math.max(1, (investor.period?.days || (investor.period?.months ? investor.period.months * 30 : 0)) - (investor.total_days_reduced || 0));
                               const elapsedDays = Math.floor((now - start) / (1000 * 60 * 60 * 24));
-                              const isFinalized = totalDays > 0 && elapsedDays >= totalDays;
+                              const isFinalized = Boolean(
+                                investor.is_finalized || 
+                                (effectiveDays > 0 && elapsedDays >= effectiveDays) || 
+                                (now >= new Date(investor.end_date).getTime())
+                              );
 
                               const totalPkg = investor.package ? Number(investor.package.value) : 0;
                               const alreadyWithdrawn = investor.withdrawals
@@ -740,7 +832,7 @@ export const AdminInvestorsPage = () => {
                               return (
                                 <div className="pt-2.5 border-t border-slate-100 flex justify-between items-center bg-amber-50/60 p-3 rounded-xl border border-amber-200/80">
                                   <div className="text-xs text-amber-900 font-medium">
-                                    ✨ Este contrato ha <strong>finalizado sus {totalDays} días</strong> y cuenta con capital pendiente por liquidar.
+                                    ✨ Este contrato ha <strong>finalizado sus {effectiveDays} días{investor.total_days_reduced && investor.total_days_reduced > 0 ? ` (acelerado por bonos)` : ''}</strong> y cuenta con capital pendiente por liquidar.
                                   </div>
                                   <button
                                     type="button"

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, computed_field, field_validator
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 import re
 from dateutil.relativedelta import relativedelta
@@ -144,13 +144,44 @@ class InvestorResponse(InvestorBase):
 
     @computed_field
     @property
+    def total_days_reduced(self) -> float:
+        if not self.accelerations:
+            return 0.0
+        return float(sum(acc.days_to_reduce or 0.0 for acc in self.accelerations if acc.applied))
+
+    @computed_field
+    @property
+    def is_accelerated(self) -> bool:
+        return self.total_days_reduced > 0
+
+    @computed_field
+    @property
+    def effective_days(self) -> int:
+        if not self.period:
+            return 0
+        base_date = self.start_date or datetime.utcnow()
+        if self.period.months:
+            fecha_fin_orig = base_date + relativedelta(months=self.period.months)
+            dias_orig = (fecha_fin_orig.date() - base_date.date()).days
+        else:
+            dias_orig = int(self.period.days or 0)
+        return max(1, int(round(dias_orig - self.total_days_reduced)))
+
+    @computed_field
+    @property
     def end_date(self) -> datetime:
-        # Fallback to start_date if not set
         base_date = self.start_date or datetime.utcnow()
         if not self.period:
             return base_date
-        
-        return base_date + relativedelta(days=self.period.days)
+        return base_date + timedelta(days=self.effective_days)
+
+    @computed_field
+    @property
+    def is_finalized(self) -> bool:
+        from datetime import date
+        today = date.today()
+        end_d = self.end_date.date() if isinstance(self.end_date, datetime) else self.end_date
+        return end_d <= today
 
     model_config = ConfigDict(from_attributes=True)
 
