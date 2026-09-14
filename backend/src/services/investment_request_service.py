@@ -318,32 +318,21 @@ class InvestmentRequestService:
             is_upgrade = bool(req.extra_data.get("es_aumento_capital") or req.extra_data.get("is_upgrade"))
 
         existing_investor = None
-        if req.investor_id:
-            inv_res = await db.execute(
-                select(Investor)
-                .options(
-                    selectinload(Investor.package),
-                    selectinload(Investor.period),
-                    selectinload(Investor.withdrawals),
-                    selectinload(Investor.accelerations)
+        # Solo buscar contrato anterior si la solicitud es explícitamente un aumento de capital
+        if is_upgrade:
+            target_investor_id = req.investor_id or (req.extra_data.get("investor_id") if isinstance(req.extra_data, dict) else None)
+            if target_investor_id:
+                inv_res = await db.execute(
+                    select(Investor)
+                    .options(
+                        selectinload(Investor.package),
+                        selectinload(Investor.period),
+                        selectinload(Investor.withdrawals),
+                        selectinload(Investor.accelerations)
+                    )
+                    .where(Investor.id == target_investor_id)
                 )
-                .where(Investor.id == req.investor_id)
-            )
-            existing_investor = inv_res.scalars().first()
-
-        if not existing_investor:
-            inv_res = await db.execute(
-                select(Investor)
-                .options(
-                    selectinload(Investor.package),
-                    selectinload(Investor.period),
-                    selectinload(Investor.withdrawals),
-                    selectinload(Investor.accelerations)
-                )
-                .where(Investor.user_id == req.user_id)
-                .order_by(Investor.id.desc())
-            )
-            existing_investor = inv_res.scalars().first()
+                existing_investor = inv_res.scalars().first()
 
         period_id = None
         if req.extra_data and isinstance(req.extra_data, dict):
@@ -358,12 +347,13 @@ class InvestmentRequestService:
                 raise HTTPException(status_code=400, detail="No se encontró un periodo de contrato y no hay periodo por defecto")
 
         previous_contract_val = 0.0
-        if req.extra_data and isinstance(req.extra_data, dict) and req.extra_data.get("previous_package_value"):
-            previous_contract_val = float(req.extra_data["previous_package_value"])
-        elif existing_investor and existing_investor.package and existing_investor.package.value:
-            previous_contract_val = float(existing_investor.package.value)
+        if is_upgrade and existing_investor:
+            if req.extra_data and isinstance(req.extra_data, dict) and req.extra_data.get("previous_package_value"):
+                previous_contract_val = float(req.extra_data["previous_package_value"])
+            elif existing_investor.package and existing_investor.package.value:
+                previous_contract_val = float(existing_investor.package.value)
 
-        if existing_investor and (is_upgrade or req.investor_id or previous_contract_val > 0):
+        if is_upgrade and existing_investor:
             # --- FLUJO DE AUMENTO DE CAPITAL ---
             from decimal import Decimal
             from datetime import timedelta
@@ -557,14 +547,14 @@ class InvestmentRequestService:
                 from src.services.commercial_sale_service import register_commercial_sale
                 from src.schemas.commercial_sale import CommercialSaleCreate
                 
-                sale_type_str = "referido" if referred_code else ("reinversion" if (is_upgrade or existing_investor is not None or previous_contract_val > 0) else "contrato_nuevo")
+                sale_type_str = "referido" if referred_code else ("reinversion" if (is_upgrade and existing_investor is not None) else "contrato_nuevo")
                 doc_val = str((req.extra_data or {}).get("documento") or (investor_user and investor_user.document_id) or f"USER-{req.user_id}")
                 name_val = str((req.extra_data or {}).get("nombre_completo") or (investor_user and investor_user.name) or "Cliente Inversionista")
                 
                 # Para Aumento de Capital (upgrade / reinversión con contrato previo), la venta comercial
                 # debe ser únicamente por el valor neto del aumento (diferencia), no por el monto total del paquete.
                 # Ejemplo: Si un contrato pasó de $17M a $20M, la venta comercial debe ser por $3M ($20M - $17M).
-                is_capital_upgrade = bool(is_upgrade or existing_investor is not None or req.investor_id or previous_contract_val > 0)
+                is_capital_upgrade = bool(is_upgrade and existing_investor is not None)
                 if is_capital_upgrade and previous_contract_val > 0:
                     sale_amount = max(0.0, float(req.monto) - previous_contract_val)
                     if sale_amount <= 0:

@@ -189,13 +189,14 @@ async def create_investment_request(
         extra_data["monto_billetera_usado"] = monto_billetera_usado
     if codigo_referido:
         extra_data["codigo_referido"] = codigo_referido
-    if is_upgrade or investor_id:
-        extra_data["es_aumento_capital"] = True
-        extra_data["is_upgrade"] = True
     if periodo_contrato:
         extra_data["contract_period_id"] = periodo_contrato
 
-    if investor_id:
+    if is_upgrade:
+        extra_data["es_aumento_capital"] = True
+        extra_data["is_upgrade"] = True
+
+    if is_upgrade and investor_id:
         extra_data["investor_id"] = investor_id
         extra_data["previous_contract_id"] = investor_id
         inv_res = await db.execute(select(Investor).options(selectinload(Investor.package)).where(Investor.id == investor_id))
