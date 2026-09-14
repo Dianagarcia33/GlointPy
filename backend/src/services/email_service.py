@@ -311,3 +311,53 @@ class EmailService:
         """
         return EmailService.send_html_email(to_email, subject, html_content)
 
+    @staticmethod
+    def send_external_form_director_notification(
+        to_email: str,
+        director_name: str,
+        platform_name: str,
+        lead_data: dict
+    ) -> bool:
+        contact_name = lead_data.get("name", "Prospecto")
+        subject = f"🔔 Nuevo Prospecto desde {platform_name}: {contact_name} - GLOINT CRM"
+        message_txt = lead_data.get("message") or "Sin mensaje adicional"
+        company_txt = lead_data.get("company") or "No especificada"
+        city_txt = lead_data.get("city") or "No especificada"
+
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px;">
+                <h2 style="color: #0f172a; margin: 0; font-size: 22px;">Nuevo Contacto de Formulario Externo</h2>
+                <p style="color: #2563eb; font-size: 13px; font-weight: bold; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;">Plataforma: {platform_name} • CRM Gloint</p>
+            </div>
+            
+            <p style="color: #1e293b; font-size: 15px; line-height: 1.6;">
+                Hola <strong>{director_name}</strong>,
+            </p>
+            <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                Se te ha asignado un nuevo prospecto de manera equitativa proveniente del formulario de <strong>{platform_name}</strong>. A continuación los detalles registrados:
+            </p>
+            
+            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 18px; border-radius: 8px; margin: 20px 0;">
+                <table style="width: 100%; font-size: 13px; color: #334155; line-height: 1.8;">
+                    <tr><td style="font-weight: bold; width: 140px;">Origen:</td><td style="color: #2563eb; font-weight: bold;">{platform_name}</td></tr>
+                    <tr><td style="font-weight: bold;">Nombre:</td><td>{contact_name}</td></tr>
+                    <tr><td style="font-weight: bold;">Teléfono:</td><td><a href="tel:{lead_data.get('phone')}" style="color: #2563eb; text-decoration: none;">{lead_data.get('phone')}</a></td></tr>
+                    <tr><td style="font-weight: bold;">Correo:</td><td><a href="mailto:{lead_data.get('email')}" style="color: #2563eb; text-decoration: none;">{lead_data.get('email')}</a></td></tr>
+                    <tr><td style="font-weight: bold;">Empresa:</td><td>{company_txt}</td></tr>
+                    <tr><td style="font-weight: bold;">Ciudad:</td><td>{city_txt}</td></tr>
+                    <tr><td style="font-weight: bold; vertical-align: top;">Mensaje:</td><td style="white-space: pre-line;">{message_txt}</td></tr>
+                </table>
+            </div>
+            
+            <p style="color: #334155; font-size: 13px; line-height: 1.6;">
+                Este contacto ha quedado registrado en tu tablero de <strong>CRM Leads</strong> en la etapa <em>Lead Entrante</em> listo para gestión inmediata.
+            </p>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
+                © 2026 GLOINT International Partners. Asignación Centralizada de Formularios.
+            </div>
+        </div>
+        """
+        return EmailService.send_html_email(to_email, subject, html_content)
+

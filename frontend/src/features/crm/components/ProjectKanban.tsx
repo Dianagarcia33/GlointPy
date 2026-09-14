@@ -37,6 +37,12 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
   onDeleteProject
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSource, setSelectedSource] = useState<string>('all');
+
+  // Obtener lista única de orígenes para el filtro
+  const availableSources = Array.from(
+    new Set(leads.map((l) => l.source).filter(Boolean))
+  ) as string[];
 
   const stages: { key: CRMLeadStage; title: string; badgeColor: string; headerBg: string }[] = [
     { key: 'lead_entrante', title: '1. Lead Entrante', badgeColor: 'bg-slate-100 text-slate-700', headerBg: 'bg-slate-100/80 border-slate-200' },
@@ -48,9 +54,12 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
   ];
 
   const filteredLeads = leads.filter((l) => {
+    if (selectedSource !== 'all' && l.source !== selectedSource) {
+      return false;
+    }
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
-    return l.name.toLowerCase().includes(term) || (l.phone && l.phone.includes(term)) || (l.email && l.email.toLowerCase().includes(term));
+    return l.name.toLowerCase().includes(term) || (l.phone && l.phone.includes(term)) || (l.email && l.email.toLowerCase().includes(term)) || (l.source && l.source.toLowerCase().includes(term));
   });
 
   const handleQuickMove = async (e: React.MouseEvent, leadId: number, nextStage: CRMLeadStage) => {
@@ -102,9 +111,25 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-3 w-full md:w-auto flex-wrap sm:flex-nowrap">
+          {/* Filtro por Origen */}
+          {availableSources.length > 0 && (
+            <select
+              value={selectedSource}
+              onChange={(e) => setSelectedSource(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-brand-500 font-sans cursor-pointer"
+            >
+              <option value="all">Todos los orígenes ({leads.length})</option>
+              {availableSources.map((src) => (
+                <option key={src} value={src}>
+                  {src}
+                </option>
+              ))}
+            </select>
+          )}
+
           {/* Búsqueda */}
-          <div className="relative flex-1 md:w-64">
+          <div className="relative flex-1 sm:w-60">
             <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
             <input
               type="text"

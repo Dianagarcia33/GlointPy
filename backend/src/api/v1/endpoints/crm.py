@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
 
@@ -73,6 +73,16 @@ class ChatbotLeadCreateSchema(BaseModel):
     preferred_contact_time: Optional[str] = None
     notes: Optional[str] = None
 
+class ExternalFormLeadSchema(BaseModel):
+    name: str
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    city: Optional[str] = None
+    company: Optional[str] = None
+    message: Optional[str] = None
+    estimated_amount: Optional[float] = 0.0
+    metadata: Optional[dict] = None
+
 
 @router.post("/public/chatbot-lead")
 async def register_public_chatbot_lead(
@@ -84,6 +94,37 @@ async def register_public_chatbot_lead(
     Asigna equitativamente (Round-Robin) a los Directivos de Inversión y envía notificaciones por correo.
     """
     return await CRMService.register_chatbot_lead(db, data.dict())
+
+
+@router.post("/public/external-form")
+async def register_external_contact_form(
+    data: ExternalFormLeadSchema,
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint centralizado para recibir envíos de formularios desde páginas externas (Logy Pay, Landings, etc.).
+    Valida la API Key de la aplicación externa emisora, asigna el lead equitativamente (Round-Robin)
+    a los comerciales de Gloint y dispara notificaciones inmediatas.
+    """
+    from src.services.external_app_service import ExternalAppService
+
+    raw_key = x_api_key or authorization
+    if not raw_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Header 'X-API-Key' o 'Authorization' requerido para autenticar el formulario externo"
+        )
+
+    # Autentica y valida que la app externa esté activa en Gloint
+    app = await ExternalAppService.authenticate_api_key(db, raw_key)
+
+    return await CRMService.register_external_form_lead(
+        db=db,
+        app_name=app.name,
+        data=data.dict()
+    )
 
 
 @router.get("/kpis", dependencies=[Depends(RequirePermission("crm:view"))])

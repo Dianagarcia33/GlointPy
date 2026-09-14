@@ -353,13 +353,12 @@ class CRMService:
         if not directivos:
             return None
 
-        # Contar cuántos leads provenientes del chatbot tiene asignado cada directivo
+        # Contar cuántos leads entrantes tiene asignado cada directivo
         directivo_ids = [d.id for d in directivos]
         count_stmt = (
             select(CRMLead.commercial_id, func.count(CRMLead.id))
             .where(
-                CRMLead.commercial_id.in_(directivo_ids),
-                CRMLead.source == "Chatbot"
+                CRMLead.commercial_id.in_(directivo_ids)
             )
             .group_by(CRMLead.commercial_id)
         )
@@ -443,6 +442,89 @@ class CRMService:
             "success": True,
             "message": "Prospecto registrado y asignado exitosamente",
             "lead_id": lead.id,
+            "assigned_commercial": {
+                "id": assigned_commercial.id,
+                "name": assigned_commercial.name
+            } if assigned_commercial else None
+        }
+
+    @staticmethod
+    async def register_external_form_lead(db: AsyncSession, app_name: str, data: dict) -> dict:
+        """
+        Registra un lead proveniente de una web o formulario externo (Logy Pay, Landings, etc.)
+        autenticado mediante API Key. Asigna de forma equitativa (Round-Robin) a los comerciales
+        activos y dispara notificación inmediata por correo.
+        """
+        project = await CRMService.get_or_create_default_project(db)
+        assigned_commercial = await CRMService.assign_commercial_round_robin(db)
+
+        source_label = f"Formulario: {app_name}"
+
+        lead = CRMLead(
+            project_id=project.id,
+            name=data["name"].strip(),
+            email=data["email"].strip().lower() if data.get("email") else None,
+            phone=data["phone"].strip() if data.get("phone") else None,
+            estimated_amount=Decimal(str(data.get("estimated_amount") or 0)),
+            stage=CRMLeadStage.LEAD_ENTRANTE,
+            source=source_label,
+            commercial_id=assigned_commercial.id if assigned_commercial else None,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(lead)
+        await db.flush()
+
+        # Registrar actividad inicial con los detalles del formulario externo
+        detail_lines = [
+            f"🌐 Origen / Plataforma: {app_name}",
+            f"👤 Nombre: {data['name'].strip()}",
+            f"📧 Correo: {data.get('email') or 'No especificado'}",
+            f"📞 Teléfono: {data.get('phone') or 'No especificado'}",
+        ]
+        if data.get("company"):
+            detail_lines.append(f"🏢 Empresa: {data.get('company')}")
+        if data.get("city"):
+            detail_lines.append(f"📍 Ciudad / Ubicación: {data.get('city')}")
+        if data.get("message"):
+            detail_lines.append(f"💬 Mensaje / Solicitud:\n{data.get('message')}")
+        
+        extra_meta = data.get("metadata")
+        if extra_meta and isinstance(extra_meta, dict):
+            detail_lines.append("📌 Metadatos adicionales:")
+            for k, v in extra_meta.items():
+                detail_lines.append(f"  • {k}: {v}")
+
+        note = CRMActivity(
+            lead_id=lead.id,
+            user_id=assigned_commercial.id if assigned_commercial else 1,
+            type=CRMActivityType.NOTA,
+            title=f"Contacto entrante desde {app_name}",
+            description="\n".join(detail_lines),
+            created_at=datetime.utcnow()
+        )
+        db.add(note)
+
+        await db.commit()
+        await db.refresh(lead)
+
+        # Enviar notificación por correo al asesor asignado
+        try:
+            if assigned_commercial and assigned_commercial.email:
+                EmailService.send_external_form_director_notification(
+                    to_email=assigned_commercial.email,
+                    director_name=assigned_commercial.name or assigned_commercial.email,
+                    platform_name=app_name,
+                    lead_data=data
+                )
+        except Exception as e:
+            print(f"Error enviando notificación al asesor para lead externo ({app_name}): {e}")
+
+        return {
+            "success": True,
+            "message": f"Lead de {app_name} recibido y asignado exitosamente",
+            "lead_id": lead.id,
+            "source": source_label,
             "assigned_commercial": {
                 "id": assigned_commercial.id,
                 "name": assigned_commercial.name
