@@ -258,6 +258,8 @@ export const CRMInboxPage: React.FC = () => {
           }
         }
         refetchEmails();
+        refetchInboxCount();
+        refetchSentCount();
         refetchSettings();
       }
     } catch (err: any) {

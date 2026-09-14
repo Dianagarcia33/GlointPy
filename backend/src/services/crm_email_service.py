@@ -3,6 +3,7 @@ import os
 import uuid
 import re
 import mimetypes
+from datetime import datetime
 from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -89,6 +90,7 @@ class CRMEmailService:
                 "recipient_email": e.recipient_email,
                 "subject": e.subject,
                 "body_html": e.body_html,
+                "body_text": e.body_text,
                 "status": e.status,
                 "is_read": e.is_read,
                 "attachments": _parse_attachments(e.attachments),
@@ -296,15 +298,17 @@ class CRMEmailService:
         imap_pass: Optional[str] = None,
         save_password: bool = True
     ) -> dict:
-        """Sincroniza la bandeja de entrada de cPanel (host81.latinoamericahosting.com:993) buscando respuestas de prospectos."""
+        """Sincroniza la bandeja de entrada de cPanel buscando respuestas y nuevos correos."""
         import imaplib
         import email
         from email.header import decode_header
+        from email.utils import parseaddr, parsedate_to_datetime
+        import datetime as dt_module
         from src.core.config import settings
 
         host = settings.IMAP_HOST or "host81.latinoamericahosting.com"
         port = settings.IMAP_PORT or 993
-        username = imap_user or settings.IMAP_USER or user.email
+        username = (imap_user or settings.IMAP_USER or user.email or "").strip()
         password = imap_pass or user.imap_password or settings.IMAP_PASSWORD
 
         if not password:
@@ -312,8 +316,23 @@ class CRMEmailService:
                 "synced_count": 0,
                 "needs_password": True,
                 "has_saved_password": False,
-                "message": f"Servidor cPanel IMAP ({host}:993) listo. Ingresa la contraseña de la cuenta para sincronizar automáticamente."
+                "message": f"Servidor cPanel IMAP ({host}:{port}) listo. Ingresa la contraseña de la cuenta para sincronizar automáticamente."
             }
+
+        def decode_mime_string(header_val) -> str:
+            if not header_val:
+                return ""
+            try:
+                decoded_parts = decode_header(header_val)
+                res = []
+                for part_bytes, enc in decoded_parts:
+                    if isinstance(part_bytes, bytes):
+                        res.append(part_bytes.decode(enc or "utf-8", errors="ignore"))
+                    else:
+                        res.append(str(part_bytes))
+                return "".join(res).strip()
+            except Exception:
+                return str(header_val).strip()
 
         synced_count = 0
         try:
@@ -328,66 +347,81 @@ class CRMEmailService:
                 db.add(user)
                 await db.commit()
 
-            # Buscar últimos 20 correos
+            # Buscar correos en la bandeja de entrada
             status, messages = mail.search(None, "ALL")
-            email_ids = messages[0].split()
-            recent_ids = email_ids[-20:] if len(email_ids) > 20 else email_ids
+            if status != "OK" or not messages or not messages[0]:
+                mail.logout()
+                return {
+                    "synced_count": 0,
+                    "message": "Bandeja vacía.",
+                    "has_saved_password": bool(user.imap_password or settings.IMAP_PASSWORD)
+                }
+
+            raw_ids = messages[0].split()
+            num_ids = []
+            for item in raw_ids:
+                try:
+                    num_ids.append(int(item))
+                except (ValueError, TypeError):
+                    pass
+
+            num_ids.sort()
+            # Inspeccionar hasta los 60 correos más recientes de la bandeja
+            recent_ids = num_ids[-60:] if len(num_ids) > 60 else num_ids
 
             for e_id in reversed(recent_ids):
-                res, msg_data = mail.fetch(e_id, "(RFC822)")
-                for response_part in msg_data:
-                    if isinstance(response_part, tuple):
-                        msg = email.message_from_bytes(response_part[1])
-                        
-                        # Extraer asunto
-                        subject, encoding = decode_header(msg["Subject"])[0]
-                        if isinstance(subject, bytes):
-                            subject = subject.decode(encoding or "utf-8", errors="ignore")
+                try:
+                    res, msg_data = mail.fetch(str(e_id), "(RFC822)")
+                    if res != "OK" or not msg_data:
+                        continue
 
-                        # Extraer remitente
-                        sender = msg.get("From")
-                        sender_email = sender
-                        if "<" in sender and ">" in sender:
-                            sender_email = sender.split("<")[1].split(">")[0].strip()
+                    for response_part in msg_data:
+                        if not isinstance(response_part, tuple):
+                            continue
+
+                        msg = email.message_from_bytes(response_part[1])
+
+                        # Extraer asunto de manera segura y completa
+                        subject = decode_mime_string(msg.get("Subject")) or "(Sin asunto)"
+
+                        # Extraer remitente con estándar RFC 2822
+                        from_header = msg.get("From", "")
+                        _, sender_email = parseaddr(from_header)
+                        if not sender_email:
+                            match = re.search(r'[\w\.-]+@[\w\.-]+', str(from_header))
+                            sender_email = match.group(0) if match else str(from_header).strip()
+                        sender_email = sender_email.strip().lower()
+
+                        if not sender_email:
+                            continue
 
                         # Ignorar correos salientes propios
-                        if sender_email.lower() == username.lower():
+                        if sender_email == username.lower():
                             continue
 
-                        # Buscar si ya existe registrado por asunto y fecha aproximada
-                        existing = await db.execute(
-                            select(CRMEmail).where(
-                                and_(
-                                    CRMEmail.user_id == user.id,
-                                    CRMEmail.sender_email == sender_email,
-                                    CRMEmail.subject == subject,
-                                    CRMEmail.direction == CRMEmailDirection.INBOUND
-                                )
-                            )
-                        )
-                        if existing.scalars().first():
-                            continue
+                        # Extraer destinatario
+                        to_header = msg.get("To", "")
+                        _, to_email = parseaddr(to_header)
+                        recipient_email = to_email.strip().lower() if to_email else username.lower()
+
+                        # Extraer y normalizar fecha real del correo a UTC
+                        date_header = msg.get("Date")
+                        msg_date = None
+                        if date_header:
+                            try:
+                                parsed_dt = parsedate_to_datetime(date_header)
+                                if parsed_dt.tzinfo:
+                                    msg_date = parsed_dt.astimezone(dt_module.timezone.utc).replace(tzinfo=None)
+                                else:
+                                    msg_date = parsed_dt
+                            except Exception:
+                                msg_date = None
 
                         # Extraer cuerpo del mensaje, imágenes inline y archivos adjuntos
                         body_html = ""
                         body_text = ""
                         attachments = []
                         cid_map = {}
-
-                        def decode_mime_string(header_val):
-                            if not header_val:
-                                return ""
-                            try:
-                                decoded_parts = decode_header(header_val)
-                                res = []
-                                for part_bytes, enc in decoded_parts:
-                                    if isinstance(part_bytes, bytes):
-                                        res.append(part_bytes.decode(enc or "utf-8", errors="ignore"))
-                                    else:
-                                        res.append(str(part_bytes))
-                                return "".join(res)
-                            except Exception:
-                                return str(header_val)
 
                         if msg.is_multipart():
                             for part in msg.walk():
@@ -466,15 +500,44 @@ class CRMEmailService:
                                         body_html = raw_payload.decode(errors="ignore")
                                 else:
                                     try:
-                                        t = raw_payload.decode(msg.get_content_charset() or "utf-8", errors="ignore")
+                                        body_text = raw_payload.decode(msg.get_content_charset() or "utf-8", errors="ignore")
                                     except Exception:
-                                        t = raw_payload.decode(errors="ignore")
-                                    body_html = f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{t}</pre>"
+                                        body_text = raw_payload.decode(errors="ignore")
+                                    body_html = f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{body_text}</pre>"
 
                         # Reemplazar URLs de imágenes inline cid:... con la ruta servible del backend
                         if body_html and cid_map:
                             for cid_val, local_url in cid_map.items():
                                 body_html = re.sub(rf'cid:{re.escape(cid_val)}', local_url, body_html, flags=re.IGNORECASE)
+
+                        # Deduplicación inteligente:
+                        # Buscar correos existentes de este usuario con el mismo remitente y asunto
+                        existing_records = (await db.execute(
+                            select(CRMEmail).where(
+                                and_(
+                                    CRMEmail.user_id == user.id,
+                                    CRMEmail.sender_email == sender_email,
+                                    CRMEmail.subject == subject,
+                                    CRMEmail.direction == CRMEmailDirection.INBOUND
+                                )
+                            )
+                        )).scalars().all()
+
+                        is_duplicate = False
+                        clean_body_snippet = (body_text or re.sub(r'<[^>]+>', ' ', body_html)).strip()[:140]
+                        for ex in existing_records:
+                            # 1. Si la fecha del correo coincide dentro de un margen razonable (120s)
+                            if msg_date and ex.created_at and abs((ex.created_at - msg_date).total_seconds()) < 120:
+                                is_duplicate = True
+                                break
+                            # 2. Si el cuerpo de texto o contenido es idéntico
+                            ex_snippet = (ex.body_text or re.sub(r'<[^>]+>', ' ', ex.body_html or '')).strip()[:140]
+                            if clean_body_snippet and ex_snippet and clean_body_snippet == ex_snippet:
+                                is_duplicate = True
+                                break
+
+                        if is_duplicate:
+                            continue
 
                         # Vincular con Prospecto CRM si existe
                         lead_res = await db.execute(select(CRMLead).where(CRMLead.email == sender_email.lower()))
@@ -486,18 +549,20 @@ class CRMEmailService:
                             user_id=user.id,
                             direction=CRMEmailDirection.INBOUND,
                             sender_email=sender_email,
-                            recipient_email=username,
+                            recipient_email=recipient_email,
                             subject=subject,
                             body_html=body_html or "<p>(Sin contenido)</p>",
+                            body_text=body_text or None,
                             status=CRMEmailStatus.RECEIVED,
                             is_read=False,
-                            attachments=json.dumps(attachments) if attachments else None
+                            attachments=json.dumps(attachments) if attachments else None,
+                            created_at=msg_date or datetime.utcnow()
                         )
                         db.add(email_rec)
                         await db.commit()
                         synced_count += 1
 
-                        # Registrar en timeline de actividades
+                        # Registrar en timeline de actividades del lead
                         if lead:
                             att_suffix = f" ({len(attachments)} adjunto{'s' if len(attachments) > 1 else ''})" if attachments else ""
                             activity = CRMActivity(
@@ -509,6 +574,10 @@ class CRMEmailService:
                             )
                             db.add(activity)
                             await db.commit()
+
+                except Exception as email_err:
+                    print(f"Error procesando correo individual ID {e_id}: {email_err}")
+                    continue
 
             mail.logout()
         except Exception as e:
@@ -525,5 +594,5 @@ class CRMEmailService:
             "synced_count": synced_count,
             "has_saved_password": bool(user.imap_password or settings.IMAP_PASSWORD),
             "needs_password": False,
-            "message": f"Sincronización exitosa con cPanel ({host}). {synced_count} nuevos correos importados."
+            "message": f"Sincronización exitosa con cPanel ({host}). {synced_count} nuevos correos importados." if synced_count > 0 else "Bandeja actualizada. No hay correos nuevos."
         }
