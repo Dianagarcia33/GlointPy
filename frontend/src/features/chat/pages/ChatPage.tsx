@@ -35,36 +35,45 @@ export const ChatPage: React.FC = () => {
       const data = await chatService.getRooms();
       setRooms(data);
 
+      // En sondeos o eventos en segundo plano, NUNCA cambiar la sala activa del usuario
+      if (isBackground) return;
+
       const currentRoomId = selectedRoomIdRef.current;
 
-      // Si el usuario aún no tiene ninguna sala seleccionada (carga inicial)
-      if (!currentRoomId) {
-        // Verificar si se especificó ?room= en la URL
-        const params = new URLSearchParams(window.location.search);
-        const targetRoom = params.get('room');
-        if (targetRoom && !hasConsumedUrlRoomRef.current) {
-          hasConsumedUrlRoomRef.current = true;
-          const roomId = parseInt(targetRoom, 10);
-          if (!isNaN(roomId) && data.some((r) => r.id === roomId)) {
-            selectedRoomIdRef.current = roomId;
-            setSelectedRoomId(roomId);
-            return;
-          }
-        }
+      // Si ya hay una sala seleccionada y sigue existiendo, respetarla siempre
+      if (currentRoomId && data.some((r) => Number(r.id) === Number(currentRoomId))) {
+        return;
+      }
 
-        // Si no había target o no se encontró, seleccionar la primera sala disponible
-        if (data.length > 0) {
-          selectedRoomIdRef.current = data[0].id;
-          setSelectedRoomId(data[0].id);
+      // Prioridad 1: Parámetro ?room= en la URL
+      const params = new URLSearchParams(window.location.search);
+      const targetRoom = params.get('room');
+      if (targetRoom) {
+        const roomId = parseInt(targetRoom, 10);
+        if (!isNaN(roomId) && data.some((r) => Number(r.id) === Number(roomId))) {
+          selectedRoomIdRef.current = roomId;
+          setSelectedRoomId(roomId);
+          localStorage.setItem('gloint_active_chat_room_id', String(roomId));
+          return;
         }
-      } else {
-        // Si el usuario YA ESTÁ en una sala, NO cambiarla en sondeos o eventos en segundo plano
-        // Únicamente si la sala activa ya no existe en la lista recibida
-        const roomExists = data.some((r) => r.id === currentRoomId);
-        if (!roomExists && data.length > 0) {
-          selectedRoomIdRef.current = data[0].id;
-          setSelectedRoomId(data[0].id);
+      }
+
+      // Prioridad 2: Última sala guardada en localStorage
+      const savedRoomIdStr = localStorage.getItem('gloint_active_chat_room_id');
+      if (savedRoomIdStr) {
+        const savedRoomId = parseInt(savedRoomIdStr, 10);
+        if (!isNaN(savedRoomId) && data.some((r) => Number(r.id) === Number(savedRoomId))) {
+          selectedRoomIdRef.current = savedRoomId;
+          setSelectedRoomId(savedRoomId);
+          return;
         }
+      }
+
+      // Prioridad 3: Primera sala disponible si es la carga inicial y no hay ninguna previa
+      if (data.length > 0 && !selectedRoomIdRef.current) {
+        selectedRoomIdRef.current = data[0].id;
+        setSelectedRoomId(data[0].id);
+        localStorage.setItem('gloint_active_chat_room_id', String(data[0].id));
       }
     } catch (err) {
       console.error('Error al cargar salas de chat:', err);
@@ -76,16 +85,15 @@ export const ChatPage: React.FC = () => {
   const handleSelectRoom = (roomId: number) => {
     selectedRoomIdRef.current = roomId;
     setSelectedRoomId(roomId);
+    localStorage.setItem('gloint_active_chat_room_id', String(roomId));
 
-    // Limpiar el parámetro ?room de la URL si existía para que no reabra la anterior
-    if (window.location.search.includes('room=')) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('room');
-      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
-    }
+    // Mantener la URL sincronizada con el ID del chat actual sin recargar la página
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', String(roomId));
+    window.history.replaceState({}, '', url.pathname + url.search);
 
     setRooms((prev) =>
-      prev.map((r) => (r.id === roomId ? { ...r, unread_count: 0 } : r))
+      prev.map((r) => (Number(r.id) === Number(roomId) ? { ...r, unread_count: 0 } : r))
     );
     chatService.markAsRead(roomId).catch(() => {});
   };
@@ -174,6 +182,10 @@ export const ChatPage: React.FC = () => {
           onBack={() => {
             selectedRoomIdRef.current = null;
             setSelectedRoomId(null);
+            localStorage.removeItem('gloint_active_chat_room_id');
+            const url = new URL(window.location.href);
+            url.searchParams.delete('room');
+            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
           }}
         />
       </div>
