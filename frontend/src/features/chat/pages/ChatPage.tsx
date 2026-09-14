@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useAuthStore } from '../../../store/authStore';
@@ -16,6 +16,14 @@ export const ChatPage: React.FC = () => {
 
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
+  
+  // Ref para evitar closures desactualizadas en sondeos de fondo o eventos
+  const selectedRoomIdRef = useRef<number | null>(null);
+  selectedRoomIdRef.current = selectedRoomId;
+
+  // Bandera para consumir el parámetro ?room de la URL únicamente en la carga inicial
+  const hasConsumedUrlRoomRef = useRef(false);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -27,18 +35,36 @@ export const ChatPage: React.FC = () => {
       const data = await chatService.getRooms();
       setRooms(data);
 
-      const params = new URLSearchParams(window.location.search);
-      const targetRoom = params.get('room');
-      if (targetRoom) {
-        const roomId = parseInt(targetRoom, 10);
-        if (!isNaN(roomId) && data.some(r => r.id === roomId)) {
-          setSelectedRoomId(roomId);
-          return;
-        }
-      }
+      const currentRoomId = selectedRoomIdRef.current;
 
-      if (data.length > 0 && !selectedRoomId) {
-        setSelectedRoomId(data[0].id);
+      // Si el usuario aún no tiene ninguna sala seleccionada (carga inicial)
+      if (!currentRoomId) {
+        // Verificar si se especificó ?room= en la URL
+        const params = new URLSearchParams(window.location.search);
+        const targetRoom = params.get('room');
+        if (targetRoom && !hasConsumedUrlRoomRef.current) {
+          hasConsumedUrlRoomRef.current = true;
+          const roomId = parseInt(targetRoom, 10);
+          if (!isNaN(roomId) && data.some((r) => r.id === roomId)) {
+            selectedRoomIdRef.current = roomId;
+            setSelectedRoomId(roomId);
+            return;
+          }
+        }
+
+        // Si no había target o no se encontró, seleccionar la primera sala disponible
+        if (data.length > 0) {
+          selectedRoomIdRef.current = data[0].id;
+          setSelectedRoomId(data[0].id);
+        }
+      } else {
+        // Si el usuario YA ESTÁ en una sala, NO cambiarla en sondeos o eventos en segundo plano
+        // Únicamente si la sala activa ya no existe en la lista recibida
+        const roomExists = data.some((r) => r.id === currentRoomId);
+        if (!roomExists && data.length > 0) {
+          selectedRoomIdRef.current = data[0].id;
+          setSelectedRoomId(data[0].id);
+        }
       }
     } catch (err) {
       console.error('Error al cargar salas de chat:', err);
@@ -48,7 +74,16 @@ export const ChatPage: React.FC = () => {
   };
 
   const handleSelectRoom = (roomId: number) => {
+    selectedRoomIdRef.current = roomId;
     setSelectedRoomId(roomId);
+
+    // Limpiar el parámetro ?room de la URL si existía para que no reabra la anterior
+    if (window.location.search.includes('room=')) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('room');
+      window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+    }
+
     setRooms((prev) =>
       prev.map((r) => (r.id === roomId ? { ...r, unread_count: 0 } : r))
     );
@@ -73,13 +108,14 @@ export const ChatPage: React.FC = () => {
       window.removeEventListener('gloint:chat_updated', handleChatUpdated);
       clearInterval(pollTimer);
     };
-  }, [canViewChat, window.location.search]);
+  }, [canViewChat]);
 
   const handleStartDirectChat = async (targetUserId: number) => {
     try {
       const res = await chatService.getOrCreateDirectRoom(targetUserId);
-      await fetchRooms();
+      selectedRoomIdRef.current = res.room_id;
       setSelectedRoomId(res.room_id);
+      await fetchRooms(true);
     } catch (err: any) {
       alert(err.message || 'Error al iniciar conversación');
     }
@@ -88,8 +124,9 @@ export const ChatPage: React.FC = () => {
   const handleCreateGroup = async (name: string, participantIds: number[], avatar?: File | null) => {
     try {
       const newRoom = await chatService.createGroupRoom(name, participantIds, avatar);
-      await fetchRooms();
+      selectedRoomIdRef.current = newRoom.room_id;
       setSelectedRoomId(newRoom.room_id);
+      await fetchRooms(true);
     } catch (err: any) {
       alert(err.message || 'Error al crear grupo');
       throw err;
@@ -134,7 +171,10 @@ export const ChatPage: React.FC = () => {
           room={selectedRoom}
           currentUserId={user?.id || 0}
           canSend={canSendChat}
-          onBack={() => setSelectedRoomId(null)}
+          onBack={() => {
+            selectedRoomIdRef.current = null;
+            setSelectedRoomId(null);
+          }}
         />
       </div>
 
