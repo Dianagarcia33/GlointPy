@@ -44,6 +44,7 @@ import { AdminReferralsPage } from "./features/admin/referrals/pages/AdminReferr
 import { ChatPage } from "./features/chat/pages/ChatPage";
 import { CRMPage } from "./features/crm/pages/CRMPage";
 import { CRMInboxPage } from "./features/crm/pages/CRMInboxPage";
+import { CRMCalendarPage } from "./features/crm/pages/CRMCalendarPage";
 import { AdminNotificationsPage } from "./features/admin/notifications/pages/AdminNotificationsPage";
 import { AdminEventsPage } from "./features/admin/events/pages/AdminEventsPage";
 import { TicketsPage } from "./features/tickets/pages/TicketsPage";
@@ -161,6 +162,7 @@ function App() {
         <Route path="chat" element={<RequirePermission permission="chat:view"><ChatPage /></RequirePermission>} />
         <Route path="crm" element={<RequirePermission permission="crm:view"><CRMPage /></RequirePermission>} />
         <Route path="crm/inbox" element={<RequirePermission permission="crm:view"><CRMInboxPage /></RequirePermission>} />
+        <Route path="crm/calendar" element={<RequirePermission permission="crm:view"><CRMCalendarPage /></RequirePermission>} />
         <Route path="admin-notifications" element={<RequirePermission permissions={["admin.notifications.manage", "admin.roles.manage"]}><AdminNotificationsPage /></RequirePermission>} />
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
       </Route>

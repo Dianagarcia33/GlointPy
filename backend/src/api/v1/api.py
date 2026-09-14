@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, notifications, tickets, investor_documents, uploads, banks, investment_ranks, external_apps, share_market, events
+from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents, uploads, banks, investment_ranks, external_apps, share_market, events
 
 api_router = APIRouter()
 
@@ -31,6 +31,7 @@ api_router.include_router(potential_referrals.router, prefix="", tags=["potentia
 api_router.include_router(chat.router, prefix="", tags=["chat"])
 api_router.include_router(crm.router, prefix="", tags=["crm"])
 api_router.include_router(crm_emails.router, prefix="", tags=["crm-emails"])
+api_router.include_router(crm_calendar.router, prefix="/crm/calendar", tags=["crm-calendar"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])
 api_router.include_router(investor_documents.router, prefix="", tags=["investor-documents"])

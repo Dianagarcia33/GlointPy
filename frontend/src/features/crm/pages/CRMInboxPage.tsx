@@ -40,7 +40,8 @@ import {
   FileArchive,
   FileSpreadsheet,
   FileCode,
-  Eye
+  Eye,
+  Calendar
 } from 'lucide-react';
 import { crmEmailService, CRMEmail, CRMEmailTemplate, EmailAttachment } from '../../../services/crmEmailService';
 import { useAuthStore } from '../../../store/authStore';
@@ -654,6 +655,14 @@ export const CRMInboxPage: React.FC = () => {
                 >
                   <Send className="w-4 h-4" />
                 </button>
+
+                <button
+                  onClick={() => navigate('/dashboard/crm/calendar')}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl text-slate-600 hover:bg-amber-100 hover:text-amber-800 transition-all cursor-pointer"
+                  title="Agenda & Calendario cPanel (CalDAV)"
+                >
+                  <Calendar className="w-4 h-4 text-amber-600" />
+                </button>
               </nav>
 
               <div className="w-8 h-px bg-slate-200/80" />
@@ -762,6 +771,19 @@ export const CRMInboxPage: React.FC = () => {
                       folder === 'sent' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
                     }`}>
                       {totalSentCount}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/dashboard/crm/calendar')}
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-all font-montserrat text-slate-600 hover:bg-amber-50 hover:text-amber-900 border border-transparent hover:border-amber-200/60 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Calendario cPanel</span>
+                    </div>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-extrabold uppercase">
+                      CalDAV
                     </span>
                   </button>
                 </nav>

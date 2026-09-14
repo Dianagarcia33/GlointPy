@@ -254,6 +254,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                             <span className="flex-1 text-[13px] font-outfit">Bandeja de Correos</span>
                                         </NavLink>
                                     </Can>
+
+                                    <Can permission="crm:view">
+                                        <NavLink to="/dashboard/crm/calendar" className={navLinkClass}>
+                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                                <CalendarDays className="w-[18px] h-[18px]" />
+                                            </span>
+                                            <span className="flex-1 text-[13px] font-outfit">Calendario / Agenda</span>
+                                        </NavLink>
+                                    </Can>
                                 </motion.div>
                             )}
                         </AnimatePresence>

@@ -178,6 +178,16 @@ const MODULES_CATALOG: ModuleItem[] = [
     permission: 'crm:view',
     keywords: ['correos', 'inbox', 'bandeja', 'emails', 'mensajes de prospectos', 'mensajes']
   },
+  {
+    id: 'crm-calendar',
+    title: 'Agenda & Calendario cPanel',
+    description: 'Sincronización de citas y reuniones de Webmail cPanel (CalDAV)',
+    path: '/dashboard/crm/calendar',
+    category: 'Comercial & CRM',
+    icon: CalendarDays,
+    permission: 'crm:view',
+    keywords: ['calendario', 'agenda', 'cpanel', 'citas', 'reuniones', 'caldav', 'meet', 'llamadas']
+  },
 
   // 🛡️ ADMINISTRACIÓN
   {

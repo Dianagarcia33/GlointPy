@@ -120,7 +120,7 @@ class InvestmentRequestService:
         }
 
     @staticmethod
-    def parse_datetime(date_str: str) -> datetime | None:
+    def parse_datetime(date_str: str) -> Optional[datetime]:
         if not date_str or date_str.strip() == "":
             return None
         # Intenta parsear con formato estándar de base de datos
