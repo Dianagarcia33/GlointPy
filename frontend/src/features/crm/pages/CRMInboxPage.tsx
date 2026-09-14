@@ -85,17 +85,26 @@ const getEmailSnippet = (html: string) => {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 95);
 };
 
+// Utilidad para normalizar y parsear fechas ISO a hora local del navegador
+const parseEmailDate = (dateStr: string) => {
+  if (!dateStr) return new Date();
+  // Si la cadena no especifica zona horaria (sin 'Z' ni '+/-HH:mm'), añadir 'Z' para tratarla como UTC
+  const hasTimezone = dateStr.endsWith('Z') || dateStr.includes('+') || (dateStr.length > 19 && dateStr.slice(19).includes('-'));
+  const normalizedStr = hasTimezone ? dateStr : `${dateStr}Z`;
+  return new Date(normalizedStr);
+};
+
 // Utilidad para formatear fechas relativas elegantes
 const formatEmailDate = (dateStr: string) => {
   if (!dateStr) return '';
   try {
-    const date = new Date(dateStr);
+    const date = parseEmailDate(dateStr);
     const now = new Date();
     if (date.toDateString() === now.toDateString()) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays < 7) {
+    if (diffDays < 7 && diffDays > 0) {
       return date.toLocaleDateString([], { weekday: 'short' });
     }
     return date.toLocaleDateString([], { day: 'numeric', month: 'short' });
@@ -1160,7 +1169,7 @@ export const CRMInboxPage: React.FC = () => {
                     </div>
                     <div className="text-right shrink-0">
                       <span className="text-xs text-slate-500 font-mono block">
-                        {new Date(selectedEmail.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                        {parseEmailDate(selectedEmail.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                       </span>
                       <span className={`text-[10px] font-bold ${selectedEmail.is_read ? 'text-slate-400' : 'text-blue-600 font-extrabold'}`}>
                         {selectedEmail.is_read ? '✓ Leído' : '● No leído'}

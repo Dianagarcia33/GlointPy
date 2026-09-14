@@ -25,6 +25,16 @@ def _parse_attachments(att_raw: Optional[str]) -> List[dict]:
         return []
 
 
+def _format_datetime(dt: Optional[datetime]) -> Optional[str]:
+    """Formatea la fecha a ISO-8601 con sufijo Z (UTC) para que el navegador la convierta a la hora local del usuario."""
+    if not dt:
+        return None
+    s = dt.isoformat()
+    if not s.endswith("Z") and "+" not in s:
+        return s + "Z"
+    return s
+
+
 class CRMEmailService:
     @staticmethod
     async def get_user_emails(
@@ -94,7 +104,7 @@ class CRMEmailService:
                 "status": e.status,
                 "is_read": e.is_read,
                 "attachments": _parse_attachments(e.attachments),
-                "created_at": e.created_at.isoformat() if e.created_at else None
+                "created_at": _format_datetime(e.created_at)
             }
             for e in emails
         ]
@@ -123,7 +133,7 @@ class CRMEmailService:
                 "body_html": e.body_html,
                 "status": e.status,
                 "attachments": _parse_attachments(e.attachments),
-                "created_at": e.created_at.isoformat() if e.created_at else None
+                "created_at": _format_datetime(e.created_at)
             }
             for e in emails
         ]
@@ -230,7 +240,7 @@ class CRMEmailService:
             "subject": email_record.subject,
             "recipient_email": email_record.recipient_email,
             "attachments": attachments or [],
-            "created_at": email_record.created_at.isoformat() if email_record.created_at else None
+            "created_at": _format_datetime(email_record.created_at)
         }
 
     @staticmethod
@@ -371,13 +381,17 @@ class CRMEmailService:
 
             for e_id in reversed(recent_ids):
                 try:
-                    res, msg_data = mail.fetch(str(e_id), "(RFC822)")
+                    res, msg_data = mail.fetch(str(e_id), "(RFC822 FLAGS)")
                     if res != "OK" or not msg_data:
                         continue
 
                     for response_part in msg_data:
                         if not isinstance(response_part, tuple):
                             continue
+
+                        # Detectar si el correo fue leído en cPanel (bandera \Seen)
+                        flags_str = response_part[0].decode("utf-8", errors="ignore") if isinstance(response_part[0], bytes) else str(response_part[0])
+                        is_seen_in_cpanel = "\\seen" in flags_str.lower()
 
                         msg = email.message_from_bytes(response_part[1])
 
@@ -523,20 +537,32 @@ class CRMEmailService:
                             )
                         )).scalars().all()
 
-                        is_duplicate = False
+                        matched_record = None
                         clean_body_snippet = (body_text or re.sub(r'<[^>]+>', ' ', body_html)).strip()[:140]
                         for ex in existing_records:
                             # 1. Si la fecha del correo coincide dentro de un margen razonable (120s)
                             if msg_date and ex.created_at and abs((ex.created_at - msg_date).total_seconds()) < 120:
-                                is_duplicate = True
+                                matched_record = ex
                                 break
                             # 2. Si el cuerpo de texto o contenido es idéntico
                             ex_snippet = (ex.body_text or re.sub(r'<[^>]+>', ' ', ex.body_html or '')).strip()[:140]
                             if clean_body_snippet and ex_snippet and clean_body_snippet == ex_snippet:
-                                is_duplicate = True
+                                matched_record = ex
                                 break
 
-                        if is_duplicate:
+                        if matched_record:
+                            needs_update = False
+                            # Si fue leído desde el gestor de correos de cPanel, actualizarlo en el CRM
+                            if is_seen_in_cpanel and not matched_record.is_read:
+                                matched_record.is_read = True
+                                needs_update = True
+                            # Si tenía la fecha del servidor en vez de la fecha real del correo, corregirla
+                            if msg_date and matched_record.created_at != msg_date:
+                                matched_record.created_at = msg_date
+                                needs_update = True
+                            if needs_update:
+                                db.add(matched_record)
+                                await db.commit()
                             continue
 
                         # Vincular con Prospecto CRM si existe
@@ -554,7 +580,7 @@ class CRMEmailService:
                             body_html=body_html or "<p>(Sin contenido)</p>",
                             body_text=body_text or None,
                             status=CRMEmailStatus.RECEIVED,
-                            is_read=False,
+                            is_read=is_seen_in_cpanel,
                             attachments=json.dumps(attachments) if attachments else None,
                             created_at=msg_date or datetime.utcnow()
                         )
