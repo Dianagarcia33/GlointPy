@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Link, Wallet, AlertCircle, Trash2, ShieldCheck } from 'lucide-react';
+import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
 import { compressImage } from '../../../utils/imageCompression';
@@ -24,7 +24,6 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
     const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
     
     // Step 2 State
-    const [referralCode, setReferralCode] = useState('');
     const [useWallet, setUseWallet] = useState(false);
     const [walletAmount, setWalletAmount] = useState<number>(0);
     const [files, setFiles] = useState<FileList | null>(null);
@@ -66,7 +65,6 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         setStep(1);
         setSelectedPackage(null);
         setSelectedPeriod(null);
-        setReferralCode('');
         setUseWallet(false);
         setWalletAmount(0);
         setFiles(null);
@@ -151,10 +149,6 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         
         if (useWallet && walletAmount > 0) {
             formData.append('monto_billetera_usado', walletAmount.toString());
-        }
-        
-        if (!isUpgrade && referralCode.trim()) {
-            formData.append('codigo_referido', referralCode.trim());
         }
         
         if (isUpgrade) {
@@ -480,37 +474,6 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                     )}
                                 </div>
                             </div>
-
-                            {/* Referido (Solo para nuevas inversiones) */}
-                            {!isUpgrade && (
-                                <div>
-                                    <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <Link className="w-4 h-4 text-slate-400" />
-                                        Código de Referido (Opcional)
-                                    </label>
-                                    {myInvestments && myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).length > 0 ? (
-                                        <select 
-                                            value={referralCode}
-                                            onChange={(e) => setReferralCode(e.target.value)}
-                                            className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500 appearance-none"
-                                        >
-                                            <option value="">-- Sin código de referido --</option>
-                                            {myInvestments.filter((inv: any) => (inv.codigo_asignado || inv.assigned_code)).map((inv: any) => {
-                                                const code = inv.codigo_asignado || inv.assigned_code;
-                                                return (
-                                                    <option key={inv.id} value={code}>
-                                                        {code} - {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(inv.monto)} ({inv.paquete?.acciones_otorgadas || 0} Acciones)
-                                                    </option>
-                                                );
-                                            })}
-                                        </select>
-                                    ) : (
-                                        <div className="bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-slate-400 font-medium italic text-sm">
-                                            No tienes códigos de referido disponibles.
-                                        </div>
-                                    )}
-                                </div>
-                            )}
 
                             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
                                 <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />

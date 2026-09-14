@@ -31,7 +31,6 @@ export const AdminSolicitudInversionModal = ({ isOpen, onClose, onSuccess }: Adm
     const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
     
     // Step 2 State
-    const [referralCode, setReferralCode] = useState('');
     const [useWallet, setUseWallet] = useState(false);
     const [walletAmount, setWalletAmount] = useState<number>(0);
     const [userWalletBalance, setUserWalletBalance] = useState<number>(0);
@@ -103,7 +102,6 @@ export const AdminSolicitudInversionModal = ({ isOpen, onClose, onSuccess }: Adm
         setUserSearch('');
         setSelectedPackage(null);
         setSelectedPeriod(null);
-        setReferralCode('');
         setUseWallet(false);
         setWalletAmount(0);
         setUserWalletBalance(0);
@@ -167,10 +165,6 @@ export const AdminSolicitudInversionModal = ({ isOpen, onClose, onSuccess }: Adm
         
         if (useWallet && walletAmount > 0) {
             formData.append('monto_billetera_usado', walletAmount.toString());
-        }
-        
-        if (referralCode.trim()) {
-            formData.append('codigo_referido', referralCode.trim());
         }
         
         if (files && files.length > 0) {
@@ -500,20 +494,6 @@ export const AdminSolicitudInversionModal = ({ isOpen, onClose, onSuccess }: Adm
                                         </div>
                                     </div>
                                 )}
-                            </div>
-
-                            {/* Código de Referido */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-slate-700 uppercase tracking-widest block">
-                                    Código de Referido (Opcional)
-                                </label>
-                                <input 
-                                    type="text"
-                                    value={referralCode}
-                                    onChange={(e) => setReferralCode(e.target.value)}
-                                    placeholder="Ej: DIR-102"
-                                    className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 px-4 text-slate-700 text-sm font-semibold focus:outline-none focus:border-brand-500 transition-all"
-                                />
                             </div>
 
                             {/* Soporte de Pago / Comprobante */}

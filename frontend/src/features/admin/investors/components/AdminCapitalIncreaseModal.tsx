@@ -21,7 +21,6 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
 }) => {
   const [selectedPackageId, setSelectedPackageId] = useState<number | ''>('');
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | ''>('');
-  const [referralCode, setReferralCode] = useState('');
   const [useWallet, setUseWallet] = useState(false);
   const [walletAmount, setWalletAmount] = useState<number>(0);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -44,7 +43,6 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
     if (investor) {
       setSelectedPackageId('');
       setSelectedPeriodId(investor.period_id || '');
-      setReferralCode('');
       setUseWallet(false);
       setWalletAmount(0);
       setReceiptFile(null);
@@ -124,9 +122,6 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
       formData.append('user_id', investor.user_id.toString());
       if (useWallet && walletAmount > 0) {
         formData.append('monto_billetera_usado', walletAmount.toString());
-      }
-      if (referralCode.trim()) {
-        formData.append('codigo_referido', referralCode.trim());
       }
       if (receiptFile) {
         formData.append('comprobantes', receiptFile);
@@ -345,20 +340,6 @@ export const AdminCapitalIncreaseModal: React.FC<AdminCapitalIncreaseModalProps>
               )}
             </div>
           )}
-
-          {/* Código Referido (Opcional) */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Código de Referido (opcional)
-            </label>
-            <input
-              type="text"
-              value={referralCode}
-              onChange={(e) => setReferralCode(e.target.value)}
-              placeholder="Ej. REF-123"
-              className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-            />
-          </div>
 
           {/* Comprobante de Pago (Opcional) */}
           <div>
