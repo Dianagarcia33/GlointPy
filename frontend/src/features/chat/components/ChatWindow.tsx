@@ -17,9 +17,11 @@ import {
   Users,
   Info,
   Smile,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '../../../store/authStore';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
 import { chatService, ChatRoom, ChatMessage } from '../../../services/chatService';
 import { getMediaUrl } from '../../../services/api';
@@ -58,9 +60,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { messages, typingUsers, isConnected, error, sendMessage, sendTypingStatus, updateMessageReactions } = useChatWebSocket(room ? room.id : null);
+  const currentUser = useAuthStore((state) => state.user);
+  const { messages, typingUsers, isConnected, error, sendMessage, sendTypingStatus, updateMessageReactions } = useChatWebSocket(room ? room.id : null, currentUser);
 
   const initialLoadRef = useRef<boolean>(true);
   const currentRoomIdRef = useRef<number | null>(null);
@@ -148,8 +152,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
     if (!messagesEndRef.current) return;
 
     if (initialLoadRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
-      initialLoadRef.current = false;
+      if (messages.length > 0) {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+        messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+          }
+          initialLoadRef.current = false;
+        });
+      }
     } else {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
@@ -337,7 +351,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
         setUploading(false);
       }
     } else {
-      sendMessage(inputText, replyId);
+      const replyPreview = replyingTo ? {
+        id: replyingTo.id,
+        sender_id: replyingTo.sender_id,
+        sender_name: replyingTo.sender_name,
+        content: replyingTo.content,
+        file_name: replyingTo.file_name,
+        file_type: replyingTo.file_type
+      } : null;
+      sendMessage(inputText, replyId, replyPreview);
       setInputText('');
       setReplyingTo(null);
     }
@@ -466,7 +488,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
       </div>
 
       {/* Message Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40">
         {error && (
           <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 flex-shrink-0" />
@@ -497,7 +519,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
                 <motion.div
                   id={`msg-${msg.id}`}
-                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  initial={initialLoadRef.current ? false : { opacity: 0, y: 10, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.2 }}
                   className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} transition-all duration-300`}
@@ -606,7 +628,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                       >
                         <span>{formatChatTime(msg.created_at)}</span>
                         {isMe && (
-                          msg.is_read ? <CheckCheck className="w-3.5 h-3.5 text-amber-200" /> : <Check className="w-3.5 h-3.5 opacity-80" />
+                          msg.sending ? (
+                            <span title="Enviando..."><Clock className="w-3 h-3 text-amber-200 animate-spin" /></span>
+                          ) : msg.is_read ? (
+                            <CheckCheck className="w-3.5 h-3.5 text-amber-200" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5 opacity-80" />
+                          )
                         )}
                       </div>
                     </div>

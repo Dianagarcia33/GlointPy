@@ -39,6 +39,7 @@ export interface ChatMessage {
   reactions?: MessageReactionGroup[];
   is_read: boolean;
   created_at: string;
+  sending?: boolean;
 }
 
 export interface ChatRoom {

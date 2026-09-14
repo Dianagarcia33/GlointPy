@@ -208,13 +208,12 @@ class ChatService:
 
     @staticmethod
     async def get_user_rooms(db: AsyncSession, user_id: int) -> List[dict]:
-        """Obtiene la lista de salas de chat activas en las que participa el usuario."""
+        """Obtiene la lista de salas de chat activas en las que participa el usuario de forma optimizada."""
         stmt = (
             select(ChatRoom)
             .join(ChatParticipant)
             .options(
-                selectinload(ChatRoom.participants).selectinload(ChatParticipant.user),
-                selectinload(ChatRoom.messages)
+                selectinload(ChatRoom.participants).selectinload(ChatParticipant.user)
             )
             .where(ChatParticipant.user_id == user_id)
             .where(ChatRoom.is_active == True)
@@ -222,28 +221,46 @@ class ChatService:
         res = await db.execute(stmt)
         rooms = res.scalars().unique().all()
 
-        rooms_data = []
-        for room in rooms:
-            # Obtener el último mensaje
-            msg_stmt = (
+        if not rooms:
+            return []
+
+        room_ids = [r.id for r in rooms]
+
+        # 1. Obtener contadores no leídos de todas las salas en una sola consulta
+        unread_stmt = (
+            select(ChatMessage.room_id, func.count(ChatMessage.id))
+            .where(ChatMessage.room_id.in_(room_ids))
+            .where(ChatMessage.sender_id != user_id)
+            .where(ChatMessage.is_read == False)
+            .group_by(ChatMessage.room_id)
+        )
+        unread_res = await db.execute(unread_stmt)
+        unread_map = {row[0]: row[1] for row in unread_res.all()}
+
+        # 2. Obtener los IDs de los últimos mensajes de cada sala en una sola consulta
+        last_id_subq = (
+            select(ChatMessage.room_id, func.max(ChatMessage.id).label("max_id"))
+            .where(ChatMessage.room_id.in_(room_ids))
+            .group_by(ChatMessage.room_id)
+        )
+        subq_res = await db.execute(last_id_subq)
+        latest_msg_ids = [row[1] for row in subq_res.all() if row[1] is not None]
+
+        last_msgs_map = {}
+        if latest_msg_ids:
+            latest_msgs_stmt = (
                 select(ChatMessage)
                 .options(selectinload(ChatMessage.sender))
-                .where(ChatMessage.room_id == room.id)
-                .order_by(desc(ChatMessage.created_at))
-                .limit(1)
+                .where(ChatMessage.id.in_(latest_msg_ids))
             )
-            msg_res = await db.execute(msg_stmt)
-            last_msg = msg_res.scalars().first()
+            latest_res = await db.execute(latest_msgs_stmt)
+            for m in latest_res.scalars().all():
+                last_msgs_map[m.room_id] = m
 
-            # Obtener contadores no leídos
-            unread_stmt = (
-                select(func.count(ChatMessage.id))
-                .where(ChatMessage.room_id == room.id)
-                .where(ChatMessage.sender_id != user_id)
-                .where(ChatMessage.is_read == False)
-            )
-            unread_res = await db.execute(unread_stmt)
-            unread_count = unread_res.scalar() or 0
+        rooms_data = []
+        for room in rooms:
+            last_msg = last_msgs_map.get(room.id)
+            unread_count = unread_map.get(room.id, 0)
 
             # Identificar participantes
             other_participant = None
@@ -289,6 +306,12 @@ class ChatService:
                 } if last_msg else None
             })
 
+        # Ordenar las salas por la fecha del último mensaje descendente
+        def get_room_sort_key(r):
+            lm = r.get("last_message")
+            return lm["created_at"] if lm and lm.get("created_at") else ""
+
+        rooms_data.sort(key=get_room_sort_key, reverse=True)
         return rooms_data
 
     @staticmethod
@@ -506,36 +529,51 @@ class ChatService:
             recipient_ids = part_res.scalars().all()
 
             if recipient_ids:
-                from src.services.push_notification_service import PushNotificationService
                 sender_name = sender.name if sender else "Nuevo mensaje"
                 preview_body = content if content else (f"📎 {file_name}" if file_name else "Nuevo archivo adjunto")
                 if len(preview_body) > 100:
                     preview_body = preview_body[:97] + "..."
 
+                # Enviar eventos WebSocket in-memory de forma inmediata (sin latencia)
                 for r_id in recipient_ids:
-                    # Enviar evento por WebSocket directo al usuario si está conectado en otra vista
-                    await manager.send_to_user(r_id, {
-                        "type": "chat_notification",
-                        "room_id": room_id,
-                        "message": payload
-                    })
-
-                    # Transmitir alerta Push a sus dispositivos
                     try:
-                        await PushNotificationService.send_push_to_user(
-                            db=db,
-                            user_id=r_id,
-                            title=f"💬 {sender_name}",
-                            body=preview_body,
-                            data={
-                                "type": "chat",
-                                "room_id": str(room_id),
-                                "sender_id": str(sender_id),
-                                "link": f"/dashboard/chat?room={room_id}"
-                            }
-                        )
-                    except Exception as push_err:
-                        logger.warning(f"Error enviando push de chat a usuario {r_id}: {push_err}")
+                        await manager.send_to_user(r_id, {
+                            "type": "chat_notification",
+                            "room_id": room_id,
+                            "message": payload
+                        })
+                    except Exception:
+                        pass
+
+                # Despachar notificaciones Push FCM en segundo plano para no bloquear el retorno del mensaje
+                async def _background_push_dispatch(r_ids, s_name, p_body, r_id_val, s_id_val):
+                    try:
+                        from src.core.database import async_session_maker
+                        from src.services.push_notification_service import PushNotificationService
+                        async with async_session_maker() as push_db:
+                            for target_uid in r_ids:
+                                try:
+                                    await PushNotificationService.send_push_to_user(
+                                        db=push_db,
+                                        user_id=target_uid,
+                                        title=f"💬 {s_name}",
+                                        body=p_body,
+                                        data={
+                                            "type": "chat",
+                                            "room_id": str(r_id_val),
+                                            "sender_id": str(s_id_val),
+                                            "link": f"/dashboard/chat?room={r_id_val}"
+                                        }
+                                    )
+                                except Exception as push_err:
+                                    logger.warning(f"Error enviando push de chat a usuario {target_uid}: {push_err}")
+                    except Exception as bg_err:
+                        logger.warning(f"Error en tarea en segundo plano de push: {bg_err}")
+
+                import asyncio
+                asyncio.create_task(_background_push_dispatch(
+                    recipient_ids, sender_name, preview_body, room_id, sender_id
+                ))
         except Exception as err:
             logger.warning(f"Error procesando alertas para sala de chat {room_id}: {err}")
 

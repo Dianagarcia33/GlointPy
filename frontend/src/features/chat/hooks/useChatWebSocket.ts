@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { chatService, ChatMessage } from '../../../services/chatService';
 
-export function useChatWebSocket(roomId: number | null) {
+export function useChatWebSocket(roomId: number | null, currentUser?: { id: number; name: string } | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -66,6 +66,19 @@ export function useChatWebSocket(roomId: number | null) {
             }
             setMessages((prev) => {
               if (prev.some((m) => m.id === data.id)) return prev;
+
+              // Reemplazar mensaje optimista correspondiente si existe
+              if (currentUser && data.sender_id === currentUser.id) {
+                const optIndex = prev.findIndex(
+                  (m) => m.id < 0 && m.content === data.content
+                );
+                if (optIndex > -1) {
+                  const updated = [...prev];
+                  updated[optIndex] = data;
+                  return updated;
+                }
+              }
+
               return [...prev, data];
             });
           } else if (data.type === 'user_typing') {
@@ -127,7 +140,7 @@ export function useChatWebSocket(roomId: number | null) {
         socketRef.current.close(1000);
       }
     };
-  }, [roomId]);
+  }, [roomId, currentUser?.id]);
 
   // Función para actualizar manualmente o de forma optimista las reacciones de un mensaje
   const updateMessageReactions = useCallback((messageId: number, reactions: any[]) => {
@@ -148,19 +161,41 @@ export function useChatWebSocket(roomId: number | null) {
     }
   }, []);
 
-  // Función para enviar mensaje por WebSocket (con soporte de citas/respuestas)
-  const sendMessage = useCallback((content: string, replyToId?: number | null) => {
-    if (!content.trim()) return;
+  // Función para enviar mensaje por WebSocket (con soporte de citas/respuestas y actualización optimista inmediata)
+  const sendMessage = useCallback((content: string, replyToId?: number | null, replyToObj?: any) => {
+    const trimmed = content.trim();
+    if (!trimmed || !roomId) return;
+
+    // Actualización optimista inmediata en la UI (0ms latencia percibida)
+    const tempId = -Date.now();
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      room_id: roomId,
+      sender_id: currentUser?.id || 0,
+      sender_name: currentUser?.name || 'Yo',
+      content: trimmed,
+      file_url: null,
+      file_name: null,
+      file_type: null,
+      reply_to: replyToObj || null,
+      reactions: [],
+      is_read: false,
+      created_at: new Date().toISOString(),
+      sending: true
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({
         type: 'message',
-        content: content.trim(),
+        content: trimmed,
         reply_to_id: replyToId || null
       }));
     } else {
       setError('Conexión perdida. Intentando reconectar...');
     }
-  }, []);
+  }, [roomId, currentUser]);
 
   return {
     messages,
