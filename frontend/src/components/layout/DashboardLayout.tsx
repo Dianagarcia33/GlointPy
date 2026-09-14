@@ -9,7 +9,7 @@ export const DashboardLayout = () => {
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const location = useLocation();
     const isChatPage = location.pathname.includes('/dashboard/chat');
-    const isFullHeightPage = isChatPage || location.pathname.includes('/dashboard/crm/inbox');
+    const isFullHeightPage = isChatPage || location.pathname.includes('/dashboard/crm/inbox') || location.pathname.includes('/dashboard/crm/calendar');
 
     return (
         <div className="h-screen bg-slate-100 flex flex-col relative font-inter text-slate-900 overflow-hidden">

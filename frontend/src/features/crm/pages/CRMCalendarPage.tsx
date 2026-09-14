@@ -2,11 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
-  Calendar as CalendarIcon,
+  CalendarDays,
   Clock,
   Video,
   MapPin,
-  Users,
   Plus,
   RefreshCw,
   ChevronLeft,
@@ -15,19 +14,18 @@ import {
   Trash2,
   AlertCircle,
   CheckCircle2,
-  Lock,
   Key,
   Mail,
   Search,
   X,
-  Phone,
-  Building2,
-  CalendarCheck,
-  Sparkles,
   User as UserIcon,
   ShieldCheck,
-  CalendarDays,
-  ListFilter
+  Calendar as CalendarIcon,
+  Lock,
+  List,
+  CalendarCheck,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import { 
   crmCalendarService, 
@@ -37,7 +35,6 @@ import {
 import { crmEmailService } from '../../../services/crmEmailService';
 import { crmService, CRMLead } from '../../../services/crmService';
 
-// Nombres de meses y días en español
 const MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
@@ -48,7 +45,7 @@ export const CRMCalendarPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Estados de navegación de calendario
+  // Estados de navegación del calendario
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'list'>('month');
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -65,6 +62,7 @@ export const CRMCalendarPage: React.FC = () => {
   const [newEndTime, setNewEndTime] = useState('11:00');
   const [newLocation, setNewLocation] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState<number | undefined>(undefined);
   const [newLeadId, setNewLeadId] = useState<number | undefined>(undefined);
   const [savingEvent, setSavingEvent] = useState(false);
 
@@ -74,7 +72,7 @@ export const CRMCalendarPage: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Filtro / búsqueda de eventos
+  // Filtro / búsqueda de eventos en el panel lateral
   const [searchFilter, setSearchFilter] = useState('');
 
   // 1. Query: Saber si el usuario tiene contraseña guardada
@@ -94,7 +92,7 @@ export const CRMCalendarPage: React.FC = () => {
   } = useQuery({
     queryKey: ['crm_calendar_events'],
     queryFn: () => crmCalendarService.getEvents(),
-    staleTime: 1000 * 60 * 3 // 3 minutos
+    staleTime: 1000 * 60 * 3
   });
 
   const events: CalendarEvent[] = useMemo(() => calendarData?.events || [], [calendarData]);
@@ -106,8 +104,6 @@ export const CRMCalendarPage: React.FC = () => {
     queryFn: () => crmService.getProjects(),
     staleTime: 1000 * 60 * 5
   });
-
-  const [selectedProjectId, setSelectedProjectId] = useState<number | undefined>(undefined);
 
   const { data: projectLeads = [] } = useQuery<CRMLead[]>({
     queryKey: ['crm_project_leads_for_calendar', selectedProjectId],
@@ -180,7 +176,6 @@ export const CRMCalendarPage: React.FC = () => {
       if (res.success) {
         showToast('¡Cita agendada y sincronizada en cPanel con éxito!', 'success');
         setIsCreateModalOpen(false);
-        // Reset form
         setNewTitle('');
         setNewLocation('');
         setNewDescription('');
@@ -222,14 +217,13 @@ export const CRMCalendarPage: React.FC = () => {
     }
   };
 
-  // Cálculos para la cuadrícula del mes
+  // Cálculos de fecha para la cuadrícula
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; // Lunes = 0
 
-  // Navegación de mes
   const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const handleToday = () => setCurrentDate(new Date());
@@ -257,7 +251,7 @@ export const CRMCalendarPage: React.FC = () => {
     return map;
   }, [filteredEvents]);
 
-  // Formateador de hora amigable
+  // Formateadores
   const formatTimeRange = (startIso: string, endIso?: string) => {
     try {
       const s = new Date(startIso);
@@ -271,15 +265,13 @@ export const CRMCalendarPage: React.FC = () => {
     }
   };
 
-  // Formateador de fecha completa
   const formatFullDate = (isoStr: string) => {
     try {
       const d = new Date(isoStr);
       return d.toLocaleDateString('es-CO', {
-        weekday: 'long',
+        weekday: 'short',
         day: 'numeric',
-        month: 'long',
-        year: 'numeric'
+        month: 'short'
       });
     } catch {
       return isoStr;
@@ -287,443 +279,476 @@ export const CRMCalendarPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-slate-950 font-sans text-slate-100">
+    <div className="w-full h-full flex rounded-2xl border border-slate-200/80 overflow-hidden bg-white shadow-xs font-inter text-slate-800">
       
       {/* 🟢 TOAST NOTIFICATION */}
       {toast && (
         <div 
-          className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border text-sm animate-in fade-in slide-in-from-top-4 duration-200 ${
+          className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 border text-xs font-semibold animate-in fade-in slide-in-from-top-4 duration-200 ${
             toast.type === 'success'
-              ? 'bg-emerald-950/95 border-emerald-500/40 text-emerald-200'
-              : 'bg-rose-950/95 border-rose-500/40 text-rose-200'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+              : 'bg-rose-50 border-rose-300 text-rose-800'
           }`}
         >
-          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" /> : <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />}
+          {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
           <span>{toast.message}</span>
         </div>
       )}
 
-      {/* 顶部 HEADER DE LA AGENDA */}
-      <header className="h-16 px-6 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20 text-white font-bold">
-            <CalendarIcon className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-white font-montserrat tracking-tight">
-                Agenda & Calendario cPanel
-              </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                CalDAV 2080
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">
-              Sincronizado bidireccionalmente con tu Webmail corporativo
-            </p>
-          </div>
-        </div>
-
-        {/* Acciones principales del header */}
-        <div className="flex items-center gap-2.5">
-          {/* Ir a la Bandeja de correos */}
-          <button
-            onClick={() => navigate('/dashboard/crm/inbox')}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs transition-colors border border-slate-700/60 cursor-pointer"
-            title="Ir a la Bandeja de Correos"
-          >
-            <Mail className="w-3.5 h-3.5 text-brand-400" />
-            <span>Bandeja de Correos</span>
-          </button>
-
-          {/* Estado / Conexión cPanel */}
-          <button
-            onClick={() => setIsSyncModalOpen(true)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${
-              hasSavedPassword
-                ? 'bg-slate-800/80 hover:bg-slate-700/90 text-slate-300 border-slate-700'
-                : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
-            }`}
-          >
-            {hasSavedPassword ? <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Key className="w-3.5 h-3.5 text-amber-400" />}
-            <span>{hasSavedPassword ? 'cPanel Conectado' : 'Configurar cPanel'}</span>
-          </button>
-
-          {/* Botón Sincronizar Ahora */}
-          <button
-            onClick={() => refetchEvents()}
-            disabled={fetchingEvents || syncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 cursor-pointer disabled:opacity-50 transition-all"
-            title="Recargar eventos desde cPanel"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${fetchingEvents ? 'animate-spin' : ''}`} />
-            <span className="hidden md:inline">Sincronizar</span>
-          </button>
-
-          {/* Botón Nueva Cita */}
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 text-xs font-black shadow-md shadow-amber-500/20 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4 text-slate-950" />
-            <span>Agendar Cita</span>
-          </button>
-        </div>
-      </header>
-
-      {/* 🟡 AVISO SI REQUIERE CONTRASEÑA */}
-      {needsPassword && (
-        <div className="bg-amber-950/60 border-b border-amber-500/30 px-6 py-2.5 flex items-center justify-between text-xs text-amber-200">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              Ingresa la contraseña de tu cuenta de correo de cPanel para activar la sincronización automática de tu calendario.
-            </span>
-          </div>
-          <button
-            onClick={() => setIsSyncModalOpen(true)}
-            className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition-colors cursor-pointer shrink-0 ml-4"
-          >
-            Configurar Ahora
-          </button>
-        </div>
-      )}
-
-      {/* 🧭 BARRA DE NAVEGACIÓN Y VISTAS */}
-      <div className="px-6 py-3 border-b border-slate-800/80 bg-slate-900/40 flex flex-wrap items-center justify-between gap-3 shrink-0">
+      {/* ⬅️ PANEL LATERAL IZQUIERDO: LISTA DE CITAS & ACCESOS RÁPIDOS (Estilo Chat ConversationList) */}
+      <div className="w-full md:w-80 lg:w-96 flex-shrink-0 bg-slate-50/70 border-r border-slate-200/80 flex flex-col h-full overflow-hidden">
         
-        {/* Controles de Mes y Año */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-slate-800/80 rounded-xl p-1 border border-slate-700/60">
-            <button
-              onClick={handlePrevMonth}
-              className="p-1 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title="Mes anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 text-xs font-bold text-white min-w-[140px] text-center font-montserrat">
-              {MONTH_NAMES[month]} {year}
-            </span>
-            <button
-              onClick={handleNextMonth}
-              className="p-1 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title="Mes siguiente"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+        {/* Header del Panel Lateral */}
+        <div className="p-4 border-b border-slate-200/80 bg-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-slate-900 font-bold font-outfit text-base">
+            <CalendarDays className="w-5 h-5 text-brand-500" />
+            <span>Agenda & Citas</span>
           </div>
-
           <button
-            onClick={handleToday}
-            className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700/60 transition-colors cursor-pointer"
+            onClick={() => {
+              setNewDate(new Date().toISOString().split('T')[0]);
+              setIsCreateModalOpen(true);
+            }}
+            className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold shadow-xs shadow-brand-500/20 active:scale-95 cursor-pointer"
+            title="Agendar nueva cita en cPanel"
           >
-            Hoy
+            <Plus className="w-4 h-4" />
+            <span>Nueva Cita</span>
           </button>
-
-          <span className="text-xs text-slate-500 font-medium ml-2">
-            {filteredEvents.length} {filteredEvents.length === 1 ? 'evento registrado' : 'eventos registrados'}
-          </span>
         </div>
 
-        {/* Buscador y Selector de Vista (Mes / Lista) */}
-        <div className="flex items-center gap-3">
+        {/* Barra de Estado y Sincronización con cPanel */}
+        <div className="px-3.5 py-2.5 bg-white border-b border-slate-200/60 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            {hasSavedPassword ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-ping" />
+            )}
+            <span className="text-[11px] font-semibold text-slate-600 truncate">
+              {hasSavedPassword ? 'cPanel CalDAV Activo' : 'Clave cPanel requerida'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setIsSyncModalOpen(true)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Configurar conexión cPanel"
+            >
+              <Key className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => refetchEvents()}
+              disabled={fetchingEvents || syncing}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-40"
+              title="Sincronizar eventos"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${fetchingEvents ? 'animate-spin text-brand-500' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Buscador de Citas */}
+        <div className="p-3 bg-white/50 border-b border-slate-200/60 shrink-0">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Buscar citas o clientes..."
+              placeholder="Buscar cita o cliente..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="w-48 sm:w-60 pl-8 pr-3 py-1.5 bg-slate-800/70 border border-slate-700/70 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-amber-500/60 transition-colors"
+              className="w-full bg-white text-slate-900 text-xs pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 transition-all placeholder:text-slate-400 font-sans"
             />
             {searchFilter && (
-              <button 
+              <button
                 onClick={() => setSearchFilter('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
+        </div>
 
-          <div className="flex items-center bg-slate-800/80 rounded-xl p-1 border border-slate-700/60">
-            <button
-              onClick={() => setViewMode('month')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                viewMode === 'month'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <CalendarDays className="w-3.5 h-3.5" />
-              <span>Mes</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                viewMode === 'list'
-                  ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <ListFilter className="w-3.5 h-3.5" />
-              <span>Lista</span>
-            </button>
-          </div>
+        {/* Lista de Citas en el Panel Lateral */}
+        <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
+          {loadingEvents ? (
+            <div className="h-40 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+              <RefreshCw className="w-5 h-5 text-brand-500 animate-spin" />
+              <span>Cargando eventos...</span>
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="h-48 flex flex-col items-center justify-center p-4 text-center text-slate-400 space-y-2">
+              <CalendarIcon className="w-8 h-8 text-slate-300" />
+              <p className="text-xs font-semibold text-slate-600">No hay citas registradas</p>
+              <p className="text-[11px] text-slate-400">
+                Toca "+ Nueva Cita" para programar una reunión en cPanel.
+              </p>
+            </div>
+          ) : (
+            filteredEvents.map((ev) => {
+              const isSelected = selectedEvent?.uid === ev.uid;
+              return (
+                <div
+                  key={ev.uid}
+                  onClick={() => setSelectedEvent(ev)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer text-left space-y-1 group ${
+                    isSelected
+                      ? 'bg-white border-brand-500 shadow-sm ring-1 ring-brand-500/20'
+                      : 'bg-white hover:bg-slate-100/80 border-slate-200/80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-brand-50 text-brand-700">
+                      {formatFullDate(ev.start)}
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-500 flex items-center gap-1">
+                      <Clock className="w-2.5 h-2.5 text-slate-400" />
+                      {formatTimeRange(ev.start, ev.end)}
+                    </span>
+                  </div>
+
+                  <h4 className="text-xs font-bold text-slate-900 group-hover:text-brand-600 transition-colors truncate font-montserrat">
+                    {ev.title}
+                  </h4>
+
+                  {ev.location && (
+                    <p className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                      <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <span className="truncate">{ev.location}</span>
+                    </p>
+                  )}
+
+                  {ev.url && (
+                    <div className="pt-0.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                        <Video className="w-2.5 h-2.5" />
+                        Videollamada lista
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer del Panel Lateral */}
+        <div className="p-3 border-t border-slate-200/80 bg-white flex items-center justify-between text-xs text-slate-500 shrink-0">
+          <button
+            onClick={() => navigate('/dashboard/crm/inbox')}
+            className="flex items-center gap-1.5 text-slate-600 hover:text-brand-600 font-medium transition-colors cursor-pointer text-[11px]"
+          >
+            <Mail className="w-3.5 h-3.5 text-brand-500" />
+            <span>Ir a Bandeja de Correos</span>
+          </button>
+          <span className="text-[10px] font-bold text-slate-400">
+            {events.length} {events.length === 1 ? 'cita' : 'citas'}
+          </span>
         </div>
 
       </div>
 
-      {/* 📅 CONTENIDO PRINCIPAL DEL CALENDARIO */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/80">
-        {loadingEvents ? (
-          <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
-            <RefreshCw className="w-8 h-8 text-amber-400 animate-spin" />
-            <p className="text-sm font-medium">Cargando eventos desde cPanel CalDAV...</p>
-          </div>
-        ) : viewMode === 'month' ? (
+      {/* ➡️ PANEL PRINCIPAL: VISTA DE MES O LISTA (Ajustado a la altura de pantalla) */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+        
+        {/* Barra Superior del Calendario Principal */}
+        <div className="px-5 py-3 border-b border-slate-200/80 bg-white flex flex-wrap items-center justify-between gap-3 shrink-0">
           
-          /* 🗓️ VISTA DE MES */
-          <div className="bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden shadow-2xl flex flex-col">
-            
-            {/* Encabezado de los días de la semana */}
-            <div className="grid grid-cols-7 border-b border-slate-800 bg-slate-900/90 text-center text-xs font-bold text-slate-400 py-2.5">
-              {DAY_NAMES.map((d, i) => (
-                <div key={i} className="font-montserrat uppercase tracking-wider text-[11px]">
-                  {d}
-                </div>
-              ))}
+          {/* Selector de Mes */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-100 rounded-xl p-0.5 border border-slate-200">
+              <button
+                onClick={handlePrevMonth}
+                className="p-1 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                title="Mes anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-3 text-xs font-bold text-slate-900 min-w-[130px] text-center font-montserrat">
+                {MONTH_NAMES[month]} {year}
+              </span>
+              <button
+                onClick={handleNextMonth}
+                className="p-1 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
+                title="Mes siguiente"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Días del mes */}
-            <div className="grid grid-cols-7 auto-rows-fr bg-slate-950/40">
-              {/* Celdas vacías del mes anterior */}
-              {Array.from({ length: firstDayIndex }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-[110px] p-2 border-r border-b border-slate-800/40 bg-slate-900/20 opacity-30" />
-              ))}
+            <button
+              onClick={handleToday}
+              className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Hoy
+            </button>
+          </div>
 
-              {/* Días reales del mes */}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const dayNumber = i + 1;
-                const dayMonthStr = String(month + 1).padStart(2, '0');
-                const dayNumberStr = String(dayNumber).padStart(2, '0');
-                const dateKey = `${year}-${dayMonthStr}-${dayNumberStr}`;
-                const dayEvents = eventsByDay[dateKey] || [];
+          {/* Toggle de Vistas: Mes vs Lista */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200">
+              <button
+                onClick={() => setViewMode('month')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === 'month'
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <CalendarDays className="w-3.5 h-3.5 text-brand-500" />
+                <span>Mes</span>
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === 'list'
+                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <List className="w-3.5 h-3.5 text-brand-500" />
+                <span>Agenda</span>
+              </button>
+            </div>
+          </div>
 
-                const today = new Date();
-                const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === dayNumber;
+        </div>
 
-                return (
-                  <div
-                    key={dateKey}
-                    onClick={() => {
-                      setNewDate(dateKey);
-                      setIsCreateModalOpen(true);
-                    }}
-                    className={`min-h-[110px] p-2 border-r border-b border-slate-800/60 transition-colors group cursor-pointer hover:bg-slate-800/30 flex flex-col ${
-                      isToday ? 'bg-amber-500/5' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span
-                        className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
-                          isToday
-                            ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 font-black'
-                            : 'text-slate-300 group-hover:text-amber-400'
-                        }`}
-                      >
-                        {dayNumber}
-                      </span>
-                      {dayEvents.length > 0 && (
-                        <span className="text-[10px] font-bold text-amber-400/80">
-                          {dayEvents.length} {dayEvents.length === 1 ? 'cita' : 'citas'}
-                        </span>
-                      )}
-                    </div>
+        {/* Cuerpo del Calendario (Totalmente adaptado a la altura restante) */}
+        <div className="flex-1 overflow-hidden p-3 sm:p-4 flex flex-col bg-slate-50/50">
+          {viewMode === 'month' ? (
+            
+            /* 🗓️ VISTA DE MES: Cuadrícula con altura 100% */
+            <div className="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+              
+              {/* Encabezado de los Días */}
+              <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80 text-center text-xs font-bold text-slate-500 py-2 shrink-0">
+                {DAY_NAMES.map((d, i) => (
+                  <div key={i} className="font-montserrat uppercase tracking-wider text-[11px]">
+                    {d}
+                  </div>
+                ))}
+              </div>
 
-                    {/* Lista de citas de este día */}
-                    <div className="space-y-1 overflow-y-auto max-h-[80px] no-scrollbar">
-                      {dayEvents.slice(0, 3).map((ev) => (
-                        <div
-                          key={ev.uid}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEvent(ev);
-                          }}
-                          className="px-2 py-1 rounded-lg bg-slate-800/90 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 border border-slate-700/60 hover:border-amber-500/40 text-[11px] truncate transition-all flex items-center gap-1"
+              {/* Días en Cuadrícula Flex-1 */}
+              <div className="grid grid-cols-7 grid-rows-5 md:grid-rows-6 flex-1 bg-slate-200/50 gap-[1px] overflow-hidden">
+                {/* Días vacíos previos */}
+                {Array.from({ length: firstDayIndex }).map((_, i) => (
+                  <div key={`empty-${i}`} className="bg-slate-50/50 p-1.5 opacity-40 min-h-0" />
+                ))}
+
+                {/* Días del mes */}
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const dayNumber = i + 1;
+                  const dayMonthStr = String(month + 1).padStart(2, '0');
+                  const dayNumberStr = String(dayNumber).padStart(2, '0');
+                  const dateKey = `${year}-${dayMonthStr}-${dayNumberStr}`;
+                  const dayEvents = eventsByDay[dateKey] || [];
+
+                  const today = new Date();
+                  const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === dayNumber;
+
+                  return (
+                    <div
+                      key={dateKey}
+                      onClick={() => {
+                        setNewDate(dateKey);
+                        setIsCreateModalOpen(true);
+                      }}
+                      className={`bg-white p-1.5 flex flex-col min-h-0 overflow-hidden transition-colors group cursor-pointer hover:bg-brand-50/20 ${
+                        isToday ? 'bg-amber-50/30 ring-1 ring-inset ring-amber-400/40' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between shrink-0 mb-1">
+                        <span
+                          className={`text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center ${
+                            isToday
+                              ? 'bg-brand-500 text-white font-black shadow-xs'
+                              : 'text-slate-600 group-hover:text-brand-600'
+                          }`}
                         >
-                          {ev.url ? (
-                            <Video className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
-                          ) : (
-                            <Clock className="w-2.5 h-2.5 text-amber-400 shrink-0" />
-                          )}
-                          <span className="truncate font-medium">{ev.title}</span>
-                        </div>
-                      ))}
-                      {dayEvents.length > 3 && (
-                        <p className="text-[10px] text-slate-400 font-semibold pl-1">
-                          +{dayEvents.length - 3} más
+                          {dayNumber}
+                        </span>
+
+                        {dayEvents.length > 0 && (
+                          <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-1 rounded">
+                            {dayEvents.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Eventos dentro de la celda */}
+                      <div className="flex-1 overflow-y-auto space-y-1 no-scrollbar min-h-0">
+                        {dayEvents.slice(0, 2).map((ev) => (
+                          <div
+                            key={ev.uid}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEvent(ev);
+                            }}
+                            className="px-1.5 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-medium truncate flex items-center gap-1 shadow-2xs"
+                            title={`${ev.title} (${formatTimeRange(ev.start, ev.end)})`}
+                          >
+                            {ev.url ? (
+                              <Video className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                            ) : (
+                              <Clock className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                            )}
+                            <span className="truncate">{ev.title}</span>
+                          </div>
+                        ))}
+                        {dayEvents.length > 2 && (
+                          <p className="text-[9px] text-slate-400 font-bold pl-1">
+                            +{dayEvents.length - 2} más
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+          ) : (
+
+            /* 📋 VISTA DE AGENDA / LISTA */
+            <div className="flex-1 overflow-y-auto space-y-3 max-w-3xl mx-auto w-full p-2">
+              {filteredEvents.length === 0 ? (
+                <div className="h-64 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+                  <CalendarCheck className="w-10 h-10 text-slate-300" />
+                  <h3 className="text-sm font-bold text-slate-800 font-montserrat">
+                    No tienes reuniones programadas
+                  </h3>
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    Agendar Cita en cPanel
+                  </button>
+                </div>
+              ) : (
+                filteredEvents.map((ev) => (
+                  <div
+                    key={ev.uid}
+                    className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs hover:shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
+                  >
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-200/50">
+                          {formatFullDate(ev.start)}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          {formatTimeRange(ev.start, ev.end)}
+                        </span>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition-colors font-montserrat">
+                        {ev.title}
+                      </h4>
+
+                      {ev.description && (
+                        <p className="text-xs text-slate-500 line-clamp-2">
+                          {ev.description}
                         </p>
                       )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
 
-          </div>
-        ) : (
-
-          /* 📋 VISTA DE LISTA DE CITAS */
-          <div className="max-w-4xl mx-auto space-y-4">
-            {filteredEvents.length === 0 ? (
-              <div className="bg-slate-900/60 rounded-3xl border border-slate-800 p-12 text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
-                  <CalendarDays className="w-8 h-8" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-white font-montserrat">
-                    No hay citas ni reuniones programadas
-                  </h3>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    Tu calendario de cPanel no contiene eventos para los filtros seleccionados o aún no has creado ninguna reunión.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 cursor-pointer transition-all"
-                >
-                  Agendar Primera Cita
-                </button>
-              </div>
-            ) : (
-              filteredEvents.map((ev) => (
-                <div
-                  key={ev.uid}
-                  className="bg-slate-900/70 hover:bg-slate-900 rounded-2xl border border-slate-800 hover:border-amber-500/30 p-4 transition-all shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group"
-                >
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                        {formatFullDate(ev.start)}
-                      </span>
-                      <span className="text-xs font-semibold text-slate-300 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        {formatTimeRange(ev.start, ev.end)}
-                      </span>
-                      {ev.status && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-slate-400 uppercase">
-                          {ev.status}
-                        </span>
+                      {ev.location && (
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                          <MapPin className="w-3 h-3 text-amber-500 shrink-0" />
+                          <span>{ev.location}</span>
+                        </div>
                       )}
                     </div>
 
-                    <h4 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors font-montserrat">
-                      {ev.title}
-                    </h4>
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      {ev.url && (
+                        <a
+                          href={ev.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Unirse</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
 
-                    {ev.description && (
-                      <p className="text-xs text-slate-400 line-clamp-2 max-w-xl">
-                        {ev.description}
-                      </p>
-                    )}
-
-                    {ev.location && (
-                      <div className="flex items-center gap-1.5 text-xs text-slate-300 pt-0.5">
-                        <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span className="truncate">{ev.location}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Acciones de la cita */}
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    {ev.url && (
-                      <a
-                        href={ev.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                      <button
+                        onClick={() => setSelectedEvent(ev)}
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
                       >
-                        <Video className="w-3.5 h-3.5 text-slate-950" />
-                        <span>Unirse a llamada</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
+                        Ver Detalle
+                      </button>
 
-                    <button
-                      onClick={() => setSelectedEvent(ev)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 cursor-pointer transition-colors"
-                    >
-                      Ver Detalle
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteEvent(ev)}
-                      disabled={deletingUid === ev.uid}
-                      className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-700 transition-colors cursor-pointer"
-                      title="Eliminar de cPanel"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <button
+                        onClick={() => handleDeleteEvent(ev)}
+                        disabled={deletingUid === ev.uid}
+                        className="p-1.5 rounded-xl hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                        title="Eliminar de cPanel"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+                ))
+              )}
+            </div>
+
+          )}
+        </div>
+
       </div>
 
       {/* 🟢 MODAL: AGENDAR NUEVA CITA */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 text-slate-900">
             
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                  <CalendarCheck className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                  <CalendarCheck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white font-montserrat">
+                  <h3 className="text-sm font-bold text-slate-900 font-montserrat">
                     Agendar Cita en cPanel CalDAV
                   </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Se guardará en tu calendario corporativo y se sincronizará en tiempo real
+                  <p className="text-[11px] text-slate-500">
+                    Sincronización en vivo con tu cuenta corporativa
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateAppointment} className="space-y-4 text-xs">
+            <form onSubmit={handleCreateAppointment} className="space-y-3.5 text-xs">
               
-              {/* Título de la Cita */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Título o Asunto de la Reunión *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ej: Presentación Modelo Inversión con Carlos"
+                  placeholder="Ej: Presentación de Inversión con Carlos"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white transition-all font-sans"
                 />
               </div>
 
-              {/* Fecha y Horas */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2.5">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Fecha *
                   </label>
                   <input
@@ -731,12 +756,12 @@ export const CRMCalendarPage: React.FC = () => {
                     required
                     value={newDate}
                     onChange={(e) => setNewDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-brand-500 focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Hora Inicio *
                   </label>
                   <input
@@ -744,12 +769,12 @@ export const CRMCalendarPage: React.FC = () => {
                     required
                     value={newStartTime}
                     onChange={(e) => setNewStartTime(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-brand-500 focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Hora Fin *
                   </label>
                   <input
@@ -757,29 +782,28 @@ export const CRMCalendarPage: React.FC = () => {
                     required
                     value={newEndTime}
                     onChange={(e) => setNewEndTime(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-brand-500 focus:bg-white"
                   />
                 </div>
               </div>
 
-              {/* Ubicación / Enlace de reunión */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-bold text-slate-300">
+                  <label className="text-[11px] font-bold text-slate-700">
                     Ubicación o Enlace Virtual
                   </label>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => setNewLocation('Google Meet')}
-                      className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300"
+                      className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] text-slate-600 font-medium"
                     >
                       + Meet
                     </button>
                     <button
                       type="button"
                       onClick={() => setNewLocation('Oficinas Gloint')}
-                      className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300"
+                      className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] text-slate-600 font-medium"
                     >
                       + Oficina
                     </button>
@@ -790,14 +814,14 @@ export const CRMCalendarPage: React.FC = () => {
                   placeholder="https://meet.google.com/... o Dirección física"
                   value={newLocation}
                   onChange={(e) => setNewLocation(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
                 />
               </div>
 
-              {/* Vincular con Prospecto / Lead del CRM */}
+              {/* Selector de Proyecto y Lead */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Proyecto CRM (Opcional)
                   </label>
                   <select
@@ -807,9 +831,9 @@ export const CRMCalendarPage: React.FC = () => {
                       setSelectedProjectId(pId);
                       setNewLeadId(undefined);
                     }}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:border-brand-500 focus:bg-white"
                   >
-                    <option value="">-- Selecciona proyecto --</option>
+                    <option value="">-- Sin proyecto --</option>
                     {projects.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
@@ -819,62 +843,60 @@ export const CRMCalendarPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Prospecto / Lead
                   </label>
                   <select
                     value={newLeadId || ''}
                     disabled={!selectedProjectId}
                     onChange={(e) => setNewLeadId(e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 focus:outline-none focus:border-amber-500 disabled:opacity-40"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:border-brand-500 focus:bg-white disabled:opacity-40"
                   >
-                    <option value="">{selectedProjectId ? '-- Selecciona prospecto --' : '-- Elige proyecto primero --'}</option>
+                    <option value="">{selectedProjectId ? '-- Seleccionar prospecto --' : '-- Elige proyecto primero --'}</option>
                     {projectLeads.map((l) => (
                       <option key={l.id} value={l.id}>
-                        {l.name} {l.email ? `(${l.email})` : ''}
+                        {l.name}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Notas / Descripción */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  Descripción o Notas de la Reunión
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Notas o Temas a Tratar
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Objetivos de la llamada, temas a tratar..."
+                  placeholder="Temas de la reunión, compromisos previos..."
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-500 resize-none"
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white resize-none"
                 />
               </div>
 
-              {/* Botones de acción */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer transition-colors"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingEvent}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black shadow-md shadow-amber-500/20 cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold shadow-sm shadow-brand-500/20 cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
                 >
                   {savingEvent ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Guardando en cPanel...</span>
+                      <span>Guardando...</span>
                     </>
                   ) : (
                     <>
                       <CalendarCheck className="w-4 h-4" />
-                      <span>Agendar y Sincronizar</span>
+                      <span>Agendar Cita</span>
                     </>
                   )}
                 </button>
@@ -888,63 +910,62 @@ export const CRMCalendarPage: React.FC = () => {
 
       {/* 🔍 MODAL: DETALLE DE EVENTO */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 text-slate-900">
             
             <div className="flex items-start justify-between">
               <div>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200/60">
                   {formatFullDate(selectedEvent.start)}
                 </span>
-                <h3 className="text-base font-bold text-white font-montserrat mt-2">
+                <h3 className="text-base font-bold text-slate-900 font-montserrat mt-2">
                   {selectedEvent.title}
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-300 bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
-              
+            <div className="space-y-2.5 text-xs text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>{formatTimeRange(selectedEvent.start, selectedEvent.end)}</span>
+                <Clock className="w-4 h-4 text-brand-500 shrink-0" />
+                <span className="font-semibold text-slate-800">
+                  {formatTimeRange(selectedEvent.start, selectedEvent.end)}
+                </span>
               </div>
 
               {selectedEvent.location && (
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <MapPin className="w-4 h-4 text-amber-500 shrink-0" />
                   <span>{selectedEvent.location}</span>
                 </div>
               )}
 
               {selectedEvent.organizer && (
                 <div className="flex items-center gap-2">
-                  <UserIcon className="w-4 h-4 text-purple-400 shrink-0" />
-                  <span>Organizador: {selectedEvent.organizer.name} ({selectedEvent.organizer.email})</span>
+                  <UserIcon className="w-4 h-4 text-purple-500 shrink-0" />
+                  <span>Organizador: {selectedEvent.organizer.name}</span>
                 </div>
               )}
 
               {selectedEvent.description && (
-                <div className="pt-2 border-t border-slate-800/80">
-                  <p className="text-[11px] font-semibold text-slate-400 mb-1">Descripción / Notas:</p>
-                  <p className="whitespace-pre-wrap text-slate-300 text-xs">
+                <div className="pt-2 border-t border-slate-200/80">
+                  <p className="text-[11px] font-bold text-slate-500 mb-1">Notas:</p>
+                  <p className="whitespace-pre-wrap text-slate-700 text-xs">
                     {selectedEvent.description}
                   </p>
                 </div>
               )}
-
             </div>
 
-            {/* Acciones */}
             <div className="flex items-center justify-between pt-2">
               <button
                 onClick={() => handleDeleteEvent(selectedEvent)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-rose-500/30 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Cancelar Cita</span>
@@ -956,15 +977,15 @@ export const CRMCalendarPage: React.FC = () => {
                     href={selectedEvent.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-bold shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
                   >
-                    <Video className="w-3.5 h-3.5 text-slate-950" />
-                    <span>Unirse a videollamada</span>
+                    <Video className="w-3.5 h-3.5" />
+                    <span>Unirse a llamada</span>
                   </a>
                 )}
                 <button
                   onClick={() => setSelectedEvent(null)}
-                  className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
                 >
                   Cerrar
                 </button>
@@ -977,52 +998,48 @@ export const CRMCalendarPage: React.FC = () => {
 
       {/* 🔐 MODAL: CONFIGURACIÓN / CONEXIÓN CPANEL CALDAV */}
       {isSyncModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200 text-slate-900">
             
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
                   <Key className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white font-montserrat">
+                  <h3 className="text-sm font-bold text-slate-900 font-montserrat">
                     Conexión cPanel CalDAV
                   </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Puerto seguro 2080 HTTPS • Calendarios de Webmail
+                  <p className="text-[11px] text-slate-500">
+                    Puerto 2080 HTTPS • Sincronización de Webmail
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsSyncModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSync} className="space-y-4 text-xs">
+            <form onSubmit={handleSync} className="space-y-3.5 text-xs">
               
-              <div className="bg-slate-950/60 p-3 rounded-2xl border border-slate-800 space-y-1.5 text-slate-300">
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-1 text-slate-600">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Servidor CalDAV:</span>
-                  <span className="font-mono text-slate-300">host81.latinoamericahosting.com:2080</span>
+                  <span className="text-slate-400">Servidor CalDAV:</span>
+                  <span className="font-mono text-slate-800 font-medium">host81.latinoamericahosting.com:2080</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Protocolo:</span>
-                  <span className="text-emerald-400 font-semibold">HTTPS / CalDAV (RFC 4791)</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Estado de contraseña:</span>
-                  <span className={hasSavedPassword ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                    {hasSavedPassword ? 'Guardada de forma segura' : 'No configurada'}
+                  <span className="text-slate-400">Estado de clave:</span>
+                  <span className={hasSavedPassword ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
+                    {hasSavedPassword ? 'Guardada de forma segura' : 'Pendiente de configurar'}
                   </span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Contraseña de la cuenta de correo cPanel {hasSavedPassword ? '(Opcional para actualizar)' : '*'}
                 </label>
                 <div className="relative">
@@ -1032,43 +1049,43 @@ export const CRMCalendarPage: React.FC = () => {
                     placeholder={hasSavedPassword ? '••••••••••••••••' : 'Ingresa tu contraseña de cPanel'}
                     value={syncPassword}
                     onChange={(e) => setSyncPassword(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                    className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white"
                   />
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-slate-300 cursor-pointer pt-1">
+              <label className="flex items-center gap-2 text-slate-700 cursor-pointer pt-1">
                 <input
                   type="checkbox"
                   checked={savePasswordCheck}
                   onChange={(e) => setSavePasswordCheck(e.target.checked)}
-                  className="rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-800"
+                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                 />
                 <span>Recordar contraseña para sincronizaciones automáticas</span>
               </label>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsSyncModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
                 >
                   Cerrar
                 </button>
                 <button
                   type="submit"
                   disabled={syncing}
-                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black shadow-md shadow-amber-500/20 cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold shadow-xs cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
                 >
                   {syncing ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Probando conexión...</span>
+                      <span>Verificando...</span>
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="w-4 h-4" />
-                      <span>Verificar y Sincronizar</span>
+                      <span>Verificar y Guardar</span>
                     </>
                   )}
                 </button>
@@ -1083,3 +1100,5 @@ export const CRMCalendarPage: React.FC = () => {
     </div>
   );
 };
+
+export default CRMCalendarPage;
