@@ -15,6 +15,8 @@ class CRMEmailStatus(str, enum.Enum):
     FAILED = "failed"
     RECEIVED = "received"
 
+from sqlalchemy.dialects.mysql import LONGTEXT
+
 class CRMEmail(Base):
     __tablename__ = "crm_emails"
 
@@ -32,8 +34,8 @@ class CRMEmail(Base):
     recipient_email = Column(String(255), nullable=False)
     
     subject = Column(String(255), nullable=False)
-    body_html = Column(Text, nullable=False)
-    body_text = Column(Text, nullable=True)
+    body_html = Column(Text().with_variant(LONGTEXT, "mysql"), nullable=False)
+    body_text = Column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
     
     status = Column(
         SQLEnum("draft", "sent", "delivered", "failed", "received", name="crm_email_status_enum"),
@@ -41,7 +43,7 @@ class CRMEmail(Base):
         default="sent"
     )
     is_read = Column(Boolean, default=False)
-    attachments = Column(Text, nullable=True)
+    attachments = Column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
     
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 

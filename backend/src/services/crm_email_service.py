@@ -603,6 +603,7 @@ class CRMEmailService:
 
                 except Exception as email_err:
                     print(f"Error procesando correo individual ID {e_id}: {email_err}")
+                    await db.rollback()
                     continue
 
             mail.logout()
