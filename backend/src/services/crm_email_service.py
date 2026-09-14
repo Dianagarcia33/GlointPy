@@ -38,6 +38,9 @@ class CRMEmailService:
             .options(selectinload(CRMEmail.lead), selectinload(CRMEmail.project), selectinload(CRMEmail.user))
         )
 
+        if user_id:
+            stmt = stmt.where(CRMEmail.user_id == user_id)
+
         if folder == "inbox":
             stmt = stmt.where(
                 and_(
@@ -124,10 +127,12 @@ class CRMEmailService:
         ]
 
     @staticmethod
-    async def mark_email_read(db: AsyncSession, email_id: int, is_read: bool = True) -> Optional[dict]:
+    async def mark_email_read(db: AsyncSession, email_id: int, user_id: Optional[int] = None, is_read: bool = True) -> Optional[dict]:
         """Marca un correo específico como leído o no leído."""
         email_rec = await db.get(CRMEmail, email_id)
         if not email_rec:
+            return None
+        if user_id is not None and email_rec.user_id != user_id:
             return None
         email_rec.is_read = is_read
         db.add(email_rec)
@@ -136,12 +141,13 @@ class CRMEmailService:
 
     @staticmethod
     async def mark_all_read(db: AsyncSession, user_id: int) -> int:
-        """Marca todos los correos recibidos como leídos."""
+        """Marca todos los correos recibidos del usuario como leídos."""
         from sqlalchemy import update
         stmt = (
             update(CRMEmail)
             .where(
                 and_(
+                    CRMEmail.user_id == user_id,
                     or_(
                         CRMEmail.direction.in_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
                         CRMEmail.status.in_([CRMEmailStatus.RECEIVED, "received"])
@@ -352,6 +358,7 @@ class CRMEmailService:
                         existing = await db.execute(
                             select(CRMEmail).where(
                                 and_(
+                                    CRMEmail.user_id == user.id,
                                     CRMEmail.sender_email == sender_email,
                                     CRMEmail.subject == subject,
                                     CRMEmail.direction == CRMEmailDirection.INBOUND

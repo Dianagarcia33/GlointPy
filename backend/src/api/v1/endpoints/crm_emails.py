@@ -113,7 +113,7 @@ async def mark_crm_email_as_read(
     db: AsyncSession = Depends(get_db)
 ):
     """Marca un correo como leído."""
-    res = await CRMEmailService.mark_email_read(db=db, email_id=email_id, is_read=True)
+    res = await CRMEmailService.mark_email_read(db=db, email_id=email_id, user_id=current_user.id, is_read=True)
     if not res:
         raise HTTPException(status_code=404, detail="Correo no encontrado")
     return {"message": "Correo marcado como leído", **res}
@@ -126,11 +126,9 @@ async def toggle_crm_email_read(
     db: AsyncSession = Depends(get_db)
 ):
     """Alterna el estado de leído/no leído de un correo."""
-    email_rec = await CRMEmailService.mark_email_read(db=db, email_id=email_id, is_read=None)
-    # If None, let's fetch and toggle
     from src.models.crm_email import CRMEmail
     email_item = await db.get(CRMEmail, email_id)
-    if not email_item:
+    if not email_item or email_item.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Correo no encontrado")
     email_item.is_read = not email_item.is_read
     db.add(email_item)
