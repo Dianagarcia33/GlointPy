@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Send, 
@@ -64,16 +64,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentUser = useAuthStore((state) => state.user);
-  const { messages, typingUsers, isConnected, error, sendMessage, sendTypingStatus, updateMessageReactions } = useChatWebSocket(room ? room.id : null, currentUser);
+  const { messages, typingUsers, isConnected, loading, error, sendMessage, sendTypingStatus, updateMessageReactions } = useChatWebSocket(room ? room.id : null, currentUser);
 
-  const initialLoadRef = useRef<boolean>(true);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
   const currentRoomIdRef = useRef<number | null>(null);
+  const prevMessagesCountRef = useRef(0);
 
   // Resetear flag de carga inicial y respuesta al cambiar de sala
   useEffect(() => {
     if (room?.id !== currentRoomIdRef.current) {
       currentRoomIdRef.current = room ? room.id : null;
-      initialLoadRef.current = true;
+      setIsScrolledToBottom(false);
+      prevMessagesCountRef.current = 0;
       setReplyingTo(null);
       setShowMembersModal(false);
       setInputText('');
@@ -147,27 +149,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
     }
   };
 
-  // Scroll al fondo al recibir mensajes o cambiar sala
-  useEffect(() => {
-    if (!messagesEndRef.current) return;
-
-    if (initialLoadRef.current) {
-      if (messages.length > 0) {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-        messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
-        requestAnimationFrame(() => {
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-          }
-          initialLoadRef.current = false;
-        });
+  // Posicionamiento instantáneo al fondo ANTES de pintar en pantalla (0ms de parpadeo, sin animación)
+  useLayoutEffect(() => {
+    if (messages.length > 0 && !isScrolledToBottom) {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
-    } else {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      setIsScrolledToBottom(true);
+      prevMessagesCountRef.current = messages.length;
     }
-  }, [messages, typingUsers]);
+  }, [messages, isScrolledToBottom]);
+
+  // Scroll suave ÚNICAMENTE para mensajes nuevos posteriores
+  useEffect(() => {
+    if (!isScrolledToBottom) return;
+    if (!messagesContainerRef.current) return;
+
+    if (messages.length > prevMessagesCountRef.current) {
+      const lastMsg = messages[messages.length - 1];
+      const isMe = lastMsg?.sender_id === currentUserId;
+      const container = messagesContainerRef.current;
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 250;
+
+      if (isMe) {
+        // Si el usuario actual envió el mensaje, bajar inmediatamente
+        container.scrollTop = container.scrollHeight;
+      } else if (isNearBottom) {
+        // Si el mensaje es recibido y el usuario ya estaba al fondo, scroll suave
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
+    }
+    prevMessagesCountRef.current = messages.length;
+  }, [messages, isScrolledToBottom, currentUserId]);
 
   // Manejar cambio de texto para el indicador "escribiendo..."
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -488,42 +501,52 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
       </div>
 
       {/* Message Feed */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40">
-        {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+      {loading ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-slate-400 bg-slate-50/40">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-500 mb-2" />
+          <span className="text-xs font-medium font-outfit text-slate-500">Cargando conversación...</span>
+        </div>
+      ) : (
+        <div 
+          ref={messagesContainerRef} 
+          style={{ opacity: isScrolledToBottom || messages.length === 0 ? 1 : 0, overflowAnchor: 'auto' }}
+          className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40 transition-opacity duration-150"
+        >
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-xl flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-        <AnimatePresence initial={false}>
-          {messages.map((msg, idx) => {
-            const isMe = msg.sender_id === currentUserId;
-            const hasFile = Boolean(msg.file_url);
-            const isImg = isImageFile(msg.file_type, msg.file_url);
-            const fullFileUrl = msg.file_url ? getMediaUrl(msg.file_url) : '';
+          <AnimatePresence initial={false}>
+            {messages.map((msg, idx) => {
+              const isMe = msg.sender_id === currentUserId;
+              const hasFile = Boolean(msg.file_url);
+              const isImg = isImageFile(msg.file_type, msg.file_url);
+              const fullFileUrl = msg.file_url ? getMediaUrl(msg.file_url) : '';
 
-            const prevMsg = idx > 0 ? messages[idx - 1] : null;
-            const isNewDay = !prevMsg || !isSameChatDay(prevMsg.created_at, msg.created_at);
+              const prevMsg = idx > 0 ? messages[idx - 1] : null;
+              const isNewDay = !prevMsg || !isSameChatDay(prevMsg.created_at, msg.created_at);
 
-            return (
-              <React.Fragment key={msg.id}>
-                {/* Separador de Día (ej. "Hoy", "Ayer", "Lunes, 7 de septiembre") */}
-                {isNewDay && (
-                  <div className="flex items-center justify-center my-3 sticky top-1 z-10 pointer-events-none">
-                    <span className="bg-slate-200/90 backdrop-blur-xs text-slate-700 text-[11px] font-semibold font-outfit px-3 py-0.5 rounded-full shadow-2xs border border-slate-300/80 pointer-events-auto">
-                      {getChatDayDivider(msg.created_at)}
-                    </span>
-                  </div>
-                )}
+              return (
+                <React.Fragment key={msg.id}>
+                  {/* Separador de Día (ej. "Hoy", "Ayer", "Lunes, 7 de septiembre") */}
+                  {isNewDay && (
+                    <div className="flex items-center justify-center my-3 sticky top-1 z-10 pointer-events-none">
+                      <span className="bg-slate-200/90 backdrop-blur-xs text-slate-700 text-[11px] font-semibold font-outfit px-3 py-0.5 rounded-full shadow-2xs border border-slate-300/80 pointer-events-auto">
+                        {getChatDayDivider(msg.created_at)}
+                      </span>
+                    </div>
+                  )}
 
-                <motion.div
-                  id={`msg-${msg.id}`}
-                  initial={initialLoadRef.current ? false : { opacity: 0, y: 10, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.2 }}
-                  className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} transition-all duration-300`}
-                >
+                  <motion.div
+                    id={`msg-${msg.id}`}
+                    initial={!isScrolledToBottom ? false : { opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                    className={`group flex flex-col ${isMe ? 'items-end' : 'items-start'} transition-all duration-300`}
+                  >
                   <div className={`relative flex items-center gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Contenedor del Mensaje y Reacciones */}
                     <div className="flex flex-col max-w-[85%] md:max-w-[70%]">
@@ -751,6 +774,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
         <div ref={messagesEndRef} />
       </div>
+      )}
 
       {/* Banner de Cita/Respuesta activo antes de enviar */}
       {replyingTo && (

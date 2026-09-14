@@ -5,6 +5,7 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const typingTimeoutsRef = useRef<{ [userName: string]: ReturnType<typeof setTimeout> }>({});
@@ -14,6 +15,7 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
     if (!roomId) {
       setMessages([]);
       setTypingUsers([]);
+      setLoading(false);
       return;
     }
 
@@ -21,6 +23,7 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
     Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
     typingTimeoutsRef.current = {};
     setTypingUsers([]);
+    setLoading(true);
 
     let isMounted = true;
     chatService.getRoomMessages(roomId)
@@ -28,11 +31,13 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
         if (isMounted) {
           setMessages(history);
           setError(null);
+          setLoading(false);
         }
       })
       .catch((err: any) => {
         if (isMounted) {
           setError(err.message || 'Error al cargar mensajes');
+          setLoading(false);
         }
       });
 
@@ -201,6 +206,7 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
     messages,
     typingUsers,
     isConnected,
+    loading,
     error,
     sendMessage,
     sendTypingStatus,
