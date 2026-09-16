@@ -376,7 +376,10 @@ class CRMService:
             role_names = [r.name.lower() for r in (u.roles or [])]
             if any("directiv" in r_name for r_name in role_names):
                 directivos.append(u)
-            elif any(kw in r_name for kw in ["comercial", "asesor", "lider", "director", "gerente"]):
+            elif any(
+                any(kw in r_name for kw in ["comercial", "asesor", "lider", "director", "gerente"])
+                for r_name in role_names
+            ):
                 comerciales_secundarios.append(u)
                 
         # Si no hay directivos específicos, usar comerciales secundarios

@@ -31,5 +31,13 @@ def upgrade() -> None:
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     """)
 
+    # Ajustar crm_emails a LONGTEXT si la tabla existe para evitar errores 1406
+    op.execute("""
+    ALTER TABLE `crm_emails` MODIFY COLUMN `body_html` LONGTEXT NOT NULL;
+    """)
+    op.execute("""
+    ALTER TABLE `crm_emails` MODIFY COLUMN `body_text` LONGTEXT NULL;
+    """)
+
 def downgrade() -> None:
     op.execute("DROP TABLE IF EXISTS `crm_form_keys`;")
