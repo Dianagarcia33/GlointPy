@@ -5,7 +5,8 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy import func, desc, or_, and_
 from decimal import Decimal
 
-from src.models.crm import CRMProject, CRMLead, CRMActivity, CRMProjectStatus, CRMLeadStage, CRMActivityType
+import secrets
+from src.models.crm import CRMProject, CRMLead, CRMActivity, CRMFormKey, CRMProjectStatus, CRMLeadStage, CRMActivityType
 from src.models.user import User
 from src.models.commercial_sale import CommercialSale
 from datetime import datetime
@@ -318,9 +319,46 @@ class CRMService:
         return project
 
     @staticmethod
+    async def get_or_create_project_by_identifier(db: AsyncSession, identifier: Optional[str] = None) -> CRMProject:
+        """
+        Obtiene un proyecto por código o nombre, o crea uno nuevo automáticamente si no existe.
+        Si no se especifica identifier, retorna el proyecto por defecto.
+        """
+        if not identifier or not str(identifier).strip():
+            return await CRMService.get_or_create_default_project(db)
+
+        clean_id = str(identifier).strip()
+        stmt = select(CRMProject).where(
+            (func.lower(CRMProject.code) == clean_id.lower()) |
+            (func.lower(CRMProject.name) == clean_id.lower())
+        )
+        res = await db.execute(stmt)
+        project = res.scalars().first()
+        if project:
+            return project
+
+        # Crear proyecto automáticamente para que el CRM lo organice de inmediato
+        code_slug = clean_id.upper().replace(" ", "-")[:50]
+        name_display = clean_id.strip()[:100]
+        new_project = CRMProject(
+            code=code_slug,
+            name=name_display,
+            description=f"Proyecto creado automáticamente para captación de leads desde {name_display}",
+            target_amount=Decimal("500000000.00"),
+            status=CRMProjectStatus.ACTIVO,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(new_project)
+        await db.commit()
+        await db.refresh(new_project)
+        return new_project
+
+    @staticmethod
     async def assign_commercial_round_robin(db: AsyncSession) -> Optional[User]:
         """
-        Selecciona de manera equitativa (Round-Robin) al siguiente Directivo de Inversión / Comercial activo.
+        Selecciona de manera equitativa (Round-Robin) al siguiente Directivo de Inversión activo.
+        Prioriza estrictamente usuarios con rol 'Directivo de Inversión' ('directiv').
         """
         stmt = (
             select(User)
@@ -331,17 +369,21 @@ class CRMService:
         res = await db.execute(stmt)
         all_users = res.scalars().all()
         
+        # 1. Prioridad estricta: usuarios que tengan rol explícito de Directivo de Inversión
         directivos = []
+        comerciales_secundarios = []
         for u in all_users:
             role_names = [r.name.lower() for r in (u.roles or [])]
-            is_directivo = any(
-                any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente"])
-                for r_name in role_names
-            )
-            if is_directivo:
+            if any("directiv" in r_name for r_name in role_names):
                 directivos.append(u)
+            elif any(kw in r_name for kw in ["comercial", "asesor", "lider", "director", "gerente"]):
+                comerciales_secundarios.append(u)
                 
-        # Si no hay usuarios con rol directivo explícito, incluir superusuarios o cualquier usuario activo
+        # Si no hay directivos específicos, usar comerciales secundarios
+        if not directivos and comerciales_secundarios:
+            directivos = comerciales_secundarios
+            
+        # Si no hay usuarios con rol directivo/comercial explícito, incluir superusuarios
         if not directivos:
             for u in all_users:
                 if u.is_superuser:
@@ -449,13 +491,126 @@ class CRMService:
         }
 
     @staticmethod
+    async def register_contact_form_lead(
+        db: AsyncSession,
+        data: dict,
+        project_override: Optional[str] = None
+    ) -> dict:
+        """
+        Registra un lead desde el formulario de contacto estándar (Gloint o landings externas).
+        Campos estándar: nombre, email, telefono, asunto, mensaje, proyecto/origen.
+        Distribuye equitativamente (Round-Robin) entre los Directivos de Inversión y envía notificación por correo.
+        """
+        name = (data.get("nombre") or data.get("name") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        phone = (data.get("telefono") or data.get("phone") or "").strip()
+        asunto = (data.get("asunto") or data.get("subject") or "Contacto General").strip()
+        mensaje = (data.get("mensaje") or data.get("message") or "").strip()
+        
+        project_ref = (
+            project_override or 
+            data.get("proyecto") or 
+            data.get("project_code") or 
+            data.get("project_name") or 
+            "Fondo Gloint Investment"
+        )
+
+        project = await CRMService.get_or_create_project_by_identifier(db, project_ref)
+        assigned_commercial = await CRMService.assign_commercial_round_robin(db)
+
+        source_label = f"Formulario: {project.name}"
+
+        lead = CRMLead(
+            project_id=project.id,
+            name=name,
+            email=email if email else None,
+            phone=phone if phone else None,
+            estimated_amount=Decimal(str(data.get("estimated_amount") or 0)),
+            stage=CRMLeadStage.LEAD_ENTRANTE,
+            source=source_label,
+            commercial_id=assigned_commercial.id if assigned_commercial else None,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(lead)
+        await db.flush()
+
+        detail_lines = [
+            f"🌐 Proyecto / Origen: {project.name} ({project.code})",
+            f"👤 Nombre: {name}",
+            f"📧 Correo: {email or 'No especificado'}",
+            f"📞 Teléfono: {phone or 'No especificado'}",
+            f"📌 Asunto: {asunto}",
+        ]
+        if data.get("company"):
+            detail_lines.append(f"🏢 Empresa: {data.get('company')}")
+        if data.get("city"):
+            detail_lines.append(f"📍 Ciudad: {data.get('city')}")
+        if mensaje:
+            detail_lines.append(f"💬 Mensaje:\n{mensaje}")
+
+        extra_meta = data.get("metadata")
+        if extra_meta and isinstance(extra_meta, dict):
+            detail_lines.append("⚙️ Metadatos adicionales:")
+            for k, v in extra_meta.items():
+                detail_lines.append(f"  • {k}: {v}")
+
+        note = CRMActivity(
+            lead_id=lead.id,
+            user_id=assigned_commercial.id if assigned_commercial else 1,
+            type=CRMActivityType.NOTA,
+            title=f"Contacto entrante: {asunto}",
+            description="\n".join(detail_lines),
+            created_at=datetime.utcnow()
+        )
+        db.add(note)
+
+        await db.commit()
+        await db.refresh(lead)
+
+        # Notificar por correo al directivo de inversión asignado
+        try:
+            if assigned_commercial and assigned_commercial.email:
+                payload_for_email = {
+                    "name": name,
+                    "email": email,
+                    "phone": phone,
+                    "company": data.get("company") or asunto,
+                    "city": data.get("city") or "No especificada",
+                    "message": f"Asunto: {asunto}\n\nMensaje:\n{mensaje}" if mensaje else f"Asunto: {asunto}"
+                }
+                EmailService.send_external_form_director_notification(
+                    to_email=assigned_commercial.email,
+                    director_name=assigned_commercial.name or assigned_commercial.email,
+                    platform_name=project.name,
+                    lead_data=payload_for_email
+                )
+        except Exception as e:
+            print(f"Error notificando al directivo de inversión: {e}")
+
+        return {
+            "success": True,
+            "message": "Mensaje recibido correctamente. Un directivo de inversión se pondrá en contacto a la brevedad.",
+            "lead_id": lead.id,
+            "project": {
+                "id": project.id,
+                "code": project.code,
+                "name": project.name
+            },
+            "assigned_director": {
+                "id": assigned_commercial.id,
+                "name": assigned_commercial.name
+            } if assigned_commercial else None
+        }
+
+    @staticmethod
     async def register_external_form_lead(db: AsyncSession, app_name: str, data: dict) -> dict:
         """
         Registra un lead proveniente de una web o formulario externo (Logy Pay, Landings, etc.)
         autenticado mediante API Key. Asigna de forma equitativa (Round-Robin) a los comerciales
         activos y dispara notificación inmediata por correo.
         """
-        project = await CRMService.get_or_create_default_project(db)
+        project = await CRMService.get_or_create_project_by_identifier(db, app_name)
         assigned_commercial = await CRMService.assign_commercial_round_robin(db)
 
         source_label = f"Formulario: {app_name}"
@@ -530,4 +685,116 @@ class CRMService:
                 "name": assigned_commercial.name
             } if assigned_commercial else None
         }
+
+    @staticmethod
+    async def create_form_key(
+        db: AsyncSession,
+        name: str,
+        project_id: int,
+        user_id: Optional[int] = None
+    ) -> dict:
+        """Crea una nueva API Key específica para un formulario de contacto de un proyecto."""
+        project = await db.get(CRMProject, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="El proyecto especificado no existe.")
+
+        raw_secret = secrets.token_hex(16)
+        api_key_str = f"glt_form_{raw_secret}"
+
+        form_key = CRMFormKey(
+            name=name.strip(),
+            project_id=project.id,
+            api_key=api_key_str,
+            is_active=True,
+            created_by=user_id,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(form_key)
+        await db.commit()
+        await db.refresh(form_key)
+
+        return {
+            "id": form_key.id,
+            "name": form_key.name,
+            "project_id": project.id,
+            "project_name": project.name,
+            "project_code": project.code,
+            "api_key": form_key.api_key,
+            "is_active": form_key.is_active,
+            "created_at": form_key.created_at.isoformat() if form_key.created_at else None
+        }
+
+    @staticmethod
+    async def get_all_form_keys(db: AsyncSession) -> List[dict]:
+        """Lista todas las API Keys de formularios de contacto con información del proyecto."""
+        stmt = (
+            select(CRMFormKey)
+            .options(selectinload(CRMFormKey.project))
+            .order_by(desc(CRMFormKey.created_at))
+        )
+        res = await db.execute(stmt)
+        keys = res.scalars().all()
+
+        result = []
+        for k in keys:
+            result.append({
+                "id": k.id,
+                "name": k.name,
+                "project_id": k.project_id,
+                "project_name": k.project.name if k.project else "Sin Proyecto",
+                "project_code": k.project.code if k.project else "N/A",
+                "api_key": k.api_key,
+                "is_active": k.is_active,
+                "created_at": k.created_at.isoformat() if k.created_at else None,
+                "updated_at": k.updated_at.isoformat() if k.updated_at else None
+            })
+        return result
+
+    @staticmethod
+    async def toggle_form_key(db: AsyncSession, key_id: int) -> dict:
+        """Activa o desactiva una API Key de formulario."""
+        form_key = await db.get(CRMFormKey, key_id)
+        if not form_key:
+            raise HTTPException(status_code=404, detail="Clave de formulario no encontrada.")
+        form_key.is_active = not form_key.is_active
+        form_key.updated_at = datetime.utcnow()
+        await db.commit()
+        await db.refresh(form_key)
+        return {
+            "id": form_key.id,
+            "name": form_key.name,
+            "is_active": form_key.is_active,
+            "message": "Clave activada" if form_key.is_active else "Clave desactivada"
+        }
+
+    @staticmethod
+    async def delete_form_key(db: AsyncSession, key_id: int) -> dict:
+        """Elimina una API Key de formulario."""
+        form_key = await db.get(CRMFormKey, key_id)
+        if not form_key:
+            raise HTTPException(status_code=404, detail="Clave de formulario no encontrada.")
+        await db.delete(form_key)
+        await db.commit()
+        return {"success": True, "message": "Clave de formulario eliminada exitosamente"}
+
+    @staticmethod
+    async def authenticate_form_key(db: AsyncSession, raw_key: str) -> CRMFormKey:
+        """Autentica una API Key de formulario y valida que esté activa."""
+        stmt = (
+            select(CRMFormKey)
+            .options(selectinload(CRMFormKey.project))
+            .where(
+                CRMFormKey.api_key == raw_key.strip(),
+                CRMFormKey.is_active == True
+            )
+        )
+        res = await db.execute(stmt)
+        form_key = res.scalars().first()
+        if not form_key:
+            raise HTTPException(
+                status_code=401,
+                detail="API Key de formulario ('X-API-Key') inválida o inactiva."
+            )
+        return form_key
 

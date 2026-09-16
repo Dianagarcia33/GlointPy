@@ -83,6 +83,67 @@ class ExternalFormLeadSchema(BaseModel):
     estimated_amount: Optional[float] = 0.0
     metadata: Optional[dict] = None
 
+class ContactFormLeadSchema(BaseModel):
+    nombre: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    phone: Optional[str] = None
+    asunto: Optional[str] = None
+    subject: Optional[str] = None
+    mensaje: Optional[str] = None
+    message: Optional[str] = None
+    proyecto: Optional[str] = None
+    project_code: Optional[str] = None
+    company: Optional[str] = None
+    city: Optional[str] = None
+    metadata: Optional[dict] = None
+
+class CreateFormKeySchema(BaseModel):
+    name: str
+    project_id: int
+
+
+@router.post("/public/contact-form")
+async def register_public_contact_form(
+    data: ContactFormLeadSchema,
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint centralizado para recibir formularios de contacto de Gloint y de proyectos externos.
+    Campos idénticos al formulario de contacto oficial:
+      - nombre (o name)
+      - email
+      - telefono (o phone)
+      - asunto (o subject)
+      - mensaje (o message)
+      - proyecto (o project_code / X-API-Key)
+    Asigna de forma equitativa (Round-Robin) estricta a los usuarios con rol Directivo de Inversión
+    y dispara notificaciones por correo de inmediato.
+    """
+    app_name_override = None
+    raw_key = x_api_key or authorization
+    if raw_key:
+        raw_clean = raw_key.replace("Bearer ", "").strip()
+        try:
+            form_key = await CRMService.authenticate_form_key(db, raw_clean)
+            app_name_override = form_key.project.name if form_key.project else form_key.name
+        except Exception:
+            try:
+                from src.services.external_app_service import ExternalAppService
+                app = await ExternalAppService.authenticate_api_key(db, raw_clean)
+                app_name_override = app.name
+            except Exception:
+                pass
+
+    return await CRMService.register_contact_form_lead(
+        db=db,
+        data=data.dict(),
+        project_override=app_name_override
+    )
+
 
 @router.post("/public/chatbot-lead")
 async def register_public_chatbot_lead(
@@ -106,7 +167,7 @@ async def register_external_contact_form(
     """
     Endpoint centralizado para recibir envíos de formularios desde páginas externas (Logy Pay, Landings, etc.).
     Valida la API Key de la aplicación externa emisora, asigna el lead equitativamente (Round-Robin)
-    a los comerciales de Gloint y dispara notificaciones inmediatas.
+    a los directivos de inversión de Gloint y dispara notificaciones inmediatas.
     """
     from src.services.external_app_service import ExternalAppService
 
@@ -305,3 +366,49 @@ async def convert_lead_to_sale(
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error al registrar la venta comercial: {str(e)}")
+
+
+# ==========================================
+# GESTIÓN DE CLAVES DE FORMULARIOS DE CONTACTO
+# ==========================================
+
+@router.get("/form-keys", dependencies=[Depends(RequirePermission("crm:view"))])
+async def list_form_keys(
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene la lista de Claves de Formularios Web para proyectos externos."""
+    return await CRMService.get_all_form_keys(db)
+
+
+@router.post("/form-keys", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+async def create_form_key(
+    data: CreateFormKeySchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Genera una nueva API Key exclusiva para conectar un formulario web externo a un proyecto."""
+    return await CRMService.create_form_key(
+        db=db,
+        name=data.name,
+        project_id=data.project_id,
+        user_id=current_user.id
+    )
+
+
+@router.patch("/form-keys/{key_id}/toggle", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+async def toggle_form_key(
+    key_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Activa o desactiva una Clave de Formulario Web."""
+    return await CRMService.toggle_form_key(db, key_id)
+
+
+@router.delete("/form-keys/{key_id}", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+async def delete_form_key(
+    key_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Elimina una Clave de Formulario Web."""
+    return await CRMService.delete_form_key(db, key_id)
+

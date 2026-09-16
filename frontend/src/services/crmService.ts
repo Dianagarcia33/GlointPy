@@ -59,6 +59,18 @@ export interface CRMKPIs {
   conversion_rate: number;
 }
 
+export interface CRMFormKey {
+  id: number;
+  name: string;
+  project_id: number;
+  project_name: string;
+  project_code: string;
+  api_key: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
 export const crmService = {
   getKPIs: async (): Promise<CRMKPIs> => {
     return fetchApi('/crm/kpis');
@@ -188,6 +200,50 @@ export const crmService = {
     return fetchApi('/crm/public/chatbot-lead', {
       method: 'POST',
       body: JSON.stringify(data)
+    });
+  },
+
+  registerContactForm: async (data: {
+    nombre: string;
+    email: string;
+    telefono: string;
+    asunto: string;
+    mensaje: string;
+    proyecto?: string;
+    metadata?: Record<string, any>;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    lead_id: number;
+    project?: { id: number; code: string; name: string };
+    assigned_director?: { id: number; name: string };
+  }> => {
+    return fetchApi('/crm/public/contact-form', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  getFormKeys: async (): Promise<CRMFormKey[]> => {
+    return fetchApi('/crm/form-keys');
+  },
+
+  createFormKey: async (data: { name: string; project_id: number }): Promise<CRMFormKey> => {
+    return fetchApi('/crm/form-keys', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  toggleFormKey: async (id: number): Promise<{ id: number; name: string; is_active: boolean; message: string }> => {
+    return fetchApi(`/crm/form-keys/${id}/toggle`, {
+      method: 'PATCH'
+    });
+  },
+
+  deleteFormKey: async (id: number): Promise<{ success: boolean; message: string }> => {
+    return fetchApi(`/crm/form-keys/${id}`, {
+      method: 'DELETE'
     });
   }
 };

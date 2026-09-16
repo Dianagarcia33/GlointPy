@@ -100,3 +100,20 @@ class CRMActivity(Base):
 
     lead = relationship("CRMLead", back_populates="activities")
     user = relationship("User")
+
+
+class CRMFormKey(Base):
+    __tablename__ = "crm_form_keys"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    project_id = Column(BigInteger, ForeignKey("crm_projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    api_key = Column(String(120), unique=True, nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("CRMProject", backref="form_keys")
+    creator = relationship("User", foreign_keys=[created_by])
+

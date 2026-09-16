@@ -6,26 +6,50 @@ import {
   ChevronRight, Menu, X, ArrowRight, CheckCircle, Users, Package,
   Truck, Wallet, Map, Activity, Star, 
   Mail, Phone, MapPin, Award, Target, Handshake, Clock,
-  BookOpen, Building2, FileCheck, Heart, Lightbulb, Scale
+  BookOpen, Building2, FileCheck, Heart, Lightbulb, Scale, Loader2, AlertCircle
 } from "lucide-react";
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 import { SharedFooter } from "../components/SharedFooter";
+import { crmService } from "../../../services/crmService";
 
 import { CONTACT_INFO } from "../../../constants/contactInfo";
 
 export function ContactoPage() {
   const [form, setForm] = useState({ nombre: "", email: "", telefono: "", asunto: "", mensaje: "" });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [assignedDirector, setAssignedDirector] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!acceptedTerms) {
       alert("Debes aceptar el tratamiento de datos personales de acuerdo con las políticas de privacidad.");
       return;
     }
-    setSent(true);
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await crmService.registerContactForm({
+        nombre: form.nombre.trim(),
+        email: form.email.trim(),
+        telefono: form.telefono.trim(),
+        asunto: form.asunto || "Contacto General",
+        mensaje: form.mensaje.trim(),
+        proyecto: "Fondo Gloint Investment"
+      });
+      if (res?.assigned_director?.name) {
+        setAssignedDirector(res.assigned_director.name);
+      }
+      setSent(true);
+    } catch (err: any) {
+      console.error("Error al enviar formulario:", err);
+      setError(err?.message || "Ocurrió un error al enviar el formulario. Por favor intenta nuevamente o contáctanos vía WhatsApp.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const whatsappLink = CONTACT_INFO.whatsappLink;
@@ -184,12 +208,24 @@ export function ContactoPage() {
                     <CheckCircle size={32} />
                   </div>
                   <h3 className="text-xl font-black mb-2" style={{ color: DARK }}>¡Mensaje enviado!</h3>
-                  <p className="text-slate-500 text-sm leading-relaxed mb-6">
-                    Gracias por contactarnos. Un asesor de GLOINT se comunicará contigo en las próximas horas.
+                  <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                    Gracias por contactarnos. Tu solicitud ha sido radicada exitosamente en nuestro sistema central.
                   </p>
+                  {assignedDirector ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 mb-6 max-w-md mx-auto leading-relaxed">
+                      💼 <strong>Directivo de Inversión asignado:</strong> {assignedDirector} se comunicará contigo a la brevedad para brindarte atención personalizada.
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 text-xs leading-relaxed mb-6">
+                      Un directivo de inversión de GLOINT se comunicará contigo en las próximas horas.
+                    </p>
+                  )}
                   <button
-                    onClick={() => setSent(false)}
-                    className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90"
+                    onClick={() => {
+                      setSent(false);
+                      setForm({ nombre: "", email: "", telefono: "", asunto: "", mensaje: "" });
+                    }}
+                    className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90 cursor-pointer"
                     style={{ background: ORANGE, color: "#fff" }}
                   >
                     Enviar otro mensaje
@@ -201,6 +237,13 @@ export function ContactoPage() {
                     <h2 className="text-xl font-black mb-1" style={{ color: DARK }}>Envía un Mensaje</h2>
                     <p className="text-slate-400 text-sm">Tu asesor personal estará listo para guiarte</p>
                   </div>
+
+                  {error && (
+                    <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2.5 mb-4">
+                      <AlertCircle size={16} className="flex-shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
 
                   <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -349,11 +392,20 @@ export function ContactoPage() {
                     <motion.button
                       type="submit"
                       whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                      disabled={!acceptedTerms}
+                      disabled={!acceptedTerms || submitting}
                       className="w-full py-3.5 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-md transition-all"
                       style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})` }}
                     >
-                      Enviar mensaje <ArrowRight size={16} />
+                      {submitting ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Enviando mensaje...
+                        </>
+                      ) : (
+                        <>
+                          Enviar mensaje <ArrowRight size={16} />
+                        </>
+                      )}
                     </motion.button>
                   </form>
                 </>

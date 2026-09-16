@@ -12,7 +12,8 @@ import {
   LayoutGrid,
   Filter,
   CheckCircle2,
-  PieChart
+  PieChart,
+  Key
 } from 'lucide-react';
 
 import { crmService, CRMProject, CRMLead, CRMKPIs } from '../../../services/crmService';
@@ -21,6 +22,7 @@ import { ProjectKanban } from '../components/ProjectKanban';
 import { CreateProjectModal } from '../components/CreateProjectModal';
 import { CreateLeadModal } from '../components/CreateLeadModal';
 import { LeadDetailModal } from '../components/LeadDetailModal';
+import { CRMFormKeysModal } from '../components/CRMFormKeysModal';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 export const CRMPage: React.FC = () => {
@@ -28,6 +30,7 @@ export const CRMPage: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   // Modales
+  const [isFormKeysModalOpen, setIsFormKeysModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<CRMProject | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<CRMProject | null>(null);
@@ -121,6 +124,13 @@ export const CRMPage: React.FC = () => {
         </div>
 
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+          <button
+            onClick={() => setIsFormKeysModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-2xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-sm"
+          >
+            <Key className="w-4 h-4" />
+            <span>Claves de Formularios</span>
+          </button>
           <button
             onClick={handleOpenCreateProject}
             className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
@@ -267,6 +277,13 @@ export const CRMPage: React.FC = () => {
         isOpen={Boolean(selectedLead)}
         onClose={() => setSelectedLead(null)}
         onUpdate={handleRefreshAll}
+      />
+
+      {/* Modal de Gestión de Claves de Formularios Web */}
+      <CRMFormKeysModal
+        isOpen={isFormKeysModalOpen}
+        onClose={() => setIsFormKeysModalOpen(false)}
+        projects={projects}
       />
 
       {/* Confirmación para Eliminar Proyecto */}
