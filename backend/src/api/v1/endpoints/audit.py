@@ -50,6 +50,13 @@ class SimpleInvestorAuditResponse(InvestorBase):
 
     @computed_field
     @property
+    def capital_total(self) -> float:
+        if self.package and getattr(self.package, 'value', None) is not None:
+            return float(self.package.value)
+        return 0.0
+
+    @computed_field
+    @property
     def total_days_reduced(self) -> float:
         if not self.accelerations:
             return 0.0
