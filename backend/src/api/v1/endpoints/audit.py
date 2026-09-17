@@ -306,12 +306,13 @@ async def get_audit_users(
     
     offset = (page - 1) * limit
     
-    # Load wallet and investments with their packages, periods, contract histories, and withdrawals
+    # Load wallet and investments with their packages, periods, contract histories, accelerations and withdrawals
     query = query.options(
         selectinload(User.wallet),
         selectinload(User.investments).selectinload(Investor.package),
         selectinload(User.investments).selectinload(Investor.period),
         selectinload(User.investments).selectinload(Investor.contract_histories),
+        selectinload(User.investments).selectinload(Investor.accelerations),
         selectinload(User.investments).selectinload(Investor.withdrawals).selectinload(Withdrawal.user)
     )
     
