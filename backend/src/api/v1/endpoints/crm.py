@@ -194,7 +194,11 @@ async def get_crm_kpis(
     db: AsyncSession = Depends(get_db)
 ):
     """Obtiene los KPIs consolidados del CRM."""
-    is_admin = PBACEngine.has_permission(current_user, "admin.crm.manage") or current_user.is_superuser
+    is_admin = (
+        getattr(current_user, "is_superuser", False)
+        or PBACEngine.has_permission(current_user, "admin.crm.manage")
+        or any("admin" in (getattr(r, "name", "") or "").lower() for r in getattr(current_user, "roles", []))
+    )
     commercial_filter = None if is_admin else current_user.id
     return await CRMService.get_global_kpis(db, commercial_id=commercial_filter)
 
@@ -265,7 +269,11 @@ async def get_project_leads(
     db: AsyncSession = Depends(get_db)
 ):
     """Obtiene los prospectos asignados a un proyecto específico."""
-    is_admin = PBACEngine.has_permission(current_user, "admin.crm.manage") or current_user.is_superuser
+    is_admin = (
+        getattr(current_user, "is_superuser", False)
+        or PBACEngine.has_permission(current_user, "admin.crm.manage")
+        or any("admin" in (getattr(r, "name", "") or "").lower() for r in getattr(current_user, "roles", []))
+    )
     commercial_filter = None if is_admin else current_user.id
     return await CRMService.get_leads_by_project(db, project_id=project_id, commercial_id=commercial_filter, search=search)
 

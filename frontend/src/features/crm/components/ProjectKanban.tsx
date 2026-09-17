@@ -198,6 +198,13 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
                             <span className="truncate">{lead.phone}</span>
                           </div>
                         )}
+
+                        {lead.commercial_name && (
+                          <div className="flex items-center gap-1 text-[10px] text-slate-600 mt-1.5 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100 w-fit max-w-full">
+                            <User className="w-2.5 h-2.5 text-brand-500 shrink-0" />
+                            <span className="truncate font-medium">{lead.commercial_name}</span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
