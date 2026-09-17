@@ -15,10 +15,13 @@ branch_labels = None
 depends_on = None
 
 def upgrade() -> None:
-    # Eliminar tablas en caso de que existan previamente con tipos no coincidentes
+    # Desactivar temporalmente revisión de claves foráneas para permitir recreación si existen tablas hijas
+    op.execute("SET FOREIGN_KEY_CHECKS = 0;")
+    op.execute("DROP TABLE IF EXISTS `chat_message_reactions`;")
     op.execute("DROP TABLE IF EXISTS `chat_messages`;")
     op.execute("DROP TABLE IF EXISTS `chat_participants`;")
     op.execute("DROP TABLE IF EXISTS `chat_rooms`;")
+    op.execute("SET FOREIGN_KEY_CHECKS = 1;")
 
     op.execute("""
     CREATE TABLE `chat_rooms` (
@@ -64,6 +67,9 @@ def upgrade() -> None:
     """)
 
 def downgrade() -> None:
+    op.execute("SET FOREIGN_KEY_CHECKS = 0;")
+    op.execute("DROP TABLE IF EXISTS `chat_message_reactions`;")
     op.execute("DROP TABLE IF EXISTS `chat_messages`;")
     op.execute("DROP TABLE IF EXISTS `chat_participants`;")
     op.execute("DROP TABLE IF EXISTS `chat_rooms`;")
+    op.execute("SET FOREIGN_KEY_CHECKS = 1;")
