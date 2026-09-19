@@ -1,5 +1,5 @@
 from sqlalchemy import Column, BigInteger, String, Integer, DateTime, Boolean, JSON, ForeignKey, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from datetime import datetime
 from src.core.database import Base
 from src.models.security import user_roles
@@ -22,7 +22,7 @@ class User(Base):
 
     # Control Parental / Representante Legal (para menores de edad vinculados a una cuenta de adulto)
     parent_user_id = Column(BigInteger, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
-    parent = relationship("User", remote_side=[id], foreign_keys=[parent_user_id], backref="children")
+    parent = relationship("User", remote_side=[id], foreign_keys=[parent_user_id], backref=backref("children", lazy="selectin"), lazy="selectin")
     
     # Credencial IMAP para sincronización automática de correo corporativo (encriptada con Fernet)
     imap_password = Column(EncryptedString, nullable=True)

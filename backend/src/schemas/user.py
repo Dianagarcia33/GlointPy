@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator, model_validator
 from typing import List, Optional, Any, Dict
 from datetime import datetime
 from src.schemas.security import RoleResponse
@@ -127,6 +127,38 @@ class UserResponse(BaseModel):
     permissions: Optional[List[str]] = []
     
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode='before')
+    @classmethod
+    def check_unloaded_relations(cls, data: Any) -> Any:
+        if hasattr(data, '_sa_instance_state'):
+            state = data._sa_instance_state
+            loaded_data = {}
+            if hasattr(data, '__table__'):
+                for col in data.__table__.columns:
+                    loaded_data[col.name] = getattr(data, col.name, None)
+            else:
+                for k, v in state.dict.items():
+                    loaded_data[k] = v
+
+            # Safe relationship access avoiding MissingGreenlet
+            loaded_data['roles'] = state.dict.get('roles', [])
+            loaded_data['parent'] = state.dict.get('parent', None)
+            loaded_data['children'] = state.dict.get('children', [])
+            if 'bank_accounts' in state.dict:
+                loaded_data['bank_accounts'] = state.dict['bank_accounts']
+            if 'wallet' in state.dict:
+                loaded_data['wallet'] = state.dict['wallet']
+
+            loaded_data['permissions_override'] = getattr(data, 'permissions_override', None)
+            loaded_data['permissions'] = getattr(data, 'permissions', [])
+
+            for field in ('id', 'name', 'email', 'is_active', 'is_superuser', 'must_change_password', 'created_at', 'updated_at'):
+                if field not in loaded_data and hasattr(data, field):
+                    loaded_data[field] = getattr(data, field)
+
+            return loaded_data
+        return data
 
 class UserWithBankAccountsResponse(UserResponse):
     bank_accounts: List[UserBankAccountResponse] = []
