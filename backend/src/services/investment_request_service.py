@@ -333,6 +333,20 @@ class InvestmentRequestService:
                     .where(Investor.id == target_investor_id)
                 )
                 existing_investor = inv_res.scalars().first()
+            if not existing_investor and req.user_id:
+                inv_res = await db.execute(
+                    select(Investor)
+                    .options(
+                        selectinload(Investor.package),
+                        selectinload(Investor.period),
+                        selectinload(Investor.withdrawals),
+                        selectinload(Investor.accelerations)
+                    )
+                    .where(Investor.user_id == req.user_id)
+                    .order_by(Investor.id.desc())
+                    .limit(1)
+                )
+                existing_investor = inv_res.scalars().first()
 
         period_id = None
         if req.extra_data and isinstance(req.extra_data, dict):
@@ -415,9 +429,15 @@ class InvestmentRequestService:
             db.add(history)
 
             # 4. Actualizar contrato existente
-            prev_pkg_shares = existing_investor.package.granted_shares if existing_investor.package and existing_investor.package.granted_shares else 0
             from src.models.package import Package
             from src.services.share_market_service import ShareMarketService
+            prev_pkg_shares = 0
+            if existing_investor.package_id:
+                old_pkg_res = await db.execute(select(Package).where(Package.id == existing_investor.package_id))
+                old_pkg = old_pkg_res.scalar_one_or_none()
+                if old_pkg and old_pkg.granted_shares:
+                    prev_pkg_shares = old_pkg.granted_shares
+
             new_pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
             new_pkg = new_pkg_res.scalar_one_or_none()
             new_pkg_shares = new_pkg.granted_shares if new_pkg and new_pkg.granted_shares else 0

@@ -205,6 +205,7 @@ class ShareMarketService:
 
         balance_after = account.total_shares
 
+        db.add(account)
         movement = ShareMovement(
             user_id=user_id,
             movement_type=movement_type,

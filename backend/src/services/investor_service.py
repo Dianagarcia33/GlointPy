@@ -299,8 +299,37 @@ class InvestorService:
                     detail=f"El código asignado '{update_data['assigned_code']}' ya pertenece a otro inversionista."
                 )
 
+        old_package_id = db_investor.package_id
+        new_package_id = update_data.get("package_id")
+
         for field, value in update_data.items():
             setattr(db_investor, field, value)
+
+        if new_package_id and new_package_id != old_package_id:
+            from src.models.package import Package
+            from src.services.share_market_service import ShareMarketService
+            old_pkg_res = await db.execute(select(Package).where(Package.id == old_package_id))
+            old_pkg = old_pkg_res.scalar_one_or_none()
+            prev_pkg_shares = old_pkg.granted_shares if old_pkg and old_pkg.granted_shares else 0
+
+            new_pkg_res = await db.execute(select(Package).where(Package.id == new_package_id))
+            new_pkg = new_pkg_res.scalar_one_or_none()
+            new_pkg_shares = new_pkg.granted_shares if new_pkg and new_pkg.granted_shares else 0
+
+            shares_diff = new_pkg_shares - prev_pkg_shares
+            if shares_diff > 0:
+                pkg_val = f"${new_pkg.value:,.0f} COP" if new_pkg and new_pkg.value else ""
+                desc = f"Otorgamiento de {shares_diff} acciones adicionales por aumento de capital a Paquete ({pkg_val}) - Contrato #{db_investor.assigned_code}"
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=db_investor.user_id,
+                    movement_type="package_grant",
+                    quantity=shares_diff,
+                    description=desc,
+                    investor_id=db_investor.id,
+                    package_id=new_pkg.id if new_pkg else None,
+                    created_at=datetime.utcnow()
+                )
 
         try:
             await db.commit()
