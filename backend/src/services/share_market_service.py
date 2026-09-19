@@ -255,9 +255,10 @@ class ShareMarketService:
                 chk = await db.execute(
                     select(ShareMovement)
                     .where(ShareMovement.user_id == user_id, ShareMovement.investor_id == inv.id)
+                    .order_by(ShareMovement.id.asc())
                 )
-                existing_movement = chk.scalar_one_or_none()
-                if not existing_movement:
+                existing_movements = chk.scalars().all()
+                if not existing_movements:
                     pkg_val = f"${inv.package.value:,.0f} COP" if (inv.package and inv.package.value) else ""
                     desc = f"Otorgamiento de {shares_to_grant} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{inv.assigned_code or inv.id}"
                     await ShareMarketService.record_share_movement(
@@ -272,9 +273,10 @@ class ShareMarketService:
                     )
                     credited_shares += shares_to_grant
                 else:
-                    # Si ya existía, asegurarse de que su fecha sea la de adquisición del paquete
-                    if acq_date and existing_movement.created_at != acq_date:
-                        existing_movement.created_at = acq_date
+                    # Si ya existían, asegurarse de que el movimiento inicial tenga la fecha de adquisición
+                    first_m = existing_movements[0]
+                    if acq_date and first_m.created_at != acq_date:
+                        first_m.created_at = acq_date
 
         # 2. Sincronizar compras completadas previas en mercado si no fueron registradas
         b_orders = await db.execute(
@@ -286,7 +288,7 @@ class ShareMarketService:
             chk_bo = await db.execute(
                 select(ShareMovement).where(ShareMovement.user_id == user_id, ShareMovement.trade_order_id == bo.id)
             )
-            existing_bo_sm = chk_bo.scalar_one_or_none()
+            existing_bo_sm = chk_bo.scalars().first()
             if not existing_bo_sm:
                 await ShareMarketService.record_share_movement(
                     db=db,
@@ -317,7 +319,7 @@ class ShareMarketService:
                     ShareMovement.movement_type == "market_sell"
                 )
             )
-            existing_so_sm = chk_so.scalar_one_or_none()
+            existing_so_sm = chk_so.scalars().first()
             if not existing_so_sm:
                 await ShareMarketService.record_share_movement(
                     db=db,
