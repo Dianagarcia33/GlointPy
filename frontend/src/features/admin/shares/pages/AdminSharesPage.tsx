@@ -6,8 +6,7 @@ import {
     Eye, 
     Clock, 
     RefreshCw,
-    X,
-    Sparkles
+    X
 } from 'lucide-react';
 import { shareMarketService, ShareTradeOrder, SharePriceHistory, ShareIssuance } from '../../../../services/shareMarket';
 import { ShareGrowthChart } from '../components/ShareGrowthChart';
@@ -27,13 +26,6 @@ export const AdminSharesPage: React.FC = () => {
     const [issuanceQuantity, setIssuanceQuantity] = useState<number | ''>('');
     const [issuancePrice, setIssuancePrice] = useState<number | ''>('');
     const [issuanceLoading, setIssuanceLoading] = useState(false);
-
-    // Modal de Actualización de Precio Oficial
-    const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
-    const [priceUpdateValue, setPriceUpdateValue] = useState<number | ''>('');
-    const [priceUpdateShares, setPriceUpdateShares] = useState<number | ''>('');
-    const [priceUpdateNotes, setPriceUpdateNotes] = useState('');
-    const [priceUpdateLoading, setPriceUpdateLoading] = useState(false);
 
     // Modal de Visualización de Comprobante / Decisión
     const [selectedOrder, setSelectedOrder] = useState<ShareTradeOrder | null>(null);
@@ -102,33 +94,6 @@ export const AdminSharesPage: React.FC = () => {
         setIssuanceTitle('');
         setIssuanceDescription('');
         setIsIssuanceModalOpen(true);
-    };
-
-    const handleOpenPriceModal = () => {
-        setPriceUpdateValue(currentPrice > 0 ? currentPrice : '');
-        setPriceUpdateShares(currentAvailableShares >= 0 ? currentAvailableShares : '');
-        setPriceUpdateNotes('');
-        setIsPriceModalOpen(true);
-    };
-
-    const handleUpdateOfficialPrice = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!priceUpdateValue || !priceUpdateNotes.trim()) return;
-
-        try {
-            setPriceUpdateLoading(true);
-            await shareMarketService.updateOfficialPrice(
-                Number(priceUpdateValue),
-                priceUpdateNotes,
-                priceUpdateShares !== '' ? Number(priceUpdateShares) : undefined
-            );
-            setIsPriceModalOpen(false);
-            await fetchData();
-        } catch (err: any) {
-            alert(err.message || "Error al actualizar el precio oficial de la acción.");
-        } finally {
-            setPriceUpdateLoading(false);
-        }
     };
 
     const handleCreateIssuance = async (e: React.FormEvent) => {
@@ -228,14 +193,6 @@ export const AdminSharesPage: React.FC = () => {
                     >
                         <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
                         <span>Sincronizar Acciones Históricas</span>
-                    </button>
-                    <button
-                        onClick={handleOpenPriceModal}
-                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer font-montserrat"
-                        title="Actualizar el precio oficial de la acción en la bitácora"
-                    >
-                        <Sparkles className="w-4 h-4" />
-                        <span>Actualizar Precio Oficial</span>
                     </button>
                     <button
                         onClick={handleOpenIssuanceModal}
@@ -743,85 +700,6 @@ export const AdminSharesPage: React.FC = () => {
                                 {decisionLoading ? "Procesando..." : (decisionAction === 'approve' ? "Confirmar y Aprobar" : "Confirmar Rechazo")}
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal de Actualización de Precio Oficial */}
-            {isPriceModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative space-y-5">
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                            <div>
-                                <h3 className="text-base font-black text-slate-900 font-montserrat">Actualizar Precio Oficial de la Acción</h3>
-                                <p className="text-xs text-slate-500 font-medium">Registra el nuevo valor de la acción respaldado con nota de auditoría.</p>
-                            </div>
-                            <button onClick={() => setIsPriceModalOpen(false)} className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center cursor-pointer">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <form onSubmit={handleUpdateOfficialPrice} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                                        Nuevo Precio por Acción ($ COP) <span className="text-rose-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        value={priceUpdateValue}
-                                        onChange={(e) => setPriceUpdateValue(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                        placeholder={`Ej. ${currentPrice > 0 ? currentPrice : '50000'}`}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-brand-500 outline-hidden"
-                                        required
-                                    />
-                                    {currentPrice > 0 && (
-                                        <span className="text-[10px] text-slate-400 block mt-1">
-                                            Valor actual: ${currentPrice.toLocaleString('es-CO')}
-                                        </span>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                                        Stock / Acciones Disponibles
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        value={priceUpdateShares}
-                                        onChange={(e) => setPriceUpdateShares(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                                        placeholder={`Actual: ${currentAvailableShares}`}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-brand-500 outline-hidden"
-                                    />
-                                    <span className="text-[10px] text-slate-400 block mt-1">
-                                        Opcional. Deja vacío si se mantiene.
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-bold text-slate-700 block mb-1">
-                                    Motivo / Justificación Obligatoria <span className="text-rose-500">*</span>
-                                </label>
-                                <textarea
-                                    rows={3}
-                                    value={priceUpdateNotes}
-                                    onChange={(e) => setPriceUpdateNotes(e.target.value)}
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-brand-500 outline-hidden"
-                                    placeholder="Indica la razón financiera, balance o resolución corporativa para la auditoría..."
-                                    required
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3 pt-2">
-                                <button type="button" onClick={() => setIsPriceModalOpen(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 cursor-pointer">
-                                    Cancelar
-                                </button>
-                                <button type="submit" disabled={priceUpdateLoading} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50">
-                                    {priceUpdateLoading ? "Guardando..." : "Guardar en Bitácora"}
-                                </button>
-                            </div>
-                        </form>
                     </div>
                 </div>
             )}
