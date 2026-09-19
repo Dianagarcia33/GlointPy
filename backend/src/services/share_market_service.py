@@ -931,10 +931,19 @@ class ShareMarketService:
 
         synced_count = 0
         total_shares_credited = 0
+        updated_users = []
         for uid in user_ids:
             credited = await ShareMarketService.sync_legacy_shares_for_user(db, uid)
             if credited > 0:
                 total_shares_credited += credited
+                user_res = await db.execute(select(User.name, User.email).where(User.id == uid))
+                u_row = user_res.first()
+                updated_users.append({
+                    "user_id": uid,
+                    "user_name": u_row[0] if u_row and u_row[0] else f"Usuario #{uid}",
+                    "user_email": u_row[1] if u_row and u_row[1] else "",
+                    "shares_credited": credited
+                })
             synced_count += 1
 
         await db.commit()
@@ -942,5 +951,6 @@ class ShareMarketService:
             "status": "success",
             "users_synced": synced_count,
             "synced_users_count": synced_count,
-            "total_shares_credited": total_shares_credited
+            "total_shares_credited": total_shares_credited,
+            "updated_users": updated_users
         }

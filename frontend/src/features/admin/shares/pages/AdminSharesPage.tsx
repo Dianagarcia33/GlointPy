@@ -6,7 +6,9 @@ import {
     Eye, 
     Clock, 
     RefreshCw,
-    X
+    X,
+    Users,
+    AlertCircle
 } from 'lucide-react';
 import { shareMarketService, ShareTradeOrder, SharePriceHistory, ShareIssuance } from '../../../../services/shareMarket';
 import { ShareGrowthChart } from '../components/ShareGrowthChart';
@@ -33,6 +35,21 @@ export const AdminSharesPage: React.FC = () => {
     const [decisionNotes, setDecisionNotes] = useState('');
     const [decisionLoading, setDecisionLoading] = useState(false);
     const [syncLoading, setSyncLoading] = useState(false);
+
+    // Modal de Sincronización y Resumen de Acciones
+    const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+    const [syncStage, setSyncStage] = useState<'confirm' | 'result'>('confirm');
+    const [syncError, setSyncError] = useState<string | null>(null);
+    const [syncResult, setSyncResult] = useState<{
+        users_synced: number;
+        total_shares_credited: number;
+        updated_users: Array<{
+            user_id: number;
+            user_name: string;
+            user_email: string;
+            shares_credited: number;
+        }>;
+    } | null>(null);
 
     const [activeTab, setActiveTab] = useState<'issuances' | 'pending' | 'valuation' | 'audit'>('issuances');
 
@@ -138,17 +155,27 @@ export const AdminSharesPage: React.FC = () => {
         }
     };
 
-    const handleSyncLegacyShares = async () => {
-        if (!confirm("¿Deseas sincronizar y consolidar retroactivamente las acciones otorgadas por todos los paquetes de inversión históricos?")) return;
+    const handleOpenSyncModal = () => {
+        setSyncStage('confirm');
+        setSyncError(null);
+        setIsSyncModalOpen(true);
+    };
+
+    const handleExecuteSync = async () => {
         try {
             setSyncLoading(true);
+            setSyncError(null);
             const res = await shareMarketService.syncLegacyShares();
-            const usersCount = res.details?.users_synced ?? res.details?.synced_users_count ?? 0;
-            const sharesCount = res.details?.total_shares_credited ?? 0;
-            alert(`Sincronización completada exitosamente.\nUsuarios procesados: ${usersCount}\nTotal acciones acreditadas: ${sharesCount}`);
+            const details = res.details || {};
+            setSyncResult({
+                users_synced: details.users_synced ?? details.synced_users_count ?? 0,
+                total_shares_credited: details.total_shares_credited ?? 0,
+                updated_users: details.updated_users || []
+            });
+            setSyncStage('result');
             await fetchData();
         } catch (err: any) {
-            alert(err.message || "Error al sincronizar acciones históricas.");
+            setSyncError(err.message || "Error al sincronizar acciones históricas.");
         } finally {
             setSyncLoading(false);
         }
@@ -188,7 +215,7 @@ export const AdminSharesPage: React.FC = () => {
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                     <button
-                        onClick={handleSyncLegacyShares}
+                        onClick={handleOpenSyncModal}
                         disabled={syncLoading}
                         className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-2xl text-xs font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer font-montserrat disabled:opacity-50"
                         title="Sincronizar retroactivamente las acciones otorgadas por paquetes de inversión existentes"
@@ -702,6 +729,159 @@ export const AdminSharesPage: React.FC = () => {
                                 {decisionLoading ? "Procesando..." : (decisionAction === 'approve' ? "Confirmar y Aprobar" : "Confirmar Rechazo")}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Sincronización y Resumen de Acciones */}
+            {isSyncModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative space-y-6">
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${syncStage === 'confirm' ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                    {syncStage === 'confirm' ? (
+                                        <RefreshCw className={`w-5 h-5 ${syncLoading ? 'animate-spin' : ''}`} />
+                                    ) : (
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                    )}
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-slate-900 font-montserrat">
+                                        {syncStage === 'confirm' ? "Sincronizar Acciones Históricas" : "Resumen de Acciones Sincronizadas"}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-medium">
+                                        {syncStage === 'confirm' 
+                                            ? "Consolida las acciones de contratos existentes en la nueva tabla contable"
+                                            : "Detalle de los saldos acreditados y usuarios actualizados en la base de datos"
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                            {!syncLoading && (
+                                <button 
+                                    onClick={() => setIsSyncModalOpen(false)} 
+                                    className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center cursor-pointer transition-colors"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+
+                        {syncStage === 'confirm' ? (
+                            <div className="space-y-5">
+                                <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-2">
+                                    <div className="flex items-start gap-2.5">
+                                        <AlertCircle className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                                        <div className="text-xs text-indigo-950 font-medium space-y-1.5">
+                                            <p className="font-bold text-indigo-900">¿Cómo funciona la sincronización?</p>
+                                            <p className="text-indigo-800 leading-relaxed">
+                                                El sistema escaneará los contratos de inversión históricos y verificará el paquete adquirido por cada usuario. Se calculará e insertará en la nueva tabla contable (<code className="font-mono bg-white/70 px-1 py-0.5 rounded text-[11px]">user_shares</code> y <code className="font-mono bg-white/70 px-1 py-0.5 rounded text-[11px]">share_movements</code>) la cantidad exacta de acciones estipulada en su paquete.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {syncError && (
+                                    <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium">
+                                        {syncError}
+                                    </div>
+                                )}
+
+                                <div className="flex items-center justify-end gap-3 pt-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setIsSyncModalOpen(false)}
+                                        disabled={syncLoading}
+                                        className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleExecuteSync}
+                                        disabled={syncLoading}
+                                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                                    >
+                                        <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
+                                        <span>{syncLoading ? "Sincronizando..." : "Iniciar Sincronización"}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-5">
+                                {/* Métricas del resultado */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Usuarios Revisados</span>
+                                        <span className="text-xl font-black text-slate-900 font-mono mt-0.5 block">
+                                            {syncResult?.users_synced || 0}
+                                        </span>
+                                    </div>
+                                    <div className="p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-2xl">
+                                        <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block">Con Acciones Nuevas</span>
+                                        <span className="text-xl font-black text-indigo-700 font-mono mt-0.5 block">
+                                            {syncResult?.updated_users?.length || 0}
+                                        </span>
+                                    </div>
+                                    <div className="p-3.5 bg-emerald-50/70 border border-emerald-100 rounded-2xl col-span-2 sm:col-span-1">
+                                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Acciones Acreditadas</span>
+                                        <span className="text-xl font-black text-emerald-600 font-mono mt-0.5 block">
+                                            +{(syncResult?.total_shares_credited || 0).toLocaleString('es-CO')}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Lista de detalle de usuarios actualizados */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-bold text-slate-700">Detalle de Acciones Asignadas</span>
+                                        <span className="text-[11px] font-semibold text-slate-400 font-mono">
+                                            {syncResult?.updated_users?.length || 0} usuarios
+                                        </span>
+                                    </div>
+
+                                    {syncResult?.updated_users && syncResult.updated_users.length > 0 ? (
+                                        <div className="max-h-60 overflow-y-auto space-y-2 pr-1 border border-slate-100 rounded-2xl p-2 bg-slate-50/50">
+                                            {syncResult.updated_users.map((u) => (
+                                                <div key={u.user_id} className="bg-white p-3 rounded-xl border border-slate-200/80 flex items-center justify-between shadow-2xs">
+                                                    <div className="min-w-0 pr-3 flex items-center gap-2.5">
+                                                        <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                                                            <Users className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-bold text-slate-900 truncate font-montserrat">{u.user_name}</p>
+                                                            <p className="text-[11px] text-slate-500 truncate">{u.user_email || `ID Usuario: ${u.user_id}`}</p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="shrink-0 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-mono font-black">
+                                                        +{u.shares_credited.toLocaleString('es-CO')} Unds
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-2xl text-center space-y-1.5">
+                                            <p className="text-xs font-bold text-slate-700">Todos los contratos ya se encuentran al día</p>
+                                            <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                                                Los contratos históricos de los usuarios ya contaban con sus movimientos asentados y totalizados en el Libro Mayor. No se requirieron ajustes adicionales.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-end pt-2">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setIsSyncModalOpen(false)}
+                                        className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-colors"
+                                    >
+                                        Entendido y Cerrar
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
