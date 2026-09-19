@@ -78,6 +78,19 @@ export interface ShareIssuance {
     created_at: string;
 }
 
+export interface ShareMovement {
+    id: number;
+    user_id: number;
+    movement_type: 'package_grant' | 'market_buy' | 'market_sell' | 'listing_lock' | 'listing_unlock' | 'admin_adjustment';
+    shares_quantity: number;
+    balance_before: number;
+    balance_after: number;
+    reference_id?: number;
+    reference_type?: string;
+    description: string;
+    created_at: string;
+}
+
 export const shareMarketService = {
     // Inversionista
     getPortfolio: () => fetchApi<SharePortfolio>('/shares-market/portfolio'),
@@ -117,8 +130,14 @@ export const shareMarketService = {
         });
     },
     getMyOrders: () => fetchApi<ShareTradeOrder[]>('/shares-market/my-orders'),
+    getMyMovements: () => fetchApi<ShareMovement[]>('/shares-market/movements'),
 
     // Administrador
+    getUserMovementsAdmin: (userId: number) => fetchApi<ShareMovement[]>(`/shares-market/admin/users/${userId}/movements`),
+    syncLegacyShares: () =>
+        fetchApi<{ message: string; details: any }>('/shares-market/admin/sync-legacy-shares', {
+            method: 'POST'
+        }),
     updateOfficialPrice: (newPrice: number, justificationNotes: string, availableShares?: number) =>
         fetchApi<SharePriceHistory>('/shares-market/admin/price', {
             method: 'POST',

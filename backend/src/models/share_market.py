@@ -84,3 +84,42 @@ class ShareTradeOrder(Base):
     seller = relationship("User", foreign_keys=[seller_id])
     buyer = relationship("User", foreign_keys=[buyer_id])
     approver = relationship("User", foreign_keys=[approved_by])
+
+
+class UserShare(Base):
+    __tablename__ = "user_shares"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    total_shares = Column(Integer, nullable=False, default=0)
+    available_shares = Column(Integer, nullable=False, default=0)
+    locked_shares = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="shares_account")
+
+
+class ShareMovement(Base):
+    __tablename__ = "share_movements"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    movement_type = Column(String(50), nullable=False)  # package_grant, market_buy, market_sell, listing_lock, listing_unlock, admin_adjustment
+    shares_quantity = Column(Integer, nullable=False)
+    balance_before = Column(Integer, nullable=False, default=0)
+    balance_after = Column(Integer, nullable=False, default=0)
+    
+    investor_id = Column(BigInteger, ForeignKey("investors.id", ondelete="SET NULL"), nullable=True, index=True)
+    package_id = Column(Integer, ForeignKey("packages.id", ondelete="SET NULL"), nullable=True, index=True)
+    trade_order_id = Column(BigInteger, ForeignKey("share_trade_orders.id", ondelete="SET NULL"), nullable=True)
+    listing_id = Column(BigInteger, ForeignKey("share_listings.id", ondelete="SET NULL"), nullable=True)
+    
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    user = relationship("User", back_populates="share_movements")
+    investor = relationship("Investor")
+    package = relationship("Package")
+    trade_order = relationship("ShareTradeOrder")
+    listing = relationship("ShareListing")

@@ -47,6 +47,8 @@ class User(Base):
     bank_accounts = relationship("UserBankAccount", back_populates="user", cascade="all, delete-orphan")
     withdrawals = relationship("Withdrawal", foreign_keys="Withdrawal.user_id", back_populates="user", cascade="all, delete-orphan")
     wallet = relationship("Wallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    shares_account = relationship("UserShare", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    share_movements = relationship("ShareMovement", back_populates="user", cascade="all, delete-orphan")
     
     # Rango de Inversionista asignado / calculado
     rank_id = Column(Integer, ForeignKey('investment_ranks.id', ondelete='SET NULL'), nullable=True)

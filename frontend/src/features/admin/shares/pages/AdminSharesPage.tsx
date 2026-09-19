@@ -31,6 +31,7 @@ export const AdminSharesPage: React.FC = () => {
     const [decisionAction, setDecisionAction] = useState<'approve' | 'reject' | null>(null);
     const [decisionNotes, setDecisionNotes] = useState('');
     const [decisionLoading, setDecisionLoading] = useState(false);
+    const [syncLoading, setSyncLoading] = useState(false);
 
     const [activeTab, setActiveTab] = useState<'issuances' | 'pending' | 'valuation' | 'audit'>('issuances');
 
@@ -116,6 +117,20 @@ export const AdminSharesPage: React.FC = () => {
         }
     };
 
+    const handleSyncLegacyShares = async () => {
+        if (!confirm("¿Deseas sincronizar y consolidar retroactivamente las acciones otorgadas por todos los paquetes de inversión históricos?")) return;
+        try {
+            setSyncLoading(true);
+            const res = await shareMarketService.syncLegacyShares();
+            alert(`Sincronización completada exitosamente.\nUsuarios procesados: ${res.details?.users_synced || 0}\nTotal acciones acreditadas: ${res.details?.total_shares_credited || 0}`);
+            await fetchData();
+        } catch (err: any) {
+            alert(err.message || "Error al sincronizar acciones históricas.");
+        } finally {
+            setSyncLoading(false);
+        }
+    };
+
     return (
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
@@ -148,6 +163,15 @@ export const AdminSharesPage: React.FC = () => {
                         title="Actualizar datos"
                     >
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                    <button
+                        onClick={handleSyncLegacyShares}
+                        disabled={syncLoading}
+                        className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-2xl text-xs font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer font-montserrat disabled:opacity-50"
+                        title="Sincronizar retroactivamente las acciones otorgadas por paquetes de inversión existentes"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
+                        <span>Sincronizar Acciones Históricas</span>
                     </button>
                     <button
                         onClick={handleOpenIssuanceModal}

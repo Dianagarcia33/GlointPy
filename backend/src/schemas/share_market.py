@@ -110,3 +110,37 @@ class ShareUserPortfolioOut(BaseModel):
     portfolio_market_value: float
     sales_window_open: bool
     sales_window_message: Optional[str] = None
+
+
+# --- Esquemas de Trazabilidad y Movimientos de Acciones (Ledger) ---
+class ShareMovementOut(BaseModel):
+    id: int
+    user_id: int
+    movement_type: str
+    shares_quantity: int
+    balance_before: int
+    balance_after: int
+    investor_id: Optional[int] = None
+    investor_code: Optional[str] = None
+    package_id: Optional[int] = None
+    package_value: Optional[float] = None
+    trade_order_id: Optional[int] = None
+    listing_id: Optional[int] = None
+    description: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserShareAccountOut(BaseModel):
+    id: int
+    user_id: int
+    total_shares: int
+    available_shares: int
+    locked_shares: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

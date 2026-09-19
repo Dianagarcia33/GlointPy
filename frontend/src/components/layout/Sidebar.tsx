@@ -160,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </NavLink>
                                 </Can>
 
-                                <Can permissions={["admin.shares.manage", "admin.roles.manage"]}>
+                                <Can permissions={["admin.shares.manage", "admin.roles.manage", "wallets:view", "dashboard:view_investments"]}>
                                     <NavLink to="/dashboard/shares-market" className={navLinkClass}>
                                         <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                             <Layers className="w-[18px] h-[18px]" />

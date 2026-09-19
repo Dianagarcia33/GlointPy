@@ -148,6 +148,25 @@ class InvestorService:
         
         try:
             db.add(db_investor)
+            await db.flush()
+
+            # Otorgar acciones del paquete si aplica
+            pkg_res = await db.execute(select(Package).where(Package.id == db_investor.package_id))
+            pkg = pkg_res.scalar_one_or_none()
+            if pkg and pkg.granted_shares and pkg.granted_shares > 0:
+                from src.services.share_market_service import ShareMarketService
+                pkg_val = f"${pkg.value:,.0f} COP" if pkg.value else ""
+                desc = f"Otorgamiento de {pkg.granted_shares} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{assigned_code}"
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=db_investor.user_id,
+                    movement_type="package_grant",
+                    quantity=pkg.granted_shares,
+                    description=desc,
+                    investor_id=db_investor.id,
+                    package_id=pkg.id
+                )
+
             await db.commit()
             await db.refresh(db_investor)
             # Re-fetch with relationships

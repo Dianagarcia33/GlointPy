@@ -15,9 +15,10 @@ import {
     FileText, 
     Sparkles, 
     RefreshCw,
-    Wallet
+    Wallet,
+    History
 } from 'lucide-react';
-import { shareMarketService, SharePortfolio, ShareListing, ShareTradeOrder, SharePriceHistory } from '../../../services/shareMarket';
+import { shareMarketService, SharePortfolio, ShareListing, ShareTradeOrder, SharePriceHistory, ShareMovement } from '../../../services/shareMarket';
 import { getMyWallet } from '../../../services/wallets';
 import { SellSharesModal } from '../components/SellSharesModal';
 import { BuySharesModal } from '../components/BuySharesModal';
@@ -27,27 +28,30 @@ export const SharesMarketPage: React.FC = () => {
     const [listings, setListings] = useState<ShareListing[]>([]);
     const [myOrders, setMyOrders] = useState<ShareTradeOrder[]>([]);
     const [priceHistory, setPriceHistory] = useState<SharePriceHistory[]>([]);
+    const [movements, setMovements] = useState<ShareMovement[]>([]);
     const [walletBalance, setWalletBalance] = useState<number>(0);
     const [loading, setLoading] = useState(true);
 
-    const [activeTab, setActiveTab] = useState<'market' | 'my_listings' | 'orders' | 'history'>('market');
+    const [activeTab, setActiveTab] = useState<'market' | 'my_listings' | 'orders' | 'movements' | 'history'>('market');
     const [isSellModalOpen, setIsSellModalOpen] = useState(false);
     const [selectedListingForBuy, setSelectedListingForBuy] = useState<ShareListing | null>(null);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [pData, lData, oData, hData, wData] = await Promise.all([
+            const [pData, lData, oData, hData, wData, mData] = await Promise.all([
                 shareMarketService.getPortfolio(),
                 shareMarketService.getListings(),
                 shareMarketService.getMyOrders(),
                 shareMarketService.getPriceHistory(),
-                getMyWallet().catch(() => ({ balance: 0 }))
+                getMyWallet().catch(() => ({ balance: 0 })),
+                shareMarketService.getMyMovements().catch(() => [])
             ]);
             setPortfolio(pData);
             setListings(lData);
             setMyOrders(oData);
             setPriceHistory(hData);
+            setMovements(mData || []);
             setWalletBalance(typeof wData.balance === 'number' ? wData.balance : parseFloat(wData.balance || '0'));
         } catch (error) {
             console.error("Error fetching share market data:", error);
@@ -204,6 +208,14 @@ export const SharesMarketPage: React.FC = () => {
                     }`}
                 >
                     Mis Transacciones ({myOrders.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('movements')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                        activeTab === 'movements' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                >
+                    Extracto de Acciones ({movements.length})
                 </button>
                 <button
                     onClick={() => setActiveTab('history')}
@@ -455,6 +467,129 @@ export const SharesMarketPage: React.FC = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* TAB CONTENT: EXTRACTO Y MOVIMIENTOS DE ACCIONES */}
+            {activeTab === 'movements' && (
+                <div className="space-y-4">
+                    <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+                        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h3 className="text-base font-black text-slate-900 font-montserrat">
+                                    Extracto y Trazabilidad de Acciones
+                                </h3>
+                                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                                    Historial consolidado e inmutable de cada acción adquirida por paquetes, compras o ventas secundarias.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl font-mono">
+                                    Saldo actual: <strong className="text-slate-900">{portfolio?.total_shares_owned || 0} acciones</strong>
+                                </span>
+                            </div>
+                        </div>
+
+                        {movements.length === 0 ? (
+                            <div className="p-12 text-center space-y-3">
+                                <div className="w-14 h-14 rounded-3xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">
+                                    <History className="w-7 h-7" />
+                                </div>
+                                <h3 className="text-base font-bold text-slate-800 font-montserrat">
+                                    No hay movimientos registrados
+                                </h3>
+                                <p className="text-xs text-slate-500 max-w-md mx-auto font-medium">
+                                    Cuando adquieras un paquete de inversión o negocies títulos en el mercado, verás el extracto detallado aquí.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-400 uppercase font-bold text-[10px] tracking-wider">
+                                            <th className="p-4 pl-6">Fecha / Hora</th>
+                                            <th className="p-4">Tipo de Movimiento</th>
+                                            <th className="p-4">Descripción / Concepto</th>
+                                            <th className="p-4 text-center">Variación</th>
+                                            <th className="p-4 text-right">Saldo Tras Operación</th>
+                                            <th className="p-4 pr-6 text-right">Referencia</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                                        {movements.map((m) => {
+                                            const isPositive = m.shares_quantity > 0;
+                                            const isNegative = m.shares_quantity < 0;
+                                            return (
+                                                <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="p-4 pl-6 font-mono text-slate-500 whitespace-nowrap">
+                                                        {new Date(m.created_at).toLocaleString('es-CO')}
+                                                    </td>
+                                                    <td className="p-4 whitespace-nowrap">
+                                                        {m.movement_type === 'package_grant' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                                                Paquete de Inversión
+                                                            </span>
+                                                        )}
+                                                        {m.movement_type === 'market_buy' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                Compra en Mercado
+                                                            </span>
+                                                        )}
+                                                        {m.movement_type === 'market_sell' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                                                                Venta en Mercado
+                                                            </span>
+                                                        )}
+                                                        {m.movement_type === 'listing_lock' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                                                Bloqueo por Oferta
+                                                            </span>
+                                                        )}
+                                                        {m.movement_type === 'listing_unlock' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+                                                                Liberación de Oferta
+                                                            </span>
+                                                        )}
+                                                        {m.movement_type === 'admin_adjustment' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                                                                Ajuste de Auditoría
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4 font-semibold text-slate-800">
+                                                        {m.description}
+                                                    </td>
+                                                    <td className="p-4 text-center whitespace-nowrap">
+                                                        {isPositive && (
+                                                            <span className="inline-flex items-center gap-0.5 text-xs font-black font-mono px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                +{m.shares_quantity} Acciones
+                                                            </span>
+                                                        )}
+                                                        {isNegative && (
+                                                            <span className="inline-flex items-center gap-0.5 text-xs font-black font-mono px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                                                {m.shares_quantity} Acciones
+                                                            </span>
+                                                        )}
+                                                        {!isPositive && !isNegative && (
+                                                            <span className="inline-flex items-center gap-0.5 text-xs font-bold font-mono px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                                                0 Acciones
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4 text-right font-black font-mono text-slate-900 whitespace-nowrap">
+                                                        {m.balance_after} Acciones
+                                                    </td>
+                                                    <td className="p-4 pr-6 text-right font-mono text-[11px] text-slate-400 whitespace-nowrap">
+                                                        {m.reference_type ? `${m.reference_type} #${m.reference_id || ''}` : '-'}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 

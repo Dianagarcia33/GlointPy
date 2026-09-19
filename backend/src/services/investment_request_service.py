@@ -415,6 +415,26 @@ class InvestmentRequestService:
             db.add(history)
 
             # 4. Actualizar contrato existente
+            prev_pkg_shares = existing_investor.package.granted_shares if existing_investor.package and existing_investor.package.granted_shares else 0
+            from src.models.package import Package
+            from src.services.share_market_service import ShareMarketService
+            new_pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
+            new_pkg = new_pkg_res.scalar_one_or_none()
+            new_pkg_shares = new_pkg.granted_shares if new_pkg and new_pkg.granted_shares else 0
+            shares_diff = new_pkg_shares - prev_pkg_shares
+            if shares_diff > 0:
+                pkg_val = f"${new_pkg.value:,.0f} COP" if new_pkg and new_pkg.value else ""
+                desc = f"Otorgamiento de {shares_diff} acciones adicionales por aumento de capital a Paquete ({pkg_val}) - Contrato #{existing_investor.assigned_code}"
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=req.user_id,
+                    movement_type="package_grant",
+                    quantity=shares_diff,
+                    description=desc,
+                    investor_id=existing_investor.id,
+                    package_id=new_pkg.id if new_pkg else None
+                )
+
             existing_investor.package_id = req.paquete_inversion_id
             if period_id:
                 existing_investor.period_id = period_id
@@ -465,6 +485,24 @@ class InvestmentRequestService:
                 wallet = Wallet(user_id=req.user_id, balance=Decimal("0.00"), currency="COP", status=WalletStatus.ACTIVE)
                 db.add(wallet)
                 await db.flush()
+
+            # Acreditar acciones otorgadas por el paquete de inversión si aplica
+            from src.models.package import Package
+            from src.services.share_market_service import ShareMarketService
+            pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
+            pkg = pkg_res.scalar_one_or_none()
+            if pkg and pkg.granted_shares and pkg.granted_shares > 0:
+                pkg_val = f"${pkg.value:,.0f} COP" if pkg.value else ""
+                desc = f"Otorgamiento de {pkg.granted_shares} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{code}"
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=req.user_id,
+                    movement_type="package_grant",
+                    quantity=pkg.granted_shares,
+                    description=desc,
+                    investor_id=investor.id,
+                    package_id=pkg.id
+                )
 
         # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)
         if referred_code:

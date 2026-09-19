@@ -14,7 +14,9 @@ from src.schemas.share_market import (
     ShareListingOut,
     ShareTradeOrderOut,
     AdminTradeDecision,
-    ShareUserPortfolioOut
+    ShareUserPortfolioOut,
+    ShareMovementOut,
+    UserShareAccountOut
 )
 from src.services.share_market_service import ShareMarketService
 
@@ -130,6 +132,15 @@ async def get_my_trade_orders(
     """Obtiene el historial de compras y ventas de acciones del usuario."""
     return await ShareMarketService.get_all_trade_orders(db, user_id=current_user.id)
 
+@router.get("/movements", response_model=List[ShareMovementOut])
+async def get_my_share_movements(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obtiene el historial detallado de movimientos de acciones (extracto) del usuario."""
+    return await ShareMarketService.get_user_movements(db, current_user.id)
+
+
 
 # ==========================================================
 # ENDPOINTS ADMINISTRATIVOS (VALORACIÓN, EMISIÓN Y AUDITORÍA)
@@ -229,3 +240,22 @@ async def get_share_issuances(
 ):
     """Lista las emisiones corporativas de acciones."""
     return await ShareMarketService.get_issuances(db)
+
+@router.get("/admin/users/{user_id}/movements", response_model=List[ShareMovementOut], dependencies=[Depends(RequirePermission("admin.shares.manage"))])
+async def get_user_share_movements_admin(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obtiene el extracto de movimientos de acciones de cualquier usuario para auditoría administrativa."""
+    return await ShareMarketService.get_user_movements(db, user_id)
+
+@router.post("/admin/sync-legacy-shares", dependencies=[Depends(RequirePermission("admin.shares.manage"))])
+async def sync_legacy_shares_endpoint(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Sincroniza y consolida de forma retroactiva las acciones otorgadas por paquetes de inversión históricos."""
+    result = await ShareMarketService.sync_all_users_legacy_shares(db)
+    return {"message": "Sincronización retroactiva completada exitosamente.", "details": result}
+
