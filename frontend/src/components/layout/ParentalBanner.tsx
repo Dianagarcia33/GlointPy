@@ -17,19 +17,18 @@ export const ParentalBanner: React.FC = () => {
   const handleReturnToParent = async () => {
     setIsSwitchingBack(true);
     try {
+      // Backend call sets the HttpOnly cookie for the parent
+      const res = await usersService.switchBackToParent();
+      login(res.user as any, res.access_token);
+      setParentBackup(null);
+      window.location.href = '/dashboard';
+    } catch (err: any) {
       if (parentBackup && parentBackup.token) {
         login(parentBackup.user, parentBackup.token);
         setParentBackup(null);
         window.location.href = '/dashboard';
         return;
       }
-
-      // Fallback to backend switch-back
-      const res = await usersService.switchBackToParent();
-      login(res.user as any, res.access_token);
-      setParentBackup(null);
-      window.location.href = '/dashboard';
-    } catch (err: any) {
       console.error('Error al retornar a la cuenta del tutor:', err);
       alert(err.message || 'No fue posible volver a la cuenta del tutor. Por favor inicia sesión nuevamente.');
     } finally {

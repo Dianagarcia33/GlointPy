@@ -65,6 +65,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   const handleReturnToParent = async () => {
     setIsSwitching(true);
     try {
+      const res = await usersService.switchBackToParent();
+      login(res.user as any, res.access_token);
+      setParentBackup(null);
+      setUserMenuOpen(false);
+      window.location.href = '/dashboard';
+    } catch (err: any) {
       if (parentBackup && parentBackup.token) {
         login(parentBackup.user, parentBackup.token);
         setParentBackup(null);
@@ -72,13 +78,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
         window.location.href = '/dashboard';
         return;
       }
-      const res = await usersService.switchBackToParent();
-      login(res.user as any, res.access_token);
-      setParentBackup(null);
-      setUserMenuOpen(false);
-      window.location.href = '/dashboard';
-    } catch (err: any) {
       alert(err.message || 'Error al retornar a la cuenta del tutor');
+    } finally {
       setIsSwitching(false);
     }
   };

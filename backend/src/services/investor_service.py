@@ -63,6 +63,7 @@ class InvestorService:
             selectinload(Investor.user).selectinload(User.roles).selectinload(Role.permissions),
             selectinload(Investor.user).selectinload(User.bank_accounts),
             selectinload(Investor.user).selectinload(User.wallet),
+            selectinload(Investor.user).selectinload(User.parent),
             selectinload(Investor.package),
             selectinload(Investor.period),
             selectinload(Investor.contract_histories),

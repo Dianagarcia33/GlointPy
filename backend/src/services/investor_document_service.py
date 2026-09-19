@@ -115,10 +115,62 @@ class InvestorDocumentService:
             return ""
 
         user = investor.user
-        full_name = (user.name if user and user.name else "Inversionista").strip()
-        
-        # Split first and last name
-        words = full_name.split()
+        minor_full_name = (user.name if user and user.name else "Inversionista").strip()
+        minor_doc = user.document_id if user and user.document_id else "N/A"
+        minor_doc_type = getattr(user, 'tipo_documento', 'Tarjeta de Identidad') or 'Tarjeta de Identidad'
+        minor_email = user.email if user and user.email else "N/A"
+        minor_phone = user.phone_number if user and user.phone_number else "N/A"
+        minor_city = getattr(user, 'city', '') or getattr(user, 'ciudad', '') or "Bogotá D.C."
+
+        # Tutor / Representante legal en caso de menores de edad
+        parent = getattr(user, 'parent', None) if user else None
+        is_minor = bool(parent or (user and user.parent_user_id))
+        if is_minor and parent:
+            tutor_full_name = (parent.name or "Tutor Legal").strip()
+            tutor_doc = parent.document_id if parent.document_id else "N/A"
+            tutor_doc_type = getattr(parent, 'tipo_documento', 'Cédula de Ciudadanía') or 'Cédula de Ciudadanía'
+            tutor_email = parent.email if parent.email else minor_email
+            tutor_phone = parent.phone_number if parent.phone_number else minor_phone
+            tutor_city = getattr(parent, 'city', '') or getattr(parent, 'ciudad', '') or minor_city
+
+            effective_full_name = tutor_full_name
+            effective_doc = tutor_doc
+            effective_doc_type = tutor_doc_type
+            effective_email = tutor_email
+            effective_phone = tutor_phone
+            effective_city = tutor_city
+
+            legal_full_name = f"{tutor_full_name} (en representación legal del menor {minor_full_name})"
+            firma_digital_html = (
+                f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 280px; padding-top: 4px; font-size: 13px;">'
+                f'<strong>Firma Digital:</strong><br/>{tutor_full_name}<br/>'
+                f'<span style="color:#64748b; font-size: 11px;">En representación legal de: {minor_full_name}</span><br/>'
+                f'<span style="color:#64748b; font-size: 11px;">{tutor_doc_type}: {tutor_doc}</span></div>'
+            )
+        else:
+            tutor_full_name = ""
+            tutor_doc = ""
+            tutor_doc_type = ""
+            tutor_email = ""
+            tutor_phone = ""
+            tutor_city = ""
+
+            effective_full_name = minor_full_name
+            effective_doc = minor_doc
+            effective_doc_type = minor_doc_type
+            effective_email = minor_email
+            effective_phone = minor_phone
+            effective_city = minor_city
+
+            legal_full_name = minor_full_name
+            firma_digital_html = (
+                f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;">'
+                f'<strong>Firma Digital:</strong><br/>{minor_full_name}<br/>'
+                f'<span style="color:#64748b; font-size: 11px;">Doc: {minor_doc}</span></div>'
+            )
+
+        # Split first and last name from effective_full_name (Tutor if minor, else investor)
+        words = effective_full_name.split()
         if len(words) == 0:
             first_name = "Inversionista"
             last_name = ""
@@ -134,54 +186,6 @@ class InvestorDocumentService:
         else:
             first_name = f"{words[0]} {words[1]}"
             last_name = " ".join(words[2:])
-
-        user_doc = user.document_id if user and user.document_id else "N/A"
-        doc_type = getattr(user, 'tipo_documento', 'Cédula de Ciudadanía') or 'Cédula de Ciudadanía'
-        user_email = user.email if user and user.email else "N/A"
-        user_phone = user.phone_number if user and user.phone_number else "N/A"
-        user_city = getattr(user, 'city', '') or getattr(user, 'ciudad', '') or "Bogotá D.C."
-
-        # Tutor / Representante legal en caso de menores de edad
-        parent = getattr(user, 'parent', None) if user else None
-        is_minor = bool(parent or (user and user.parent_user_id))
-        if is_minor and parent:
-            tutor_nombre = (parent.name or "Tutor Legal").strip()
-            tutor_doc = parent.document_id if parent.document_id else "N/A"
-            tutor_doc_type = getattr(parent, 'tipo_documento', 'Cédula de Ciudadanía') or 'Cédula de Ciudadanía'
-            tutor_email = parent.email if parent.email else user_email
-            tutor_phone = parent.phone_number if parent.phone_number else user_phone
-            tutor_city = getattr(parent, 'city', '') or getattr(parent, 'ciudad', '') or user_city
-
-            legal_full_name = f"{tutor_nombre} (en representación legal del menor {full_name})"
-            legal_doc = tutor_doc
-            legal_doc_type = tutor_doc_type
-            legal_email = tutor_email
-            legal_phone = tutor_phone
-            legal_city = tutor_city
-            firma_digital_html = (
-                f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 280px; padding-top: 4px; font-size: 13px;">'
-                f'<strong>Firma Digital:</strong><br/>{tutor_nombre}<br/>'
-                f'<span style="color:#64748b; font-size: 11px;">En representación legal de: {full_name}</span><br/>'
-                f'<span style="color:#64748b; font-size: 11px;">{tutor_doc_type}: {tutor_doc}</span></div>'
-            )
-        else:
-            tutor_nombre = ""
-            tutor_doc = ""
-            tutor_doc_type = ""
-            tutor_email = ""
-            tutor_phone = ""
-            tutor_city = ""
-            legal_full_name = full_name
-            legal_doc = user_doc
-            legal_doc_type = doc_type
-            legal_email = user_email
-            legal_phone = user_phone
-            legal_city = user_city
-            firma_digital_html = (
-                f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;">'
-                f'<strong>Firma Digital:</strong><br/>{full_name}<br/>'
-                f'<span style="color:#64748b; font-size: 11px;">Doc: {user_doc}</span></div>'
-            )
 
         # Package & Shares
         monto_num = float(investor.package.value) if investor.package and investor.package.value is not None else 0.0
@@ -272,8 +276,8 @@ class InvestorDocumentService:
             "valor_total_acciones": monto_clean,
 
             # Tutor / Representante Legal y Menor
-            "tutor_nombre": tutor_nombre,
-            "nombre_tutor": tutor_nombre,
+            "tutor_nombre": tutor_full_name,
+            "nombre_tutor": tutor_full_name,
             "tutor_documento": tutor_doc,
             "cedula_tutor": tutor_doc,
             "documento_tutor": tutor_doc,
@@ -281,11 +285,12 @@ class InvestorDocumentService:
             "tutor_correo": tutor_email,
             "tutor_telefono": tutor_phone,
             "tutor_ciudad": tutor_city,
-            "menor_nombre": full_name,
-            "nombre_menor": full_name,
-            "menor_documento": user_doc,
-            "documento_menor": user_doc,
-            "menor_tipo_documento": doc_type,
+            "menor_nombre": minor_full_name,
+            "nombre_menor": minor_full_name,
+            "menor_documento": minor_doc,
+            "documento_menor": minor_doc,
+            "menor_tipo_documento": minor_doc_type,
+            "nombre_representacion": legal_full_name,
 
             # Nombres
             "nombre": first_name,
@@ -294,30 +299,34 @@ class InvestorDocumentService:
             "apellido": last_name,
             "apellidos": last_name,
             "last_name": last_name,
-            "nombre_completo": legal_full_name,
-            "nombre_inversionista": legal_full_name,
-            "inversionista": legal_full_name,
-            "deudor": legal_full_name,
+            "nombre_completo": effective_full_name,
+            "nombre_inversionista": effective_full_name,
+            "inversionista": effective_full_name,
+            "titular": effective_full_name,
+            "nombre_titular": effective_full_name,
+            "deudor": effective_full_name,
             "acreedor": "GLOINT S.A.S.",
 
             # Documento e Identificación
-            "documento": legal_doc,
-            "cedula": legal_doc,
-            "numero_documento": legal_doc,
-            "identificacion": legal_doc,
-            "tipo_documento": legal_doc_type,
-            "ciudad": legal_city,
-            "domicilio": legal_city,
-            "ciudad_inversionista": legal_city,
+            "documento": effective_doc,
+            "cedula": effective_doc,
+            "numero_documento": effective_doc,
+            "identificacion": effective_doc,
+            "documento_titular": effective_doc,
+            "cedula_titular": effective_doc,
+            "tipo_documento": effective_doc_type,
+            "ciudad": effective_city,
+            "domicilio": effective_city,
+            "ciudad_inversionista": effective_city,
 
             # Contacto
-            "correo": legal_email,
-            "correo_electronico": legal_email,
-            "email": legal_email,
-            "telefono": legal_phone,
-            "celular": legal_phone,
-            "phone": legal_phone,
-            "telefono_inversionista": legal_phone,
+            "correo": effective_email,
+            "correo_electronico": effective_email,
+            "email": effective_email,
+            "telefono": effective_phone,
+            "celular": effective_phone,
+            "phone": effective_phone,
+            "telefono_inversionista": effective_phone,
 
             # Montos del Paquete e Inversión
             "paquete_accion_adquirido": monto_fmt,
@@ -469,6 +478,19 @@ class InvestorDocumentService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inversión no encontrada")
 
         # Defensive fallback if relationships were not loaded
+        if investor.user is None and investor.user_id:
+            u_res = await db.execute(select(User).options(selectinload(User.parent)).where(User.id == investor.user_id))
+            investor.user = u_res.scalars().first()
+
+        if investor.user and investor.user.parent_user_id:
+            try:
+                parent_obj = getattr(investor.user, 'parent', None)
+            except Exception:
+                parent_obj = None
+            if parent_obj is None:
+                p_res = await db.execute(select(User).where(User.id == investor.user.parent_user_id))
+                investor.user.parent = p_res.scalars().first()
+
         if investor.package is None and investor.package_id:
             pkg_res = await db.execute(select(Package).where(Package.id == investor.package_id))
             investor.package = pkg_res.scalars().first()
@@ -757,6 +779,15 @@ class InvestorDocumentService:
                 if investor.user is None and investor.user_id:
                     u_res = await db.execute(select(User).options(selectinload(User.parent)).where(User.id == investor.user_id))
                     investor.user = u_res.scalars().first()
+
+                if investor.user and investor.user.parent_user_id:
+                    try:
+                        parent_obj = getattr(investor.user, 'parent', None)
+                    except Exception:
+                        parent_obj = None
+                    if parent_obj is None:
+                        p_res = await db.execute(select(User).where(User.id == investor.user.parent_user_id))
+                        investor.user.parent = p_res.scalars().first()
 
                 # Check existing documents for this template
                 prev_res = await db.execute(
