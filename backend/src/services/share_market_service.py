@@ -977,3 +977,37 @@ class ShareMarketService:
             "total_shares_credited": total_shares_credited,
             "updated_users": updated_users
         }
+
+    @staticmethod
+    async def manual_share_grant(
+        db: AsyncSession,
+        user_id: int,
+        quantity: int,
+        reason: str,
+        admin_id: int,
+        custom_date: Optional[datetime] = None
+    ) -> ShareMovement:
+        """Asigna acciones a un usuario de manera manual por decisión administrativa con registro en el ledger."""
+        if quantity <= 0:
+            raise HTTPException(status_code=400, detail="La cantidad de acciones a otorgar debe ser mayor a 0.")
+
+        user_res = await db.execute(select(User).where(User.id == user_id))
+        user = user_res.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+        acq_date = custom_date or datetime.utcnow()
+        clean_reason = reason.strip()
+        desc = f"Asignación manual de {quantity} acción(es) por administración: {clean_reason}"
+
+        movement = await ShareMarketService.record_share_movement(
+            db=db,
+            user_id=user_id,
+            movement_type="admin_adjustment",
+            quantity=quantity,
+            description=desc,
+            created_at=acq_date
+        )
+
+        await db.commit()
+        return movement

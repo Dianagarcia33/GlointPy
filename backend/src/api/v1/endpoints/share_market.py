@@ -16,7 +16,8 @@ from src.schemas.share_market import (
     AdminTradeDecision,
     ShareUserPortfolioOut,
     ShareMovementOut,
-    UserShareAccountOut
+    UserShareAccountOut,
+    AdminManualShareGrant
 )
 from src.services.share_market_service import ShareMarketService
 
@@ -258,4 +259,22 @@ async def sync_legacy_shares_endpoint(
     """Sincroniza y consolida de forma retroactiva las acciones otorgadas por paquetes de inversión históricos."""
     result = await ShareMarketService.sync_all_users_legacy_shares(db)
     return {"message": "Sincronización retroactiva completada exitosamente.", "details": result}
+
+@router.post("/admin/manual-grant", response_model=ShareMovementOut, dependencies=[Depends(RequirePermission("admin.shares.manage"))])
+async def manual_share_grant_endpoint(
+    payload: AdminManualShareGrant,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Permite a un administrador asignar acciones a un usuario de manera manual con registro inmutable en el ledger."""
+    movement = await ShareMarketService.manual_share_grant(
+        db=db,
+        user_id=payload.user_id,
+        quantity=payload.quantity,
+        reason=payload.reason,
+        admin_id=current_user.id,
+        custom_date=payload.custom_date
+    )
+    return movement
+
 

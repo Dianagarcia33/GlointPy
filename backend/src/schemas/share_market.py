@@ -144,3 +144,11 @@ class UserShareAccountOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AdminManualShareGrant(BaseModel):
+    user_id: int = Field(..., gt=0, description="ID del usuario al que se le asignarán las acciones")
+    quantity: int = Field(..., gt=0, description="Cantidad de acciones a otorgar")
+    reason: str = Field(..., min_length=3, max_length=500, description="Motivo / concepto de la asignación manual")
+    custom_date: Optional[datetime] = Field(None, description="Fecha de acreditación personalizada opcional")
+

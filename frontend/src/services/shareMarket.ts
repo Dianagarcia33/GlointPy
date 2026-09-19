@@ -159,5 +159,11 @@ export const shareMarketService = {
             method: 'POST',
             body: JSON.stringify(data)
         }),
-    getIssuances: () => fetchApi<ShareIssuance[]>('/shares-market/admin/issuances')
+    getIssuances: () => fetchApi<ShareIssuance[]>('/shares-market/admin/issuances'),
+    manualShareGrant: (data: { user_id: number; quantity: number; reason: string; custom_date?: string }) =>
+        fetchApi<ShareMovement>('/shares-market/admin/manual-grant', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        })
 };
+
