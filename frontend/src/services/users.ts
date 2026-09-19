@@ -71,6 +71,8 @@ export interface UserStatementSummary {
   total_withdrawn_paid: number;
   total_withdrawn_pending: number;
   total_capital_invested: number;
+  total_shares?: number;
+  total_shares_value?: number;
 }
 
 export interface UserStatementTransaction {
@@ -110,6 +112,28 @@ export interface UserStatementInvestment {
   observaciones: string;
 }
 
+export interface UserStatementShareMovement {
+  id: number;
+  created_at: string;
+  movement_type: string;
+  type_label: string;
+  shares_quantity: number;
+  balance_before: number;
+  balance_after: number;
+  description: string;
+  investor_id?: number | null;
+  package_id?: number | null;
+}
+
+export interface UserStatementShares {
+  total_shares_owned: number;
+  available_shares: number;
+  locked_shares: number;
+  current_share_price: number;
+  portfolio_market_value: number;
+  movements: UserStatementShareMovement[];
+}
+
 export interface UserAccountStatement {
   statement_date: string;
   period: {
@@ -136,6 +160,7 @@ export interface UserAccountStatement {
   transactions: UserStatementTransaction[];
   withdrawals: UserStatementWithdrawal[];
   investments: UserStatementInvestment[];
+  shares?: UserStatementShares;
 }
 
 export interface GlobalStatementTransaction {

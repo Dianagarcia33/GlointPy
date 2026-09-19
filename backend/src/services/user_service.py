@@ -507,7 +507,61 @@ class UserService:
                 "observaciones": inv.observations or ""
             })
 
-        # 6. Consolidate Statement Payload
+        # 6. Fetch Share Movements & Holdings
+        import logging
+        logger = logging.getLogger(__name__)
+        from src.models.share_market import ShareMovement, UserShare
+        from src.services.share_market_service import ShareMarketService
+
+        try:
+            await ShareMarketService.sync_legacy_shares_for_user(db, user_id)
+        except Exception as e:
+            logger.warning(f"Error syncing legacy shares for user {user_id}: {e}")
+
+        user_shares = await ShareMarketService.get_or_create_user_shares(db, user_id)
+        current_share_price = await ShareMarketService.get_current_price(db)
+
+        sm_query = select(ShareMovement).where(ShareMovement.user_id == user_id)
+        if start_dt:
+            sm_query = sm_query.where(ShareMovement.created_at >= start_dt)
+        if end_dt:
+            sm_query = sm_query.where(ShareMovement.created_at <= end_dt)
+
+        sm_res = await db.execute(sm_query.order_by(desc(ShareMovement.created_at), desc(ShareMovement.id)))
+        share_movements = sm_res.scalars().all()
+
+        share_type_labels = {
+            "package_grant": "Acreditación por Paquete",
+            "market_buy": "Compra en Mercado",
+            "market_sell": "Venta en Mercado",
+            "listing_lock": "Bloqueo para Venta",
+            "listing_unlock": "Desbloqueo de Venta",
+            "admin_adjustment": "Ajuste Administrativo",
+        }
+
+        share_movements_list = []
+        for sm in share_movements:
+            m_type = sm.movement_type or "package_grant"
+            label = share_type_labels.get(m_type, m_type.replace("_", " ").title())
+            share_movements_list.append({
+                "id": sm.id,
+                "created_at": sm.created_at.isoformat() if sm.created_at else None,
+                "movement_type": m_type,
+                "type_label": label,
+                "shares_quantity": sm.shares_quantity,
+                "balance_before": sm.balance_before,
+                "balance_after": sm.balance_after,
+                "description": sm.description or label,
+                "investor_id": sm.investor_id,
+                "package_id": sm.package_id
+            })
+
+        total_shares_owned = user_shares.total_shares if user_shares else 0
+        available_shares = user_shares.available_shares if user_shares else 0
+        locked_shares = user_shares.locked_shares if user_shares else 0
+        portfolio_market_value = round(float(total_shares_owned * current_share_price), 2)
+
+        # 7. Consolidate Statement Payload
         bank_accounts_list = [
             {
                 "id": acc.id,
@@ -548,11 +602,21 @@ class UserService:
                 "closing_balance": float(wallet.balance) if wallet else 0.0,
                 "total_withdrawn_paid": total_withdrawn_paid,
                 "total_withdrawn_pending": total_withdrawn_pending,
-                "total_capital_invested": total_capital_invested
+                "total_capital_invested": total_capital_invested,
+                "total_shares": total_shares_owned,
+                "total_shares_value": portfolio_market_value
             },
             "transactions": wallet_transactions_list,
             "withdrawals": withdrawals_list,
-            "investments": investments_list
+            "investments": investments_list,
+            "shares": {
+                "total_shares_owned": total_shares_owned,
+                "available_shares": available_shares,
+                "locked_shares": locked_shares,
+                "current_share_price": float(current_share_price),
+                "portfolio_market_value": portfolio_market_value,
+                "movements": share_movements_list
+            }
         }
 
     @staticmethod

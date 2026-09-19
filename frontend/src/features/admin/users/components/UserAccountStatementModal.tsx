@@ -20,7 +20,8 @@ import {
   User as UserIcon,
   ShieldCheck,
   CreditCard,
-  Briefcase
+  Briefcase,
+  Layers
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { usersService, UserAccountStatement } from '../../../../services/users';
@@ -46,7 +47,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
   // Date filters
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'movements' | 'withdrawals' | 'investments'>('movements');
+  const [activeTab, setActiveTab] = useState<'movements' | 'withdrawals' | 'investments' | 'shares'>('movements');
 
   const fetchStatement = async () => {
     try {
@@ -130,6 +131,11 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
         ['Total Retiros Pagados', statement.summary.total_withdrawn_paid],
         ['Total Retiros Pendientes', statement.summary.total_withdrawn_pending],
         ['Total Capital Invertido', statement.summary.total_capital_invested],
+        ['Total Acciones en Posesión', statement.shares?.total_shares_owned || 0],
+        ['Acciones Disponibles para Venta', statement.shares?.available_shares || 0],
+        ['Acciones en Venta / Custodia', statement.shares?.locked_shares || 0],
+        ['Precio Actual por Acción', statement.shares?.current_share_price || 0],
+        ['Valorización Total Acciones (COP)', statement.shares?.portfolio_market_value || 0],
       ];
       const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen General');
@@ -177,6 +183,21 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
       }));
       const wsInv = XLSX.utils.json_to_sheet(invRows);
       XLSX.utils.book_append_sheet(wb, wsInv, 'Contratos Inversión');
+
+      // Sheet 5: Acreditaciones de Acciones
+      if (statement.shares?.movements && statement.shares.movements.length > 0) {
+        const shareRows = statement.shares.movements.map((sm, idx) => ({
+          '#': idx + 1,
+          'FECHA Y HORA': formatDateTime(sm.created_at),
+          'TIPO MOVIMIENTO': sm.type_label || sm.movement_type,
+          'CONCEPTO / DETALLE': sm.description,
+          'CANTIDAD ACCIONES': sm.shares_quantity,
+          'SALDO ANTERIOR': sm.balance_before,
+          'SALDO RESULTANTE': sm.balance_after
+        }));
+        const wsShares = XLSX.utils.json_to_sheet(shareRows);
+        XLSX.utils.book_append_sheet(wb, wsShares, 'Acreditaciones Acciones');
+      }
 
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
       const cleanDoc = (statement.user.document_id || 'cliente').replace(/[^a-zA-Z0-9]/g, '');
@@ -440,6 +461,19 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                   <Briefcase className="w-4 h-4" />
                   <span>Contratos de Inversión ({statement.investments.length})</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('shares')}
+                  className={`pb-3 px-3.5 transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+                    activeTab === 'shares'
+                      ? 'border-brand-600 text-brand-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>Acreditaciones de Acciones ({statement.shares?.movements?.length || 0})</span>
+                </button>
               </div>
 
               {/* Tab 1: Movimientos de Billetera */}
@@ -620,6 +654,123 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                                 </td>
                               </tr>
                             ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 4: Acreditaciones de Acciones */}
+              {activeTab === 'shares' && (
+                <div className="space-y-4">
+                  {/* Share KPIs */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-indigo-50/60 p-3.5 rounded-2xl border border-indigo-200/80">
+                      <div className="flex items-center justify-between text-indigo-800 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Total Acciones</span>
+                        <Layers className="w-4 h-4 text-indigo-600" />
+                      </div>
+                      <p className="text-lg font-black text-indigo-900 font-montserrat">
+                        {(statement.shares?.total_shares_owned || 0).toLocaleString()} Unds
+                      </p>
+                      <span className="text-[10px] text-slate-500 font-medium">En posesión</span>
+                    </div>
+
+                    <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-200/80">
+                      <div className="flex items-center justify-between text-emerald-800 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Acciones Libres</span>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <p className="text-lg font-black text-emerald-700 font-montserrat">
+                        {(statement.shares?.available_shares || 0).toLocaleString()} Unds
+                      </p>
+                      <span className="text-[10px] text-slate-500 font-medium">Disponibles para venta</span>
+                    </div>
+
+                    <div className="bg-amber-50/60 p-3.5 rounded-2xl border border-amber-200/80">
+                      <div className="flex items-center justify-between text-amber-800 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">En Venta / Custodia</span>
+                        <Clock className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <p className="text-lg font-black text-amber-800 font-montserrat">
+                        {(statement.shares?.locked_shares || 0).toLocaleString()} Unds
+                      </p>
+                      <span className="text-[10px] text-slate-500 font-medium">Órdenes activas</span>
+                    </div>
+
+                    <div className="bg-brand-50/60 p-3.5 rounded-2xl border border-brand-200/80">
+                      <div className="flex items-center justify-between text-brand-800 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Valorización COP</span>
+                        <TrendingUp className="w-4 h-4 text-brand-600" />
+                      </div>
+                      <p className="text-lg font-black text-brand-900 font-montserrat">
+                        {formatCurrency(statement.shares?.portfolio_market_value || 0)}
+                      </p>
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        @{formatCurrency(statement.shares?.current_share_price || 0)}/acc
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Movements Ledger Table */}
+                  <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs whitespace-nowrap">
+                        <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                          <tr>
+                            <th className="py-3 px-4">Fecha y Hora</th>
+                            <th className="py-3 px-4">Tipo de Movimiento</th>
+                            <th className="py-3 px-4">Concepto / Detalle</th>
+                            <th className="py-3 px-4 text-right">Cantidad</th>
+                            <th className="py-3 px-4 text-right">Saldo Resultante</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium">
+                          {!statement.shares?.movements || statement.shares.movements.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="py-8 text-center text-slate-400">
+                                No se registran acreditaciones o movimientos de acciones para este usuario en el periodo seleccionado.
+                              </td>
+                            </tr>
+                          ) : (
+                            statement.shares.movements.map((sm) => {
+                              const isPositive = sm.shares_quantity >= 0;
+                              return (
+                                <tr key={sm.id} className="hover:bg-slate-50/70 transition-colors">
+                                  <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">
+                                    {formatDateTime(sm.created_at)}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${
+                                      sm.movement_type === 'package_grant'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                        : sm.movement_type === 'market_buy'
+                                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                          : sm.movement_type === 'market_sell'
+                                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                            : sm.movement_type === 'admin_adjustment'
+                                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                              : 'bg-slate-50 text-slate-700 border border-slate-200'
+                                    }`}>
+                                      {sm.type_label || sm.movement_type}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-slate-800 max-w-sm truncate font-medium" title={sm.description}>
+                                    {sm.description}
+                                  </td>
+                                  <td className={`py-3 px-4 text-right font-mono font-extrabold ${
+                                    isPositive ? 'text-emerald-600' : 'text-rose-600'
+                                  }`}>
+                                    {isPositive ? '+' : ''}{sm.shares_quantity} {Math.abs(sm.shares_quantity) === 1 ? 'Acción' : 'Acciones'}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                                    {sm.balance_after} Unds
+                                  </td>
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                       </table>
