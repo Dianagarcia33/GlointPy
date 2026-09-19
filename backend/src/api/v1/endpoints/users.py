@@ -9,6 +9,7 @@ from src.schemas.user import UserResponse, UserCreateAdmin, UserUpdateAdmin, Use
 from src.schemas.security import AssignRoleToUser
 from src.models.user import User
 from src.models.security import Role
+from src.services.user_service import UserService
 from src.api.deps import RequirePermission, get_current_user
 
 router = APIRouter()
