@@ -221,8 +221,11 @@ class ShareMarketService:
         return movement
 
     @staticmethod
-    async def sync_legacy_shares_for_user(db: AsyncSession, user_id: int) -> None:
-        """Sincroniza retroactivamente contratos de inversión y órdenes previas que no tengan movimiento en el ledger."""
+    async def sync_legacy_shares_for_user(db: AsyncSession, user_id: int) -> int:
+        """Sincroniza retroactivamente contratos de inversión y órdenes previas que no tengan movimiento en el ledger. Retorna la cantidad de acciones acreditadas."""
+        credited_shares = 0
+        current_price = await ShareMarketService.get_current_price(db)
+
         # 1. Contratos de inversión con paquetes que otorgan acciones
         inv_result = await db.execute(
             select(Investor)
@@ -232,24 +235,34 @@ class ShareMarketService:
         investors = inv_result.scalars().all()
 
         for inv in investors:
-            if inv.package and inv.package.granted_shares and inv.package.granted_shares > 0:
+            shares_to_grant = 0
+            if inv.package and getattr(inv.package, 'granted_shares', 0) and inv.package.granted_shares > 0:
+                shares_to_grant = inv.package.granted_shares
+            elif inv.package and getattr(inv.package, 'value', 0) and inv.package.value > 0:
+                # Si el paquete no tiene configurado granted_shares, calcular según valor del paquete y precio por acción
+                shares_to_grant = int(float(inv.package.value) / current_price) if current_price > 0 else max(1, int(float(inv.package.value) / 50000.0))
+                if shares_to_grant > 0 and (inv.package.granted_shares == 0 or inv.package.granted_shares is None):
+                    inv.package.granted_shares = shares_to_grant
+
+            if shares_to_grant > 0:
                 # Comprobar si ya existe movimiento para este contrato
                 chk = await db.execute(
                     select(ShareMovement)
                     .where(ShareMovement.user_id == user_id, ShareMovement.investor_id == inv.id)
                 )
                 if not chk.scalar_one_or_none():
-                    pkg_val = f"${inv.package.value:,.0f} COP" if inv.package.value else ""
-                    desc = f"Otorgamiento de {inv.package.granted_shares} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{inv.assigned_code or inv.id}"
+                    pkg_val = f"${inv.package.value:,.0f} COP" if (inv.package and inv.package.value) else ""
+                    desc = f"Otorgamiento de {shares_to_grant} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{inv.assigned_code or inv.id}"
                     await ShareMarketService.record_share_movement(
                         db=db,
                         user_id=user_id,
                         movement_type="package_grant",
-                        quantity=inv.package.granted_shares,
+                        quantity=shares_to_grant,
                         description=desc,
                         investor_id=inv.id,
                         package_id=inv.package_id
                     )
+                    credited_shares += shares_to_grant
 
         # 2. Sincronizar compras completadas previas en mercado si no fueron registradas
         b_orders = await db.execute(
@@ -270,6 +283,7 @@ class ShareMarketService:
                     trade_order_id=bo.id,
                     listing_id=bo.listing_id
                 )
+                credited_shares += bo.shares_quantity
 
         # 3. Sincronizar ventas completadas previas en mercado si no fueron registradas
         s_orders = await db.execute(
@@ -311,6 +325,7 @@ class ShareMarketService:
             account.available_shares = max(0, account.total_shares - account.locked_shares)
 
         await db.commit()
+        return credited_shares
 
     @staticmethod
     async def get_user_portfolio(db: AsyncSession, user_id: int) -> dict:
@@ -892,16 +907,40 @@ class ShareMarketService:
 
     @staticmethod
     async def sync_all_users_legacy_shares(db: AsyncSession) -> dict:
-        """Sincroniza retroactivamente a todos los usuarios del sistema que tengan contratos con acciones."""
-        inv_res = await db.execute(
-            select(Investor.user_id)
-            .join(Investor.package)
-            .where(Package.granted_shares > 0)
+        """Sincroniza retroactivamente a todos los usuarios del sistema que tengan contratos de inversión u órdenes."""
+        inv_res = await db.execute(select(Investor.user_id).distinct())
+        user_ids = set([uid for uid in inv_res.scalars().all() if uid is not None])
+
+        orders_res = await db.execute(
+            select(ShareTradeOrder.buyer_id)
+            .where(ShareTradeOrder.status == "completed")
             .distinct()
         )
-        user_ids = inv_res.scalars().all()
+        for b_uid in orders_res.scalars().all():
+            if b_uid:
+                user_ids.add(b_uid)
+
+        orders_s_res = await db.execute(
+            select(ShareTradeOrder.seller_id)
+            .where(ShareTradeOrder.status == "completed")
+            .distinct()
+        )
+        for s_uid in orders_s_res.scalars().all():
+            if s_uid:
+                user_ids.add(s_uid)
+
         synced_count = 0
+        total_shares_credited = 0
         for uid in user_ids:
-            await ShareMarketService.sync_legacy_shares_for_user(db, uid)
+            credited = await ShareMarketService.sync_legacy_shares_for_user(db, uid)
+            if credited > 0:
+                total_shares_credited += credited
             synced_count += 1
-        return {"status": "success", "synced_users_count": synced_count}
+
+        await db.commit()
+        return {
+            "status": "success",
+            "users_synced": synced_count,
+            "synced_users_count": synced_count,
+            "total_shares_credited": total_shares_credited
+        }

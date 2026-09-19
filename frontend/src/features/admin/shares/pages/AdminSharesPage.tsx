@@ -143,7 +143,9 @@ export const AdminSharesPage: React.FC = () => {
         try {
             setSyncLoading(true);
             const res = await shareMarketService.syncLegacyShares();
-            alert(`Sincronización completada exitosamente.\nUsuarios procesados: ${res.details?.users_synced || 0}\nTotal acciones acreditadas: ${res.details?.total_shares_credited || 0}`);
+            const usersCount = res.details?.users_synced ?? res.details?.synced_users_count ?? 0;
+            const sharesCount = res.details?.total_shares_credited ?? 0;
+            alert(`Sincronización completada exitosamente.\nUsuarios procesados: ${usersCount}\nTotal acciones acreditadas: ${sharesCount}`);
             await fetchData();
         } catch (err: any) {
             alert(err.message || "Error al sincronizar acciones históricas.");
