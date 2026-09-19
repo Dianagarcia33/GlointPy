@@ -238,42 +238,48 @@ class ShareMarketService:
         investors = inv_result.scalars().all()
 
         for inv in investors:
-            shares_to_grant = 0
-            if inv.package and getattr(inv.package, 'granted_shares', 0) and inv.package.granted_shares > 0:
-                shares_to_grant = inv.package.granted_shares
-            elif inv.package and getattr(inv.package, 'value', 0) and inv.package.value > 0:
-                # Si el paquete no tiene configurado granted_shares, calcular según valor del paquete y precio por acción
-                shares_to_grant = int(float(inv.package.value) / current_price) if current_price > 0 else max(1, int(float(inv.package.value) / 50000.0))
-                if shares_to_grant > 0 and (inv.package.granted_shares == 0 or inv.package.granted_shares is None):
-                    inv.package.granted_shares = shares_to_grant
+            shares_to_grant = inv.package.granted_shares if (inv.package and inv.package.granted_shares and inv.package.granted_shares > 0) else 0
 
             if shares_to_grant > 0:
-                # La fecha de acreditación debe ser la fecha de adquisición del paquete (start_date o created_at)
                 acq_date = inv.start_date or inv.created_at or datetime.utcnow()
 
-                # Comprobar si ya existe movimiento para este contrato
+                # Comprobar movimientos previos de paquete para este contrato
                 chk = await db.execute(
                     select(ShareMovement)
-                    .where(ShareMovement.user_id == user_id, ShareMovement.investor_id == inv.id)
+                    .where(
+                        ShareMovement.user_id == user_id, 
+                        ShareMovement.investor_id == inv.id,
+                        ShareMovement.movement_type == "package_grant"
+                    )
                     .order_by(ShareMovement.id.asc())
                 )
                 existing_movements = chk.scalars().all()
-                if not existing_movements:
+                total_current_pkg_shares = sum(m.shares_quantity for m in existing_movements)
+
+                if total_current_pkg_shares != shares_to_grant or not existing_movements:
+                    # Reemplazar movimientos incorrectos o desactualizados por el valor exacto del paquete
+                    for old_m in existing_movements:
+                        await db.delete(old_m)
+                    await db.flush()
+
                     pkg_val = f"${inv.package.value:,.0f} COP" if (inv.package and inv.package.value) else ""
                     desc = f"Otorgamiento de {shares_to_grant} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{inv.assigned_code or inv.id}"
-                    await ShareMarketService.record_share_movement(
-                        db=db,
+                    new_m = ShareMovement(
                         user_id=user_id,
                         movement_type="package_grant",
-                        quantity=shares_to_grant,
-                        description=desc,
+                        shares_quantity=shares_to_grant,
+                        balance_before=0,
+                        balance_after=0,
                         investor_id=inv.id,
                         package_id=inv.package_id,
+                        description=desc,
                         created_at=acq_date
                     )
+                    db.add(new_m)
+                    await db.flush()
                     credited_shares += shares_to_grant
                 else:
-                    # Si ya existían, asegurarse de que el movimiento inicial tenga la fecha de adquisición
+                    # Si ya coincide la cantidad, asegurar fecha de adquisición en el movimiento
                     first_m = existing_movements[0]
                     if acq_date and first_m.created_at != acq_date:
                         first_m.created_at = acq_date
@@ -335,7 +341,25 @@ class ShareMarketService:
                 if order_date and existing_so_sm.created_at != order_date:
                     existing_so_sm.created_at = order_date
 
-        # 4. Asegurar que las ofertas de venta activas tengan sus acciones en locked_shares
+        # 4. Recalibrar saldo inmutable de share_movements y user_shares
+        all_movs_res = await db.execute(
+            select(ShareMovement)
+            .where(ShareMovement.user_id == user_id)
+            .order_by(ShareMovement.created_at.asc(), ShareMovement.id.asc())
+        )
+        all_movs = all_movs_res.scalars().all()
+
+        running_balance = 0
+        for m in all_movs:
+            m.balance_before = running_balance
+            if m.movement_type in ["package_grant", "market_buy", "admin_adjustment"]:
+                running_balance += m.shares_quantity
+            elif m.movement_type == "market_sell":
+                running_balance = max(0, running_balance - abs(m.shares_quantity))
+            m.balance_after = running_balance
+            db.add(m)
+
+        # 5. Asegurar que las ofertas de venta activas tengan sus acciones en locked_shares
         l_res = await db.execute(
             select(ShareListing)
             .where(ShareListing.seller_id == user_id, ShareListing.status == "active")
@@ -343,12 +367,13 @@ class ShareMarketService:
         active_listings = l_res.scalars().all()
         total_listed = sum(l.shares_available for l in active_listings)
         total_in_escrow = sum(l.shares_locked for l in active_listings)
+        
         account = await ShareMarketService.get_or_create_user_shares(db, user_id)
-
+        account.total_shares = max(0, running_balance)
         target_locked = total_listed + total_in_escrow
-        if account.locked_shares != target_locked:
-            account.locked_shares = min(account.total_shares, target_locked)
-            account.available_shares = max(0, account.total_shares - account.locked_shares)
+        account.locked_shares = min(account.total_shares, target_locked)
+        account.available_shares = max(0, account.total_shares - account.locked_shares)
+        db.add(account)
 
         await db.commit()
         return credited_shares
