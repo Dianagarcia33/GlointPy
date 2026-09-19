@@ -432,7 +432,8 @@ class InvestmentRequestService:
                     quantity=shares_diff,
                     description=desc,
                     investor_id=existing_investor.id,
-                    package_id=new_pkg.id if new_pkg else None
+                    package_id=new_pkg.id if new_pkg else None,
+                    created_at=req.created_at or datetime.utcnow()
                 )
 
             existing_investor.package_id = req.paquete_inversion_id
@@ -501,7 +502,8 @@ class InvestmentRequestService:
                     quantity=pkg.granted_shares,
                     description=desc,
                     investor_id=investor.id,
-                    package_id=pkg.id
+                    package_id=pkg.id,
+                    created_at=investor.start_date or investor.created_at or req.created_at or datetime.utcnow()
                 )
 
         # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)

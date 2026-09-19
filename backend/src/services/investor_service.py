@@ -164,7 +164,8 @@ class InvestorService:
                     quantity=pkg.granted_shares,
                     description=desc,
                     investor_id=db_investor.id,
-                    package_id=pkg.id
+                    package_id=pkg.id,
+                    created_at=db_investor.start_date or db_investor.created_at or datetime.utcnow()
                 )
 
             await db.commit()

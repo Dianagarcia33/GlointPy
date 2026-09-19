@@ -173,7 +173,8 @@ class ShareMarketService:
         investor_id: Optional[int] = None,
         package_id: Optional[int] = None,
         trade_order_id: Optional[int] = None,
-        listing_id: Optional[int] = None
+        listing_id: Optional[int] = None,
+        created_at: Optional[datetime] = None
     ) -> ShareMovement:
         """Registra una transacción inmutable en el Libro Mayor de Acciones y actualiza el balance consolidado."""
         account = await ShareMarketService.get_or_create_user_shares(db, user_id)
@@ -214,7 +215,8 @@ class ShareMarketService:
             package_id=package_id,
             trade_order_id=trade_order_id,
             listing_id=listing_id,
-            description=description
+            description=description,
+            created_at=created_at or datetime.utcnow()
         )
         db.add(movement)
         await db.flush()
@@ -245,12 +247,16 @@ class ShareMarketService:
                     inv.package.granted_shares = shares_to_grant
 
             if shares_to_grant > 0:
+                # La fecha de acreditación debe ser la fecha de adquisición del paquete (start_date o created_at)
+                acq_date = inv.start_date or inv.created_at or datetime.utcnow()
+
                 # Comprobar si ya existe movimiento para este contrato
                 chk = await db.execute(
                     select(ShareMovement)
                     .where(ShareMovement.user_id == user_id, ShareMovement.investor_id == inv.id)
                 )
-                if not chk.scalar_one_or_none():
+                existing_movement = chk.scalar_one_or_none()
+                if not existing_movement:
                     pkg_val = f"${inv.package.value:,.0f} COP" if (inv.package and inv.package.value) else ""
                     desc = f"Otorgamiento de {shares_to_grant} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{inv.assigned_code or inv.id}"
                     await ShareMarketService.record_share_movement(
@@ -260,9 +266,14 @@ class ShareMarketService:
                         quantity=shares_to_grant,
                         description=desc,
                         investor_id=inv.id,
-                        package_id=inv.package_id
+                        package_id=inv.package_id,
+                        created_at=acq_date
                     )
                     credited_shares += shares_to_grant
+                else:
+                    # Si ya existía, asegurarse de que su fecha sea la de adquisición del paquete
+                    if acq_date and existing_movement.created_at != acq_date:
+                        existing_movement.created_at = acq_date
 
         # 2. Sincronizar compras completadas previas en mercado si no fueron registradas
         b_orders = await db.execute(
@@ -270,10 +281,12 @@ class ShareMarketService:
             .where(ShareTradeOrder.buyer_id == user_id, ShareTradeOrder.status == "completed")
         )
         for bo in b_orders.scalars().all():
+            order_date = bo.created_at or bo.updated_at or datetime.utcnow()
             chk_bo = await db.execute(
                 select(ShareMovement).where(ShareMovement.user_id == user_id, ShareMovement.trade_order_id == bo.id)
             )
-            if not chk_bo.scalar_one_or_none():
+            existing_bo_sm = chk_bo.scalar_one_or_none()
+            if not existing_bo_sm:
                 await ShareMarketService.record_share_movement(
                     db=db,
                     user_id=user_id,
@@ -281,9 +294,13 @@ class ShareMarketService:
                     quantity=bo.shares_quantity,
                     description=f"Compra de {bo.shares_quantity} acción(es) en mercado (Orden #{bo.id})",
                     trade_order_id=bo.id,
-                    listing_id=bo.listing_id
+                    listing_id=bo.listing_id,
+                    created_at=order_date
                 )
                 credited_shares += bo.shares_quantity
+            else:
+                if order_date and existing_bo_sm.created_at != order_date:
+                    existing_bo_sm.created_at = order_date
 
         # 3. Sincronizar ventas completadas previas en mercado si no fueron registradas
         s_orders = await db.execute(
@@ -291,6 +308,7 @@ class ShareMarketService:
             .where(ShareTradeOrder.seller_id == user_id, ShareTradeOrder.status == "completed")
         )
         for so in s_orders.scalars().all():
+            order_date = so.created_at or so.updated_at or datetime.utcnow()
             chk_so = await db.execute(
                 select(ShareMovement).where(
                     ShareMovement.user_id == user_id, 
@@ -298,7 +316,8 @@ class ShareMarketService:
                     ShareMovement.movement_type == "market_sell"
                 )
             )
-            if not chk_so.scalar_one_or_none():
+            existing_so_sm = chk_so.scalar_one_or_none()
+            if not existing_so_sm:
                 await ShareMarketService.record_share_movement(
                     db=db,
                     user_id=user_id,
@@ -306,8 +325,12 @@ class ShareMarketService:
                     quantity=-so.shares_quantity,
                     description=f"Venta de {so.shares_quantity} acción(es) en mercado (Orden #{so.id})",
                     trade_order_id=so.id,
-                    listing_id=so.listing_id
+                    listing_id=so.listing_id,
+                    created_at=order_date
                 )
+            else:
+                if order_date and existing_so_sm.created_at != order_date:
+                    existing_so_sm.created_at = order_date
 
         # 4. Asegurar que las ofertas de venta activas tengan sus acciones en locked_shares
         l_res = await db.execute(
