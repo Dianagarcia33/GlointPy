@@ -19,6 +19,10 @@ class User(Base):
     
     # Directivo de Inversión Asignado
     commercial_id = Column(BigInteger, ForeignKey('users.id'), nullable=True)
+
+    # Control Parental / Representante Legal (para menores de edad vinculados a una cuenta de adulto)
+    parent_user_id = Column(BigInteger, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    parent = relationship("User", remote_side=[id], foreign_keys=[parent_user_id], backref="children")
     
     # Credencial IMAP para sincronización automática de correo corporativo (encriptada con Fernet)
     imap_password = Column(EncryptedString, nullable=True)

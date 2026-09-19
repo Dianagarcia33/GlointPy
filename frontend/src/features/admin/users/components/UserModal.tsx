@@ -18,15 +18,51 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
     document_id: '',
     phone_number: '',
     date_of_birth: '',
+    parent_user_id: null,
     is_active: true,
     role_ids: []
   });
   
+  const [potentialParents, setPotentialParents] = useState<User[]>([]);
+  const [loadingParents, setLoadingParents] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
   const assignableRoles = roles.filter(r => r.name !== 'inversionista' && r.name !== 'cliente');
+
+  // Detección de menor de edad (< 18 años)
+  const isMinor = formData.date_of_birth ? (() => {
+    const dob = new Date(formData.date_of_birth);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    return age < 18;
+  })() : false;
+
+  useEffect(() => {
+    if (isOpen) {
+      const loadParents = async () => {
+        setLoadingParents(true);
+        try {
+          const res = await usersService.getUsers({ limit: 100, is_active: true });
+          let candidates = res.data.filter(u => !user || u.id !== user.id);
+          if (user?.parent && !candidates.some(c => c.id === user.parent!.id)) {
+            candidates = [user.parent as any, ...candidates];
+          }
+          setPotentialParents(candidates);
+        } catch (err) {
+          console.error('Error cargando tutores:', err);
+        } finally {
+          setLoadingParents(false);
+        }
+      };
+      loadParents();
+    }
+  }, [isOpen, user]);
 
   useEffect(() => {
     if (user) {
@@ -36,6 +72,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
         document_id: user.document_id || '',
         phone_number: user.phone_number || '',
         date_of_birth: user.date_of_birth ? user.date_of_birth.split('T')[0] : '',
+        parent_user_id: user.parent_user_id || null,
         is_active: user.is_active,
         role_ids: user.roles.map(r => r.id)
       });
@@ -46,6 +83,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
         document_id: '',
         phone_number: '',
         date_of_birth: '',
+        parent_user_id: null,
         is_active: true,
         role_ids: []
       });
@@ -126,6 +164,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
         document_id: formData.document_id.trim(),
         phone_number: formData.phone_number ? formData.phone_number.trim() : null,
         date_of_birth: formData.date_of_birth ? formData.date_of_birth : null,
+        parent_user_id: formData.parent_user_id ? Number(formData.parent_user_id) : null,
         is_active: formData.is_active,
         role_ids: formData.role_ids
       };
@@ -281,6 +320,45 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm text-slate-900"
                   />
+                </div>
+
+                <div className="sm:col-span-2 space-y-2 p-3.5 bg-slate-50/80 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <span>Tutor / Representante Legal (Padre o Madre)</span>
+                      {isMinor && (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold">
+                          Menor de edad detectado (&lt; 18 años)
+                        </span>
+                      )}
+                    </label>
+                    {formData.parent_user_id && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, parent_user_id: null }))}
+                        className="text-[11px] text-red-600 hover:underline cursor-pointer"
+                      >
+                        Quitar tutor
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Si el usuario es menor de edad, asígnale su tutor legal. Los contratos, pagarés y documentos legales saldrán a nombre del tutor en representación del menor.
+                  </p>
+                  <select
+                    name="parent_user_id"
+                    value={formData.parent_user_id || ''}
+                    disabled={loadingParents}
+                    onChange={(e) => setFormData(prev => ({ ...prev, parent_user_id: e.target.value ? Number(e.target.value) : null }))}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs text-slate-800 font-medium cursor-pointer"
+                  >
+                    <option value="">-- Sin tutor vinculado (Usuario titular adulto) --</option>
+                    {potentialParents.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.document_id ? `(Doc: ${p.document_id})` : ''} - {p.email}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>

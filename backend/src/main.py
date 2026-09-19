@@ -214,6 +214,14 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Asegurar campo parent_user_id en users para control parental
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN parent_user_id BIGINT NULL"))
+                await conn.execute(text("ALTER TABLE users ADD CONSTRAINT fk_users_parent_user_id FOREIGN KEY (parent_user_id) REFERENCES users(id) ON DELETE SET NULL"))
+                await conn.execute(text("CREATE INDEX idx_users_parent_user_id ON users(parent_user_id)"))
+            except Exception:
+                pass
+
             # Crear tablas external_apps y external_payment_orders si no existen
             try:
                 await conn.execute(text("""

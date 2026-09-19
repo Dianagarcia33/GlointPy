@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { DashboardFooter } from './DashboardFooter';
+import { ParentalBanner } from './ParentalBanner';
 import { X, LayoutDashboard } from 'lucide-react';
 
 export const DashboardLayout = () => {
@@ -19,12 +20,13 @@ export const DashboardLayout = () => {
             </div>
             
             {/* Contenedor principal debajo de la Navbar */}
-            <div className="flex-1 flex pt-16 relative overflow-hidden">
-                
-                {/* Menú Lateral para pantallas medianas o grandes */}
-                <div className="hidden md:block border-r border-slate-200 bg-white">
-                    <Sidebar />
-                </div>
+            <div className="flex-1 flex flex-col pt-16 relative overflow-hidden">
+                <ParentalBanner />
+                <div className="flex-1 flex relative overflow-hidden">
+                    {/* Menú Lateral para pantallas medianas o grandes */}
+                    <div className="hidden md:block border-r border-slate-200 bg-white">
+                        <Sidebar />
+                    </div>
 
                 {/* Drawer Móvil Deslizable para el Sidebar */}
                 {mobileSidebarOpen && (
@@ -76,6 +78,7 @@ export const DashboardLayout = () => {
                         <DashboardFooter />
                     </main>
                 )}
+                </div>
             </div>
 
             {/* Botón flotante para abrir el menú en móviles en caso de scroll largo */}

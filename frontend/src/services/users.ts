@@ -20,6 +20,15 @@ export interface Wallet {
   updated_at: string;
 }
 
+export interface UserSummary {
+  id: number;
+  name: string;
+  email: string;
+  document_id?: string | null;
+  date_of_birth?: string | null;
+  parent_user_id?: number | null;
+}
+
 export interface User {
   id: number;
   name: string;
@@ -29,6 +38,9 @@ export interface User {
   date_of_birth?: string | null;
   is_active: boolean;
   is_superuser: boolean;
+  parent_user_id?: number | null;
+  parent?: UserSummary | null;
+  children?: UserSummary[];
   roles: Role[];
   bank_accounts?: BankAccount[];
   wallet?: Wallet | null;
@@ -49,6 +61,7 @@ export interface UserCreate {
   document_id?: string;
   phone_number?: string;
   date_of_birth?: string;
+  parent_user_id?: number | null;
   is_active?: boolean;
   role_ids?: number[];
 }
@@ -59,6 +72,7 @@ export interface UserUpdate {
   document_id?: string;
   phone_number?: string;
   date_of_birth?: string;
+  parent_user_id?: number | null;
   is_active?: boolean;
   role_ids?: number[];
 }
@@ -296,5 +310,21 @@ export const usersService = {
     if (params?.txType) queryParams.append('tx_type', params.txType);
     const qs = queryParams.toString();
     return await fetchApi(`/users/statement/global${qs ? `?${qs}` : ''}`);
+  },
+
+  getMyChildren: async (): Promise<User[]> => {
+    return await fetchApi('/users/my-children');
+  },
+
+  switchToChild: async (childId: number): Promise<{ access_token: string; token_type: string; user: User }> => {
+    return await fetchApi(`/auth/switch-account/${childId}`, {
+      method: 'POST',
+    });
+  },
+
+  switchBackToParent: async (): Promise<{ access_token: string; token_type: string; user: User }> => {
+    return await fetchApi('/auth/switch-back', {
+      method: 'POST',
+    });
   },
 };

@@ -59,7 +59,9 @@ class UserService:
         query = query.options(
             selectinload(User.roles).selectinload(Role.permissions),
             selectinload(User.bank_accounts),
-            selectinload(User.wallet)
+            selectinload(User.wallet),
+            selectinload(User.parent),
+            selectinload(User.children)
         )
         query = query.order_by(User.id.desc()).offset(offset).limit(limit)
         
@@ -79,7 +81,9 @@ class UserService:
             select(User).options(
                 selectinload(User.roles).selectinload(Role.permissions),
                 selectinload(User.bank_accounts),
-                selectinload(User.wallet)
+                selectinload(User.wallet),
+                selectinload(User.parent),
+                selectinload(User.children)
             ).where(User.id == user_id)
         )
         user = result.scalars().first()
@@ -116,6 +120,12 @@ class UserService:
         if result.scalars().first():
             raise HTTPException(status_code=400, detail="Email already registered")
 
+        parent_user_id = user_data.get("parent_user_id")
+        if parent_user_id:
+            parent_res = await db.execute(select(User).where(User.id == parent_user_id))
+            if not parent_res.scalars().first():
+                raise HTTPException(status_code=400, detail="El usuario tutor especificado no existe")
+
         # Create user with default password
         user = User(
             name=user_data["name"],
@@ -123,6 +133,7 @@ class UserService:
             document_id=user_data.get("document_id"),
             phone_number=user_data.get("phone_number"),
             date_of_birth=user_data.get("date_of_birth"),
+            parent_user_id=parent_user_id,
             password_hash=get_password_hash("Temp123!"),
             must_change_password=True,
             is_active=user_data.get("is_active", True)
@@ -167,6 +178,15 @@ class UserService:
             result = await db.execute(select(User).where(User.email == user_data["email"]))
             if result.scalars().first():
                 raise HTTPException(status_code=400, detail="Email already registered")
+
+        if "parent_user_id" in user_data:
+            p_id = user_data["parent_user_id"]
+            if p_id == user.id:
+                raise HTTPException(status_code=400, detail="Un usuario no puede ser su propio tutor o representante")
+            if p_id:
+                p_res = await db.execute(select(User).where(User.id == p_id))
+                if not p_res.scalars().first():
+                    raise HTTPException(status_code=400, detail="El usuario tutor especificado no existe")
 
         for key, value in user_data.items():
             if key != "role_ids":

@@ -130,6 +130,87 @@ async def read_users_me(current_user: User = Depends(get_current_user)) -> Any:
     """
     return current_user
 
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from src.models.security import Role
+
+@router.post("/switch-account/{child_id}", response_model=Token)
+async def switch_to_child_account(
+    child_id: int,
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Permite a un padre/tutor cambiar a la sesión de su hijo/menor vinculado sin requerir contraseña.
+    Genera un nuevo token para el hijo y actualiza la cookie de autenticación.
+    """
+    result = await db.execute(
+        select(User).options(
+            selectinload(User.roles).selectinload(Role.permissions),
+            selectinload(User.parent),
+            selectinload(User.children)
+        ).where(
+            User.id == child_id,
+            User.parent_user_id == current_user.id
+        )
+    )
+    child = result.scalars().first()
+    if not child:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permisos para acceder a esta cuenta o no está vinculada como hijo/menor a cargo."
+        )
+
+    if not child.is_active:
+        raise HTTPException(status_code=400, detail="La cuenta del menor se encuentra inactiva.")
+
+    access_token = create_access_token(subject=child.id)
+    set_auth_cookie(response, access_token, request=request)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": child
+    }
+
+@router.post("/switch-back", response_model=Token)
+async def switch_back_to_parent(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Permite volver a la cuenta del tutor/padre si el usuario actual es un hijo vinculado.
+    """
+    if not current_user.parent_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Esta cuenta no tiene un tutor o padre vinculado."
+        )
+
+    result = await db.execute(
+        select(User).options(
+            selectinload(User.roles).selectinload(Role.permissions),
+            selectinload(User.parent),
+            selectinload(User.children)
+        ).where(User.id == current_user.parent_user_id)
+    )
+    parent = result.scalars().first()
+    if not parent or not parent.is_active:
+        raise HTTPException(status_code=404, detail="La cuenta del tutor no se encuentra disponible o activa.")
+
+    access_token = create_access_token(subject=parent.id)
+    set_auth_cookie(response, access_token, request=request)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": parent
+    }
+
 
 import os
 import shutil

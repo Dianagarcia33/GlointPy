@@ -141,6 +141,48 @@ class InvestorDocumentService:
         user_phone = user.phone_number if user and user.phone_number else "N/A"
         user_city = getattr(user, 'city', '') or getattr(user, 'ciudad', '') or "Bogotá D.C."
 
+        # Tutor / Representante legal en caso de menores de edad
+        parent = getattr(user, 'parent', None) if user else None
+        is_minor = bool(parent or (user and user.parent_user_id))
+        if is_minor and parent:
+            tutor_nombre = (parent.name or "Tutor Legal").strip()
+            tutor_doc = parent.document_id if parent.document_id else "N/A"
+            tutor_doc_type = getattr(parent, 'tipo_documento', 'Cédula de Ciudadanía') or 'Cédula de Ciudadanía'
+            tutor_email = parent.email if parent.email else user_email
+            tutor_phone = parent.phone_number if parent.phone_number else user_phone
+            tutor_city = getattr(parent, 'city', '') or getattr(parent, 'ciudad', '') or user_city
+
+            legal_full_name = f"{tutor_nombre} (en representación legal del menor {full_name})"
+            legal_doc = tutor_doc
+            legal_doc_type = tutor_doc_type
+            legal_email = tutor_email
+            legal_phone = tutor_phone
+            legal_city = tutor_city
+            firma_digital_html = (
+                f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 280px; padding-top: 4px; font-size: 13px;">'
+                f'<strong>Firma Digital:</strong><br/>{tutor_nombre}<br/>'
+                f'<span style="color:#64748b; font-size: 11px;">En representación legal de: {full_name}</span><br/>'
+                f'<span style="color:#64748b; font-size: 11px;">{tutor_doc_type}: {tutor_doc}</span></div>'
+            )
+        else:
+            tutor_nombre = ""
+            tutor_doc = ""
+            tutor_doc_type = ""
+            tutor_email = ""
+            tutor_phone = ""
+            tutor_city = ""
+            legal_full_name = full_name
+            legal_doc = user_doc
+            legal_doc_type = doc_type
+            legal_email = user_email
+            legal_phone = user_phone
+            legal_city = user_city
+            firma_digital_html = (
+                f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;">'
+                f'<strong>Firma Digital:</strong><br/>{full_name}<br/>'
+                f'<span style="color:#64748b; font-size: 11px;">Doc: {user_doc}</span></div>'
+            )
+
         # Package & Shares
         monto_num = float(investor.package.value) if investor.package and investor.package.value is not None else 0.0
         monto_fmt = f"${monto_num:,.0f} COP".replace(",", ".")
@@ -229,6 +271,22 @@ class InvestorDocumentService:
             "valor_total_acciones_formato": monto_fmt,
             "valor_total_acciones": monto_clean,
 
+            # Tutor / Representante Legal y Menor
+            "tutor_nombre": tutor_nombre,
+            "nombre_tutor": tutor_nombre,
+            "tutor_documento": tutor_doc,
+            "cedula_tutor": tutor_doc,
+            "documento_tutor": tutor_doc,
+            "tutor_tipo_documento": tutor_doc_type,
+            "tutor_correo": tutor_email,
+            "tutor_telefono": tutor_phone,
+            "tutor_ciudad": tutor_city,
+            "menor_nombre": full_name,
+            "nombre_menor": full_name,
+            "menor_documento": user_doc,
+            "documento_menor": user_doc,
+            "menor_tipo_documento": doc_type,
+
             # Nombres
             "nombre": first_name,
             "nombres": first_name,
@@ -236,30 +294,30 @@ class InvestorDocumentService:
             "apellido": last_name,
             "apellidos": last_name,
             "last_name": last_name,
-            "nombre_completo": full_name,
-            "nombre_inversionista": full_name,
-            "inversionista": full_name,
-            "deudor": full_name,
+            "nombre_completo": legal_full_name,
+            "nombre_inversionista": legal_full_name,
+            "inversionista": legal_full_name,
+            "deudor": legal_full_name,
             "acreedor": "GLOINT S.A.S.",
 
             # Documento e Identificación
-            "documento": user_doc,
-            "cedula": user_doc,
-            "numero_documento": user_doc,
-            "identificacion": user_doc,
-            "tipo_documento": doc_type,
-            "ciudad": user_city,
-            "domicilio": user_city,
-            "ciudad_inversionista": user_city,
+            "documento": legal_doc,
+            "cedula": legal_doc,
+            "numero_documento": legal_doc,
+            "identificacion": legal_doc,
+            "tipo_documento": legal_doc_type,
+            "ciudad": legal_city,
+            "domicilio": legal_city,
+            "ciudad_inversionista": legal_city,
 
             # Contacto
-            "correo": user_email,
-            "correo_electronico": user_email,
-            "email": user_email,
-            "telefono": user_phone,
-            "celular": user_phone,
-            "phone": user_phone,
-            "telefono_inversionista": user_phone,
+            "correo": legal_email,
+            "correo_electronico": legal_email,
+            "email": legal_email,
+            "telefono": legal_phone,
+            "celular": legal_phone,
+            "phone": legal_phone,
+            "telefono_inversionista": legal_phone,
 
             # Montos del Paquete e Inversión
             "paquete_accion_adquirido": monto_fmt,
@@ -377,8 +435,8 @@ class InvestorDocumentService:
             "pagare_numero": assigned_code,
 
             # Firma
-            "firma_digital": f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;"><strong>Firma Digital:</strong><br/>{full_name}<br/><span style="color:#64748b; font-size: 11px;">Doc: {user_doc}</span></div>',
-            "firma": f'<div style="margin-top: 30px; border-top: 1px solid #475569; width: 240px; padding-top: 4px; font-size: 13px;"><strong>Firma Digital:</strong><br/>{full_name}<br/><span style="color:#64748b; font-size: 11px;">Doc: {user_doc}</span></div>'
+            "firma_digital": firma_digital_html,
+            "firma": firma_digital_html
         }
 
         # Case-insensitive replacement of all {key} patterns
@@ -394,11 +452,12 @@ class InvestorDocumentService:
     async def get_investor_with_relations(db: AsyncSession, investor_id: int) -> Investor:
         from src.models.package import Package
         from src.models.period import Period
+        from src.models.user import User
 
         result = await db.execute(
             select(Investor)
             .options(
-                selectinload(Investor.user),
+                selectinload(Investor.user).selectinload(User.parent),
                 selectinload(Investor.package),
                 selectinload(Investor.period),
                 selectinload(Investor.contract_histories)
@@ -663,7 +722,7 @@ class InvestorDocumentService:
 
         # Query batch of candidates
         query = select(Investor).options(
-            selectinload(Investor.user),
+            selectinload(Investor.user).selectinload(User.parent),
             selectinload(Investor.package),
             selectinload(Investor.period),
             selectinload(Investor.contract_histories)
@@ -696,7 +755,7 @@ class InvestorDocumentService:
                     investor.period = per_res.scalars().first()
 
                 if investor.user is None and investor.user_id:
-                    u_res = await db.execute(select(User).where(User.id == investor.user_id))
+                    u_res = await db.execute(select(User).options(selectinload(User.parent)).where(User.id == investor.user_id))
                     investor.user = u_res.scalars().first()
 
                 # Check existing documents for this template

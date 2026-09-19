@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon } from 'lucide-react';
+import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon, ShieldAlert, ArrowLeft, Users, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
+import { usersService } from '../../services/users';
 import { NotificationBell } from './NotificationBell';
 import { ChatQuickAccess } from './ChatQuickAccess';
 import { NavbarModuleSearch } from './NavbarModuleSearch';
@@ -20,11 +21,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
+  const [myChildren, setMyChildren] = useState<any[]>([]);
+  const [isSwitching, setIsSwitching] = useState(false);
   const location = useLocation();
   const serviciosMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user, accessToken, logout, login, parentBackup, setParentBackup } = useAuthStore();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -34,8 +37,51 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
           console.error(e);
           setBalance(0); // Graceful fallback
         });
+
+      usersService.getMyChildren()
+        .then((res) => setMyChildren(res || []))
+        .catch(() => setMyChildren([]));
+    } else {
+      setMyChildren([]);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.id]);
+
+  const handleSwitchToChild = async (childId: number) => {
+    setIsSwitching(true);
+    try {
+      if (user && accessToken) {
+        setParentBackup({ user, token: accessToken });
+      }
+      const res = await usersService.switchToChild(childId);
+      login(res.user as any, res.access_token);
+      setUserMenuOpen(false);
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      alert(err.message || 'Error al cambiar a la cuenta del menor');
+      setIsSwitching(false);
+    }
+  };
+
+  const handleReturnToParent = async () => {
+    setIsSwitching(true);
+    try {
+      if (parentBackup && parentBackup.token) {
+        login(parentBackup.user, parentBackup.token);
+        setParentBackup(null);
+        setUserMenuOpen(false);
+        window.location.href = '/dashboard';
+        return;
+      }
+      const res = await usersService.switchBackToParent();
+      login(res.user as any, res.access_token);
+      setParentBackup(null);
+      setUserMenuOpen(false);
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      alert(err.message || 'Error al retornar a la cuenta del tutor');
+      setIsSwitching(false);
+    }
+  };
 
   // Es sólido si el usuario hizo scroll, o si la página NO tiene un encabezado oscuro
   const isDarkTopPage = ['/', '/login', '/register'].includes(location.pathname);
@@ -213,11 +259,64 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                   </button>
 
                   {userMenuOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="absolute top-full right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
                       <div className="p-3 border-b border-slate-100 bg-slate-50/50">
                         <p className="text-xs font-bold text-slate-900 truncate">{user?.name}</p>
                         <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
                       </div>
+
+                      {/* Modo Supervisión Parental Activo */}
+                      {(parentBackup || user?.parent_user_id) && (
+                        <div className="p-2.5 bg-amber-50 border-b border-amber-200/70">
+                          <div className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1 flex items-center gap-1.5 font-montserrat">
+                            <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Supervisión Parental Activa</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleReturnToParent}
+                            disabled={isSwitching}
+                            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                          >
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                            <span>Volver a mi cuenta de tutor</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Cuentas de Menores Vinculadas */}
+                      {myChildren.length > 0 && (
+                        <div className="p-2.5 border-b border-slate-100 bg-slate-50/40">
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5 font-montserrat">
+                            <Users className="w-3.5 h-3.5 text-brand-600" />
+                            <span>Cuentas de Hijos ({myChildren.length})</span>
+                          </div>
+                          <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                            {myChildren.map((child) => (
+                              <button
+                                key={child.id}
+                                type="button"
+                                onClick={() => handleSwitchToChild(child.id)}
+                                disabled={isSwitching}
+                                className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-brand-50 border border-slate-200 bg-white text-left transition-all cursor-pointer group"
+                              >
+                                <div className="min-w-0 pr-2">
+                                  <div className="font-bold text-xs text-slate-800 truncate group-hover:text-brand-700">
+                                    {child.name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 truncate">
+                                    {child.document_id ? `Doc: ${child.document_id}` : child.email}
+                                  </div>
+                                </div>
+                                <span className="text-[10px] font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md shrink-0 border border-brand-200 group-hover:bg-brand-600 group-hover:text-white transition-colors">
+                                  Supervisar
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="p-1.5 space-y-1">
                         {!isDashboard && (
                           <Link

@@ -12,6 +12,7 @@ class UserBase(BaseModel):
     phone_number: Optional[str] = None
     is_active: bool = True
     is_superuser: bool = False
+    parent_user_id: Optional[int] = None
 
 class UserCreate(UserBase):
     password: str
@@ -65,6 +66,7 @@ class UserUpdate(BaseModel):
     must_change_password: Optional[bool] = None
     date_of_birth: Optional[Any] = None
     permissions_override: Optional[Dict[str, bool]] = None
+    parent_user_id: Optional[int] = None
 
     @field_validator('date_of_birth', mode='before')
     @classmethod
@@ -80,6 +82,7 @@ class UserUpdateAdmin(BaseModel):
     is_active: Optional[bool] = None
     date_of_birth: Optional[Any] = None
     role_ids: Optional[List[int]] = None
+    parent_user_id: Optional[int] = None
 
     @field_validator('date_of_birth', mode='before')
     @classmethod
@@ -93,6 +96,15 @@ class UserUpdateAdmin(BaseModel):
             raise ValueError("El usuario debe tener al menos un rol asignado")
         return v
 
+class UserSummaryOut(BaseModel):
+    id: int
+    name: str
+    email: str
+    document_id: Optional[str] = None
+    date_of_birth: Optional[Any] = None
+    parent_user_id: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
+
 class UserResponse(BaseModel):
     id: int
     name: str
@@ -104,6 +116,9 @@ class UserResponse(BaseModel):
     must_change_password: bool
     date_of_birth: Optional[Any] = None
     permissions_override: Optional[Any] = None
+    parent_user_id: Optional[int] = None
+    parent: Optional[UserSummaryOut] = None
+    children: List[UserSummaryOut] = []
     created_at: Any
     updated_at: Any
     

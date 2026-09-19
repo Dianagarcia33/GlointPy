@@ -9,10 +9,30 @@ from src.schemas.user import UserResponse, UserCreateAdmin, UserUpdateAdmin, Use
 from src.schemas.security import AssignRoleToUser
 from src.models.user import User
 from src.models.security import Role
-from src.services.user_service import UserService
-from src.api.deps import RequirePermission
+from src.api.deps import RequirePermission, get_current_user
 
 router = APIRouter()
+
+@router.get("/my-children", response_model=List[UserResponse])
+async def get_my_children(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene las cuentas de menores vinculadas al usuario en sesión como tutor/padre.
+    """
+    result = await db.execute(
+        select(User)
+        .options(
+            selectinload(User.roles).selectinload(Role.permissions),
+            selectinload(User.bank_accounts),
+            selectinload(User.wallet),
+            selectinload(User.parent),
+            selectinload(User.children)
+        )
+        .where(User.parent_user_id == current_user.id)
+    )
+    return result.scalars().all()
 
 @router.get("", response_model=UserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def list_users(

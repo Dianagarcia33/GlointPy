@@ -7,6 +7,9 @@ export interface User {
   email: string;
   is_active: boolean;
   is_superuser?: boolean;
+  parent_user_id?: number | null;
+  parent?: any;
+  children?: any[];
   roles_list?: string[];
   roles?: any[];
   permissions?: string[];
@@ -16,9 +19,11 @@ interface AuthState {
   user: User | null;
   accessToken: string | null;
   isAuthenticated: boolean;
+  parentBackup: { user: User; token: string } | null;
   login: (user: User, token: string) => void;
   logout: () => void;
   setUser: (user: User | null) => void;
+  setParentBackup: (backup: { user: User; token: string } | null) => void;
 }
 
 const normalizeUser = (user: User | null): User | null => {
@@ -53,21 +58,24 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       isAuthenticated: false,
+      parentBackup: null,
       login: (user, token) => set({ user: normalizeUser(user), accessToken: token, isAuthenticated: true }),
       logout: () => {
         const baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api/v1';
         fetch(`${baseUrl}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
-        set({ user: null, accessToken: null, isAuthenticated: false });
+        set({ user: null, accessToken: null, isAuthenticated: false, parentBackup: null });
       },
       setUser: (user) => set({ user: normalizeUser(user), isAuthenticated: !!user }),
+      setParentBackup: (parentBackup) => set({ parentBackup }),
     }),
     {
       name: 'auth-storage',
-      // Persistir token, usuario y autenticación para mantener la sesión activa al recargar
+      // Persistir token, usuario, autenticación y respaldo parental para mantener la sesión activa al recargar
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         accessToken: state.accessToken,
         user: state.user,
+        parentBackup: state.parentBackup,
       }),
     }
   )

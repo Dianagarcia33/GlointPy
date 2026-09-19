@@ -42,7 +42,11 @@ async def get_current_user(
         raise credentials_exception
         
     result = await db.execute(
-        select(User).options(selectinload(User.roles).selectinload(Role.permissions)).where(User.id == int(user_id))
+        select(User).options(
+            selectinload(User.roles).selectinload(Role.permissions),
+            selectinload(User.parent),
+            selectinload(User.children)
+        ).where(User.id == int(user_id))
     )
     user = result.scalars().first()
     

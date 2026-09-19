@@ -308,6 +308,15 @@ export const AdminUsersPage = () => {
                         {user.phone_number && <div className="text-slate-500">Tel: <strong className="font-bold text-slate-700">{user.phone_number}</strong></div>}
                         {user.date_of_birth && <div className="text-slate-500">Nac: <strong className="font-bold text-slate-700">{formatColombiaDate(user.date_of_birth)}</strong></div>}
                         <div className="text-[10px] text-slate-400">Reg: {formatColombiaDate(user.created_at)}</div>
+                        {user.parent ? (
+                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-md text-[10px]">
+                            <span className="font-bold">Tutor:</span> {user.parent.name} {user.parent.document_id ? `(${user.parent.document_id})` : ''}
+                          </div>
+                        ) : (user.children && user.children.length > 0) ? (
+                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-md text-[10px]">
+                            <span className="font-bold">Tutor de:</span> {user.children.length} menor(es)
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </td>
