@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, TrendingUp, AlertCircle, ShieldCheck } from 'lucide-react';
 import { shareMarketService, SharePortfolio } from '../../../services/shareMarket';
 
@@ -16,9 +16,15 @@ export const SellSharesModal: React.FC<SellSharesModalProps> = ({
     onSuccess
 }) => {
     const [quantity, setQuantity] = useState<number>(1);
-    const [pricePerShare, setPricePerShare] = useState<number>(portfolio?.current_share_price || 50000);
+    const [pricePerShare, setPricePerShare] = useState<number>(portfolio?.current_share_price || 0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (portfolio?.current_share_price && portfolio.current_share_price > 0) {
+            setPricePerShare(portfolio.current_share_price);
+        }
+    }, [portfolio?.current_share_price, isOpen]);
 
     if (!isOpen) return null;
 
@@ -99,7 +105,7 @@ export const SellSharesModal: React.FC<SellSharesModalProps> = ({
                     </div>
                     <div className="text-right">
                         <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Precio Oficial Referencial</span>
-                        <span className="text-sm font-extrabold text-emerald-600 font-mono">${(portfolio?.current_share_price || 50000).toLocaleString('es-CO')} COP</span>
+                        <span className="text-sm font-extrabold text-emerald-600 font-mono">${(portfolio?.current_share_price || pricePerShare || 0).toLocaleString('es-CO')} COP</span>
                     </div>
                 </div>
 

@@ -23,28 +23,48 @@ class ShareMarketService:
 
     @staticmethod
     async def get_current_price(db: AsyncSession) -> float:
-        """Obtiene el precio de la acción registrado por el admin en la última emisión o historial."""
-        # 1. Prioridad: Última emisión corporativa registrada por el admin
+        """Obtiene el precio oficial y real de la acción más reciente."""
+        # 1. Consultar el último registro en la bitácora histórica de precios
+        hist_result = await db.execute(
+            select(SharePriceHistory)
+            .order_by(SharePriceHistory.created_at.desc(), SharePriceHistory.id.desc())
+            .limit(1)
+        )
+        latest_hist = hist_result.scalar_one_or_none()
+
+        # 2. Consultar la última emisión corporativa registrada
         iss_result = await db.execute(
             select(ShareIssuance)
-            .order_by(ShareIssuance.id.desc())
+            .order_by(ShareIssuance.created_at.desc(), ShareIssuance.id.desc())
             .limit(1)
         )
         latest_iss = iss_result.scalar_one_or_none()
-        if latest_iss and latest_iss.price_per_share is not None and float(latest_iss.price_per_share) > 0:
+
+        # Comparar cuál es más reciente entre historial y emisión
+        if latest_hist and latest_iss:
+            if latest_hist.created_at >= latest_iss.created_at:
+                return float(latest_hist.new_price)
+            else:
+                return float(latest_iss.price_per_share)
+        elif latest_hist and latest_hist.new_price is not None and float(latest_hist.new_price) > 0:
+            return float(latest_hist.new_price)
+        elif latest_iss and latest_iss.price_per_share is not None and float(latest_iss.price_per_share) > 0:
             return float(latest_iss.price_per_share)
 
-        # 2. Historial de precio si existe
-        result = await db.execute(
-            select(SharePriceHistory)
-            .order_by(SharePriceHistory.id.desc())
-            .limit(1)
+        # 3. Si no hay emisiones ni historial, verificar en paquetes activos la relación precio/acción
+        pkg_result = await db.execute(
+            select(Package)
+            .where(Package.is_active == True, Package.granted_shares > 0)
+            .order_by(Package.value.asc())
         )
-        latest = result.scalar_one_or_none()
-        if latest and latest.new_price is not None and float(latest.new_price) > 0:
-            return float(latest.new_price)
+        packages = pkg_result.scalars().all()
+        if packages:
+            valid_prices = [float(p.value) / p.granted_shares for p in packages if p.granted_shares > 0]
+            if valid_prices and valid_prices[0] > 0:
+                return float(valid_prices[0])
 
-        return 50000.0  # Valor base inicial si no hay emisiones ni historial
+        return 50000.0  # Valor base inicial como último recurso
+
 
     @staticmethod
     async def get_current_available_shares(db: AsyncSession) -> int:

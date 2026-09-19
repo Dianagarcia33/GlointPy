@@ -166,7 +166,7 @@ export const SharesMarketPage: React.FC = () => {
                         <Sparkles className="w-4 h-4 text-amber-500" />
                     </div>
                     <span className="text-2xl font-black text-amber-600 font-mono block">
-                        ${(portfolio?.current_share_price || 50000).toLocaleString('es-CO')}
+                        ${(portfolio?.current_share_price || priceHistory[0]?.new_price || 0).toLocaleString('es-CO')}
                     </span>
                     <span className="text-[11px] text-slate-500 font-medium block">Valor oficial de referencia</span>
                 </div>
