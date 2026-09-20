@@ -352,14 +352,15 @@ async def websocket_chat_endpoint(
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="No eres participante de esta sala")
             return
 
-    # 3. Registrar cliente en el manager
-    if room_id not in manager.room_connections:
-        manager.room_connections[room_id] = set()
-    manager.room_connections[room_id].add(websocket)
+    # 3. Registrar cliente en el manager con tracking de usuarios activos en la sala
+    manager.connect(websocket, room_id, user.id)
 
-    if user.id not in manager.user_connections:
-        manager.user_connections[user.id] = set()
-    manager.user_connections[user.id].add(websocket)
+    # 4. Al ingresar a la sala, marcar automáticamente mensajes pendientes como leídos
+    try:
+        async with async_session_maker() as db:
+            await ChatService.mark_room_as_read(db, room_id, user.id)
+    except Exception as read_err:
+        print(f"⚠️ Error marcando sala {room_id} como leída al conectar: {read_err}")
 
     try:
         while True:
@@ -374,6 +375,15 @@ async def websocket_chat_endpoint(
                 payload_in = {"content": data_text}
 
             msg_type = payload_in.get("type", "message") if isinstance(payload_in, dict) else "message"
+
+            # 0. Evento de confirmación de lectura en tiempo real
+            if msg_type in ["read", "mark_read"]:
+                try:
+                    async with async_session_maker() as db:
+                        await ChatService.mark_room_as_read(db, room_id, user.id)
+                except Exception as read_err:
+                    print(f"⚠️ Error procesando evento de lectura en sala {room_id}: {read_err}")
+                continue
 
             # 1. Evento de "Escribiendo..." (Typing indicator)
             if msg_type == "typing":

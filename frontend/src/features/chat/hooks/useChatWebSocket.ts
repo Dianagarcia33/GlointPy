@@ -60,6 +60,12 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
       ws.onopen = () => {
         setIsConnected(true);
         setError(null);
+        // Notificar al servidor que el usuario tiene la sala abierta para marcar como leído
+        try {
+          ws.send(JSON.stringify({ type: 'read', room_id: roomId }));
+        } catch {
+          // Ignorar si el socket no está listo
+        }
       };
 
       ws.onmessage = (event) => {
@@ -69,6 +75,19 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
             if (data.sender_name) {
               setTypingUsers((prev) => prev.filter((name) => name !== data.sender_name));
             }
+
+            // Si el mensaje entrante es de la otra persona y estamos en la sala, acusar recibo leído inmediatamente
+            if (currentUser && data.sender_id !== currentUser.id) {
+              try {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'read', room_id: roomId }));
+                }
+                chatService.markAsRead(roomId).catch(() => {});
+              } catch {
+                // Ignore
+              }
+            }
+
             setMessages((prev) => {
               if (prev.some((m) => m.id === data.id)) return prev;
 
@@ -86,6 +105,13 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
 
               return [...prev, data];
             });
+          } else if (data.type === 'messages_read') {
+            // Confirmación en tiempo real: los mensajes enviados ahora han sido leídos por el receptor
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.is_read ? msg : { ...msg, is_read: true }
+              )
+            );
           } else if (data.type === 'user_typing') {
             const { user_name, is_typing } = data;
             if (user_name) {

@@ -29,10 +29,10 @@ class ConnectionManager:
         self.room_connections: Dict[int, Set[WebSocket]] = {}
         # user_id -> set of WebSockets (para notificaciones globales o presencia)
         self.user_connections: Dict[int, Set[WebSocket]] = {}
+        # room_id -> set of user_ids actualmente conectados en la sala
+        self.room_users: Dict[int, Set[int]] = {}
 
-    async def connect(self, websocket: WebSocket, room_id: int, user_id: int):
-        await websocket.accept()
-        
+    def connect(self, websocket: WebSocket, room_id: int, user_id: int):
         if room_id not in self.room_connections:
             self.room_connections[room_id] = set()
         self.room_connections[room_id].add(websocket)
@@ -40,6 +40,10 @@ class ConnectionManager:
         if user_id not in self.user_connections:
             self.user_connections[user_id] = set()
         self.user_connections[user_id].add(websocket)
+
+        if room_id not in self.room_users:
+            self.room_users[room_id] = set()
+        self.room_users[room_id].add(user_id)
 
     def disconnect(self, websocket: WebSocket, room_id: int, user_id: int):
         if room_id in self.room_connections:
@@ -51,6 +55,20 @@ class ConnectionManager:
             self.user_connections[user_id].discard(websocket)
             if not self.user_connections[user_id]:
                 del self.user_connections[user_id]
+
+        if room_id in self.room_users:
+            # Comprobar si el usuario aún tiene otros sockets abiertos en esta misma sala
+            user_sockets = self.user_connections.get(user_id, set())
+            room_sockets = self.room_connections.get(room_id, set())
+            if not (user_sockets & room_sockets):
+                self.room_users[room_id].discard(user_id)
+                if not self.room_users[room_id]:
+                    del self.room_users[room_id]
+
+    def is_other_participant_in_room(self, room_id: int, sender_id: int) -> bool:
+        """Verifica si hay algún otro participante activo en la sala en este momento."""
+        users_in_room = self.room_users.get(room_id, set())
+        return any(uid != sender_id for uid in users_in_room)
 
     async def connect_user_only(self, websocket: WebSocket, user_id: int):
         """Conecta un WebSocket únicamente al pool de notificaciones del usuario, sin sala de chat específica."""
@@ -346,6 +364,14 @@ class ChatService:
                 .values(is_read=True)
             )
             await db.commit()
+            try:
+                await manager.broadcast_to_room(room_id, {
+                    "type": "messages_read",
+                    "room_id": room_id,
+                    "reader_id": user_id
+                })
+            except Exception:
+                pass
 
         stmt = (
             select(ChatMessage)
@@ -443,7 +469,7 @@ class ChatService:
 
     @staticmethod
     async def mark_room_as_read(db: AsyncSession, room_id: int, user_id: int) -> bool:
-        """Marcar todos los mensajes recibidos de una sala como leídos por el usuario."""
+        """Marcar todos los mensajes recibidos de una sala como leídos por el usuario y notificar por WebSockets."""
         from sqlalchemy import update
         await db.execute(
             update(ChatMessage)
@@ -451,6 +477,17 @@ class ChatService:
             .values(is_read=True)
         )
         await db.commit()
+
+        # Notificar en tiempo real por WebSocket a todos los usuarios en la sala
+        try:
+            await manager.broadcast_to_room(room_id, {
+                "type": "messages_read",
+                "room_id": room_id,
+                "reader_id": user_id
+            })
+        except Exception:
+            pass
+
         return True
 
     @staticmethod
@@ -465,6 +502,9 @@ class ChatService:
         reply_to_id: Optional[int] = None
     ) -> dict:
         """Guarda un mensaje en MySQL y lo prepara para retransmisión por WebSockets."""
+        # Si otro participante está actualmente conectado a la sala por WebSocket, marcar inmediatamente como leído
+        is_read_immediate = manager.is_other_participant_in_room(room_id, sender_id)
+
         msg = ChatMessage(
             room_id=room_id,
             sender_id=sender_id,
@@ -473,7 +513,7 @@ class ChatService:
             file_url=file_url,
             file_name=file_name,
             file_type=file_type,
-            is_read=False
+            is_read=is_read_immediate
         )
         db.add(msg)
         await db.commit()
@@ -516,7 +556,7 @@ class ChatService:
             "file_type": file_type,
             "reply_to": reply_to_payload,
             "reactions": [],
-            "is_read": False,
+            "is_read": is_read_immediate,
             "created_at": created_at_val
         }
 

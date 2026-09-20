@@ -125,13 +125,27 @@ export const chatService = {
 
   getWebSocketUrl: (roomId: number): string => {
     const token = useAuthStore.getState().accessToken;
-    let wsBaseUrl = API_URL.replace(/^http/, 'ws');
-    return `${wsBaseUrl}/chat/ws/${roomId}?token=${encodeURIComponent(token || '')}`;
+    let fullUrl = API_URL;
+    if (fullUrl.startsWith('/')) {
+      const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+      fullUrl = `${protocol}//${host}${fullUrl}`;
+    } else {
+      fullUrl = fullUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    }
+    return `${fullUrl}/chat/ws/${roomId}?token=${encodeURIComponent(token || '')}`;
   },
 
   getGlobalWebSocketUrl: (): string => {
     const token = useAuthStore.getState().accessToken;
-    let wsBaseUrl = API_URL.replace(/^http/, 'ws');
-    return `${wsBaseUrl}/chat/ws/notifications/global?token=${encodeURIComponent(token || '')}`;
+    let fullUrl = API_URL;
+    if (fullUrl.startsWith('/')) {
+      const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+      fullUrl = `${protocol}//${host}${fullUrl}`;
+    } else {
+      fullUrl = fullUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    }
+    return `${fullUrl}/chat/ws/notifications/global?token=${encodeURIComponent(token || '')}`;
   }
 };

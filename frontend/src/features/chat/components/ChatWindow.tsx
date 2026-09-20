@@ -654,9 +654,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                           msg.sending ? (
                             <span title="Enviando..."><Clock className="w-3 h-3 text-amber-200 animate-spin" /></span>
                           ) : msg.is_read ? (
-                            <CheckCheck className="w-3.5 h-3.5 text-amber-200" />
+                            <span title="Leído"><CheckCheck className="w-3.5 h-3.5 text-sky-300 drop-shadow-xs" /></span>
                           ) : (
-                            <Check className="w-3.5 h-3.5 opacity-80" />
+                            <span title="Enviado"><Check className="w-3.5 h-3.5 opacity-80" /></span>
                           )
                         )}
                       </div>
