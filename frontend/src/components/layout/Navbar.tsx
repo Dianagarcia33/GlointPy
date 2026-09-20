@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon, ShieldAlert, ArrowLeft, Users, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
@@ -20,31 +21,32 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   const [serviciosMenuOpen, setServiciosMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [balance, setBalance] = useState<number | null>(null);
-  const [myChildren, setMyChildren] = useState<any[]>([]);
   const [isSwitching, setIsSwitching] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const serviciosMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const { isAuthenticated, user, accessToken, logout, login, parentBackup, setParentBackup } = useAuthStore();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      walletService.getMyBalance()
-        .then((res) => setBalance(res.balance))
-        .catch((e) => {
-          console.error(e);
-          setBalance(0); // Graceful fallback
-        });
+  const { data: balanceData } = useQuery({
+    queryKey: ['my_balance', user?.id],
+    queryFn: () => walletService.getMyBalance(),
+    enabled: isAuthenticated && !!user?.id,
+    staleTime: 30000,
+  });
+  const balance = balanceData?.balance ?? null;
 
-      usersService.getMyChildren()
-        .then((res) => setMyChildren(res || []))
-        .catch(() => setMyChildren([]));
-    } else {
-      setMyChildren([]);
-    }
-  }, [isAuthenticated, user?.id]);
+  const { data: myChildren = [] } = useQuery<any[]>({
+    queryKey: ['my_children', user?.id],
+    queryFn: async () => {
+      const res = await usersService.getMyChildren();
+      return Array.isArray(res) ? res : [];
+    },
+    enabled: isAuthenticated && !!user?.id,
+    staleTime: 60000,
+  });
 
   const handleSwitchToChild = async (childId: number) => {
     setIsSwitching(true);
@@ -54,10 +56,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
       }
       const res = await usersService.switchToChild(childId);
       login(res.user as any, res.access_token);
+      queryClient.clear();
       setUserMenuOpen(false);
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } catch (err: any) {
       alert(err.message || 'Error al cambiar a la cuenta del menor');
+    } finally {
       setIsSwitching(false);
     }
   };
@@ -68,14 +72,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
       const res = await usersService.switchBackToParent();
       login(res.user as any, res.access_token);
       setParentBackup(null);
+      queryClient.clear();
       setUserMenuOpen(false);
-      window.location.href = '/dashboard';
+      navigate('/dashboard');
     } catch (err: any) {
       if (parentBackup && parentBackup.token) {
         login(parentBackup.user, parentBackup.token);
         setParentBackup(null);
+        queryClient.clear();
         setUserMenuOpen(false);
-        window.location.href = '/dashboard';
+        navigate('/dashboard');
         return;
       }
       alert(err.message || 'Error al retornar a la cuenta del tutor');

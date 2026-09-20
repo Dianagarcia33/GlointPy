@@ -65,7 +65,24 @@ export const useAuthStore = create<AuthState>()(
         fetch(`${baseUrl}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
         set({ user: null, accessToken: null, isAuthenticated: false, parentBackup: null });
       },
-      setUser: (user) => set({ user: normalizeUser(user), isAuthenticated: !!user }),
+      setUser: (user) => {
+        const normalized = normalizeUser(user);
+        set((state) => {
+          if (!normalized) {
+            return { user: null, isAuthenticated: false };
+          }
+          if (state.user && state.user.id === normalized.id) {
+            const samePerms = (state.user.permissions || []).length === (normalized.permissions || []).length;
+            const sameRoles = (state.user.roles_list || []).length === (normalized.roles_list || []).length;
+            const sameName = state.user.name === normalized.name;
+            const sameParent = state.user.parent_user_id === normalized.parent_user_id;
+            if (samePerms && sameRoles && sameName && sameParent) {
+              return state;
+            }
+          }
+          return { user: normalized, isAuthenticated: true };
+        });
+      },
       setParentBackup: (parentBackup) => set({ parentBackup }),
     }),
     {

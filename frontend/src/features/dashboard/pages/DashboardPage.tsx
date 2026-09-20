@@ -126,11 +126,8 @@ const InvestorDashboardSkeleton = () => (
 
 export const DashboardPage = () => {
     const { user } = useAuthStore();
-    const [investments, setInvestments] = useState<Investment[]>([]);
-    const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
     const [isClubModalOpen, setIsClubModalOpen] = useState(false);
-    const [rankDetails, setRankDetails] = useState<UserRankDetails | null>(null);
 
     const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
@@ -150,6 +147,8 @@ export const DashboardPage = () => {
         user?.permissions?.includes('admin.roles.manage') === true
     );
 
+    const isInvestorView = !isSuperAdmin && !isDirectorOnly;
+
     // Analytics Query for Admin
     const { data: adminAnalytics, isLoading: isLoadingAnalytics } = useQuery<AdminAnalyticsDashboardData>({
         queryKey: ['admin_analytics_dashboard'],
@@ -157,24 +156,30 @@ export const DashboardPage = () => {
         enabled: isSuperAdmin && adminViewMode === 'admin'
     });
 
-    useEffect(() => {
-        if (!isSuperAdmin && !isDirectorOnly) {
-            // Solo mostrar skeleton si aún no hay datos en memoria para evitar parpadeos
-            if (investments.length === 0) {
-                setLoading(true);
+    // Investments Query for Investor (uses cache & starts in loading state to prevent zero-value flicker)
+    const { data: investments = [], isLoading: isLoadingInvestments } = useQuery<Investment[]>({
+        queryKey: ['my_investments', user?.id],
+        queryFn: async () => {
+            const invData = await investmentsService.getMyInvestments();
+            return Array.isArray(invData) ? invData : [];
+        },
+        enabled: isInvestorView && !!user?.id,
+        staleTime: 30000,
+    });
+
+    // Rank Details Query for Investor
+    const { data: rankDetails = null } = useQuery<UserRankDetails | null>({
+        queryKey: ['my_rank_details', user?.id],
+        queryFn: async () => {
+            try {
+                return await rankingsService.getMyRankDetails();
+            } catch {
+                return null;
             }
-            Promise.all([
-                investmentsService.getMyInvestments(),
-                rankingsService.getMyRankDetails().catch(() => null)
-            ])
-                .then(([invData, rankData]) => {
-                    setInvestments(Array.isArray(invData) ? invData : []);
-                    if (rankData) setRankDetails(rankData);
-                })
-                .catch(err => console.error("Error al cargar dashboard de inversionista:", err))
-                .finally(() => setLoading(false));
-        }
-    }, [user?.id, isSuperAdmin, isDirectorOnly]);
+        },
+        enabled: isInvestorView && !!user?.id,
+        staleTime: 60000,
+    });
 
     const parseNumber = (val: any) => {
         const parsed = Number(val);
@@ -357,7 +362,7 @@ export const DashboardPage = () => {
             ) : (
 
                 /* SECCIÓN EXCLUSIVA PARA INVERSIONISTAS */
-                loading ? (
+                isLoadingInvestments ? (
                     <InvestorDashboardSkeleton />
                 ) : (
                     <>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Sparkles, Calendar, MapPin, Users, CheckCircle2, ArrowRight } from 'lucide-react';
 import { getActiveEvent, getMyEventRegistration, EventData, AttendeeData } from '../../../services/events';
 import { InvestorEventRsvpModal } from './InvestorEventRsvpModal';
@@ -6,10 +7,8 @@ import { useAuthStore } from '../../../store/authStore';
 
 export const DashboardEventWidget: React.FC = () => {
   const { user } = useAuthStore();
-  const [eventData, setEventData] = useState<EventData | null>(null);
-  const [myRegistration, setMyRegistration] = useState<AttendeeData | null>(null);
+  const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   // Determinar si el usuario es staff/administrativo/comercial (excluir del widget)
   const isInvestor = useMemo(() => {
@@ -30,38 +29,42 @@ export const DashboardEventWidget: React.FC = () => {
     return !hasStaffRole;
   }, [user]);
 
+  const { data: eventData } = useQuery<EventData | null>({
+    queryKey: ['active_event'],
+    queryFn: async () => {
+      try {
+        return await getActiveEvent();
+      } catch {
+        return null;
+      }
+    },
+    enabled: isInvestor,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: myRegistration = null } = useQuery<AttendeeData | null>({
+    queryKey: ['my_event_registration', user?.id],
+    queryFn: async () => {
+      try {
+        return await getMyEventRegistration();
+      } catch {
+        return null;
+      }
+    },
+    enabled: isInvestor && !!user?.id,
+    staleTime: 60 * 1000,
+  });
+
   useEffect(() => {
-    if (!isInvestor) {
-      setLoading(false);
-      return;
-    }
-
-    loadData();
-
     // Si venía con intención desde el banner de login
     const shouldOpen = sessionStorage.getItem('gloint_open_rsvp');
     if (shouldOpen === 'true') {
       sessionStorage.removeItem('gloint_open_rsvp');
       setIsModalOpen(true);
     }
-  }, [isInvestor]);
+  }, []);
 
-  const loadData = async () => {
-    try {
-      const [ev, reg] = await Promise.all([
-        getActiveEvent(),
-        getMyEventRegistration().catch(() => null)
-      ]);
-      setEventData(ev);
-      setMyRegistration(reg);
-    } catch (err) {
-      console.warn('Evento no disponible en dashboard:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!isInvestor || loading || !eventData || !eventData.is_active || !eventData.banner_active) {
+  if (!isInvestor || !eventData || !eventData.is_active || !eventData.banner_active) {
     return null;
   }
 
@@ -144,9 +147,9 @@ export const DashboardEventWidget: React.FC = () => {
       <InvestorEventRsvpModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={(reg) => {
-          setMyRegistration(reg);
-          loadData();
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['my_event_registration'] });
+          queryClient.invalidateQueries({ queryKey: ['active_event'] });
         }}
       />
     </>

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert, ArrowLeft, Loader2, Users } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { usersService } from '../../services/users';
@@ -6,6 +8,8 @@ import { usersService } from '../../services/users';
 export const ParentalBanner: React.FC = () => {
   const { user, parentBackup, login, setParentBackup } = useAuthStore();
   const [isSwitchingBack, setIsSwitchingBack] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // We are in parental mode if we have a parentBackup in store OR the user has a parent_user_id
   const isParentalMode = Boolean(parentBackup || user?.parent_user_id);
@@ -21,12 +25,14 @@ export const ParentalBanner: React.FC = () => {
       const res = await usersService.switchBackToParent();
       login(res.user as any, res.access_token);
       setParentBackup(null);
-      window.location.href = '/dashboard';
+      queryClient.clear();
+      navigate('/dashboard');
     } catch (err: any) {
       if (parentBackup && parentBackup.token) {
         login(parentBackup.user, parentBackup.token);
         setParentBackup(null);
-        window.location.href = '/dashboard';
+        queryClient.clear();
+        navigate('/dashboard');
         return;
       }
       console.error('Error al retornar a la cuenta del tutor:', err);

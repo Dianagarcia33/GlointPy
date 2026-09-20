@@ -68,26 +68,17 @@ export const useVersionChecker = () => {
     // 1. Verificación inicial
     checkVersion();
 
-    // 2. Intervalo periódico (cada 3 minutos)
+    // 2. Intervalo periódico (cada 5 minutos)
     const intervalId = setInterval(checkVersion, CHECK_INTERVAL);
 
-    // 3. Al reanudar la pestaña o desbloquear el móvil
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkVersion();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', checkVersion);
-
-    // 4. Captura de errores de carga de chunks desactualizados (Vite preload error)
+    // 3. Captura de errores de carga de chunks desactualizados (Vite preload error)
     const handlePreloadError = () => {
       console.warn('[GLOINT VersionChecker] Error cargando chunk desactualizado. Forzando recarga...');
       forceReload('preload_error');
     };
     window.addEventListener('vite:preloadError', handlePreloadError);
 
-    // 5. Captura genérica de error por módulo dinámico faltante
+    // 4. Captura genérica de error por módulo dinámico faltante
     const handleWindowError = (event: ErrorEvent) => {
       const msg = event?.message || '';
       if (
@@ -103,8 +94,6 @@ export const useVersionChecker = () => {
 
     return () => {
       clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', checkVersion);
       window.removeEventListener('vite:preloadError', handlePreloadError);
       window.removeEventListener('error', handleWindowError);
     };
