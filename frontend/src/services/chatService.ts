@@ -38,6 +38,7 @@ export interface ChatMessage {
   } | null;
   reactions?: MessageReactionGroup[];
   is_read: boolean;
+  is_forwarded?: boolean;
   created_at: string;
   sending?: boolean;
 }
@@ -120,6 +121,22 @@ export const chatService = {
     return fetchApi(`/chat/messages/${messageId}/reactions`, {
       method: 'POST',
       body: JSON.stringify({ emoji })
+    });
+  },
+
+  forwardMessage: async (
+    messageId: number,
+    targetRoomIds: number[],
+    targetUserIds: number[],
+    optionalNote?: string
+  ): Promise<{ success: boolean; forwarded_count: number; messages: ChatMessage[] }> => {
+    return fetchApi(`/chat/messages/${messageId}/forward`, {
+      method: 'POST',
+      body: JSON.stringify({
+        target_room_ids: targetRoomIds,
+        target_user_ids: targetUserIds,
+        optional_note: optionalNote || null
+      })
     });
   },
 

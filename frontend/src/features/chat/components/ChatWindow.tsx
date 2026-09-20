@@ -18,12 +18,14 @@ import {
   Info,
   Smile,
   Image as ImageIcon,
-  Clock
+  Clock,
+  CornerUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../../store/authStore';
 import { useChatWebSocket } from '../hooks/useChatWebSocket';
 import { chatService, ChatRoom, ChatMessage } from '../../../services/chatService';
+import { ForwardMessageModal } from './ForwardMessageModal';
 import { getMediaUrl } from '../../../services/api';
 import { 
   formatChatTime, 
@@ -56,6 +58,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [reactionPickerMsgId, setReactionPickerMsgId] = useState<number | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<ChatMessage | null>(null);
+  const [forwardToast, setForwardToast] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -557,6 +561,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                             : 'bg-white text-slate-800 border border-slate-200/80 rounded-bl-none shadow-xs'
                         }`}
                       >
+                      {/* Indicador de Mensaje Reenviado */}
+                      {msg.is_forwarded && (
+                        <div className={`flex items-center gap-1 text-[11px] font-medium mb-1.5 italic ${
+                          isMe ? 'text-amber-100/90' : 'text-slate-500'
+                        }`}>
+                          <CornerUpRight className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>Reenviado</span>
+                        </div>
+                      )}
+
                       {/* Cita/Respuesta del mensaje previo */}
                       {msg.reply_to && (
                         <div
@@ -746,6 +760,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
                         title="Responder a este mensaje"
                       >
                         <Reply className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Botón de Reenviar */}
+                      <button
+                        type="button"
+                        onClick={() => setForwardingMessage(msg)}
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-white bg-white/80 rounded-full shadow-xs border border-slate-200/80 flex-shrink-0 active:scale-95"
+                        title="Reenviar a otro chat"
+                      >
+                        <CornerUpRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   )}
@@ -1001,6 +1025,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Modal para Reenviar Mensaje */}
+      {forwardingMessage && (
+        <ForwardMessageModal
+          isOpen={Boolean(forwardingMessage)}
+          onClose={() => setForwardingMessage(null)}
+          message={forwardingMessage}
+          currentRoomId={room?.id}
+          onForwardSuccess={(count) => {
+            setForwardToast(`Mensaje reenviado con éxito a ${count} ${count === 1 ? 'chat' : 'chats'}`);
+            setTimeout(() => setForwardToast(null), 3500);
+          }}
+        />
+      )}
+
+      {/* Toast flotante de confirmación de reenvío */}
+      {forwardToast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white text-xs px-4 py-2.5 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-2 border border-slate-700 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="w-4 h-4 text-emerald-400" />
+          <span className="font-medium">{forwardToast}</span>
+        </div>
       )}
     </div>
   );

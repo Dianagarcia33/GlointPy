@@ -426,6 +426,7 @@ class ChatService:
                 } if m.reply_to else None,
                 "reactions": ChatService._serialize_reactions(getattr(m, "reactions", [])),
                 "is_read": m.is_read,
+                "is_forwarded": bool(getattr(m, "is_forwarded", False)),
                 "created_at": _format_datetime_utc(m.created_at)
             }
             for m in messages
@@ -525,7 +526,8 @@ class ChatService:
         file_url: Optional[str] = None,
         file_name: Optional[str] = None,
         file_type: Optional[str] = None,
-        reply_to_id: Optional[int] = None
+        reply_to_id: Optional[int] = None,
+        is_forwarded: bool = False
     ) -> dict:
         """Guarda un mensaje en MySQL y lo prepara para retransmisión por WebSockets."""
         # Si otro participante está actualmente conectado a la sala por WebSocket, marcar inmediatamente como leído
@@ -539,7 +541,8 @@ class ChatService:
             file_url=file_url,
             file_name=file_name,
             file_type=file_type,
-            is_read=is_read_immediate
+            is_read=is_read_immediate,
+            is_forwarded=is_forwarded
         )
         db.add(msg)
         await db.commit()
@@ -583,6 +586,7 @@ class ChatService:
             "reply_to": reply_to_payload,
             "reactions": [],
             "is_read": is_read_immediate,
+            "is_forwarded": bool(is_forwarded),
             "created_at": created_at_val
         }
 
@@ -654,3 +658,66 @@ class ChatService:
         )
         res = await db.execute(stmt)
         return res.scalars().first() is not None
+
+    @staticmethod
+    async def forward_message(
+        db: AsyncSession,
+        original_message_id: int,
+        target_room_ids: List[int],
+        target_user_ids: List[int],
+        sender_id: int,
+        optional_note: Optional[str] = None
+    ) -> List[dict]:
+        """Reenvía un mensaje existente a una o varias salas y/o usuarios."""
+        # 1. Obtener mensaje original
+        stmt = (
+            select(ChatMessage)
+            .options(selectinload(ChatMessage.sender))
+            .where(ChatMessage.id == original_message_id)
+        )
+        res = await db.execute(stmt)
+        orig_msg = res.scalars().first()
+        if not orig_msg:
+            raise ValueError("Mensaje original no encontrado")
+
+        # 2. Consolidar todas las salas destino
+        all_room_ids = set(int(r) for r in (target_room_ids or []))
+
+        # Si hay usuarios destino individuales, obtener o crear la sala directa con cada uno
+        for uid in (target_user_ids or []):
+            u_id = int(uid)
+            if u_id != sender_id:
+                room = await ChatService.get_or_create_direct_room(db, sender_id, u_id)
+                all_room_ids.add(room.id)
+
+        if not all_room_ids:
+            raise ValueError("Debes seleccionar al menos un chat o contacto de destino")
+
+        results = []
+        for target_rid in all_room_ids:
+            # Reenviar el contenido y archivo clonado con is_forwarded=True
+            fwd_payload = await ChatService.save_message(
+                db=db,
+                room_id=target_rid,
+                sender_id=sender_id,
+                content=orig_msg.content,
+                file_url=orig_msg.file_url,
+                file_name=orig_msg.file_name,
+                file_type=orig_msg.file_type,
+                is_forwarded=True
+            )
+            await manager.broadcast_to_room(target_rid, fwd_payload)
+            results.append(fwd_payload)
+
+            # Si hay un comentario opcional adicional, enviarlo como mensaje siguiente
+            if optional_note and optional_note.strip():
+                note_payload = await ChatService.save_message(
+                    db=db,
+                    room_id=target_rid,
+                    sender_id=sender_id,
+                    content=optional_note.strip(),
+                    is_forwarded=False
+                )
+                await manager.broadcast_to_room(target_rid, note_payload)
+
+        return results

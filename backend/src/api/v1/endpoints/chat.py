@@ -223,6 +223,47 @@ async def toggle_message_reaction(
 
     return result
 
+class ForwardMessageRequest(BaseModel):
+    target_room_ids: List[int] = Field(default_factory=list)
+    target_user_ids: List[int] = Field(default_factory=list)
+    optional_note: Optional[str] = Field(default=None, max_length=1000)
+
+@router.post("/messages/{message_id}/forward", dependencies=[Depends(RequirePermission("chat:send"))])
+async def forward_message_endpoint(
+    message_id: int,
+    body: ForwardMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Reenvía un mensaje existente a uno o múltiples chats/usuarios."""
+    # Verificar acceso al mensaje original
+    orig_res = await db.execute(select(ChatMessage).where(ChatMessage.id == message_id))
+    orig_msg = orig_res.scalars().first()
+    if not orig_msg:
+        raise HTTPException(status_code=404, detail="Mensaje original no encontrado")
+
+    is_part = await ChatService.is_participant(db, orig_msg.room_id, current_user.id)
+    if not is_part and not PBACEngine.has_permission(current_user, "admin.chat.manage"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para reenviar este mensaje"
+        )
+
+    try:
+        results = await ChatService.forward_message(
+            db=db,
+            original_message_id=message_id,
+            target_room_ids=body.target_room_ids,
+            target_user_ids=body.target_user_ids,
+            sender_id=current_user.id,
+            optional_note=body.optional_note
+        )
+        return {"success": True, "forwarded_count": len(results), "messages": results}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al reenviar mensaje: {str(e)}")
+
 @router.post("/upload", dependencies=[Depends(RequirePermission("chat:send"))])
 async def upload_chat_file(
     room_id: int = Form(...),

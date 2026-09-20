@@ -113,6 +113,11 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN is_forwarded BOOLEAN NOT NULL DEFAULT FALSE"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("ALTER TABLE chat_rooms ADD COLUMN created_by BIGINT NULL"))
             except Exception:
                 pass
