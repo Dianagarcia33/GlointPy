@@ -159,7 +159,10 @@ export const DashboardPage = () => {
 
     useEffect(() => {
         if (!isSuperAdmin && !isDirectorOnly) {
-            setLoading(true);
+            // Solo mostrar skeleton si aún no hay datos en memoria para evitar parpadeos
+            if (investments.length === 0) {
+                setLoading(true);
+            }
             Promise.all([
                 investmentsService.getMyInvestments(),
                 rankingsService.getMyRankDetails().catch(() => null)
@@ -171,7 +174,7 @@ export const DashboardPage = () => {
                 .catch(err => console.error("Error al cargar dashboard de inversionista:", err))
                 .finally(() => setLoading(false));
         }
-    }, [user, isSuperAdmin, isDirectorOnly]);
+    }, [user?.id, isSuperAdmin, isDirectorOnly]);
 
     const parseNumber = (val: any) => {
         const parsed = Number(val);
