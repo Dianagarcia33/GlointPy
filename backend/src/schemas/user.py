@@ -142,12 +142,16 @@ class UserResponse(BaseModel):
                     loaded_data[k] = v
 
             # Safe relationship access avoiding MissingGreenlet
-            loaded_data['roles'] = state.dict.get('roles', [])
-            loaded_data['parent'] = state.dict.get('parent', None)
-            loaded_data['children'] = state.dict.get('children', [])
-            if 'bank_accounts' in state.dict:
+            from sqlalchemy.orm.base import NO_VALUE
+            r = state.dict.get('roles', [])
+            loaded_data['roles'] = r if (isinstance(r, list) and r is not NO_VALUE) else []
+            p = state.dict.get('parent', None)
+            loaded_data['parent'] = None if p is NO_VALUE else p
+            c = state.dict.get('children', [])
+            loaded_data['children'] = c if (isinstance(c, list) and c is not NO_VALUE) else []
+            if 'bank_accounts' in state.dict and state.dict['bank_accounts'] is not NO_VALUE:
                 loaded_data['bank_accounts'] = state.dict['bank_accounts']
-            if 'wallet' in state.dict:
+            if 'wallet' in state.dict and state.dict['wallet'] is not NO_VALUE:
                 loaded_data['wallet'] = state.dict['wallet']
 
             loaded_data['permissions_override'] = getattr(data, 'permissions_override', None)

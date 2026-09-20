@@ -16,7 +16,7 @@ import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { BulkDocumentModal } from '../components/BulkDocumentModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock, ShieldAlert } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { usePermissions } from '../../../../hooks/usePermissions';
 
@@ -468,7 +468,15 @@ export const AdminInvestorsPage = () => {
                       <td className="px-4 py-3.5">
                         {investor.user ? (
                           <div>
-                            <div className="font-bold text-slate-900 text-xs">{investor.user.name}</div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-slate-900 text-xs">{investor.user.name}</span>
+                              {(investor.user.parent_user_id || investor.user.parent) && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs" title="Inversionista menor de edad bajo supervisión parental">
+                                  <ShieldAlert className="w-3 h-3 text-amber-600 shrink-0" />
+                                  Menor
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[11px] text-slate-500">{investor.user.email}</div>
                             <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                               {investor.user.document_id && <span>Doc: <span className="font-mono text-slate-600">{investor.user.document_id}</span></span>}
@@ -477,6 +485,31 @@ export const AdminInvestorsPage = () => {
                             {investor.user.date_of_birth && (
                               <div className="text-[10px] text-slate-400">Nac: {new Date(investor.user.date_of_birth).toLocaleDateString()}</div>
                             )}
+
+                            {(investor.user.parent_user_id || investor.user.parent) && (
+                              <div className="mt-1.5 p-2 bg-amber-50/90 rounded-lg border border-amber-200/90 text-[11px] text-amber-950 flex items-start gap-1.5 shadow-2xs">
+                                <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                <div className="leading-tight">
+                                  <span className="text-[9px] font-bold text-amber-800 uppercase tracking-wider block">
+                                    Tutor / Representante:
+                                  </span>
+                                  <span className="font-bold text-slate-900 text-[11px] block">
+                                    {investor.user.parent?.name || `Tutor (#${investor.user.parent_user_id})`}
+                                  </span>
+                                  {investor.user.parent?.document_id && (
+                                    <span className="text-[10px] text-slate-600 font-mono block">
+                                      Doc: {investor.user.parent.document_id}
+                                    </span>
+                                  )}
+                                  {investor.user.parent?.email && (
+                                    <span className="text-[10px] text-slate-400 block truncate max-w-[200px]" title={investor.user.parent.email}>
+                                      {investor.user.parent.email}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
                             {investor.user.bank_accounts && investor.user.bank_accounts.length > 0 && (
                               <button
                                 onClick={() => setSelectedInvestorForBankAccounts(investor)}
@@ -748,6 +781,42 @@ export const AdminInvestorsPage = () => {
                     {expandedRows[investor.id] && investor.user && (
                       <tr className="bg-slate-50/40">
                         <td colSpan={7} className="px-8 py-4 border-b border-slate-100 space-y-5">
+
+                          {/* Supervisión Parental / Tutor Legal */}
+                          {(investor.user.parent_user_id || investor.user.parent) && (
+                            <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-4 shadow-xs space-y-2">
+                              <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-amber-200/60 pb-2 font-montserrat">
+                                <ShieldAlert className="w-4 h-4 text-amber-600" />
+                                <span>Supervisión Parental / Tutor Legal Asignado:</span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs font-semibold">
+                                <div>
+                                  <span className="text-amber-800/70 block text-[10px] uppercase font-bold">Nombre del Tutor</span>
+                                  <span className="text-slate-900 font-bold text-sm">
+                                    {investor.user.parent?.name || `Tutor (ID: #${investor.user.parent_user_id})`}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-amber-800/70 block text-[10px] uppercase font-bold">Documento del Tutor</span>
+                                  <span className="text-slate-800 font-mono text-sm">
+                                    {investor.user.parent?.document_id || 'N/A'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-amber-800/70 block text-[10px] uppercase font-bold">Correo del Tutor</span>
+                                  <span className="text-slate-800 text-xs">
+                                    {investor.user.parent?.email || 'N/A'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-amber-800/70 block text-[10px] uppercase font-bold">Menor Supervisado</span>
+                                  <span className="text-amber-900 font-bold text-xs">
+                                    {investor.user.name} ({investor.user.document_id || 'Sin doc'})
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           
                           {/* Vigencia y Fechas del Contrato */}
                           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
