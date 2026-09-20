@@ -61,5 +61,11 @@ export const rolesService = {
     return await fetchApi(`/roles/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  syncPermissions: async (): Promise<{ message: string; total_permissions: number }> => {
+    return await fetchApi('/roles/sync-permissions', {
+      method: 'POST',
+    });
   }
 };

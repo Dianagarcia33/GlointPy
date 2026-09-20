@@ -44,3 +44,10 @@ async def read_permissions(db: AsyncSession = Depends(get_db)):
     Obtiene la lista de todos los permisos disponibles en el sistema.
     """
     return await SecurityService.get_all_permissions(db)
+
+@router.post("/sync-permissions", dependencies=[Depends(RequirePermission("admin.roles.manage"))])
+async def sync_permissions_endpoint(db: AsyncSession = Depends(get_db)):
+    """
+    Sincroniza y actualiza todos los permisos estándar del sistema y asigna los permisos base a los roles.
+    """
+    return await SecurityService.sync_all_system_permissions(db)
