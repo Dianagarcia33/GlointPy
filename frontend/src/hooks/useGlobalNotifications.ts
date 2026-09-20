@@ -60,7 +60,11 @@ export const useGlobalNotifications = () => {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
+
+          if (data.type === 'messages_read') {
+            window.dispatchEvent(new CustomEvent('gloint:messages_read', { detail: data }));
+          }
+
           if (data.type === 'chat_notification' || data.type === 'new_room') {
             // Notificar a toda la aplicación (en especial a ChatPage) que la lista de chats cambió
             window.dispatchEvent(new CustomEvent('gloint:chat_updated', { detail: data }));

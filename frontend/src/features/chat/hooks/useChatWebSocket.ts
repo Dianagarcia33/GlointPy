@@ -77,7 +77,7 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
             }
 
             // Si el mensaje entrante es de la otra persona y estamos en la sala, acusar recibo leído inmediatamente
-            if (currentUser && data.sender_id !== currentUser.id) {
+            if (currentUser && Number(data.sender_id) !== Number(currentUser.id)) {
               try {
                 if (ws.readyState === WebSocket.OPEN) {
                   ws.send(JSON.stringify({ type: 'read', room_id: roomId }));
@@ -92,13 +92,18 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
               if (prev.some((m) => m.id === data.id)) return prev;
 
               // Reemplazar mensaje optimista correspondiente si existe
-              if (currentUser && data.sender_id === currentUser.id) {
+              if (currentUser && Number(data.sender_id) === Number(currentUser.id)) {
                 const optIndex = prev.findIndex(
                   (m) => m.id < 0 && m.content === data.content
                 );
                 if (optIndex > -1) {
                   const updated = [...prev];
-                  updated[optIndex] = data;
+                  const wasRead = Boolean(prev[optIndex].is_read);
+                  updated[optIndex] = {
+                    ...data,
+                    is_read: Boolean(data.is_read || wasRead),
+                    sending: false
+                  };
                   return updated;
                 }
               }
@@ -109,7 +114,7 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
             // Confirmación en tiempo real: los mensajes enviados ahora han sido leídos por el receptor
             setMessages((prev) =>
               prev.map((msg) =>
-                msg.is_read ? msg : { ...msg, is_read: true }
+                msg.is_read ? msg : { ...msg, is_read: true, sending: false }
               )
             );
           } else if (data.type === 'user_typing') {
@@ -163,8 +168,22 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
 
     connect();
 
+    // Escuchar evento gloint:messages_read despachado por el socket global de notificaciones
+    const handleGlobalRead = (event: any) => {
+      const detail = event.detail;
+      if (detail && Number(detail.room_id) === Number(roomId)) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.is_read ? msg : { ...msg, is_read: true, sending: false }
+          )
+        );
+      }
+    };
+    window.addEventListener('gloint:messages_read', handleGlobalRead);
+
     return () => {
       clearTimeout(reconnectTimer);
+      window.removeEventListener('gloint:messages_read', handleGlobalRead);
       Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
       typingTimeoutsRef.current = {};
       if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) {
@@ -172,6 +191,46 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
       }
     };
   }, [roomId, currentUser?.id]);
+
+  // Sincronización inteligente en segundo plano: mientras existan mensajes propios sin leer, verificar periódicamente
+  useEffect(() => {
+    if (!roomId) return;
+
+    const myId = currentUser?.id;
+    const hasUnreadSent = messages.some(
+      (m) => Number(m.sender_id) === Number(myId) && !m.is_read && !m.sending
+    );
+
+    if (!hasUnreadSent) return;
+
+    const checkReadStatus = () => {
+      chatService.getRoomMessages(roomId)
+        .then((fresh) => {
+          setMessages((prev) => {
+            const freshMap = new Map(fresh.map((m) => [m.id, Boolean(m.is_read)]));
+            let changed = false;
+            const next = prev.map((m) => {
+              const serverIsRead = freshMap.get(m.id);
+              if (serverIsRead !== undefined && serverIsRead !== Boolean(m.is_read)) {
+                changed = true;
+                return { ...m, is_read: serverIsRead, sending: false };
+              }
+              return m;
+            });
+            return changed ? next : prev;
+          });
+        })
+        .catch(() => {});
+    };
+
+    const syncInterval = setInterval(checkReadStatus, 3000);
+    window.addEventListener('focus', checkReadStatus);
+
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener('focus', checkReadStatus);
+    };
+  }, [roomId, messages, currentUser?.id]);
 
   // Función para actualizar manualmente o de forma optimista las reacciones de un mensaje
   const updateMessageReactions = useCallback((messageId: number, reactions: any[]) => {

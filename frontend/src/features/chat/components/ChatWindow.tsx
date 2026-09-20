@@ -521,7 +521,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ room, currentUserId, can
 
           <AnimatePresence initial={false}>
             {messages.map((msg, idx) => {
-              const isMe = msg.sender_id === currentUserId;
+              const isMe = Number(msg.sender_id) === Number(currentUserId);
               const hasFile = Boolean(msg.file_url);
               const isImg = isImageFile(msg.file_type, msg.file_url);
               const fullFileUrl = msg.file_url ? getMediaUrl(msg.file_url) : '';
