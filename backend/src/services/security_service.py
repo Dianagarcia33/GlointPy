@@ -179,8 +179,10 @@ class SecurityService:
 
             # Módulo CRM, Bandeja de Correos y Calendario
             {"name": "crm:view", "description": "CRM / Proyectos: Acceso a la vista de embudos y prospectos", "module": "CRM"},
-            {"name": "crm:leads:manage", "description": "CRM: Crear, mover y dar seguimiento a prospectos del CRM", "module": "CRM"},
-            {"name": "crm:projects:manage", "description": "CRM: Crear y parametrizar proyectos de captación en el CRM", "module": "CRM"},
+            {"name": "crm:leads:manage", "description": "CRM: Crear, mover y dar seguimiento a prospectos (Botón Nuevo Prospecto)", "module": "CRM"},
+            {"name": "crm:projects:create", "description": "CRM / Proyectos: Crear nuevos proyectos de inversión (Botón Nuevo Proyecto)", "module": "CRM"},
+            {"name": "crm:projects:manage", "description": "CRM / Proyectos: Administrar, editar y eliminar proyectos de inversión", "module": "CRM"},
+            {"name": "crm:form_keys:manage", "description": "Claves de Formularios: Administrar y generar claves API de formularios web (Botón Claves de Formularios)", "module": "CRM"},
             {"name": "crm:inbox:view", "description": "Bandeja de Correos: Ver y consultar correos corporativos recibidos y enviados", "module": "CRM"},
             {"name": "crm:inbox:send", "description": "Bandeja de Correos: Redactar y enviar correos comerciales a clientes y prospectos", "module": "CRM"},
             {"name": "crm:calendar:view", "description": "Calendario / Agenda: Consultar eventos, citas y reuniones programadas", "module": "CRM"},
@@ -230,7 +232,7 @@ class SecurityService:
             ],
             "directivo_de_inversiones": [
                 "commercial:view", "director.dashboard.view", "referrals:view", "admin.referrals.manage",
-                "crm:view", "crm:leads:manage", "crm:projects:manage",
+                "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
                 "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
                 "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
                 "chat:view", "chat:send"

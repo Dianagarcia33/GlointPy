@@ -1,6 +1,7 @@
 import React from 'react';
 import { FolderKanban, TrendingUp, Users, CheckCircle2, ArrowRight, DollarSign, Calendar, Edit3, Trash2 } from 'lucide-react';
 import { CRMProject } from '../../../services/crmService';
+import { Can } from '../../../components/security/Can';
 
 interface ProjectGridProps {
   projects: CRMProject[];
@@ -25,13 +26,15 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
           <h2 className="text-xl font-extrabold text-slate-900 font-montserrat">Proyectos de Inversión</h2>
           <p className="text-xs text-slate-500">Selecciona un proyecto para abrir su pipeline comercial o crea uno nuevo</p>
         </div>
-        <button
-          onClick={onCreateProject}
-          className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-2 transition-all active:scale-95 font-montserrat cursor-pointer"
-        >
-          <FolderKanban className="w-4 h-4" />
-          <span>Nuevo Proyecto</span>
-        </button>
+        <Can permissions={['crm:projects:create', 'crm:projects:manage', 'admin.crm.manage']}>
+          <button
+            onClick={onCreateProject}
+            className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-2 transition-all active:scale-95 font-montserrat cursor-pointer"
+          >
+            <FolderKanban className="w-4 h-4" />
+            <span>Nuevo Proyecto</span>
+          </button>
+        </Can>
       </div>
 
       {/* Grid de Tarjetas de Proyectos */}
@@ -44,12 +47,14 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             Crea tu primer Proyecto de Inversión para estructurar metas de capital y gestionar prospectos.
           </p>
-          <button
-            onClick={onCreateProject}
-            className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl transition-all font-montserrat cursor-pointer"
-          >
-            Crear Primer Proyecto
-          </button>
+          <Can permissions={['crm:projects:create', 'crm:projects:manage', 'admin.crm.manage']}>
+            <button
+              onClick={onCreateProject}
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl transition-all font-montserrat cursor-pointer"
+            >
+              Crear Primer Proyecto
+            </button>
+          </Can>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -84,30 +89,34 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
 
                     <div className="flex items-center gap-1">
                       {onEditProject && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEditProject(project);
-                          }}
-                          title="Editar Proyecto"
-                          className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all cursor-pointer"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
+                        <Can permissions={['crm:projects:manage', 'admin.crm.manage']}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditProject(project);
+                            }}
+                            title="Editar Proyecto"
+                            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all cursor-pointer"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </Can>
                       )}
                       {onDeleteProject && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteProject(project);
-                          }}
-                          title="Eliminar Proyecto"
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <Can permissions={['crm:projects:manage', 'admin.crm.manage']}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteProject(project);
+                            }}
+                            title="Eliminar Proyecto"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </Can>
                       )}
                     </div>
                   </div>

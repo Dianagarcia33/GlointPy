@@ -24,6 +24,7 @@ import { CreateLeadModal } from '../components/CreateLeadModal';
 import { LeadDetailModal } from '../components/LeadDetailModal';
 import { CRMFormKeysModal } from '../components/CRMFormKeysModal';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
+import { Can } from '../../../components/security/Can';
 
 export const CRMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'grid' | 'kanban'>('grid');
@@ -124,27 +125,35 @@ export const CRMPage: React.FC = () => {
         </div>
 
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <button
-            onClick={() => setIsFormKeysModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-2xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-sm"
-          >
-            <Key className="w-4 h-4" />
-            <span>Claves de Formularios</span>
-          </button>
-          <button
-            onClick={handleOpenCreateProject}
-            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nuevo Proyecto</span>
-          </button>
-          <button
-            onClick={() => setIsLeadModalOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nuevo Prospecto</span>
-          </button>
+          <Can permissions={['crm:form_keys:manage', 'crm:projects:manage', 'admin.crm.manage']}>
+            <button
+              onClick={() => setIsFormKeysModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-2xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-sm"
+            >
+              <Key className="w-4 h-4" />
+              <span>Claves de Formularios</span>
+            </button>
+          </Can>
+
+          <Can permissions={['crm:projects:create', 'crm:projects:manage', 'admin.crm.manage']}>
+            <button
+              onClick={handleOpenCreateProject}
+              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo Proyecto</span>
+            </button>
+          </Can>
+
+          <Can permissions={['crm:leads:manage', 'admin.crm.manage']}>
+            <button
+              onClick={() => setIsLeadModalOpen(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo Prospecto</span>
+            </button>
+          </Can>
         </div>
       </div>
 
