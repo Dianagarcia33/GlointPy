@@ -60,6 +60,14 @@ PERMISSIONS = [
     {"name": "chat:view", "description": "Acceder y ver el módulo de chat en tiempo real", "module": "chat"},
     {"name": "chat:send", "description": "Escribir mensajes y enviar archivos en el chat", "module": "chat"},
     {"name": "admin.chat.manage", "description": "Administrar y supervisar salas de chat", "module": "chat"},
+    {"name": "crm:view", "description": "CRM / Proyectos: Acceso a la vista de embudos y prospectos", "module": "CRM"},
+    {"name": "crm:leads:manage", "description": "CRM: Crear, mover y dar seguimiento a prospectos del CRM", "module": "CRM"},
+    {"name": "crm:projects:manage", "description": "CRM: Crear y parametrizar proyectos de captación en el CRM", "module": "CRM"},
+    {"name": "crm:inbox:view", "description": "Bandeja de Correos: Ver y consultar correos corporativos recibidos y enviados", "module": "CRM"},
+    {"name": "crm:inbox:send", "description": "Bandeja de Correos: Redactar y enviar correos comerciales a clientes y prospectos", "module": "CRM"},
+    {"name": "crm:calendar:view", "description": "Calendario / Agenda: Consultar eventos, citas y reuniones programadas", "module": "CRM"},
+    {"name": "crm:calendar:manage", "description": "Calendario / Agenda: Crear, editar, agendar y sincronizar citas", "module": "CRM"},
+    {"name": "admin.crm.manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
 ]
 
 async def seed_permissions_db(db):

@@ -161,8 +161,8 @@ function App() {
         <Route path="tickets" element={<TicketsPage />} />
         <Route path="chat" element={<RequirePermission permission="chat:view"><ChatPage /></RequirePermission>} />
         <Route path="crm" element={<RequirePermission permission="crm:view"><CRMPage /></RequirePermission>} />
-        <Route path="crm/inbox" element={<RequirePermission permission="crm:view"><CRMInboxPage /></RequirePermission>} />
-        <Route path="crm/calendar" element={<RequirePermission permission="crm:view"><CRMCalendarPage /></RequirePermission>} />
+        <Route path="crm/inbox" element={<RequirePermission permissions={["crm:inbox:view", "crm:view"]}><CRMInboxPage /></RequirePermission>} />
+        <Route path="crm/calendar" element={<RequirePermission permissions={["crm:calendar:view", "crm:view"]}><CRMCalendarPage /></RequirePermission>} />
         <Route path="admin-notifications" element={<RequirePermission permissions={["admin.notifications.manage", "admin.roles.manage"]}><AdminNotificationsPage /></RequirePermission>} />
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
       </Route>

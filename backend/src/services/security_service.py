@@ -177,11 +177,15 @@ class SecurityService:
             {"name": "chat:send", "description": "Enviar mensajes y archivos en salas de chat", "module": "Chat"},
             {"name": "admin.chat.manage", "description": "Moderar, supervisar y administrar salas de chat", "module": "Chat"},
 
-            # Módulo CRM
-            {"name": "crm:view", "description": "Acceso a la vista de embudos, prospectos y calendario CRM", "module": "CRM"},
-            {"name": "crm:leads:manage", "description": "Crear, mover y dar seguimiento a prospectos del CRM", "module": "CRM"},
-            {"name": "crm:projects:manage", "description": "Crear y parametrizar proyectos de captación en el CRM", "module": "CRM"},
-            {"name": "admin.crm.manage", "description": "Administración global, métricas e historial del CRM", "module": "CRM"},
+            # Módulo CRM, Bandeja de Correos y Calendario
+            {"name": "crm:view", "description": "CRM / Proyectos: Acceso a la vista de embudos y prospectos", "module": "CRM"},
+            {"name": "crm:leads:manage", "description": "CRM: Crear, mover y dar seguimiento a prospectos del CRM", "module": "CRM"},
+            {"name": "crm:projects:manage", "description": "CRM: Crear y parametrizar proyectos de captación en el CRM", "module": "CRM"},
+            {"name": "crm:inbox:view", "description": "Bandeja de Correos: Ver y consultar correos corporativos recibidos y enviados", "module": "CRM"},
+            {"name": "crm:inbox:send", "description": "Bandeja de Correos: Redactar y enviar correos comerciales a clientes y prospectos", "module": "CRM"},
+            {"name": "crm:calendar:view", "description": "Calendario / Agenda: Consultar eventos, citas y reuniones programadas", "module": "CRM"},
+            {"name": "crm:calendar:manage", "description": "Calendario / Agenda: Crear, editar, agendar y sincronizar citas", "module": "CRM"},
+            {"name": "admin.crm.manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
         ]
 
         # 1. Sincronizar permisos en la tabla
@@ -227,6 +231,7 @@ class SecurityService:
             "directivo_de_inversiones": [
                 "commercial:view", "director.dashboard.view", "referrals:view", "admin.referrals.manage",
                 "crm:view", "crm:leads:manage", "crm:projects:manage",
+                "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
                 "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
                 "chat:view", "chat:send"
             ],

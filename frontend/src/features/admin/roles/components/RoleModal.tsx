@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Role, RoleCreate, RoleUpdate, Permission } from '../../../../services/roles';
-import { X, Shield, AlertTriangle, Save } from 'lucide-react';
+import { X, Shield, AlertTriangle, Save, Search } from 'lucide-react';
 
 interface RoleModalProps {
   isOpen: boolean;
@@ -21,6 +21,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +36,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         setDescription('');
         setSelectedPermissions([]);
       }
+      setSearchTerm('');
       setError(null);
     }
   }, [isOpen, role]);
@@ -92,8 +94,18 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     }
   };
 
-  // Agrupar permisos por módulo
-  const groupedPermissions = allPermissions.reduce((acc, curr) => {
+  // Filtrar y agrupar permisos por módulo
+  const filteredPermissions = allPermissions.filter(p => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(term) ||
+      (p.description && p.description.toLowerCase().includes(term)) ||
+      (p.module && p.module.toLowerCase().includes(term))
+    );
+  });
+
+  const groupedPermissions = filteredPermissions.reduce((acc, curr) => {
     const mod = (curr.module || 'General').toUpperCase();
     if (!acc[mod]) acc[mod] = [];
     acc[mod].push(curr);
@@ -183,8 +195,41 @@ export const RoleModal: React.FC<RoleModalProps> = ({
               </button>
             </div>
 
+            {/* Buscador de Permisos */}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar permiso o módulo (ej: correo, calendario, crm, billetera)..."
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 text-xs rounded-full hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  title="Limpiar búsqueda"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
             {allPermissions.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-4">No hay permisos disponibles para asignar.</p>
+            ) : Object.keys(groupedPermissions).length === 0 ? (
+              <div className="text-center py-6 bg-slate-50 rounded-2xl border border-slate-200/80">
+                <p className="text-xs text-slate-500">No se encontraron permisos que coincidan con "<span className="font-semibold text-slate-700">{searchTerm}</span>".</p>
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="mt-2 text-xs font-bold text-brand-600 hover:underline cursor-pointer"
+                >
+                  Mostrar todos los permisos
+                </button>
+              </div>
             ) : (
               <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
                 {(Object.entries(groupedPermissions) as [string, Permission[]][]).map(([module, perms]) => {

@@ -58,12 +58,15 @@ async def get_current_user(
         
     return user
 
+from typing import Union, List
+
 class RequirePermission:
     """
     Dependencia de FastAPI para proteger rutas basadas en PBAC.
     Uso: @router.get("/recurso", dependencies=[Depends(RequirePermission("view_recurso"))])
+    o con alternativas: @router.get("/recurso", dependencies=[Depends(RequirePermission(["perm_a", "perm_b"]))])
     """
-    def __init__(self, required_permission: str):
+    def __init__(self, required_permission: Union[str, List[str]]):
         self.required_permission = required_permission
         
     async def __call__(self, current_user: User = Depends(get_current_user)):
