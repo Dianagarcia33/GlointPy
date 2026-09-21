@@ -29,7 +29,8 @@ import {
     LifeBuoy,
     Globe,
     Layers,
-    Sparkles
+    Sparkles,
+    DoorClosed
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
@@ -112,6 +113,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                             <MessageSquare className="w-[18px] h-[18px]" />
                                         </span>
                                         <span className="flex-1 text-[13px] font-outfit">Chat</span>
+                                    </NavLink>
+                                </Can>
+
+                                <Can permissions={['rooms:view', 'rooms:reserve', 'admin.rooms.manage']}>
+                                    <NavLink to="/dashboard/rooms" className={navLinkClass}>
+                                        <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                            <DoorClosed className="w-[18px] h-[18px]" />
+                                        </span>
+                                        <span className="flex-1 text-[13px] font-outfit">Salas de Reuniones</span>
                                     </NavLink>
                                 </Can>
 

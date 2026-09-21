@@ -70,6 +70,9 @@ PERMISSIONS = [
     {"name": "crm:calendar:view", "description": "Calendario / Agenda: Consultar eventos, citas y reuniones programadas", "module": "CRM"},
     {"name": "crm:calendar:manage", "description": "Calendario / Agenda: Crear, editar, agendar y sincronizar citas", "module": "CRM"},
     {"name": "admin.crm.manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
+    {"name": "rooms:view", "description": "Acceder y consultar calendario de salas de reuniones", "module": "salas"},
+    {"name": "rooms:reserve", "description": "Reservar salas de reuniones y gestionar reservas propias", "module": "salas"},
+    {"name": "admin.rooms.manage", "description": "Administrar salas de reuniones, configuración y todas las reservas", "module": "salas"},
 ]
 
 async def seed_permissions_db(db):
@@ -128,6 +131,22 @@ async def seed_permissions_db(db):
                             permission_id=perm.id
                         ))
                         print(f"💬 Permiso {chat_p} asignado a: {role.name}")
+
+        # Asegurar permisos de Salas a roles operativos/comerciales/administrativos (excepto inversionistas)
+        if any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente", "operaciones", "contabilidad", "administrativ"]):
+            for room_p in ["rooms:view", "rooms:reserve"]:
+                if room_p in all_perms_map:
+                    perm = all_perms_map[room_p]
+                    check = await db.execute(select(role_permissions).where(
+                        (role_permissions.c.role_id == role.id) & 
+                        (role_permissions.c.permission_id == perm.id)
+                    ))
+                    if not check.first():
+                        await db.execute(insert(role_permissions).values(
+                            role_id=role.id,
+                            permission_id=perm.id
+                        ))
+                        print(f"🏢 Permiso de Salas {room_p} asignado a: {role.name}")
 
         # Para otros roles, verificar si ya tienen permisos configurados
         role_has_perms = await db.execute(

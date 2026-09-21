@@ -49,6 +49,7 @@ import { AdminNotificationsPage } from "./features/admin/notifications/pages/Adm
 import { AdminEventsPage } from "./features/admin/events/pages/AdminEventsPage";
 import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
+import { RoomsPage } from "./features/rooms/pages/RoomsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -167,6 +168,7 @@ function App() {
         <Route path="crm/calendar" element={<RequirePermission permissions={["crm:calendar:view", "crm:view"]}><CRMCalendarPage /></RequirePermission>} />
         <Route path="admin-notifications" element={<RequirePermission permissions={["admin.notifications.manage", "admin.roles.manage"]}><AdminNotificationsPage /></RequirePermission>} />
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
+        <Route path="rooms" element={<RequirePermission permissions={["rooms:view", "rooms:reserve", "admin.rooms.manage"]}><RoomsPage /></RequirePermission>} />
       </Route>
 
 
