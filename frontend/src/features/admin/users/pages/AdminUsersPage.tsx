@@ -6,7 +6,7 @@ import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate } from '../../../../utils/format';
 
@@ -42,6 +42,24 @@ export const AdminUsersPage = () => {
   const [isForceAllModalOpen, setIsForceAllModalOpen] = useState(false);
   const [isForcingAll, setIsForcingAll] = useState(false);
   const [togglingUserId, setTogglingUserId] = useState<number | null>(null);
+
+  // Menú de acciones por fila
+  const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
+
+  // Cerrar menú de acciones al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('.user-action-menu')) {
+        setOpenActionMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const isNearBottom = (index: number) => {
+    return users.length > 2 && index >= users.length - 2;
+  };
 
   // Debounce search input
   useEffect(() => {
@@ -330,19 +348,19 @@ export const AdminUsersPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-3xl shadow-xs border border-slate-200">
+        <div className="overflow-x-auto min-h-[400px] pb-12">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-6 py-4">Usuario & Contacto</th>
                 <th className="px-6 py-4 hidden md:table-cell">Billetera & Cuentas</th>
                 <th className="px-6 py-4">Roles & Estado</th>
-                <th className="px-6 py-4 text-center">Acciones</th>
+                <th className="px-6 py-4 text-center w-36">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
-              {users.map(user => (
+              {users.map((user, index) => (
                 <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-start gap-3">
@@ -466,47 +484,98 @@ export const AdminUsersPage = () => {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <Can permission="admin.users.manage">
-                      <div className="flex items-center justify-center gap-2">
-                        <button 
-                          onClick={() => handleToggleForceProfile(user)} 
-                          disabled={togglingUserId === user.id}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all border cursor-pointer ${
-                            user.must_update_profile
-                              ? 'text-amber-800 hover:text-amber-900 bg-amber-100/80 hover:bg-amber-200 border-amber-300'
-                              : 'text-slate-700 hover:text-amber-700 hover:bg-amber-50 border-slate-200 hover:border-amber-200 bg-white'
-                          }`}
-                          title={user.must_update_profile ? "Desmarcar actualización obligatoria para este usuario" : "Forzar a este usuario a actualizar sus datos"}
-                        >
-                          {togglingUserId === user.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                          )}
-                          <span>{user.must_update_profile ? 'Datos Obligatorios' : 'Forzar Datos'}</span>
-                        </button>
-                        <button 
-                          onClick={() => setStatementUser(user)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-slate-200 hover:border-brand-300 bg-white cursor-pointer shadow-2xs"
-                          title="Ver Estado de Cuenta & Extracto Financiero"
-                        >
-                          <Receipt className="w-3.5 h-3.5 text-brand-600" />
-                          <span>Estado de Cuenta</span>
-                        </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        {/* Botón Editar Principal */}
                         <button 
                           onClick={() => handleEdit(user)} 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 bg-white cursor-pointer shadow-2xs"
+                          title="Editar información de usuario"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                           <span>Editar</span>
                         </button>
-                        <button 
-                          onClick={() => setResettingUser(user)} 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-800 hover:text-amber-900 hover:bg-amber-100 rounded-xl transition-all border border-amber-200 bg-amber-50 cursor-pointer"
-                          title="Restablecer Contraseña Temporal a 123456789"
-                        >
-                          <KeyRound className="w-3.5 h-3.5" />
-                          <span>Restablecer Clave</span>
-                        </button>
+
+                        {/* Menú de Más Acciones */}
+                        <div className="relative inline-block text-left user-action-menu">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenActionMenuId(openActionMenuId === user.id ? null : user.id);
+                            }}
+                            className={`p-1.5 rounded-xl transition-all border cursor-pointer ${
+                              openActionMenuId === user.id
+                                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                                : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200 shadow-2xs'
+                            }`}
+                            title="Más opciones de usuario"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {openActionMenuId === user.id && (
+                            <div className={`absolute right-0 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
+                              isNearBottom(index) ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'
+                            }`}>
+                              {/* Estado de Cuenta */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  setStatementUser(user);
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                              >
+                                <Receipt className="w-4 h-4 text-brand-600 shrink-0" />
+                                <div>
+                                  <div className="font-bold text-slate-800">Estado de Cuenta</div>
+                                  <div className="text-[10px] text-slate-400 font-normal">Extractos y movimientos financieros</div>
+                                </div>
+                              </button>
+
+                              {/* Forzar / Desmarcar Actualización de Perfil */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  handleToggleForceProfile(user);
+                                }}
+                                disabled={togglingUserId === user.id}
+                                className={`w-full px-4 py-2.5 text-left text-xs flex items-center gap-2.5 transition-colors cursor-pointer border-t border-slate-100 ${
+                                  user.must_update_profile
+                                    ? 'text-amber-800 hover:bg-amber-50 hover:text-amber-900'
+                                    : 'text-slate-700 hover:bg-amber-50 hover:text-amber-800'
+                                }`}
+                              >
+                                {togglingUserId === user.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+                                ) : (
+                                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="font-bold">
+                                    {user.must_update_profile ? 'Desmarcar Obligatorio' : 'Forzar Actualización'}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-normal">
+                                    {user.must_update_profile ? 'Exige actualizar datos al ingresar' : 'Pedir validación de datos'}
+                                  </span>
+                                </div>
+                              </button>
+
+                              {/* Restablecer Contraseña */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  setResettingUser(user);
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-slate-100"
+                              >
+                                <KeyRound className="w-4 h-4 text-rose-600 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-bold">Restablecer Clave</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Asignar clave temporal (123456789)</span>
+                                </div>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </Can>
                   </td>
