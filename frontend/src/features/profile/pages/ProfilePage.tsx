@@ -6,16 +6,12 @@ import {
   IdCard, 
   Calendar, 
   Lock, 
-  ShieldCheck, 
   Save, 
   CheckCircle2, 
   AlertCircle, 
   Loader2, 
   Eye, 
   EyeOff, 
-  Wallet, 
-  Landmark, 
-  Clock, 
   KeyRound, 
   Shield, 
   Sparkles
@@ -27,8 +23,8 @@ import { formatColombiaDate } from '../../../utils/format';
 export const ProfilePage: React.FC = () => {
   const { user, setUser } = useAuthStore();
 
-  // Active tab: 'personal' | 'security' | 'account'
-  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'account'>('personal');
+  // Active tab: 'personal' | 'security'
+  const [activeTab, setActiveTab] = useState<'personal' | 'security'>('personal');
 
   // Personal Info Form
   const [name, setName] = useState('');
@@ -221,19 +217,6 @@ export const ProfilePage: React.FC = () => {
         >
           <Lock className="w-4 h-4" />
           <span>Seguridad y Contraseña</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('account')}
-          className={`flex items-center gap-2 py-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'account'
-              ? 'border-brand-600 text-brand-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Resumen de Cuenta</span>
         </button>
       </div>
 
@@ -479,75 +462,6 @@ export const ProfilePage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Contenido de Tab: Resumen de Cuenta */}
-      {activeTab === 'account' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-4">
-            <h3 className="text-base font-bold text-slate-900 font-montserrat flex items-center gap-2">
-              <Shield className="w-4 h-4 text-brand-500" />
-              <span>Identidad y Membresía</span>
-            </h3>
-
-            <div className="space-y-3 divide-y divide-slate-100 text-xs sm:text-sm">
-              <div className="flex justify-between py-2">
-                <span className="text-slate-500">ID de Usuario:</span>
-                <span className="font-bold text-slate-800">#{user?.id}</span>
-              </div>
-              <div className="flex justify-between py-2">
-                <span className="text-slate-500">Roles Asignados:</span>
-                <div className="flex flex-wrap gap-1 justify-end">
-                  {roles.map((r: string, idx: number) => (
-                    <span key={idx} className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md font-semibold text-xs">
-                      {r}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="flex justify-between py-2">
-                <span className="text-slate-500">Estado de Cuenta:</span>
-                <span className={`font-bold px-2 py-0.5 rounded-md text-xs ${user?.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                  {user?.is_active ? 'Activa' : 'Inactiva'}
-                </span>
-              </div>
-              {user?.parent_user_id && (
-                <div className="flex justify-between py-2">
-                  <span className="text-slate-500">Tutor Vinculado:</span>
-                  <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md text-xs">
-                    Cuenta bajo Supervisión Parental
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-4">
-            <h3 className="text-base font-bold text-slate-900 font-montserrat flex items-center gap-2">
-              <Wallet className="w-4 h-4 text-brand-500" />
-              <span>Servicios Financieros Vinculados</span>
-            </h3>
-
-            <div className="space-y-3 divide-y divide-slate-100 text-xs sm:text-sm">
-              <div className="flex justify-between py-2">
-                <span className="text-slate-500">Billetera Gloint:</span>
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md text-xs">
-                  Habilitada (COP)
-                </span>
-              </div>
-              <div className="flex justify-between py-2">
-                <span className="text-slate-500">Transacciones Seguras:</span>
-                <span className="font-bold text-slate-800">Protección con 2FA / Hash</span>
-              </div>
-              <div className="flex justify-between py-2">
-                <span className="text-slate-500">Actualización Forzada:</span>
-                <span className={`font-bold px-2 py-0.5 rounded-md text-xs ${user?.must_update_profile ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {user?.must_update_profile ? 'Requerida' : 'Al día'}
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       )}
