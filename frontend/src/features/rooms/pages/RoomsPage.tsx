@@ -23,7 +23,7 @@ import { RoomModal } from '../components/RoomModal';
 import { RoomReservationModal } from '../components/RoomReservationModal';
 import { useAuthStore } from '../../../store/authStore';
 import { Can } from '../../../components/security/Can';
-import { formatColombiaDate } from '../../../utils/format';
+import { formatColombiaDate, getColombiaToday } from '../../../utils/format';
 
 export const RoomsPage: React.FC = () => {
   const { user } = useAuthStore();
@@ -38,14 +38,8 @@ export const RoomsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Selected date for calendar view (default today YYYY-MM-DD)
-  const getTodayStr = () => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const day = d.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  // Selected date for calendar view (default today Colombia YYYY-MM-DD)
+  const getTodayStr = () => getColombiaToday();
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
 
@@ -71,9 +65,9 @@ export const RoomsPage: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
-      // Construct date window for the selected day (from 00:00 to 23:59 local)
-      const startIso = new Date(`${dateStr}T00:00:00`).toISOString();
-      const endIso = new Date(`${dateStr}T23:59:59`).toISOString();
+      // Construct date window for the selected day in local time
+      const startIso = `${dateStr}T00:00:00`;
+      const endIso = `${dateStr}T23:59:59`;
 
       const data = await roomsService.getReservations({
         start_date: startIso,
@@ -111,15 +105,21 @@ export const RoomsPage: React.FC = () => {
 
   // Date Navigation
   const handlePrevDay = () => {
-    const d = new Date(`${selectedDate}T12:00:00`);
-    d.setDate(d.getDate() - 1);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d - 1);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
   };
 
   const handleNextDay = () => {
-    const d = new Date(`${selectedDate}T12:00:00`);
-    d.setDate(d.getDate() + 1);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d + 1);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    setSelectedDate(`${year}-${month}-${day}`);
   };
 
   const handleToday = () => {
@@ -179,9 +179,20 @@ export const RoomsPage: React.FC = () => {
     }
   };
 
-  // Format time helper (e.g. 09:30 AM)
+  // Format time helper (e.g. 09:30 a. m.)
   const formatTime = (isoString: string) => {
     try {
+      if (!isoString) return '';
+      if (isoString.includes('T')) {
+        const timePart = isoString.split('T')[1].replace('Z', '').split('.')[0];
+        const [hStr, mStr] = timePart.split(':');
+        let h = parseInt(hStr, 10);
+        const m = mStr || '00';
+        const ampm = h >= 12 ? 'p. m.' : 'a. m.';
+        h = h % 12 || 12;
+        const hFormatted = h.toString().padStart(2, '0');
+        return `${hFormatted}:${m} ${ampm}`;
+      }
       const d = new Date(isoString);
       return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
     } catch {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Clock, Users, FileText, Loader2, DoorClosed, AlertCircle } from 'lucide-react';
 import { roomsService, MeetingRoom, RoomReservation } from '../../../services/rooms';
+import { getColombiaToday } from '../../../utils/format';
 
 interface RoomReservationModalProps {
   isOpen: boolean;
@@ -41,13 +42,9 @@ export const RoomReservationModal: React.FC<RoomReservationModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Set default date as today in local YYYY-MM-DD
+  // Set default date as today in local Colombia YYYY-MM-DD
   const getTodayStr = () => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const day = d.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return getColombiaToday();
   };
 
   useEffect(() => {
@@ -95,7 +92,7 @@ export const RoomReservationModal: React.FC<RoomReservationModalProps> = ({
       setIsLoading(true);
       setError(null);
 
-      // Construct ISO datetime string
+      // Construct local datetime string without UTC offset conversion
       const startIso = `${date}T${startTime}:00`;
       const endIso = `${date}T${endTime}:00`;
 
@@ -103,8 +100,8 @@ export const RoomReservationModal: React.FC<RoomReservationModalProps> = ({
         room_id: Number(roomId),
         title: title.trim(),
         description: description.trim() || undefined,
-        start_time: new Date(startIso).toISOString(),
-        end_time: new Date(endIso).toISOString(),
+        start_time: startIso,
+        end_time: endIso,
         attendees_count: Number(attendeesCount) || 1,
       };
 

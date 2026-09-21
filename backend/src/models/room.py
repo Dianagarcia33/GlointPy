@@ -30,8 +30,8 @@ class RoomReservation(Base):
     
     title = Column(String(150), nullable=False)
     description = Column(Text, nullable=True)
-    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
-    end_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    start_time = Column(DateTime, nullable=False, index=True)
+    end_time = Column(DateTime, nullable=False, index=True)
     attendees_count = Column(Integer, nullable=False, default=1)
     status = Column(String(20), nullable=False, default="confirmed")  # 'confirmed' | 'cancelled' | 'completed'
     cancelled_reason = Column(String(255), nullable=True)

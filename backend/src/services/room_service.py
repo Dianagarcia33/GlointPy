@@ -112,18 +112,34 @@ class RoomService:
             conditions.append(RoomReservation.user_id == user_id)
         if status_filter is not None:
             conditions.append(RoomReservation.status == status_filter)
-        if start_date is not None and end_date is not None:
+        from zoneinfo import ZoneInfo
+        BOGOTA_TZ = ZoneInfo("America/Bogota")
+
+        start_time_filter = start_date
+        end_time_filter = end_date
+        if start_time_filter:
+            if start_time_filter.tzinfo is not None:
+                start_time_filter = start_time_filter.astimezone(BOGOTA_TZ).replace(tzinfo=None)
+            else:
+                start_time_filter = start_time_filter.replace(tzinfo=None)
+        if end_time_filter:
+            if end_time_filter.tzinfo is not None:
+                end_time_filter = end_time_filter.astimezone(BOGOTA_TZ).replace(tzinfo=None)
+            else:
+                end_time_filter = end_time_filter.replace(tzinfo=None)
+
+        if start_time_filter is not None and end_time_filter is not None:
             # Overlaps the queried window
             conditions.append(
                 and_(
-                    RoomReservation.start_time < end_date,
-                    RoomReservation.end_time > start_date
+                    RoomReservation.start_time < end_time_filter,
+                    RoomReservation.end_time > start_time_filter
                 )
             )
-        elif start_date is not None:
-            conditions.append(RoomReservation.end_time >= start_date)
-        elif end_date is not None:
-            conditions.append(RoomReservation.start_time <= end_date)
+        elif start_time_filter is not None:
+            conditions.append(RoomReservation.end_time >= start_time_filter)
+        elif end_time_filter is not None:
+            conditions.append(RoomReservation.start_time <= end_time_filter)
 
         if conditions:
             query = query.where(and_(*conditions))
@@ -138,13 +154,30 @@ class RoomService:
         user_id: int,
         data: RoomReservationCreate
     ) -> RoomReservation:
-        if data.end_time <= data.start_time:
+        from zoneinfo import ZoneInfo
+        BOGOTA_TZ = ZoneInfo("America/Bogota")
+
+        start_time = data.start_time
+        end_time = data.end_time
+
+        # Normalizar siempre a la hora local oficial de Colombia (America/Bogota) y guardar como naive datetime
+        if start_time.tzinfo is not None:
+            start_time = start_time.astimezone(BOGOTA_TZ).replace(tzinfo=None)
+        else:
+            start_time = start_time.replace(tzinfo=None)
+
+        if end_time.tzinfo is not None:
+            end_time = end_time.astimezone(BOGOTA_TZ).replace(tzinfo=None)
+        else:
+            end_time = end_time.replace(tzinfo=None)
+
+        if end_time <= start_time:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="La hora de finalización debe ser posterior a la hora de inicio."
             )
 
-        duration_minutes = (data.end_time - data.start_time).total_seconds() / 60
+        duration_minutes = (end_time - start_time).total_seconds() / 60
         if duration_minutes < 15:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -170,8 +203,8 @@ class RoomService:
             and_(
                 RoomReservation.room_id == data.room_id,
                 RoomReservation.status == "confirmed",
-                RoomReservation.start_time < data.end_time,
-                RoomReservation.end_time > data.start_time
+                RoomReservation.start_time < end_time,
+                RoomReservation.end_time > start_time
             )
         )
         conflict_res = await db.execute(conflict_query)
@@ -189,8 +222,8 @@ class RoomService:
             user_id=user_id,
             title=data.title.strip(),
             description=data.description.strip() if data.description else None,
-            start_time=data.start_time,
-            end_time=data.end_time,
+            start_time=start_time,
+            end_time=end_time,
             attendees_count=data.attendees_count or 1,
             status="confirmed"
         )
