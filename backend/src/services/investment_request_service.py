@@ -301,6 +301,11 @@ class InvestmentRequestService:
         req.reviewed_by = user_id
         req.reviewed_at = datetime.utcnow()
 
+        # Fecha de inicio del contrato: debe coincidir con la fecha de radicación/creación de la solicitud
+        contract_start_date = req.created_at or datetime.utcnow()
+        if hasattr(contract_start_date, 'tzinfo') and contract_start_date.tzinfo is not None:
+            contract_start_date = contract_start_date.replace(tzinfo=None)
+
         # Extraer código de referido si viene en extra_data
         referred_code = None
         if req.extra_data and isinstance(req.extra_data, dict):
@@ -459,7 +464,7 @@ class InvestmentRequestService:
             existing_investor.package_id = req.paquete_inversion_id
             if period_id:
                 existing_investor.period_id = period_id
-            existing_investor.start_date = datetime.utcnow()
+            existing_investor.start_date = contract_start_date
 
             req.investor_id = existing_investor.id
             logger.info(f"Contrato #{existing_investor.id} actualizado por Aumento de Capital. Rendimientos liquidados a la wallet: {accrued_yield}")
@@ -490,7 +495,8 @@ class InvestmentRequestService:
                 user_id=req.user_id,
                 package_id=req.paquete_inversion_id,
                 period_id=period_id,
-                start_date=datetime.utcnow()
+                start_date=contract_start_date,
+                created_at=contract_start_date
             )
             db.add(investor)
             await db.flush()
