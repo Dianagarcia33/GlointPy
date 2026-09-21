@@ -52,6 +52,10 @@ export const AdminSharesPage: React.FC = () => {
             user_name: string;
             user_email: string;
             shares_credited: number;
+            previous_shares?: number;
+            new_total_shares?: number;
+            available_shares?: number;
+            locked_shares?: number;
         }>;
     } | null>(null);
 
@@ -943,7 +947,7 @@ export const AdminSharesPage: React.FC = () => {
                                 {/* Lista de detalle de usuarios actualizados */}
                                 <div>
                                     <div className="flex items-center justify-between mb-2">
-                                        <span className="text-xs font-bold text-slate-700">Detalle de Acciones Asignadas</span>
+                                        <span className="text-xs font-bold text-slate-700">Detalle de Acciones Ajustadas / Sincronizadas</span>
                                         <span className="text-[11px] font-semibold text-slate-400 font-mono">
                                             {syncResult?.updated_users?.length || 0} usuarios
                                         </span>
@@ -959,11 +963,24 @@ export const AdminSharesPage: React.FC = () => {
                                                         </div>
                                                         <div className="min-w-0">
                                                             <p className="text-xs font-bold text-slate-900 truncate font-montserrat">{u.user_name}</p>
-                                                            <p className="text-[11px] text-slate-500 truncate">{u.user_email || `ID Usuario: ${u.user_id}`}</p>
+                                                            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                                                <span className="truncate">{u.user_email || `ID Usuario: ${u.user_id}`}</span>
+                                                                {u.new_total_shares !== undefined && (
+                                                                    <span className="shrink-0 font-medium text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
+                                                                        Total: {u.new_total_shares.toLocaleString('es-CO')} Unds
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <span className="shrink-0 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-mono font-black">
-                                                        +{u.shares_credited.toLocaleString('es-CO')} Unds
+                                                    <span className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-mono font-black border ${
+                                                        u.shares_credited > 0 
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                                            : u.shares_credited < 0 
+                                                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                : 'bg-slate-50 text-slate-700 border-slate-200'
+                                                    }`}>
+                                                        {u.shares_credited > 0 ? `+${u.shares_credited.toLocaleString('es-CO')}` : u.shares_credited.toLocaleString('es-CO')} Unds
                                                     </span>
                                                 </div>
                                             ))}

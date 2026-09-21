@@ -7,7 +7,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_, and_, text
 
 from src.models.share_market import SharePriceHistory, ShareIssuance, ShareListing, ShareTradeOrder, UserShare, ShareMovement
 from src.models.investor import Investor
@@ -225,9 +225,8 @@ class ShareMarketService:
 
     @staticmethod
     async def sync_legacy_shares_for_user(db: AsyncSession, user_id: int) -> int:
-        """Sincroniza retroactivamente contratos de inversión y órdenes previas que no tengan movimiento en el ledger. Retorna la cantidad de acciones acreditadas."""
+        """Sincroniza retroactivamente contratos de inversión y órdenes previas en el libro mayor y reemplaza el saldo exacto en user_shares."""
         credited_shares = 0
-        current_price = await ShareMarketService.get_current_price(db)
 
         # 1. Contratos de inversión con paquetes que otorgan acciones
         inv_result = await db.execute(
@@ -236,32 +235,40 @@ class ShareMarketService:
             .where(Investor.user_id == user_id)
         )
         investors = inv_result.scalars().all()
+        valid_investor_ids = set()
 
         for inv in investors:
+            valid_investor_ids.add(inv.id)
             shares_to_grant = inv.package.granted_shares if (inv.package and inv.package.granted_shares and inv.package.granted_shares > 0) else 0
 
-            if shares_to_grant > 0:
-                acq_date = inv.start_date or inv.created_at or datetime.utcnow()
-
-                # Comprobar movimientos previos de paquete para este contrato
-                chk = await db.execute(
-                    select(ShareMovement)
-                    .where(
-                        ShareMovement.user_id == user_id, 
-                        ShareMovement.investor_id == inv.id,
-                        ShareMovement.movement_type == "package_grant"
-                    )
-                    .order_by(ShareMovement.id.asc())
+            # Comprobar movimientos previos de paquete para este contrato
+            chk = await db.execute(
+                select(ShareMovement)
+                .where(
+                    ShareMovement.user_id == user_id, 
+                    ShareMovement.investor_id == inv.id,
+                    ShareMovement.movement_type == "package_grant"
                 )
-                existing_movements = chk.scalars().all()
-                total_current_pkg_shares = sum(m.shares_quantity for m in existing_movements)
+                .order_by(ShareMovement.id.asc())
+            )
+            existing_movements = chk.scalars().all()
+            total_current_pkg_shares = sum(m.shares_quantity for m in existing_movements)
 
+            if shares_to_grant <= 0:
+                # Si el contrato/paquete ya no otorga acciones (ej. paquete de 50mil corregido a 0 acciones),
+                # eliminar inmediatamente cualquier movimiento previo de package_grant asociado
+                for old_m in existing_movements:
+                    await db.delete(old_m)
+                if existing_movements:
+                    await db.flush()
+            else:
                 if total_current_pkg_shares != shares_to_grant or not existing_movements:
                     # Reemplazar movimientos incorrectos o desactualizados por el valor exacto del paquete
                     for old_m in existing_movements:
                         await db.delete(old_m)
                     await db.flush()
 
+                    acq_date = inv.start_date or inv.created_at or datetime.utcnow()
                     pkg_val = f"${inv.package.value:,.0f} COP" if (inv.package and inv.package.value) else ""
                     desc = f"Otorgamiento de {shares_to_grant} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{inv.assigned_code or inv.id}"
                     new_m = ShareMovement(
@@ -280,9 +287,23 @@ class ShareMarketService:
                     credited_shares += shares_to_grant
                 else:
                     # Si ya coincide la cantidad, asegurar fecha de adquisición en el movimiento
+                    acq_date = inv.start_date or inv.created_at or datetime.utcnow()
                     first_m = existing_movements[0]
                     if acq_date and first_m.created_at != acq_date:
                         first_m.created_at = acq_date
+
+        # Limpiar movimientos huérfanos de package_grant para contratos que ya no existan
+        orphaned_chk = await db.execute(
+            select(ShareMovement)
+            .where(
+                ShareMovement.user_id == user_id,
+                ShareMovement.movement_type == "package_grant"
+            )
+        )
+        for mov in orphaned_chk.scalars().all():
+            if mov.investor_id not in valid_investor_ids:
+                await db.delete(mov)
+        await db.flush()
 
         # 2. Sincronizar compras completadas previas en mercado si no fueron registradas
         b_orders = await db.execute(
@@ -292,24 +313,36 @@ class ShareMarketService:
         for bo in b_orders.scalars().all():
             order_date = bo.created_at or bo.updated_at or datetime.utcnow()
             chk_bo = await db.execute(
-                select(ShareMovement).where(ShareMovement.user_id == user_id, ShareMovement.trade_order_id == bo.id)
+                select(ShareMovement).where(
+                    ShareMovement.user_id == user_id, 
+                    ShareMovement.trade_order_id == bo.id,
+                    ShareMovement.movement_type == "market_buy"
+                )
             )
-            existing_bo_sm = chk_bo.scalars().first()
+            existing_bo_sm = chk_bo.scalars().all()
             if not existing_bo_sm:
-                await ShareMarketService.record_share_movement(
-                    db=db,
+                db.add(ShareMovement(
                     user_id=user_id,
                     movement_type="market_buy",
-                    quantity=bo.shares_quantity,
-                    description=f"Compra de {bo.shares_quantity} acción(es) en mercado (Orden #{bo.id})",
+                    shares_quantity=bo.shares_quantity,
+                    balance_before=0,
+                    balance_after=0,
                     trade_order_id=bo.id,
                     listing_id=bo.listing_id,
+                    description=f"Compra de {bo.shares_quantity} acción(es) en mercado (Orden #{bo.id})",
                     created_at=order_date
-                )
+                ))
+                await db.flush()
                 credited_shares += bo.shares_quantity
             else:
-                if order_date and existing_bo_sm.created_at != order_date:
-                    existing_bo_sm.created_at = order_date
+                first_bo = existing_bo_sm[0]
+                if first_bo.shares_quantity != bo.shares_quantity:
+                    first_bo.shares_quantity = bo.shares_quantity
+                if order_date and first_bo.created_at != order_date:
+                    first_bo.created_at = order_date
+                for dup in existing_bo_sm[1:]:
+                    await db.delete(dup)
+                await db.flush()
 
         # 3. Sincronizar ventas completadas previas en mercado si no fueron registradas
         s_orders = await db.execute(
@@ -325,23 +358,31 @@ class ShareMarketService:
                     ShareMovement.movement_type == "market_sell"
                 )
             )
-            existing_so_sm = chk_so.scalars().first()
+            existing_so_sm = chk_so.scalars().all()
             if not existing_so_sm:
-                await ShareMarketService.record_share_movement(
-                    db=db,
+                db.add(ShareMovement(
                     user_id=user_id,
                     movement_type="market_sell",
-                    quantity=-so.shares_quantity,
-                    description=f"Venta de {so.shares_quantity} acción(es) en mercado (Orden #{so.id})",
+                    shares_quantity=-so.shares_quantity,
+                    balance_before=0,
+                    balance_after=0,
                     trade_order_id=so.id,
                     listing_id=so.listing_id,
+                    description=f"Venta de {so.shares_quantity} acción(es) en mercado (Orden #{so.id})",
                     created_at=order_date
-                )
+                ))
+                await db.flush()
             else:
-                if order_date and existing_so_sm.created_at != order_date:
-                    existing_so_sm.created_at = order_date
+                first_so = existing_so_sm[0]
+                if first_so.shares_quantity != -so.shares_quantity:
+                    first_so.shares_quantity = -so.shares_quantity
+                if order_date and first_so.created_at != order_date:
+                    first_so.created_at = order_date
+                for dup in existing_so_sm[1:]:
+                    await db.delete(dup)
+                await db.flush()
 
-        # 4. Recalibrar saldo inmutable de share_movements y user_shares
+        # 4. Recalibrar saldo inmutable de share_movements
         all_movs_res = await db.execute(
             select(ShareMovement)
             .where(ShareMovement.user_id == user_id)
@@ -358,8 +399,14 @@ class ShareMarketService:
                 running_balance = max(0, running_balance - abs(m.shares_quantity))
             m.balance_after = running_balance
             db.add(m)
+        await db.flush()
 
-        # 5. Asegurar que las ofertas de venta activas tengan sus acciones en locked_shares
+        # 5. REEMPLAZO ESTRICTO EN LA TABLA user_shares
+        exact_total = max(0, running_balance)
+        account = await ShareMarketService.get_or_create_user_shares(db, user_id)
+        account.total_shares = exact_total
+
+        # Comprobar ofertas de venta activas y órdenes en custodia
         l_res = await db.execute(
             select(ShareListing)
             .where(ShareListing.seller_id == user_id, ShareListing.status == "active")
@@ -367,10 +414,27 @@ class ShareMarketService:
         active_listings = l_res.scalars().all()
         total_listed = sum(l.shares_available for l in active_listings)
         total_in_escrow = sum(l.shares_locked for l in active_listings)
-        
-        account = await ShareMarketService.get_or_create_user_shares(db, user_id)
-        account.total_shares = max(0, running_balance)
         target_locked = total_listed + total_in_escrow
+
+        # Si el nuevo total es menor al total publicado/custodiado (ej. si el usuario pasó a 0 acciones),
+        # ajustar o cancelar las publicaciones activas para evitar ofertas fantasma
+        if exact_total < target_locked:
+            remaining_cap = exact_total
+            for l in active_listings:
+                needed_for_escrow = min(remaining_cap, l.shares_locked)
+                l.shares_locked = needed_for_escrow
+                remaining_cap -= needed_for_escrow
+
+                avail = min(remaining_cap, l.shares_available)
+                l.shares_available = avail
+                remaining_cap -= avail
+
+                if l.shares_available == 0 and l.shares_locked == 0:
+                    l.status = "cancelled"
+                db.add(l)
+            await db.flush()
+            target_locked = sum(l.shares_available + l.shares_locked for l in active_listings if l.status == "active")
+
         account.locked_shares = min(account.total_shares, target_locked)
         account.available_shares = max(0, account.total_shares - account.locked_shares)
         db.add(account)
@@ -958,7 +1022,11 @@ class ShareMarketService:
 
     @staticmethod
     async def sync_all_users_legacy_shares(db: AsyncSession) -> dict:
-        """Sincroniza retroactivamente a todos los usuarios del sistema que tengan contratos de inversión u órdenes."""
+        """Sincroniza retroactivamente a todos los usuarios del sistema que tengan contratos de inversión, órdenes o cuentas de acciones."""
+        # 0. Asegurar en base de datos que los paquetes de 50.000 COP tengan 0 acciones otorgadas
+        await db.execute(text("UPDATE packages SET granted_shares = 0 WHERE (value = 50000 OR value = 50000.00)"))
+        await db.flush()
+
         inv_res = await db.execute(select(Investor.user_id).distinct())
         user_ids = set([uid for uid in inv_res.scalars().all() if uid is not None])
 
@@ -980,20 +1048,50 @@ class ShareMarketService:
             if s_uid:
                 user_ids.add(s_uid)
 
+        # Incluir usuarios que ya tengan cuenta en user_shares o movimientos en share_movements
+        user_shares_res = await db.execute(select(UserShare.user_id).distinct())
+        for us_uid in user_shares_res.scalars().all():
+            if us_uid:
+                user_ids.add(us_uid)
+
+        sm_res = await db.execute(select(ShareMovement.user_id).distinct())
+        for sm_uid in sm_res.scalars().all():
+            if sm_uid:
+                user_ids.add(sm_uid)
+
         synced_count = 0
         total_shares_credited = 0
         updated_users = []
         for uid in user_ids:
+            # Obtener saldo previo antes de la sincronización
+            acc_before = await db.execute(select(UserShare.total_shares).where(UserShare.user_id == uid))
+            prev_shares = acc_before.scalar() or 0
+
             credited = await ShareMarketService.sync_legacy_shares_for_user(db, uid)
-            if credited > 0:
-                total_shares_credited += credited
+
+            # Obtener saldo final reemplazado después de la sincronización
+            acc_after = await db.execute(select(UserShare.total_shares, UserShare.available_shares, UserShare.locked_shares).where(UserShare.user_id == uid))
+            after_row = acc_after.first()
+            new_total = after_row[0] if after_row else 0
+            new_available = after_row[1] if after_row else 0
+            new_locked = after_row[2] if after_row else 0
+
+            diff = new_total - prev_shares
+            if diff > 0:
+                total_shares_credited += diff
+
+            if prev_shares != new_total or credited > 0:
                 user_res = await db.execute(select(User.name, User.email).where(User.id == uid))
                 u_row = user_res.first()
                 updated_users.append({
                     "user_id": uid,
                     "user_name": u_row[0] if u_row and u_row[0] else f"Usuario #{uid}",
                     "user_email": u_row[1] if u_row and u_row[1] else "",
-                    "shares_credited": credited
+                    "shares_credited": diff,
+                    "previous_shares": prev_shares,
+                    "new_total_shares": new_total,
+                    "available_shares": new_available,
+                    "locked_shares": new_locked
                 })
             synced_count += 1
 

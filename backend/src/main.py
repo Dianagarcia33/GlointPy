@@ -218,9 +218,9 @@ async def on_startup():
             except Exception as e:
                 print(f"Error creating investor_documents table: {e}")
 
-            # Ajuste de consistencia para paquetes con 0 acciones
+            # Ajuste de consistencia para paquetes con 0 acciones (el paquete de 50mil no otorga acciones)
             try:
-                await conn.execute(text("UPDATE packages SET granted_shares = 1 WHERE (value = 50000 OR value = 50000.00) AND (granted_shares = 0 OR granted_shares IS NULL)"))
+                await conn.execute(text("UPDATE packages SET granted_shares = 0 WHERE (value = 50000 OR value = 50000.00)"))
             except Exception:
                 pass
 
