@@ -12,6 +12,7 @@ import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
 import { DirectorDashboardView } from '../components/DirectorDashboardView';
+import { AccountingDashboardView } from '../components/AccountingDashboardView';
 import { RankingsClubModal } from '../../investments/components/RankingsClubModal';
 import { DashboardEventWidget } from '../../events/components/DashboardEventWidget';
 
@@ -129,25 +130,31 @@ export const DashboardPage = () => {
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
     const [isClubModalOpen, setIsClubModalOpen] = useState(false);
 
-    const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
+    const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director' | 'accounting'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
+
+    const hasAccountingRole = user?.roles?.some((r: any) => {
+        const name = typeof r === 'string' ? r : (r?.name || '');
+        return ['contab', 'contador', 'auditor', 'tesoreria'].some(kw => name.toLowerCase().includes(kw));
+    });
+
+    const isAccountingOnly = !isSuperAdmin && (
+        hasAccountingRole ||
+        user?.permissions?.includes('accounting.dashboard.view') === true
+    );
         
-    const hasDirectorRole = user?.roles?.some((r: any) => {
+    const hasDirectorRole = !isAccountingOnly && user?.roles?.some((r: any) => {
         const name = typeof r === 'string' ? r : (r?.name || '');
         return ['directiv', 'comercial', 'asesor', 'lider', 'director', 'gerente'].some(kw => name.toLowerCase().includes(kw));
     });
 
-    const isDirectorOnly = !isSuperAdmin && (
+    const isDirectorOnly = !isSuperAdmin && !isAccountingOnly && (
         hasDirectorRole ||
         user?.permissions?.includes('director.dashboard.view') === true || 
-        user?.permissions?.includes('commercial:view') === true ||
-        user?.permissions?.includes('admin.referrals.manage') === true ||
-        user?.permissions?.includes('admin.investments.manage') === true ||
-        user?.permissions?.includes('admin.users.manage') === true ||
-        user?.permissions?.includes('admin.roles.manage') === true
+        user?.permissions?.includes('commercial:view') === true
     );
 
-    const isInvestorView = !isSuperAdmin && !isDirectorOnly;
+    const isInvestorView = !isSuperAdmin && !isDirectorOnly && !isAccountingOnly;
 
     // Analytics Query for Admin
     const { data: adminAnalytics, isLoading: isLoadingAnalytics } = useQuery<AdminAnalyticsDashboardData>({
@@ -251,15 +258,17 @@ export const DashboardPage = () => {
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
             {/* Widget Oficial de Evento Gloint Power Tech (Exclusivo para Inversionistas) */}
-            {!isSuperAdmin && !isDirectorOnly && <DashboardEventWidget />}
+            {!isSuperAdmin && !isDirectorOnly && !isAccountingOnly && <DashboardEventWidget />}
 
-            {/* VISTA DIRECTIVO DE INVERSIONES SOLO */}
-            {isDirectorOnly ? (
+            {/* VISTA CONTABILIDAD O DIRECTIVO O ADMIN */}
+            {isAccountingOnly ? (
+                <AccountingDashboardView />
+            ) : isDirectorOnly ? (
                 <DirectorDashboardView />
             ) : isSuperAdmin ? (
                 <div className="space-y-6 w-full min-w-0">
                     {/* Admin Mode Switcher Tabs */}
-                    <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
+                    <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80 flex-wrap">
                         <button
                             onClick={() => setAdminViewMode('admin')}
                             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
@@ -280,9 +289,21 @@ export const DashboardPage = () => {
                         >
                             Directivo de Inversiones
                         </button>
+                        <button
+                            onClick={() => setAdminViewMode('accounting')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                                adminViewMode === 'accounting' 
+                                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20' 
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Contabilidad & Tesorería
+                        </button>
                     </div>
 
-                    {adminViewMode === 'director' ? (
+                    {adminViewMode === 'accounting' ? (
+                        <AccountingDashboardView />
+                    ) : adminViewMode === 'director' ? (
                         <DirectorDashboardView />
                     ) : isLoadingAnalytics ? (
                         <AdminDashboardSkeleton />

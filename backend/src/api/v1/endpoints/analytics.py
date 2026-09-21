@@ -14,8 +14,10 @@ from src.models.user import User
 from src.models.investor import Investor
 from src.models.package import Package
 from src.models.wallet import Wallet
-from src.models.withdrawal import Withdrawal
+from src.models.withdrawal import Withdrawal, WithdrawalStatus
 from src.models.commercial_sale import CommercialSale, CommercialSaleType
+from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+from src.models.wallet_recharge import WalletRecharge
 
 router = APIRouter()
 
@@ -389,5 +391,123 @@ async def get_director_analytics_dashboard(
         "package_distribution": sales_by_type,
         "leaderboard": leaderboard,
         "expiring_contracts": expiring_contracts
+    }
+
+
+@router.get("/accounting-dashboard", dependencies=[Depends(RequirePermission(["accounting.dashboard.view", "admin.audits.manage", "admin.payments.manage", "admin.withdrawals.manage", "admin.investments.manage"]))])
+async def get_accounting_analytics_dashboard(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna analíticas y listados prioritarios para el Dashboard de Contabilidad:
+    - 1. Solicitudes de inversión pendientes de aprobación
+    - 2. Recargas de billetera pendientes de verificación
+    - 3. Retiros / pagos pendientes de desembolso
+    """
+    # 1. Solicitudes de Inversión Pendientes
+    inv_req_res = await db.execute(
+        select(InvestmentRequest)
+        .options(
+            selectinload(InvestmentRequest.user),
+            selectinload(InvestmentRequest.package)
+        )
+        .where(InvestmentRequest.status == InvestmentRequestStatus.pending)
+        .order_by(InvestmentRequest.created_at.desc())
+    )
+    pending_investments = inv_req_res.scalars().all()
+    pending_investments_count = len(pending_investments)
+    pending_investments_amount = sum(float(r.monto or 0) for r in pending_investments)
+
+    pending_investments_list = [
+        {
+            "id": r.id,
+            "user_id": r.user_id,
+            "user_name": r.user.name if r.user else "Usuario",
+            "user_email": r.user.email if r.user else "",
+            "user_document": getattr(r.user, "document_id", None) if r.user else None,
+            "package_name": r.package.name if r.package else "Paquete Inversión",
+            "monto": float(r.monto or 0),
+            "comprobante_path": r.comprobante_path,
+            "created_at": r.created_at.isoformat() if r.created_at else None
+        }
+        for r in pending_investments
+    ]
+
+    # 2. Recargas de Billetera Pendientes
+    recharges_res = await db.execute(
+        select(WalletRecharge)
+        .options(selectinload(WalletRecharge.user))
+        .where(WalletRecharge.status == "pending")
+        .order_by(WalletRecharge.created_at.desc())
+    )
+    pending_recharges = recharges_res.scalars().all()
+    pending_recharges_count = len(pending_recharges)
+    pending_recharges_amount = sum(float(r.amount or 0) for r in pending_recharges)
+
+    pending_recharges_list = [
+        {
+            "id": r.id,
+            "user_id": r.user_id,
+            "user_name": r.user.name if r.user else "Usuario",
+            "user_email": r.user.email if r.user else "",
+            "user_document": getattr(r.user, "document_id", None) if r.user else None,
+            "amount": float(r.amount or 0),
+            "payment_method": r.payment_method,
+            "reference_number": r.reference_number,
+            "receipt_url": r.receipt_url,
+            "created_at": r.created_at.isoformat() if r.created_at else None
+        }
+        for r in pending_recharges
+    ]
+
+    # 3. Retiros / Pagos Pendientes
+    withdrawals_res = await db.execute(
+        select(Withdrawal)
+        .options(selectinload(Withdrawal.user))
+        .where(Withdrawal.estado.in_([WithdrawalStatus.PENDING, "pendiente"]))
+        .order_by(Withdrawal.created_at.desc())
+    )
+    pending_withdrawals = withdrawals_res.scalars().all()
+    pending_withdrawals_count = len(pending_withdrawals)
+    pending_withdrawals_amount = sum(float(w.monto_neto or w.monto or 0) for w in pending_withdrawals)
+
+    pending_withdrawals_list = [
+        {
+            "id": w.id,
+            "user_id": w.user_id,
+            "user_name": w.user.name if w.user else "Inversionista",
+            "user_email": w.user.email if w.user else "",
+            "user_document": getattr(w.user, "document_id", None) if w.user else None,
+            "monto": float(w.monto or 0),
+            "impuesto": float(w.impuesto or 0),
+            "monto_neto": float(w.monto_neto or w.monto or 0),
+            "banco": w.banco,
+            "tipo_cuenta": w.tipo_cuenta,
+            "numero_cuenta": w.numero_cuenta,
+            "tipo": w.tipo.value if hasattr(w.tipo, "value") else str(w.tipo),
+            "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
+            "created_at": w.created_at.isoformat() if w.created_at else None
+        }
+        for w in pending_withdrawals
+    ]
+
+    total_pending_action_amount = (
+        pending_investments_amount + pending_recharges_amount + pending_withdrawals_amount
+    )
+
+    return {
+        "summary_cards": {
+            "pending_investments_count": pending_investments_count,
+            "pending_investments_amount": pending_investments_amount,
+            "pending_recharges_count": pending_recharges_count,
+            "pending_recharges_amount": pending_recharges_amount,
+            "pending_withdrawals_count": pending_withdrawals_count,
+            "pending_withdrawals_amount": pending_withdrawals_amount,
+            "total_pending_action_amount": total_pending_action_amount
+        },
+        "pending_investment_requests": pending_investments_list,
+        "pending_recharges": pending_recharges_list,
+        "pending_withdrawals": pending_withdrawals_list
     }
 

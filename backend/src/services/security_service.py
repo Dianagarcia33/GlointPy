@@ -244,7 +244,7 @@ class SecurityService:
                 "chat:view", "chat:send"
             ],
             "contabilidad_": [
-                "admin.payments.manage", "admin.withdrawals.manage", "admin.audits.manage", "admin.commissions.settle",
+                "accounting.dashboard.view", "admin.payments.manage", "admin.withdrawals.manage", "admin.audits.manage", "admin.commissions.settle", "admin.investments.manage",
                 "chat:view", "chat:send"
             ]
         }

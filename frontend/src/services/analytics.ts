@@ -80,6 +80,63 @@ export interface DirectorAnalyticsDashboardData {
   expiring_contracts: ExpiringContractItem[];
 }
 
+export interface PendingInvestmentRequestItem {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  user_document?: string | null;
+  package_name: string;
+  monto: number;
+  comprobante_path?: string | null;
+  created_at: string | null;
+}
+
+export interface PendingRechargeItem {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  user_document?: string | null;
+  amount: number;
+  payment_method: string;
+  reference_number?: string | null;
+  receipt_url: string;
+  created_at: string | null;
+}
+
+export interface PendingWithdrawalItem {
+  id: number;
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  user_document?: string | null;
+  monto: number;
+  impuesto: number;
+  monto_neto: number;
+  banco?: string | null;
+  tipo_cuenta?: string | null;
+  numero_cuenta?: string | null;
+  tipo: string;
+  fecha_solicitud: string | null;
+  created_at: string | null;
+}
+
+export interface AccountingAnalyticsDashboardData {
+  summary_cards: {
+    pending_investments_count: number;
+    pending_investments_amount: number;
+    pending_recharges_count: number;
+    pending_recharges_amount: number;
+    pending_withdrawals_count: number;
+    pending_withdrawals_amount: number;
+    total_pending_action_amount: number;
+  };
+  pending_investment_requests: PendingInvestmentRequestItem[];
+  pending_recharges: PendingRechargeItem[];
+  pending_withdrawals: PendingWithdrawalItem[];
+}
+
 export const analyticsService = {
   getAdminAnalyticsDashboard: async (): Promise<AdminAnalyticsDashboardData> => {
     return await fetchApi('/analytics/admin-dashboard');
@@ -87,5 +144,9 @@ export const analyticsService = {
 
   getDirectorAnalyticsDashboard: async (): Promise<DirectorAnalyticsDashboardData> => {
     return await fetchApi('/analytics/director-dashboard');
+  },
+
+  getAccountingAnalyticsDashboard: async (): Promise<AccountingAnalyticsDashboardData> => {
+    return await fetchApi('/analytics/accounting-dashboard');
   },
 };
