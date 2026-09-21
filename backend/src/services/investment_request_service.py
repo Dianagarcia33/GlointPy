@@ -333,6 +333,20 @@ class InvestmentRequestService:
                     .where(Investor.id == target_investor_id)
                 )
                 existing_investor = inv_res.scalars().first()
+            if not existing_investor and req.user_id:
+                inv_res = await db.execute(
+                    select(Investor)
+                    .options(
+                        selectinload(Investor.package),
+                        selectinload(Investor.period),
+                        selectinload(Investor.withdrawals),
+                        selectinload(Investor.accelerations)
+                    )
+                    .where(Investor.user_id == req.user_id)
+                    .order_by(Investor.id.desc())
+                    .limit(1)
+                )
+                existing_investor = inv_res.scalars().first()
 
         period_id = None
         if req.extra_data and isinstance(req.extra_data, dict):
@@ -415,6 +429,33 @@ class InvestmentRequestService:
             db.add(history)
 
             # 4. Actualizar contrato existente
+            from src.models.package import Package
+            from src.services.share_market_service import ShareMarketService
+            prev_pkg_shares = 0
+            if existing_investor.package_id:
+                old_pkg_res = await db.execute(select(Package).where(Package.id == existing_investor.package_id))
+                old_pkg = old_pkg_res.scalar_one_or_none()
+                if old_pkg and old_pkg.granted_shares:
+                    prev_pkg_shares = old_pkg.granted_shares
+
+            new_pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
+            new_pkg = new_pkg_res.scalar_one_or_none()
+            new_pkg_shares = new_pkg.granted_shares if new_pkg and new_pkg.granted_shares else 0
+            shares_diff = new_pkg_shares - prev_pkg_shares
+            if shares_diff > 0:
+                pkg_val = f"${new_pkg.value:,.0f} COP" if new_pkg and new_pkg.value else ""
+                desc = f"Otorgamiento de {shares_diff} acciones adicionales por aumento de capital a Paquete ({pkg_val}) - Contrato #{existing_investor.assigned_code}"
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=req.user_id,
+                    movement_type="package_grant",
+                    quantity=shares_diff,
+                    description=desc,
+                    investor_id=existing_investor.id,
+                    package_id=new_pkg.id if new_pkg else None,
+                    created_at=req.created_at or datetime.utcnow()
+                )
+
             existing_investor.package_id = req.paquete_inversion_id
             if period_id:
                 existing_investor.period_id = period_id
@@ -465,6 +506,25 @@ class InvestmentRequestService:
                 wallet = Wallet(user_id=req.user_id, balance=Decimal("0.00"), currency="COP", status=WalletStatus.ACTIVE)
                 db.add(wallet)
                 await db.flush()
+
+            # Acreditar acciones otorgadas por el paquete de inversión si aplica
+            from src.models.package import Package
+            from src.services.share_market_service import ShareMarketService
+            pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
+            pkg = pkg_res.scalar_one_or_none()
+            if pkg and pkg.granted_shares and pkg.granted_shares > 0:
+                pkg_val = f"${pkg.value:,.0f} COP" if pkg.value else ""
+                desc = f"Otorgamiento de {pkg.granted_shares} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{code}"
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=req.user_id,
+                    movement_type="package_grant",
+                    quantity=pkg.granted_shares,
+                    description=desc,
+                    investor_id=investor.id,
+                    package_id=pkg.id,
+                    created_at=investor.start_date or investor.created_at or req.created_at or datetime.utcnow()
+                )
 
         # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)
         if referred_code:

@@ -13,7 +13,8 @@ import {
     Sparkles, 
     Calendar, 
     Layers,
-    Download
+    Download,
+    ShieldAlert
 } from 'lucide-react';
 import { templatesService, DocumentTemplate } from '../../../../services/templates';
 import { getMediaUrl } from '../../../../services/api';
@@ -214,9 +215,15 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                     {investor.assigned_code || `ID #${investor.id}`}
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                                Inversionista: <strong className="text-white">{investor.user?.name}</strong> • CC: {investor.user?.document_id || 'N/A'}
-                            </p>
+                            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                                <span>Inversionista: <strong className="text-white">{investor.user?.name}</strong> • Doc: {investor.user?.document_id || 'N/A'}</span>
+                                {(investor.user?.parent_user_id || investor.user?.parent) && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                        <ShieldAlert className="w-3 h-3 text-amber-400 shrink-0" />
+                                        Tutor: {investor.user.parent?.name || `ID #${investor.user.parent_user_id}`}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     

@@ -29,7 +29,8 @@ import {
     LifeBuoy,
     Globe,
     Layers,
-    Sparkles
+    Sparkles,
+    DoorClosed
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
@@ -115,11 +116,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </NavLink>
                                 </Can>
 
+                                <Can permissions={['rooms:view', 'rooms:reserve', 'admin.rooms.manage']}>
+                                    <NavLink to="/dashboard/rooms" className={navLinkClass}>
+                                        <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                            <DoorClosed className="w-[18px] h-[18px]" />
+                                        </span>
+                                        <span className="flex-1 text-[13px] font-outfit">Salas de Reuniones</span>
+                                    </NavLink>
+                                </Can>
+
                                 <NavLink to="/dashboard/tickets" className={navLinkClass}>
                                     <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                         <LifeBuoy className="w-[18px] h-[18px]" />
                                     </span>
                                     <span className="flex-1 text-[13px] font-outfit">Soporte y Tickets</span>
+                                </NavLink>
+
+                                <NavLink to="/dashboard/profile" className={navLinkClass}>
+                                    <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                        <User className="w-[18px] h-[18px]" />
+                                    </span>
+                                    <span className="flex-1 text-[13px] font-outfit">Mi Perfil</span>
                                 </NavLink>
                             </motion.div>
                         )}
@@ -160,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </NavLink>
                                 </Can>
 
-                                <Can permissions={["admin.shares.manage", "admin.roles.manage"]}>
+                                <Can permissions={["admin.shares.manage", "admin.roles.manage", "wallets:view", "dashboard:view_investments"]}>
                                     <NavLink to="/dashboard/shares-market" className={navLinkClass}>
                                         <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                             <Layers className="w-[18px] h-[18px]" />
@@ -207,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                 <div className="h-px bg-slate-100 my-1 mx-2" />
 
                 {/* 📈 SECCIÓN GESTIÓN COMERCIAL & CRM */}
-                <Can permission="commercial:view">
+                <Can permissions={['commercial:view', 'crm:view', 'crm:inbox:view', 'crm:calendar:view']}>
                     <div className="flex flex-col gap-1">
                         <button 
                             type="button"
@@ -230,12 +247,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     transition={{ duration: 0.2, ease: 'easeInOut' }}
                                     className="flex flex-col gap-1 overflow-hidden pl-1"
                                 >
-                                    <NavLink to="/dashboard/commercial" className={navLinkClass}>
-                                        <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
-                                            <Trophy className="w-[18px] h-[18px]" />
-                                        </span>
-                                        <span className="flex-1 text-[13px] font-outfit">Panel Comercial</span>
-                                    </NavLink>
+                                    <Can permission="commercial:view">
+                                        <NavLink to="/dashboard/commercial" className={navLinkClass}>
+                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                                <Trophy className="w-[18px] h-[18px]" />
+                                            </span>
+                                            <span className="flex-1 text-[13px] font-outfit">Panel Comercial</span>
+                                        </NavLink>
+                                    </Can>
 
                                     <Can permission="crm:view">
                                         <NavLink to="/dashboard/crm" end className={navLinkClass}>
@@ -246,7 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permission="crm:view">
+                                    <Can permissions={['crm:inbox:view', 'crm:view']}>
                                         <NavLink to="/dashboard/crm/inbox" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <Mail className="w-[18px] h-[18px]" />
@@ -255,7 +274,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permission="crm:view">
+                                    <Can permissions={['crm:calendar:view', 'crm:view']}>
                                         <NavLink to="/dashboard/crm/calendar" className={navLinkClass}>
                                             <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                                                 <CalendarDays className="w-[18px] h-[18px]" />

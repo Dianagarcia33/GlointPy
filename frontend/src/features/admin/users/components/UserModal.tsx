@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Search, X, Loader2, UserCheck } from 'lucide-react';
 import { User, usersService, UserCreate, UserUpdate } from '../../../../services/users';
 import { Role } from '../../../../services/roles';
 
@@ -18,15 +19,77 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
     document_id: '',
     phone_number: '',
     date_of_birth: '',
+    parent_user_id: null,
     is_active: true,
     role_ids: []
   });
   
+  // Estado para el buscador interactivo de tutores
+  const [selectedParent, setSelectedParent] = useState<{ id: number; name: string; email: string; document_id?: string | null } | null>(null);
+  const [parentSearchQuery, setParentSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [isSearchingParent, setIsSearchingParent] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreatingWallet, setIsCreatingWallet] = useState(false);
 
   const assignableRoles = roles.filter(r => r.name !== 'inversionista' && r.name !== 'cliente');
+
+  // Detección de menor de edad (< 18 años)
+  const isMinor = formData.date_of_birth ? (() => {
+    const dob = new Date(formData.date_of_birth);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    return age < 18;
+  })() : false;
+
+  // Búsqueda dinámica con debounce para encontrar tutores sin saturar la memoria
+  useEffect(() => {
+    if (!parentSearchQuery.trim() || parentSearchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearchingParent(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingParent(true);
+      try {
+        const res = await usersService.getUsers({
+          search: parentSearchQuery.trim(),
+          limit: 10,
+          is_active: true
+        });
+        // Filtrar para que un usuario no se asigne a sí mismo como tutor
+        const candidates = res.data.filter(u => !user || u.id !== user.id);
+        setSearchResults(candidates);
+        setShowSearchResults(true);
+      } catch (err) {
+        console.error('Error buscando tutores:', err);
+      } finally {
+        setIsSearchingParent(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [parentSearchQuery, user]);
+
+  // Cerrar dropdown al hacer click por fuera
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowSearchResults(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -36,9 +99,11 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
         document_id: user.document_id || '',
         phone_number: user.phone_number || '',
         date_of_birth: user.date_of_birth ? user.date_of_birth.split('T')[0] : '',
+        parent_user_id: user.parent_user_id || null,
         is_active: user.is_active,
         role_ids: user.roles.map(r => r.id)
       });
+      setSelectedParent(user.parent || null);
     } else {
       setFormData({
         name: '',
@@ -46,10 +111,15 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
         document_id: '',
         phone_number: '',
         date_of_birth: '',
+        parent_user_id: null,
         is_active: true,
         role_ids: []
       });
+      setSelectedParent(null);
     }
+    setParentSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
     setError(null);
   }, [user, isOpen]);
 
@@ -126,6 +196,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
         document_id: formData.document_id.trim(),
         phone_number: formData.phone_number ? formData.phone_number.trim() : null,
         date_of_birth: formData.date_of_birth ? formData.date_of_birth : null,
+        parent_user_id: formData.parent_user_id ? Number(formData.parent_user_id) : null,
         is_active: formData.is_active,
         role_ids: formData.role_ids
       };
@@ -281,6 +352,128 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
                     onChange={handleChange}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm text-slate-900"
                   />
+                </div>
+
+                <div className="sm:col-span-2 space-y-2.5 p-4 bg-slate-50/80 rounded-2xl border border-slate-200" ref={searchContainerRef}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5 font-montserrat">
+                      <span>Tutor / Representante Legal (Padre o Madre)</span>
+                      {isMinor && (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-bold border border-amber-300">
+                          Menor de edad detectado (&lt; 18 años)
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Busca al adulto responsable para vincularlo. Los contratos, certificados y extractos se generarán legalmente a nombre del tutor en representación del menor.
+                  </p>
+
+                  {/* Si ya hay un tutor seleccionado */}
+                  {selectedParent ? (
+                    <div className="p-3 bg-brand-50/80 border border-brand-200 rounded-xl flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-brand-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                          {selectedParent.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs text-slate-900 truncate flex items-center gap-1.5">
+                            <span>{selectedParent.name}</span>
+                            <span className="text-[9px] bg-brand-100 text-brand-800 px-1.5 py-0.2 rounded font-bold uppercase">
+                              Tutor Vinculado
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 truncate">
+                            {selectedParent.document_id ? `Doc: ${selectedParent.document_id} • ` : ''}{selectedParent.email}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedParent(null);
+                          setFormData(prev => ({ ...prev, parent_user_id: null }));
+                        }}
+                        className="px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors cursor-pointer shrink-0"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ) : (
+                    /* Buscador con debounce conectado a la API */
+                    <div className="relative">
+                      <div className="relative">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                        <input
+                          type="text"
+                          value={parentSearchQuery}
+                          onChange={(e) => {
+                            setParentSearchQuery(e.target.value);
+                            setShowSearchResults(true);
+                          }}
+                          onFocus={() => {
+                            if (parentSearchQuery.trim().length >= 2) {
+                              setShowSearchResults(true);
+                            }
+                          }}
+                          placeholder="Escribe el nombre, cédula o correo del tutor..."
+                          className="w-full pl-9 pr-8 py-2.5 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs text-slate-900 placeholder:text-slate-400"
+                        />
+                        {isSearchingParent ? (
+                          <Loader2 className="w-4 h-4 text-brand-500 animate-spin absolute right-3 top-3" />
+                        ) : parentSearchQuery ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setParentSearchQuery('');
+                              setSearchResults([]);
+                              setShowSearchResults(false);
+                            }}
+                            className="text-slate-400 hover:text-slate-600 absolute right-2.5 top-2.5 p-0.5 cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {/* Dropdown flotante con resultados de la búsqueda */}
+                      {showSearchResults && parentSearchQuery.trim().length >= 2 && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50 max-h-52 overflow-y-auto divide-y divide-slate-100">
+                          {searchResults.length > 0 ? (
+                            searchResults.map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedParent(p);
+                                  setFormData(prev => ({ ...prev, parent_user_id: p.id }));
+                                  setParentSearchQuery('');
+                                  setShowSearchResults(false);
+                                }}
+                                className="w-full px-3.5 py-2.5 text-left hover:bg-brand-50 transition-colors flex items-center justify-between group cursor-pointer"
+                              >
+                                <div className="min-w-0 pr-2">
+                                  <div className="font-bold text-xs text-slate-800 group-hover:text-brand-700 truncate">
+                                    {p.name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 truncate">
+                                    {p.document_id ? `Doc: ${p.document_id} • ` : ''}{p.email}
+                                  </div>
+                                </div>
+                                <span className="text-[10px] font-bold text-brand-600 bg-brand-50 group-hover:bg-brand-600 group-hover:text-white px-2 py-0.5 rounded-md border border-brand-200 transition-colors shrink-0">
+                                  Seleccionar
+                                </span>
+                              </button>
+                            ))
+                          ) : !isSearchingParent ? (
+                            <div className="p-3 text-center text-xs text-slate-400">
+                              No se encontraron usuarios activos con "{parentSearchQuery}"
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

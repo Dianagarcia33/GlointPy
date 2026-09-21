@@ -38,6 +38,7 @@ export interface ChatMessage {
   } | null;
   reactions?: MessageReactionGroup[];
   is_read: boolean;
+  is_forwarded?: boolean;
   created_at: string;
   sending?: boolean;
 }
@@ -123,15 +124,45 @@ export const chatService = {
     });
   },
 
+  forwardMessage: async (
+    messageId: number,
+    targetRoomIds: number[],
+    targetUserIds: number[],
+    optionalNote?: string
+  ): Promise<{ success: boolean; forwarded_count: number; messages: ChatMessage[] }> => {
+    return fetchApi(`/chat/messages/${messageId}/forward`, {
+      method: 'POST',
+      body: JSON.stringify({
+        target_room_ids: targetRoomIds,
+        target_user_ids: targetUserIds,
+        optional_note: optionalNote || null
+      })
+    });
+  },
+
   getWebSocketUrl: (roomId: number): string => {
     const token = useAuthStore.getState().accessToken;
-    let wsBaseUrl = API_URL.replace(/^http/, 'ws');
-    return `${wsBaseUrl}/chat/ws/${roomId}?token=${encodeURIComponent(token || '')}`;
+    let fullUrl = API_URL;
+    if (fullUrl.startsWith('/')) {
+      const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+      fullUrl = `${protocol}//${host}${fullUrl}`;
+    } else {
+      fullUrl = fullUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    }
+    return `${fullUrl}/chat/ws/${roomId}?token=${encodeURIComponent(token || '')}`;
   },
 
   getGlobalWebSocketUrl: (): string => {
     const token = useAuthStore.getState().accessToken;
-    let wsBaseUrl = API_URL.replace(/^http/, 'ws');
-    return `${wsBaseUrl}/chat/ws/notifications/global?token=${encodeURIComponent(token || '')}`;
+    let fullUrl = API_URL;
+    if (fullUrl.startsWith('/')) {
+      const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+      fullUrl = `${protocol}//${host}${fullUrl}`;
+    } else {
+      fullUrl = fullUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    }
+    return `${fullUrl}/chat/ws/notifications/global?token=${encodeURIComponent(token || '')}`;
   }
 };

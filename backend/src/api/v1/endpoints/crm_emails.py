@@ -22,7 +22,7 @@ class SendEmailSchema(BaseModel):
     project_id: Optional[int] = None
     attachments: Optional[List[dict]] = None
 
-@router.post("/upload-attachment", dependencies=[Depends(RequirePermission("crm:leads:manage"))])
+@router.post("/upload-attachment", dependencies=[Depends(RequirePermission(["crm:inbox:send", "crm:leads:manage"]))])
 async def upload_crm_email_attachment(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
@@ -53,7 +53,7 @@ async def upload_crm_email_attachment(
         "size": len(content)
     }
 
-@router.get("", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.get("", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
 async def get_crm_emails(
     folder: str = Query("inbox"),  # 'inbox', 'sent'
     search: Optional[str] = Query(None),
@@ -64,7 +64,7 @@ async def get_crm_emails(
     return await CRMEmailService.get_user_emails(db, user_id=current_user.id, folder=folder, search=search)
 
 
-@router.get("/templates", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.get("/templates", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:inbox:send", "crm:view"]))])
 async def get_email_templates(
     current_user: User = Depends(get_current_user)
 ):
@@ -72,7 +72,7 @@ async def get_email_templates(
     return CRMEmailService.get_email_templates()
 
 
-@router.get("/leads/{lead_id}", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.get("/leads/{lead_id}", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view", "crm:leads:manage"]))])
 async def get_lead_emails(
     lead_id: int,
     current_user: User = Depends(get_current_user),
@@ -82,7 +82,7 @@ async def get_lead_emails(
     return await CRMEmailService.get_lead_emails(db, lead_id=lead_id)
 
 
-@router.post("/send", dependencies=[Depends(RequirePermission("crm:leads:manage"))])
+@router.post("/send", dependencies=[Depends(RequirePermission(["crm:inbox:send", "crm:leads:manage"]))])
 async def send_crm_email(
     data: SendEmailSchema,
     current_user: User = Depends(get_current_user),
@@ -106,7 +106,7 @@ async def send_crm_email(
     return {"message": "Correo enviado exitosamente", "data": result}
 
 
-@router.post("/{email_id}/read", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.post("/{email_id}/read", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
 async def mark_crm_email_as_read(
     email_id: int,
     current_user: User = Depends(get_current_user),
@@ -119,7 +119,7 @@ async def mark_crm_email_as_read(
     return {"message": "Correo marcado como leído", **res}
 
 
-@router.post("/{email_id}/toggle-read", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.post("/{email_id}/toggle-read", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
 async def toggle_crm_email_read(
     email_id: int,
     current_user: User = Depends(get_current_user),
@@ -136,7 +136,7 @@ async def toggle_crm_email_read(
     return {"id": email_item.id, "is_read": email_item.is_read}
 
 
-@router.post("/read-all", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.post("/read-all", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
 async def mark_all_crm_emails_as_read(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -154,7 +154,7 @@ class SyncEmailSchema(BaseModel):
 class EmailSettingsSchema(BaseModel):
     imap_password: Optional[str] = None
 
-@router.get("/settings", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.get("/settings", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
 async def get_email_settings(
     current_user: User = Depends(get_current_user)
 ):

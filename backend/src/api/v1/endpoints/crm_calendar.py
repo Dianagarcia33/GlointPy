@@ -26,7 +26,7 @@ class CreateCalendarEventRequest(BaseModel):
     imap_password: Optional[str] = None
 
 
-@router.get("/events")
+@router.get("/events", dependencies=[Depends(RequirePermission(["crm:calendar:view", "crm:view"]))])
 async def get_calendar_events(
     start_date: Optional[str] = Query(None, description="Fecha de inicio mínima (ISO)"),
     end_date: Optional[str] = Query(None, description="Fecha fin máxima (ISO)"),
@@ -55,7 +55,7 @@ async def get_calendar_events(
         }
 
 
-@router.post("/sync")
+@router.post("/sync", dependencies=[Depends(RequirePermission(["crm:calendar:manage", "crm:calendar:view", "crm:view"]))])
 async def sync_calendar(
     payload: SyncCalendarRequest,
     current_user: User = Depends(get_current_user),
@@ -87,7 +87,7 @@ async def sync_calendar(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/events")
+@router.post("/events", dependencies=[Depends(RequirePermission(["crm:calendar:manage", "crm:leads:manage", "crm:view"]))])
 async def create_calendar_event(
     payload: CreateCalendarEventRequest,
     current_user: User = Depends(get_current_user),
@@ -114,7 +114,7 @@ async def create_calendar_event(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/events/{event_uid}")
+@router.delete("/events/{event_uid}", dependencies=[Depends(RequirePermission(["crm:calendar:manage", "crm:leads:manage", "crm:view"]))])
 async def delete_calendar_event(
     event_uid: str,
     calendar_url: Optional[str] = Query(None),

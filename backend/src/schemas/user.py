@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator, model_validator
 from typing import List, Optional, Any, Dict
 from datetime import datetime
 from src.schemas.security import RoleResponse
@@ -12,6 +12,7 @@ class UserBase(BaseModel):
     phone_number: Optional[str] = None
     is_active: bool = True
     is_superuser: bool = False
+    parent_user_id: Optional[int] = None
 
 class UserCreate(UserBase):
     password: str
@@ -65,6 +66,7 @@ class UserUpdate(BaseModel):
     must_change_password: Optional[bool] = None
     date_of_birth: Optional[Any] = None
     permissions_override: Optional[Dict[str, bool]] = None
+    parent_user_id: Optional[int] = None
 
     @field_validator('date_of_birth', mode='before')
     @classmethod
@@ -80,6 +82,8 @@ class UserUpdateAdmin(BaseModel):
     is_active: Optional[bool] = None
     date_of_birth: Optional[Any] = None
     role_ids: Optional[List[int]] = None
+    parent_user_id: Optional[int] = None
+    must_update_profile: Optional[bool] = None
 
     @field_validator('date_of_birth', mode='before')
     @classmethod
@@ -93,6 +97,36 @@ class UserUpdateAdmin(BaseModel):
             raise ValueError("El usuario debe tener al menos un rol asignado")
         return v
 
+class UserProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = Field(..., min_length=2, max_length=255)
+    email: EmailStr
+    document_id: Optional[str] = Field(None, max_length=50)
+    phone_number: Optional[str] = Field(None, max_length=50)
+    date_of_birth: Optional[Any] = None
+
+    @field_validator('date_of_birth', mode='before')
+    @classmethod
+    def parse_empty_date(cls, v):
+        return _validate_date_of_birth(v)
+
+class UserChangePassword(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6, max_length=100)
+
+class ForceProfileUpdateRequest(BaseModel):
+    user_ids: Optional[List[int]] = None
+    force_all: bool = False
+
+class UserSummaryOut(BaseModel):
+    id: int
+    name: str
+    email: str
+    document_id: Optional[str] = None
+    date_of_birth: Optional[Any] = None
+    parent_user_id: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
+
 class UserResponse(BaseModel):
     id: int
     name: str
@@ -102,8 +136,12 @@ class UserResponse(BaseModel):
     is_active: bool
     is_superuser: bool
     must_change_password: bool
+    must_update_profile: bool = False
     date_of_birth: Optional[Any] = None
     permissions_override: Optional[Any] = None
+    parent_user_id: Optional[int] = None
+    parent: Optional[UserSummaryOut] = None
+    children: List[UserSummaryOut] = []
     created_at: Any
     updated_at: Any
     
@@ -112,6 +150,42 @@ class UserResponse(BaseModel):
     permissions: Optional[List[str]] = []
     
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode='before')
+    @classmethod
+    def check_unloaded_relations(cls, data: Any) -> Any:
+        if hasattr(data, '_sa_instance_state'):
+            state = data._sa_instance_state
+            loaded_data = {}
+            if hasattr(data, '__table__'):
+                for col in data.__table__.columns:
+                    loaded_data[col.name] = getattr(data, col.name, None)
+            else:
+                for k, v in state.dict.items():
+                    loaded_data[k] = v
+
+            # Safe relationship access avoiding MissingGreenlet
+            from sqlalchemy.orm.base import NO_VALUE
+            r = state.dict.get('roles', [])
+            loaded_data['roles'] = r if (isinstance(r, list) and r is not NO_VALUE) else []
+            p = state.dict.get('parent', None)
+            loaded_data['parent'] = None if p is NO_VALUE else p
+            c = state.dict.get('children', [])
+            loaded_data['children'] = c if (isinstance(c, list) and c is not NO_VALUE) else []
+            if 'bank_accounts' in state.dict and state.dict['bank_accounts'] is not NO_VALUE:
+                loaded_data['bank_accounts'] = state.dict['bank_accounts']
+            if 'wallet' in state.dict and state.dict['wallet'] is not NO_VALUE:
+                loaded_data['wallet'] = state.dict['wallet']
+
+            loaded_data['permissions_override'] = getattr(data, 'permissions_override', None)
+            loaded_data['permissions'] = getattr(data, 'permissions', [])
+
+            for field in ('id', 'name', 'email', 'is_active', 'is_superuser', 'must_change_password', 'must_update_profile', 'created_at', 'updated_at'):
+                if field not in loaded_data and hasattr(data, field):
+                    loaded_data[field] = getattr(data, field)
+
+            return loaded_data
+        return data
 
 class UserWithBankAccountsResponse(UserResponse):
     bank_accounts: List[UserBankAccountResponse] = []

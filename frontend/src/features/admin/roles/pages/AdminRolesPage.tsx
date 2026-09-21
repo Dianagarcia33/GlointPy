@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { rolesService, Role, Permission } from '../../../../services/roles';
-import { Loader2, Plus, Edit2, Shield, AlertCircle, Trash2, CheckCircle, X } from 'lucide-react';
+import { Loader2, Plus, Edit2, Shield, AlertCircle, Trash2, CheckCircle, X, RefreshCw } from 'lucide-react';
 import { RoleModal } from '../components/RoleModal';
 import { Can } from '../../../../components/security/Can';
 import { ConfirmationModal } from '../../../../components/common/ConfirmationModal';
@@ -9,6 +9,7 @@ export const AdminRolesPage: React.FC = () => {
     const [roles, setRoles] = useState<Role[]>([]);
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     
@@ -75,6 +76,23 @@ export const AdminRolesPage: React.FC = () => {
             return;
         }
         setRoleToDelete(role);
+    };
+
+    const handleSyncPermissions = async () => {
+        setIsSyncing(true);
+        setError(null);
+        setSuccess(null);
+        try {
+            const res = await rolesService.syncPermissions();
+            setSuccess(res.message || 'Permisos del sistema sincronizados exitosamente');
+            await fetchData();
+            setTimeout(() => setSuccess(null), 5000);
+        } catch (err: any) {
+            setError(err.message || 'Error al sincronizar permisos del sistema');
+            setTimeout(() => setError(null), 6000);
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     const confirmDelete = async () => {
@@ -169,13 +187,24 @@ export const AdminRolesPage: React.FC = () => {
                 </div>
 
                 <Can permission="admin.roles.manage">
-                    <button
-                        onClick={handleCreateRole}
-                        className="relative z-10 flex items-center gap-2 bg-brand-500 text-white px-6 py-3 rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Crear Nuevo Rol</span>
-                    </button>
+                    <div className="relative z-10 flex flex-wrap items-center gap-3">
+                        <button
+                            onClick={handleSyncPermissions}
+                            disabled={isSyncing}
+                            className="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 px-4 py-3 rounded-2xl transition-all shadow-md text-sm font-bold cursor-pointer shrink-0 disabled:opacity-50 active:scale-95"
+                            title="Sincroniza y repara todos los permisos estándar del sistema"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Permisos'}</span>
+                        </button>
+                        <button
+                            onClick={handleCreateRole}
+                            className="flex items-center gap-2 bg-brand-500 text-white px-6 py-3 rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0 active:scale-95"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Crear Nuevo Rol</span>
+                        </button>
+                    </div>
                 </Can>
             </div>
 

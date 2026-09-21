@@ -108,7 +108,17 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN must_update_profile BOOLEAN NOT NULL DEFAULT FALSE"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN reply_to_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN is_forwarded BOOLEAN NOT NULL DEFAULT FALSE"))
             except Exception:
                 pass
 
@@ -211,6 +221,14 @@ async def on_startup():
             # Ajuste de consistencia para paquetes con 0 acciones
             try:
                 await conn.execute(text("UPDATE packages SET granted_shares = 1 WHERE (value = 50000 OR value = 50000.00) AND (granted_shares = 0 OR granted_shares IS NULL)"))
+            except Exception:
+                pass
+
+            # Asegurar campo parent_user_id en users para control parental
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN parent_user_id BIGINT NULL"))
+                await conn.execute(text("ALTER TABLE users ADD CONSTRAINT fk_users_parent_user_id FOREIGN KEY (parent_user_id) REFERENCES users(id) ON DELETE SET NULL"))
+                await conn.execute(text("CREATE INDEX idx_users_parent_user_id ON users(parent_user_id)"))
             except Exception:
                 pass
 

@@ -16,6 +16,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { CRMProject, CRMLead, CRMLeadStage, crmService } from '../../../services/crmService';
+import { Can } from '../../../components/security/Can';
 
 interface ProjectKanbanProps {
   project: CRMProject;
@@ -85,24 +86,28 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
             
             <div className="flex items-center gap-1 ml-2">
               {onEditProject && (
-                <button
-                  type="button"
-                  onClick={() => onEditProject(project)}
-                  title="Editar Proyecto"
-                  className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all cursor-pointer"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
+                <Can permissions={['crm:projects:manage', 'admin.crm.manage']}>
+                  <button
+                    type="button"
+                    onClick={() => onEditProject(project)}
+                    title="Editar Proyecto"
+                    className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all cursor-pointer"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                </Can>
               )}
               {onDeleteProject && (
-                <button
-                  type="button"
-                  onClick={() => onDeleteProject(project)}
-                  title="Eliminar Proyecto"
-                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <Can permissions={['crm:projects:manage', 'admin.crm.manage']}>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteProject(project)}
+                    title="Eliminar Proyecto"
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </Can>
               )}
             </div>
           </div>
@@ -140,13 +145,15 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
             />
           </div>
 
-          <button
-            onClick={onCreateLead}
-            className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-1.5 transition-all flex-shrink-0 font-montserrat cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nuevo Lead</span>
-          </button>
+          <Can permissions={['crm:leads:manage', 'admin.crm.manage']}>
+            <button
+              onClick={onCreateLead}
+              className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-1.5 transition-all flex-shrink-0 font-montserrat cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo Lead</span>
+            </button>
+          </Can>
         </div>
       </div>
 

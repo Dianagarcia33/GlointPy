@@ -12,6 +12,7 @@ import { QuickActions } from '../components/QuickActions';
 import { InvestmentCard } from '../components/InvestmentCard';
 import { AdminAnalyticsCharts } from '../components/AdminAnalyticsCharts';
 import { DirectorDashboardView } from '../components/DirectorDashboardView';
+import { AccountingDashboardView } from '../components/AccountingDashboardView';
 import { RankingsClubModal } from '../../investments/components/RankingsClubModal';
 import { DashboardEventWidget } from '../../events/components/DashboardEventWidget';
 
@@ -126,29 +127,34 @@ const InvestorDashboardSkeleton = () => (
 
 export const DashboardPage = () => {
     const { user } = useAuthStore();
-    const [investments, setInvestments] = useState<Investment[]>([]);
-    const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
     const [isClubModalOpen, setIsClubModalOpen] = useState(false);
-    const [rankDetails, setRankDetails] = useState<UserRankDetails | null>(null);
 
-    const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director'>('admin');
+    const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director' | 'accounting'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
+
+    const hasAccountingRole = user?.roles?.some((r: any) => {
+        const name = typeof r === 'string' ? r : (r?.name || '');
+        return ['contab', 'contador', 'auditor', 'tesoreria'].some(kw => name.toLowerCase().includes(kw));
+    });
+
+    const isAccountingOnly = !isSuperAdmin && (
+        hasAccountingRole ||
+        user?.permissions?.includes('accounting.dashboard.view') === true
+    );
         
-    const hasDirectorRole = user?.roles?.some((r: any) => {
+    const hasDirectorRole = !isAccountingOnly && user?.roles?.some((r: any) => {
         const name = typeof r === 'string' ? r : (r?.name || '');
         return ['directiv', 'comercial', 'asesor', 'lider', 'director', 'gerente'].some(kw => name.toLowerCase().includes(kw));
     });
 
-    const isDirectorOnly = !isSuperAdmin && (
+    const isDirectorOnly = !isSuperAdmin && !isAccountingOnly && (
         hasDirectorRole ||
         user?.permissions?.includes('director.dashboard.view') === true || 
-        user?.permissions?.includes('commercial:view') === true ||
-        user?.permissions?.includes('admin.referrals.manage') === true ||
-        user?.permissions?.includes('admin.investments.manage') === true ||
-        user?.permissions?.includes('admin.users.manage') === true ||
-        user?.permissions?.includes('admin.roles.manage') === true
+        user?.permissions?.includes('commercial:view') === true
     );
+
+    const isInvestorView = !isSuperAdmin && !isDirectorOnly && !isAccountingOnly;
 
     // Analytics Query for Admin
     const { data: adminAnalytics, isLoading: isLoadingAnalytics } = useQuery<AdminAnalyticsDashboardData>({
@@ -157,21 +163,30 @@ export const DashboardPage = () => {
         enabled: isSuperAdmin && adminViewMode === 'admin'
     });
 
-    useEffect(() => {
-        if (!isSuperAdmin && !isDirectorOnly) {
-            setLoading(true);
-            Promise.all([
-                investmentsService.getMyInvestments(),
-                rankingsService.getMyRankDetails().catch(() => null)
-            ])
-                .then(([invData, rankData]) => {
-                    setInvestments(Array.isArray(invData) ? invData : []);
-                    if (rankData) setRankDetails(rankData);
-                })
-                .catch(err => console.error("Error al cargar dashboard de inversionista:", err))
-                .finally(() => setLoading(false));
-        }
-    }, [user, isSuperAdmin, isDirectorOnly]);
+    // Investments Query for Investor (uses cache & starts in loading state to prevent zero-value flicker)
+    const { data: investments = [], isLoading: isLoadingInvestments } = useQuery<Investment[]>({
+        queryKey: ['my_investments', user?.id],
+        queryFn: async () => {
+            const invData = await investmentsService.getMyInvestments();
+            return Array.isArray(invData) ? invData : [];
+        },
+        enabled: isInvestorView && !!user?.id,
+        staleTime: 30000,
+    });
+
+    // Rank Details Query for Investor
+    const { data: rankDetails = null } = useQuery<UserRankDetails | null>({
+        queryKey: ['my_rank_details', user?.id],
+        queryFn: async () => {
+            try {
+                return await rankingsService.getMyRankDetails();
+            } catch {
+                return null;
+            }
+        },
+        enabled: isInvestorView && !!user?.id,
+        staleTime: 60000,
+    });
 
     const parseNumber = (val: any) => {
         const parsed = Number(val);
@@ -243,15 +258,17 @@ export const DashboardPage = () => {
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
             {/* Widget Oficial de Evento Gloint Power Tech (Exclusivo para Inversionistas) */}
-            {!isSuperAdmin && !isDirectorOnly && <DashboardEventWidget />}
+            {!isSuperAdmin && !isDirectorOnly && !isAccountingOnly && <DashboardEventWidget />}
 
-            {/* VISTA DIRECTIVO DE INVERSIONES SOLO */}
-            {isDirectorOnly ? (
+            {/* VISTA CONTABILIDAD O DIRECTIVO O ADMIN */}
+            {isAccountingOnly ? (
+                <AccountingDashboardView />
+            ) : isDirectorOnly ? (
                 <DirectorDashboardView />
             ) : isSuperAdmin ? (
                 <div className="space-y-6 w-full min-w-0">
                     {/* Admin Mode Switcher Tabs */}
-                    <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
+                    <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80 flex-wrap">
                         <button
                             onClick={() => setAdminViewMode('admin')}
                             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
@@ -272,9 +289,21 @@ export const DashboardPage = () => {
                         >
                             Directivo de Inversiones
                         </button>
+                        <button
+                            onClick={() => setAdminViewMode('accounting')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
+                                adminViewMode === 'accounting' 
+                                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20' 
+                                    : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                        >
+                            Contabilidad & Tesorería
+                        </button>
                     </div>
 
-                    {adminViewMode === 'director' ? (
+                    {adminViewMode === 'accounting' ? (
+                        <AccountingDashboardView />
+                    ) : adminViewMode === 'director' ? (
                         <DirectorDashboardView />
                     ) : isLoadingAnalytics ? (
                         <AdminDashboardSkeleton />
@@ -354,7 +383,7 @@ export const DashboardPage = () => {
             ) : (
 
                 /* SECCIÓN EXCLUSIVA PARA INVERSIONISTAS */
-                loading ? (
+                isLoadingInvestments ? (
                     <InvestorDashboardSkeleton />
                 ) : (
                     <>

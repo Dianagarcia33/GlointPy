@@ -1,5 +1,5 @@
 from sqlalchemy import Column, BigInteger, String, Integer, DateTime, Boolean, JSON, ForeignKey, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from datetime import datetime
 from src.core.database import Base
 from src.models.security import user_roles
@@ -19,6 +19,10 @@ class User(Base):
     
     # Directivo de Inversión Asignado
     commercial_id = Column(BigInteger, ForeignKey('users.id'), nullable=True)
+
+    # Control Parental / Representante Legal (para menores de edad vinculados a una cuenta de adulto)
+    parent_user_id = Column(BigInteger, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    parent = relationship("User", remote_side=[id], foreign_keys=[parent_user_id], backref=backref("children", lazy="selectin"), lazy="selectin")
     
     # Credencial IMAP para sincronización automática de correo corporativo (encriptada con Fernet)
     imap_password = Column(EncryptedString, nullable=True)
@@ -30,6 +34,7 @@ class User(Base):
     # Campos Adicionales
     date_of_birth = Column(DateTime, nullable=True)
     must_change_password = Column(Boolean, default=False)
+    must_update_profile = Column(Boolean, default=False, nullable=False)
     
     # Seguridad y Bloqueos
     failed_login_attempts = Column(Integer, default=0)
@@ -47,6 +52,8 @@ class User(Base):
     bank_accounts = relationship("UserBankAccount", back_populates="user", cascade="all, delete-orphan")
     withdrawals = relationship("Withdrawal", foreign_keys="Withdrawal.user_id", back_populates="user", cascade="all, delete-orphan")
     wallet = relationship("Wallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    shares_account = relationship("UserShare", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    share_movements = relationship("ShareMovement", back_populates="user", cascade="all, delete-orphan")
     
     # Rango de Inversionista asignado / calculado
     rank_id = Column(Integer, ForeignKey('investment_ranks.id', ondelete='SET NULL'), nullable=True)

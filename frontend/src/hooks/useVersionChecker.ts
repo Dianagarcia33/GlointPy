@@ -1,13 +1,18 @@
 import { useEffect, useRef } from 'react';
 
 const CHECK_INTERVAL = 3 * 60 * 1000; // Verificar cada 3 minutos
+const RELOAD_GUARD_KEY = 'gloint_version_reloaded_target';
 
 export const useVersionChecker = () => {
   const isReloading = useRef(false);
 
-  const forceReload = async () => {
+  const forceReload = async (targetVersion: string) => {
     if (isReloading.current) return;
     isReloading.current = true;
+
+    try {
+      sessionStorage.setItem(RELOAD_GUARD_KEY, targetVersion);
+    } catch (_) {}
 
     if ('caches' in window) {
       try {
@@ -21,7 +26,10 @@ export const useVersionChecker = () => {
   };
 
   const checkVersion = async () => {
+    // En entorno de desarrollo (npm run dev) NUNCA se debe forzar recarga automática
+    if (import.meta.env.DEV) return;
     if (isReloading.current) return;
+
     try {
       const response = await fetch(`/version.json?_t=${Date.now()}`, {
         cache: 'no-store',
@@ -36,8 +44,17 @@ export const useVersionChecker = () => {
       const data = await response.json();
       if (data?.version && typeof __APP_VERSION__ !== 'undefined') {
         if (data.version !== __APP_VERSION__) {
+          // Prevenir bucle infinito de recargas si ya se recargó para esta versión
+          const alreadyAttempted = sessionStorage.getItem(RELOAD_GUARD_KEY);
+          if (alreadyAttempted === data.version) {
+            console.warn(`[GLOINT VersionChecker] Ya se recargó para la versión ${data.version}. Evitando bucle de recarga.`);
+            return;
+          }
+
           console.info(`[GLOINT VersionChecker] Nueva versión detectada (${data.version} != ${__APP_VERSION__}). Actualizando...`);
-          forceReload();
+          forceReload(data.version);
+        } else {
+          sessionStorage.removeItem(RELOAD_GUARD_KEY);
         }
       }
     } catch (_) {
@@ -46,29 +63,22 @@ export const useVersionChecker = () => {
   };
 
   useEffect(() => {
+    if (import.meta.env.DEV) return;
+
     // 1. Verificación inicial
     checkVersion();
 
-    // 2. Intervalo periódico (cada 3 minutos)
+    // 2. Intervalo periódico (cada 5 minutos)
     const intervalId = setInterval(checkVersion, CHECK_INTERVAL);
 
-    // 3. Al reanudar la pestaña o desbloquear el móvil
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkVersion();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', checkVersion);
-
-    // 4. Captura de errores de carga de chunks desactualizados (Vite preload error)
+    // 3. Captura de errores de carga de chunks desactualizados (Vite preload error)
     const handlePreloadError = () => {
       console.warn('[GLOINT VersionChecker] Error cargando chunk desactualizado. Forzando recarga...');
-      forceReload();
+      forceReload('preload_error');
     };
     window.addEventListener('vite:preloadError', handlePreloadError);
 
-    // 5. Captura genérica de error por módulo dinámico faltante
+    // 4. Captura genérica de error por módulo dinámico faltante
     const handleWindowError = (event: ErrorEvent) => {
       const msg = event?.message || '';
       if (
@@ -77,15 +87,13 @@ export const useVersionChecker = () => {
         msg.includes('error loading dynamically imported module')
       ) {
         console.warn('[GLOINT VersionChecker] Error de módulo dinámico. Forzando recarga...');
-        forceReload();
+        forceReload('module_error');
       }
     };
     window.addEventListener('error', handleWindowError);
 
     return () => {
       clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', checkVersion);
       window.removeEventListener('vite:preloadError', handlePreloadError);
       window.removeEventListener('error', handleWindowError);
     };

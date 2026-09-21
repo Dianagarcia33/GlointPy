@@ -20,7 +20,15 @@ class AuthService:
         if request:
             login_rate_limiter.check_rate_limit(request)
 
-        result = await db.execute(select(User).options(selectinload(User.roles).selectinload(Role.permissions)).where(User.email == login_data.email))
+        result = await db.execute(
+            select(User)
+            .options(
+                selectinload(User.roles).selectinload(Role.permissions),
+                selectinload(User.parent),
+                selectinload(User.children)
+            )
+            .where(User.email == login_data.email)
+        )
         user = result.scalars().first()
         
         if not user:
@@ -204,17 +212,29 @@ class AuthService:
             except Exception as err:
                 logger.warning(f"Error enviando notificación al Directivo #{data.commercial_id}: {err}")
         
-        # Reload user with roles and permissions explicitly loaded to prevent MissingGreenlet during FastAPI serialization
+        # Reload user with roles, permissions, parent and children explicitly loaded to prevent MissingGreenlet during FastAPI serialization
         result = await db.execute(
             select(User)
-            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .options(
+                selectinload(User.roles).selectinload(Role.permissions),
+                selectinload(User.parent),
+                selectinload(User.children)
+            )
             .where(User.id == new_user.id)
         )
         return result.scalars().first()
 
     @staticmethod
     async def force_change_password(db: AsyncSession, data: ForceChangePasswordRequest) -> User:
-        result = await db.execute(select(User).options(selectinload(User.roles).selectinload(Role.permissions)).where(User.email == data.email))
+        result = await db.execute(
+            select(User)
+            .options(
+                selectinload(User.roles).selectinload(Role.permissions),
+                selectinload(User.parent),
+                selectinload(User.children)
+            )
+            .where(User.email == data.email)
+        )
         user = result.scalars().first()
         
         if not user:

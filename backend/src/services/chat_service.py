@@ -29,60 +29,87 @@ class ConnectionManager:
         self.room_connections: Dict[int, Set[WebSocket]] = {}
         # user_id -> set of WebSockets (para notificaciones globales o presencia)
         self.user_connections: Dict[int, Set[WebSocket]] = {}
+        # room_id -> set of user_ids actualmente conectados en la sala
+        self.room_users: Dict[int, Set[int]] = {}
 
-    async def connect(self, websocket: WebSocket, room_id: int, user_id: int):
-        await websocket.accept()
-        
-        if room_id not in self.room_connections:
-            self.room_connections[room_id] = set()
-        self.room_connections[room_id].add(websocket)
+    def connect(self, websocket: WebSocket, room_id: int, user_id: int):
+        r_id = int(room_id)
+        u_id = int(user_id)
+        if r_id not in self.room_connections:
+            self.room_connections[r_id] = set()
+        self.room_connections[r_id].add(websocket)
 
-        if user_id not in self.user_connections:
-            self.user_connections[user_id] = set()
-        self.user_connections[user_id].add(websocket)
+        if u_id not in self.user_connections:
+            self.user_connections[u_id] = set()
+        self.user_connections[u_id].add(websocket)
+
+        if r_id not in self.room_users:
+            self.room_users[r_id] = set()
+        self.room_users[r_id].add(u_id)
 
     def disconnect(self, websocket: WebSocket, room_id: int, user_id: int):
-        if room_id in self.room_connections:
-            self.room_connections[room_id].discard(websocket)
-            if not self.room_connections[room_id]:
-                del self.room_connections[room_id]
+        r_id = int(room_id)
+        u_id = int(user_id)
+        if r_id in self.room_connections:
+            self.room_connections[r_id].discard(websocket)
+            if not self.room_connections[r_id]:
+                del self.room_connections[r_id]
 
-        if user_id in self.user_connections:
-            self.user_connections[user_id].discard(websocket)
-            if not self.user_connections[user_id]:
-                del self.user_connections[user_id]
+        if u_id in self.user_connections:
+            self.user_connections[u_id].discard(websocket)
+            if not self.user_connections[u_id]:
+                del self.user_connections[u_id]
+
+        if r_id in self.room_users:
+            user_sockets = self.user_connections.get(u_id, set())
+            room_sockets = self.room_connections.get(r_id, set())
+            if not (user_sockets & room_sockets):
+                self.room_users[r_id].discard(u_id)
+                if not self.room_users[r_id]:
+                    del self.room_users[r_id]
+
+    def is_other_participant_in_room(self, room_id: int, sender_id: int) -> bool:
+        """Verifica si hay algún otro participante activo en la sala en este momento."""
+        r_id = int(room_id)
+        s_id = int(sender_id)
+        users_in_room = self.room_users.get(r_id, set())
+        return any(uid != s_id for uid in users_in_room)
 
     async def connect_user_only(self, websocket: WebSocket, user_id: int):
         """Conecta un WebSocket únicamente al pool de notificaciones del usuario, sin sala de chat específica."""
         await websocket.accept()
-        if user_id not in self.user_connections:
-            self.user_connections[user_id] = set()
-        self.user_connections[user_id].add(websocket)
+        u_id = int(user_id)
+        if u_id not in self.user_connections:
+            self.user_connections[u_id] = set()
+        self.user_connections[u_id].add(websocket)
 
     def disconnect_user_only(self, websocket: WebSocket, user_id: int):
         """Desconecta un WebSocket del pool de notificaciones del usuario."""
-        if user_id in self.user_connections:
-            self.user_connections[user_id].discard(websocket)
-            if not self.user_connections[user_id]:
-                del self.user_connections[user_id]
+        u_id = int(user_id)
+        if u_id in self.user_connections:
+            self.user_connections[u_id].discard(websocket)
+            if not self.user_connections[u_id]:
+                del self.user_connections[u_id]
 
     async def broadcast_to_room(self, room_id: int, message_data: dict):
         """Envía un mensaje JSON a todos los sockets conectados a una sala especifica."""
-        if room_id in self.room_connections:
+        r_id = int(room_id)
+        if r_id in self.room_connections:
             to_remove = set()
-            for connection in self.room_connections[room_id]:
+            for connection in self.room_connections[r_id]:
                 try:
                     await connection.send_text(json.dumps(message_data))
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:
-                self.room_connections[room_id].discard(dead)
+                self.room_connections[r_id].discard(dead)
 
     async def broadcast_to_room_except(self, room_id: int, message_data: dict, exclude_websocket: Optional[WebSocket] = None):
         """Envía un mensaje JSON a todos los sockets conectados a una sala especifica excepto al socket excluido."""
-        if room_id in self.room_connections:
+        r_id = int(room_id)
+        if r_id in self.room_connections:
             to_remove = set()
-            for connection in self.room_connections[room_id]:
+            for connection in self.room_connections[r_id]:
                 if exclude_websocket and connection == exclude_websocket:
                     continue
                 try:
@@ -90,22 +117,24 @@ class ConnectionManager:
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:
-                self.room_connections[room_id].discard(dead)
+                self.room_connections[r_id].discard(dead)
 
     async def send_to_user(self, user_id: int, message_data: dict):
         """Envía un mensaje JSON a todos los sockets conectados del usuario."""
-        if user_id in self.user_connections:
+        u_id = int(user_id)
+        if u_id in self.user_connections:
             to_remove = set()
-            for connection in self.user_connections[user_id]:
+            for connection in self.user_connections[u_id]:
                 try:
                     await connection.send_text(json.dumps(message_data))
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:
-                self.user_connections[user_id].discard(dead)
+                self.user_connections[u_id].discard(dead)
 
     def is_user_online(self, user_id: int) -> bool:
-        return user_id in self.user_connections and len(self.user_connections[user_id]) > 0
+        u_id = int(user_id)
+        return u_id in self.user_connections and len(self.user_connections[u_id]) > 0
 
 
 # Instancia global del ConnectionManager
@@ -346,6 +375,22 @@ class ChatService:
                 .values(is_read=True)
             )
             await db.commit()
+            try:
+                read_event = {
+                    "type": "messages_read",
+                    "room_id": int(room_id),
+                    "reader_id": int(user_id)
+                }
+                await manager.broadcast_to_room(room_id, read_event)
+                # Notificar a los remitentes de la sala en sus conexiones globales
+                part_res = await db.execute(
+                    select(ChatParticipant.user_id)
+                    .where(and_(ChatParticipant.room_id == room_id, ChatParticipant.user_id != user_id))
+                )
+                for other_uid in part_res.scalars().all():
+                    await manager.send_to_user(other_uid, read_event)
+            except Exception:
+                pass
 
         stmt = (
             select(ChatMessage)
@@ -381,6 +426,7 @@ class ChatService:
                 } if m.reply_to else None,
                 "reactions": ChatService._serialize_reactions(getattr(m, "reactions", [])),
                 "is_read": m.is_read,
+                "is_forwarded": bool(getattr(m, "is_forwarded", False)),
                 "created_at": _format_datetime_utc(m.created_at)
             }
             for m in messages
@@ -443,7 +489,7 @@ class ChatService:
 
     @staticmethod
     async def mark_room_as_read(db: AsyncSession, room_id: int, user_id: int) -> bool:
-        """Marcar todos los mensajes recibidos de una sala como leídos por el usuario."""
+        """Marcar todos los mensajes recibidos de una sala como leídos por el usuario y notificar por WebSockets."""
         from sqlalchemy import update
         await db.execute(
             update(ChatMessage)
@@ -451,6 +497,24 @@ class ChatService:
             .values(is_read=True)
         )
         await db.commit()
+
+        # Notificar en tiempo real por WebSocket a todos los usuarios en la sala y en su socket global
+        try:
+            read_event = {
+                "type": "messages_read",
+                "room_id": int(room_id),
+                "reader_id": int(user_id)
+            }
+            await manager.broadcast_to_room(room_id, read_event)
+            part_res = await db.execute(
+                select(ChatParticipant.user_id)
+                .where(and_(ChatParticipant.room_id == room_id, ChatParticipant.user_id != user_id))
+            )
+            for other_uid in part_res.scalars().all():
+                await manager.send_to_user(other_uid, read_event)
+        except Exception:
+            pass
+
         return True
 
     @staticmethod
@@ -462,9 +526,13 @@ class ChatService:
         file_url: Optional[str] = None,
         file_name: Optional[str] = None,
         file_type: Optional[str] = None,
-        reply_to_id: Optional[int] = None
+        reply_to_id: Optional[int] = None,
+        is_forwarded: bool = False
     ) -> dict:
         """Guarda un mensaje en MySQL y lo prepara para retransmisión por WebSockets."""
+        # Si otro participante está actualmente conectado a la sala por WebSocket, marcar inmediatamente como leído
+        is_read_immediate = manager.is_other_participant_in_room(room_id, sender_id)
+
         msg = ChatMessage(
             room_id=room_id,
             sender_id=sender_id,
@@ -473,7 +541,8 @@ class ChatService:
             file_url=file_url,
             file_name=file_name,
             file_type=file_type,
-            is_read=False
+            is_read=is_read_immediate,
+            is_forwarded=is_forwarded
         )
         db.add(msg)
         await db.commit()
@@ -516,7 +585,8 @@ class ChatService:
             "file_type": file_type,
             "reply_to": reply_to_payload,
             "reactions": [],
-            "is_read": False,
+            "is_read": is_read_immediate,
+            "is_forwarded": bool(is_forwarded),
             "created_at": created_at_val
         }
 
@@ -588,3 +658,66 @@ class ChatService:
         )
         res = await db.execute(stmt)
         return res.scalars().first() is not None
+
+    @staticmethod
+    async def forward_message(
+        db: AsyncSession,
+        original_message_id: int,
+        target_room_ids: List[int],
+        target_user_ids: List[int],
+        sender_id: int,
+        optional_note: Optional[str] = None
+    ) -> List[dict]:
+        """Reenvía un mensaje existente a una o varias salas y/o usuarios."""
+        # 1. Obtener mensaje original
+        stmt = (
+            select(ChatMessage)
+            .options(selectinload(ChatMessage.sender))
+            .where(ChatMessage.id == original_message_id)
+        )
+        res = await db.execute(stmt)
+        orig_msg = res.scalars().first()
+        if not orig_msg:
+            raise ValueError("Mensaje original no encontrado")
+
+        # 2. Consolidar todas las salas destino
+        all_room_ids = set(int(r) for r in (target_room_ids or []))
+
+        # Si hay usuarios destino individuales, obtener o crear la sala directa con cada uno
+        for uid in (target_user_ids or []):
+            u_id = int(uid)
+            if u_id != sender_id:
+                room = await ChatService.get_or_create_direct_room(db, sender_id, u_id)
+                all_room_ids.add(room.id)
+
+        if not all_room_ids:
+            raise ValueError("Debes seleccionar al menos un chat o contacto de destino")
+
+        results = []
+        for target_rid in all_room_ids:
+            # Reenviar el contenido y archivo clonado con is_forwarded=True
+            fwd_payload = await ChatService.save_message(
+                db=db,
+                room_id=target_rid,
+                sender_id=sender_id,
+                content=orig_msg.content,
+                file_url=orig_msg.file_url,
+                file_name=orig_msg.file_name,
+                file_type=orig_msg.file_type,
+                is_forwarded=True
+            )
+            await manager.broadcast_to_room(target_rid, fwd_payload)
+            results.append(fwd_payload)
+
+            # Si hay un comentario opcional adicional, enviarlo como mensaje siguiente
+            if optional_note and optional_note.strip():
+                note_payload = await ChatService.save_message(
+                    db=db,
+                    room_id=target_rid,
+                    sender_id=sender_id,
+                    content=optional_note.strip(),
+                    is_forwarded=False
+                )
+                await manager.broadcast_to_room(target_rid, note_payload)
+
+        return results

@@ -41,6 +41,7 @@ class ChatMessage(Base):
     reply_to_id = Column(BigInteger, ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True, index=True)
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, nullable=False, default=False)
+    is_forwarded = Column(Boolean, nullable=False, default=False)
     file_url = Column(String(500), nullable=True)
     file_name = Column(String(255), nullable=True)
     file_type = Column(String(50), nullable=True)

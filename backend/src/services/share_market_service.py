@@ -9,7 +9,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func, or_, and_
 
-from src.models.share_market import SharePriceHistory, ShareIssuance, ShareListing, ShareTradeOrder
+from src.models.share_market import SharePriceHistory, ShareIssuance, ShareListing, ShareTradeOrder, UserShare, ShareMovement
 from src.models.investor import Investor
 from src.models.package import Package
 from src.models.user import User
@@ -23,28 +23,48 @@ class ShareMarketService:
 
     @staticmethod
     async def get_current_price(db: AsyncSession) -> float:
-        """Obtiene el precio de la acción registrado por el admin en la última emisión o historial."""
-        # 1. Prioridad: Última emisión corporativa registrada por el admin
+        """Obtiene el precio oficial y real de la acción más reciente."""
+        # 1. Consultar el último registro en la bitácora histórica de precios
+        hist_result = await db.execute(
+            select(SharePriceHistory)
+            .order_by(SharePriceHistory.created_at.desc(), SharePriceHistory.id.desc())
+            .limit(1)
+        )
+        latest_hist = hist_result.scalar_one_or_none()
+
+        # 2. Consultar la última emisión corporativa registrada
         iss_result = await db.execute(
             select(ShareIssuance)
-            .order_by(ShareIssuance.id.desc())
+            .order_by(ShareIssuance.created_at.desc(), ShareIssuance.id.desc())
             .limit(1)
         )
         latest_iss = iss_result.scalar_one_or_none()
-        if latest_iss and latest_iss.price_per_share is not None and float(latest_iss.price_per_share) > 0:
+
+        # Comparar cuál es más reciente entre historial y emisión
+        if latest_hist and latest_iss:
+            if latest_hist.created_at >= latest_iss.created_at:
+                return float(latest_hist.new_price)
+            else:
+                return float(latest_iss.price_per_share)
+        elif latest_hist and latest_hist.new_price is not None and float(latest_hist.new_price) > 0:
+            return float(latest_hist.new_price)
+        elif latest_iss and latest_iss.price_per_share is not None and float(latest_iss.price_per_share) > 0:
             return float(latest_iss.price_per_share)
 
-        # 2. Historial de precio si existe
-        result = await db.execute(
-            select(SharePriceHistory)
-            .order_by(SharePriceHistory.id.desc())
-            .limit(1)
+        # 3. Si no hay emisiones ni historial, verificar en paquetes activos la relación precio/acción
+        pkg_result = await db.execute(
+            select(Package)
+            .where(Package.is_active == True, Package.granted_shares > 0)
+            .order_by(Package.value.asc())
         )
-        latest = result.scalar_one_or_none()
-        if latest and latest.new_price is not None and float(latest.new_price) > 0:
-            return float(latest.new_price)
+        packages = pkg_result.scalars().all()
+        if packages:
+            valid_prices = [float(p.value) / p.granted_shares for p in packages if p.granted_shares > 0]
+            if valid_prices and valid_prices[0] > 0:
+                return float(valid_prices[0])
 
-        return 50000.0  # Valor base inicial si no hay emisiones ni historial
+        return 50000.0  # Valor base inicial como último recurso
+
 
     @staticmethod
     async def get_current_available_shares(db: AsyncSession) -> int:
@@ -133,58 +153,248 @@ class ShareMarketService:
         ]
 
     @staticmethod
-    async def get_user_portfolio(db: AsyncSession, user_id: int) -> dict:
-        """Calcula el balance y custodia de acciones del usuario."""
-        # 1. Acciones obtenidas por paquetes en inversiones aprobadas/activas
+    async def get_or_create_user_shares(db: AsyncSession, user_id: int) -> UserShare:
+        """Obtiene o inicializa la cuenta de acciones de un usuario."""
+        res = await db.execute(select(UserShare).where(UserShare.user_id == user_id))
+        acc = res.scalar_one_or_none()
+        if not acc:
+            acc = UserShare(user_id=user_id, total_shares=0, available_shares=0, locked_shares=0)
+            db.add(acc)
+            await db.flush()
+        return acc
+
+    @staticmethod
+    async def record_share_movement(
+        db: AsyncSession,
+        user_id: int,
+        movement_type: str,
+        quantity: int,
+        description: str,
+        investor_id: Optional[int] = None,
+        package_id: Optional[int] = None,
+        trade_order_id: Optional[int] = None,
+        listing_id: Optional[int] = None,
+        created_at: Optional[datetime] = None
+    ) -> ShareMovement:
+        """Registra una transacción inmutable en el Libro Mayor de Acciones y actualiza el balance consolidado."""
+        account = await ShareMarketService.get_or_create_user_shares(db, user_id)
+        balance_before = account.total_shares
+        qty = abs(quantity)
+
+        if movement_type in ["package_grant", "market_buy"]:
+            account.total_shares += qty
+            account.available_shares += qty
+        elif movement_type == "market_sell":
+            # Al venderse, se descuentan de las acciones que estaban en custodia (locked_shares)
+            deduct_locked = min(account.locked_shares, qty)
+            account.locked_shares -= deduct_locked
+            rem = qty - deduct_locked
+            account.available_shares = max(0, account.available_shares - rem)
+            account.total_shares = max(0, account.total_shares - qty)
+        elif movement_type == "listing_lock":
+            # Retención por publicación de oferta: pasa de disponible a bloqueado
+            account.available_shares = max(0, account.available_shares - qty)
+            account.locked_shares += qty
+        elif movement_type == "listing_unlock":
+            # Desbloqueo por cancelación de oferta o rechazo: pasa de bloqueado a disponible
+            account.locked_shares = max(0, account.locked_shares - qty)
+            account.available_shares += qty
+        elif movement_type == "admin_adjustment":
+            account.total_shares = max(0, account.total_shares + quantity)
+            account.available_shares = max(0, account.available_shares + quantity)
+
+        balance_after = account.total_shares
+
+        db.add(account)
+        movement = ShareMovement(
+            user_id=user_id,
+            movement_type=movement_type,
+            shares_quantity=quantity,
+            balance_before=balance_before,
+            balance_after=balance_after,
+            investor_id=investor_id,
+            package_id=package_id,
+            trade_order_id=trade_order_id,
+            listing_id=listing_id,
+            description=description,
+            created_at=created_at or datetime.utcnow()
+        )
+        db.add(movement)
+        await db.flush()
+        return movement
+
+    @staticmethod
+    async def sync_legacy_shares_for_user(db: AsyncSession, user_id: int) -> int:
+        """Sincroniza retroactivamente contratos de inversión y órdenes previas que no tengan movimiento en el ledger. Retorna la cantidad de acciones acreditadas."""
+        credited_shares = 0
+        current_price = await ShareMarketService.get_current_price(db)
+
+        # 1. Contratos de inversión con paquetes que otorgan acciones
         inv_result = await db.execute(
             select(Investor)
             .options(selectinload(Investor.package))
             .where(Investor.user_id == user_id)
         )
         investors = inv_result.scalars().all()
-        shares_from_investments = sum(inv.package.granted_shares for inv in investors if inv.package and inv.package.granted_shares)
 
-        # 2. Acciones compradas en el mercado completadas
-        bought_result = await db.execute(
-            select(func.coalesce(func.sum(ShareTradeOrder.shares_quantity), 0))
+        for inv in investors:
+            shares_to_grant = inv.package.granted_shares if (inv.package and inv.package.granted_shares and inv.package.granted_shares > 0) else 0
+
+            if shares_to_grant > 0:
+                acq_date = inv.start_date or inv.created_at or datetime.utcnow()
+
+                # Comprobar movimientos previos de paquete para este contrato
+                chk = await db.execute(
+                    select(ShareMovement)
+                    .where(
+                        ShareMovement.user_id == user_id, 
+                        ShareMovement.investor_id == inv.id,
+                        ShareMovement.movement_type == "package_grant"
+                    )
+                    .order_by(ShareMovement.id.asc())
+                )
+                existing_movements = chk.scalars().all()
+                total_current_pkg_shares = sum(m.shares_quantity for m in existing_movements)
+
+                if total_current_pkg_shares != shares_to_grant or not existing_movements:
+                    # Reemplazar movimientos incorrectos o desactualizados por el valor exacto del paquete
+                    for old_m in existing_movements:
+                        await db.delete(old_m)
+                    await db.flush()
+
+                    pkg_val = f"${inv.package.value:,.0f} COP" if (inv.package and inv.package.value) else ""
+                    desc = f"Otorgamiento de {shares_to_grant} acciones por adquisición de Paquete ({pkg_val}) - Contrato #{inv.assigned_code or inv.id}"
+                    new_m = ShareMovement(
+                        user_id=user_id,
+                        movement_type="package_grant",
+                        shares_quantity=shares_to_grant,
+                        balance_before=0,
+                        balance_after=0,
+                        investor_id=inv.id,
+                        package_id=inv.package_id,
+                        description=desc,
+                        created_at=acq_date
+                    )
+                    db.add(new_m)
+                    await db.flush()
+                    credited_shares += shares_to_grant
+                else:
+                    # Si ya coincide la cantidad, asegurar fecha de adquisición en el movimiento
+                    first_m = existing_movements[0]
+                    if acq_date and first_m.created_at != acq_date:
+                        first_m.created_at = acq_date
+
+        # 2. Sincronizar compras completadas previas en mercado si no fueron registradas
+        b_orders = await db.execute(
+            select(ShareTradeOrder)
             .where(ShareTradeOrder.buyer_id == user_id, ShareTradeOrder.status == "completed")
         )
-        shares_bought = int(bought_result.scalar_one() or 0)
+        for bo in b_orders.scalars().all():
+            order_date = bo.created_at or bo.updated_at or datetime.utcnow()
+            chk_bo = await db.execute(
+                select(ShareMovement).where(ShareMovement.user_id == user_id, ShareMovement.trade_order_id == bo.id)
+            )
+            existing_bo_sm = chk_bo.scalars().first()
+            if not existing_bo_sm:
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=user_id,
+                    movement_type="market_buy",
+                    quantity=bo.shares_quantity,
+                    description=f"Compra de {bo.shares_quantity} acción(es) en mercado (Orden #{bo.id})",
+                    trade_order_id=bo.id,
+                    listing_id=bo.listing_id,
+                    created_at=order_date
+                )
+                credited_shares += bo.shares_quantity
+            else:
+                if order_date and existing_bo_sm.created_at != order_date:
+                    existing_bo_sm.created_at = order_date
 
-        # 3. Acciones vendidas en el mercado completadas
-        sold_result = await db.execute(
-            select(func.coalesce(func.sum(ShareTradeOrder.shares_quantity), 0))
+        # 3. Sincronizar ventas completadas previas en mercado si no fueron registradas
+        s_orders = await db.execute(
+            select(ShareTradeOrder)
             .where(ShareTradeOrder.seller_id == user_id, ShareTradeOrder.status == "completed")
         )
-        shares_sold = int(sold_result.scalar_one() or 0)
+        for so in s_orders.scalars().all():
+            order_date = so.created_at or so.updated_at or datetime.utcnow()
+            chk_so = await db.execute(
+                select(ShareMovement).where(
+                    ShareMovement.user_id == user_id, 
+                    ShareMovement.trade_order_id == so.id, 
+                    ShareMovement.movement_type == "market_sell"
+                )
+            )
+            existing_so_sm = chk_so.scalars().first()
+            if not existing_so_sm:
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=user_id,
+                    movement_type="market_sell",
+                    quantity=-so.shares_quantity,
+                    description=f"Venta de {so.shares_quantity} acción(es) en mercado (Orden #{so.id})",
+                    trade_order_id=so.id,
+                    listing_id=so.listing_id,
+                    created_at=order_date
+                )
+            else:
+                if order_date and existing_so_sm.created_at != order_date:
+                    existing_so_sm.created_at = order_date
 
-        total_shares_owned = shares_from_investments + shares_bought - shares_sold
-        if total_shares_owned < 0:
-            total_shares_owned = 0
+        # 4. Recalibrar saldo inmutable de share_movements y user_shares
+        all_movs_res = await db.execute(
+            select(ShareMovement)
+            .where(ShareMovement.user_id == user_id)
+            .order_by(ShareMovement.created_at.asc(), ShareMovement.id.asc())
+        )
+        all_movs = all_movs_res.scalars().all()
 
-        # 4. Acciones puestas en venta activa
-        listings_result = await db.execute(
+        running_balance = 0
+        for m in all_movs:
+            m.balance_before = running_balance
+            if m.movement_type in ["package_grant", "market_buy", "admin_adjustment"]:
+                running_balance += m.shares_quantity
+            elif m.movement_type == "market_sell":
+                running_balance = max(0, running_balance - abs(m.shares_quantity))
+            m.balance_after = running_balance
+            db.add(m)
+
+        # 5. Asegurar que las ofertas de venta activas tengan sus acciones en locked_shares
+        l_res = await db.execute(
             select(ShareListing)
             .where(ShareListing.seller_id == user_id, ShareListing.status == "active")
         )
-        my_listings = listings_result.scalars().all()
-        shares_listed_active = sum(l.shares_available for l in my_listings)
-        shares_locked_in_escrow = sum(l.shares_locked for l in my_listings)
+        active_listings = l_res.scalars().all()
+        total_listed = sum(l.shares_available for l in active_listings)
+        total_in_escrow = sum(l.shares_locked for l in active_listings)
+        
+        account = await ShareMarketService.get_or_create_user_shares(db, user_id)
+        account.total_shares = max(0, running_balance)
+        target_locked = total_listed + total_in_escrow
+        account.locked_shares = min(account.total_shares, target_locked)
+        account.available_shares = max(0, account.total_shares - account.locked_shares)
+        db.add(account)
 
-        shares_available_for_sale = max(0, total_shares_owned - shares_listed_active - shares_locked_in_escrow)
+        await db.commit()
+        return credited_shares
+
+    @staticmethod
+    async def get_user_portfolio(db: AsyncSession, user_id: int) -> dict:
+        """Calcula el balance y custodia de acciones del usuario desde la cuenta consolidada user_shares."""
+        await ShareMarketService.sync_legacy_shares_for_user(db, user_id)
+        account = await ShareMarketService.get_or_create_user_shares(db, user_id)
+
         current_price = await ShareMarketService.get_current_price(db)
-
-        # 5. Validación de la ventana de fechas del sistema
         sales_window_open = await SystemEventService.is_event_active(db, "shares_sale") or await SystemEventService.is_event_active(db, "venta_acciones")
         sales_message = "Ventana de venta de acciones abierta." if sales_window_open else "La ventana para poner acciones a la venta se encuentra cerrada según el calendario oficial."
 
         return {
-            "total_shares_owned": total_shares_owned,
-            "shares_available_for_sale": shares_available_for_sale,
-            "shares_listed_active": shares_listed_active,
-            "shares_locked_in_escrow": shares_locked_in_escrow,
+            "total_shares_owned": account.total_shares,
+            "shares_available_for_sale": account.available_shares,
+            "shares_listed_active": account.locked_shares,
+            "shares_locked_in_escrow": account.locked_shares,
             "current_share_price": current_price,
-            "portfolio_market_value": round(total_shares_owned * current_price, 2),
+            "portfolio_market_value": round(account.total_shares * current_price, 2),
             "sales_window_open": sales_window_open,
             "sales_window_message": sales_message
         }
@@ -205,7 +415,7 @@ class ShareMarketService:
         if price_per_share <= 0:
             raise HTTPException(status_code=400, detail="El precio por acción debe ser mayor a 0.")
 
-        # 2. Verificar que el usuario tenga suficientes acciones disponibles libres
+        # 2. Verificar que el usuario tenga suficientes acciones disponibles libres en su cuenta
         portfolio = await ShareMarketService.get_user_portfolio(db, seller_id)
         if portfolio["shares_available_for_sale"] < shares_quantity:
             raise HTTPException(
@@ -222,6 +432,18 @@ class ShareMarketService:
             status="active"
         )
         db.add(listing)
+        await db.flush()
+
+        # 3. Retener acciones en custodia y asentar en el libro mayor de movimientos
+        await ShareMarketService.record_share_movement(
+            db=db,
+            user_id=seller_id,
+            movement_type="listing_lock",
+            quantity=shares_quantity,
+            description=f"Retención de {shares_quantity} acción(es) por publicación de oferta #{listing.id} a ${price_per_share:,.0f} COP",
+            listing_id=listing.id
+        )
+
         await db.commit()
         await db.refresh(listing)
         return listing
@@ -239,6 +461,18 @@ class ShareMarketService:
             raise HTTPException(status_code=400, detail="No puedes cancelar la oferta porque tiene acciones retenidas en proceso de compra con excedente.")
 
         listing.status = "cancelled"
+
+        # Liberar acciones retenidas de vuelta a disponibles
+        if listing.shares_available > 0:
+            await ShareMarketService.record_share_movement(
+                db=db,
+                user_id=user_id,
+                movement_type="listing_unlock",
+                quantity=listing.shares_available,
+                description=f"Liberación de {listing.shares_available} acción(es) a saldo disponible por retiro de oferta #{listing.id}",
+                listing_id=listing.id
+            )
+
         await db.commit()
 
     @staticmethod
@@ -348,6 +582,31 @@ class ShareMarketService:
             status="completed"
         )
         db.add(order)
+        await db.flush()
+
+        # 5. Asentar movimientos en el libro mayor
+        # Vendedor: salida de acciones
+        await ShareMarketService.record_share_movement(
+            db=db,
+            user_id=listing.seller_id,
+            movement_type="market_sell",
+            quantity=-shares_quantity,
+            description=f"Venta de {shares_quantity} acción(es) en mercado (Orden #{order.id})",
+            trade_order_id=order.id,
+            listing_id=listing.id
+        )
+
+        # Comprador: entrada de acciones
+        await ShareMarketService.record_share_movement(
+            db=db,
+            user_id=buyer_id,
+            movement_type="market_buy",
+            quantity=shares_quantity,
+            description=f"Compra instantánea de {shares_quantity} acción(es) a ${unit_price:,.0f} COP (Orden #{order.id})",
+            trade_order_id=order.id,
+            listing_id=listing.id
+        )
+
         await db.commit()
         await db.refresh(order)
         return order
@@ -529,6 +788,28 @@ class ShareMarketService:
             order.approved_at = datetime.utcnow()
             order.admin_notes = notes
 
+            # 3. Asentar movimientos en el libro mayor
+            if order.seller_id:
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=order.seller_id,
+                    movement_type="market_sell",
+                    quantity=-order.shares_quantity,
+                    description=f"Venta de {order.shares_quantity} acción(es) (Orden #{order.id} aprobada por Admin)",
+                    trade_order_id=order.id,
+                    listing_id=order.listing_id
+                )
+
+            await ShareMarketService.record_share_movement(
+                db=db,
+                user_id=order.buyer_id,
+                movement_type="market_buy",
+                quantity=order.shares_quantity,
+                description=f"Compra de {order.shares_quantity} acción(es) aprobada por Admin (Orden #{order.id})",
+                trade_order_id=order.id,
+                listing_id=order.listing_id
+            )
+
         elif action == "reject":
             # 1. Devolver acciones bloqueadas a disponibles en la oferta
             if listing:
@@ -553,6 +834,18 @@ class ShareMarketService:
             order.approved_by = admin_id
             order.approved_at = datetime.utcnow()
             order.admin_notes = notes or "Rechazado por verificación de comprobante"
+
+            # 3. Registrar desbloqueo en vendedor si aplica
+            if order.seller_id:
+                await ShareMarketService.record_share_movement(
+                    db=db,
+                    user_id=order.seller_id,
+                    movement_type="listing_unlock",
+                    quantity=order.shares_quantity,
+                    description=f"Desbloqueo de {order.shares_quantity} acción(es) devueltas a disponible por rechazo de compra #{order.id}",
+                    trade_order_id=order.id,
+                    listing_id=order.listing_id
+                )
 
         else:
             raise HTTPException(status_code=400, detail="Acción no válida. Usa 'approve' o 'reject'.")
@@ -626,3 +919,123 @@ class ShareMarketService:
             }
             for i in issuances
         ]
+
+    @staticmethod
+    async def get_user_movements(db: AsyncSession, user_id: int) -> List[dict]:
+        """Obtiene el extracto cronológico inmutable de movimientos de acciones del usuario."""
+        # Asegurar sincronización inicial
+        await ShareMarketService.sync_legacy_shares_for_user(db, user_id)
+        
+        result = await db.execute(
+            select(ShareMovement)
+            .options(
+                selectinload(ShareMovement.investor),
+                selectinload(ShareMovement.package)
+            )
+            .where(ShareMovement.user_id == user_id)
+            .order_by(ShareMovement.created_at.desc(), ShareMovement.id.desc())
+        )
+        movements = result.scalars().all()
+        return [
+            {
+                "id": m.id,
+                "user_id": m.user_id,
+                "movement_type": m.movement_type,
+                "shares_quantity": m.shares_quantity,
+                "balance_before": m.balance_before,
+                "balance_after": m.balance_after,
+                "investor_id": m.investor_id,
+                "investor_code": m.investor.assigned_code if m.investor else None,
+                "package_id": m.package_id,
+                "package_value": float(m.package.value) if m.package and m.package.value else None,
+                "trade_order_id": m.trade_order_id,
+                "listing_id": m.listing_id,
+                "description": m.description,
+                "created_at": m.created_at
+            }
+            for m in movements
+        ]
+
+    @staticmethod
+    async def sync_all_users_legacy_shares(db: AsyncSession) -> dict:
+        """Sincroniza retroactivamente a todos los usuarios del sistema que tengan contratos de inversión u órdenes."""
+        inv_res = await db.execute(select(Investor.user_id).distinct())
+        user_ids = set([uid for uid in inv_res.scalars().all() if uid is not None])
+
+        orders_res = await db.execute(
+            select(ShareTradeOrder.buyer_id)
+            .where(ShareTradeOrder.status == "completed")
+            .distinct()
+        )
+        for b_uid in orders_res.scalars().all():
+            if b_uid:
+                user_ids.add(b_uid)
+
+        orders_s_res = await db.execute(
+            select(ShareTradeOrder.seller_id)
+            .where(ShareTradeOrder.status == "completed")
+            .distinct()
+        )
+        for s_uid in orders_s_res.scalars().all():
+            if s_uid:
+                user_ids.add(s_uid)
+
+        synced_count = 0
+        total_shares_credited = 0
+        updated_users = []
+        for uid in user_ids:
+            credited = await ShareMarketService.sync_legacy_shares_for_user(db, uid)
+            if credited > 0:
+                total_shares_credited += credited
+                user_res = await db.execute(select(User.name, User.email).where(User.id == uid))
+                u_row = user_res.first()
+                updated_users.append({
+                    "user_id": uid,
+                    "user_name": u_row[0] if u_row and u_row[0] else f"Usuario #{uid}",
+                    "user_email": u_row[1] if u_row and u_row[1] else "",
+                    "shares_credited": credited
+                })
+            synced_count += 1
+
+        await db.commit()
+        return {
+            "status": "success",
+            "users_synced": synced_count,
+            "synced_users_count": synced_count,
+            "total_shares_credited": total_shares_credited,
+            "updated_users": updated_users
+        }
+
+    @staticmethod
+    async def manual_share_grant(
+        db: AsyncSession,
+        user_id: int,
+        quantity: int,
+        reason: str,
+        admin_id: int,
+        custom_date: Optional[datetime] = None
+    ) -> ShareMovement:
+        """Asigna acciones a un usuario de manera manual por decisión administrativa con registro en el ledger."""
+        if quantity <= 0:
+            raise HTTPException(status_code=400, detail="La cantidad de acciones a otorgar debe ser mayor a 0.")
+
+        user_res = await db.execute(select(User).where(User.id == user_id))
+        user = user_res.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+        acq_date = custom_date or datetime.utcnow()
+        clean_reason = reason.strip()
+        desc = f"Asignación manual de {quantity} acción(es) por administración: {clean_reason}"
+
+        movement = await ShareMarketService.record_share_movement(
+            db=db,
+            user_id=user_id,
+            movement_type="admin_adjustment",
+            quantity=quantity,
+            description=desc,
+            created_at=acq_date
+        )
+
+        await db.commit()
+        return movement

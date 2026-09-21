@@ -214,7 +214,7 @@ async def get_crm_projects(
     return await CRMService.get_projects(db, search=search, status=status)
 
 
-@router.post("/projects", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+@router.post("/projects", dependencies=[Depends(RequirePermission(["crm:projects:create", "crm:projects:manage"]))])
 async def create_crm_project(
     data: ProjectCreateSchema,
     current_user: User = Depends(get_current_user),
@@ -380,7 +380,7 @@ async def convert_lead_to_sale(
 # GESTIÓN DE CLAVES DE FORMULARIOS DE CONTACTO
 # ==========================================
 
-@router.get("/form-keys", dependencies=[Depends(RequirePermission("crm:view"))])
+@router.get("/form-keys", dependencies=[Depends(RequirePermission(["crm:form_keys:manage", "crm:projects:manage", "crm:view"]))])
 async def list_form_keys(
     db: AsyncSession = Depends(get_db)
 ):
@@ -388,7 +388,7 @@ async def list_form_keys(
     return await CRMService.get_all_form_keys(db)
 
 
-@router.post("/form-keys", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+@router.post("/form-keys", dependencies=[Depends(RequirePermission(["crm:form_keys:manage", "crm:projects:manage"]))])
 async def create_form_key(
     data: CreateFormKeySchema,
     current_user: User = Depends(get_current_user),
@@ -403,7 +403,7 @@ async def create_form_key(
     )
 
 
-@router.patch("/form-keys/{key_id}/toggle", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+@router.patch("/form-keys/{key_id}/toggle", dependencies=[Depends(RequirePermission(["crm:form_keys:manage", "crm:projects:manage"]))])
 async def toggle_form_key(
     key_id: int,
     db: AsyncSession = Depends(get_db)
@@ -412,7 +412,7 @@ async def toggle_form_key(
     return await CRMService.toggle_form_key(db, key_id)
 
 
-@router.delete("/form-keys/{key_id}", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
+@router.delete("/form-keys/{key_id}", dependencies=[Depends(RequirePermission(["crm:form_keys:manage", "crm:projects:manage"]))])
 async def delete_form_key(
     key_id: int,
     db: AsyncSession = Depends(get_db)

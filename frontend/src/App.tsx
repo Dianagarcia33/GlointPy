@@ -48,6 +48,8 @@ import { CRMCalendarPage } from "./features/crm/pages/CRMCalendarPage";
 import { AdminNotificationsPage } from "./features/admin/notifications/pages/AdminNotificationsPage";
 import { AdminEventsPage } from "./features/admin/events/pages/AdminEventsPage";
 import { TicketsPage } from "./features/tickets/pages/TicketsPage";
+import { ProfilePage } from "./features/profile/pages/ProfilePage";
+import { RoomsPage } from "./features/rooms/pages/RoomsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -136,6 +138,7 @@ function App() {
         } 
       >
         <Route index element={<DashboardPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
         <Route path="investments" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentsPage /></RequirePermission>} />
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />
@@ -152,7 +155,7 @@ function App() {
         <Route path="commercial" element={<RequirePermission permission="commercial:view"><CommercialDashboardPage /></RequirePermission>} />
         <Route path="templates" element={<RequirePermission permission="admin.roles.manage"><AdminTemplatesPage /></RequirePermission>} />
         {/* Mercado de Acciones */}
-        <Route path="shares-market" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage"]}><SharesMarketPage /></RequirePermission>} />
+        <Route path="shares-market" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage", "wallets:view", "dashboard:view_investments"]}><SharesMarketPage /></RequirePermission>} />
         <Route path="admin-shares" element={<RequirePermission permissions={["admin.shares.manage", "admin.roles.manage"]}><AdminSharesPage /></RequirePermission>} />
         <Route path="beneficiaries" element={<RequirePermission permission="beneficiaries:view"><BeneficiariesPage /></RequirePermission>} />
         <Route path="referrals" element={<RequirePermission permission="referrals:view"><ReferralsPage /></RequirePermission>} />
@@ -161,10 +164,11 @@ function App() {
         <Route path="tickets" element={<TicketsPage />} />
         <Route path="chat" element={<RequirePermission permission="chat:view"><ChatPage /></RequirePermission>} />
         <Route path="crm" element={<RequirePermission permission="crm:view"><CRMPage /></RequirePermission>} />
-        <Route path="crm/inbox" element={<RequirePermission permission="crm:view"><CRMInboxPage /></RequirePermission>} />
-        <Route path="crm/calendar" element={<RequirePermission permission="crm:view"><CRMCalendarPage /></RequirePermission>} />
+        <Route path="crm/inbox" element={<RequirePermission permissions={["crm:inbox:view", "crm:view"]}><CRMInboxPage /></RequirePermission>} />
+        <Route path="crm/calendar" element={<RequirePermission permissions={["crm:calendar:view", "crm:view"]}><CRMCalendarPage /></RequirePermission>} />
         <Route path="admin-notifications" element={<RequirePermission permissions={["admin.notifications.manage", "admin.roles.manage"]}><AdminNotificationsPage /></RequirePermission>} />
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
+        <Route path="rooms" element={<RequirePermission permissions={["rooms:view", "rooms:reserve", "admin.rooms.manage"]}><RoomsPage /></RequirePermission>} />
       </Route>
 
 

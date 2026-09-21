@@ -5,14 +5,92 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 
 from src.core.database import get_db
-from src.schemas.user import UserResponse, UserCreateAdmin, UserUpdateAdmin, UserPaginatedResponse
+from src.schemas.user import (
+    UserResponse, UserCreateAdmin, UserUpdateAdmin, UserPaginatedResponse,
+    UserProfileUpdate, UserChangePassword, ForceProfileUpdateRequest
+)
 from src.schemas.security import AssignRoleToUser
 from src.models.user import User
 from src.models.security import Role
 from src.services.user_service import UserService
-from src.api.deps import RequirePermission
+from src.api.deps import RequirePermission, get_current_user
 
 router = APIRouter()
+
+@router.get("/me/profile", response_model=UserResponse)
+async def get_my_profile(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene los datos completos del perfil del usuario en sesión.
+    """
+    return await UserService.get_user_by_id(db, current_user.id)
+
+@router.put("/me/profile", response_model=UserResponse)
+async def update_my_profile(
+    profile_in: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Actualiza la información de perfil del usuario en sesión y desbloquea must_update_profile.
+    """
+    return await UserService.update_profile(db, current_user.id, profile_in.model_dump(exclude_unset=True))
+
+@router.post("/me/change-password")
+async def change_my_password(
+    pwd_in: UserChangePassword,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permite al usuario cambiar su contraseña validando la contraseña actual.
+    """
+    return await UserService.change_password(db, current_user.id, pwd_in.current_password, pwd_in.new_password)
+
+@router.post("/admin/force-profile-update", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def force_profile_update(
+    data: ForceProfileUpdateRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Fuerza a los usuarios a actualizar sus datos la próxima vez que ingresen/naveguen.
+    Puede aplicarse a todos los usuarios o a un listado específico de IDs.
+    """
+    return await UserService.force_profile_update(db, data.user_ids, data.force_all)
+
+@router.post("/{user_id}/toggle-force-profile", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def toggle_force_profile(
+    user_id: int,
+    force_value: Optional[bool] = Query(None, description="Valor explícito opcional (true/false). Si se omite, invierte el valor actual."),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Fuerza o desmarca individualmente la actualización obligatoria de perfil de un usuario.
+    """
+    return await UserService.toggle_force_profile_update(db, user_id, force_value)
+
+@router.get("/my-children", response_model=List[UserResponse])
+async def get_my_children(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene las cuentas de menores vinculadas al usuario en sesión como tutor/padre.
+    """
+    result = await db.execute(
+        select(User)
+        .options(
+            selectinload(User.roles).selectinload(Role.permissions),
+            selectinload(User.bank_accounts),
+            selectinload(User.wallet),
+            selectinload(User.parent),
+            selectinload(User.children)
+        )
+        .where(User.parent_user_id == current_user.id)
+    )
+    return result.scalars().all()
 
 @router.get("", response_model=UserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def list_users(

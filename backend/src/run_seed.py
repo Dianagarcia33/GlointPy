@@ -60,6 +60,20 @@ PERMISSIONS = [
     {"name": "chat:view", "description": "Acceder y ver el módulo de chat en tiempo real", "module": "chat"},
     {"name": "chat:send", "description": "Escribir mensajes y enviar archivos en el chat", "module": "chat"},
     {"name": "admin.chat.manage", "description": "Administrar y supervisar salas de chat", "module": "chat"},
+    {"name": "crm:view", "description": "CRM / Proyectos: Acceso a la vista de embudos y prospectos", "module": "CRM"},
+    {"name": "crm:leads:manage", "description": "CRM: Crear, mover y dar seguimiento a prospectos (Botón Nuevo Prospecto)", "module": "CRM"},
+    {"name": "crm:projects:create", "description": "CRM / Proyectos: Crear nuevos proyectos de inversión (Botón Nuevo Proyecto)", "module": "CRM"},
+    {"name": "crm:projects:manage", "description": "CRM / Proyectos: Administrar, editar y eliminar proyectos de inversión", "module": "CRM"},
+    {"name": "crm:form_keys:manage", "description": "Claves de Formularios: Administrar y generar claves API de formularios web (Botón Claves de Formularios)", "module": "CRM"},
+    {"name": "crm:inbox:view", "description": "Bandeja de Correos: Ver y consultar correos corporativos recibidos y enviados", "module": "CRM"},
+    {"name": "crm:inbox:send", "description": "Bandeja de Correos: Redactar y enviar correos comerciales a clientes y prospectos", "module": "CRM"},
+    {"name": "crm:calendar:view", "description": "Calendario / Agenda: Consultar eventos, citas y reuniones programadas", "module": "CRM"},
+    {"name": "crm:calendar:manage", "description": "Calendario / Agenda: Crear, editar, agendar y sincronizar citas", "module": "CRM"},
+    {"name": "admin.crm.manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
+    {"name": "rooms:view", "description": "Acceder y consultar calendario de salas de reuniones", "module": "salas"},
+    {"name": "rooms:reserve", "description": "Reservar salas de reuniones y gestionar reservas propias", "module": "salas"},
+    {"name": "admin.rooms.manage", "description": "Administrar salas de reuniones, configuración y todas las reservas", "module": "salas"},
+    {"name": "accounting.dashboard.view", "description": "Visualización del Dashboard Contable y de Tesorería", "module": "dashboard"},
 ]
 
 async def seed_permissions_db(db):
@@ -118,6 +132,43 @@ async def seed_permissions_db(db):
                             permission_id=perm.id
                         ))
                         print(f"💬 Permiso {chat_p} asignado a: {role.name}")
+
+        # Asegurar permisos de Salas a roles operativos/comerciales/administrativos (excepto inversionistas)
+        if any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente", "operaciones", "contabilidad", "administrativ"]):
+            for room_p in ["rooms:view", "rooms:reserve"]:
+                if room_p in all_perms_map:
+                    perm = all_perms_map[room_p]
+                    check = await db.execute(select(role_permissions).where(
+                        (role_permissions.c.role_id == role.id) & 
+                        (role_permissions.c.permission_id == perm.id)
+                    ))
+                    if not check.first():
+                        await db.execute(insert(role_permissions).values(
+                            role_id=role.id,
+                            permission_id=perm.id
+                        ))
+                        print(f"🏢 Permiso de Salas {room_p} asignado a: {role.name}")
+
+        # Asegurar permisos contables al rol de contabilidad
+        if any(kw in r_name for kw in ["contab", "contador", "auditor", "tesoreria"]):
+            accounting_perms = [
+                "accounting.dashboard.view", "admin.payments.manage", "admin.withdrawals.manage", 
+                "admin.audits.manage", "admin.commissions.settle", "admin.investments.manage",
+                "wallets:view", "bank_accounts:manage"
+            ]
+            for p_name in accounting_perms:
+                if p_name in all_perms_map:
+                    perm = all_perms_map[p_name]
+                    check = await db.execute(select(role_permissions).where(
+                        (role_permissions.c.role_id == role.id) & 
+                        (role_permissions.c.permission_id == perm.id)
+                    ))
+                    if not check.first():
+                        await db.execute(insert(role_permissions).values(
+                            role_id=role.id,
+                            permission_id=perm.id
+                        ))
+            print(f"💰 Permisos de Contabilidad asignados a: {role.name}")
 
         # Para otros roles, verificar si ya tienen permisos configurados
         role_has_perms = await db.execute(

@@ -5,7 +5,7 @@ from typing import List
 
 from src.models.user import User
 from src.models.security import Role
-from src.core.security import get_password_hash
+from src.core.security import get_password_hash, verify_password
 from fastapi import HTTPException
 import csv
 import io
@@ -59,7 +59,9 @@ class UserService:
         query = query.options(
             selectinload(User.roles).selectinload(Role.permissions),
             selectinload(User.bank_accounts),
-            selectinload(User.wallet)
+            selectinload(User.wallet),
+            selectinload(User.parent),
+            selectinload(User.children)
         )
         query = query.order_by(User.id.desc()).offset(offset).limit(limit)
         
@@ -79,7 +81,9 @@ class UserService:
             select(User).options(
                 selectinload(User.roles).selectinload(Role.permissions),
                 selectinload(User.bank_accounts),
-                selectinload(User.wallet)
+                selectinload(User.wallet),
+                selectinload(User.parent),
+                selectinload(User.children)
             ).where(User.id == user_id)
         )
         user = result.scalars().first()
@@ -116,6 +120,12 @@ class UserService:
         if result.scalars().first():
             raise HTTPException(status_code=400, detail="Email already registered")
 
+        parent_user_id = user_data.get("parent_user_id")
+        if parent_user_id:
+            parent_res = await db.execute(select(User).where(User.id == parent_user_id))
+            if not parent_res.scalars().first():
+                raise HTTPException(status_code=400, detail="El usuario tutor especificado no existe")
+
         # Create user with default password
         user = User(
             name=user_data["name"],
@@ -123,6 +133,7 @@ class UserService:
             document_id=user_data.get("document_id"),
             phone_number=user_data.get("phone_number"),
             date_of_birth=user_data.get("date_of_birth"),
+            parent_user_id=parent_user_id,
             password_hash=get_password_hash("Temp123!"),
             must_change_password=True,
             is_active=user_data.get("is_active", True)
@@ -168,6 +179,15 @@ class UserService:
             if result.scalars().first():
                 raise HTTPException(status_code=400, detail="Email already registered")
 
+        if "parent_user_id" in user_data:
+            p_id = user_data["parent_user_id"]
+            if p_id == user.id:
+                raise HTTPException(status_code=400, detail="Un usuario no puede ser su propio tutor o representante")
+            if p_id:
+                p_res = await db.execute(select(User).where(User.id == p_id))
+                if not p_res.scalars().first():
+                    raise HTTPException(status_code=400, detail="El usuario tutor especificado no existe")
+
         for key, value in user_data.items():
             if key != "role_ids":
                 setattr(user, key, value)
@@ -179,6 +199,94 @@ class UserService:
                 user.roles = roles_result.scalars().all()
             else:
                 user.roles = []
+
+        await db.commit()
+        await db.refresh(user)
+        return await UserService.get_user_by_id(db, user.id)
+
+    @staticmethod
+    async def update_profile(db: AsyncSession, user_id: int, profile_data: dict) -> User:
+        user = await UserService.get_user_by_id(db, user_id)
+
+        # Validate unique email if changing
+        if "email" in profile_data and profile_data["email"] and profile_data["email"].lower() != user.email.lower():
+            res = await db.execute(select(User).where(User.email == profile_data["email"].lower(), User.id != user_id))
+            if res.scalars().first():
+                raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado por otro usuario.")
+            user.email = profile_data["email"].lower()
+
+        # Validate unique document_id if changing and provided
+        if "document_id" in profile_data and profile_data["document_id"]:
+            doc_id = profile_data["document_id"].strip()
+            if doc_id and doc_id != user.document_id:
+                res = await db.execute(select(User).where(User.document_id == doc_id, User.id != user_id))
+                if res.scalars().first():
+                    raise HTTPException(status_code=400, detail="El documento de identidad ya está registrado por otro usuario.")
+            user.document_id = doc_id
+
+        if "name" in profile_data and profile_data["name"]:
+            user.name = profile_data["name"].strip()
+
+        if "phone_number" in profile_data:
+            user.phone_number = profile_data["phone_number"]
+
+        if "date_of_birth" in profile_data:
+            user.date_of_birth = profile_data["date_of_birth"]
+
+        # Upon saving their profile data, unmark the forced update flag
+        user.must_update_profile = False
+
+        await db.commit()
+        await db.refresh(user)
+        return await UserService.get_user_by_id(db, user.id)
+
+    @staticmethod
+    async def change_password(db: AsyncSession, user_id: int, current_password: str, new_password: str) -> dict:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        if not verify_password(current_password, user.password_hash):
+            raise HTTPException(status_code=400, detail="La contraseña actual no es correcta.")
+
+        user.password_hash = get_password_hash(new_password)
+        user.must_change_password = False
+        user.failed_login_attempts = 0
+        user.locked_until = None
+
+        await db.commit()
+        return {"message": "Contraseña actualizada exitosamente"}
+
+    @staticmethod
+    async def force_profile_update(db: AsyncSession, user_ids: list = None, force_all: bool = False) -> dict:
+        from sqlalchemy import update
+        if force_all:
+            # Force all non-superuser users
+            stmt = update(User).where(User.is_superuser == False).values(must_update_profile=True)
+            result = await db.execute(stmt)
+            await db.commit()
+            return {
+                "message": f"Se activó la actualización obligatoria para {result.rowcount} usuarios.",
+                "affected_count": result.rowcount
+            }
+        elif user_ids and len(user_ids) > 0:
+            stmt = update(User).where(User.id.in_(user_ids)).values(must_update_profile=True)
+            result = await db.execute(stmt)
+            await db.commit()
+            return {
+                "message": f"Se activó la actualización obligatoria para {result.rowcount} usuarios seleccionados.",
+                "affected_count": result.rowcount
+            }
+        return {"message": "No se especificaron usuarios para la actualización.", "affected_count": 0}
+
+    @staticmethod
+    async def toggle_force_profile_update(db: AsyncSession, user_id: int, force_value: bool = None) -> User:
+        user = await UserService.get_user_by_id(db, user_id)
+        if force_value is not None:
+            user.must_update_profile = force_value
+        else:
+            user.must_update_profile = not user.must_update_profile
 
         await db.commit()
         await db.refresh(user)
@@ -507,7 +615,61 @@ class UserService:
                 "observaciones": inv.observations or ""
             })
 
-        # 6. Consolidate Statement Payload
+        # 6. Fetch Share Movements & Holdings
+        import logging
+        logger = logging.getLogger(__name__)
+        from src.models.share_market import ShareMovement, UserShare
+        from src.services.share_market_service import ShareMarketService
+
+        try:
+            await ShareMarketService.sync_legacy_shares_for_user(db, user_id)
+        except Exception as e:
+            logger.warning(f"Error syncing legacy shares for user {user_id}: {e}")
+
+        user_shares = await ShareMarketService.get_or_create_user_shares(db, user_id)
+        current_share_price = await ShareMarketService.get_current_price(db)
+
+        sm_query = select(ShareMovement).where(ShareMovement.user_id == user_id)
+        if start_dt:
+            sm_query = sm_query.where(ShareMovement.created_at >= start_dt)
+        if end_dt:
+            sm_query = sm_query.where(ShareMovement.created_at <= end_dt)
+
+        sm_res = await db.execute(sm_query.order_by(desc(ShareMovement.created_at), desc(ShareMovement.id)))
+        share_movements = sm_res.scalars().all()
+
+        share_type_labels = {
+            "package_grant": "Acreditación por Paquete",
+            "market_buy": "Compra en Mercado",
+            "market_sell": "Venta en Mercado",
+            "listing_lock": "Bloqueo para Venta",
+            "listing_unlock": "Desbloqueo de Venta",
+            "admin_adjustment": "Ajuste Administrativo",
+        }
+
+        share_movements_list = []
+        for sm in share_movements:
+            m_type = sm.movement_type or "package_grant"
+            label = share_type_labels.get(m_type, m_type.replace("_", " ").title())
+            share_movements_list.append({
+                "id": sm.id,
+                "created_at": sm.created_at.isoformat() if sm.created_at else None,
+                "movement_type": m_type,
+                "type_label": label,
+                "shares_quantity": sm.shares_quantity,
+                "balance_before": sm.balance_before,
+                "balance_after": sm.balance_after,
+                "description": sm.description or label,
+                "investor_id": sm.investor_id,
+                "package_id": sm.package_id
+            })
+
+        total_shares_owned = user_shares.total_shares if user_shares else 0
+        available_shares = user_shares.available_shares if user_shares else 0
+        locked_shares = user_shares.locked_shares if user_shares else 0
+        portfolio_market_value = round(float(total_shares_owned * current_share_price), 2)
+
+        # 7. Consolidate Statement Payload
         bank_accounts_list = [
             {
                 "id": acc.id,
@@ -548,11 +710,21 @@ class UserService:
                 "closing_balance": float(wallet.balance) if wallet else 0.0,
                 "total_withdrawn_paid": total_withdrawn_paid,
                 "total_withdrawn_pending": total_withdrawn_pending,
-                "total_capital_invested": total_capital_invested
+                "total_capital_invested": total_capital_invested,
+                "total_shares": total_shares_owned,
+                "total_shares_value": portfolio_market_value
             },
             "transactions": wallet_transactions_list,
             "withdrawals": withdrawals_list,
-            "investments": investments_list
+            "investments": investments_list,
+            "shares": {
+                "total_shares_owned": total_shares_owned,
+                "available_shares": available_shares,
+                "locked_shares": locked_shares,
+                "current_share_price": float(current_share_price),
+                "portfolio_market_value": portfolio_market_value,
+                "movements": share_movements_list
+            }
         }
 
     @staticmethod
