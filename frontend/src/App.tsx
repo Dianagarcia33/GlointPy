@@ -48,6 +48,7 @@ import { CRMCalendarPage } from "./features/crm/pages/CRMCalendarPage";
 import { AdminNotificationsPage } from "./features/admin/notifications/pages/AdminNotificationsPage";
 import { AdminEventsPage } from "./features/admin/events/pages/AdminEventsPage";
 import { TicketsPage } from "./features/tickets/pages/TicketsPage";
+import { ProfilePage } from "./features/profile/pages/ProfilePage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -136,6 +137,7 @@ function App() {
         } 
       >
         <Route index element={<DashboardPage />} />
+        <Route path="profile" element={<ProfilePage />} />
         <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
         <Route path="investments" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentsPage /></RequirePermission>} />
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />

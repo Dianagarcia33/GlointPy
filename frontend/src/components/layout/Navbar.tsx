@@ -335,6 +335,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                             Ir al Dashboard
                           </Link>
                         )}
+                        <Link
+                          to="/dashboard/profile"
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <UserIcon className="w-4 h-4 text-brand-500" />
+                          Mi Perfil
+                        </Link>
                         <button
                           onClick={() => {
                             setUserMenuOpen(false);

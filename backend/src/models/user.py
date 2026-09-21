@@ -34,6 +34,7 @@ class User(Base):
     # Campos Adicionales
     date_of_birth = Column(DateTime, nullable=True)
     must_change_password = Column(Boolean, default=False)
+    must_update_profile = Column(Boolean, default=False, nullable=False)
     
     # Seguridad y Bloqueos
     failed_login_attempts = Column(Integer, default=0)

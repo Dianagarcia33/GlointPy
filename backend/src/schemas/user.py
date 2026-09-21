@@ -83,6 +83,7 @@ class UserUpdateAdmin(BaseModel):
     date_of_birth: Optional[Any] = None
     role_ids: Optional[List[int]] = None
     parent_user_id: Optional[int] = None
+    must_update_profile: Optional[bool] = None
 
     @field_validator('date_of_birth', mode='before')
     @classmethod
@@ -95,6 +96,27 @@ class UserUpdateAdmin(BaseModel):
         if v is not None and len(v) == 0:
             raise ValueError("El usuario debe tener al menos un rol asignado")
         return v
+
+class UserProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    name: str = Field(..., min_length=2, max_length=255)
+    email: EmailStr
+    document_id: Optional[str] = Field(None, max_length=50)
+    phone_number: Optional[str] = Field(None, max_length=50)
+    date_of_birth: Optional[Any] = None
+
+    @field_validator('date_of_birth', mode='before')
+    @classmethod
+    def parse_empty_date(cls, v):
+        return _validate_date_of_birth(v)
+
+class UserChangePassword(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6, max_length=100)
+
+class ForceProfileUpdateRequest(BaseModel):
+    user_ids: Optional[List[int]] = None
+    force_all: bool = False
 
 class UserSummaryOut(BaseModel):
     id: int
@@ -114,6 +136,7 @@ class UserResponse(BaseModel):
     is_active: bool
     is_superuser: bool
     must_change_password: bool
+    must_update_profile: bool = False
     date_of_birth: Optional[Any] = None
     permissions_override: Optional[Any] = None
     parent_user_id: Optional[int] = None
@@ -157,7 +180,7 @@ class UserResponse(BaseModel):
             loaded_data['permissions_override'] = getattr(data, 'permissions_override', None)
             loaded_data['permissions'] = getattr(data, 'permissions', [])
 
-            for field in ('id', 'name', 'email', 'is_active', 'is_superuser', 'must_change_password', 'created_at', 'updated_at'):
+            for field in ('id', 'name', 'email', 'is_active', 'is_superuser', 'must_change_password', 'must_update_profile', 'created_at', 'updated_at'):
                 if field not in loaded_data and hasattr(data, field):
                     loaded_data[field] = getattr(data, field)
 

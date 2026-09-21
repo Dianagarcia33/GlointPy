@@ -108,6 +108,11 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN must_update_profile BOOLEAN NOT NULL DEFAULT FALSE"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN reply_to_id BIGINT NULL"))
             except Exception:
                 pass

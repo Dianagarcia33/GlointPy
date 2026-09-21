@@ -121,6 +121,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </span>
                                     <span className="flex-1 text-[13px] font-outfit">Soporte y Tickets</span>
                                 </NavLink>
+
+                                <NavLink to="/dashboard/profile" className={navLinkClass}>
+                                    <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                        <User className="w-[18px] h-[18px]" />
+                                    </span>
+                                    <span className="flex-1 text-[13px] font-outfit">Mi Perfil</span>
+                                </NavLink>
                             </motion.div>
                         )}
                     </AnimatePresence>

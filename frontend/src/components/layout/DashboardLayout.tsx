@@ -4,9 +4,12 @@ import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { DashboardFooter } from './DashboardFooter';
 import { ParentalBanner } from './ParentalBanner';
+import { MandatoryProfileUpdateModal } from '../../features/profile/components/MandatoryProfileUpdateModal';
+import { useAuthStore } from '../../store/authStore';
 import { X, LayoutDashboard } from 'lucide-react';
 
 export const DashboardLayout = () => {
+    const user = useAuthStore((state) => state.user);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const location = useLocation();
     const isChatPage = location.pathname.includes('/dashboard/chat');
@@ -22,6 +25,7 @@ export const DashboardLayout = () => {
             {/* Contenedor principal debajo de la Navbar */}
             <div className="flex-1 flex flex-col pt-16 relative overflow-hidden">
                 <ParentalBanner />
+                {user?.must_update_profile && <MandatoryProfileUpdateModal />}
                 <div className="flex-1 flex relative overflow-hidden">
                     {/* Menú Lateral para pantallas medianas o grandes */}
                     <div className="hidden md:block border-r border-slate-200 bg-white">

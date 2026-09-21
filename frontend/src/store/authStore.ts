@@ -7,6 +7,10 @@ export interface User {
   email: string;
   is_active: boolean;
   is_superuser?: boolean;
+  document_id?: string | null;
+  phone_number?: string | null;
+  date_of_birth?: string | null;
+  must_update_profile?: boolean;
   parent_user_id?: number | null;
   parent?: any;
   children?: any[];

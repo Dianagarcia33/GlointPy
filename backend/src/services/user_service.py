@@ -5,7 +5,7 @@ from typing import List
 
 from src.models.user import User
 from src.models.security import Role
-from src.core.security import get_password_hash
+from src.core.security import get_password_hash, verify_password
 from fastapi import HTTPException
 import csv
 import io
@@ -199,6 +199,94 @@ class UserService:
                 user.roles = roles_result.scalars().all()
             else:
                 user.roles = []
+
+        await db.commit()
+        await db.refresh(user)
+        return await UserService.get_user_by_id(db, user.id)
+
+    @staticmethod
+    async def update_profile(db: AsyncSession, user_id: int, profile_data: dict) -> User:
+        user = await UserService.get_user_by_id(db, user_id)
+
+        # Validate unique email if changing
+        if "email" in profile_data and profile_data["email"] and profile_data["email"].lower() != user.email.lower():
+            res = await db.execute(select(User).where(User.email == profile_data["email"].lower(), User.id != user_id))
+            if res.scalars().first():
+                raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado por otro usuario.")
+            user.email = profile_data["email"].lower()
+
+        # Validate unique document_id if changing and provided
+        if "document_id" in profile_data and profile_data["document_id"]:
+            doc_id = profile_data["document_id"].strip()
+            if doc_id and doc_id != user.document_id:
+                res = await db.execute(select(User).where(User.document_id == doc_id, User.id != user_id))
+                if res.scalars().first():
+                    raise HTTPException(status_code=400, detail="El documento de identidad ya está registrado por otro usuario.")
+            user.document_id = doc_id
+
+        if "name" in profile_data and profile_data["name"]:
+            user.name = profile_data["name"].strip()
+
+        if "phone_number" in profile_data:
+            user.phone_number = profile_data["phone_number"]
+
+        if "date_of_birth" in profile_data:
+            user.date_of_birth = profile_data["date_of_birth"]
+
+        # Upon saving their profile data, unmark the forced update flag
+        user.must_update_profile = False
+
+        await db.commit()
+        await db.refresh(user)
+        return await UserService.get_user_by_id(db, user.id)
+
+    @staticmethod
+    async def change_password(db: AsyncSession, user_id: int, current_password: str, new_password: str) -> dict:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        if not verify_password(current_password, user.password_hash):
+            raise HTTPException(status_code=400, detail="La contraseña actual no es correcta.")
+
+        user.password_hash = get_password_hash(new_password)
+        user.must_change_password = False
+        user.failed_login_attempts = 0
+        user.locked_until = None
+
+        await db.commit()
+        return {"message": "Contraseña actualizada exitosamente"}
+
+    @staticmethod
+    async def force_profile_update(db: AsyncSession, user_ids: list = None, force_all: bool = False) -> dict:
+        from sqlalchemy import update
+        if force_all:
+            # Force all non-superuser users
+            stmt = update(User).where(User.is_superuser == False).values(must_update_profile=True)
+            result = await db.execute(stmt)
+            await db.commit()
+            return {
+                "message": f"Se activó la actualización obligatoria para {result.rowcount} usuarios.",
+                "affected_count": result.rowcount
+            }
+        elif user_ids and len(user_ids) > 0:
+            stmt = update(User).where(User.id.in_(user_ids)).values(must_update_profile=True)
+            result = await db.execute(stmt)
+            await db.commit()
+            return {
+                "message": f"Se activó la actualización obligatoria para {result.rowcount} usuarios seleccionados.",
+                "affected_count": result.rowcount
+            }
+        return {"message": "No se especificaron usuarios para la actualización.", "affected_count": 0}
+
+    @staticmethod
+    async def toggle_force_profile_update(db: AsyncSession, user_id: int, force_value: bool = None) -> User:
+        user = await UserService.get_user_by_id(db, user_id)
+        if force_value is not None:
+            user.must_update_profile = force_value
+        else:
+            user.must_update_profile = not user.must_update_profile
 
         await db.commit()
         await db.refresh(user)

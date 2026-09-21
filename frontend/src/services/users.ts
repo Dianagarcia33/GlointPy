@@ -36,6 +36,7 @@ export interface User {
   document_id?: string | null;
   phone_number?: string | null;
   date_of_birth?: string | null;
+  must_update_profile?: boolean;
   is_active: boolean;
   is_superuser: boolean;
   parent_user_id?: number | null;
@@ -327,4 +328,49 @@ export const usersService = {
       method: 'POST',
     });
   },
+
+  getMyProfile: async (): Promise<User> => {
+    return await fetchApi('/users/me/profile');
+  },
+
+  updateMyProfile: async (data: UserProfileUpdateData): Promise<User> => {
+    return await fetchApi('/users/me/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  changeMyPassword: async (data: UserPasswordChangeData): Promise<{ message: string }> => {
+    return await fetchApi('/users/me/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  forceProfileUpdate: async (userIds?: number[], forceAll = false): Promise<{ message: string; affected_count: number }> => {
+    return await fetchApi('/users/admin/force-profile-update', {
+      method: 'POST',
+      body: JSON.stringify({ user_ids: userIds, force_all: forceAll }),
+    });
+  },
+
+  toggleForceProfile: async (userId: number, forceValue?: boolean): Promise<User> => {
+    const qs = forceValue !== undefined ? `?force_value=${forceValue}` : '';
+    return await fetchApi(`/users/${userId}/toggle-force-profile${qs}`, {
+      method: 'POST',
+    });
+  },
 };
+
+export interface UserProfileUpdateData {
+  name: string;
+  email: string;
+  document_id?: string | null;
+  phone_number?: string | null;
+  date_of_birth?: string | null;
+}
+
+export interface UserPasswordChangeData {
+  current_password: string;
+  new_password: string;
+}
