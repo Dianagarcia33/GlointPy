@@ -11,6 +11,7 @@ export interface User {
   phone_number?: string | null;
   date_of_birth?: string | null;
   must_update_profile?: boolean;
+  must_change_password?: boolean;
   parent_user_id?: number | null;
   parent?: any;
   children?: any[];
@@ -76,11 +77,20 @@ export const useAuthStore = create<AuthState>()(
             return { user: null, isAuthenticated: false };
           }
           if (state.user && state.user.id === normalized.id) {
-            const samePerms = (state.user.permissions || []).length === (normalized.permissions || []).length;
-            const sameRoles = (state.user.roles_list || []).length === (normalized.roles_list || []).length;
+            const samePerms = (state.user.permissions || []).length === (normalized.permissions || []).length &&
+              (state.user.permissions || []).every((p, i) => p === (normalized.permissions || [])[i]);
+            const sameRoles = (state.user.roles_list || []).length === (normalized.roles_list || []).length &&
+              (state.user.roles_list || []).every((r, i) => r === (normalized.roles_list || [])[i]);
             const sameName = state.user.name === normalized.name;
+            const sameEmail = state.user.email === normalized.email;
+            const sameDoc = state.user.document_id === normalized.document_id;
+            const samePhone = state.user.phone_number === normalized.phone_number;
+            const sameDob = state.user.date_of_birth === normalized.date_of_birth;
+            const sameMustUpdate = Boolean(state.user.must_update_profile) === Boolean(normalized.must_update_profile);
+            const sameMustChangePass = Boolean(state.user.must_change_password) === Boolean(normalized.must_change_password);
             const sameParent = state.user.parent_user_id === normalized.parent_user_id;
-            if (samePerms && sameRoles && sameName && sameParent) {
+
+            if (samePerms && sameRoles && sameName && sameEmail && sameDoc && samePhone && sameDob && sameMustUpdate && sameMustChangePass && sameParent) {
               return state;
             }
           }

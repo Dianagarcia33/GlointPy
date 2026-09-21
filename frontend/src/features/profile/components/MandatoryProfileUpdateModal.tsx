@@ -23,6 +23,7 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,15 +56,30 @@ export const MandatoryProfileUpdateModal: React.FC = () => {
         date_of_birth: dateOfBirth,
       });
 
-      // Actualizar estado global del usuario (pone must_update_profile = false y cierra el modal)
-      setUser(updatedUser);
+      // Asegurar que must_update_profile sea explícitamente falso
+      const finalUser = {
+        ...updatedUser,
+        must_update_profile: false,
+      };
+
+      // Actualizar estado global del usuario
+      setUser(finalUser);
       setSuccess(true);
+      
+      // Cerrar modal de inmediato
+      setTimeout(() => {
+        setIsDismissed(true);
+      }, 400);
     } catch (err: any) {
       setError(err?.message || 'Error al guardar los datos de perfil. Por favor verifica los campos.');
     } finally {
       setIsSaving(false);
     }
   };
+
+  if (isDismissed) {
+    return null;
+  }
 
   return createPortal(
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200 font-inter">
