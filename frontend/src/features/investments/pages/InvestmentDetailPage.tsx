@@ -153,10 +153,15 @@ export const InvestmentDetailPage = () => {
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex items-baseline gap-3">
+                                <div className="flex items-baseline gap-3 flex-wrap">
                                     <h1 className="text-3xl font-bold text-slate-900 font-montserrat">
                                         {formatCurrency(inv.monto)}
                                     </h1>
+                                    {inv.capital_retirado && inv.capital_retirado > 0 ? (
+                                        <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                                            Retirado: {formatCurrency(inv.capital_retirado)}
+                                        </span>
+                                    ) : null}
                                     {(inv.periodo?.percentage || inv.porcentaje_mensual) && (
                                         <span className="text-xs font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl font-montserrat">
                                             {inv.periodo?.percentage || inv.porcentaje_mensual}% mensual
@@ -233,12 +238,12 @@ export const InvestmentDetailPage = () => {
                             <div className="mb-6">
                                 <div className="flex justify-between items-end mb-2">
                                     <span className="text-xs font-semibold text-slate-500">Progreso de Liberación</span>
-                                    <span className="text-xs font-bold text-brand-600">{((inv.capital_liberado / inv.monto) * 100 || 0).toFixed(0)}%</span>
+                                    <span className="text-xs font-bold text-brand-600">{((inv.capital_liberado / (inv.monto_original || inv.monto || 1)) * 100 || 0).toFixed(0)}%</span>
                                 </div>
                                 <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                                     <div 
                                         className="bg-brand-500 h-2 rounded-full transition-all duration-1000 ease-out" 
-                                        style={{ width: `${Math.min(100, Math.max(0, (inv.capital_liberado / inv.monto) * 100 || 0))}%` }}
+                                        style={{ width: `${Math.min(100, Math.max(0, (inv.capital_liberado / (inv.monto_original || inv.monto || 1)) * 100 || 0))}%` }}
                                     ></div>
                                 </div>
                             </div>

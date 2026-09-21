@@ -10,6 +10,9 @@ export interface Investment {
   id: number;
   user_id: number;
   monto: number;
+  monto_original?: number;
+  capital_activo?: number;
+  capital_retirado?: number;
   status: 'pending' | 'approved' | 'rejected' | 'finished';
   created_at: string;
   

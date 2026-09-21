@@ -67,12 +67,12 @@ export const KPIDetailModal: React.FC<KPIDetailModalProps> = ({
             case 'current':
                 return {
                     title: 'Valor Proyectado del Portafolio',
-                    subtitle: 'Capital invertido más los rendimientos estimados totales a recibir',
+                    subtitle: 'Capital activo más los rendimientos estimados totales a recibir',
                     badge: `+${rentabilidadGlobal.toFixed(1)}% ROI Estimado`,
                     icon: <DollarSign className="w-6 h-6 text-brand-600" />,
                     bgIcon: 'bg-brand-50 text-brand-600 border-brand-100',
                     mainValue: formatCurrency(totalPortafolio),
-                    formulaLabel: 'Fórmula: Capital Activo + Rendimientos Totales',
+                    formulaLabel: 'Fórmula: Capital Activo (Restante) + Rendimientos Totales',
                     items: activeInvestments,
                     emptyText: 'No hay proyecciones activas.',
                 };
@@ -147,7 +147,7 @@ export const KPIDetailModal: React.FC<KPIDetailModalProps> = ({
                     </div>
                     {type === 'current' && (
                         <div className="text-xs text-slate-300 bg-white/10 px-3.5 py-2 rounded-xl border border-white/10 space-y-0.5">
-                            <p className="font-semibold text-emerald-400">Capital: {formatCurrency(totalInvertido)}</p>
+                            <p className="font-semibold text-emerald-400">Capital Activo: {formatCurrency(totalInvertido)}</p>
                             <p className="font-semibold text-brand-300">Rendimiento: +{formatCurrency(totalRendimiento)}</p>
                         </div>
                     )}
@@ -199,10 +199,15 @@ export const KPIDetailModal: React.FC<KPIDetailModalProps> = ({
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                                        <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                                             <span className="font-semibold text-slate-700">
-                                                Capital: {formatCurrency(monto)}
+                                                Capital Activo: {formatCurrency(monto)}
                                             </span>
+                                            {inv.capital_retirado && inv.capital_retirado > 0 ? (
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                                    Retirado: {formatCurrency(inv.capital_retirado)}
+                                                </span>
+                                            ) : null}
                                             <span>•</span>
                                             <span className="text-emerald-600 font-semibold">
                                                 Rendimiento: +{formatCurrency(rendimiento)}

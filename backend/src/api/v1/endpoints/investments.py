@@ -12,9 +12,11 @@ from pydantic import BaseModel
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+from sqlalchemy import or_, and_, func, desc
 from src.models.contract_history import ContractHistory
 from src.models.investor import Investor
 from src.models.package import Package
+from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
 
 from src.api.v1.endpoints.wallets import check_withdrawal_dates_active
 
@@ -62,10 +64,40 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
     # 2. Fetch Active Contracts from Investor table
     investors_result = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
+        .options(
+            selectinload(Investor.package), 
+            selectinload(Investor.period), 
+            selectinload(Investor.accelerations),
+            selectinload(Investor.withdrawals)
+        )
         .where(Investor.user_id == current_user.id)
     )
     active_investors = investors_result.scalars().all()
+
+    # Pre-cargar o mapear retiros de capital del usuario para máxima consistencia
+    user_withdrawals_map = {}
+    try:
+        w_stmt = select(Withdrawal).where(
+            Withdrawal.user_id == current_user.id,
+            or_(
+                Withdrawal.tipo == WithdrawalType.CAPITAL,
+                func.lower(Withdrawal.tipo) == "capital"
+            ),
+            Withdrawal.estado.in_([
+                WithdrawalStatus.PENDING,
+                WithdrawalStatus.APPROVED,
+                WithdrawalStatus.PROCESSED,
+                "pendiente",
+                "aprobado",
+                "procesado"
+            ])
+        )
+        w_result = await db.execute(w_stmt)
+        for w in w_result.scalars().all():
+            if w.investor_id:
+                user_withdrawals_map[w.investor_id] = user_withdrawals_map.get(w.investor_id, 0.0) + float(w.monto or 0.0)
+    except Exception:
+        pass
     
     for inv_record in active_investors:
         fecha_ingreso = inv_record.start_date
@@ -97,33 +129,103 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
         if check_date and check_date <= current_today:
             is_active = False
 
-        monto = float(inv_record.package.value) if inv_record.package else 0
-        
-        # Rendimiento
-        rendimiento_total = 0
-        if inv_record.period and monto:
-            # rendimiento_aprobado_mensual * meses
-            rendimiento_total = monto * float(inv_record.period.percentage) / 100 * inv_record.period.months
-            
+        monto_original = float(inv_record.package.value) if inv_record.package else 0.0
+
+        # Verificar retiros de capital vinculados al contrato
+        capital_retirado = user_withdrawals_map.get(inv_record.id, 0.0)
+        if hasattr(inv_record, 'withdrawals') and inv_record.withdrawals:
+            rel_retirado = 0.0
+            for w in inv_record.withdrawals:
+                w_tipo = str(w.tipo.value if hasattr(w.tipo, 'value') else w.tipo).lower()
+                w_estado = str(w.estado.value if hasattr(w.estado, 'value') else w.estado).lower()
+                if w_tipo == "capital" and w_estado in ["pendiente", "aprobado", "procesado"]:
+                    rel_retirado += float(w.monto or 0.0)
+            if rel_retirado > capital_retirado:
+                capital_retirado = rel_retirado
+
+        capital_activo = max(0.0, monto_original - capital_retirado)
+
+        porcentaje_mensual = float(inv_record.period.percentage) if inv_record.period and inv_record.period.percentage else 0.0
+        meses_contrato = inv_record.period.months if inv_record.period and inv_record.period.months else 0
+
+        # Rendimiento proyectado
+        if capital_retirado <= 0:
+            rendimiento_total = monto_original * (porcentaje_mensual / 100) * meses_contrato if (inv_record.period and monto_original) else 0.0
+        else:
+            # Calcular rendimiento proyectado con base en ciclos y retiros
+            if fecha_ingreso and fecha_fin and inv_record.period:
+                cur_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
+                end_contr = fecha_fin.date() if isinstance(fecha_fin, datetime) else fecha_fin
+                
+                contract_withdrawals = [
+                    w for w in getattr(inv_record, 'withdrawals', [])
+                    if str(w.tipo.value if hasattr(w.tipo, 'value') else w.tipo).lower() == "capital"
+                    and str(w.estado.value if hasattr(w.estado, 'value') else w.estado).lower() in ["pendiente", "aprobado", "procesado"]
+                ]
+                
+                rendimiento_total = 0.0
+                while cur_start < end_contr:
+                    temp_d = cur_start + relativedelta(days=1)
+                    if temp_d.day <= 29:
+                        try:
+                            nxt_end = temp_d.replace(day=29)
+                        except ValueError:
+                            nxt_end = temp_d.replace(day=28)
+                    else:
+                        nxt_m = temp_d + relativedelta(months=1)
+                        try:
+                            nxt_end = nxt_m.replace(day=29)
+                        except ValueError:
+                            nxt_end = nxt_m.replace(day=28)
+                            
+                    if nxt_end > end_contr:
+                        nxt_end = end_contr
+                        
+                    d_ciclo = (nxt_end - cur_start).days
+                    if d_ciclo <= 0:
+                        cur_start = cur_start + relativedelta(days=1)
+                        continue
+                        
+                    ret_ciclo = 0.0
+                    for cw in contract_withdrawals:
+                        cw_date = cw.fecha_solicitud.date() if isinstance(cw.fecha_solicitud, datetime) else cw.fecha_solicitud
+                        if cw_date <= nxt_end:
+                            ret_ciclo += float(cw.monto or 0.0)
+                    
+                    if not contract_withdrawals and capital_retirado > 0:
+                        ret_ciclo = capital_retirado
+
+                    cap_base_ciclo = max(0.0, monto_original - ret_ciclo)
+                    rendimiento_total += (cap_base_ciclo * (porcentaje_mensual / 100)) / 30 * d_ciclo
+                    cur_start = nxt_end
+            else:
+                rendimiento_total = capital_activo * (porcentaje_mensual / 100) * meses_contrato
+
+        rendimiento_total = round(rendimiento_total, 2)
+        daily_yield = (capital_activo * (porcentaje_mensual / 100)) / 30 if (dias_contrato > 0 and capital_activo > 0) else (rendimiento_total / dias_contrato if dias_contrato > 0 else 0.0)
+
         inv = {
             "id": inv_record.id,
             "user_id": current_user.id,
             "assigned_code": inv_record.assigned_code,
             "codigo_asignado": inv_record.assigned_code,
-            "monto": monto,
+            "monto": capital_activo, # Capital activo restante
+            "monto_original": monto_original, # Capital base original contratado
+            "capital_activo": capital_activo,
+            "capital_retirado": capital_retirado,
             "status": "approved" if is_active else "finished",
             "created_at": inv_record.created_at.isoformat() if inv_record.created_at else None,
-            "total_contrato": monto + rendimiento_total,
+            "total_contrato": round(capital_activo + rendimiento_total, 2),
             "rendimiento_total_contrato": rendimiento_total,
-            "liquidacion_diaria_rendimiento": rendimiento_total / dias_contrato if dias_contrato > 0 else 0,
+            "liquidacion_diaria_rendimiento": round(daily_yield, 2),
             "dias_contrato": dias_contrato,
             "aceleracion_dias": round(dias_reducidos_totales, 2),
             "fecha_ingreso": fecha_ingreso.isoformat() if fecha_ingreso else None,
             "fecha_finalizacion": fecha_fin.isoformat() if fecha_fin else None,
-            "porcentaje_mensual": float(inv_record.period.percentage) if inv_record.period and inv_record.period.percentage else 0,
+            "porcentaje_mensual": porcentaje_mensual,
             "periodo": {
                 "id": inv_record.period.id if inv_record.period else 0,
-                "percentage": float(inv_record.period.percentage) if inv_record.period and inv_record.period.percentage else 0,
+                "percentage": porcentaje_mensual,
                 "months": inv_record.period.months if inv_record.period else 0,
                 "days": dias_contrato
             } if inv_record.period else None,
@@ -577,7 +679,9 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     cycle_start = max(last_29th, contract_start)
     
     dias_ciclo_actual = (today - cycle_start).days if today >= cycle_start else 0
-    daily_yield = rendimiento_total / dias_contrato if dias_contrato > 0 else 0
+    capital_activo = max(0.0, float(monto) - float(capital_retirado))
+    rendimiento_total_ajustado = round(sum(p["rendimiento"] for p in projection_table), 2) if projection_table else rendimiento_total
+    daily_yield = round(rendimiento_total_ajustado / dias_contrato, 2) if dias_contrato > 0 else 0.0
     rendimiento_ciclo_actual = round(dias_ciclo_actual * daily_yield, 2)
 
     inv = {
@@ -592,11 +696,13 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         } if inv_record.user else None,
         "assigned_code": inv_record.assigned_code,
         "codigo_asignado": inv_record.assigned_code,
-        "monto": monto,
+        "monto": capital_activo,
+        "monto_original": monto,
+        "capital_activo": capital_activo,
         "status": "approved" if is_active else "finished",
         "created_at": inv_record.created_at.isoformat() if inv_record.created_at else None,
-        "total_contrato": monto + rendimiento_total,
-        "rendimiento_total_contrato": rendimiento_total,
+        "total_contrato": capital_activo + rendimiento_total_ajustado,
+        "rendimiento_total_contrato": rendimiento_total_ajustado,
         "liquidacion_diaria_rendimiento": daily_yield,
         "rendimiento_ciclo_actual": rendimiento_ciclo_actual,
         "dias_ciclo_actual": dias_ciclo_actual,

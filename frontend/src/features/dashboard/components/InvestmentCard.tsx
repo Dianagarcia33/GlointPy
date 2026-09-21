@@ -112,10 +112,15 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                                     </span>
                                 )}
                             </div>
-                            <div className="flex items-baseline gap-2">
+                            <div className="flex items-baseline gap-2 flex-wrap">
                                 <h4 className="text-xl font-bold text-slate-900 font-montserrat">
-                                    {formatCurrency(parseInt(inv.paquete?.paquete_accion_adquirido || "0") || monto)}
+                                    {formatCurrency(monto)}
                                 </h4>
+                                {inv.capital_retirado && inv.capital_retirado > 0 ? (
+                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                        Retirado: {formatCurrency(inv.capital_retirado)}
+                                    </span>
+                                ) : null}
                                 {((inv as any).periodo?.percentage || (inv as any).porcentaje_mensual) && (
                                     <span className="text-xs font-extrabold text-emerald-600 font-montserrat bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
                                         {(inv as any).periodo?.percentage || (inv as any).porcentaje_mensual}% / mes
@@ -169,8 +174,17 @@ export const InvestmentCard: React.FC<InvestmentCardProps> = ({ investment }) =>
                     </div>
                 )}
                 <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600 font-medium">Capital Invertido</span>
-                    <span className="font-semibold text-slate-900">{formatCurrency(monto)}</span>
+                    <span className="text-slate-600 font-medium">
+                        {inv.capital_retirado && inv.capital_retirado > 0 ? 'Capital Activo' : 'Capital Invertido'}
+                    </span>
+                    <div className="text-right">
+                        <span className="font-semibold text-slate-900">{formatCurrency(monto)}</span>
+                        {inv.capital_retirado && inv.capital_retirado > 0 ? (
+                            <span className="block text-[10px] text-amber-600 font-medium">
+                                Retirado: {formatCurrency(inv.capital_retirado)}
+                            </span>
+                        ) : null}
+                    </div>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-600 font-medium">Rentabilidad del Contrato</span>

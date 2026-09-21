@@ -224,6 +224,12 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Asegurar vista o compatibilidad de tabla withdrawals con retiros
+            try:
+                await conn.execute(text("CREATE OR REPLACE VIEW withdrawals AS SELECT * FROM retiros"))
+            except Exception:
+                pass
+
             # Asegurar campo parent_user_id en users para control parental
             try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN parent_user_id BIGINT NULL"))

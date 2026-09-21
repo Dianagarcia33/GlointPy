@@ -246,7 +246,8 @@ export const DashboardPage = () => {
         return inv.status === activeTab;
     });
 
-    const totalInvertido = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
+    const totalInvertido = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.capital_activo ?? inv.monto ?? 0), 0);
+    const totalCapitalRetirado = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.capital_retirado ?? 0), 0);
     const totalInvertidoFinalizado = finishedInvestments.reduce((acc, inv) => acc + parseNumber(inv.monto ?? 0), 0);
     const totalAcciones = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.paquete?.acciones_otorgadas ?? 0), 0);
     const totalRendimiento = activeInvestments.reduce((acc, inv) => acc + parseNumber(inv.rendimiento_total_contrato ?? 0), 0);
