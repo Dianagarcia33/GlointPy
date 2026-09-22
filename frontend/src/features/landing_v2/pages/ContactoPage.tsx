@@ -6,7 +6,7 @@ import {
   ChevronRight, Menu, X, ArrowRight, CheckCircle, Users, Package,
   Truck, Wallet, Map, Activity, Star, 
   Mail, Phone, MapPin, Award, Target, Handshake, Clock,
-  BookOpen, Building2, FileCheck, Heart, Lightbulb, Scale, Loader2, AlertCircle
+  BookOpen, Building2, FileCheck, Heart, Lightbulb, Scale, Loader2, AlertCircle, Sparkles
 } from "lucide-react";
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
@@ -15,13 +15,73 @@ import { crmService } from "../../../services/crmService";
 
 import { CONTACT_INFO } from "../../../constants/contactInfo";
 
+interface QuickResponse {
+  id: string;
+  label: string;
+  asunto: string;
+  mensaje: string;
+}
+
+const QUICK_RESPONSES: QuickResponse[] = [
+  {
+    id: "invertir",
+    label: "💼 Quiero invertir",
+    asunto: "investment",
+    mensaje: "Hola, me gustaría recibir asesoría personalizada sobre los paquetes de inversión disponibles en Gloint, montos y rentabilidad.",
+  },
+  {
+    id: "asesoria",
+    label: "📞 Agendar llamada",
+    asunto: "investment",
+    mensaje: "Hola, deseo coordinar una llamada o reunión con un directivo de inversión para evaluar opciones para mi portafolio.",
+  },
+  {
+    id: "place",
+    label: "🏢 Proyectos Gloint Place",
+    asunto: "place",
+    mensaje: "Hola, estoy interesado en conocer los proyectos inmobiliarios vigentes y oportunidades de inversión en GLOINT Place.",
+  },
+  {
+    id: "rentabilidad",
+    label: "📈 Conocer rentabilidades",
+    asunto: "investment",
+    mensaje: "Hola, quisiera consultar los plazos contractuales, estimación de rendimientos mensuales y políticas de liberación de capital.",
+  },
+  {
+    id: "alianza",
+    label: "🤝 Alianza corporativa",
+    asunto: "alianza",
+    mensaje: "Hola, represento una empresa y me interesa conversar sobre alianzas estratégicas o inversión institucional con Gloint.",
+  },
+  {
+    id: "tech",
+    label: "⚡ Soluciones Tech",
+    asunto: "tech",
+    mensaje: "Hola, me gustaría solicitar información sobre los desarrollos tecnológicos y herramientas digitales de GLOINT Tech.",
+  },
+];
+
 export function ContactoPage() {
   const [form, setForm] = useState({ nombre: "", email: "", telefono: "", asunto: "", mensaje: "" });
+  const [selectedQuickId, setSelectedQuickId] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assignedDirector, setAssignedDirector] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+
+  const handleSelectQuickResponse = (qr: QuickResponse) => {
+    if (selectedQuickId === qr.id) {
+      setSelectedQuickId(null);
+    } else {
+      setSelectedQuickId(qr.id);
+      setForm((prev) => ({
+        ...prev,
+        asunto: qr.asunto,
+        mensaje: qr.mensaje,
+      }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +107,7 @@ export function ContactoPage() {
       if (res?.assigned_director?.name) {
         setAssignedDirector(res.assigned_director.name);
       }
+      setSelectedQuickId(null);
       setSent(true);
     } catch (err: any) {
       console.error("Error al enviar formulario:", err);
@@ -227,6 +288,7 @@ export function ContactoPage() {
                   <button
                     onClick={() => {
                       setSent(false);
+                      setSelectedQuickId(null);
                       setForm({ nombre: "", email: "", telefono: "", asunto: "", mensaje: "" });
                     }}
                     className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90 cursor-pointer"
@@ -345,28 +407,77 @@ export function ContactoPage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <label htmlFor="contacto-mensaje" className="text-xs font-semibold" style={{ color: DARK }}>
-                        Mensaje <span style={{ color: ORANGE }}>*</span>
-                      </label>
-                      <textarea
-                        id="contacto-mensaje"
-                        name="mensaje"
-                        required
-                        rows={4}
-                        value={form.mensaje}
-                        onChange={(e) => setForm({ ...form, mensaje: e.target.value })}
-                        placeholder="Cuéntanos sobre tu proyecto o necesidad..."
-                        className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all resize-none"
-                        style={{
-                          border: "1px solid #e2e8f0",
-                          background: "#f8fafc",
-                          color: DARK,
-                          fontFamily: "inherit",
-                        }}
-                        onFocus={(e) => (e.target.style.borderColor = ORANGE)}
-                        onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-                      />
+                    {/* Respuestas Rápidas */}
+                    <div className="flex flex-col gap-2 pt-1">
+                      <div className="flex items-center justify-between flex-wrap gap-1">
+                        <label className="text-xs font-semibold flex items-center gap-1.5" style={{ color: DARK }}>
+                          <Sparkles size={13} className="text-amber-500" />
+                          <span>Respuestas rápidas (autocompletar motivo):</span>
+                        </label>
+                        {selectedQuickId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedQuickId(null);
+                              setForm((prev) => ({ ...prev, mensaje: "" }));
+                            }}
+                            className="text-[11px] text-slate-400 hover:text-slate-600 underline cursor-pointer"
+                          >
+                            Limpiar mensaje
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Chips */}
+                      <div className="flex flex-wrap gap-1.5 pb-1">
+                        {QUICK_RESPONSES.map((qr) => {
+                          const isSelected = selectedQuickId === qr.id;
+                          return (
+                            <button
+                              key={qr.id}
+                              type="button"
+                              onClick={() => handleSelectQuickResponse(qr)}
+                              className={`px-3 py-1.5 rounded-xl text-xs transition-all cursor-pointer flex items-center gap-1.5 border select-none ${
+                                isSelected
+                                  ? "bg-amber-50 border-amber-400 text-amber-900 font-semibold shadow-xs scale-[1.02]"
+                                  : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300 font-medium"
+                              }`}
+                            >
+                              <span>{qr.label}</span>
+                              {isSelected && <CheckCircle size={12} className="text-amber-600 flex-shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label htmlFor="contacto-mensaje" className="text-xs font-semibold" style={{ color: DARK }}>
+                          Mensaje <span style={{ color: ORANGE }}>*</span>
+                        </label>
+                        <textarea
+                          id="contacto-mensaje"
+                          name="mensaje"
+                          required
+                          rows={4}
+                          value={form.mensaje}
+                          onChange={(e) => {
+                            setForm({ ...form, mensaje: e.target.value });
+                            if (selectedQuickId && e.target.value !== QUICK_RESPONSES.find(q => q.id === selectedQuickId)?.mensaje) {
+                              setSelectedQuickId(null);
+                            }
+                          }}
+                          placeholder="Escribe tu consulta o haz clic en una respuesta rápida arriba..."
+                          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all resize-none"
+                          style={{
+                            border: "1px solid #e2e8f0",
+                            background: "#f8fafc",
+                            color: DARK,
+                            fontFamily: "inherit",
+                          }}
+                          onFocus={(e) => (e.target.style.borderColor = ORANGE)}
+                          onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
+                        />
+                      </div>
                     </div>
 
                     <div className="flex items-start gap-2.5 py-2">
