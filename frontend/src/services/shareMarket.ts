@@ -91,6 +91,16 @@ export interface ShareMovement {
     created_at: string;
 }
 
+export interface UserShareAccount {
+    id: number;
+    user_id: number;
+    total_shares: number;
+    available_shares: number;
+    locked_shares: number;
+    created_at: string;
+    updated_at?: string;
+}
+
 export const shareMarketService = {
     // Inversionista
     getPortfolio: () => fetchApi<SharePortfolio>('/shares-market/portfolio'),
@@ -134,6 +144,7 @@ export const shareMarketService = {
 
     // Administrador
     getUserMovementsAdmin: (userId: number) => fetchApi<ShareMovement[]>(`/shares-market/admin/users/${userId}/movements`),
+    getUserAccountAdmin: (userId: number) => fetchApi<UserShareAccount>(`/shares-market/admin/users/${userId}/account`),
     syncLegacyShares: () =>
         fetchApi<{ message: string; details: any }>('/shares-market/admin/sync-legacy-shares', {
             method: 'POST'
@@ -160,7 +171,7 @@ export const shareMarketService = {
             body: JSON.stringify(data)
         }),
     getIssuances: () => fetchApi<ShareIssuance[]>('/shares-market/admin/issuances'),
-    manualShareGrant: (data: { user_id: number; quantity: number; reason: string; custom_date?: string }) =>
+    manualShareGrant: (data: { user_id: number; quantity: number; reason: string; custom_date?: string; operation?: 'add' | 'deduct' }) =>
         fetchApi<ShareMovement>('/shares-market/admin/manual-grant', {
             method: 'POST',
             body: JSON.stringify(data)

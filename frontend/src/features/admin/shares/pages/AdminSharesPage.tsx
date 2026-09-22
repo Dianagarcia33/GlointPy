@@ -10,10 +10,12 @@ import {
     Users,
     AlertCircle,
     UserPlus,
+    UserMinus,
+    Minus,
     Search,
     Calendar
 } from 'lucide-react';
-import { shareMarketService, ShareTradeOrder, SharePriceHistory, ShareIssuance } from '../../../../services/shareMarket';
+import { shareMarketService, ShareTradeOrder, SharePriceHistory, ShareIssuance, UserShareAccount } from '../../../../services/shareMarket';
 import { usersService, User } from '../../../../services/users';
 import { ShareGrowthChart } from '../components/ShareGrowthChart';
 
@@ -61,18 +63,35 @@ export const AdminSharesPage: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState<'issuances' | 'pending' | 'valuation' | 'audit'>('issuances');
 
-    // Modal de Asignación Manual de Acciones
+    // Modal de Asignación / Deducción Manual de Acciones
     const [isManualGrantModalOpen, setIsManualGrantModalOpen] = useState(false);
+    const [grantOperation, setGrantOperation] = useState<'add' | 'deduct'>('add');
     const [grantUserSearch, setGrantUserSearch] = useState('');
     const [grantUsersList, setGrantUsersList] = useState<User[]>([]);
     const [grantUserSearching, setGrantUserSearching] = useState(false);
     const [selectedGrantUser, setSelectedGrantUser] = useState<User | null>(null);
+    const [grantUserAccount, setGrantUserAccount] = useState<UserShareAccount | null>(null);
+    const [loadingUserAccount, setLoadingUserAccount] = useState(false);
     const [grantQuantity, setGrantQuantity] = useState<number | ''>('');
     const [grantReason, setGrantReason] = useState('');
     const [grantCustomDate, setGrantCustomDate] = useState('');
     const [grantLoading, setGrantLoading] = useState(false);
     const [grantError, setGrantError] = useState<string | null>(null);
     const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
+
+    const handleSelectUser = async (u: User) => {
+        setSelectedGrantUser(u);
+        setGrantUserAccount(null);
+        try {
+            setLoadingUserAccount(true);
+            const acc = await shareMarketService.getUserAccountAdmin(u.id);
+            setGrantUserAccount(acc);
+        } catch (e) {
+            console.error("Error cargando balance de acciones:", e);
+        } finally {
+            setLoadingUserAccount(false);
+        }
+    };
 
     const fetchData = async () => {
         try {
@@ -138,6 +157,8 @@ export const AdminSharesPage: React.FC = () => {
 
     const handleOpenManualGrantModal = () => {
         setSelectedGrantUser(null);
+        setGrantUserAccount(null);
+        setGrantOperation('add');
         setGrantUserSearch('');
         setGrantQuantity('');
         setGrantReason('');
@@ -157,8 +178,14 @@ export const AdminSharesPage: React.FC = () => {
             setGrantError('Por favor ingresa una cantidad de acciones válida mayor a 0.');
             return;
         }
+        if (grantOperation === 'deduct') {
+            if (grantUserAccount && grantQuantity > grantUserAccount.available_shares) {
+                setGrantError(`No es posible descontar ${grantQuantity} acción(es). El usuario solo dispone de ${grantUserAccount.available_shares} acciones disponibles.`);
+                return;
+            }
+        }
         if (!grantReason.trim()) {
-            setGrantError('Por favor ingresa un motivo o concepto para la asignación.');
+            setGrantError('Por favor ingresa un motivo o concepto para el ajuste.');
             return;
         }
 
@@ -168,17 +195,19 @@ export const AdminSharesPage: React.FC = () => {
             await shareMarketService.manualShareGrant({
                 user_id: selectedGrantUser.id,
                 quantity: Number(grantQuantity),
+                operation: grantOperation,
                 reason: grantReason.trim(),
                 custom_date: grantCustomDate ? `${grantCustomDate}T12:00:00` : undefined
             });
-            setGrantSuccess(`¡Se han acreditado exitosamente ${grantQuantity} acción(es) a ${selectedGrantUser.name}!`);
+            const actionText = grantOperation === 'add' ? 'acreditado' : 'descontado';
+            setGrantSuccess(`¡Se han ${actionText} exitosamente ${grantQuantity} acción(es) a ${selectedGrantUser.name}!`);
             setTimeout(() => {
                 setIsManualGrantModalOpen(false);
                 fetchData();
             }, 1800);
         } catch (err: any) {
-            console.error('Error al asignar acciones manualmente:', err);
-            setGrantError(err.message || 'Error al asignar acciones.');
+            console.error('Error al procesar ajuste de acciones manualmente:', err);
+            setGrantError(err.message || 'Error al procesar ajuste de acciones.');
         } finally {
             setGrantLoading(false);
         }
@@ -329,10 +358,10 @@ export const AdminSharesPage: React.FC = () => {
                     <button
                         onClick={handleOpenManualGrantModal}
                         className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer font-montserrat"
-                        title="Asignar o acreditar acciones a un usuario manualmente"
+                        title="Asignar o descontar acciones a un usuario manualmente"
                     >
                         <UserPlus className="w-4 h-4" />
-                        <span>Asignar Acciones</span>
+                        <span>Asignar / Descontar Acciones</span>
                     </button>
                     <button
                         onClick={handleOpenIssuanceModal}
@@ -1010,22 +1039,66 @@ export const AdminSharesPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Modal de Asignación Manual de Acciones */}
+            {/* Modal de Asignación / Deducción Manual de Acciones */}
             {isManualGrantModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
                     <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative space-y-5">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-                                    <UserPlus className="w-5 h-5" />
+                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border transition-colors ${
+                                    grantOperation === 'add' 
+                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                                        : 'bg-rose-50 text-rose-600 border-rose-100'
+                                }`}>
+                                    {grantOperation === 'add' ? <UserPlus className="w-5 h-5" /> : <UserMinus className="w-5 h-5" />}
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-black text-slate-900 font-montserrat">Asignar Acciones a Usuario</h3>
-                                    <p className="text-xs text-slate-500 font-medium">Acreditación directa con registro oficial en el Libro Mayor</p>
+                                    <h3 className="text-base font-black text-slate-900 font-montserrat">
+                                        {grantOperation === 'add' ? 'Asignar / Acreditar Acciones' : 'Descontar / Restar Acciones'}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-medium">
+                                        {grantOperation === 'add' 
+                                            ? 'Acreditación directa con registro oficial en el Libro Mayor' 
+                                            : 'Deducción de saldo con registro oficial en el Libro Mayor'}
+                                    </p>
                                 </div>
                             </div>
                             <button onClick={() => setIsManualGrantModalOpen(false)} className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center cursor-pointer">
                                 <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Selector de Tipo de Operación: Sumar vs Restar */}
+                        <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setGrantOperation('add');
+                                    setGrantReason('');
+                                }}
+                                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                                    grantOperation === 'add'
+                                        ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                <Plus className="w-4 h-4 text-emerald-600" />
+                                <span>Sumar / Acreditar</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setGrantOperation('deduct');
+                                    setGrantReason('');
+                                }}
+                                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                                    grantOperation === 'deduct'
+                                        ? 'bg-white text-rose-700 shadow-xs border border-slate-200'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                <Minus className="w-4 h-4 text-rose-600" />
+                                <span>Restar / Descontar</span>
                             </button>
                         </div>
 
@@ -1034,7 +1107,7 @@ export const AdminSharesPage: React.FC = () => {
                                 <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                                     <CheckCircle2 className="w-6 h-6" />
                                 </div>
-                                <h4 className="text-sm font-bold text-emerald-900 font-montserrat">¡Asignación Exitosa!</h4>
+                                <h4 className="text-sm font-bold text-emerald-900 font-montserrat">¡Operación Exitosa!</h4>
                                 <p className="text-xs text-emerald-700 font-medium">{grantSuccess}</p>
                             </div>
                         ) : (
@@ -1053,25 +1126,56 @@ export const AdminSharesPage: React.FC = () => {
                                     </label>
                                     
                                     {selectedGrantUser ? (
-                                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 border border-brand-100 flex items-center justify-center font-bold text-xs">
-                                                    {selectedGrantUser.name.charAt(0).toUpperCase()}
+                                        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs border ${
+                                                        grantOperation === 'add' 
+                                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                    }`}>
+                                                        {selectedGrantUser.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-slate-900 font-montserrat">{selectedGrantUser.name}</p>
+                                                        <p className="text-[11px] text-slate-500">
+                                                            Doc: <strong className="font-mono text-slate-700">{selectedGrantUser.document_id || 'N/A'}</strong> • {selectedGrantUser.email}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-900 font-montserrat">{selectedGrantUser.name}</p>
-                                                    <p className="text-[11px] text-slate-500">
-                                                        Doc: <strong className="font-mono text-slate-700">{selectedGrantUser.document_id || 'N/A'}</strong> • {selectedGrantUser.email}
-                                                    </p>
-                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedGrantUser(null);
+                                                        setGrantUserAccount(null);
+                                                    }}
+                                                    className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-800 font-bold underline cursor-pointer"
+                                                >
+                                                    Cambiar
+                                                </button>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => setSelectedGrantUser(null)}
-                                                className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-800 font-bold underline cursor-pointer"
-                                            >
-                                                Cambiar
-                                            </button>
+
+                                            {/* Saldo de Acciones Actual del Usuario */}
+                                            <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
+                                                <span className="text-slate-500 font-medium">Saldo en cuenta:</span>
+                                                {loadingUserAccount ? (
+                                                    <span className="text-slate-400 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" /> Cargando saldo...</span>
+                                                ) : grantUserAccount ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-slate-800 font-mono">Total: {grantUserAccount.total_shares}</span>
+                                                        <span className="text-slate-300">•</span>
+                                                        <span className="font-bold text-emerald-600 font-mono">Disp: {grantUserAccount.available_shares}</span>
+                                                        {grantUserAccount.locked_shares > 0 && (
+                                                            <>
+                                                                <span className="text-slate-300">•</span>
+                                                                <span className="font-bold text-amber-600 font-mono">Bloq: {grantUserAccount.locked_shares}</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 font-mono">0 acciones</span>
+                                                )}
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="space-y-2">
@@ -1099,14 +1203,16 @@ export const AdminSharesPage: React.FC = () => {
                                                     grantUsersList.map(u => (
                                                         <div
                                                             key={u.id}
-                                                            onClick={() => setSelectedGrantUser(u)}
+                                                            onClick={() => handleSelectUser(u)}
                                                             className="p-2.5 px-3 hover:bg-slate-50 flex items-center justify-between cursor-pointer transition-colors"
                                                         >
                                                             <div>
                                                                 <p className="text-xs font-bold text-slate-900">{u.name}</p>
                                                                 <p className="text-[10px] text-slate-400">Doc: {u.document_id || 'N/A'} • {u.email}</p>
                                                             </div>
-                                                            <span className="text-[11px] font-bold text-emerald-600">Seleccionar</span>
+                                                            <span className={`text-[11px] font-bold ${grantOperation === 'add' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                                Seleccionar
+                                                            </span>
                                                         </div>
                                                     ))
                                                 )}
@@ -1119,27 +1225,38 @@ export const AdminSharesPage: React.FC = () => {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-xs font-bold text-slate-700 block mb-1">
-                                            Cantidad de Acciones <span className="text-rose-500">*</span>
+                                            {grantOperation === 'add' ? 'Cantidad a Acreditar' : 'Cantidad a Descontar'} <span className="text-rose-500">*</span>
                                         </label>
                                         <input
                                             type="number"
                                             min={1}
+                                            max={grantOperation === 'deduct' && grantUserAccount ? grantUserAccount.available_shares : undefined}
                                             value={grantQuantity}
                                             onChange={(e) => setGrantQuantity(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                                             placeholder="Ej. 25"
-                                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                                            className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold outline-hidden focus:ring-2 ${
+                                                grantOperation === 'add' ? 'focus:ring-emerald-500' : 'focus:ring-rose-500'
+                                            }`}
                                             required
                                         />
                                         {grantQuantity && grantQuantity > 0 && currentPrice > 0 && (
-                                            <span className="text-[10px] text-emerald-700 font-bold block mt-1">
-                                                Val: ${(Number(grantQuantity) * currentPrice).toLocaleString('es-CO')} COP
+                                            <span className={`text-[10px] font-bold block mt-1 ${
+                                                grantOperation === 'add' ? 'text-emerald-700' : 'text-rose-700'
+                                            }`}>
+                                                {grantOperation === 'add' ? 'Val: ' : 'Val descontado: '} 
+                                                ${(Number(grantQuantity) * currentPrice).toLocaleString('es-CO')} COP
+                                            </span>
+                                        )}
+                                        {grantOperation === 'deduct' && grantUserAccount && grantQuantity && Number(grantQuantity) > grantUserAccount.available_shares && (
+                                            <span className="text-[10px] text-rose-600 font-bold block mt-1">
+                                                ⚠️ Excede las {grantUserAccount.available_shares} disp.
                                             </span>
                                         )}
                                     </div>
 
                                     <div>
                                         <label className="text-xs font-bold text-slate-700 block mb-1">
-                                            Fecha de Acreditación
+                                            {grantOperation === 'add' ? 'Fecha de Acreditación' : 'Fecha de Deducción'}
                                         </label>
                                         <input
                                             type="date"
@@ -1159,14 +1276,20 @@ export const AdminSharesPage: React.FC = () => {
                                         Motivo / Justificación <span className="text-rose-500">*</span>
                                     </label>
                                     
-                                    {/* Atajos de concepto */}
+                                    {/* Atajos de concepto contextuales */}
                                     <div className="flex flex-wrap gap-1.5 mb-2">
-                                        {[
+                                        {(grantOperation === 'add' ? [
                                             'Asignación directa de paquete',
                                             'Bonificación por referidos',
                                             'Ajuste administrativo de saldo',
                                             'Compensación patrimonial'
-                                        ].map(preset => (
+                                        ] : [
+                                            'Ajuste por corrección',
+                                            'Reversión de asignación',
+                                            'Liquidación de acciones',
+                                            'Penalización contractual',
+                                            'Ajuste administrativo de saldo'
+                                        ]).map(preset => (
                                             <button
                                                 key={preset}
                                                 type="button"
@@ -1182,8 +1305,10 @@ export const AdminSharesPage: React.FC = () => {
                                         rows={2}
                                         value={grantReason}
                                         onChange={(e) => setGrantReason(e.target.value)}
-                                        placeholder="Describe el concepto de la acreditación..."
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-hidden"
+                                        placeholder={grantOperation === 'add' ? "Describe el concepto de la acreditación..." : "Describe el motivo de la deducción o ajuste..."}
+                                        className={`w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-hidden focus:ring-2 ${
+                                            grantOperation === 'add' ? 'focus:ring-emerald-500' : 'focus:ring-rose-500'
+                                        }`}
                                         required
                                     />
                                 </div>
@@ -1198,18 +1323,32 @@ export const AdminSharesPage: React.FC = () => {
                                     </button>
                                     <button 
                                         type="submit" 
-                                        disabled={grantLoading || !selectedGrantUser || !grantQuantity} 
-                                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                                        disabled={
+                                            grantLoading || 
+                                            !selectedGrantUser || 
+                                            !grantQuantity || 
+                                            (grantOperation === 'deduct' && !!grantUserAccount && Number(grantQuantity) > grantUserAccount.available_shares)
+                                        } 
+                                        className={`px-5 py-2.5 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2 transition-colors ${
+                                            grantOperation === 'add'
+                                                ? 'bg-emerald-600 hover:bg-emerald-700'
+                                                : 'bg-rose-600 hover:bg-rose-700'
+                                        }`}
                                     >
                                         {grantLoading ? (
                                             <>
                                                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                                <span>Acreditando...</span>
+                                                <span>Procesando...</span>
                                             </>
-                                        ) : (
+                                        ) : grantOperation === 'add' ? (
                                             <>
                                                 <UserPlus className="w-3.5 h-3.5" />
                                                 <span>Acreditar Acciones</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserMinus className="w-3.5 h-3.5" />
+                                                <span>Descontar Acciones</span>
                                             </>
                                         )}
                                     </button>

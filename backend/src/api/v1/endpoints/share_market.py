@@ -260,20 +260,30 @@ async def sync_legacy_shares_endpoint(
     result = await ShareMarketService.sync_all_users_legacy_shares(db)
     return {"message": "Sincronización retroactiva completada exitosamente.", "details": result}
 
+@router.get("/admin/users/{user_id}/account", response_model=UserShareAccountOut, dependencies=[Depends(RequirePermission("admin.shares.manage"))])
+async def get_user_share_account_admin(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Obtiene el balance y estado de cuenta de acciones de un usuario para administración."""
+    return await ShareMarketService.get_or_create_user_shares(db, user_id)
+
 @router.post("/admin/manual-grant", response_model=ShareMovementOut, dependencies=[Depends(RequirePermission("admin.shares.manage"))])
 async def manual_share_grant_endpoint(
     payload: AdminManualShareGrant,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Permite a un administrador asignar acciones a un usuario de manera manual con registro inmutable en el ledger."""
+    """Permite a un administrador asignar o descontar acciones a un usuario de manera manual con registro inmutable en el ledger."""
     movement = await ShareMarketService.manual_share_grant(
         db=db,
         user_id=payload.user_id,
         quantity=payload.quantity,
         reason=payload.reason,
         admin_id=current_user.id,
-        custom_date=payload.custom_date
+        custom_date=payload.custom_date,
+        operation=payload.operation
     )
     return movement
 

@@ -147,8 +147,9 @@ class UserShareAccountOut(BaseModel):
 
 
 class AdminManualShareGrant(BaseModel):
-    user_id: int = Field(..., gt=0, description="ID del usuario al que se le asignarán las acciones")
-    quantity: int = Field(..., gt=0, description="Cantidad de acciones a otorgar")
-    reason: str = Field(..., min_length=3, max_length=500, description="Motivo / concepto de la asignación manual")
-    custom_date: Optional[datetime] = Field(None, description="Fecha de acreditación personalizada opcional")
+    user_id: int = Field(..., gt=0, description="ID del usuario al que se le aplicará el ajuste de acciones")
+    quantity: int = Field(..., description="Cantidad de acciones a otorgar o descontar")
+    operation: Optional[str] = Field("add", description="Tipo de operación: 'add' (sumar/acreditar) o 'deduct' (restar/descontar)")
+    reason: str = Field(..., min_length=3, max_length=500, description="Motivo / concepto del ajuste manual")
+    custom_date: Optional[datetime] = Field(None, description="Fecha de acreditación/deducción personalizada opcional")
 

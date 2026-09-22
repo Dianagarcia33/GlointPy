@@ -1111,26 +1111,49 @@ class ShareMarketService:
         quantity: int,
         reason: str,
         admin_id: int,
-        custom_date: Optional[datetime] = None
+        custom_date: Optional[datetime] = None,
+        operation: Optional[str] = None
     ) -> ShareMovement:
-        """Asigna acciones a un usuario de manera manual por decisión administrativa con registro en el ledger."""
-        if quantity <= 0:
-            raise HTTPException(status_code=400, detail="La cantidad de acciones a otorgar debe ser mayor a 0.")
+        """Asigna o descuenta acciones a un usuario de manera manual por decisión administrativa con registro en el ledger."""
+        if quantity == 0:
+            raise HTTPException(status_code=400, detail="La cantidad de acciones debe ser distinta de 0.")
+
+        if operation == "deduct":
+            effective_qty = -abs(quantity)
+        elif operation == "add":
+            effective_qty = abs(quantity)
+        else:
+            effective_qty = quantity
 
         user_res = await db.execute(select(User).where(User.id == user_id))
         user = user_res.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
+        # Obtener cuenta de acciones del usuario para validar saldo si es deducción
+        account = await ShareMarketService.get_or_create_user_shares(db, user_id)
+
+        if effective_qty < 0:
+            deduct_amount = abs(effective_qty)
+            if account.available_shares < deduct_amount:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No es posible descontar {deduct_amount} acción(es). El usuario solo dispone de {account.available_shares} acción(es) disponibles (Total: {account.total_shares}, Bloqueadas en mercado: {account.locked_shares})."
+                )
+
         acq_date = custom_date or datetime.utcnow()
         clean_reason = reason.strip()
-        desc = f"Asignación manual de {quantity} acción(es) por administración: {clean_reason}"
+
+        if effective_qty > 0:
+            desc = f"Asignación manual de {effective_qty} acción(es) por administración: {clean_reason}"
+        else:
+            desc = f"Deducción manual de {abs(effective_qty)} acción(es) por administración: {clean_reason}"
 
         movement = await ShareMarketService.record_share_movement(
             db=db,
             user_id=user_id,
             movement_type="admin_adjustment",
-            quantity=quantity,
+            quantity=effective_qty,
             description=desc,
             created_at=acq_date
         )
