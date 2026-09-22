@@ -471,23 +471,8 @@ class InvestmentRequestService:
 
         else:
             # --- FLUJO DE INVERSIÓN INICIAL (NUEVO CONTRATO) ---
-            investors_codes = await db.execute(
-                select(Investor.assigned_code)
-                .where(Investor.assigned_code.like("IG%"))
-            )
-            codes = investors_codes.scalars().all()
-            
-            max_num = 0
-            for c in codes:
-                try:
-                    num = int(c[2:].strip())
-                    if num > max_num:
-                        max_num = num
-                except ValueError:
-                    continue
-                    
-            next_num = max_num + 1
-            code = f"IG{next_num}"
+            from src.services.investor_service import InvestorService
+            code = await InvestorService.generate_next_assigned_code(db)
             
             investor = Investor(
                 assigned_code=code,

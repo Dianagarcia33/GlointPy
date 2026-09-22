@@ -1,14 +1,17 @@
+import csv
+import io
+import re
+import logging
+from typing import List, Optional, Sequence
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
-from typing import List, Optional, Sequence
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-import csv
-import io
-import re
+
+logger = logging.getLogger(__name__)
 
 from src.models.investor import Investor
 from src.models.period import Period
@@ -30,7 +33,7 @@ class InvestorService:
         has_history: Optional[bool] = None,
         current_user: Optional[User] = None
     ) -> dict:
-        from sqlalchemy import or_, func
+        from sqlalchemy import or_, func, case, Integer
         
         query = select(Investor).join(Investor.user)
         
@@ -70,7 +73,13 @@ class InvestorService:
             selectinload(Investor.accelerations),
             selectinload(Investor.withdrawals)
         )
-        query = query.order_by(Investor.id.desc()).offset(offset).limit(limit)
+        query = query.order_by(
+            case(
+                (Investor.assigned_code.like("IG%"), func.cast(func.substring(Investor.assigned_code, 3), Integer)),
+                else_=0
+            ).desc(),
+            Investor.id.desc()
+        ).offset(offset).limit(limit)
         
         result = await db.execute(query)
         data = result.scalars().all()
@@ -104,38 +113,72 @@ class InvestorService:
         return investor
 
     @staticmethod
+    async def generate_next_assigned_code(db: AsyncSession) -> str:
+        """
+        Genera de forma segura el siguiente código consecutivo único para un inversionista (ej. IG1000, IG1001, etc.).
+        Garantiza que el número sea estrictamente superior al mayor número existente y que no colisione con ningún registro.
+        """
+        result = await db.execute(
+            select(Investor.assigned_code)
+            .where(Investor.assigned_code.like("IG%"))
+        )
+        codes = result.scalars().all()
+        
+        max_num = 999  # Base para iniciar mínimo en IG1000 si no existen o son menores
+        for c in codes:
+            if not c:
+                continue
+            match = re.search(r'\d+', c)
+            if match:
+                try:
+                    num = int(match.group())
+                    if num > max_num:
+                        max_num = num
+                except ValueError:
+                    continue
+                    
+        next_num = max_num + 1
+        candidate_code = f"IG{next_num}"
+        
+        # Salvaguarda anti-colisión en caso de códigos dispersos o concurrencia
+        while True:
+            existing = await db.execute(
+                select(Investor.id).where(Investor.assigned_code == candidate_code)
+            )
+            if not existing.scalar_one_or_none():
+                break
+            next_num += 1
+            candidate_code = f"IG{next_num}"
+            
+        return candidate_code
+
+    @staticmethod
     async def create_investor(db: AsyncSession, investor: InvestorCreate) -> Investor:
         # Validate foreign keys
         user_result = await db.execute(select(User).where(User.id == investor.user_id))
         if not user_result.scalars().first():
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
             
         package_result = await db.execute(select(Package).where(Package.id == investor.package_id))
         if not package_result.scalars().first():
-            raise HTTPException(status_code=404, detail="Package not found")
+            raise HTTPException(status_code=404, detail="Paquete no encontrado")
+
+        period_result = await db.execute(select(Period).where(Period.id == investor.period_id))
+        if not period_result.scalars().first():
+            raise HTTPException(status_code=404, detail="Periodo no encontrado")
             
         start_date = investor.start_date or datetime.utcnow()
 
-        assigned_code = investor.assigned_code
-        if not assigned_code:
-            # Auto-generate consecutive IG code
-            last_code_res = await db.execute(
-                select(Investor.assigned_code)
-                .where(Investor.assigned_code.like("IG%"))
-                .order_by(Investor.id.desc())
-                .limit(1)
-            )
-            last_code = last_code_res.scalar()
-            if last_code:
-                import re
-                match = re.search(r'\d+', last_code)
-                if match:
-                    next_num = int(match.group()) + 1
-                    assigned_code = f"IG{next_num}"
-                else:
-                    assigned_code = "IG1000"
-            else:
-                assigned_code = "IG1000"
+        if investor.assigned_code:
+            assigned_code = investor.assigned_code.strip().upper()
+            chk_code = await db.execute(select(Investor.id).where(Investor.assigned_code == assigned_code))
+            if chk_code.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El código asignado '{assigned_code}' ya se encuentra registrado."
+                )
+        else:
+            assigned_code = await InvestorService.generate_next_assigned_code(db)
 
         db_investor = Investor(
             assigned_code=assigned_code,
@@ -173,11 +216,17 @@ class InvestorService:
             await db.refresh(db_investor)
             # Re-fetch with relationships
             return await InvestorService.get_investor(db, db_investor.id)
-        except IntegrityError:
+        except IntegrityError as e:
             await db.rollback()
+            logger.error(f"Error de integridad al registrar inversionista: {e}")
+            orig_msg = str(getattr(e, 'orig', e))
+            if "assigned_code" in orig_msg.lower():
+                detail = f"El código de inversión '{assigned_code}' ya existe en el sistema."
+            else:
+                detail = f"Error de integridad en los datos: {orig_msg}"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Assigned code already exists or invalid data provided"
+                detail=detail
             )
 
     @staticmethod
