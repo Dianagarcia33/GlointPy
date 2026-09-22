@@ -205,10 +205,10 @@ export const crmService = {
 
   registerContactForm: async (data: {
     nombre: string;
-    email: string;
-    telefono: string;
-    asunto: string;
-    mensaje: string;
+    email?: string;
+    telefono?: string;
+    asunto?: string;
+    mensaje?: string;
     proyecto?: string;
     metadata?: Record<string, any>;
   }): Promise<{

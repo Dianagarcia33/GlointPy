@@ -29,13 +29,17 @@ export function ContactoPage() {
       alert("Debes aceptar el tratamiento de datos personales de acuerdo con las políticas de privacidad.");
       return;
     }
+    if (!form.email.trim() && !form.telefono.trim()) {
+      alert("Por favor ingresa al menos un medio de contacto (correo electrónico o número de teléfono).");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
       const res = await crmService.registerContactForm({
         nombre: form.nombre.trim(),
-        email: form.email.trim(),
-        telefono: form.telefono.trim(),
+        email: form.email.trim() || undefined,
+        telefono: form.telefono.trim() || undefined,
         asunto: form.asunto || "Contacto General",
         mensaje: form.mensaje.trim(),
         proyecto: "Fondo Gloint Investment"
@@ -271,12 +275,11 @@ export function ContactoPage() {
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <label htmlFor="contacto-email" className="text-xs font-semibold" style={{ color: DARK }}>
-                          Email <span style={{ color: ORANGE }}>*</span>
+                          Email <span className="text-slate-400 font-normal text-[11px]">(opcional)</span>
                         </label>
                         <input
                           id="contacto-email"
                           name="email"
-                          required
                           type="email"
                           value={form.email}
                           onChange={(e) => setForm({ ...form, email: e.target.value })}

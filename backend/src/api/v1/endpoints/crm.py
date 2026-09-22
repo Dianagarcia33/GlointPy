@@ -74,8 +74,8 @@ class ChatbotLeadCreateSchema(BaseModel):
     notes: Optional[str] = None
 
 class ExternalFormLeadSchema(BaseModel):
-    name: str
-    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
     phone: Optional[str] = None
     city: Optional[str] = None
     company: Optional[str] = None

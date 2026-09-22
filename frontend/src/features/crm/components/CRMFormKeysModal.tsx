@@ -123,7 +123,7 @@ async function enviarFormulario(datos) {
       },
       body: JSON.stringify({
         nombre: datos.nombre,       // Nombre completo del interesado
-        email: datos.email,         // Correo electrónico
+        email: datos.email,         // Correo electrónico (opcional)
         telefono: datos.telefono,   // Teléfono o WhatsApp
         asunto: datos.asunto,       // Motivo o servicio de interés
         mensaje: datos.mensaje      // Contenido del mensaje

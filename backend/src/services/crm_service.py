@@ -504,9 +504,10 @@ class CRMService:
         Campos estándar: nombre, email, telefono, asunto, mensaje, proyecto/origen.
         Distribuye equitativamente (Round-Robin) entre los Directivos de Inversión y envía notificación por correo.
         """
-        name = (data.get("nombre") or data.get("name") or "").strip()
-        email = (data.get("email") or "").strip().lower()
-        phone = (data.get("telefono") or data.get("phone") or "").strip()
+        name = (data.get("nombre") or data.get("name") or "").strip() or "Prospecto Web"
+        raw_email = (data.get("email") or "").strip().lower()
+        email = raw_email if raw_email else None
+        phone = (data.get("telefono") or data.get("phone") or "").strip() or None
         asunto = (data.get("asunto") or data.get("subject") or "Contacto General").strip()
         mensaje = (data.get("mensaje") or data.get("message") or "").strip()
         
@@ -526,8 +527,8 @@ class CRMService:
         lead = CRMLead(
             project_id=project.id,
             name=name,
-            email=email if email else None,
-            phone=phone if phone else None,
+            email=email,
+            phone=phone,
             estimated_amount=Decimal(str(data.get("estimated_amount") or 0)),
             stage=CRMLeadStage.LEAD_ENTRANTE,
             source=source_label,
@@ -618,11 +619,16 @@ class CRMService:
 
         source_label = f"Formulario: {app_name}"
 
+        name = (data.get("name") or data.get("nombre") or "").strip() or "Prospecto Web"
+        raw_email = (data.get("email") or "").strip().lower()
+        email = raw_email if raw_email else None
+        phone = (data.get("phone") or data.get("telefono") or "").strip() or None
+
         lead = CRMLead(
             project_id=project.id,
-            name=data["name"].strip(),
-            email=data["email"].strip().lower() if data.get("email") else None,
-            phone=data["phone"].strip() if data.get("phone") else None,
+            name=name,
+            email=email,
+            phone=phone,
             estimated_amount=Decimal(str(data.get("estimated_amount") or 0)),
             stage=CRMLeadStage.LEAD_ENTRANTE,
             source=source_label,
@@ -636,9 +642,9 @@ class CRMService:
         # Registrar actividad inicial con los detalles del formulario externo
         detail_lines = [
             f"🌐 Origen / Plataforma: {app_name}",
-            f"👤 Nombre: {data['name'].strip()}",
-            f"📧 Correo: {data.get('email') or 'No especificado'}",
-            f"📞 Teléfono: {data.get('phone') or 'No especificado'}",
+            f"👤 Nombre: {name}",
+            f"📧 Correo: {email or 'No especificado'}",
+            f"📞 Teléfono: {phone or 'No especificado'}",
         ]
         if data.get("company"):
             detail_lines.append(f"🏢 Empresa: {data.get('company')}")

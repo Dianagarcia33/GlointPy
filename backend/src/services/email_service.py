@@ -323,6 +323,17 @@ class EmailService:
         message_txt = lead_data.get("message") or "Sin mensaje adicional"
         company_txt = lead_data.get("company") or "No especificada"
         city_txt = lead_data.get("city") or "No especificada"
+        phone_val = lead_data.get("phone")
+        if phone_val and phone_val != "No especificado":
+            phone_row = f'<a href="tel:{phone_val}" style="color: #2563eb; text-decoration: none;">{phone_val}</a>'
+        else:
+            phone_row = '<span style="color: #94a3b8;">No especificado</span>'
+
+        email_val = lead_data.get("email")
+        if email_val and email_val != "No especificado":
+            email_row = f'<a href="mailto:{email_val}" style="color: #2563eb; text-decoration: none;">{email_val}</a>'
+        else:
+            email_row = '<span style="color: #94a3b8;">No especificado</span>'
 
         html_content = f"""
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
@@ -342,8 +353,8 @@ class EmailService:
                 <table style="width: 100%; font-size: 13px; color: #334155; line-height: 1.8;">
                     <tr><td style="font-weight: bold; width: 140px;">Origen:</td><td style="color: #2563eb; font-weight: bold;">{platform_name}</td></tr>
                     <tr><td style="font-weight: bold;">Nombre:</td><td>{contact_name}</td></tr>
-                    <tr><td style="font-weight: bold;">Teléfono:</td><td><a href="tel:{lead_data.get('phone')}" style="color: #2563eb; text-decoration: none;">{lead_data.get('phone')}</a></td></tr>
-                    <tr><td style="font-weight: bold;">Correo:</td><td><a href="mailto:{lead_data.get('email')}" style="color: #2563eb; text-decoration: none;">{lead_data.get('email')}</a></td></tr>
+                    <tr><td style="font-weight: bold;">Teléfono:</td><td>{phone_row}</td></tr>
+                    <tr><td style="font-weight: bold;">Correo:</td><td>{email_row}</td></tr>
                     <tr><td style="font-weight: bold;">Empresa:</td><td>{company_txt}</td></tr>
                     <tr><td style="font-weight: bold;">Ciudad:</td><td>{city_txt}</td></tr>
                     <tr><td style="font-weight: bold; vertical-align: top;">Mensaje:</td><td style="white-space: pre-line;">{message_txt}</td></tr>
