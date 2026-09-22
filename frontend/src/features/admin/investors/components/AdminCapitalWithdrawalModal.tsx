@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Investor, adminWithdrawCapital } from '../../../../services/investors';
-import { X, Wallet, AlertCircle, CheckCircle2, Loader2, User, ShieldCheck, DollarSign } from 'lucide-react';
+import { X, Wallet, AlertCircle, CheckCircle2, Loader2, ShieldCheck, Banknote } from 'lucide-react';
 
 interface AdminCapitalWithdrawalModalProps {
     isOpen: boolean;
@@ -18,6 +18,7 @@ export const AdminCapitalWithdrawalModal: React.FC<AdminCapitalWithdrawalModalPr
 }) => {
     const [amount, setAmount] = useState<number>(0);
     const [notes, setNotes] = useState<string>('');
+    const [creditWallet, setCreditWallet] = useState<boolean>(true);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
 
@@ -40,12 +41,22 @@ export const AdminCapitalWithdrawalModal: React.FC<AdminCapitalWithdrawalModalPr
     useEffect(() => {
         if (isOpen && investor) {
             setAmount(availableCapital);
+            setCreditWallet(true);
             setNotes(`Liquidación y retorno de capital por finalización de contrato #${investor.assigned_code || investor.id}`);
             setError('');
         }
     }, [isOpen, investor, availableCapital]);
 
     if (!isOpen || !investor) return null;
+
+    const handleToggleCreditWallet = (val: boolean) => {
+        setCreditWallet(val);
+        if (val) {
+            setNotes(`Liquidación y retorno de capital a Billetera por finalización de contrato #${investor.assigned_code || investor.id}`);
+        } else {
+            setNotes(`Liquidación directa de capital (sin abono a Billetera) por finalización de contrato #${investor.assigned_code || investor.id}`);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -64,12 +75,13 @@ export const AdminCapitalWithdrawalModal: React.FC<AdminCapitalWithdrawalModalPr
         try {
             await adminWithdrawCapital(investor.id, {
                 monto: amount,
-                notes: notes.trim() || undefined
+                notes: notes.trim() || undefined,
+                credit_wallet: creditWallet
             });
             onSuccess();
             onClose();
         } catch (err: any) {
-            console.error("Error al procesar retiro de capital:", err);
+            console.error("Error al procesar liquidación de capital:", err);
             setError(err.message || "Error al procesar la liquidación de capital");
         } finally {
             setLoading(false);
@@ -86,7 +98,7 @@ export const AdminCapitalWithdrawalModal: React.FC<AdminCapitalWithdrawalModalPr
                             <Wallet className="w-5 h-5 text-brand-600" />
                         </div>
                         <div>
-                            <h3 className="text-base font-bold text-slate-800 font-montserrat">Liquidación de Capital a Billetera</h3>
+                            <h3 className="text-base font-bold text-slate-800 font-montserrat">Liquidación de Capital</h3>
                             <p className="text-xs text-slate-500">Inversión #{investor.assigned_code || investor.id} • {investor.user?.name}</p>
                         </div>
                     </div>
@@ -153,10 +165,64 @@ export const AdminCapitalWithdrawalModal: React.FC<AdminCapitalWithdrawalModalPr
                         </div>
                     </div>
 
+                    {/* Selector de Destino de la Liquidación */}
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                            Modalidad de Liquidación:
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => handleToggleCreditWallet(true)}
+                                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                    creditWallet
+                                        ? 'bg-brand-50/70 border-brand-300 ring-2 ring-brand-500/20 shadow-xs'
+                                        : 'bg-white border-slate-200 hover:border-slate-300'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                        <Wallet className="w-4 h-4 text-brand-600" />
+                                        Abonar a Billetera
+                                    </span>
+                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${creditWallet ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300'}`}>
+                                        {creditWallet && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                    </div>
+                                </div>
+                                <span className="text-[11px] text-slate-500 leading-tight">
+                                    Suma los fondos a la Billetera virtual Gloint del usuario.
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => handleToggleCreditWallet(false)}
+                                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                    !creditWallet
+                                        ? 'bg-amber-50/70 border-amber-300 ring-2 ring-amber-500/20 shadow-xs'
+                                        : 'bg-white border-slate-200 hover:border-slate-300'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                        <Banknote className="w-4 h-4 text-amber-600" />
+                                        Sin abono a Billetera
+                                    </span>
+                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${!creditWallet ? 'border-amber-600 bg-amber-600 text-white' : 'border-slate-300'}`}>
+                                        {!creditWallet && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                    </div>
+                                </div>
+                                <span className="text-[11px] text-slate-500 leading-tight">
+                                    Liquida el contrato sin transferir dinero a la wallet (ej. pago externo).
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Input Monto */}
                     <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                            Monto a Liquidar y Acreditar ($ COP):
+                            {creditWallet ? 'Monto a Liquidar y Acreditar ($ COP):' : 'Monto de Capital a Liquidar ($ COP):'}
                         </label>
                         <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
@@ -197,12 +263,21 @@ export const AdminCapitalWithdrawalModal: React.FC<AdminCapitalWithdrawalModalPr
                     </div>
 
                     {/* Notice */}
-                    <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-2.5 text-xs text-amber-900">
-                        <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <span>
-                            Se registrará el <strong>Retiro de Capital</strong> oficial del contrato y se <strong>acreditarán ${amount.toLocaleString('es-CO')} COP</strong> directamente en la Billetera Gloint del inversionista.
-                        </span>
-                    </div>
+                    {creditWallet ? (
+                        <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900">
+                            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>
+                                Se registrará el <strong>Retiro de Capital</strong> oficial del contrato y se <strong>acreditarán ${amount.toLocaleString('es-CO')} COP</strong> directamente en la Billetera Gloint del inversionista.
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 flex items-start gap-2.5 text-xs text-amber-900">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <span>
+                                <strong>Liquidación Directa / Externa:</strong> Se registrará el retiro oficial de capital por <strong>${amount.toLocaleString('es-CO')} COP</strong> (descontándolo del contrato), pero <strong>NO</strong> se sumará dinero a la Billetera Gloint del inversionista.
+                            </span>
+                        </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
@@ -217,10 +292,14 @@ export const AdminCapitalWithdrawalModal: React.FC<AdminCapitalWithdrawalModalPr
                         <button
                             type="submit"
                             disabled={loading || availableCapital <= 0}
-                            className="inline-flex items-center gap-2 px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-500/20 hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
+                            className={`inline-flex items-center gap-2 px-5 py-2 text-white text-xs font-bold rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer ${
+                                creditWallet 
+                                    ? 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/20 hover:shadow-lg' 
+                                    : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20 hover:shadow-lg'
+                            }`}
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                            <span>Liquidar y Abonar a Billetera</span>
+                            <span>{creditWallet ? 'Liquidar y Abonar a Billetera' : 'Registrar Liquidación (Sin Wallet)'}</span>
                         </button>
                     </div>
                 </form>

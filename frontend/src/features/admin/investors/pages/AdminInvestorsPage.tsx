@@ -1324,7 +1324,7 @@ export const AdminInvestorsPage = () => {
         isOpen={!!selectedInvestorForCapitalWithdrawal}
         onClose={() => setSelectedInvestorForCapitalWithdrawal(null)}
         onSuccess={() => {
-          setToast({ message: 'Retiro de capital procesado y acreditado a la billetera con éxito', type: 'success' });
+          setToast({ message: 'Liquidación de capital procesada con éxito', type: 'success' });
           fetchData();
         }}
         investor={selectedInvestorForCapitalWithdrawal}

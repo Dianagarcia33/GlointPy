@@ -123,8 +123,8 @@ export const bulkUploadInvestors = async (file: File): Promise<{ success: number
 
 export const adminWithdrawCapital = async (
   investorId: number,
-  data: { monto?: number; notes?: string }
-): Promise<{ message: string; investor_id: number; monto_acreditado: number; nuevo_saldo_wallet: number; withdrawal_id: number }> => {
+  data: { monto?: number; notes?: string; credit_wallet?: boolean }
+): Promise<{ message: string; investor_id: number; monto_liquidado?: number; monto_acreditado: number; credit_wallet?: boolean; nuevo_saldo_wallet?: number | null; withdrawal_id: number }> => {
   return await fetchApi(`/investors/${investorId}/admin-withdraw-capital`, {
     method: 'POST',
     body: JSON.stringify(data),

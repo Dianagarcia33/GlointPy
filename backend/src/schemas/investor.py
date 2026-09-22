@@ -194,3 +194,4 @@ class InvestorPaginatedResponse(BaseModel):
 class AdminWithdrawCapitalRequest(BaseModel):
     monto: Optional[float] = None
     notes: Optional[str] = None
+    credit_wallet: Optional[bool] = True
