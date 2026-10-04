@@ -5,7 +5,7 @@ from typing import Any, Optional
 from src.core.database import get_db
 from src.core.config import settings
 from src.core.security import create_access_token
-from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest
+from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, SendForcePasswordOtpRequest
 from src.schemas.user import UserResponse
 from src.services.auth_service import AuthService
 from src.api.deps import get_current_user
@@ -102,6 +102,13 @@ async def validate_referral_code(code: str, db: AsyncSession = Depends(get_db)) 
             detail=f"El código de referido '{clean_code}' no existe en la plataforma."
         )
     return {"valid": True, "code": clean_code}
+
+@router.post("/send-force-password-otp")
+async def send_force_password_otp(data: SendForcePasswordOtpRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Envía un código OTP de 6 dígitos al correo del usuario para autorizar el cambio de contraseña obligatorio (H-76).
+    """
+    return await AuthService.send_force_password_otp(db, data.email, data.current_password)
 
 @router.post("/force-change-password", response_model=Token)
 async def force_change_password(data: ForceChangePasswordRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:

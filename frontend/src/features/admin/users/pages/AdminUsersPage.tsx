@@ -6,7 +6,7 @@ import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate } from '../../../../utils/format';
 
@@ -71,16 +71,41 @@ export const AdminUsersPage = () => {
   }, [searchInput]);
 
   const [success, setSuccess] = useState<string | null>(null);
+  const [tempPasswordModal, setTempPasswordModal] = useState<{
+    userName: string;
+    email: string;
+    tempPassword: string;
+    actionType: 'reset' | 'create';
+  } | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+
+  const handleCopyPassword = () => {
+    if (tempPasswordModal?.tempPassword) {
+      navigator.clipboard.writeText(tempPasswordModal.tempPassword);
+      setCopiedPassword(true);
+      setTimeout(() => setCopiedPassword(false), 2500);
+    }
+  };
 
   const handleConfirmResetPassword = async () => {
     if (!resettingUser) return;
     try {
       setIsResetting(true);
       setError(null);
-      await usersService.resetPassword(resettingUser.id);
-      setSuccess(`¡Contraseña restablecida exitosamente para ${resettingUser.name}! La nueva clave temporal es 123456789.`);
-      setTimeout(() => setSuccess(null), 6000);
+      const res = await usersService.resetPassword(resettingUser.id);
+      const userReset = resettingUser;
       setResettingUser(null);
+      if (res.temp_password) {
+        setTempPasswordModal({
+          userName: userReset.name,
+          email: userReset.email,
+          tempPassword: res.temp_password,
+          actionType: 'reset'
+        });
+      } else {
+        setSuccess(`¡Contraseña restablecida exitosamente para ${userReset.name}!`);
+        setTimeout(() => setSuccess(null), 5000);
+      }
       fetchData();
     } catch (err: any) {
       setError(err.message || 'Error al restablecer la contraseña.');
@@ -188,8 +213,16 @@ export const AdminUsersPage = () => {
     setEditingUser(null);
   };
 
-  const handleSaved = () => {
+  const handleSaved = (savedUser?: any) => {
     fetchData();
+    if (savedUser?.temp_password) {
+      setTempPasswordModal({
+        userName: savedUser.name,
+        email: savedUser.email,
+        tempPassword: savedUser.temp_password,
+        actionType: 'create'
+      });
+    }
   };
 
   if (isInitialLoading) {
@@ -570,7 +603,7 @@ export const AdminUsersPage = () => {
                                 <KeyRound className="w-4 h-4 text-rose-600 shrink-0" />
                                 <div className="flex flex-col">
                                   <span className="font-bold">Restablecer Clave</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">Asignar clave temporal (123456789)</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Asignar clave temporal segura</span>
                                 </div>
                               </button>
                             </div>
@@ -640,9 +673,9 @@ export const AdminUsersPage = () => {
             </div>
 
             <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-2 text-amber-900">
-              <p>• La contraseña se cambiará temporalmente a: <strong className="font-mono text-amber-950 font-bold bg-amber-200/80 px-2 py-0.5 rounded text-xs">123456789</strong></p>
-              <p>• Se forzará el cambio obligatorio de contraseña cuando el usuario inicie sesión.</p>
-              <p>• Se restablecerán los intentos fallidos de inicio de sesión.</p>
+              <p>• Se generará una <strong>contraseña temporal aleatoria y segura</strong>.</p>
+              <p>• Se forzará el cambio obligatorio de contraseña cuando el usuario inicie sesión, validando un código OTP enviado a su correo.</p>
+              <p>• Se restablecerán los intentos fallidos y el bloqueo de inicio de sesión.</p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
@@ -744,6 +777,77 @@ export const AdminUsersPage = () => {
           userId={statementUser.id}
           userName={statementUser.name}
         />
+      )}
+
+      {/* Modal para mostrar y copiar la contraseña temporal generada (H-76) */}
+      {tempPasswordModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" style={{ margin: 0 }}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-emerald-100 rounded-xl text-emerald-700">
+                <KeyRound className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {tempPasswordModal.actionType === 'create' ? 'Usuario Creado con Éxito' : 'Contraseña Restablecida'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Para: <strong className="text-slate-800">{tempPasswordModal.userName}</strong> ({tempPasswordModal.email})
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center space-y-2">
+              <span className="text-xs text-slate-500 font-medium">Contraseña Temporal Generada:</span>
+              <div className="flex items-center justify-center gap-2">
+                <span className="font-mono text-base font-bold text-slate-900 bg-white px-3.5 py-2 rounded-lg border border-slate-200 select-all tracking-wider">
+                  {tempPasswordModal.tempPassword}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  className="px-3.5 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                >
+                  {copiedPassword ? (
+                    <>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>¡Copiada!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 text-white" />
+                      <span>Copiar</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-blue-600" />
+                Seguridad Obligatoria:
+              </p>
+              <p className="text-blue-800 leading-relaxed">
+                Esta contraseña temporal única solo se muestra en este momento. Compártala por un canal privado con el usuario. Al iniciar sesión, el sistema le exigirá definir su nueva contraseña personal validando un <strong>código OTP de 6 dígitos</strong> enviado a su correo registrado.
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setTempPasswordModal(null);
+                  setCopiedPassword(false);
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
+              >
+                Entendido y Cerrar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       <GlobalAccountStatementModal

@@ -260,7 +260,7 @@ export const usersService = {
     return await fetchApi(url);
   },
 
-  createUser: async (data: UserCreate): Promise<User> => {
+  createUser: async (data: UserCreate): Promise<User & { temp_password?: string }> => {
     return await fetchApi('/users', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -283,7 +283,7 @@ export const usersService = {
     });
   },
 
-  resetPassword: async (id: number): Promise<{ message: string; user_id: number }> => {
+  resetPassword: async (id: number): Promise<{ message: string; user_id: number; temp_password?: string }> => {
     return await fetchApi(`/users/${id}/reset-password`, {
       method: 'POST',
     });

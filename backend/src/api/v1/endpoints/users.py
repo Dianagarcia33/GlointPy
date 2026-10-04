@@ -217,7 +217,7 @@ async def reset_user_password(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Restablece la contraseña de un usuario a la clave temporal '123456789' y fuerza el cambio de contraseña al ingresar.
+    Restablece la contraseña de un usuario a una clave temporal aleatoria segura y fuerza el cambio de contraseña al ingresar (H-76).
     """
     res = await UserService.reset_user_password(db, user_id, current_user=current_user)
 

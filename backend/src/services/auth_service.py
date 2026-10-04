@@ -264,6 +264,29 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El usuario no requiere un cambio de contraseña obligatorio."
             )
+
+        # Validar el código OTP enviado al correo (H-76)
+        from datetime import datetime
+        from src.models.withdrawal_verification_code import WithdrawalVerificationCode
+
+        code_res = await db.execute(
+            select(WithdrawalVerificationCode)
+            .where(
+                WithdrawalVerificationCode.user_id == user.id,
+                WithdrawalVerificationCode.code == data.code.strip(),
+                WithdrawalVerificationCode.used_at == None
+            )
+            .order_by(WithdrawalVerificationCode.created_at.desc())
+        )
+        verification = code_res.scalars().first()
+        if not verification:
+            raise HTTPException(status_code=400, detail="Código de verificación OTP incorrecto o ya utilizado.")
+
+        expires_at = verification.expires_at.replace(tzinfo=None) if verification.expires_at.tzinfo else verification.expires_at
+        if expires_at < datetime.utcnow():
+            raise HTTPException(status_code=400, detail="El código de verificación ha expirado. Por favor solicita uno nuevo.")
+
+        verification.used_at = datetime.utcnow()
             
         user.password_hash = get_password_hash(data.new_password)
         user.must_change_password = False
@@ -271,6 +294,95 @@ class AuthService:
         await db.commit()
         await db.refresh(user)
         return user
+
+    @staticmethod
+    async def send_force_password_otp(db: AsyncSession, email: str, current_password: str) -> dict:
+        import random
+        from datetime import datetime, timedelta
+        from src.models.withdrawal_verification_code import WithdrawalVerificationCode
+
+        result = await db.execute(
+            select(User).where(User.email == email)
+        )
+        user = result.scalars().first()
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Correo o contraseña incorrectos",
+            )
+
+        if not verify_password(current_password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Correo o contraseña incorrectos",
+            )
+
+        if not user.must_change_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El usuario no requiere cambio de contraseña obligatorio.",
+            )
+
+        code = f"{random.randint(100000, 999999)}"
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+        verification = WithdrawalVerificationCode(
+            user_id=user.id,
+            code=code,
+            expires_at=expires_at,
+            attempts="0"
+        )
+        db.add(verification)
+        await db.commit()
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Código de Verificación - Cambio de Contraseña</title>
+            <style>
+                body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 0; background-color: #f7f9fc; }}
+                .container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
+                .header {{ background-color: #0f172a; padding: 30px; text-align: center; }}
+                .header h1 {{ margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }}
+                .content {{ padding: 40px 30px; }}
+                .code-box {{ background-color: #f0fdf4; border: 2px dashed #16a34a; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0; }}
+                .code {{ font-size: 36px; font-weight: bold; color: #15803d; letter-spacing: 5px; margin: 0; }}
+                .footer {{ background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; }}
+                .footer p {{ margin: 0; color: #64748b; font-size: 14px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Cambio de Contraseña - Gloint</h1>
+                </div>
+                <div class="content">
+                    <p>Hola <strong>{user.name}</strong>,</p>
+                    <p>Has ingresado con una contraseña temporal y se requiere el cambio obligatorio de tu contraseña por seguridad.</p>
+                    <p>Para autorizar la asignación de tu nueva contraseña, ingresa el siguiente código de verificación de 6 dígitos:</p>
+                    <div class="code-box">
+                        <p class="code">{code}</p>
+                    </div>
+                    <p style="font-size: 14px; color: #64748b; text-align: center;">Este código expirará en 10 minutos por motivos de seguridad.</p>
+                    <p style="margin-top: 30px;">Si tú no iniciaste este proceso, por favor contacta de inmediato al soporte técnico de Gloint.</p>
+                </div>
+                <div class="footer">
+                    <p>&copy; {datetime.now().year} Gloint. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        EmailService.send_html_email(
+            to_email=user.email,
+            subject="Código de Verificación - Cambio de Contraseña Gloint",
+            html_content=html_content
+        )
+
+        return {"message": "Código de verificación enviado exitosamente a tu correo electrónico."}
 
     @staticmethod
     async def request_password_reset(db: AsyncSession, email: str, background_tasks=None) -> bool:

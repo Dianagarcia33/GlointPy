@@ -126,7 +126,9 @@ class UserService:
             if not parent_res.scalars().first():
                 raise HTTPException(status_code=400, detail="El usuario tutor especificado no existe")
 
-        # Create user with default password
+        # Create user with a secure random temporary password (H-76)
+        from src.core.security import generate_secure_temp_password
+        temp_password = generate_secure_temp_password(12)
         user = User(
             name=user_data["name"],
             email=user_data["email"],
@@ -134,7 +136,7 @@ class UserService:
             phone_number=user_data.get("phone_number"),
             date_of_birth=user_data.get("date_of_birth"),
             parent_user_id=parent_user_id,
-            password_hash=get_password_hash("Temp123!"),
+            password_hash=get_password_hash(temp_password),
             must_change_password=True,
             is_active=user_data.get("is_active", True)
         )
@@ -148,7 +150,9 @@ class UserService:
         await db.commit()
         await db.refresh(user)
         # Fetch again to eagerly load roles for response
-        return await UserService.get_user_by_id(db, user.id)
+        created_user = await UserService.get_user_by_id(db, user.id)
+        created_user.temp_password = temp_password
+        return created_user
 
     @staticmethod
     async def reset_user_password(db: AsyncSession, user_id: int, current_user: Optional[User] = None) -> dict:
@@ -176,7 +180,9 @@ class UserService:
                     detail="No tienes autorización para restablecer la contraseña de un SuperAdministrador del sistema."
                 )
 
-        user.password_hash = get_password_hash("123456789")
+        from src.core.security import generate_secure_temp_password
+        temp_password = generate_secure_temp_password(12)
+        user.password_hash = get_password_hash(temp_password)
         user.must_change_password = True
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -184,8 +190,9 @@ class UserService:
         await db.commit()
         await db.refresh(user)
         return {
-            "message": "Contraseña restablecida exitosamente a la clave temporal '123456789'",
-            "user_id": user.id
+            "message": "Contraseña temporal aleatoria generada exitosamente",
+            "user_id": user.id,
+            "temp_password": temp_password
         }
 
     @staticmethod

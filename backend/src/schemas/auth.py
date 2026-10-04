@@ -75,10 +75,15 @@ class InvestorRegisterRequest(BaseModel):
         return v_clean
 
 
+class SendForcePasswordOtpRequest(BaseModel):
+    email: EmailStr
+    current_password: str
+
 class ForceChangePasswordRequest(BaseModel):
     email: EmailStr
     current_password: str
     new_password: str
+    code: str
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

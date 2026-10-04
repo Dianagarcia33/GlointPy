@@ -7,7 +7,7 @@ import { Role } from '../../../../services/roles';
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (savedUser?: any) => void;
   user: User | null;
   roles: Role[];
 }
@@ -200,12 +200,13 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
         is_active: formData.is_active,
         role_ids: formData.role_ids
       };
+      let savedUser: any = null;
       if (user) {
-        await usersService.updateUser(user.id, payload as UserUpdate);
+        savedUser = await usersService.updateUser(user.id, payload as UserUpdate);
       } else {
-        await usersService.createUser(payload as UserCreate);
+        savedUser = await usersService.createUser(payload as UserCreate);
       }
-      onSaved();
+      onSaved(savedUser);
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Error al guardar el usuario');
@@ -229,7 +230,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
             <div>
               <h3 className="text-lg font-bold text-slate-800">{user ? 'Editar Usuario' : 'Crear Nuevo Usuario'}</h3>
               {!user ? (
-                <p className="text-xs text-slate-500">La contraseña por defecto será: <strong className="font-mono text-brand-700 font-bold">Temp123!</strong></p>
+                <p className="text-xs text-slate-500">Se generará una <strong className="text-brand-700 font-semibold">contraseña temporal aleatoria segura</strong> con cambio obligatorio en el primer ingreso.</p>
               ) : (
                 <p className="text-xs text-slate-500">Actualiza la información personal y asignación de roles</p>
               )}

@@ -83,3 +83,38 @@ def verify_password_reset_token(token: str) -> dict:
         return payload
     except Exception:
         return None
+
+def generate_secure_temp_password(length: int = 12) -> str:
+    """
+    Genera una contraseña temporal criptográficamente segura, aleatoria e impredecible.
+    Garantiza al menos una mayúscula, una minúscula, un dígito y un carácter especial seguro.
+    """
+    import secrets
+    import string
+    
+    if length < 10:
+        length = 10
+        
+    specials = "!@#$%*"
+    digits = string.digits
+    uppers = string.ascii_uppercase
+    lowers = string.ascii_lowercase
+
+    password_chars = [
+        secrets.choice(uppers),
+        secrets.choice(lowers),
+        secrets.choice(digits),
+        secrets.choice(specials),
+    ]
+
+    all_chars = string.ascii_letters + digits + specials
+    for _ in range(length - 4):
+        password_chars.append(secrets.choice(all_chars))
+
+    # Mezclar criptográficamente
+    shuffled = []
+    while password_chars:
+        idx = secrets.randbelow(len(password_chars))
+        shuffled.append(password_chars.pop(idx))
+
+    return "".join(shuffled)
