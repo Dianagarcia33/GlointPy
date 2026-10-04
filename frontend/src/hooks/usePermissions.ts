@@ -9,7 +9,7 @@ const normalizeVariants = (p: string): string[] => {
     const withoutAdminColon = withColon.replace(/^admin:/, '');
     const withAdminDot = `admin.${withoutAdminDot}`;
     const withAdminColon = `admin:${withoutAdminColon}`;
-    return Array.from(new Set([
+    const variants = Array.from(new Set([
         clean,
         withDot,
         withColon,
@@ -21,6 +21,10 @@ const normalizeVariants = (p: string): string[] => {
         withDot.replace(/-/g, '_'),
         withColon.replace(/-/g, '_')
     ]));
+    if (clean === 'manage_system_events' || clean === 'admin:system_events:manage' || clean === 'admin.system_events.manage') {
+        variants.push('manage_system_events', 'admin:system_events:manage', 'admin.system_events.manage');
+    }
+    return variants;
 };
 
 export const usePermissions = () => {
@@ -29,7 +33,7 @@ export const usePermissions = () => {
     const isAdmin = () => {
         if (!user) return false;
         if (user.is_superuser) return true;
-        if (user.permissions?.includes('admin.users.manage') || user.permissions?.includes('admin.roles.manage')) return true;
+        if (hasPermission('admin:users:manage') || hasPermission('admin:roles:manage')) return true;
         const u = user as any;
         const userRoles = u.roles_list || u.roles;
         if (userRoles && Array.isArray(userRoles)) {

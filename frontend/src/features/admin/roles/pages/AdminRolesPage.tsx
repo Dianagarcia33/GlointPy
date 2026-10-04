@@ -250,8 +250,8 @@ export const AdminRolesPage: React.FC = () => {
                                             ) : (
                                                 <>
                                                     {role.permissions.slice(0, 5).map(p => (
-                                                        <span key={p.id} className="inline-flex px-2.5 py-1 bg-brand-50 text-brand-800 border border-brand-100 rounded-lg text-[10px] font-bold whitespace-nowrap">
-                                                            {p.name}
+                                                        <span key={p.id} className="inline-flex px-2.5 py-1 bg-brand-50 text-brand-800 border border-brand-100 rounded-lg text-[10px] font-bold whitespace-nowrap font-mono">
+                                                            {p.name === 'manage_system_events' ? 'admin:system_events:manage' : p.name.replace(/\./g, ':')}
                                                         </span>
                                                     ))}
                                                     {role.permissions.length > 5 && (

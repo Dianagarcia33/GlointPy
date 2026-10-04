@@ -94,12 +94,27 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     }
   };
 
+  // Helper para normalizar identificador de permiso a la convención canónica con dos puntos
+  const formatPermName = (name: string) => {
+    if (!name) return '';
+    if (name === 'manage_system_events') return 'admin:system_events:manage';
+    return name.replace(/\./g, ':');
+  };
+
   // Filtrar y agrupar permisos por módulo
   const filteredPermissions = allPermissions.filter(p => {
     if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
+    const termWithColon = term.replace(/\./g, ':');
+    const termWithDot = term.replace(/:/g, '.');
+    const canonicalName = formatPermName(p.name).toLowerCase();
+    const rawName = p.name.toLowerCase();
+
     return (
-      p.name.toLowerCase().includes(term) ||
+      rawName.includes(term) ||
+      canonicalName.includes(term) ||
+      canonicalName.includes(termWithColon) ||
+      rawName.includes(termWithDot) ||
       (p.description && p.description.toLowerCase().includes(term)) ||
       (p.module && p.module.toLowerCase().includes(term))
     );
@@ -269,8 +284,8 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                                 className="mt-0.5 w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer shrink-0"
                               />
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs font-semibold text-slate-800 truncate">
-                                  {perm.action || perm.name}
+                                <div className="text-xs font-semibold text-slate-800 truncate font-mono">
+                                  {formatPermName(perm.action || perm.name)}
                                 </div>
                                 {perm.description && (
                                   <p className="text-[11px] text-slate-500 mt-0.5 leading-tight line-clamp-2">{perm.description}</p>

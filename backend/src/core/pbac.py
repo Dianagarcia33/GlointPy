@@ -46,7 +46,7 @@ class PBACEngine:
         without_admin_colon = with_colon[6:] if with_colon.startswith("admin:") else with_colon
         with_admin_dot = f"admin.{without_admin_dot}"
         with_admin_colon = f"admin:{without_admin_colon}"
-        return {
+        variants = {
             clean,
             with_dot,
             with_colon,
@@ -58,6 +58,9 @@ class PBACEngine:
             with_dot.replace("-", "_"),
             with_colon.replace("-", "_"),
         }
+        if clean in ("manage_system_events", "admin.system_events.manage", "admin:system_events:manage"):
+            variants.update({"manage_system_events", "admin.system_events.manage", "admin:system_events:manage"})
+        return variants
 
     @staticmethod
     def has_permission(user: User, required_permission: str) -> bool:

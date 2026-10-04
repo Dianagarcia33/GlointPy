@@ -121,7 +121,13 @@ class SecurityService:
     @staticmethod
     async def get_all_permissions(db: AsyncSession):
         result = await db.execute(select(Permission).order_by(Permission.module, Permission.name))
-        return result.scalars().all()
+        perms = result.scalars().all()
+        for p in perms:
+            if "." in p.name:
+                p.name = p.name.replace(".", ":")
+            elif p.name == "manage_system_events":
+                p.name = "admin:system_events:manage"
+        return perms
 
     @staticmethod
     async def sync_all_system_permissions(db: AsyncSession):
@@ -147,50 +153,50 @@ class SecurityService:
 
             # Módulo Acciones
             {"name": "shares:access", "description": "Acceso a compra y venta en el mercado de acciones", "module": "Acciones"},
-            {"name": "admin.shares.manage", "description": "Administrar emisiones, fijar precio oficial y auditar órdenes", "module": "Acciones"},
+            {"name": "admin:shares:manage", "description": "Administrar emisiones, fijar precio oficial y auditar órdenes", "module": "Acciones"},
 
             # Módulo Comercial & Directivo
             {"name": "commercial:view", "description": "Acceso a la mesa de trabajo comercial y ventas", "module": "Comercial"},
-            {"name": "director.dashboard.view", "description": "Panel de control y seguimiento del directivo de inversiones", "module": "Comercial"},
-            {"name": "admin.commercial.manage", "description": "Gestionar, auditar y adjudicar ventas del equipo comercial", "module": "Comercial"},
-            {"name": "admin.commissions.settle", "description": "Liquidar y procesar comisiones del equipo comercial", "module": "Comercial"},
+            {"name": "director:dashboard:view", "description": "Panel de control y seguimiento del directivo de inversiones", "module": "Comercial"},
+            {"name": "admin:commercial:manage", "description": "Gestionar, auditar y adjudicar ventas del equipo comercial", "module": "Comercial"},
+            {"name": "admin:commissions:settle", "description": "Liquidar y procesar comisiones del equipo comercial", "module": "Comercial"},
 
             # Módulo Inversionistas
-            {"name": "admin.investors.manage", "description": "Acceso y consulta de la tabla general de inversionistas", "module": "Inversionistas"},
-            {"name": "admin.investors.create", "description": "Crear nuevos contratos e inversionistas (Crear Inversión)", "module": "Inversionistas"},
-            {"name": "admin.investors.wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Herramienta Lápiz)", "module": "Inversionistas"},
-            {"name": "admin.investors.capital_increase", "description": "Gestionar aumentos de capital a contratos (+ Capital)", "module": "Inversionistas"},
-            {"name": "admin.investors.delete", "description": "Eliminar contratos de inversión e inversionistas", "module": "Inversionistas"},
+            {"name": "admin:investors:manage", "description": "Acceso y consulta de la tabla general de inversionistas", "module": "Inversionistas"},
+            {"name": "admin:investors:create", "description": "Crear nuevos contratos e inversionistas (Crear Inversión)", "module": "Inversionistas"},
+            {"name": "admin:investors:wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Herramienta Lápiz)", "module": "Inversionistas"},
+            {"name": "admin:investors:capital_increase", "description": "Gestionar aumentos de capital a contratos (+ Capital)", "module": "Inversionistas"},
+            {"name": "admin:investors:delete", "description": "Eliminar contratos de inversión e inversionistas", "module": "Inversionistas"},
 
             # Módulo Inversiones
-            {"name": "admin.investments.manage", "description": "Administrar y auditar la totalidad de solicitudes de inversión", "module": "Inversiones"},
-            {"name": "admin.investments.solicitud_inversion", "description": "Permiso para abrir el formulario de nueva solicitud", "module": "Inversiones"},
-            {"name": "admin.investments.approve", "description": "Aprobar solicitudes de inversión y formalizar contratos", "module": "Inversiones"},
-            {"name": "admin.investments.reject", "description": "Rechazar solicitudes de inversión con justificación", "module": "Inversiones"},
+            {"name": "admin:investments:manage", "description": "Administrar y auditar la totalidad de solicitudes de inversión", "module": "Inversiones"},
+            {"name": "admin:investments:solicitud_inversion", "description": "Permiso para abrir el formulario de nueva solicitud", "module": "Inversiones"},
+            {"name": "admin:investments:approve", "description": "Aprobar solicitudes de inversión y formalizar contratos", "module": "Inversiones"},
+            {"name": "admin:investments:reject", "description": "Rechazar solicitudes de inversión con justificación", "module": "Inversiones"},
 
             # Módulo Pagos & Auditoría
-            {"name": "admin.payments.manage", "description": "Gestionar la pasarela de pagos y depósitos bancarios", "module": "Pagos"},
-            {"name": "admin.withdrawals.manage", "description": "Auditar y autorizar solicitudes de retiro de fondos", "module": "Pagos"},
-            {"name": "admin.audits.manage", "description": "Auditoría integral, cálculo y corte de rendimientos", "module": "Auditoría"},
+            {"name": "admin:payments:manage", "description": "Gestionar la pasarela de pagos y depósitos bancarios", "module": "Pagos"},
+            {"name": "admin:withdrawals:manage", "description": "Auditar y autorizar solicitudes de retiro de fondos", "module": "Pagos"},
+            {"name": "admin:audits:manage", "description": "Auditoría integral, cálculo y corte de rendimientos", "module": "Auditoría"},
 
             # Módulo Administración
-            {"name": "admin.roles.manage", "description": "Gestionar roles de usuario y matriz de permisos PBAC", "module": "Administración"},
-            {"name": "admin.users.manage", "description": "Gestionar usuarios, estados de cuenta y vinculaciones parentales", "module": "Administración"},
-            {"name": "admin.periods.manage", "description": "Crear y administrar periodos fiscales de inversión", "module": "Administración"},
-            {"name": "admin.packages.manage", "description": "Crear, parametrizar y activar paquetes de inversión", "module": "Administración"},
-            {"name": "admin.rankings.manage", "description": "Administrar rangos, clubes de beneficios y niveles", "module": "Administración"},
-            {"name": "admin.referrals.manage", "description": "Administrar referidos comerciales, asignaciones y conversiones", "module": "Administración"},
-            {"name": "admin.external_apps.manage", "description": "Gestionar integraciones API, apps externas y pasarela Gloint Pay", "module": "Administración"},
-            {"name": "admin.events.manage", "description": "Crear y administrar eventos oficiales corporativos", "module": "Administración"},
-            {"name": "admin.notifications.manage", "description": "Emitir comunicados masivos y notificaciones push", "module": "Administración"},
-            {"name": "admin.templates.manage", "description": "Administrar plantillas contractuales y documentos", "module": "Administración"},
-            {"name": "manage_system_events", "description": "Gestionar calendario y eventos del sistema", "module": "Administración"},
+            {"name": "admin:roles:manage", "description": "Gestionar roles de usuario y matriz de permisos PBAC", "module": "Administración"},
+            {"name": "admin:users:manage", "description": "Gestionar usuarios, estados de cuenta y vinculaciones parentales", "module": "Administración"},
+            {"name": "admin:periods:manage", "description": "Crear y administrar periodos fiscales de inversión", "module": "Administración"},
+            {"name": "admin:packages:manage", "description": "Crear, parametrizar y activar paquetes de inversión", "module": "Administración"},
+            {"name": "admin:rankings:manage", "description": "Administrar rangos, clubes de beneficios y niveles", "module": "Administración"},
+            {"name": "admin:referrals:manage", "description": "Administrar referidos comerciales, asignaciones y conversiones", "module": "Administración"},
+            {"name": "admin:external_apps:manage", "description": "Gestionar integraciones API, apps externas y pasarela Gloint Pay", "module": "Administración"},
+            {"name": "admin:events:manage", "description": "Crear y administrar eventos oficiales corporativos", "module": "Administración"},
+            {"name": "admin:notifications:manage", "description": "Emitir comunicados masivos y notificaciones push", "module": "Administración"},
+            {"name": "admin:templates:manage", "description": "Administrar plantillas contractuales y documentos", "module": "Administración"},
+            {"name": "admin:system_events:manage", "description": "Gestionar calendario y eventos del sistema", "module": "Administración"},
             {"name": "sarlaft:check", "description": "Ejecutar validación de listas restrictivas Sarlaft", "module": "Administración"},
 
             # Módulo Chat
             {"name": "chat:view", "description": "Acceder y visualizar el módulo de chat corporativo", "module": "Chat"},
             {"name": "chat:send", "description": "Enviar mensajes y archivos en salas de chat", "module": "Chat"},
-            {"name": "admin.chat.manage", "description": "Moderar, supervisar y administrar salas de chat", "module": "Chat"},
+            {"name": "admin:chat:manage", "description": "Moderar, supervisar y administrar salas de chat", "module": "Chat"},
 
             # Módulo CRM, Bandeja de Correos y Calendario
             {"name": "crm:view", "description": "CRM / Proyectos: Acceso a la vista de embudos y prospectos", "module": "CRM"},
@@ -202,8 +208,32 @@ class SecurityService:
             {"name": "crm:inbox:send", "description": "Bandeja de Correos: Redactar y enviar correos comerciales a clientes y prospectos", "module": "CRM"},
             {"name": "crm:calendar:view", "description": "Calendario / Agenda: Consultar eventos, citas y reuniones programadas", "module": "CRM"},
             {"name": "crm:calendar:manage", "description": "Calendario / Agenda: Crear, editar, agendar y sincronizar citas", "module": "CRM"},
-            {"name": "admin.crm.manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
+            {"name": "admin:crm:manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
         ]
+
+        # 0. Migración in-place de permisos con separador punto (.) o formato legado a dos puntos (:)
+        all_current = (await db.execute(select(Permission))).scalars().all()
+        for p in all_current:
+            canonical = p.name
+            if "." in canonical:
+                canonical = canonical.replace(".", ":")
+            elif canonical == "manage_system_events":
+                canonical = "admin:system_events:manage"
+            elif canonical == "accounting.dashboard.view":
+                canonical = "accounting:dashboard:view"
+
+            if canonical != p.name:
+                conflict = (await db.execute(select(Permission).where(Permission.name == canonical))).scalars().first()
+                if not conflict:
+                    p.name = canonical
+                else:
+                    await db.execute(
+                        role_permissions.update()
+                        .where(role_permissions.c.permission_id == p.id)
+                        .values(permission_id=conflict.id)
+                    )
+                    await db.delete(p)
+        await db.flush()
 
         # 1. Sincronizar permisos en la tabla
         all_perms_map = {}
@@ -246,20 +276,20 @@ class SecurityService:
                 "chat:view", "chat:send"
             ],
             "directivo_de_inversiones": [
-                "commercial:view", "director.dashboard.view", "referrals:view", "admin.referrals.manage",
+                "commercial:view", "director:dashboard:view", "referrals:view", "admin:referrals:manage",
                 "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
                 "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
                 "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
                 "chat:view", "chat:send"
             ],
             "operaciones": [
-                "admin.investors.manage", "admin.investors.create", "admin.investors.capital_increase", "admin.investors.wallet_adjust",
-                "admin.investments.manage", "admin.investments.solicitud_inversion", "admin.investments.approve", "admin.investments.reject",
-                "admin.packages.manage", "admin.periods.manage", "sarlaft:check",
+                "admin:investors:manage", "admin:investors:create", "admin:investors:capital_increase", "admin:investors:wallet_adjust",
+                "admin:investments:manage", "admin:investments:solicitud_inversion", "admin:investments:approve", "admin:investments:reject",
+                "admin:packages:manage", "admin:periods:manage", "sarlaft:check",
                 "chat:view", "chat:send"
             ],
             "contabilidad_": [
-                "accounting.dashboard.view", "admin.payments.manage", "admin.withdrawals.manage", "admin.audits.manage", "admin.commissions.settle", "admin.investments.manage",
+                "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle", "admin:investments:manage",
                 "chat:view", "chat:send"
             ]
         }
