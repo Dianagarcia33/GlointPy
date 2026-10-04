@@ -66,7 +66,11 @@ async def create_sale(
     """
     Registra una nueva venta comercial adjudicada al usuario comercial en sesión.
     """
-    sale = await register_commercial_sale(db, current_user.id, sale_data)
+    is_admin = (
+        getattr(current_user, 'is_superuser', False) or 
+        any(r.name.lower() in ['superadmin', 'super admin', 'administrador', 'admin'] for r in (current_user.roles or []))
+    )
+    sale = await register_commercial_sale(db, current_user.id, sale_data, is_admin=is_admin)
     return sale
 
 @router.post("/admin-sales", response_model=CommercialSaleResponse, dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
@@ -79,7 +83,7 @@ async def create_admin_sale(
     """
     Permite a un Administrador adjudicar una venta comercial a cualquier asesor del equipo.
     """
-    sale = await register_commercial_sale(db, target_commercial_id, sale_data)
+    sale = await register_commercial_sale(db, target_commercial_id, sale_data, is_admin=True)
     return sale
 
 async def build_commercial_summary_data(commercial_id: int, db: AsyncSession, month: Optional[int] = None, year: Optional[int] = None) -> Dict[str, Any]:

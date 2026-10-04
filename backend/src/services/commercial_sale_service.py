@@ -1,6 +1,7 @@
 from decimal import Decimal
 from datetime import datetime, date
 from typing import Optional, Tuple, Dict, Any, List
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import extract, func, or_
@@ -302,11 +303,12 @@ async def calculate_marginal_commission(
 async def register_commercial_sale(
     db: AsyncSession,
     commercial_id: int,
-    sale_data: CommercialSaleCreate
+    sale_data: CommercialSaleCreate,
+    is_admin: bool = False
 ) -> CommercialSale:
     """
     Registra la venta comercial, valida la clasificación forzada si el cliente existe,
-    calcula la partición marginal y acredita la comisión a la Wallet del comercial.
+    previene comisiones duplicadas y asegura que ningún asesor cobre la inversión de otro (H-69).
     """
     # 1. Validar clasificación del cliente
     classification = await check_client_classification(db, sale_data.client_document)
@@ -317,7 +319,61 @@ async def register_commercial_sale(
         
     target_date = sale_data.sale_date if sale_data.sale_date else get_colombia_today()
     amount = sale_data.amount
-    
+    client_doc_clean = sale_data.client_document.strip()
+    effective_doc = (classification.get("client_document") or client_doc_clean).strip()
+
+    # H-69: Regla 1 - Un cliente existente NO puede registrarse como 'contrato_nuevo'
+    if classification.get("is_existing_client") and final_sale_type == CommercialSaleType.contrato_nuevo:
+        raise HTTPException(
+            status_code=400,
+            detail="Este cliente ya es un inversionista existente en la plataforma. No puede registrarse como 'Contrato Nuevo'. Debe registrarse como 'Referido' o 'Reinversión'."
+        )
+
+    # H-69: Regla 2 - Control anti-duplicados y exclusividad de la inversión
+    # Cada operación de inversión solo puede generar una única comisión y nunca dos asesores cobran la misma inversión
+    existing_sale_res = await db.execute(
+        select(CommercialSale)
+        .options(selectinload(CommercialSale.commercial))
+        .where(
+            or_(
+                CommercialSale.client_document == client_doc_clean,
+                CommercialSale.client_document == effective_doc
+            ),
+            CommercialSale.sale_date == target_date,
+            CommercialSale.amount == amount
+        )
+    )
+    duplicate_sale = existing_sale_res.scalars().first()
+    if duplicate_sale:
+        assigned_name = duplicate_sale.commercial.name if duplicate_sale.commercial else f"ID #{duplicate_sale.commercial_id}"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ya existe una venta registrada para esta inversión (Venta #{duplicate_sale.id} por ${amount:,.2f} a cargo de '{assigned_name}', clasificada como {duplicate_sale.sale_type.value}). Cada inversión solo puede generar una única comisión y ningún asesor puede cobrar la inversión de otro."
+        )
+
+    # H-69: Regla 3 - Validación de titularidad comercial (un asesor no cobra inversiones de cliente asignado a otro asesor)
+    user_res = await db.execute(
+        select(User).where(
+            or_(
+                User.document_id == client_doc_clean,
+                User.document_id == effective_doc
+            )
+        )
+    )
+    client_user = user_res.scalars().first()
+    if client_user:
+        if client_user.commercial_id and client_user.commercial_id != commercial_id and not is_admin:
+            if final_sale_type in [CommercialSaleType.contrato_nuevo, CommercialSaleType.reinversion]:
+                advisor_res = await db.execute(select(User.name).where(User.id == client_user.commercial_id))
+                advisor_name = advisor_res.scalar() or f"ID #{client_user.commercial_id}"
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"El cliente ya está asignado al asesor '{advisor_name}'. Un asesor no puede registrar comisiones de un cliente asignado a otro asesor."
+                )
+        elif not client_user.commercial_id:
+            # Asignar automáticamente al asesor de esta primera venta comercial
+            client_user.commercial_id = commercial_id
+
     # 2. Calcular comisión marginal sugerida o aplicar tasa personalizada manual por el Administrador
     comm_amount, comm_rate, tramo_a, tramo_b = await calculate_marginal_commission(
         db, commercial_id, final_sale_type, amount, target_date

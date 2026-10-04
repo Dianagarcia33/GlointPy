@@ -499,11 +499,15 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               <button
                 type="button"
                 onClick={() => setSaleType('contrato_nuevo')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                  saleType === 'contrato_nuevo'
-                    ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                disabled={Boolean(clientInfo?.is_existing_client)}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  clientInfo?.is_existing_client
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-50'
+                    : saleType === 'contrato_nuevo'
+                    ? 'bg-brand-500 text-white border-brand-500 shadow-sm cursor-pointer'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 cursor-pointer'
                 }`}
+                title={clientInfo?.is_existing_client ? "No disponible: el cliente ya es un inversionista existente en la plataforma" : ""}
               >
                 📄 Contrato Nuevo
               </button>
@@ -532,6 +536,11 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                 👥 Referido
               </button>
             </div>
+            {clientInfo?.is_existing_client && (
+              <p className="mt-1 text-[11px] text-amber-700 font-medium">
+                * Para clientes existentes solo aplica Referido (1.8%) o Reinversión. Contrato Nuevo queda deshabilitado para evitar doble comisión.
+              </p>
+            )}
           </div>
 
           {/* Seleccionar Paquete de Inversión (Opcional - Catálogo) */}
