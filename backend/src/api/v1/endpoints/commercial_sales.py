@@ -187,24 +187,42 @@ async def build_commercial_summary_data(commercial_id: int, db: AsyncSession, mo
 async def get_my_commercial_summary(
     month: Optional[int] = Query(None, ge=1, le=12),
     year: Optional[int] = Query(None, ge=2020, le=2050),
+    target_date: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Resumen en tiempo real para el comercial en sesión con filtro opcional de mes y año.
+    Resumen en tiempo real para el comercial en sesión con filtro opcional de mes y año o fecha específica.
     """
+    if target_date:
+        try:
+            from datetime import datetime as dt
+            d = dt.strptime(target_date.split("T")[0], "%Y-%m-%d").date()
+            year = d.year
+            month = d.month
+        except Exception:
+            pass
     return await build_commercial_summary_data(current_user.id, db, month=month, year=year)
 
-@router.get("/advisor-summary/{commercial_id}", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
+@router.get("/advisor-summary/{commercial_id}", dependencies=[Depends(RequirePermission(["admin.commercial.manage", "admin:commercial:manage", "commercial:view"]))])
 async def get_advisor_commercial_summary(
     commercial_id: int,
     month: Optional[int] = Query(None, ge=1, le=12),
     year: Optional[int] = Query(None, ge=2020, le=2050),
+    target_date: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Resumen comercial y progreso de metas de un asesor específico para supervisión de administradores.
     """
+    if target_date:
+        try:
+            from datetime import datetime as dt
+            d = dt.strptime(target_date.split("T")[0], "%Y-%m-%d").date()
+            year = d.year
+            month = d.month
+        except Exception:
+            pass
     return await build_commercial_summary_data(commercial_id, db, month=month, year=year)
 
 @router.get("/my-assigned-investments", dependencies=[Depends(RequirePermission(["director.dashboard.view", "commercial:view"]))])

@@ -189,18 +189,20 @@ export const commercialService = {
     });
   },
 
-  getMySummary: async (params?: { month?: number; year?: number }): Promise<CommercialSummary> => {
+  getMySummary: async (params?: { month?: number; year?: number; target_date?: string }): Promise<CommercialSummary> => {
     const query = new URLSearchParams();
     if (params?.month) query.append('month', params.month.toString());
     if (params?.year) query.append('year', params.year.toString());
+    if (params?.target_date) query.append('target_date', params.target_date);
     const qs = query.toString() ? `?${query.toString()}` : '';
     return await fetchApi(`/commercial/my-summary${qs}`);
   },
 
-  getAdvisorSummary: async (commercialId: number, params?: { month?: number; year?: number }): Promise<CommercialSummary> => {
+  getAdvisorSummary: async (commercialId: number, params?: { month?: number; year?: number; target_date?: string }): Promise<CommercialSummary> => {
     const query = new URLSearchParams();
     if (params?.month) query.append('month', params.month.toString());
     if (params?.year) query.append('year', params.year.toString());
+    if (params?.target_date) query.append('target_date', params.target_date);
     const qs = query.toString() ? `?${query.toString()}` : '';
     return await fetchApi(`/commercial/advisor-summary/${commercialId}${qs}`);
   },

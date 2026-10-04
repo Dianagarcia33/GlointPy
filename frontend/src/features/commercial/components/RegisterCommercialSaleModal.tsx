@@ -122,18 +122,34 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     }
   }, [shouldShowAsesorSelect, isOpen]);
 
-  // Cargar el acumulado mensual vigente del asesor seleccionado
+  // Cargar el acumulado mensual vigente del asesor seleccionado según la fecha de venta seleccionada
   useEffect(() => {
     if (!isOpen) return;
 
     const fetchAdvisorAccum = async () => {
       setIsLoadingAdvisorData(true);
       try {
+        let yearParam: number | undefined;
+        let monthParam: number | undefined;
+        if (saleDate && saleDate.includes('-')) {
+          const parts = saleDate.split('-');
+          if (parts.length >= 2) {
+            yearParam = parseInt(parts[0], 10);
+            monthParam = parseInt(parts[1], 10);
+          }
+        }
+
+        const queryParams = {
+          month: monthParam,
+          year: yearParam,
+          target_date: saleDate || undefined,
+        };
+
         if (shouldShowAsesorSelect && targetCommercialId) {
-          const summary = await commercialService.getAdvisorSummary(targetCommercialId);
+          const summary = await commercialService.getAdvisorSummary(targetCommercialId, queryParams);
           setAdvisorAccumulatedDirect(summary.direct_accumulated || 0);
         } else if (!shouldShowAsesorSelect) {
-          const summary = await commercialService.getMySummary();
+          const summary = await commercialService.getMySummary(queryParams);
           setAdvisorAccumulatedDirect(summary.direct_accumulated || 0);
         } else {
           setAdvisorAccumulatedDirect(currentAccumulatedDirect);
@@ -146,7 +162,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     };
 
     fetchAdvisorAccum();
-  }, [isOpen, targetCommercialId, shouldShowAsesorSelect, currentAccumulatedDirect]);
+  }, [isOpen, targetCommercialId, shouldShowAsesorSelect, currentAccumulatedDirect, saleDate]);
 
   useEffect(() => {
     if (searchTerm.trim().length >= 2) {
@@ -669,11 +685,13 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
               {saleType !== 'referido' && (
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-[11px] text-slate-500 pb-1 gap-1 border-b border-slate-200/60">
-                  <span>Acumulado Previo del Asesor (Mes en Curso):</span>
+                  <span>
+                    Acumulado Previo del Asesor ({saleDate ? `Periodo ${saleDate.slice(0, 7)}` : 'Mes en Curso'}):
+                  </span>
                   <span className="font-mono font-bold text-slate-700">
                     ${advisorAccumulatedDirect.toLocaleString('es-CO')} COP
                     {advisorAccumulatedDirect >= THRESHOLD ? (
-                      <span className="ml-1.5 text-emerald-700 font-extrabold">(Superó $36M → Sugerido 3.5%)</span>
+                      <span className="ml-1.5 text-emerald-700 font-extrabold">(Superó $36M → Comisión Plana 3.5%)</span>
                     ) : (
                       <span className="ml-1.5 text-amber-700 font-semibold">(Faltan ${(THRESHOLD - advisorAccumulatedDirect).toLocaleString('es-CO')} para 3.5%)</span>
                     )}
@@ -756,15 +774,27 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
 
               {saleType !== 'referido' && !isCustomRateActive && (tramoA > 0 || tramoB > 0) && (
                 <div className="space-y-1 text-[11px] bg-white p-2.5 rounded-lg border border-slate-200/70 mt-1">
-                  {tramoA > 0 && (
+                  {tramoA > 0 && tramoB > 0 && (
+                    <>
+                      <div className="flex justify-between text-slate-600">
+                        <span>Tramo Base (3.0% hasta $36M):</span>
+                        <span className="font-mono font-bold">${tramoA.toLocaleString('es-CO')} COP</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-700 font-semibold">
+                        <span>Tramo Excedente (3.5% superando $36M):</span>
+                        <span className="font-mono font-bold">${tramoB.toLocaleString('es-CO')} COP</span>
+                      </div>
+                    </>
+                  )}
+                  {tramoA > 0 && tramoB === 0 && (
                     <div className="flex justify-between text-slate-600">
                       <span>Tramo Base (3.0% hasta $36M):</span>
                       <span className="font-mono font-bold">${tramoA.toLocaleString('es-CO')} COP</span>
                     </div>
                   )}
-                  {tramoB > 0 && (
+                  {tramoA === 0 && tramoB > 0 && (
                     <div className="flex justify-between text-emerald-700 font-semibold">
-                      <span>Tramo Excedente (3.5% superando $36M):</span>
+                      <span>Comisión Plana (3.5% tras superar $36M en el periodo):</span>
                       <span className="font-mono font-bold">${tramoB.toLocaleString('es-CO')} COP</span>
                     </div>
                   )}
