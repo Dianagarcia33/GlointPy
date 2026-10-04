@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Beneficiary, BeneficiaryCreate, BeneficiaryUpdate, beneficiariesService } from '../../../services/beneficiaries';
-import { X, Loader2, HeartHandshake, Percent } from 'lucide-react';
+import { X, Loader2, HeartHandshake, Percent, AlertCircle } from 'lucide-react';
 
 interface BeneficiaryModalProps {
     isOpen: boolean;
@@ -166,7 +166,18 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                     <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
                             <label className="text-xs font-bold text-slate-700">Porcentaje Asignado (%) <span className="text-red-500">*</span></label>
-                            <span className="text-[11px] font-bold text-brand-600">Disponible: {availablePercentage}%</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-brand-600">Disponible: {availablePercentage.toFixed(2)}%</span>
+                                {availablePercentage > 0 && Number(percentage) !== availablePercentage && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setPercentage(availablePercentage)}
+                                        className="text-[10px] font-bold px-2 py-0.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-md border border-brand-200 transition-colors cursor-pointer"
+                                    >
+                                        Asignar restante ({availablePercentage.toFixed(2)}%)
+                                    </button>
+                                )}
+                            </div>
                         </div>
                         <div className="relative">
                             <input
@@ -182,6 +193,18 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                             />
                             <Percent className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                         </div>
+                        {percentage !== '' && Number(percentage) > 0 && Number(percentage) < availablePercentage && (
+                            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-start gap-2 animate-in fade-in duration-200">
+                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <span className="font-bold">Distribución parcial:</span> Quedará un{' '}
+                                    <strong className="font-mono text-amber-950 font-bold">
+                                        {(availablePercentage - Number(percentage)).toFixed(2)}%
+                                    </strong>{' '}
+                                    pendiente por asignar. Deberás registrar otro beneficiario para que la cobertura legal sea válida al 100%.
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

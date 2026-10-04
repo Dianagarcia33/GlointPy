@@ -157,8 +157,19 @@ export const BeneficiariesPage = () => {
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <HeartHandshake className="w-4 h-4 text-emerald-400" /> Registro Legal de Beneficiarios
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
+              <HeartHandshake className="w-4 h-4 text-emerald-400" /> Registro Legal de Beneficiarios
+            </div>
+            {totalPercentage === 100 ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 border border-emerald-400/30 rounded-full text-xs font-bold text-emerald-300 backdrop-blur-sm">
+                <CheckCircle className="w-3.5 h-3.5" /> Cobertura Legal Completa (100%)
+              </span>
+            ) : totalPercentage > 0 ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-400/30 rounded-full text-xs font-bold text-amber-300 backdrop-blur-sm">
+                <AlertCircle className="w-3.5 h-3.5" /> Distribución Incompleta ({totalPercentage.toFixed(2)}% de 100%)
+              </span>
+            ) : null}
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
             Beneficiarios
