@@ -1,8 +1,10 @@
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from src.models.security import Role, Permission
+from src.models.user import User
 from src.schemas.security import RoleCreate, RoleUpdate
 
 class SecurityService:
@@ -50,7 +52,7 @@ class SecurityService:
         return result.scalars().first()
 
     @staticmethod
-    async def update_role(db: AsyncSession, role_id: int, role_data: RoleUpdate, current_user: User = None):
+    async def update_role(db: AsyncSession, role_id: int, role_data: RoleUpdate, current_user: Optional[User] = None):
         role = await SecurityService.get_role(db, role_id)
         
         # Blindaje contra escalada de privilegios (H-150 / H-35):

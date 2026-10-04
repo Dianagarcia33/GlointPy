@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from typing import List
+from typing import List, Optional
 
 from src.models.user import User
 from src.models.security import Role
@@ -151,7 +151,7 @@ class UserService:
         return await UserService.get_user_by_id(db, user.id)
 
     @staticmethod
-    async def reset_user_password(db: AsyncSession, user_id: int, current_user: User = None) -> dict:
+    async def reset_user_password(db: AsyncSession, user_id: int, current_user: Optional[User] = None) -> dict:
         result = await db.execute(
             select(User).options(selectinload(User.roles)).where(User.id == user_id)
         )
