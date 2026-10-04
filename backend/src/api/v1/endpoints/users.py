@@ -130,7 +130,12 @@ async def update_user(user_id: int, user_in: UserUpdateAdmin, db: AsyncSession =
     return await UserService.update_user_admin(db, user_id, update_data)
 
 @router.post("/{user_id}/roles", response_model=UserResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def assign_roles(user_id: int, assign_data: AssignRoleToUser, db: AsyncSession = Depends(get_db)):
+async def assign_roles(
+    user_id: int, 
+    assign_data: AssignRoleToUser, 
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Asigna un conjunto de roles a un usuario específico.
     Sobrescribe los roles anteriores con los nuevos proporcionados en la lista.
@@ -149,6 +154,23 @@ async def assign_roles(user_id: int, assign_data: AssignRoleToUser, db: AsyncSes
     else:
         new_roles = []
         
+    # Blindaje contra escalada de privilegios (H-150 / H-35):
+    # Solo un SuperAdmin puede asignar o despojar el rol SuperAdmin
+    had_super = any(r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (user.roles or []))
+    will_have_super = any(r.name.lower() in ["superadmin", "super admin", "superuser"] for r in new_roles)
+    
+    if had_super or will_have_super:
+        caller_is_super = current_user and (
+            getattr(current_user, 'is_superuser', False) or any(
+                r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (current_user.roles or [])
+            )
+        )
+        if not caller_is_super:
+            raise HTTPException(
+                status_code=403,
+                detail="Solo un SuperAdministrador puede otorgar o remover el rol SuperAdmin."
+            )
+
     # 3. Reasignar
     user.roles = new_roles
     
@@ -175,11 +197,15 @@ async def bulk_upload_users(file: UploadFile = File(...), db: AsyncSession = Dep
     return result
 
 @router.post("/{user_id}/reset-password", dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def reset_user_password(user_id: int, db: AsyncSession = Depends(get_db)):
+async def reset_user_password(
+    user_id: int, 
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Restablece la contraseña de un usuario a la clave temporal '123456789' y fuerza el cambio de contraseña al ingresar.
     """
-    return await UserService.reset_user_password(db, user_id)
+    return await UserService.reset_user_password(db, user_id, current_user=current_user)
 
 @router.get("/statement/global", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage", "admin.payments.manage", "admin.audits.manage", "admin.roles.manage"]))])
 async def get_global_statement(

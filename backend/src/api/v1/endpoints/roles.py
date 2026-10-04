@@ -5,7 +5,8 @@ from typing import List
 from src.core.database import get_db
 from src.schemas.security import RoleCreate, RoleUpdate, RoleResponse, PermissionResponse
 from src.services.security_service import SecurityService
-from src.api.deps import RequirePermission
+from src.api.deps import RequirePermission, get_current_user
+from src.models.user import User
 
 router = APIRouter()
 
@@ -24,11 +25,16 @@ async def create_role(role_in: RoleCreate, db: AsyncSession = Depends(get_db)):
     return await SecurityService.create_role(db, role_in)
 
 @router.put("/roles/{role_id}", response_model=RoleResponse, dependencies=[Depends(RequirePermission("admin.roles.manage"))])
-async def update_role(role_id: int, role_in: RoleUpdate, db: AsyncSession = Depends(get_db)):
+async def update_role(
+    role_id: int, 
+    role_in: RoleUpdate, 
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Actualiza un rol (nombre, descripción o sus permisos).
     """
-    return await SecurityService.update_role(db, role_id, role_in)
+    return await SecurityService.update_role(db, role_id, role_in, current_user=current_user)
 
 @router.delete("/roles/{role_id}", dependencies=[Depends(RequirePermission("admin.roles.manage"))])
 async def delete_role(role_id: int, db: AsyncSession = Depends(get_db)):

@@ -50,9 +50,22 @@ class SecurityService:
         return result.scalars().first()
 
     @staticmethod
-    async def update_role(db: AsyncSession, role_id: int, role_data: RoleUpdate):
+    async def update_role(db: AsyncSession, role_id: int, role_data: RoleUpdate, current_user: User = None):
         role = await SecurityService.get_role(db, role_id)
         
+        # Blindaje contra escalada de privilegios (H-150 / H-35):
+        # El rol SuperAdmin no puede ser alterado a menos que quien ejecuta la acción sea un superusuario real.
+        is_super_role = role.name and role.name.lower() in ["superadmin", "super admin", "superuser"]
+        if is_super_role:
+            caller_is_super = current_user and (getattr(current_user, 'is_superuser', False) or any(
+                r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (current_user.roles or [])
+            ))
+            if not caller_is_super:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="No tienes permisos para modificar el rol SuperAdmin. Acción reservada exclusivamente para el Superusuario del sistema."
+                )
+
         if role.is_system_role == "1" and role_data.name and role_data.name != role.name:
             raise HTTPException(status_code=403, detail="Cannot rename system roles")
 

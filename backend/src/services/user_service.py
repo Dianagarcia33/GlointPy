@@ -151,11 +151,30 @@ class UserService:
         return await UserService.get_user_by_id(db, user.id)
 
     @staticmethod
-    async def reset_user_password(db: AsyncSession, user_id: int) -> dict:
-        result = await db.execute(select(User).where(User.id == user_id))
+    async def reset_user_password(db: AsyncSession, user_id: int, current_user: User = None) -> dict:
+        result = await db.execute(
+            select(User).options(selectinload(User.roles)).where(User.id == user_id)
+        )
         user = result.scalars().first()
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        # Blindaje contra escalada de privilegios (H-150 / H-35):
+        # Impedir que un administrador de menor rango resetee la contraseña de un SuperAdmin
+        target_is_super = getattr(user, 'is_superuser', False) or any(
+            r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (user.roles or [])
+        )
+        if target_is_super:
+            caller_is_super = current_user and (
+                getattr(current_user, 'is_superuser', False) or any(
+                    r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (current_user.roles or [])
+                )
+            )
+            if not caller_is_super:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tienes autorización para restablecer la contraseña de un SuperAdministrador del sistema."
+                )
 
         user.password_hash = get_password_hash("123456789")
         user.must_change_password = True
