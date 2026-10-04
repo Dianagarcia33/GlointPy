@@ -200,9 +200,15 @@ export const AdminPackagesPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-bold text-brand-700 text-sm font-montserrat">
-                        {pkg.granted_shares.toLocaleString('es-CO')} <span className="text-xs text-slate-500 font-normal">acciones</span>
-                      </div>
+                      {pkg.granted_shares > 0 ? (
+                        <div className="font-bold text-brand-700 text-sm font-montserrat">
+                          {pkg.granted_shares.toLocaleString('es-CO')} <span className="text-xs text-slate-500 font-normal">acciones</span>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="font-bold">0</span> acciones (Membresía / Sin acciones)
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase border ${
