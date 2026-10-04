@@ -307,7 +307,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
             {isRejecting ? (
               <button
                 onClick={handleReject}
-                disabled={isProcessing || !rejectionReason.trim()}
+                disabled={isProcessing || rejectionReason.trim().length < 10}
                 className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2 shadow-md shadow-rose-600/20 cursor-pointer"
               >
                 {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}

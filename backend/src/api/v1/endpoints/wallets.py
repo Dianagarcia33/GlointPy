@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -810,6 +810,17 @@ async def transfer_wallet_funds(
 
 class RejectRechargeRequest(BaseModel):
     reason: str
+
+    @field_validator('reason')
+    @classmethod
+    def validate_reason(cls, v: str) -> str:
+        clean = (v or "").strip()
+        if len(clean) < 10:
+            raise ValueError("El motivo de rechazo debe contener al menos 10 caracteres explicativos.")
+        # Prevenir cadenas de texto basura repetitivo (ej: asdf, sss, 1111)
+        if len(set(clean.lower().replace(" ", ""))) < 4:
+            raise ValueError("Por favor ingrese un motivo de rechazo válido y descriptivo para el usuario.")
+        return clean
 
 class ApproveRechargeRequest(BaseModel):
     admin_notes: Optional[str] = None

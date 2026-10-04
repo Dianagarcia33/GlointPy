@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional, Any, List
 from datetime import datetime, date
 from decimal import Decimal
@@ -79,6 +79,7 @@ class WithdrawalPaginatedResponse(BaseModel):
 class WithdrawalRejectRequest(BaseModel):
     motivo_rechazo: str
 
+    @field_validator('motivo_rechazo')
     @classmethod
     def validate_motivo(cls, v: str) -> str:
         clean = (v or "").strip()
@@ -88,10 +89,6 @@ class WithdrawalRejectRequest(BaseModel):
         if len(set(clean.lower().replace(" ", ""))) < 4:
             raise ValueError("Por favor ingrese un motivo de rechazo válido y descriptivo para el usuario.")
         return clean
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.motivo_rechazo = self.validate_motivo(self.motivo_rechazo)
 
 class WithdrawalBulkProcessRequest(BaseModel):
     withdrawal_ids: List[int]

@@ -40,7 +40,7 @@ async def bulk_upload_investment_requests(file: UploadFile = File(...), db: Asyn
     return result
 
 from src.api.deps import get_current_user
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 class ApproveRequestPayload(BaseModel):
     commercial_id: Optional[int] = None
@@ -48,6 +48,7 @@ class ApproveRequestPayload(BaseModel):
 class RejectRequestPayload(BaseModel):
     rejection_reason: str
 
+    @field_validator('rejection_reason')
     @classmethod
     def validate_reason(cls, v: str) -> str:
         clean = (v or "").strip()
@@ -56,10 +57,6 @@ class RejectRequestPayload(BaseModel):
         if len(set(clean.lower().replace(" ", ""))) < 4:
             raise ValueError("Por favor ingrese un motivo de rechazo válido y descriptivo para el usuario.")
         return clean
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.rejection_reason = self.validate_reason(self.rejection_reason)
 
 @router.post("/{request_id}/approve", dependencies=[Depends(RequirePermission("admin.investments.approve"))])
 async def approve_investment_request(
