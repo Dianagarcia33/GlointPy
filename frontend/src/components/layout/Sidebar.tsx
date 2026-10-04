@@ -30,7 +30,8 @@ import {
     Globe,
     Layers,
     Sparkles,
-    DoorClosed
+    DoorClosed,
+    ShieldAlert
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
@@ -402,6 +403,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                 <History className="w-[18px] h-[18px]" />
                                             </span>
                                             <span className="flex-1 text-[13px] font-outfit">Auditoría (Cruce)</span>
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["admin.audits.manage", "admin.roles.manage"]}>
+                                        <NavLink to="/dashboard/security-logs" className={navLinkClass}>
+                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                                <ShieldAlert className="w-[18px] h-[18px]" />
+                                            </span>
+                                            <span className="flex-1 text-[13px] font-outfit">Logs de Seguridad</span>
                                         </NavLink>
                                     </Can>
 

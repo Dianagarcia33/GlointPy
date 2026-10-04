@@ -34,6 +34,7 @@ import { AdminExternalAppsPage } from "./features/admin/external-apps/pages/Admi
 import { GlointPayCheckoutPage } from "./features/checkout/pages/GlointPayCheckoutPage";
 import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
 import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
+import { SecurityLogsPage } from "./features/admin/pages/SecurityLogsPage";
 import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
 import { CommercialDashboardPage } from "./features/commercial/pages/CommercialDashboardPage";
 import { BeneficiariesPage } from "./features/beneficiaries/pages/BeneficiariesPage";
@@ -143,6 +144,7 @@ function App() {
         <Route path="investments" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentsPage /></RequirePermission>} />
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
+        <Route path="security-logs" element={<RequirePermission permissions={["admin.audits.manage", "admin.roles.manage"]}><SecurityLogsPage /></RequirePermission>} />
         <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />
         <Route path="periods" element={<RequirePermission permission="admin.periods.manage"><AdminPeriodsPage /></RequirePermission>} />

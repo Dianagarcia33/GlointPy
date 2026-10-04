@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -13,6 +13,7 @@ from src.schemas.security import AssignRoleToUser
 from src.models.user import User
 from src.models.security import Role
 from src.services.user_service import UserService
+from src.services.audit_trail_service import log_audit_trail
 from src.api.deps import RequirePermission, get_current_user
 
 router = APIRouter()
@@ -170,12 +171,24 @@ async def assign_roles(
                 status_code=403,
                 detail="Solo un SuperAdministrador puede otorgar o remover el rol SuperAdmin."
             )
-
     # 3. Reasignar
     user.roles = new_roles
     
     await db.commit()
     await db.refresh(user)
+
+    # Registro inmutable en Audit Trail (H-65)
+    role_names = [r.name for r in new_roles]
+    await log_audit_trail(
+        db=db,
+        action="USER_ROLES_ASSIGN",
+        module="users",
+        user=current_user,
+        entity_type="User",
+        entity_id=user_id,
+        description=f"Reasignación de roles para usuario '{user.name}' ({user.email}). Nuevos roles: {', '.join(role_names) if role_names else 'Sin roles'}",
+        details={"user_id": user_id, "new_roles": role_names}
+    )
     
     return user
 
@@ -199,13 +212,29 @@ async def bulk_upload_users(file: UploadFile = File(...), db: AsyncSession = Dep
 @router.post("/{user_id}/reset-password", dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def reset_user_password(
     user_id: int, 
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Restablece la contraseña de un usuario a la clave temporal '123456789' y fuerza el cambio de contraseña al ingresar.
     """
-    return await UserService.reset_user_password(db, user_id, current_user=current_user)
+    res = await UserService.reset_user_password(db, user_id, current_user=current_user)
+
+    # Registro inmutable en Audit Trail (H-65)
+    await log_audit_trail(
+        db=db,
+        action="USER_PASSWORD_RESET",
+        module="users",
+        user=current_user,
+        entity_type="User",
+        entity_id=user_id,
+        description=f"Restablecimiento de contraseña forzado para usuario ID #{user_id}",
+        details={"target_user_id": user_id},
+        request=request
+    )
+
+    return res
 
 @router.get("/statement/global", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage", "admin.payments.manage", "admin.audits.manage", "admin.roles.manage"]))])
 async def get_global_statement(

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
@@ -10,6 +10,7 @@ from src.core.database import get_db
 from src.schemas.withdrawal import WithdrawalResponse, WithdrawalCreate, WithdrawalPaginatedResponse, WithdrawalRejectRequest, WithdrawalBulkProcessRequest
 from src.services.withdrawal_service import WithdrawalService
 from src.services.pdf_service import PDFService
+from src.services.audit_trail_service import log_audit_trail
 from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
 
@@ -76,11 +77,11 @@ async def get_withdrawal_receipt(
         media_type="application/pdf", 
         headers={"Content-Disposition": f"inline; filename=receipt_{withdrawal.id}.pdf"}
     )
-
 @router.post("/{withdrawal_id}/approve", response_model=WithdrawalResponse, dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def approve_withdrawal(
     withdrawal_id: int,
     background_tasks: BackgroundTasks,
+    request: Request,
     file: Optional[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -101,6 +102,19 @@ async def approve_withdrawal(
             
     withdrawal = await WithdrawalService.approve_withdrawal(db, withdrawal_id, current_user.id, file_path)
     
+    # Registro inmutable en Audit Trail (H-65)
+    await log_audit_trail(
+        db=db,
+        action="WITHDRAWAL_APPROVE",
+        module="withdrawals",
+        user=current_user,
+        entity_type="Withdrawal",
+        entity_id=withdrawal_id,
+        description=f"Aprobación de retiro #{withdrawal_id} por valor neto de ${getattr(withdrawal, 'monto_neto', withdrawal.monto):,.2f}",
+        details={"withdrawal_id": withdrawal_id, "monto_neto": float(getattr(withdrawal, 'monto_neto', withdrawal.monto)), "banco": withdrawal.banco},
+        request=request
+    )
+
     # Enviar email
     if withdrawal.user and withdrawal.user.email:
         from src.services.email_service import EmailService
@@ -120,13 +134,29 @@ async def approve_withdrawal(
 async def reject_withdrawal(
     withdrawal_id: int,
     req: WithdrawalRejectRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Reject a pending withdrawal and refund to wallet.
     """
-    return await WithdrawalService.reject_withdrawal(db, withdrawal_id, current_user.id, req.motivo_rechazo)
+    rejected = await WithdrawalService.reject_withdrawal(db, withdrawal_id, current_user.id, req.motivo_rechazo)
+
+    # Registro inmutable en Audit Trail (H-65)
+    await log_audit_trail(
+        db=db,
+        action="WITHDRAWAL_REJECT",
+        module="withdrawals",
+        user=current_user,
+        entity_type="Withdrawal",
+        entity_id=withdrawal_id,
+        description=f"Rechazo de retiro #{withdrawal_id}. Motivo: {req.motivo_rechazo}",
+        details={"withdrawal_id": withdrawal_id, "motivo_rechazo": req.motivo_rechazo},
+        request=request
+    )
+
+    return rejected
 
 @router.post("/bulk-upload", response_model=Dict[str, Any])
 async def bulk_upload_withdrawals(
