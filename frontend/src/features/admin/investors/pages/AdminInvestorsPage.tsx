@@ -15,7 +15,7 @@ import { AdminSolicitudInversionModal } from '../components/AdminSolicitudInvers
 import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { BulkDocumentModal } from '../components/BulkDocumentModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
-import { formatAccountNumber } from '../../../../utils/format';
+import { formatAccountNumber, maskAccountNumber } from '../../../../utils/format';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock, ShieldAlert } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { usePermissions } from '../../../../hooks/usePermissions';
@@ -294,12 +294,12 @@ export const AdminInvestorsPage = () => {
             <Users className="w-4 h-4 text-emerald-400" /> {isAdmin() ? 'Control Global de Contratos & Inversiones' : 'Portafolio de Inversionistas Asignados'}
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            {isAdmin() ? 'Gestión de Inversionistas' : 'Mis Inversionistas'}
+            {isAdmin() ? 'Gestión de Inversionistas' : 'Portafolio de Inversionistas'}
           </h1>
           <p className="text-slate-300 text-sm max-w-xl">
             {isAdmin() 
               ? 'Administra los contratos activos, rendimientos proyectados, aumentos de capital y solicitudes de inversión globales.'
-              : 'Visualiza los contratos, rendimientos proyectados y solicitudes de inversión de tus clientes asignados.'}
+              : 'Visualiza los contratos, rendimientos proyectados y solicitudes de inversión de los inversionistas.'}
           </p>
         </div>
         
@@ -1024,7 +1024,9 @@ export const AdminInvestorsPage = () => {
                                       </div>
                                       <div className="space-y-1 pl-1">
                                         <div className="text-[9px] text-slate-400 uppercase font-medium tracking-wide">Número de Cuenta</div>
-                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">{formatAccountNumber(acc.numero_cuenta)}</div>
+                                        <div className="font-mono text-sm text-slate-800 font-bold select-all break-all">
+                                          {isAdmin() ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta)}
+                                        </div>
                                       </div>
                                     </div>
                                   ))}

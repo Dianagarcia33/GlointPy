@@ -53,14 +53,13 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
             seen_codes.add(code_key)
             if inv.user:
                 seen_user_ids.add(inv.user.id)
-            pkg_val = float(inv.package.value) if inv.package and inv.package.value else 0.0
             results.append({
                 "user_id": inv.user.id if inv.user else inv.user_id,
                 "name": inv.user.name if inv.user else "Cliente Inversionista",
                 "document_id": inv.user.document_id if inv.user else "",
-                "email": inv.user.email if inv.user else "",
+                "email": "",
                 "assigned_code": inv.assigned_code,
-                "monto": pkg_val,
+                "monto": 0.0,
                 "is_existing_client": True,
                 "forced_type": "referido"
             })
@@ -87,14 +86,13 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
             sorted_invs = sorted(u.investments, key=lambda i: i.id, reverse=True) if u.investments else []
             latest_inv = sorted_invs[0] if sorted_invs else None
             code = latest_inv.assigned_code if latest_inv else None
-            pkg_val = float(latest_inv.package.value) if latest_inv and latest_inv.package and latest_inv.package.value else 0.0
             results.append({
                 "user_id": u.id,
                 "name": u.name,
                 "document_id": u.document_id,
-                "email": u.email,
+                "email": "",
                 "assigned_code": code,
-                "monto": pkg_val,
+                "monto": 0.0,
                 "is_existing_client": bool(sorted_invs),
                 "forced_type": "referido" if sorted_invs else "contrato_nuevo"
             })
