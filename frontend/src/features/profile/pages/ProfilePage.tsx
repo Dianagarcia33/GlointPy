@@ -51,6 +51,9 @@ export const ProfilePage: React.FC = () => {
 
   // Load user data on mount
   useEffect(() => {
+    let isMounted = true;
+
+    // Poblar inicialmente con los datos en memoria si existen
     if (user) {
       setName(user.name || '');
       setEmail(user.email || '');
@@ -64,7 +67,32 @@ export const ProfilePage: React.FC = () => {
         }
       }
     }
-  }, [user]);
+
+    // Siempre refrescar perfil completo desde el servidor (no depende de localStorage)
+    usersService.getMyProfile()
+      .then((freshUser) => {
+        if (!isMounted || !freshUser) return;
+        setUser(freshUser as any);
+        setName(freshUser.name || '');
+        setEmail(freshUser.email || '');
+        setDocumentId(freshUser.document_id || '');
+        setPhoneNumber(freshUser.phone_number || '');
+        if (freshUser.date_of_birth) {
+          try {
+            setDateOfBirth(String(freshUser.date_of_birth).split('T')[0]);
+          } catch {
+            setDateOfBirth('');
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('No se pudo refrescar el perfil completo desde la API:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Handle personal profile submit
   const handleProfileSubmit = async (e: React.FormEvent) => {
