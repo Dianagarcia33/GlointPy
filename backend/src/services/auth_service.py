@@ -108,6 +108,16 @@ class AuthService:
                 detail="El correo ya está registrado."
             )
 
+        # H-70: Validar código de referido si fue suministrado
+        if data.referred_by:
+            clean_ref = data.referred_by.strip().upper()
+            ref_check = await db.execute(select(Investor.id).where(Investor.assigned_code == clean_ref))
+            if not ref_check.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El código de referido '{clean_ref}' no es válido o no existe en la plataforma."
+                )
+
         from sqlalchemy import insert
         from src.models.security import user_roles
 

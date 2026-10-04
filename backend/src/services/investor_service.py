@@ -180,9 +180,25 @@ class InvestorService:
         else:
             assigned_code = await InvestorService.generate_next_assigned_code(db)
 
+        # H-70: Validar código de referido si se suministró
+        clean_referred_by = None
+        if investor.referred_by:
+            clean_referred_by = investor.referred_by.strip().upper()
+            ref_check = await db.execute(select(Investor.id).where(Investor.assigned_code == clean_referred_by))
+            if not ref_check.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El código de referido '{clean_referred_by}' no corresponde a ninguna inversión registrada en la plataforma."
+                )
+            if assigned_code and clean_referred_by == assigned_code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Un inversionista no puede referirse a sí mismo."
+                )
+
         db_investor = Investor(
             assigned_code=assigned_code,
-            referred_by=investor.referred_by,
+            referred_by=clean_referred_by,
             user_id=investor.user_id,
             package_id=investor.package_id,
             period_id=investor.period_id,
@@ -245,6 +261,22 @@ class InvestorService:
 
         # Si el referido ha cambiado o se ha removido
         if "referred_by" in update_data and new_referred_by != old_referred_by:
+            if new_referred_by:
+                new_clean = new_referred_by.strip().upper()
+                ref_chk = await db.execute(select(Investor.id).where(Investor.assigned_code == new_clean))
+                if not ref_chk.scalar_one_or_none():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"El código de referido '{new_clean}' no corresponde a ninguna inversión registrada en la plataforma."
+                    )
+                if db_investor.assigned_code and new_clean == db_investor.assigned_code.strip().upper():
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Un inversionista no puede referirse a sí mismo."
+                    )
+                new_referred_by = new_clean
+                update_data["referred_by"] = new_clean
+
             # 1. Si tenía un referido previo, eliminar UNICAMENTE la aceleración correspondiente a este inversionista
             if old_referred_by:
                 old_referrer_res = await db.execute(

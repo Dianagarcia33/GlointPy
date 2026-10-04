@@ -6,6 +6,7 @@ import { usersService, User } from '../../../../services/users';
 import { packagesService, Package } from '../../../../services/packages';
 import { periodsService, Period } from '../../../../services/periods';
 import { useAuthStore } from '../../../../store/authStore';
+import { fetchApi } from '../../../../services/api';
 
 interface InvestorModalProps {
   isOpen: boolean;
@@ -113,9 +114,26 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     setIsLoading(true);
     setError(null);
 
+    // H-70: Validar código de referido si fue ingresado
+    if (referredBy && referredBy.trim()) {
+      const cleanRef = referredBy.trim().toUpperCase();
+      if (assignedCode && cleanRef === assignedCode.trim().toUpperCase()) {
+        setIsLoading(false);
+        setError('Un inversionista no puede referirse a sí mismo.');
+        return;
+      }
+      try {
+        await fetchApi(`/auth/validate-referral/${encodeURIComponent(cleanRef)}`);
+      } catch (err: any) {
+        setIsLoading(false);
+        setError(`El código de referido '${cleanRef}' no es válido o no existe en la plataforma.`);
+        return;
+      }
+    }
+
     const payload = {
         assigned_code: assignedCode || undefined,
-        referred_by: referredBy || undefined,
+        referred_by: referredBy ? referredBy.trim().toUpperCase() : undefined,
         user_id: Number(userId),
         package_id: Number(packageId),
         period_id: Number(periodId),

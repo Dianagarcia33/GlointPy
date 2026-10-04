@@ -87,6 +87,8 @@ export const ReferralsPage = () => {
     }
   }, [toast]);
 
+  const [myCodes, setMyCodes] = useState<string[]>([]);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -94,8 +96,12 @@ export const ReferralsPage = () => {
         const res = await potentialReferralsService.getAllAdmin({ search, estado: estadoFilter });
         setReferrals(res.data || []);
       } else {
-        const data = await potentialReferralsService.getMyReferrals();
+        const [data, codes] = await Promise.all([
+          potentialReferralsService.getMyReferrals(),
+          potentialReferralsService.getMyCodes().catch(() => [])
+        ]);
         setReferrals(data);
+        setMyCodes(codes || []);
       }
       setError(null);
     } catch (err: any) {
@@ -147,11 +153,14 @@ export const ReferralsPage = () => {
     }
   };
 
-  const sampleCode = referrals[0]?.codigo_referido || 'GLOINT-REF';
+  const sampleCode = myCodes[0] || referrals[0]?.codigo_referido || '';
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(sampleCode);
+    if (!sampleCode) return;
+    const refLink = `${window.location.origin}/register?ref=${sampleCode}`;
+    navigator.clipboard.writeText(refLink);
     setCopiedCode(true);
+    setToast({ message: `Enlace de referido copiado: ${refLink}`, type: 'success' });
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
@@ -191,9 +200,9 @@ export const ReferralsPage = () => {
         </div>
         
         <div className="relative z-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-          {!isAdmin && (
+          {!isAdmin && sampleCode && (
             <div className="flex items-center gap-2 px-4 py-2.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 text-xs font-bold">
-              <span className="text-slate-300">Tu Código:</span>
+              <span className="text-slate-300">Tu Enlace de Referido:</span>
               <span className="font-mono text-brand-300 text-sm font-extrabold">{sampleCode}</span>
               <button 
                 onClick={handleCopyCode}

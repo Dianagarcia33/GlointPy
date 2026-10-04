@@ -85,6 +85,24 @@ async def register_investor(register_data: InvestorRegisterRequest, request: Req
         "user": user
     }
 
+@router.get("/validate-referral/{code}")
+async def validate_referral_code(code: str, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    Valida si un código de referido existe en la plataforma (H-70).
+    No expone datos sensibles del referente para resguardar la privacidad.
+    """
+    clean_code = code.strip().upper()
+    from src.models.investor import Investor
+    from sqlalchemy.future import select
+    
+    res = await db.execute(select(Investor.id).where(Investor.assigned_code == clean_code))
+    if not res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"El código de referido '{clean_code}' no existe en la plataforma."
+        )
+    return {"valid": True, "code": clean_code}
+
 @router.post("/force-change-password", response_model=Token)
 async def force_change_password(data: ForceChangePasswordRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
     """

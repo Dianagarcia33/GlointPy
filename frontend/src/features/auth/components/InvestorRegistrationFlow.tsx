@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { UploadCloud, CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar } from 'lucide-react';
+import { UploadCloud, CheckCircle2, Loader2, Camera, User, UserCheck, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar } from 'lucide-react';
 
 import { Link, useNavigate } from 'react-router-dom';
 import imageCompression from 'browser-image-compression';
@@ -88,6 +88,49 @@ export const InvestorRegistrationFlow = () => {
         commercialService.getPublicAdvisors()
             .then(res => setCommercialUsers(res))
             .catch(() => setCommercialUsers([]));
+    }, []);
+
+    // H-70: Referral code validation state
+    const [referralError, setReferralError] = useState<string | null>(null);
+    const [isReferralValid, setIsReferralValid] = useState<boolean>(false);
+    const [isCheckingReferral, setIsCheckingReferral] = useState<boolean>(false);
+
+    const validateReferralCode = async (code: string): Promise<boolean> => {
+        const clean = code.trim().toUpperCase();
+        if (!clean) {
+            setReferralError(null);
+            setIsReferralValid(false);
+            return true;
+        }
+        setIsCheckingReferral(true);
+        setReferralError(null);
+        try {
+            await fetchApi(`/auth/validate-referral/${encodeURIComponent(clean)}`);
+            setIsReferralValid(true);
+            setReferralError(null);
+            return true;
+        } catch (err: any) {
+            setIsReferralValid(false);
+            setReferralError(`El código de referido '${clean}' no es válido o no existe en la plataforma.`);
+            return false;
+        } finally {
+            setIsCheckingReferral(false);
+        }
+    };
+
+    // Read ?ref= or ?referido= from URL on mount
+    React.useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const refFromUrl = params.get('ref') || params.get('referido') || params.get('code');
+            if (refFromUrl && refFromUrl.trim()) {
+                const clean = refFromUrl.trim().toUpperCase();
+                setFormData(prev => ({ ...prev, referred_by: clean }));
+                validateReferralCode(clean);
+            }
+        } catch (e) {
+            console.error("Error reading referral URL param", e);
+        }
     }, []);
 
     // Departments & Cities dynamic fetch
@@ -433,7 +476,7 @@ export const InvestorRegistrationFlow = () => {
     };
 
     const isStep5Valid = () => {
-        return !!formData.paquete_id && !!formData.monto && !!formData.periodo_id && !!formData.comprobante_path;
+        return !!formData.paquete_id && !!formData.monto && !!formData.periodo_id && !!formData.comprobante_path && !referralError && !isCheckingReferral;
     };
 
     const isStep6Valid = () => {
@@ -919,6 +962,65 @@ export const InvestorRegistrationFlow = () => {
                                             );
                                         })}
                                     </div>
+                                </div>
+
+                                {/* Referral Code Block (H-70) */}
+                                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-2">
+                                    <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
+                                        <span className="flex items-center gap-1.5 text-brand-700">
+                                            <UserCheck className="w-4 h-4 text-brand-600" /> 👥 Código de Referido
+                                        </span>
+                                        <span className="text-[11px] text-slate-500 font-semibold">(Opcional)</span>
+                                    </label>
+                                    <p className="text-[11px] text-slate-500">
+                                        Si fuiste invitado por otro inversionista de Gloint, ingresa su código de contrato (ej. IG1974).
+                                    </p>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            name="referred_by"
+                                            value={formData.referred_by}
+                                            onChange={(e) => {
+                                                const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 25);
+                                                setFormData(prev => ({ ...prev, referred_by: val }));
+                                                setReferralError(null);
+                                                setIsReferralValid(false);
+                                            }}
+                                            onBlur={(e) => {
+                                                if (e.target.value.trim()) {
+                                                    validateReferralCode(e.target.value);
+                                                } else {
+                                                    setReferralError(null);
+                                                    setIsReferralValid(false);
+                                                }
+                                            }}
+                                            placeholder="Ej: IG1974"
+                                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-mono uppercase focus:outline-none transition-all ${
+                                                referralError 
+                                                    ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-2 focus:ring-rose-500/20' 
+                                                    : isReferralValid 
+                                                    ? 'border-emerald-400 bg-emerald-50/50 text-emerald-900' 
+                                                    : 'border-slate-200 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                                            }`}
+                                            maxLength={25}
+                                        />
+                                        {isCheckingReferral && (
+                                            <div className="absolute right-3 top-2.5">
+                                                <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
+                                            </div>
+                                        )}
+                                        {isReferralValid && !isCheckingReferral && (
+                                            <div className="absolute right-3 top-2.5 text-emerald-600 flex items-center gap-1 text-xs font-bold">
+                                                <CheckCircle2 className="w-4 h-4" /> Válido
+                                            </div>
+                                        )}
+                                    </div>
+                                    {referralError && (
+                                        <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold pt-1">
+                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                            <span>{referralError}</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {calc && (
