@@ -150,7 +150,8 @@ export const chatService = {
     } else {
       fullUrl = fullUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
     }
-    return `${fullUrl}/chat/ws/${roomId}?token=${encodeURIComponent(token || '')}`;
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${fullUrl}/chat/ws/${roomId}${tokenQuery}`;
   },
 
   getGlobalWebSocketUrl: (): string => {
@@ -163,6 +164,7 @@ export const chatService = {
     } else {
       fullUrl = fullUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
     }
-    return `${fullUrl}/chat/ws/notifications/global?token=${encodeURIComponent(token || '')}`;
+    const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${fullUrl}/chat/ws/notifications/global${tokenQuery}`;
   }
 };

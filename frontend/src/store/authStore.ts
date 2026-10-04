@@ -101,12 +101,13 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      // Persistir token, usuario, autenticación y respaldo parental para mantener la sesión activa al recargar
+      // Persistir únicamente el estado de autenticación y datos de usuario en localStorage.
+      // El accessToken NO se persiste para evitar exposición a XSS (cumple OWASP y reporte QA H-33).
+      // La autenticación persistente y segura se apoya en la cookie HttpOnly ('access_token').
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
-        accessToken: state.accessToken,
         user: state.user,
-        parentBackup: state.parentBackup,
+        parentBackup: state.parentBackup ? { user: state.parentBackup.user, token: '' } : null,
       }),
     }
   )

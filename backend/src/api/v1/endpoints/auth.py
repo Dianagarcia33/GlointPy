@@ -22,6 +22,9 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
     elif getattr(settings, 'ENVIRONMENT', 'development') == 'production':
         is_secure = True
 
+    # SameSite=None is required for cross-origin HTTPS (e.g. Vercel frontend -> API domain)
+    # SameSite=Lax is used for local HTTP development (browsers reject SameSite=None without Secure)
+    samesite = "none" if is_secure else "lax"
     max_age = int(getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 1440)) * 60
 
     response.set_cookie(
@@ -29,7 +32,7 @@ def set_auth_cookie(response: Response, access_token: str, request: Optional[Req
         value=access_token,
         httponly=True,
         secure=is_secure,
-        samesite="lax",
+        samesite=samesite,
         max_age=max_age,
         path="/"
     )

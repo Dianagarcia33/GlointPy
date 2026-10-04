@@ -358,14 +358,19 @@ async def upload_chat_file(
 async def websocket_chat_endpoint(
     websocket: WebSocket,
     room_id: int,
-    token: str = Query(...)
+    token: Optional[str] = Query(None)
 ):
     """Endpoint en tiempo real para transmisión de mensajes mediante WebSockets con guardas PBAC."""
     await websocket.accept()
 
-    # 1. Autenticar JWT desde query token
+    # 1. Autenticar JWT desde cookie HttpOnly o query token
+    auth_token = websocket.cookies.get("access_token") or token
+    if not auth_token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token de autenticación no proporcionado")
+        return
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if not user_id:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido")
@@ -480,12 +485,17 @@ async def websocket_chat_endpoint(
 @router.websocket("/ws/notifications/global")
 async def websocket_global_notifications(
     websocket: WebSocket,
-    token: str = Query(...)
+    token: Optional[str] = Query(None)
 ):
     """Endpoint en tiempo real para notificaciones globales del usuario (sin sala específica)."""
-    # 1. Autenticar JWT desde query token
+    # 1. Autenticar JWT desde cookie HttpOnly o query token
+    auth_token = websocket.cookies.get("access_token") or token
+    if not auth_token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token de autenticación no proporcionado")
+        return
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id_str: str = payload.get("sub")
         if not user_id_str:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido")
