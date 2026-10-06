@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check, Landmark, ArrowDownToLine, ArrowDownLeft } from 'lucide-react';
+import { Search, Loader2, DollarSign, Filter, RefreshCw, FileText, CheckCircle2, AlertCircle, Clock, ShieldCheck, XCircle, ChevronLeft, ChevronRight, Wallet, FileSpreadsheet, CheckSquare, Square, Check, Landmark, ArrowDownToLine, ArrowDownLeft, Receipt } from 'lucide-react';
 import { paymentService } from '../services/paymentService';
-import { Withdrawal, PaginatedWithdrawals } from '../types';
+import { Withdrawal, PaginatedWithdrawals, CompanyTaxLedgerSummary } from '../types';
 import { WithdrawalApprovalModal } from '../components/WithdrawalApprovalModal';
 import { BulkPayoutPreviewModal } from '../components/BulkPayoutPreviewModal';
 import { BulkApprovePreviewModal } from '../components/BulkApprovePreviewModal';
 import { GlobalAccountStatementModal } from '../../users/components/GlobalAccountStatementModal';
+import { CompanyTaxLedgerModal } from '../components/CompanyTaxLedgerModal';
 import { bankAccountsService, DataBank } from '../../../../services/bankAccounts';
 import { Can } from '../../../../components/security/Can';
 import { AdminRechargesManager } from '../components/AdminRechargesManager';
@@ -27,6 +28,8 @@ export const PaymentManagementPage: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isGlobalStatementOpen, setIsGlobalStatementOpen] = useState(false);
+  const [isTaxLedgerOpen, setIsTaxLedgerOpen] = useState(false);
+  const [taxSummary, setTaxSummary] = useState<CompanyTaxLedgerSummary | null>(null);
 
   // Multi-selection states
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -54,11 +57,21 @@ export const PaymentManagementPage: React.FC = () => {
     }
   }, [toast]);
 
+  const loadTaxSummary = async () => {
+    try {
+      const res = await paymentService.getCompanyTaxLedger();
+      setTaxSummary(res);
+    } catch (err) {
+      console.error('Error loading tax summary:', err);
+    }
+  };
+
   const fetchWithdrawals = async () => {
     try {
       setLoading(true);
       const res = await paymentService.getWithdrawals(page, limit, search, statusFilter, startDate, endDate, typeFilter);
       setData(res);
+      loadTaxSummary();
     } catch (error) {
       console.error('Error fetching withdrawals:', error);
     } finally {
@@ -68,6 +81,7 @@ export const PaymentManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchWithdrawals();
+    loadTaxSummary();
   }, [page, statusFilter, typeFilter, startDate, endDate]);
 
   const handleSyncWalletDebits = async () => {
@@ -336,6 +350,16 @@ export const PaymentManagementPage: React.FC = () => {
 
         <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
           <button 
+            type="button"
+            onClick={() => setIsTaxLedgerOpen(true)}
+            className="flex items-center gap-2 px-4 py-3 bg-brand-500/20 hover:bg-brand-500/30 text-brand-300 hover:text-white rounded-2xl transition-all text-xs font-bold border border-brand-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
+            title="Ver Libro Fiscal Corporativo y Recaudo del 3.2%"
+          >
+            <Receipt className="w-4 h-4 text-brand-400" />
+            <span>Caja Fiscal & Impuestos (3.2%)</span>
+          </button>
+
+          <button 
             onClick={() => setIsGlobalStatementOpen(true)}
             className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
             title="Ver auditoría financiera y extracto general de la plataforma"
@@ -390,58 +414,81 @@ export const PaymentManagementPage: React.FC = () => {
       ) : (
         <>
       {/* KPI Cards Summary (Globales / Sin discriminar por paginación) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-5">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Solicitudes</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Solicitudes</span>
             <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100">
               <Wallet className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <p className="text-3xl font-extrabold text-slate-900 font-montserrat tracking-tight">{totalRequestsCount}</p>
+            <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-montserrat tracking-tight">{totalRequestsCount}</p>
             <p className="text-xs text-slate-500 font-medium mt-1">Registros en plataforma</p>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-widest">Total Monto Pendiente</span>
+            <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Monto Pendiente</span>
             <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
               <Clock className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <p className="text-2xl font-extrabold text-amber-600 font-montserrat tracking-tight">{formatCurrency(pendingAmountTotal)}</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-amber-600 font-montserrat tracking-tight">{formatCurrency(pendingAmountTotal)}</p>
             <p className="text-xs text-slate-500 font-medium mt-1">
-              <strong className="font-bold text-amber-700">{pendingCount}</strong> {pendingCount === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'} por revisar
+              <strong className="font-bold text-amber-700">{pendingCount}</strong> pendientes
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest">Aprobados / Procesados</span>
+            <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Aprobados / Proc.</span>
             <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <p className="text-3xl font-extrabold text-emerald-600 font-montserrat tracking-tight">{approvedCount}</p>
+            <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600 font-montserrat tracking-tight">{approvedCount}</p>
             <p className="text-xs text-slate-500 font-medium mt-1">Desembolsos autorizados</p>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Desembolsado a la Fecha</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Desembolsado</span>
             <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
           <div>
-            <p className="text-2xl font-extrabold text-slate-900 font-montserrat tracking-tight">{formatCurrency(totalAmountPaid)}</p>
+            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 font-montserrat tracking-tight">{formatCurrency(totalAmountPaid)}</p>
             <p className="text-xs text-slate-500 font-medium mt-1">Suma acumulada desembolsada</p>
+          </div>
+        </div>
+
+        {/* Tarjeta Caja Fiscal 3.2% */}
+        <div 
+          onClick={() => setIsTaxLedgerOpen(true)}
+          className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-950 text-white p-5 rounded-3xl border border-brand-500/30 shadow-md relative overflow-hidden flex flex-col justify-between space-y-4 cursor-pointer hover:border-brand-400 hover:shadow-brand-500/10 transition-all group"
+          title="Abrir Libro Fiscal de Retenciones 3.2%"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-brand-300 uppercase tracking-wider">Caja Fiscal (3.2%)</span>
+            <div className="p-2.5 bg-brand-500/20 text-brand-300 rounded-2xl border border-brand-400/30 group-hover:scale-110 transition-transform">
+              <Receipt className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <p className="text-xl sm:text-2xl font-black text-emerald-400 font-montserrat tracking-tight">
+              {formatCurrency(taxSummary?.current_balance ?? 0)}
+            </p>
+            <div className="flex items-center justify-between text-xs text-slate-300 font-medium mt-1">
+              <span>{taxSummary?.total_transactions || 0} recaudos</span>
+              <span className="text-[11px] text-brand-300 underline font-bold group-hover:text-white">Ver Libro &rarr;</span>
+            </div>
           </div>
         </div>
       </div>
@@ -686,7 +733,14 @@ export const PaymentManagementPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="font-black text-slate-900 text-base">{formatCurrency(withdrawal.monto_neto)}</div>
-                        <div className="text-slate-400 text-xs font-medium mt-0.5" title="Monto Bruto">Bruto: {formatCurrency(withdrawal.monto)}</div>
+                        <div className="flex items-center justify-end gap-1.5 text-xs mt-0.5">
+                          <span className="text-slate-400" title="Monto Bruto Solicitado">Bruto: {formatCurrency(withdrawal.monto)}</span>
+                          {Number(withdrawal.impuesto || 0) > 0 && (
+                            <span className="text-rose-600 font-bold bg-rose-50 px-1.5 py-0.5 rounded text-[11px]" title="Retención del 3.2% aplicada">
+                              -{formatCurrency(withdrawal.impuesto)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         {getStatusBadge(withdrawal.estado)}
@@ -816,6 +870,15 @@ export const PaymentManagementPage: React.FC = () => {
       <GlobalAccountStatementModal
         isOpen={isGlobalStatementOpen}
         onClose={() => setIsGlobalStatementOpen(false)}
+      />
+
+      {/* Modal Libro Fiscal & Caja de Impuestos (3.2%) */}
+      <CompanyTaxLedgerModal
+        isOpen={isTaxLedgerOpen}
+        onClose={() => {
+          setIsTaxLedgerOpen(false);
+          loadTaxSummary();
+        }}
       />
     </div>
   );

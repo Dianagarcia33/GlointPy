@@ -52,3 +52,30 @@ export interface PaginatedWithdrawals {
   limit: number;
   summary?: WithdrawalSummaryStats;
 }
+
+export interface CompanyTaxLedgerItem {
+  id: number;
+  withdrawal_id: number;
+  investor_id: number;
+  investor_name?: string;
+  investor_email?: string;
+  investor_document?: string;
+  amount: number;
+  gross_amount: number;
+  net_amount: number;
+  type: string;
+  status: 'COLLECTED' | 'REFUNDED' | 'SETTLED' | string;
+  description?: string;
+  balance_after: number;
+  created_at?: string;
+}
+
+export interface CompanyTaxLedgerSummary {
+  wallet_id: string;
+  current_balance: number;
+  currency: string;
+  total_transactions: number;
+  total_collected: number;
+  total_refunded: number;
+  latest_transactions: CompanyTaxLedgerItem[];
+}

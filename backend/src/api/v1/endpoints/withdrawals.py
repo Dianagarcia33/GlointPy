@@ -42,7 +42,7 @@ async def get_withdrawals(
         end_date=end_date
     )
 
-@router.get("/company-tax-wallet", dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+@router.get("/company-tax-wallet", dependencies=[Depends(RequirePermission(["admin.withdrawals.manage", "admin.payments.manage"]))])
 async def get_company_tax_wallet(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)

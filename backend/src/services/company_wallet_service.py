@@ -121,9 +121,13 @@ class CompanyWalletService:
         )
         total_records = count_res.scalar_one()
 
-        # 4. Últimos registros en el libro fiscal
+        # 4. Últimos registros en el libro fiscal con datos del inversionista
+        from sqlalchemy.orm import selectinload
         latest_entries_res = await db.execute(
-            select(CompanyTaxLedger).order_by(CompanyTaxLedger.id.desc()).limit(20)
+            select(CompanyTaxLedger)
+            .options(selectinload(CompanyTaxLedger.investor))
+            .order_by(CompanyTaxLedger.id.desc())
+            .limit(100)
         )
         latest_entries = latest_entries_res.scalars().all()
 
@@ -147,6 +151,9 @@ class CompanyWalletService:
                     "description": entry.description,
                     "withdrawal_id": entry.withdrawal_id,
                     "investor_id": entry.investor_id,
+                    "investor_name": entry.investor.name if entry.investor else "N/A",
+                    "investor_email": entry.investor.email if entry.investor else None,
+                    "investor_document": entry.investor.document_id if entry.investor else None,
                     "balance_after": float(current_balance),
                     "created_at": entry.created_at.isoformat() if entry.created_at else None
                 }

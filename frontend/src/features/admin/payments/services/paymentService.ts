@@ -1,5 +1,5 @@
 import { fetchApi } from '../../../../services/api';
-import { PaginatedWithdrawals, Withdrawal } from '../types';
+import { PaginatedWithdrawals, Withdrawal, CompanyTaxLedgerSummary } from '../types';
 
 export const paymentService = {
   getWithdrawals: async (page = 1, limit = 20, search = '', status = 'todos', startDate = '', endDate = '', tipo = 'todos'): Promise<PaginatedWithdrawals> => {
@@ -68,6 +68,11 @@ export const paymentService = {
       headers: { 'Content-Type': 'application/json' },
     });
     return data as { approved_count: number; message: string };
+  },
+
+  getCompanyTaxLedger: async (): Promise<CompanyTaxLedgerSummary> => {
+    const data = await fetchApi('/withdrawals/company-tax-wallet');
+    return data as CompanyTaxLedgerSummary;
   }
 };
 
