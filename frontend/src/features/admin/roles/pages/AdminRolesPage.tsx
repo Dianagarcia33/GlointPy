@@ -64,7 +64,8 @@ export const AdminRolesPage: React.FC = () => {
 
     const isSystemRole = (role: Role) => {
         const norm = (role.name || '').toLowerCase().trim();
-        return role.is_system_role === "1" || role.is_system_role === "true" || SYSTEM_ROLE_NAMES.includes(norm);
+        const isSys = String(role.is_system_role || '').trim().toLowerCase();
+        return isSys === "1" || isSys === "true" || SYSTEM_ROLE_NAMES.includes(norm);
     };
 
     const handleSaveRole = async (roleData: any) => {

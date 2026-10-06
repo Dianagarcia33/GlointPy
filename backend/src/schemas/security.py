@@ -1,4 +1,5 @@
-from pydantic import BaseModel, ConfigDict, Field
+import re
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import List, Optional
 from datetime import datetime
 
@@ -34,6 +35,16 @@ class RoleCreate(RoleBase):
     # Opcionalmente, se pueden enviar los IDs de los permisos a asignar al crear el rol
     permission_ids: Optional[List[int]] = []
 
+    @field_validator("name")
+    @classmethod
+    def validate_role_name(cls, v: str) -> str:
+        v = v.strip()
+        if not re.match(ROLE_NAME_REGEX, v):
+            raise ValueError(
+                "El nombre interno debe estar en formato snake_case (ej. operador_crm), iniciar con una letra minúscula, contener únicamente letras minúsculas (sin signos ni tildes), números o guiones bajos, y tener entre 3 y 50 caracteres."
+            )
+        return v
+
 class RoleUpdate(BaseModel):
     name: Optional[str] = Field(
         None,
@@ -42,6 +53,17 @@ class RoleUpdate(BaseModel):
     )
     description: Optional[str] = None
     permission_ids: Optional[List[int]] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_role_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not re.match(ROLE_NAME_REGEX, v):
+                raise ValueError(
+                    "El nombre interno debe estar en formato snake_case (ej. operador_crm), iniciar con una letra minúscula, contener únicamente letras minúsculas (sin signos ni tildes), números o guiones bajos, y tener entre 3 y 50 caracteres."
+                )
+        return v
 
 class RoleResponse(RoleBase):
     id: int

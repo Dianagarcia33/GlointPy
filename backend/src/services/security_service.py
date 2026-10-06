@@ -1,6 +1,8 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from src.models.security import Role, Permission
@@ -35,12 +37,13 @@ class SecurityService:
 
     @staticmethod
     async def create_role(db: AsyncSession, role_data: RoleCreate):
-        # Verificar nombre duplicado
-        existing = await db.execute(select(Role).where(Role.name == role_data.name))
+        clean_name = role_data.name.strip().lower()
+        # Verificar nombre duplicado (case-insensitive)
+        existing = await db.execute(select(Role).where(func.lower(Role.name) == clean_name))
         if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso")
+            raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso. Por favor elige otro nombre.")
 
-        new_role = Role(name=role_data.name, description=role_data.description)
+        new_role = Role(name=clean_name, description=role_data.description)
         
         # Asignar permisos si vienen en el request
         if role_data.permission_ids:
@@ -49,8 +52,12 @@ class SecurityService:
             )
             new_role.permissions = perms_result.scalars().all()
 
-        db.add(new_role)
-        await db.commit()
+        try:
+            db.add(new_role)
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso. Por favor elige otro nombre.")
         
         # Recargar con relaciones para evitar MissingGreenlet
         result = await db.execute(
@@ -75,16 +82,17 @@ class SecurityService:
                     detail="No tienes permisos para modificar el rol SuperAdmin. Acción reservada exclusivamente para el Superusuario del sistema."
                 )
 
-        is_protected = role.is_system_role == "1" or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
-        if is_protected and role_data.name and role_data.name != role.name:
+        is_protected = str(role.is_system_role).strip().lower() in ("1", "true") or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
+        if is_protected and role_data.name and role_data.name.strip().lower() != role.name.strip().lower():
             raise HTTPException(status_code=403, detail="No se pueden renombrar roles protegidos del sistema")
 
         if role_data.name is not None:
-            # Check duplicate
-            existing = await db.execute(select(Role).where(Role.name == role_data.name, Role.id != role_id))
+            clean_name = role_data.name.strip().lower()
+            # Check duplicate case-insensitive
+            existing = await db.execute(select(Role).where(func.lower(Role.name) == clean_name, Role.id != role_id))
             if existing.scalars().first():
-                raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso")
-            role.name = role_data.name
+                raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso. Por favor elige otro nombre.")
+            role.name = clean_name
             
         if role_data.description is not None:
             role.description = role_data.description
@@ -98,7 +106,11 @@ class SecurityService:
                 )
                 role.permissions = perms_result.scalars().all()
 
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso. Por favor elige otro nombre.")
         
         # Recargar con relaciones para evitar MissingGreenlet
         result = await db.execute(
@@ -109,12 +121,11 @@ class SecurityService:
     @staticmethod
     async def delete_role(db: AsyncSession, role_id: int):
         role = await SecurityService.get_role(db, role_id)
-        is_protected = role.is_system_role == "1" or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
+        is_protected = str(role.is_system_role).strip().lower() in ("1", "true") or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
         if is_protected:
             raise HTTPException(status_code=403, detail="No se pueden eliminar roles protegidos del sistema")
         
         # Verificar si hay usuarios con este rol
-        from sqlalchemy import select, func
         from src.models.security import user_roles
         
         users_count_query = select(func.count()).select_from(user_roles).where(user_roles.c.role_id == role_id)

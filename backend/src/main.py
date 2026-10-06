@@ -451,6 +451,20 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Blindaje de roles protegidos del sistema (H-127)
+            try:
+                await conn.execute(text("""
+                    UPDATE roles 
+                    SET is_system_role = '1' 
+                    WHERE LOWER(TRIM(name)) IN (
+                        'superadmin', 'admin', 'superuser', 'super_admin', 'super admin',
+                        'inversionista', 'cliente', 'directivo_inversion', 'directivo_de_inversiones',
+                        'contabilidad', 'contabilidad_', 'administrativo', 'operaciones'
+                    )
+                """))
+            except Exception as re:
+                print(f"Aviso al blindar roles del sistema en arranque: {re}")
+
         async with async_session_maker() as db:
             await seed_permissions_db(db)
             try:

@@ -43,16 +43,34 @@ export const RoleModal: React.FC<RoleModalProps> = ({
 
   const ROLE_NAME_REGEX = /^[a-z][a-z0-9_]{2,49}$/;
 
+  const sanitizeRoleName = (val: string): string => {
+    return val
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Elimina acentos/tildes
+      .replace(/ñ/g, 'n')              // Convierte ñ a n
+      .replace(/[\s\-]+/g, '_')        // Espacios y guiones a guión bajo
+      .replace(/[^a-z0-9_]/g, '');     // Elimina signos y caracteres no alfanuméricos
+  };
+
+  const isEditingSystemRole = Boolean(
+    role && (
+      String(role.is_system_role) === '1' ||
+      String(role.is_system_role).toLowerCase() === 'true' ||
+      ['admin', 'superadmin', 'super_admin', 'super admin', 'superuser', 'inversionista', 'cliente', 'directivo_inversion', 'directivo_de_inversiones', 'contabilidad', 'contabilidad_', 'administrativo', 'operaciones'].includes((role.name || '').toLowerCase().trim())
+    )
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError('Por favor ingresa el nombre interno del rol');
+    const cleanName = sanitizeRoleName(name).trim();
+    if (!cleanName) {
+      setError('Por favor ingresa el nombre interno del rol.');
       return;
     }
 
-    if (!ROLE_NAME_REGEX.test(trimmedName)) {
-      setError('El nombre interno debe estar en formato snake_case (ej. operador_crm), iniciar con una letra minúscula, contener únicamente letras minúsculas, números o guiones bajos, y tener entre 3 y 50 caracteres.');
+    if (!ROLE_NAME_REGEX.test(cleanName)) {
+      setError('El nombre interno debe estar en formato snake_case (ej. operador_crm), iniciar con una letra minúscula, contener únicamente letras minúsculas (sin signos ni tildes), números o guiones bajos, y tener entre 3 y 50 caracteres.');
       return;
     }
 
@@ -61,7 +79,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
 
     try {
       const data = {
-        name: trimmedName,
+        name: cleanName,
         description: description.trim(),
         permission_ids: selectedPermissions,
         is_active: true
@@ -77,11 +95,26 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         msg = err.detail;
       }
 
-      if (msg.includes('Role name already exists') || msg.includes('already exists') || msg.includes('ya está en uso')) {
+      if (msg.includes('Value error,')) {
+        msg = msg.split('Value error,')[1].trim();
+      }
+
+      if (
+        msg.includes('Role name already exists') ||
+        msg.includes('already exists') ||
+        msg.includes('ya está en uso')
+      ) {
         msg = 'El nombre del rol ya está en uso. Por favor elige otro nombre.';
-      } else if (msg.includes('Cannot rename system roles') || msg.includes('renombrar roles')) {
+      } else if (
+        msg.includes('Cannot rename system roles') ||
+        msg.includes('renombrar roles')
+      ) {
         msg = 'No se pueden renombrar roles protegidos del sistema.';
-      } else if (msg.includes('String should match pattern') || msg.includes('pattern') || msg.includes('snake_case')) {
+      } else if (
+        msg.includes('String should match pattern') ||
+        msg.includes('pattern') ||
+        msg.includes('snake_case')
+      ) {
         msg = 'El nombre interno debe cumplir el formato snake_case (ej. operador_crm) de 3 a 50 caracteres.';
       }
 
@@ -197,13 +230,26 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                 type="text"
                 required
                 value={name}
+                disabled={isEditingSystemRole}
                 pattern="^[a-z][a-z0-9_]{2,49}$"
                 maxLength={50}
-                onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-mono"
+                onChange={(e) => {
+                  const sanitized = sanitizeRoleName(e.target.value);
+                  setName(sanitized);
+                  if (error) setError(null);
+                }}
+                className={`w-full px-4 py-2.5 rounded-xl border border-slate-200 transition-all outline-none text-sm font-mono ${
+                  isEditingSystemRole
+                    ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
+                    : 'bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                }`}
                 placeholder="ej: operador_crm"
               />
-              <p className="text-[11px] text-slate-400">Formato snake_case (3 a 50 caracteres): ej. operador_crm</p>
+              <p className="text-[11px] text-slate-400">
+                {isEditingSystemRole
+                  ? 'El identificador técnico de un rol protegido del sistema no se puede modificar.'
+                  : 'Formato snake_case (3 a 50 caracteres): ej. operador_crm'}
+              </p>
             </div>
 
             <div className="space-y-1.5">

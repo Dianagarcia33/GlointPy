@@ -99,8 +99,19 @@ async def seed_permissions_db(db):
     roles_res = await db.execute(select(Role))
     roles = roles_res.scalars().all()
 
+    SYSTEM_ROLES_TO_PROTECT = {
+        "admin", "superadmin", "super_admin", "super admin", "superuser",
+        "cliente", "inversionista", "operaciones",
+        "directivo_de_inversiones", "directivo_inversion",
+        "contabilidad", "contabilidad_", "administrativo"
+    }
+
     for role in roles:
-        r_name = role.name.lower()
+        r_name = role.name.lower().strip()
+        
+        # Blindaje de roles protegidos del sistema (H-127)
+        if r_name in SYSTEM_ROLES_TO_PROTECT or role.is_system_role == "1":
+            role.is_system_role = "1"
         
         # Superadmin / Admin siempre debe tener todos los permisos sincronizados
         if r_name in ["superadmin", "super_admin", "super admin", "admin"]:
