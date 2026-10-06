@@ -454,6 +454,12 @@ async def on_startup():
         async with async_session_maker() as db:
             await seed_permissions_db(db)
             try:
+                from src.services.company_wallet_service import CompanyWalletService
+                await CompanyWalletService.clean_leaked_admin_tax_balances(db)
+            except Exception as ce:
+                print(f"Aviso al limpiar saldos fiscales de billeteras: {ce}")
+
+            try:
                 from src.services.commercial_sale_service import purge_ghost_bonuses
                 await purge_ghost_bonuses(db)
             except Exception as pe:

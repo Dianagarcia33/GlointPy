@@ -32,4 +32,5 @@ from src.models.wallet_recharge import WalletRecharge
 from src.models.event import Event, EventAttendee
 from src.models.room import MeetingRoom, RoomReservation
 from src.models.yoint_dispersion import YointDispersion
+from src.models.company_tax_ledger import CompanyTaxLedger
 
