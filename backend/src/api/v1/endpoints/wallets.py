@@ -332,6 +332,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
     Get the wallet transactions of the current logged-in user.
     """
     from src.models.wallet import Wallet, WalletTransaction
+    from src.models.withdrawal import Withdrawal
     
     # Fetch WalletTransactions
     t_result = await db.execute(
@@ -340,6 +341,13 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         .where(Wallet.user_id == current_user.id)
     )
     transactions = t_result.scalars().all()
+
+    # Pre-cargar los retiros del usuario para enriquecer las transacciones con desglose financiero exacto
+    w_res = await db.execute(
+        select(Withdrawal).where(Withdrawal.user_id == current_user.id)
+    )
+    user_withdrawals = w_res.scalars().all()
+    user_withdrawals_by_id = {w.id: w for w in user_withdrawals}
     
     response = []
     
@@ -369,6 +377,45 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
                 desc = "Ajuste de saldo administrativo autorizado"
             desc = re.sub(r'\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)', '', desc)
 
+        # Valores por defecto para transacciones estándar
+        monto_val = abs(amount)
+        impuesto_val = 0.0
+        monto_neto_val = abs(amount)
+        estado_val = "procesado" # Transacciones estándar de billetera
+        banco_val = None
+        tipo_cuenta_val = None
+        numero_cuenta_val = None
+        metodo_pago_val = None
+        fecha_solicitud_val = t.created_at.isoformat() if t.created_at else None
+        fecha_aprobacion_val = t.created_at.isoformat() if t.created_at else None
+        fecha_procesamiento_val = t.created_at.isoformat() if t.created_at else None
+        motivo_rechazo_val = None
+
+        # Vincular retiro si aplica para obtener el impuesto 3.2%, el neto real y el estado exacto
+        linked_w = None
+        if t.reference_type == "withdrawal" and t.reference_id in user_withdrawals_by_id:
+            linked_w = user_withdrawals_by_id[t.reference_id]
+        elif raw_type in ["withdrawal request", "withdrawal_request", "solicitud_retiro", "retiro"]:
+            for w in user_withdrawals:
+                if abs(float(w.monto) - abs(amount)) < 0.01:
+                    linked_w = w
+                    break
+
+        if linked_w:
+            monto_val = float(linked_w.monto)
+            impuesto_val = float(linked_w.impuesto)
+            monto_neto_val = float(linked_w.monto_neto) # El valor neto real a recibir en el banco
+            # Reflejar el estado real del retiro (pendiente, procesado, aprobado, rechazado)
+            estado_val = linked_w.estado.value if hasattr(linked_w.estado, "value") else str(linked_w.estado)
+            banco_val = linked_w.banco
+            tipo_cuenta_val = linked_w.tipo_cuenta
+            numero_cuenta_val = linked_w.numero_cuenta
+            metodo_pago_val = linked_w.metodo_pago or "Transferencia Bancaria"
+            fecha_solicitud_val = linked_w.fecha_solicitud.isoformat() if linked_w.fecha_solicitud else (t.created_at.isoformat() if t.created_at else None)
+            fecha_aprobacion_val = linked_w.fecha_aprobacion.isoformat() if linked_w.fecha_aprobacion else None
+            fecha_procesamiento_val = linked_w.fecha_procesamiento.isoformat() if linked_w.fecha_procesamiento else None
+            motivo_rechazo_val = linked_w.motivo_rechazo
+
         response.append({
             "id": f"t_{t.id}",
             "investor_id": None,
@@ -377,20 +424,20 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             "tipo": tipo_str,
             "type": t.type,
             "direction": direction,
-            "monto": abs(amount),
-            "impuesto": 0,
-            "monto_neto": abs(amount),
-            "fecha_solicitud": t.created_at.isoformat() if t.created_at else None,
+            "monto": monto_val,
+            "impuesto": impuesto_val,
+            "monto_neto": monto_neto_val,
+            "fecha_solicitud": fecha_solicitud_val,
             "fecha_retiro": None,
-            "estado": "procesado", # Wallet transactions are typically immediately processed
-            "metodo_pago": None,
-            "banco": None,
-            "tipo_cuenta": None,
-            "numero_cuenta": None,
+            "estado": estado_val,
+            "metodo_pago": metodo_pago_val,
+            "banco": banco_val,
+            "tipo_cuenta": tipo_cuenta_val,
+            "numero_cuenta": numero_cuenta_val,
             "observaciones": desc,
-            "motivo_rechazo": None,
-            "fecha_aprobacion": t.created_at.isoformat() if t.created_at else None,
-            "fecha_procesamiento": t.created_at.isoformat() if t.created_at else None,
+            "motivo_rechazo": motivo_rechazo_val,
+            "fecha_aprobacion": fecha_aprobacion_val,
+            "fecha_procesamiento": fecha_procesamiento_val,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "updated_at": t.updated_at.isoformat() if t.updated_at else None,
             "saldo_anterior": None,

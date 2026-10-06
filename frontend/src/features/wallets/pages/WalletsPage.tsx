@@ -145,14 +145,23 @@ export const WalletsPage = () => {
     };
 
     const getStatusConfig = (estado: string) => {
-        switch (estado) {
-            case 'procesado':
+        const est = (estado || '').toLowerCase().trim();
+        switch (est) {
             case 'aprobado':
+            case 'completed':
+            case 'completado':
                 return { color: 'text-emerald-500', bg: 'bg-emerald-50', icon: CheckCircle2, text: 'Completado' };
+            case 'procesado':
+            case 'en_proceso':
+            case 'processing':
+                return { color: 'text-blue-500', bg: 'bg-blue-50', icon: Clock, text: 'En Proceso' };
             case 'pendiente':
+            case 'pending':
                 return { color: 'text-amber-500', bg: 'bg-amber-50', icon: Clock, text: 'Pendiente' };
             case 'rechazado':
             case 'cancelado':
+            case 'rejected':
+            case 'cancelled':
                 return { color: 'text-red-500', bg: 'bg-red-50', icon: XCircle, text: 'Rechazado' };
             default:
                 return { color: 'text-slate-500', bg: 'bg-slate-50', icon: AlertCircle, text: estado };
@@ -427,6 +436,11 @@ export const WalletsPage = () => {
                                                         <p className={`font-bold font-montserrat ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
                                                             {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
                                                         </p>
+                                                        {mov.impuesto > 0 && (
+                                                            <p className="text-[11px] font-medium text-slate-400">
+                                                                Bruto: {formatCurrency(mov.monto)}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                     <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
                                                 </div>

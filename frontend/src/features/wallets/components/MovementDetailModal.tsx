@@ -29,14 +29,23 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
     };
 
     const getStatusConfig = (estado: string) => {
-        switch (estado) {
-            case 'procesado':
+        const est = (estado || '').toLowerCase().trim();
+        switch (est) {
             case 'aprobado':
+            case 'completed':
+            case 'completado':
                 return { color: 'text-emerald-500', bg: 'bg-emerald-50', icon: CheckCircle2, text: 'Completado' };
+            case 'procesado':
+            case 'en_proceso':
+            case 'processing':
+                return { color: 'text-blue-500', bg: 'bg-blue-50', icon: Clock, text: 'En Proceso' };
             case 'pendiente':
+            case 'pending':
                 return { color: 'text-amber-500', bg: 'bg-amber-50', icon: Clock, text: 'Pendiente' };
             case 'rechazado':
             case 'cancelado':
+            case 'rejected':
+            case 'cancelled':
                 return { color: 'text-red-500', bg: 'bg-red-50', icon: XCircle, text: 'Rechazado' };
             default:
                 return { color: 'text-slate-500', bg: 'bg-slate-50', icon: AlertCircle, text: estado };
@@ -150,7 +159,9 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
                 <div className="p-6 flex-1 overflow-y-auto space-y-6">
                     {/* Monto Principal */}
                     <div className="text-center py-4">
-                        <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Monto Neto {isIngreso ? 'Recibido' : 'Retirado'}</p>
+                        <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                            {movement.impuesto > 0 ? 'Monto Neto a Recibir en Banco' : `Monto Neto ${isIngreso ? 'Recibido' : 'Retirado'}`}
+                        </p>
                         <p className={`text-4xl font-bold font-montserrat tracking-tight ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
                             {isIngreso ? '+' : '-'}{formatCurrency(movement.monto_neto)}
                         </p>
@@ -169,15 +180,23 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
                         </h3>
                         <div className="bg-slate-50 rounded-2xl p-4 space-y-3 border border-slate-100">
                             <div className="flex justify-between text-sm">
-                                <span className="text-slate-500 font-medium">Monto Bruto</span>
+                                <span className="text-slate-500 font-medium">
+                                    {movement.impuesto > 0 ? 'Monto Solicitado (Debitado)' : 'Monto Bruto'}
+                                </span>
                                 <span className="font-semibold text-slate-900">{formatCurrency(movement.monto)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-slate-500 font-medium">Impuestos / Deducciones</span>
-                                <span className="font-semibold text-red-500">-{formatCurrency(movement.impuesto)}</span>
+                                <span className="text-slate-500 font-medium">
+                                    {movement.impuesto > 0 ? 'Retención de Impuestos (3.2%)' : 'Impuestos / Deducciones'}
+                                </span>
+                                <span className={`font-semibold ${movement.impuesto > 0 ? 'text-red-500' : 'text-slate-500'}`}>
+                                    {movement.impuesto > 0 ? `-${formatCurrency(movement.impuesto)}` : '$0'}
+                                </span>
                             </div>
                             <div className="pt-2 border-t border-slate-200 flex justify-between text-sm">
-                                <span className="text-slate-700 font-bold">Total Neto</span>
+                                <span className="text-slate-700 font-bold">
+                                    {movement.impuesto > 0 ? 'Total Neto a Recibir' : 'Total Neto'}
+                                </span>
                                 <span className="font-bold text-slate-900">{formatCurrency(movement.monto_neto)}</span>
                             </div>
                         </div>
@@ -210,11 +229,15 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
                                 <p className="text-xs text-slate-500 font-medium mb-1">Solicitado el</p>
-                                <p className="text-sm font-semibold text-slate-900">{formatDate(movement.fecha_solicitud)}</p>
+                                <p className="text-sm font-semibold text-slate-900">{formatDate(movement.fecha_solicitud || movement.created_at)}</p>
                             </div>
                             <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
-                                <p className="text-xs text-slate-500 font-medium mb-1">Procesado el</p>
-                                <p className="text-sm font-semibold text-slate-900">{formatDate(movement.fecha_procesamiento || movement.fecha_aprobacion) || 'Pendiente'}</p>
+                                <p className="text-xs text-slate-500 font-medium mb-1">Desembolso / Procesado</p>
+                                <p className="text-sm font-semibold text-slate-900">
+                                    {movement.fecha_procesamiento || movement.fecha_aprobacion 
+                                        ? formatDate(movement.fecha_procesamiento || movement.fecha_aprobacion) 
+                                        : (movement.estado === 'pendiente' ? 'Pendiente' : (movement.estado === 'procesado' ? 'En trámite bancario' : '-'))}
+                                </p>
                             </div>
                         </div>
                     </div>
