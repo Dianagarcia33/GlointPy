@@ -120,7 +120,7 @@ export function ContactoPage() {
   const whatsappLink = CONTACT_INFO.whatsappLink;
   const whatsappDisplay = CONTACT_INFO.phone;
   const emailDisplay = CONTACT_INFO.email;
-  const addressDisplay = CONTACT_INFO.fullAddress;
+  const addressDisplay = CONTACT_INFO.address;
   const hoursDisplay = CONTACT_INFO.hours;
 
 

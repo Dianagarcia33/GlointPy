@@ -848,7 +848,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                   NIT: 901.789.432-1 • Plataforma Digital de Inversión y Gestión de Capital
                 </p>
                 <p className="text-[9px] text-slate-500">
-                  Carrera 7 # 71-21, Torre A, Piso 12 • Bogotá D.C., Colombia • contacto@gloint.co • www.gloint.co
+                  Ak 7 #32-29 Edificio Telesentinel Oficina 2003 • Bogotá D.C., Colombia • contacto@gloint.com.co • www.gloint.co
                 </p>
               </div>
             </div>
