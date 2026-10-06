@@ -448,23 +448,6 @@ async def on_startup():
             except Exception:
                 pass
 
-            # Sincronización automática de packages y periods desde tablas de producción paquetes_inversion y contract_periods
-            try:
-                await conn.execute(text("""
-                    INSERT INTO packages (id, value, granted_shares, is_active, created_at, updated_at)
-                    SELECT id, CAST(paquete_accion_adquirido AS UNSIGNED), acciones_otorgadas, 1, created_at, updated_at
-                    FROM paquetes_inversion
-                    ON DUPLICATE KEY UPDATE value=VALUES(value), granted_shares=VALUES(granted_shares);
-                """))
-                await conn.execute(text("""
-                    INSERT INTO periods (id, percentage, months, days, is_active, created_at, updated_at)
-                    SELECT id, percentage, months, days, 1, created_at, updated_at
-                    FROM contract_periods
-                    ON DUPLICATE KEY UPDATE percentage=VALUES(percentage), months=VALUES(months), days=VALUES(days);
-                """))
-            except Exception as e:
-                print(f"Warning syncing packages/periods: {e}")
-
         async with async_session_maker() as db:
             await seed_permissions_db(db)
             try:
