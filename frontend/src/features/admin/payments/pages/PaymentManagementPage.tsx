@@ -353,10 +353,10 @@ export const PaymentManagementPage: React.FC = () => {
             type="button"
             onClick={() => setIsTaxLedgerOpen(true)}
             className="flex items-center gap-2 px-4 py-3 bg-brand-500/20 hover:bg-brand-500/30 text-brand-300 hover:text-white rounded-2xl transition-all text-xs font-bold border border-brand-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
-            title="Ver Libro Fiscal Corporativo y Recaudo del 3.2%"
+            title="Ver Reporte de Impuestos y Recaudos del 3.2%"
           >
             <Receipt className="w-4 h-4 text-brand-400" />
-            <span>Caja Fiscal & Impuestos (3.2%)</span>
+            <span>Reporte de Impuestos</span>
           </button>
 
           <button 

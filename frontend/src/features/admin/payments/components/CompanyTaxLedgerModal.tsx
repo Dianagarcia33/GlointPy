@@ -138,7 +138,7 @@ export const CompanyTaxLedgerModal: React.FC<CompanyTaxLedgerModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl sm:text-2xl font-black font-montserrat tracking-tight">
-                  Libro Fiscal & Caja de Impuestos (3.2%)
+                  Reporte de Impuestos (3.2%)
                 </h2>
                 <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-brand-500/20 text-brand-300 border border-brand-400/30">
                   <Lock className="w-3 h-3" /> Aislado de Billeteras
