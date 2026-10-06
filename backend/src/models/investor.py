@@ -7,15 +7,15 @@ class Investor(Base):
     __tablename__ = 'investors'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    assigned_code = Column(String(50), unique=True, index=True, nullable=False)
-    referred_by = Column(String(255), nullable=True) # Manual text entered by user
+    assigned_code = Column("codigo_asignado", String(50), unique=True, index=True, nullable=False)
+    referred_by = Column("referido_por", String(255), nullable=True) # Manual text entered by user
     
     user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    package_id = Column(Integer, ForeignKey('packages.id'), nullable=False)
-    period_id = Column(Integer, ForeignKey('periods.id'), nullable=False)
+    package_id = Column("paquete_inversion_adquirido", Integer, ForeignKey('packages.id'), nullable=False)
+    period_id = Column("periodo_contrato", Integer, ForeignKey('periods.id'), nullable=False)
     
-    start_date = Column(DateTime, default=datetime.utcnow, nullable=False)
-    observations = Column(Text, nullable=True)
+    start_date = Column("fecha_ingreso", DateTime, default=datetime.utcnow, nullable=False)
+    observations = Column("observaciones", Text, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

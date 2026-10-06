@@ -185,8 +185,42 @@ export const auditService = {
         if (params?.start_date) qs.append('start_date', params.start_date);
         if (params?.end_date) qs.append('end_date', params.end_date);
         return await fetchApi(`/audit/logs?${qs.toString()}`);
+    },
+
+    executeDailyAutomatic: async (): Promise<any> => {
+        return await fetchApi('/audit/execute-daily-automatic', {
+            method: 'POST'
+        });
+    },
+
+    getYieldBatches: async (limit: number = 50): Promise<YieldBatch[]> => {
+        return await fetchApi(`/audit/yield-batches?limit=${limit}`);
+    },
+
+    rollbackYieldBatch: async (batchId: string, reason?: string): Promise<{ success: boolean; message: string; total_reverted_amount: number; total_transfers_reverted: number }> => {
+        return await fetchApi(`/audit/yield-batches/${batchId}/rollback`, {
+            method: 'POST',
+            body: JSON.stringify({ reason })
+        });
     }
 };
+
+export interface YieldBatch {
+    id: number;
+    batch_id: string;
+    action: string;
+    description: string;
+    is_automatic: boolean;
+    cycle_start_date: string;
+    cycle_end_date: string;
+    executed_at_cot: string;
+    executed_at_utc: string;
+    total_users_paid: number;
+    total_transfers_count: number;
+    global_grand_total: number;
+    status: string;
+    created_at: string;
+}
 
 export interface SecurityAuditLog {
     id: number;

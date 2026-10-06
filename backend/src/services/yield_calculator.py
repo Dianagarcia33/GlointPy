@@ -12,7 +12,12 @@ def calculate_investment_yield(
     requested_end_date: date
 ) -> YieldCalculationResult:
     
-    inv_start = investment.start_date.date() if investment.start_date else None
+    if isinstance(investment.start_date, datetime):
+        inv_start = investment.start_date.date()
+    elif isinstance(investment.start_date, date):
+        inv_start = investment.start_date
+    else:
+        inv_start = None
     
     if not inv_start or not investment.package or not investment.period:
         # Invalid investment configuration

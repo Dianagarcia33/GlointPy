@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, ChevronUp, Eye, FileText, Calculator, Send } from 'lucide-react';
+import { Briefcase, Search, Loader2, AlertCircle, User as UserIcon, Calendar, Package, ChevronDown, ChevronRight, ChevronUp, Eye, FileText, Calculator, Send, History, Zap } from 'lucide-react';
 import { auditService, AuditUser } from '../../../../services/audit';
 import { UserYieldAuditBox } from '../components/UserYieldAuditBox';
 import { UserWalletHistoryBox } from '../components/UserWalletHistoryBox';
 import { BulkTransferModal } from '../components/BulkTransferModal';
+import { YieldBatchesModal } from '../components/YieldBatchesModal';
 
 export const AdminInvestmentsPage: React.FC = () => {
   const [users, setUsers] = useState<AuditUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Bulk Transfer Modal State
+  // Bulk Transfer & Batches Modal State
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isBatchesModalOpen, setIsBatchesModalOpen] = useState(false);
 
   // Expanded rows state
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
@@ -77,8 +79,14 @@ export const AdminInvestmentsPage: React.FC = () => {
         onSuccess={() => fetchData()}
       />
 
+      <YieldBatchesModal
+        isOpen={isBatchesModalOpen}
+        onClose={() => setIsBatchesModalOpen(false)}
+        onBatchUpdated={() => fetchData()}
+      />
+
       {/* Header & Actions */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 font-montserrat">
             <Briefcase className="w-8 h-8 text-brand-600" />
@@ -87,13 +95,29 @@ export const AdminInvestmentsPage: React.FC = () => {
           <p className="text-slate-500 mt-1 text-xs sm:text-sm">Supervisión integral de contratos, balances en billeteras y transferencias masivas a inversionistas.</p>
         </div>
 
-        <button
-          onClick={() => setIsBulkModalOpen(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 text-sm cursor-pointer shrink-0"
-        >
-          <Send className="w-4 h-4" />
-          Transferencia Masiva General
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200/60 rounded-xl text-xs font-bold shadow-xs">
+            <Zap className="w-3.5 h-3.5 text-purple-600" />
+            <span>Automático: 00:00 COT</span>
+          </div>
+
+          <button
+            onClick={() => setIsBatchesModalOpen(true)}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 text-sm cursor-pointer border border-slate-200"
+            title="Ver historial de lotes, liquidaciones automáticas y reversión"
+          >
+            <History className="w-4 h-4 text-slate-600" />
+            <span>Historial de Lotes</span>
+          </button>
+
+          <button
+            onClick={() => setIsBulkModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 text-sm cursor-pointer shrink-0"
+          >
+            <Send className="w-4 h-4" />
+            <span>Transferencia Masiva General</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -8,7 +8,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
 from src.core.database import get_db
-from src.api.deps import RequirePermission
+from src.api.deps import RequirePermission, get_current_user
 from src.models.user import User
 from src.models.investor import Investor
 from src.schemas.user import UserResponse
@@ -677,102 +677,106 @@ async def bulk_calculate_yields(
 @router.post("/bulk-pay-yields", response_model=BulkPayYieldResult, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def bulk_pay_yields(
     request: PayUserYieldRequest,
+    req: Request,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Ejecuta masivamente la transferencia de rendimientos y bonos de aceleración a las wallets de todos los usuarios beneficiarios.
+    Aplica blindaje de idempotencia (no duplica si ya fue pagado) y genera un registro de auditoría forense inmutable.
     """
-    from decimal import Decimal
+    from src.services.daily_yield_service import DailyYieldService
 
-    pay_mode = request.pay_mode or "all"
-    include_yields = pay_mode in ("all", "yields_only")
-    include_bonuses = pay_mode in ("all", "bonuses_only")
+    ip = req.headers.get("x-forwarded-for", req.client.host if req.client else None)
+    ua = req.headers.get("user-agent")
 
-    query = select(User).options(
-        selectinload(User.wallet),
-        selectinload(User.investments).selectinload(Investor.package),
-        selectinload(User.investments).selectinload(Investor.period),
-        selectinload(User.investments).selectinload(Investor.withdrawals),
-        selectinload(User.investments).selectinload(Investor.accelerations)
+    res = await DailyYieldService.execute_yield_dispersal(
+        db=db,
+        start_date=request.start_date,
+        end_date=request.end_date,
+        pay_mode=request.pay_mode or "all",
+        is_automatic=False,
+        triggered_by_user=current_user,
+        ip_address=ip,
+        user_agent=ua
     )
-    result = await db.execute(query)
-    users = result.scalars().all()
-
-    total_users_paid = 0
-    global_yield_total = Decimal("0.00")
-    global_acceleration_bonus_total = Decimal("0.00")
-    global_grand_total = Decimal("0.00")
-
-    for user in users:
-        if not user.investments:
-            continue
-
-        user_yield_total = Decimal("0.00")
-        user_acc_bonus_total = Decimal("0.00")
-        transactions_to_add = []
-
-        for investment in user.investments:
-            calc_res = calculate_investment_yield(investment, request.start_date, request.end_date)
-            
-            if include_yields and calc_res.total_yield > 0:
-                user_yield_total += calc_res.total_yield
-                transactions_to_add.append({
-                    "amount": calc_res.total_yield,
-                    "type": "ingreso",
-                    "reference_type": "rendimiento_inversion",
-                    "reference_id": investment.id,
-                    "description": f"Rendimiento del {calc_res.effective_start_date} al {calc_res.effective_end_date} (Inv. {investment.assigned_code})"
-                })
-
-            if include_bonuses and calc_res.acceleration_bonus > 0:
-                user_acc_bonus_total += calc_res.acceleration_bonus
-                transactions_to_add.append({
-                    "amount": calc_res.acceleration_bonus,
-                    "type": "ingreso",
-                    "reference_type": "bono_aceleracion",
-                    "reference_id": investment.id,
-                    "description": f"Bono de aceleración de inversión {investment.assigned_code}"
-                })
-
-        user_grand_total = user_yield_total + user_acc_bonus_total
-
-        if user_grand_total > 0 and transactions_to_add:
-            # Ensure wallet exists
-            wallet = user.wallet
-            if not wallet:
-                wallet = Wallet(user_id=user.id, balance=Decimal("0.00"), status="active")
-                db.add(wallet)
-                await db.flush()
-
-            current_balance = wallet.balance
-            for tx_data in transactions_to_add:
-                current_balance += tx_data["amount"]
-                tx = WalletTransaction(
-                    wallet_id=wallet.id,
-                    amount=tx_data["amount"],
-                    type=tx_data["type"],
-                    reference_type=tx_data["reference_type"],
-                    reference_id=tx_data["reference_id"],
-                    description=tx_data["description"],
-                    balance_after=current_balance
-                )
-                db.add(tx)
-
-            wallet.balance = current_balance
-            total_users_paid += 1
-            global_yield_total += user_yield_total
-            global_acceleration_bonus_total += user_acc_bonus_total
-            global_grand_total += user_grand_total
-
-    await db.commit()
 
     return BulkPayYieldResult(
-        message=f"Transferencia masiva ({pay_mode}) ejecutada exitosamente a las billeteras",
+        message=res["message"],
         requested_start_date=request.start_date,
         requested_end_date=request.end_date,
-        total_users_paid=total_users_paid,
-        global_yield_total=global_yield_total,
-        global_acceleration_bonus_total=global_acceleration_bonus_total,
-        global_grand_total=global_grand_total
+        total_users_paid=res["total_users_paid"],
+        global_yield_total=res["global_yield_total"],
+        global_acceleration_bonus_total=res["global_acceleration_bonus_total"],
+        global_grand_total=res["global_grand_total"]
     )
+
+
+@router.post("/execute-daily-automatic", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def trigger_daily_automatic(
+    req: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Fuerza bajo demanda la ejecución de la liquidación automática diaria correspondiente al día inmediatamente anterior (ayer -> hoy).
+    """
+    from src.services.daily_yield_service import DailyYieldService
+    from src.core.timezone import get_colombia_today
+    from datetime import timedelta
+
+    today_cot = get_colombia_today()
+    yesterday_cot = today_cot - timedelta(days=1)
+
+    ip = req.headers.get("x-forwarded-for", req.client.host if req.client else None)
+    ua = req.headers.get("user-agent")
+
+    return await DailyYieldService.execute_yield_dispersal(
+        db=db,
+        start_date=yesterday_cot,
+        end_date=today_cot,
+        pay_mode="all",
+        is_automatic=True,
+        triggered_by_user=current_user,
+        ip_address=ip,
+        user_agent=ua
+    )
+
+
+@router.get("/yield-batches", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def get_yield_batches(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Obtiene el historial de lotes de dispersión ejecutados (automáticos y manuales) para control y auditoría.
+    """
+    from src.services.daily_yield_service import DailyYieldService
+    return await DailyYieldService.get_historical_batches(db=db, limit=limit)
+
+
+class RollbackBatchRequest(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/yield-batches/{batch_id}/rollback", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def rollback_yield_batch_endpoint(
+    batch_id: str,
+    payload: Optional[RollbackBatchRequest] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reversa de manera segura e inmutable un lote de dispersión de rendimientos, debitando los saldos y generando contrapartidas contables (EGRESO).
+    """
+    from src.services.daily_yield_service import DailyYieldService
+    try:
+        return await DailyYieldService.rollback_yield_batch(
+            db=db,
+            batch_id=batch_id,
+            operator_user=current_user,
+            reason=payload.reason if payload else None
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 

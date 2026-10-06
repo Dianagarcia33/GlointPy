@@ -63,6 +63,9 @@ async def on_startup():
     try:
         # Iniciar worker en segundo plano para sincronización automática de correos
         asyncio.create_task(background_imap_sync_worker())
+        # Iniciar worker en segundo plano para dispersión automática diaria de rendimientos (medianoche COT)
+        from src.services.daily_yield_service import background_daily_yield_worker
+        asyncio.create_task(background_daily_yield_worker())
         import src.models
         from src.core.database import engine, Base, async_session_maker
         from src.run_seed import seed_permissions_db
@@ -84,6 +87,16 @@ async def on_startup():
 
             try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN commercial_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN parent_user_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN imap_password VARCHAR(500) NULL"))
             except Exception:
                 pass
 
@@ -434,6 +447,23 @@ async def on_startup():
                 await conn.execute(text("UPDATE investors SET referred_by = NULL WHERE referred_by = '\\\\N' OR referred_by = '\\N' OR referred_by = 'NULL' OR referred_by = ''"))
             except Exception:
                 pass
+
+            # Sincronización automática de packages y periods desde tablas de producción paquetes_inversion y contract_periods
+            try:
+                await conn.execute(text("""
+                    INSERT INTO packages (id, value, granted_shares, is_active, created_at, updated_at)
+                    SELECT id, CAST(paquete_accion_adquirido AS UNSIGNED), acciones_otorgadas, 1, created_at, updated_at
+                    FROM paquetes_inversion
+                    ON DUPLICATE KEY UPDATE value=VALUES(value), granted_shares=VALUES(granted_shares);
+                """))
+                await conn.execute(text("""
+                    INSERT INTO periods (id, percentage, months, days, is_active, created_at, updated_at)
+                    SELECT id, percentage, months, days, 1, created_at, updated_at
+                    FROM contract_periods
+                    ON DUPLICATE KEY UPDATE percentage=VALUES(percentage), months=VALUES(months), days=VALUES(days);
+                """))
+            except Exception as e:
+                print(f"Warning syncing packages/periods: {e}")
 
         async with async_session_maker() as db:
             await seed_permissions_db(db)
