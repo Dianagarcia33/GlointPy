@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -26,6 +26,7 @@ interface RankModalProps {
   onClose: () => void;
   onSaved: () => void;
   rank: InvestmentRank | null;
+  allRanks?: InvestmentRank[];
 }
 
 const AVAILABLE_ICONS = [
@@ -54,18 +55,20 @@ export const RankModal: React.FC<RankModalProps> = ({
   isOpen,
   onClose,
   onSaved,
-  rank
+  rank,
+  allRanks = []
 }) => {
+  const formRef = useRef<HTMLFormElement>(null);
   const [name, setName] = useState('');
-  const [minInvestment, setMinInvestment] = useState<number>(0);
+  const [minInvestment, setMinInvestment] = useState<string>('0');
   const [maxInvestment, setMaxInvestment] = useState<string>('');
-  const [bonusPercentage, setBonusPercentage] = useState<number>(0);
+  const [bonusPercentage, setBonusPercentage] = useState<string>('0');
   const [color, setColor] = useState('#EAB308');
   const [icon, setIcon] = useState('trophy');
   const [priorityWithdrawal, setPriorityWithdrawal] = useState(false);
   const [benefits, setBenefits] = useState<string[]>([]);
   const [newBenefit, setNewBenefit] = useState('');
-  const [order, setOrder] = useState<number>(1);
+  const [order, setOrder] = useState<string>('1');
   const [isActive, setIsActive] = useState(true);
 
   const [loading, setLoading] = useState(false);
@@ -74,20 +77,20 @@ export const RankModal: React.FC<RankModalProps> = ({
   useEffect(() => {
     if (rank) {
       setName(rank.name);
-      setMinInvestment(rank.min_investment || 0);
+      setMinInvestment(rank.min_investment !== null && rank.min_investment !== undefined ? String(rank.min_investment) : '0');
       setMaxInvestment(rank.max_investment !== null && rank.max_investment !== undefined ? String(rank.max_investment) : '');
-      setBonusPercentage(rank.bonus_percentage || 0);
+      setBonusPercentage(rank.bonus_percentage !== null && rank.bonus_percentage !== undefined ? String(rank.bonus_percentage) : '0');
       setColor(rank.color || '#EAB308');
       setIcon(rank.icon || 'trophy');
       setPriorityWithdrawal(Boolean(rank.priority_withdrawal));
       setBenefits(Array.isArray(rank.benefits) ? [...rank.benefits] : []);
-      setOrder(rank.order || 1);
+      setOrder(rank.order !== null && rank.order !== undefined ? String(rank.order) : '1');
       setIsActive(Boolean(rank.is_active));
     } else {
       setName('');
-      setMinInvestment(0);
+      setMinInvestment('0');
       setMaxInvestment('');
-      setBonusPercentage(0);
+      setBonusPercentage('0');
       setColor('#EAB308');
       setIcon('trophy');
       setPriorityWithdrawal(false);
@@ -95,7 +98,7 @@ export const RankModal: React.FC<RankModalProps> = ({
         'Acceso completo a la plataforma y billetera digital',
         'Rendimientos mensuales automáticos'
       ]);
-      setOrder(1);
+      setOrder('1');
       setIsActive(true);
     }
     setError(null);
@@ -115,14 +118,91 @@ export const RankModal: React.FC<RankModalProps> = ({
     setBenefits(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const otherActiveRanks = (allRanks || []).filter(
+    (r) => r.is_active && r.id !== rank?.id
+  );
+
+  const numMin = minInvestment.trim() !== '' ? Number(minInvestment) : 0;
+  const numMax = maxInvestment.trim() !== '' ? Number(maxInvestment) : null;
+  const numBonus = parseFloat(bonusPercentage.replace(',', '.')) || 0;
+  const numOrder = parseInt(order) || 1;
+
+  // 1. Min vs Max conflict
+  const minMaxConflict = numMax !== null && numMin > numMax;
+
+  // 2. Overlap check with other active ranks
+  const overlappingRank = isActive ? otherActiveRanks.find((other) => {
+    const oMin = Number(other.min_investment) || 0;
+    const oMax = other.max_investment !== null && other.max_investment !== undefined ? Number(other.max_investment) : null;
+
+    if (numMax === null && oMax === null) return true;
+    if (numMax === null) return numMin <= (oMax ?? Infinity);
+    if (oMax === null) return numMax >= oMin;
+    return Math.max(numMin, oMin) <= Math.min(numMax, oMax);
+  }) : null;
+
+  // 3. Order coherence check with other active ranks
+  const orderConflict = isActive ? otherActiveRanks.find((other) => {
+    const oMin = Number(other.min_investment) || 0;
+    const oOrder = Number(other.order) || 1;
+    if (oMin > numMin && oOrder <= numOrder) return true;
+    if (oMin < numMin && oOrder >= numOrder) return true;
+    if (oMin === numMin && oOrder === numOrder) return true;
+    return false;
+  }) : null;
+
+  // 4. Excessive bonus warning (> 5%)
+  const isHighBonus = numBonus > 5;
+
+  const handleMinInvestmentChange = (rawVal: string) => {
+    setMinInvestment(rawVal);
+    const val = Number(rawVal) || 0;
+    if (!rank) {
+      // Auto-suggest coherent order based on min capital
+      const sorted = [...otherActiveRanks].sort((a, b) => (Number(a.min_investment) || 0) - (Number(b.min_investment) || 0));
+      let pos = 1;
+      for (const r of sorted) {
+        if ((Number(r.min_investment) || 0) < val) {
+          pos = Math.max(pos, (Number(r.order) || 0) + 1);
+        }
+      }
+      setOrder(String(pos));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError('El nombre del rango es requerido.');
+      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    if (minInvestment < 0) {
+    if (numMin < 0) {
       setError('La inversión mínima no puede ser negativa.');
+      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (numBonus < 0 || numBonus > 100) {
+      setError('El bono adicional debe estar entre 0% y 100%.');
+      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (minMaxConflict) {
+      setError(`El capital mínimo ($${numMin.toLocaleString('es-CO')} COP) no puede ser mayor que el capital máximo ($${numMax?.toLocaleString('es-CO')} COP).`);
+      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (overlappingRank) {
+      const oMaxStr = overlappingRank.max_investment !== null ? `$${Number(overlappingRank.max_investment).toLocaleString('es-CO')} COP` : 'Sin límite';
+      setError(`Solapamiento de capital: Este rango se cruza con '${overlappingRank.name}' ($${Number(overlappingRank.min_investment).toLocaleString('es-CO')} COP a ${oMaxStr}).`);
+      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (orderConflict) {
+      const oMin = Number(orderConflict.min_investment) || 0;
+      const oOrder = Number(orderConflict.order) || 1;
+      setError(`Incoherencia en orden jerárquico: El rango '${orderConflict.name}' requiere $${oMin.toLocaleString('es-CO')} COP y tiene orden #${oOrder}. Ajusta el orden para mantener la jerarquía.`);
+      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -132,14 +212,14 @@ export const RankModal: React.FC<RankModalProps> = ({
 
       const payload: RankCreateInput = {
         name: name.trim(),
-        min_investment: Number(minInvestment),
-        max_investment: maxInvestment.trim() ? Number(maxInvestment) : null,
-        bonus_percentage: Number(bonusPercentage),
+        min_investment: numMin,
+        max_investment: numMax,
+        bonus_percentage: numBonus,
         color,
         icon,
         priority_withdrawal: priorityWithdrawal,
         benefits,
-        order: Number(order),
+        order: numOrder,
         is_active: isActive
       };
 
@@ -153,7 +233,9 @@ export const RankModal: React.FC<RankModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Error guardando rango:', err);
-      setError(err.message || 'Error al guardar el rango.');
+      const msg = err.response?.data?.detail || err.message || 'Error al guardar el rango.';
+      setError(msg);
+      formRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -192,7 +274,7 @@ export const RankModal: React.FC<RankModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
             <div className="p-4 bg-rose-50 text-rose-700 rounded-2xl border border-rose-200 flex items-center gap-2.5 text-xs font-bold">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -216,9 +298,9 @@ export const RankModal: React.FC<RankModalProps> = ({
                   <span className="text-[10px] uppercase tracking-widest font-extrabold text-slate-400">Vista Previa de Insignia</span>
                   <h3 className="text-lg font-black font-montserrat flex items-center gap-2">
                     {name || 'Nombre del Rango'}
-                    {bonusPercentage > 0 && (
+                    {numBonus > 0 && (
                       <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-white/20 text-white font-mono">
-                        +{bonusPercentage}% Bono
+                        +{numBonus}% Bono
                       </span>
                     )}
                   </h3>
@@ -226,12 +308,12 @@ export const RankModal: React.FC<RankModalProps> = ({
               </div>
 
               <span className="text-xs px-3 py-1 rounded-full font-extrabold font-mono border" style={{ borderColor: color, color }}>
-                Orden #{order}
+                Orden #{numOrder}
               </span>
             </div>
 
             <div className="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between text-xs text-slate-300">
-              <span>Capital Requerido: <strong className="text-white font-mono font-bold">${Number(minInvestment || 0).toLocaleString('es-CO')} COP</strong></span>
+              <span>Capital Requerido: <strong className="text-white font-mono font-bold">${numMin.toLocaleString('es-CO')} COP</strong></span>
               {priorityWithdrawal && (
                 <span className="text-amber-400 font-bold flex items-center gap-1 text-[11px]">
                   <Sparkles className="w-3.5 h-3.5" /> Prioridad en Retiros ACH
@@ -262,11 +344,12 @@ export const RankModal: React.FC<RankModalProps> = ({
                 Orden Jerárquico (Nivel)
               </label>
               <input
-                type="number"
-                min="1"
+                type="text"
+                inputMode="numeric"
                 required
                 value={order}
-                onChange={(e) => setOrder(Number(e.target.value))}
+                onChange={(e) => setOrder(e.target.value.replace(/\D/g, ''))}
+                placeholder="1"
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-xs font-mono font-bold text-slate-900 transition-all"
               />
             </div>
@@ -281,11 +364,12 @@ export const RankModal: React.FC<RankModalProps> = ({
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-bold text-xs">$</span>
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
                   required
                   value={minInvestment}
-                  onChange={(e) => setMinInvestment(Number(e.target.value))}
+                  onChange={(e) => handleMinInvestmentChange(e.target.value.replace(/\D/g, ''))}
+                  placeholder="0"
                   className="w-full pl-7 pr-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-xs font-mono font-bold text-slate-900 transition-all"
                 />
               </div>
@@ -299,10 +383,10 @@ export const RankModal: React.FC<RankModalProps> = ({
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 font-bold text-xs">$</span>
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
                   value={maxInvestment}
-                  onChange={(e) => setMaxInvestment(e.target.value)}
+                  onChange={(e) => setMaxInvestment(e.target.value.replace(/\D/g, ''))}
                   placeholder="Sin límite"
                   className="w-full pl-7 pr-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-xs font-mono font-bold text-slate-900 transition-all"
                 />
@@ -316,12 +400,15 @@ export const RankModal: React.FC<RankModalProps> = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
-                  step="0.05"
-                  min="0"
-                  max="100"
+                  type="text"
+                  inputMode="decimal"
                   value={bonusPercentage}
-                  onChange={(e) => setBonusPercentage(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                      setBonusPercentage(val);
+                    }
+                  }}
                   placeholder="0.50"
                   className="w-full pr-7 pl-3.5 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 text-xs font-mono font-bold text-slate-900 transition-all"
                 />
@@ -329,6 +416,42 @@ export const RankModal: React.FC<RankModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Real-time Validation Feedback */}
+          {(minMaxConflict || overlappingRank || orderConflict || isHighBonus) && (
+            <div className="space-y-2 pt-1 animate-in fade-in">
+              {isHighBonus && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>
+                    Advertencia: Estás configurando un bono de +{numBonus}%, lo cual supera el umbral prudencial recomendado (5%). Por favor verifica que no sea un error de digitación (ej. 0.25% vs 25%).
+                  </span>
+                </div>
+              )}
+              {minMaxConflict && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                  <span>El capital mínimo no puede ser superior al capital máximo del rango.</span>
+                </div>
+              )}
+              {overlappingRank && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>
+                    Solapamiento de capital: Se cruza con el rango activo <strong>{overlappingRank.name}</strong> (${Number(overlappingRank.min_investment).toLocaleString('es-CO')} COP a {overlappingRank.max_investment !== null && overlappingRank.max_investment !== undefined ? `$${Number(overlappingRank.max_investment).toLocaleString('es-CO')} COP` : 'Sin límite'}).
+                  </span>
+                </div>
+              )}
+              {orderConflict && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>
+                    Incoherencia jerárquica: <strong>{orderConflict.name}</strong> requiere ${Number(orderConflict.min_investment).toLocaleString('es-CO')} COP con orden #{orderConflict.order}. Ajusta el orden (#{order}) para respetar la escala.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Color & Icon Selectors */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
@@ -483,29 +606,37 @@ export const RankModal: React.FC<RankModalProps> = ({
           </div>
 
           {/* Footer Buttons */}
-          <div className="pt-4 border-t border-slate-100 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-bold text-xs disabled:opacity-50 cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !name.trim()}
-              className="flex-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-all font-bold text-xs disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-600/20 cursor-pointer"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                rank ? 'Guardar Cambios' : 'Crear Rango'
-              )}
-            </button>
+          <div className="pt-4 border-t border-slate-100 flex flex-col gap-3">
+            {error && (
+              <div className="p-3 bg-rose-50 text-rose-700 rounded-xl border border-rose-200 flex items-start gap-2 text-xs font-bold animate-in fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                <span>{error}</span>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors font-bold text-xs disabled:opacity-50 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={loading || !name.trim() || minMaxConflict || Boolean(overlappingRank) || Boolean(orderConflict)}
+                className="flex-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-all font-bold text-xs disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-600/20 cursor-pointer"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  rank ? 'Guardar Cambios' : 'Crear Rango'
+                )}
+              </button>
+            </div>
           </div>
         </form>
 

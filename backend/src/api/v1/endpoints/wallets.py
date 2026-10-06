@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -13,7 +13,7 @@ router = APIRouter()
 
 from src.models.system_event import SystemEvent
 from src.services.system_event_service import SystemEventService
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optional[str]]:
     from sqlalchemy import func
@@ -809,11 +809,20 @@ async def transfer_wallet_funds(
 # ==========================================================
 
 class RejectRechargeRequest(BaseModel):
-    reason: str
+    reason: Optional[str] = None
+    rejection_reason: Optional[str] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def populate_reason(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if not data.get('reason') and data.get('rejection_reason'):
+                data['reason'] = data['rejection_reason']
+        return data
 
     @field_validator('reason')
     @classmethod
-    def validate_reason(cls, v: str) -> str:
+    def validate_reason(cls, v: Optional[str]) -> str:
         clean = (v or "").strip()
         if len(clean) < 10:
             raise ValueError("El motivo de rechazo debe contener al menos 10 caracteres explicativos.")
@@ -979,8 +988,10 @@ async def cancel_my_recharge(
 
 
 @router.get("/admin/recharges", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+@router.get("/recharges/admin", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
 async def get_all_recharges_admin(
     status_filter: Optional[str] = None,
+    status: Optional[str] = None,
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
@@ -999,8 +1010,9 @@ async def get_all_recharges_admin(
         .order_by(WalletRecharge.created_at.desc())
     )
 
-    if status_filter and status_filter.lower() != "todos" and status_filter.lower() != "all":
-        stmt = stmt.where(WalletRecharge.status == status_filter.lower().strip())
+    active_status = status_filter or status
+    if active_status and active_status.lower() != "todos" and active_status.lower() != "all":
+        stmt = stmt.where(WalletRecharge.status == active_status.lower().strip())
 
     res = await db.execute(stmt)
     recharges = res.scalars().all()
@@ -1048,6 +1060,7 @@ async def get_all_recharges_admin(
 
 
 @router.post("/admin/recharges/{recharge_id}/approve", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+@router.post("/recharges/{recharge_id}/approve", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
 async def approve_wallet_recharge_admin(
     recharge_id: int,
     payload: Optional[ApproveRechargeRequest] = None,
@@ -1135,6 +1148,7 @@ async def approve_wallet_recharge_admin(
 
 
 @router.post("/admin/recharges/{recharge_id}/reject", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
+@router.post("/recharges/{recharge_id}/reject", dependencies=[Depends(RequirePermission(["admin.payments.manage", "admin.investors.manage", "admin.users.manage"]))])
 async def reject_wallet_recharge_admin(
     recharge_id: int,
     payload: RejectRechargeRequest,

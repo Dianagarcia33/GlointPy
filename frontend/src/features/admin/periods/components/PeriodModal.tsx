@@ -20,6 +20,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [percentageStr, setPercentageStr] = useState<string>('0');
 
   useEffect(() => {
     if (period) {
@@ -29,6 +30,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
         days: period.days,
         is_active: period.is_active,
       });
+      setPercentageStr(period.percentage !== null && period.percentage !== undefined ? String(period.percentage) : '0');
     } else {
       setFormData({
         percentage: 0,
@@ -36,6 +38,7 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
         days: 0,
         is_active: true,
       });
+      setPercentageStr('');
     }
     setError(null);
   }, [period, isOpen]);
@@ -69,7 +72,8 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
     e.preventDefault();
     setError(null);
 
-    if (formData.percentage <= 0 || formData.percentage > 100) {
+    const parsedPct = parseFloat(percentageStr.replace(',', '.')) || 0;
+    if (parsedPct <= 0 || parsedPct > 100) {
       setError('La rentabilidad mensual debe ser mayor a 0% y menor o igual a 100%.');
       return;
     }
@@ -90,10 +94,11 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
     setIsLoading(true);
 
     try {
+      const payload = { ...formData, percentage: parsedPct };
       if (period) {
-        await periodsService.updatePeriod(period.id, formData);
+        await periodsService.updatePeriod(period.id, payload);
       } else {
-        await periodsService.createPeriod(formData);
+        await periodsService.createPeriod(payload);
       }
       onSaved();
       onClose();
@@ -142,13 +147,18 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
               Rentabilidad Mensual (%) <span className="text-red-500">*</span>
             </label>
             <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              max="100"
+              type="text"
+              inputMode="decimal"
               required
-              value={formData.percentage || ''}
-              onChange={(e) => setFormData({ ...formData, percentage: parseFloat(e.target.value) || 0 })}
+              value={percentageStr}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                  setPercentageStr(val);
+                  const parsed = parseFloat(val.replace(',', '.')) || 0;
+                  setFormData(prev => ({ ...prev, percentage: parsed }));
+                }
+              }}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-900 font-montserrat"
               placeholder="Ej. 3.7"
             />

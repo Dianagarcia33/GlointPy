@@ -126,6 +126,10 @@ function App() {
       <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
       <Route path="/force-change-password" element={<GuestRoute><ForceChangePasswordPage /></GuestRoute>} />
       
+      {/* Alias de compatibilidad con rutas documentadas en especificación */}
+      <Route path="/chat" element={<Navigate to="/dashboard/chat" replace />} />
+      <Route path="/rooms" element={<Navigate to="/dashboard/rooms" replace />} />
+
       {/* Pasarela Pública Gloint Pay Checkout */}
       <Route path="/pay/checkout" element={<GlointPayCheckoutPage />} />
       
@@ -171,6 +175,9 @@ function App() {
         <Route path="admin-notifications" element={<RequirePermission permissions={["admin.notifications.manage", "admin.roles.manage"]}><AdminNotificationsPage /></RequirePermission>} />
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
         <Route path="rooms" element={<RequirePermission permissions={["rooms:view", "rooms:reserve", "admin.rooms.manage"]}><RoomsPage /></RequirePermission>} />
+        {/* Alias de compatibilidad documentados en Módulos 12 y 13 */}
+        <Route path="admin/investors" element={<Navigate to="/dashboard/investors" replace />} />
+        <Route path="admin/rankings" element={<Navigate to="/dashboard/rankings" replace />} />
       </Route>
 
 

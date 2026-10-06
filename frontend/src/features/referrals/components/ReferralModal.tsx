@@ -82,6 +82,12 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             return;
         }
 
+        const cleanPhone = telefono.replace(/[\s\-\(\)\.]/g, '');
+        if (!/^(\+?57)?3\d{9}$/.test(cleanPhone)) {
+            setError('El teléfono debe ser un celular colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567)');
+            return;
+        }
+
         if (!isAdmin && !referral && !codigoReferido) {
             setError('Debes seleccionar un código de inversión de la lista');
             return;
@@ -175,10 +181,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                             <label className="text-xs font-bold text-slate-700">Teléfono / WhatsApp <span className="text-red-500">*</span></label>
                             <div className="relative">
                                 <input
-                                    type="text"
+                                    type="tel"
+                                    inputMode="tel"
+                                    maxLength={15}
+                                    pattern="^(\+?57)?3[0-9]{9}$"
                                     value={telefono}
                                     onChange={(e) => setTelefono(e.target.value)}
-                                    placeholder="Ej. 3001234567"
+                                    placeholder="Ej. 3001234567 o +573001234567"
                                     className="w-full pl-4 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-semibold text-slate-900"
                                     required
                                 />

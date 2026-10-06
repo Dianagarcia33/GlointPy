@@ -103,7 +103,7 @@ async def seed_permissions_db(db):
         r_name = role.name.lower()
         
         # Superadmin / Admin siempre debe tener todos los permisos sincronizados
-        if "super" in r_name or "admin" in r_name:
+        if r_name in ["superadmin", "super_admin", "super admin", "admin"]:
             for p_name, perm in all_perms_map.items():
                 check = await db.execute(select(role_permissions).where(
                     (role_permissions.c.role_id == role.id) & 
@@ -118,7 +118,7 @@ async def seed_permissions_db(db):
             continue
 
         # Asegurar permisos de Chat a todos los roles operativos/comerciales/administrativos
-        if any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente", "operaciones", "contabilidad"]):
+        if any(kw in r_name for kw in ["directiv", "comercial", "asesor", "lider", "director", "gerente", "operaciones", "contabilidad", "administrativ"]):
             for chat_p in ["chat:view", "chat:send"]:
                 if chat_p in all_perms_map:
                     perm = all_perms_map[chat_p]
@@ -149,11 +149,11 @@ async def seed_permissions_db(db):
                         ))
                         print(f"🏢 Permiso de Salas {room_p} asignado a: {role.name}")
 
-        # Asegurar permisos contables al rol de contabilidad
+        # Asegurar permisos contables al rol de contabilidad (Módulo 22)
         if any(kw in r_name for kw in ["contab", "contador", "auditor", "tesoreria"]):
             accounting_perms = [
                 "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", 
-                "admin:audits:manage", "admin:commissions:settle", "admin:investments:manage",
+                "admin:audits:manage", "admin:commissions:settle",
                 "wallets:view", "bank_accounts:manage"
             ]
             for p_name in accounting_perms:

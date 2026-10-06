@@ -36,14 +36,16 @@ router = APIRouter()
 
 @router.get("/search-clients", dependencies=[Depends(RequirePermission("commercial:view"))])
 async def search_clients(
-    q: str,
+    q: Optional[str] = None,
+    term: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Busca clientes a medida que el comercial escribe por Nombre, Cédula o Código IG1974.
     """
-    return await search_clients_service(db, q)
+    query = (q or term or "").strip()
+    return await search_clients_service(db, query)
 
 @router.post("/check-client", response_model=CommercialClientCheckResponse, dependencies=[Depends(RequirePermission("commercial:view"))])
 async def check_client(
@@ -321,6 +323,7 @@ async def get_my_assigned_investments(
     }
 
 @router.get("/admin-summary", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
+@router.get("/admin/summary", dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def get_admin_commercial_summary(
     month: Optional[int] = Query(None, ge=1, le=12),
     year: Optional[int] = Query(None, ge=2020, le=2050),

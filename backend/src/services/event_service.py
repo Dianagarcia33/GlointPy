@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, text, desc
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
@@ -292,7 +292,14 @@ class EventService:
         if config.virtual_url is not None:
             event.virtual_url = config.virtual_url.strip()
         if config.capacity_in_person is not None:
-            event.capacity_in_person = max(1, config.capacity_in_person)
+            new_capacity = max(1, config.capacity_in_person)
+            occupied = await cls.get_occupied_seats(db, event.id)
+            if new_capacity < occupied:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El aforo presencial ({new_capacity}) no puede ser menor a los cupos ya confirmados ({occupied} cupos). Cancela o reubica asistentes antes de reducir el aforo."
+                )
+            event.capacity_in_person = new_capacity
         if config.is_active is not None:
             event.is_active = config.is_active
         if config.banner_active is not None:

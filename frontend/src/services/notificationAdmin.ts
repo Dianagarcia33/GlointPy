@@ -1,8 +1,17 @@
 import { fetchApi } from './api';
 
+export interface TargetOptionsParams {
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
 export interface TargetOptionsResponse {
   roles: Array<{ id: number; name: string; description?: string }>;
   users: Array<{ id: number; name: string; email: string; document_id?: string }>;
+  total_users?: number;
+  page?: number;
+  limit?: number;
 }
 
 export interface AdminBroadcastPayload {
@@ -32,18 +41,23 @@ export interface AdminBroadcastLogItem {
 }
 
 export const notificationAdminService = {
-  getTargetOptions: async (): Promise<TargetOptionsResponse> => {
-    return await fetchApi<TargetOptionsResponse>('/api/v1/notifications/admin/target-options');
+  getTargetOptions: async (params?: TargetOptionsParams): Promise<TargetOptionsResponse> => {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+    const qs = query.toString();
+    return await fetchApi<TargetOptionsResponse>(`/notifications/admin/target-options${qs ? `?${qs}` : ''}`);
   },
 
   sendBroadcast: async (payload: AdminBroadcastPayload): Promise<{ success: boolean; message: string; recipients_count: number }> => {
-    return await fetchApi('/api/v1/notifications/admin/send-broadcast', {
+    return await fetchApi('/notifications/admin/send-broadcast', {
       method: 'POST',
       body: JSON.stringify(payload)
     });
   },
 
   getBroadcastHistory: async (limit: number = 50): Promise<AdminBroadcastLogItem[]> => {
-    return await fetchApi<AdminBroadcastLogItem[]>(`/api/v1/notifications/admin/broadcast-history?limit=${limit}`);
+    return await fetchApi<AdminBroadcastLogItem[]>(`/notifications/admin/broadcast-history?limit=${limit}`);
   }
 };

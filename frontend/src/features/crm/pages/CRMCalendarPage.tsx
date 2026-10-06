@@ -17,6 +17,7 @@ import {
   Key,
   Mail,
   Search,
+  SearchX,
   X,
   User as UserIcon,
   ShieldCheck,
@@ -152,6 +153,12 @@ export const CRMCalendarPage: React.FC = () => {
       return;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (newDate < todayStr) {
+      showToast('No se pueden agendar citas en fechas pasadas.', 'error');
+      return;
+    }
+
     const startIso = `${newDate}T${newStartTime}:00`;
     const endIso = `${newDate}T${newEndTime}:00`;
 
@@ -238,6 +245,25 @@ export const CRMCalendarPage: React.FC = () => {
       (e.description && e.description.toLowerCase().includes(q))
     );
   }, [events, searchFilter]);
+
+  const currentMonthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+  // Eventos filtrados específicamente para el mes visible en la vista Agenda (ordenados cronológicamente)
+  const monthAgendaEvents = useMemo(() => {
+    return filteredEvents
+      .filter(e => {
+        if (!e.start) return false;
+        const datePart = e.start.split('T')[0];
+        if (datePart.startsWith(currentMonthPrefix)) return true;
+        try {
+          const d = new Date(e.start);
+          return d.getFullYear() === year && d.getMonth() === month;
+        } catch {
+          return false;
+        }
+      })
+      .sort((a, b) => (a.start > b.start ? 1 : -1));
+  }, [filteredEvents, currentMonthPrefix, year, month]);
 
   // Mapa de eventos por día para la vista mensual
   const eventsByDay = useMemo(() => {
@@ -379,20 +405,49 @@ export const CRMCalendarPage: React.FC = () => {
               <span>Cargando eventos...</span>
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="h-48 flex flex-col items-center justify-center p-4 text-center text-slate-400 space-y-2">
-              <CalendarIcon className="w-8 h-8 text-slate-300" />
-              <p className="text-xs font-semibold text-slate-600">No hay citas registradas</p>
-              <p className="text-[11px] text-slate-400">
-                Toca "+ Nueva Cita" para programar una reunión en cPanel.
-              </p>
-            </div>
+            searchFilter.trim() ? (
+              <div className="h-48 flex flex-col items-center justify-center p-4 text-center text-slate-400 space-y-2.5 animate-in fade-in duration-200">
+                <SearchX className="w-8 h-8 text-slate-300" />
+                <div>
+                  <p className="text-xs font-bold text-slate-700">
+                    No se encontraron citas para &ldquo;{searchFilter}&rdquo;
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Intenta con otro término o limpia el buscador.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchFilter('')}
+                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Limpiar búsqueda
+                </button>
+              </div>
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center p-4 text-center text-slate-400 space-y-2">
+                <CalendarIcon className="w-8 h-8 text-slate-300" />
+                <p className="text-xs font-semibold text-slate-600">No hay citas registradas</p>
+                <p className="text-[11px] text-slate-400">
+                  Toca &quot;+ Nueva Cita&quot; para programar una reunión en cPanel.
+                </p>
+              </div>
+            )
           ) : (
             filteredEvents.map((ev) => {
               const isSelected = selectedEvent?.uid === ev.uid;
               return (
                 <div
                   key={ev.uid}
-                  onClick={() => setSelectedEvent(ev)}
+                  onClick={() => {
+                    setSelectedEvent(ev);
+                    if (ev.start) {
+                      const [evY, evM] = ev.start.split('T')[0].split('-').map(Number);
+                      if (evY && evM && (evY !== year || evM - 1 !== month)) {
+                        setCurrentDate(new Date(evY, evM - 1, 1));
+                      }
+                    }
+                  }}
                   className={`p-3 rounded-xl border transition-all cursor-pointer text-left space-y-1 group ${
                     isSelected
                       ? 'bg-white border-brand-500 shadow-sm ring-1 ring-brand-500/20'
@@ -443,9 +498,15 @@ export const CRMCalendarPage: React.FC = () => {
             <Mail className="w-3.5 h-3.5 text-brand-500" />
             <span>Ir a Bandeja de Correos</span>
           </button>
-          <span className="text-[10px] font-bold text-slate-400">
-            {events.length} {events.length === 1 ? 'cita' : 'citas'}
-          </span>
+          {searchFilter.trim() ? (
+            <span className="text-[10px] font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200/50">
+              {filteredEvents.length} de {events.length} {events.length === 1 ? 'cita' : 'citas'}
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold text-slate-400">
+              {events.length} {events.length === 1 ? 'cita' : 'citas'}
+            </span>
+          )}
         </div>
 
       </div>
@@ -615,21 +676,56 @@ export const CRMCalendarPage: React.FC = () => {
 
             /* 📋 VISTA DE AGENDA / LISTA */
             <div className="flex-1 overflow-y-auto space-y-3 max-w-3xl mx-auto w-full p-2">
-              {filteredEvents.length === 0 ? (
+              <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-medium">
+                <span>Citas agendadas para <strong>{MONTH_NAMES[month]} {year}</strong></span>
+                <span className="font-bold text-slate-700 font-mono">
+                  {monthAgendaEvents.length} {monthAgendaEvents.length === 1 ? 'cita' : 'citas'}
+                </span>
+              </div>
+
+              {monthAgendaEvents.length === 0 ? (
                 <div className="h-64 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
-                  <CalendarCheck className="w-10 h-10 text-slate-300" />
-                  <h3 className="text-sm font-bold text-slate-800 font-montserrat">
-                    No tienes reuniones programadas
-                  </h3>
-                  <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
-                  >
-                    Agendar Cita en cPanel
-                  </button>
+                  {searchFilter.trim() ? (
+                    <>
+                      <SearchX className="w-10 h-10 text-slate-300" />
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-800 font-montserrat">
+                          No se encontraron citas para &ldquo;{searchFilter}&rdquo; en {MONTH_NAMES[month]} {year}
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Hay {events.length} {events.length === 1 ? 'cita registrada' : 'citas registradas'} en total.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSearchFilter('')}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        Limpiar búsqueda
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <CalendarCheck className="w-10 h-10 text-slate-300" />
+                      <h3 className="text-sm font-bold text-slate-800 font-montserrat">
+                        No tienes reuniones programadas en {MONTH_NAMES[month]} {year}
+                      </h3>
+                      <button
+                        onClick={() => {
+                          const today = new Date();
+                          const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+                          setNewDate(isCurrentMonth ? today.toISOString().split('T')[0] : `${currentMonthPrefix}-01`);
+                          setIsCreateModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                      >
+                        Agendar Cita en cPanel
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
-                filteredEvents.map((ev) => (
+                monthAgendaEvents.map((ev) => (
                   <div
                     key={ev.uid}
                     className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs hover:shadow-sm transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
@@ -754,6 +850,7 @@ export const CRMCalendarPage: React.FC = () => {
                   <input
                     type="date"
                     required
+                    min={new Date().toISOString().split('T')[0]}
                     value={newDate}
                     onChange={(e) => setNewDate(e.target.value)}
                     className="w-full px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:border-brand-500 focus:bg-white"

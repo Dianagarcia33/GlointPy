@@ -1,8 +1,8 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import extract, func, desc
@@ -510,4 +510,19 @@ async def get_accounting_analytics_dashboard(
         "pending_recharges": pending_recharges_list,
         "pending_withdrawals": pending_withdrawals_list
     }
+
+
+@router.get("/statement", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.investors.manage", "admin.payments.manage", "admin.audits.manage", "admin.roles.manage"]))])
+async def get_analytics_statement(
+    start_date: Optional[str] = Query(None, description="Fecha inicial formato YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="Fecha final formato YYYY-MM-DD"),
+    user_id: Optional[int] = Query(None, description="Filtrar por usuario específico"),
+    tx_type: Optional[str] = Query(None, description="Filtrar por tipo de transacción"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Alias documentado en Módulo 14 para obtener el estado de cuenta financiero global consolidado.
+    """
+    from src.services.user_service import UserService
+    return await UserService.get_global_account_statement(db, start_date, end_date, user_id, tx_type)
 

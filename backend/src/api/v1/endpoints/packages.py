@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.database import get_db
@@ -64,20 +64,3 @@ async def delete_package(
     Delete a package. Requires 'admin.packages.manage' permission.
     """
     await PackageService.delete_package(db, package_id)
-
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.packages.manage"))])
-async def bulk_upload_packages(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and create multiple packages in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    try:
-        csv_text = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8.")
-        
-    result = await PackageService.bulk_create_packages(db, csv_text)
-    return result

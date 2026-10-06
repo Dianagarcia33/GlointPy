@@ -1,6 +1,6 @@
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional, Tuple
 from fastapi import HTTPException, UploadFile, status
@@ -1141,8 +1141,29 @@ class ShareMarketService:
                     detail=f"No es posible descontar {deduct_amount} acción(es). El usuario solo dispone de {account.available_shares} acción(es) disponibles (Total: {account.total_shares}, Bloqueadas en mercado: {account.locked_shares})."
                 )
 
+        # Validar fecha contable en Libro Mayor
         acq_date = custom_date or datetime.utcnow()
+        now = datetime.utcnow()
+
+        if acq_date > now + timedelta(minutes=5):
+            raise HTTPException(
+                status_code=400,
+                detail="La fecha de acreditación/deducción no puede ser futura. El Libro Mayor inmutable solo registra operaciones ya ocurridas."
+            )
+
+        min_date = now - timedelta(days=365)
+        if acq_date < min_date:
+            raise HTTPException(
+                status_code=400,
+                detail="La fecha no puede ser anterior a un año atrás (período contable cerrado)."
+            )
+
         clean_reason = reason.strip()
+        if acq_date.date() < now.date() and len(clean_reason) < 15:
+            raise HTTPException(
+                status_code=400,
+                detail="Para asientos contables con fecha retroactiva, se requiere una justificación detallada (mínimo 15 caracteres) en el motivo."
+            )
 
         if effective_qty > 0:
             desc = f"Asignación manual de {effective_qty} acción(es) por administración: {clean_reason}"

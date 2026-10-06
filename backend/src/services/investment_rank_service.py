@@ -69,6 +69,70 @@ class InvestmentRankService:
         return rank
 
     @staticmethod
+    async def _validate_rank_ranges_and_order(
+        db: AsyncSession,
+        min_inv: float,
+        max_inv: Optional[float],
+        order: int,
+        is_active: bool,
+        exclude_rank_id: Optional[int] = None
+    ):
+        if min_inv < 0:
+            raise HTTPException(status_code=400, detail="La inversión mínima no puede ser negativa")
+        if max_inv is not None and min_inv > max_inv:
+            raise HTTPException(status_code=400, detail="El capital mínimo no puede ser superior al capital máximo del rango")
+
+        if not is_active:
+            return
+
+        # Consultar los demás rangos activos
+        query = select(InvestmentRank).where(InvestmentRank.is_active == True)
+        if exclude_rank_id:
+            query = query.where(InvestmentRank.id != exclude_rank_id)
+        res = await db.execute(query)
+        other_ranks = res.scalars().all()
+
+        for other in other_ranks:
+            o_min = float(other.min_investment or 0)
+            o_max = float(other.max_investment) if other.max_investment is not None else None
+            o_order = int(other.order or 1)
+
+            # 1. Validación de solapamiento de capital
+            is_overlap = False
+            if max_inv is None and o_max is None:
+                is_overlap = True
+            elif max_inv is None:
+                is_overlap = min_inv <= o_max
+            elif o_max is None:
+                is_overlap = max_inv >= o_min
+            else:
+                is_overlap = max(min_inv, o_min) <= min(max_inv, o_max)
+
+            if is_overlap:
+                o_max_str = f"${o_max:,.0f} COP" if o_max is not None else "Sin límite"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"El capital se solapa con el rango activo '{other.name}' (${o_min:,.0f} COP a {o_max_str}). Los tramos de capital deben ser disjuntos."
+                )
+
+            # 2. Validación de coherencia entre orden y capital mínimo
+            if o_min > min_inv and o_order <= order:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Incoherencia de orden: '{other.name}' requiere mayor capital (${o_min:,.0f} COP) pero tiene un orden igual o menor (#{o_order} vs #{order})."
+                )
+            if o_min < min_inv and o_order >= order:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Incoherencia de orden: '{other.name}' requiere menor capital (${o_min:,.0f} COP) pero tiene un orden igual o mayor (#{o_order} vs #{order})."
+                )
+            if o_min == min_inv and o_order == order:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Ya existe otro rango activo ('{other.name}') con el mismo orden jerárquico ({order}) e inversión mínima."
+                )
+
+    @staticmethod
     async def create_rank(db: AsyncSession, rank_in: dict) -> InvestmentRank:
         name = rank_in.get("name", "").strip()
         if not name:
@@ -83,18 +147,27 @@ class InvestmentRankService:
         if existing.scalars().first():
             raise HTTPException(status_code=400, detail="Ya existe un rango con este nombre o slug")
 
+        min_investment = float(rank_in.get("min_investment", 0))
+        max_investment = float(rank_in["max_investment"]) if rank_in.get("max_investment") is not None else None
+        order = int(rank_in.get("order", 1))
+        is_active = bool(rank_in.get("is_active", True))
+
+        await InvestmentRankService._validate_rank_ranges_and_order(
+            db, min_investment, max_investment, order, is_active
+        )
+
         rank = InvestmentRank(
             name=name,
             slug=slug,
-            min_investment=float(rank_in.get("min_investment", 0)),
-            max_investment=float(rank_in["max_investment"]) if rank_in.get("max_investment") is not None else None,
+            min_investment=min_investment,
+            max_investment=max_investment,
             bonus_percentage=float(rank_in.get("bonus_percentage", 0)),
             color=rank_in.get("color", "#EAB308"),
             icon=rank_in.get("icon", "trophy"),
             priority_withdrawal=bool(rank_in.get("priority_withdrawal", False)),
             benefits=rank_in.get("benefits", []),
-            order=int(rank_in.get("order", 1)),
-            is_active=bool(rank_in.get("is_active", True))
+            order=order,
+            is_active=is_active
         )
 
         db.add(rank)
@@ -120,12 +193,21 @@ class InvestmentRankService:
             if existing.scalars().first():
                 raise HTTPException(status_code=400, detail="Ya existe otro rango con este nombre o slug")
 
+        eff_min = float(rank_in["min_investment"]) if "min_investment" in rank_in else float(rank.min_investment or 0)
+        eff_max = float(rank_in["max_investment"]) if ("max_investment" in rank_in and rank_in["max_investment"] is not None) else (float(rank.max_investment) if ("max_investment" not in rank_in and rank.max_investment is not None) else None)
+        eff_order = int(rank_in["order"]) if "order" in rank_in else int(rank.order or 1)
+        eff_is_active = bool(rank_in["is_active"]) if "is_active" in rank_in else bool(rank.is_active)
+
+        await InvestmentRankService._validate_rank_ranges_and_order(
+            db, eff_min, eff_max, eff_order, eff_is_active, exclude_rank_id=rank_id
+        )
+
         rank.name = name
         rank.slug = slug
         if "min_investment" in rank_in:
-            rank.min_investment = float(rank_in["min_investment"])
+            rank.min_investment = eff_min
         if "max_investment" in rank_in:
-            rank.max_investment = float(rank_in["max_investment"]) if rank_in["max_investment"] is not None else None
+            rank.max_investment = eff_max
         if "bonus_percentage" in rank_in:
             rank.bonus_percentage = float(rank_in["bonus_percentage"])
         if "color" in rank_in:
@@ -137,9 +219,9 @@ class InvestmentRankService:
         if "benefits" in rank_in:
             rank.benefits = rank_in["benefits"]
         if "order" in rank_in:
-            rank.order = int(rank_in["order"])
+            rank.order = eff_order
         if "is_active" in rank_in:
-            rank.is_active = bool(rank_in["is_active"])
+            rank.is_active = eff_is_active
 
         rank.updated_at = datetime.utcnow()
         await db.commit()

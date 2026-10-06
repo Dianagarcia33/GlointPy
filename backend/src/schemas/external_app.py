@@ -1,6 +1,7 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime
+from src.core.webhook_security import validate_webhook_url_security
 
 class ExternalAppBase(BaseModel):
     name: str
@@ -8,6 +9,11 @@ class ExternalAppBase(BaseModel):
     webhook_url: Optional[str] = None
     redirect_urls: Optional[str] = None
     is_active: bool = True
+
+    @field_validator("webhook_url")
+    @classmethod
+    def check_webhook_url(cls, v: Optional[str]) -> Optional[str]:
+        return validate_webhook_url_security(v)
 
 class ExternalAppCreate(ExternalAppBase):
     pass
@@ -18,6 +24,11 @@ class ExternalAppUpdate(BaseModel):
     webhook_url: Optional[str] = None
     redirect_urls: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("webhook_url")
+    @classmethod
+    def check_webhook_url(cls, v: Optional[str]) -> Optional[str]:
+        return validate_webhook_url_security(v)
 
 class ExternalAppResponse(ExternalAppBase):
     id: int
@@ -72,6 +83,7 @@ class ExternalPaymentOrderResponse(BaseModel):
     payment_token: str
     app_id: int
     app_name: Optional[str] = None
+    webhook_url: Optional[str] = None
     user_id: Optional[int] = None
     user_name: Optional[str] = None
     order_reference: str
@@ -81,7 +93,16 @@ class ExternalPaymentOrderResponse(BaseModel):
     status: str
     redirect_url: Optional[str] = None
     webhook_status: str
+    webhook_attempts: int = 0
+    webhook_response: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class ResendWebhookResponse(BaseModel):
+    status: str
+    webhook_status: str
+    webhook_attempts: int
+    webhook_response: Optional[str] = None
+    message: str

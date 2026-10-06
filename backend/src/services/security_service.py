@@ -7,6 +7,13 @@ from src.models.security import Role, Permission
 from src.models.user import User
 from src.schemas.security import RoleCreate, RoleUpdate
 
+SYSTEM_ROLE_NAMES = {
+    "admin", "superadmin", "super_admin", "super admin", "superuser",
+    "cliente", "inversionista", "operaciones",
+    "directivo_de_inversiones", "directivo_inversion",
+    "contabilidad", "contabilidad_", "administrativo"
+}
+
 class SecurityService:
 
     @staticmethod
@@ -31,7 +38,7 @@ class SecurityService:
         # Verificar nombre duplicado
         existing = await db.execute(select(Role).where(Role.name == role_data.name))
         if existing.scalars().first():
-            raise HTTPException(status_code=400, detail="Role name already exists")
+            raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso")
 
         new_role = Role(name=role_data.name, description=role_data.description)
         
@@ -68,14 +75,15 @@ class SecurityService:
                     detail="No tienes permisos para modificar el rol SuperAdmin. Acción reservada exclusivamente para el Superusuario del sistema."
                 )
 
-        if role.is_system_role == "1" and role_data.name and role_data.name != role.name:
-            raise HTTPException(status_code=403, detail="Cannot rename system roles")
+        is_protected = role.is_system_role == "1" or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
+        if is_protected and role_data.name and role_data.name != role.name:
+            raise HTTPException(status_code=403, detail="No se pueden renombrar roles protegidos del sistema")
 
         if role_data.name is not None:
             # Check duplicate
             existing = await db.execute(select(Role).where(Role.name == role_data.name, Role.id != role_id))
             if existing.scalars().first():
-                raise HTTPException(status_code=400, detail="Role name already exists")
+                raise HTTPException(status_code=400, detail="El nombre del rol ya está en uso")
             role.name = role_data.name
             
         if role_data.description is not None:
@@ -101,8 +109,9 @@ class SecurityService:
     @staticmethod
     async def delete_role(db: AsyncSession, role_id: int):
         role = await SecurityService.get_role(db, role_id)
-        if role.is_system_role == "1":
-            raise HTTPException(status_code=403, detail="Cannot delete system roles")
+        is_protected = role.is_system_role == "1" or (role.name and role.name.lower().strip() in SYSTEM_ROLE_NAMES)
+        if is_protected:
+            raise HTTPException(status_code=403, detail="No se pueden eliminar roles protegidos del sistema")
         
         # Verificar si hay usuarios con este rol
         from sqlalchemy import select, func
@@ -282,15 +291,31 @@ class SecurityService:
                 "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
                 "chat:view", "chat:send"
             ],
+            "directivo_inversion": [
+                "commercial:view", "director:dashboard:view", "referrals:view", "admin:referrals:manage",
+                "crm:view", "crm:leads:manage", "crm:projects:create", "crm:projects:manage", "crm:form_keys:manage",
+                "crm:inbox:view", "crm:inbox:send", "crm:calendar:view", "crm:calendar:manage",
+                "dashboard:view_kpis", "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
+                "chat:view", "chat:send"
+            ],
             "operaciones": [
                 "admin:investors:manage", "admin:investors:create", "admin:investors:capital_increase", "admin:investors:wallet_adjust",
                 "admin:investments:manage", "admin:investments:solicitud_inversion", "admin:investments:approve", "admin:investments:reject",
                 "admin:packages:manage", "admin:periods:manage", "sarlaft:check",
                 "chat:view", "chat:send"
             ],
+            "contabilidad": [
+                "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
+                "wallets:view", "bank_accounts:manage", "chat:view", "chat:send"
+            ],
             "contabilidad_": [
-                "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle", "admin:investments:manage",
-                "chat:view", "chat:send"
+                "accounting:dashboard:view", "admin:payments:manage", "admin:withdrawals:manage", "admin:audits:manage", "admin:commissions:settle",
+                "wallets:view", "bank_accounts:manage", "chat:view", "chat:send"
+            ],
+            "administrativo": [
+                "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
+                "wallets:view", "wallets:view_balance", "wallets:view_history", "bank_accounts:manage",
+                "chat:view", "chat:send", "rooms:view", "rooms:reserve"
             ]
         }
 
@@ -298,14 +323,29 @@ class SecurityService:
         roles = roles_res.scalars().all()
 
         for role in roles:
-            r_name = role.name.lower()
-            is_admin = "super" in r_name or "admin" in r_name
+            r_name = role.name.lower().strip()
+            is_super = r_name in ["superadmin", "super_admin", "super admin", "admin"]
+
+            # Marcar como rol del sistema protegido (H-127)
+            if is_super or r_name in DEFAULT_ROLE_PERMS or r_name in SYSTEM_ROLE_NAMES:
+                role.is_system_role = "1"
 
             perms_to_add = []
-            if is_admin:
+            if is_super:
                 perms_to_add = list(all_perms_map.values())
             elif r_name in DEFAULT_ROLE_PERMS:
                 perms_to_add = [all_perms_map[p] for p in DEFAULT_ROLE_PERMS[r_name] if p in all_perms_map]
+                # Revocar de inmediato permisos no autorizados para el rol estándar (H-126)
+                allowed_names = set(DEFAULT_ROLE_PERMS[r_name])
+                curr_res = await db.execute(
+                    select(Permission).join(role_permissions).where(role_permissions.c.role_id == role.id)
+                )
+                for curr_p in curr_res.scalars().all():
+                    if curr_p.name not in allowed_names:
+                        await db.execute(delete(role_permissions).where(
+                            (role_permissions.c.role_id == role.id) & 
+                            (role_permissions.c.permission_id == curr_p.id)
+                        ))
 
             for perm in perms_to_add:
                 check = await db.execute(select(role_permissions).where(

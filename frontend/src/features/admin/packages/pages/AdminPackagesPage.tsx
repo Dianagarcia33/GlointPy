@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { packagesService, Package } from '../../../../services/packages';
 import { PackageModal } from '../components/PackageModal';
-import { BulkUploadPackagesModal } from '../components/BulkUploadPackagesModal';
-import { Plus, Edit2, Package as PackageIcon, Loader2, Trash2, UploadCloud, AlertCircle, CheckCircle, X } from 'lucide-react';
+import { Plus, Edit2, Package as PackageIcon, Loader2, Trash2, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 export const AdminPackagesPage = () => {
@@ -12,7 +11,6 @@ export const AdminPackagesPage = () => {
   const [success, setSuccess] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
 
   const [deletingPackage, setDeletingPackage] = useState<Package | null>(null);
@@ -141,13 +139,6 @@ export const AdminPackagesPage = () => {
         <Can permission="admin.packages.manage">
           <div className="relative z-10 flex items-center gap-3 shrink-0">
             <button 
-              onClick={() => setIsBulkModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
-            >
-              <UploadCloud className="w-4 h-4" />
-              <span>Carga Masiva</span>
-            </button>
-            <button 
               onClick={handleCreate}
               className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
             >
@@ -202,7 +193,7 @@ export const AdminPackagesPage = () => {
                     <td className="px-6 py-4">
                       {pkg.granted_shares > 0 ? (
                         <div className="font-bold text-brand-700 text-sm font-montserrat">
-                          {pkg.granted_shares.toLocaleString('es-CO')} <span className="text-xs text-slate-500 font-normal">acciones</span>
+                          {pkg.granted_shares.toLocaleString('es-CO')} <span className="text-xs text-slate-500 font-normal">{pkg.granted_shares === 1 ? 'acción' : 'acciones'}</span>
                         </div>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
@@ -272,7 +263,7 @@ export const AdminPackagesPage = () => {
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Acciones Otorgadas:</span>
-                <span className="font-bold text-brand-600">{deletingPackage.granted_shares} acciones</span>
+                <span className="font-bold text-brand-600">{deletingPackage.granted_shares.toLocaleString('es-CO')} {deletingPackage.granted_shares === 1 ? 'acción' : 'acciones'}</span>
               </div>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
@@ -304,17 +295,6 @@ export const AdminPackagesPage = () => {
         onClose={handleModalClose}
         onSaved={handleSaved}
         pkg={editingPackage}
-      />
-      
-      <BulkUploadPackagesModal
-        isOpen={isBulkModalOpen}
-        onClose={() => setIsBulkModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkModalOpen(false);
-          setSuccess('Carga masiva realizada con éxito.');
-          setTimeout(() => setSuccess(null), 5000);
-          fetchData();
-        }}
       />
     </div>
   );

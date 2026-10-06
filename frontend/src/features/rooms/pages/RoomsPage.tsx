@@ -21,6 +21,7 @@ import {
 import { roomsService, MeetingRoom, RoomReservation } from '../../../services/rooms';
 import { RoomModal } from '../components/RoomModal';
 import { RoomReservationModal } from '../components/RoomReservationModal';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 import { useAuthStore } from '../../../store/authStore';
 import { Can } from '../../../components/security/Can';
 import { formatColombiaDate, getColombiaToday } from '../../../utils/format';
@@ -51,6 +52,9 @@ export const RoomsPage: React.FC = () => {
   const [preselectedRoomId, setPreselectedRoomId] = useState<number | undefined>(undefined);
 
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [reservationToCancel, setReservationToCancel] = useState<RoomReservation | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>('');
+  const [isCancellingReservation, setIsCancellingReservation] = useState<boolean>(false);
 
   const fetchRooms = async () => {
     try {
@@ -142,17 +146,24 @@ export const RoomsPage: React.FC = () => {
     setIsReservationModalOpen(true);
   };
 
-  const handleCancelReservation = async (reservation: RoomReservation) => {
-    if (!window.confirm(`¿Estás seguro de que deseas cancelar la reserva "${reservation.title}"?`)) {
-      return;
-    }
+  const handleOpenCancelModal = (reservation: RoomReservation) => {
+    setReservationToCancel(reservation);
+    setCancelReason('');
+  };
+
+  const handleConfirmCancelReservation = async () => {
+    if (!reservationToCancel) return;
 
     try {
-      setCancellingId(reservation.id);
+      setIsCancellingReservation(true);
+      setCancellingId(reservationToCancel.id);
       setError(null);
-      await roomsService.cancelReservation(reservation.id, 'Cancelada por el usuario');
+      await roomsService.cancelReservation(reservationToCancel.id, cancelReason.trim() || undefined);
       setSuccess('Reserva cancelada exitosamente.');
       setTimeout(() => setSuccess(null), 4000);
+
+      setReservationToCancel(null);
+      setCancelReason('');
 
       // Refresh both
       fetchCalendarReservations(selectedDate);
@@ -160,6 +171,7 @@ export const RoomsPage: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'Error al cancelar la reserva.');
     } finally {
+      setIsCancellingReservation(false);
       setCancellingId(null);
     }
   };
@@ -525,7 +537,7 @@ export const RoomsPage: React.FC = () => {
                           {canCancel && (
                             <div className="sm:self-center shrink-0">
                               <button
-                                onClick={() => handleCancelReservation(res)}
+                                onClick={() => handleOpenCancelModal(res)}
                                 disabled={cancellingId === res.id}
                                 className="px-3 py-1.5 text-xs font-bold text-rose-700 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded-xl transition-all cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                                 title="Cancelar esta reserva"
@@ -761,7 +773,7 @@ export const RoomsPage: React.FC = () => {
                         <td className="px-6 py-4 text-center">
                           {res.status === 'confirmed' && (
                             <button
-                              onClick={() => handleCancelReservation(res)}
+                              onClick={() => handleOpenCancelModal(res)}
                               disabled={cancellingId === res.id}
                               className="px-2.5 py-1 text-rose-700 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
                             >
@@ -803,6 +815,66 @@ export const RoomsPage: React.FC = () => {
         initialRoomId={preselectedRoomId}
         initialDate={selectedDate}
       />
+
+      {/* Modal de Confirmación para Cancelar Reserva */}
+      <ConfirmationModal
+        isOpen={!!reservationToCancel}
+        onClose={() => {
+          if (!isCancellingReservation) {
+            setReservationToCancel(null);
+            setCancelReason('');
+          }
+        }}
+        onConfirm={handleConfirmCancelReservation}
+        title="¿Cancelar Reserva de Sala?"
+        description="Esta acción liberará el espacio de la sala para que otros usuarios puedan reservarlo."
+        confirmText="Sí, Cancelar Reserva"
+        cancelText="Mantener Reserva"
+        variant="danger"
+        isLoading={isCancellingReservation}
+      >
+        {reservationToCancel && (
+          <div className="space-y-3 pt-1">
+            {/* Resumen de la reserva a cancelar */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-extrabold text-slate-900 text-xs font-montserrat truncate">
+                  {reservationToCancel.title}
+                </span>
+                <span
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white shrink-0"
+                  style={{ backgroundColor: reservationToCancel.room?.color || '#10b981' }}
+                >
+                  {reservationToCancel.room?.name || 'Sala'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-slate-600 flex-wrap">
+                <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                  <Clock className="w-3.5 h-3.5 text-brand-600" />
+                  {formatTime(reservationToCancel.start_time)} - {formatTime(reservationToCancel.end_time)}
+                </span>
+                <span className="text-slate-300">•</span>
+                <span>{formatColombiaDate(reservationToCancel.start_time)}</span>
+              </div>
+            </div>
+
+            {/* Motivo opcional */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+                Motivo de cancelación <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+              </label>
+              <textarea
+                rows={2}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                disabled={isCancellingReservation}
+                placeholder="Ej. Cambio de horario, reunión pospuesta..."
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all resize-none placeholder:text-slate-400 disabled:opacity-50"
+              />
+            </div>
+          </div>
+        )}
+      </ConfirmationModal>
     </div>
   );
 };

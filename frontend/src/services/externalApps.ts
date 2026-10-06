@@ -33,6 +33,7 @@ export interface ExternalPaymentOrder {
   payment_token: string;
   app_id: number;
   app_name?: string;
+  webhook_url?: string | null;
   user_id?: number | null;
   user_name?: string;
   order_reference: string;
@@ -42,6 +43,8 @@ export interface ExternalPaymentOrder {
   status: 'pending' | 'completed' | 'cancelled' | 'expired' | 'failed';
   redirect_url?: string | null;
   webhook_status: string;
+  webhook_attempts?: number;
+  webhook_response?: string | null;
   created_at: string;
   completed_at?: string | null;
 }
@@ -93,6 +96,18 @@ export const externalAppsService = {
 
   getAllOrders: async (limit: number = 100): Promise<ExternalPaymentOrder[]> => {
     return await fetchApi(`/admin/external-apps/orders/all?limit=${limit}`);
+  },
+
+  resendWebhook: async (orderId: number): Promise<{
+    status: string;
+    webhook_status: string;
+    webhook_attempts: number;
+    webhook_response: string | null;
+    message: string;
+  }> => {
+    return await fetchApi(`/admin/external-apps/orders/${orderId}/resend-webhook`, {
+      method: 'POST',
+    });
   },
 
   // Public Checkout Endpoints

@@ -10,6 +10,11 @@ interface PackageModalProps {
     pkg?: Package | null;
 }
 
+const MIN_PACKAGE_VALUE = 10_000;
+const MAX_PACKAGE_VALUE = 1_000_000_000; // $1.000.000.000 COP
+const MIN_GRANTED_SHARES = 0;
+const MAX_GRANTED_SHARES = 10_000_000;   // 10.000.000 acciones
+
 export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onSaved, pkg }) => {
     const [value, setValue] = useState<number | ''>('');
     const [grantedShares, setGrantedShares] = useState<number | ''>('');
@@ -35,13 +40,21 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (value === '' || Number(value) < 10000) {
-            setError('El valor del paquete debe ser un monto válido mayor a $0 (mínimo $10.000 COP)');
+        if (value === '' || Number(value) < MIN_PACKAGE_VALUE) {
+            setError(`El valor del paquete debe ser de mínimo $${MIN_PACKAGE_VALUE.toLocaleString('es-CO')} COP`);
+            return;
+        }
+        if (Number(value) > MAX_PACKAGE_VALUE) {
+            setError(`El valor del paquete no puede superar $${MAX_PACKAGE_VALUE.toLocaleString('es-CO')} COP`);
             return;
         }
         
-        if (grantedShares === '' || Number(grantedShares) < 0) {
-            setError('Las acciones otorgadas deben ser un número válido');
+        if (grantedShares === '' || Number(grantedShares) < MIN_GRANTED_SHARES) {
+            setError('Las acciones otorgadas deben ser un número mayor o igual a 0');
+            return;
+        }
+        if (Number(grantedShares) > MAX_GRANTED_SHARES) {
+            setError(`Las acciones otorgadas no pueden superar ${MAX_GRANTED_SHARES.toLocaleString('es-CO')} acciones`);
             return;
         }
 
@@ -106,24 +119,29 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
                     )}
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700">Monto / Valor ($ COP) <span className="text-red-500">* (Mín. $10.000)</span></label>
+                        <label className="text-xs font-bold text-slate-700">Monto / Valor ($ COP) <span className="text-red-500">*</span></label>
                         <input
                             type="number"
-                            min="10000"
-                            step="1000"
+                            min={MIN_PACKAGE_VALUE}
+                            max={MAX_PACKAGE_VALUE}
+                            step="1"
                             value={value}
                             onChange={(e) => setValue(e.target.value ? Number(e.target.value) : '')}
                             placeholder="Ej. 1000000"
                             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-900 font-montserrat"
                             required
                         />
+                        <p className="text-[11px] text-slate-400">
+                            Mínimo ${MIN_PACKAGE_VALUE.toLocaleString('es-CO')} — Máximo ${MAX_PACKAGE_VALUE.toLocaleString('es-CO')} COP
+                        </p>
                     </div>
 
                     <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-700">Acciones Otorgadas <span className="text-red-500">*</span></label>
                         <input
                             type="number"
-                            min="0"
+                            min={MIN_GRANTED_SHARES}
+                            max={MAX_GRANTED_SHARES}
                             step="1"
                             value={grantedShares}
                             onChange={(e) => setGrantedShares(e.target.value ? Number(e.target.value) : '')}
@@ -131,6 +149,9 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose, onS
                             className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-semibold text-slate-900"
                             required
                         />
+                        <p className="text-[11px] text-slate-400">
+                            Mínimo {MIN_GRANTED_SHARES} — Máximo {MAX_GRANTED_SHARES.toLocaleString('es-CO')} acciones
+                        </p>
                     </div>
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between mt-2">

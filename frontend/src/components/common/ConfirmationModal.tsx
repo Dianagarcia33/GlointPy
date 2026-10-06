@@ -6,7 +6,8 @@ interface ConfirmationModalProps {
   onClose: () => void;
   onConfirm: () => void;
   title: string;
-  description: string;
+  description?: React.ReactNode;
+  children?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'primary';
@@ -19,6 +20,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onConfirm,
   title,
   description,
+  children,
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
   variant = 'danger',
@@ -80,7 +82,15 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             </button>
           </div>
 
-          <p className="text-slate-600 text-xs leading-relaxed">{description}</p>
+          {description && (
+            typeof description === 'string' ? (
+              <p className="text-slate-600 text-xs leading-relaxed">{description}</p>
+            ) : (
+              description
+            )
+          )}
+
+          {children}
 
           <div className="flex justify-end gap-2.5 pt-2">
             <button

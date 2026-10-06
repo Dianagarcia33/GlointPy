@@ -144,6 +144,15 @@ export const AdminRankingsPage: React.FC = () => {
 
   const totalInvestorsInClub = ranks.reduce((acc, r) => acc + (r.users_count || 0), 0);
   const maxBonus = ranks.length > 0 ? Math.max(...ranks.map(r => r.bonus_percentage || 0)) : 0;
+  const activeRanks = ranks.filter(r => r.is_active);
+  const summitRank = (activeRanks.length > 0 ? activeRanks : ranks).reduce<InvestmentRank | null>((max, r) => {
+    if (!max) return r;
+    const rMin = Number(r.min_investment) || 0;
+    const maxMin = Number(max.min_investment) || 0;
+    if (rMin > maxMin) return r;
+    if (rMin === maxMin && (Number(r.order) || 0) > (Number(max.order) || 0)) return r;
+    return max;
+  }, null);
 
   if (isLoading) {
     return (
@@ -285,7 +294,7 @@ export const AdminRankingsPage: React.FC = () => {
             <Crown className="w-4 h-4 text-purple-600" />
           </div>
           <p className="text-lg font-black text-purple-700 font-montserrat truncate">
-            {ranks[ranks.length - 1]?.name || 'N/A'}
+            {summitRank?.name || 'N/A'}
           </p>
           <span className="text-[11px] text-slate-500 font-medium">Categoría máxima</span>
         </div>
@@ -469,6 +478,7 @@ export const AdminRankingsPage: React.FC = () => {
         onClose={handleModalClose}
         onSaved={handleSaved}
         rank={editingRank}
+        allRanks={ranks}
       />
     </div>
   );

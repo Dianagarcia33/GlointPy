@@ -73,6 +73,22 @@ export function EventRegistrationSection() {
       return;
     }
 
+    if (phone.trim()) {
+      const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, "");
+      if (!/^(\+?57)?3\d{9}$/.test(cleanPhone)) {
+        setError("El teléfono debe ser un número celular colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567).");
+        return;
+      }
+    }
+
+    if (documentId.trim()) {
+      const cleanDoc = documentId.trim();
+      if (!/^[a-zA-Z0-9]{5,20}$/.test(cleanDoc)) {
+        setError("El número de documento debe contener entre 5 y 20 caracteres alfanuméricos.");
+        return;
+      }
+    }
+
     if (attendanceMode === "in_person") {
       const seatsNeeded = hasCompanion ? 2 : 1;
       if (eventData.available_in_person < seatsNeeded) {
@@ -319,9 +335,12 @@ export function EventRegistrationSection() {
                         <Phone size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         <input
                           type="tel"
+                          inputMode="tel"
+                          maxLength={15}
+                          pattern="^(\+?57)?3[0-9]{9}$"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          placeholder="Ej. 3101234567"
+                          placeholder="Ej. 3101234567 o +573101234567"
                           className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
@@ -409,9 +428,11 @@ export function EventRegistrationSection() {
                     </label>
                     <input
                       type="text"
+                      maxLength={20}
+                      pattern="^[a-zA-Z0-9]{5,20}$"
                       value={documentId}
                       onChange={(e) => setDocumentId(e.target.value)}
-                      placeholder="Cédula o ID"
+                      placeholder="Cédula o ID (ej. 1020304050)"
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                     />
                   </div>

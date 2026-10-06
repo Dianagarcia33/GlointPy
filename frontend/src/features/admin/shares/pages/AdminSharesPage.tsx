@@ -9,6 +9,7 @@ import {
     X,
     Users,
     AlertCircle,
+    AlertTriangle,
     UserPlus,
     UserMinus,
     Minus,
@@ -78,6 +79,11 @@ export const AdminSharesPage: React.FC = () => {
     const [grantLoading, setGrantLoading] = useState(false);
     const [grantError, setGrantError] = useState<string | null>(null);
     const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const minAccountingDate = new Date();
+    minAccountingDate.setFullYear(minAccountingDate.getFullYear() - 1);
+    const minDateStr = minAccountingDate.toISOString().slice(0, 10);
 
     const handleSelectUser = async (u: User) => {
         setSelectedGrantUser(u);
@@ -187,6 +193,21 @@ export const AdminSharesPage: React.FC = () => {
         if (!grantReason.trim()) {
             setGrantError('Por favor ingresa un motivo o concepto para el ajuste.');
             return;
+        }
+
+        if (grantCustomDate) {
+            if (grantCustomDate > todayStr) {
+                setGrantError('La fecha de acreditación/deducción no puede ser futura. El Libro Mayor inmutable solo registra operaciones ya ocurridas.');
+                return;
+            }
+            if (grantCustomDate < minDateStr) {
+                setGrantError(`La fecha no puede ser anterior a ${minDateStr} (período contable cerrado).`);
+                return;
+            }
+            if (grantCustomDate < todayStr && grantReason.trim().length < 15) {
+                setGrantError('Para registrar un asiento contable con fecha retroactiva, debes ingresar una justificación detallada en el motivo (mínimo 15 caracteres).');
+                return;
+            }
         }
 
         try {
@@ -759,7 +780,9 @@ export const AdminSharesPage: React.FC = () => {
                         </div>
                         <form onSubmit={handleCreateIssuance} className="space-y-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-700 block mb-1">Título de la Emisión</label>
+                                <label className="text-xs font-bold text-slate-700 block mb-1">
+                                    Título de la Emisión <span className="text-rose-500">*</span>
+                                </label>
                                 <input
                                     type="text"
                                     value={issuanceTitle}
@@ -1260,13 +1283,26 @@ export const AdminSharesPage: React.FC = () => {
                                         </label>
                                         <input
                                             type="date"
+                                            min={minDateStr}
+                                            max={todayStr}
                                             value={grantCustomDate}
                                             onChange={(e) => setGrantCustomDate(e.target.value)}
                                             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:ring-2 focus:ring-emerald-500 outline-hidden"
                                         />
-                                        <span className="text-[9px] text-slate-400 block mt-1 leading-tight">
-                                            Fecha registrada en el extracto
-                                        </span>
+                                        <div className="flex items-center justify-between text-[9px] text-slate-400 mt-1">
+                                            <span>Período permitido: {minDateStr} a hoy</span>
+                                            {grantCustomDate && grantCustomDate < todayStr && (
+                                                <span className="font-bold text-amber-600">Retroactivo</span>
+                                            )}
+                                        </div>
+                                        {grantCustomDate && grantCustomDate < todayStr && (
+                                            <div className="mt-1.5 p-2 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-1.5 text-[10px] text-amber-800 leading-tight">
+                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                                <span>
+                                                    <strong>Asiento retroactivo:</strong> Requiere justificación detallada (mínimo 15 caracteres) en el motivo.
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

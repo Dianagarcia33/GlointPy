@@ -41,18 +41,27 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     }
   }, [isOpen, role]);
 
+  const ROLE_NAME_REGEX = /^[a-z][a-z0-9_]{2,49}$/;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       setError('Por favor ingresa el nombre interno del rol');
       return;
     }
+
+    if (!ROLE_NAME_REGEX.test(trimmedName)) {
+      setError('El nombre interno debe estar en formato snake_case (ej. operador_crm), iniciar con una letra minúscula, contener únicamente letras minúsculas, números o guiones bajos, y tener entre 3 y 50 caracteres.');
+      return;
+    }
+
     setError(null);
     setIsSubmitting(true);
 
     try {
       const data = {
-        name: name.trim(),
+        name: trimmedName,
         description: description.trim(),
         permission_ids: selectedPermissions,
         is_active: true
@@ -61,7 +70,22 @@ export const RoleModal: React.FC<RoleModalProps> = ({
       await onSave(data);
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error al guardar el rol');
+      let msg = err.message || 'Error al guardar el rol';
+      if (Array.isArray(err.detail)) {
+        msg = err.detail.map((d: any) => d.msg || d.message).join(', ');
+      } else if (typeof err.detail === 'string') {
+        msg = err.detail;
+      }
+
+      if (msg.includes('Role name already exists') || msg.includes('already exists') || msg.includes('ya está en uso')) {
+        msg = 'El nombre del rol ya está en uso. Por favor elige otro nombre.';
+      } else if (msg.includes('Cannot rename system roles') || msg.includes('renombrar roles')) {
+        msg = 'No se pueden renombrar roles protegidos del sistema.';
+      } else if (msg.includes('String should match pattern') || msg.includes('pattern') || msg.includes('snake_case')) {
+        msg = 'El nombre interno debe cumplir el formato snake_case (ej. operador_crm) de 3 a 50 caracteres.';
+      }
+
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -173,10 +197,13 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                 type="text"
                 required
                 value={name}
+                pattern="^[a-z][a-z0-9_]{2,49}$"
+                maxLength={50}
                 onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-mono"
-                placeholder="ej: super_admin"
+                placeholder="ej: operador_crm"
               />
+              <p className="text-[11px] text-slate-400">Formato snake_case (3 a 50 caracteres): ej. operador_crm</p>
             </div>
 
             <div className="space-y-1.5">

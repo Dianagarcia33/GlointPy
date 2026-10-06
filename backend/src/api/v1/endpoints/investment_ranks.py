@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Any
 
 from src.core.database import get_db
@@ -24,6 +24,12 @@ class RankCreateRequest(BaseModel):
     order: int = Field(1, ge=1)
     is_active: bool = True
 
+    @model_validator(mode="after")
+    def validate_min_max(self):
+        if self.max_investment is not None and self.min_investment > self.max_investment:
+            raise ValueError("La inversión mínima no puede ser superior a la inversión máxima.")
+        return self
+
 class RankUpdateRequest(BaseModel):
     name: Optional[str] = None
     slug: Optional[str] = None
@@ -36,6 +42,13 @@ class RankUpdateRequest(BaseModel):
     benefits: Optional[List[str]] = None
     order: Optional[int] = None
     is_active: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def validate_min_max(self):
+        if self.min_investment is not None and self.max_investment is not None:
+            if self.min_investment > self.max_investment:
+                raise ValueError("La inversión mínima no puede ser superior a la inversión máxima.")
+        return self
 
 class AssignUserRankRequest(BaseModel):
     user_id: int

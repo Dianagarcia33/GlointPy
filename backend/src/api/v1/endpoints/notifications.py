@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
@@ -217,28 +217,49 @@ async def get_admin_broadcast_history(
 
 @router.get("/admin/target-options", dependencies=[Depends(RequirePermission(["admin.users.manage", "admin.notifications.manage"]))])
 async def get_admin_target_options(
+    search: Optional[str] = Query(None, description="Buscar usuarios por nombre, correo o documento"),
+    page: int = Query(1, ge=1, description="Número de página"),
+    limit: int = Query(50, ge=1, le=500, description="Cantidad de usuarios por página"),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Retorna la lista de roles y usuarios activos para poblar los selectores de audiencia del admin.
+    Permite búsqueda del lado servidor y paginación para cubrir el 100% de la base de usuarios.
     """
-    from sqlalchemy import select
+    from sqlalchemy import select, or_, func
     from src.models.security import Role
     from src.models.user import User
 
     roles_res = await db.execute(select(Role).order_by(Role.name))
     roles = roles_res.scalars().all()
 
+    query = select(User).where(User.is_active == True)
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                User.name.ilike(term),
+                User.email.ilike(term),
+                User.document_id.ilike(term)
+            )
+        )
+
+    # Conteo total de coincidencias
+    count_query = select(func.count()).select_from(query.subquery())
+    total_users = await db.scalar(count_query) or 0
+
+    offset = (page - 1) * limit
     users_res = await db.execute(
-        select(User)
-        .where(User.is_active == True)
-        .order_by(User.name)
-        .limit(300)
+        query.order_by(User.name).offset(offset).limit(limit)
     )
     users = users_res.scalars().all()
 
     return {
         "roles": [{"id": r.id, "name": r.name, "description": r.description} for r in roles],
-        "users": [{"id": u.id, "name": u.name, "email": u.email, "document_id": u.document_id} for u in users]
+        "users": [{"id": u.id, "name": u.name, "email": u.email, "document_id": u.document_id} for u in users],
+        "total_users": total_users,
+        "page": page,
+        "limit": limit
     }
 

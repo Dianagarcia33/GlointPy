@@ -1,4 +1,5 @@
-from pydantic import BaseModel, EmailStr
+import re
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -44,6 +45,26 @@ class PublicRsvpRequest(BaseModel):
     attendance_mode: str = "in_person"  # "in_person" | "virtual"
     has_companion: bool = False
     companion_name: Optional[str] = None
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        clean = re.sub(r"[\s\-\(\)\.]", "", v.strip())
+        if not re.match(r"^(\+?57)?3\d{9}$", clean):
+            raise ValueError("El teléfono debe ser un número móvil colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567).")
+        return clean
+
+    @field_validator("document_id")
+    @classmethod
+    def validate_document_id(cls, v: Optional[str]) -> Optional[str]:
+        if not v or not v.strip():
+            return None
+        clean = v.strip()
+        if not re.match(r"^[a-zA-Z0-9]{5,20}$", clean):
+            raise ValueError("El documento debe contener entre 5 y 20 caracteres alfanuméricos.")
+        return clean
 
 class AttendeeResponse(BaseModel):
     id: int

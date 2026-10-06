@@ -14,7 +14,8 @@ from src.schemas.external_app import (
     CreatePaymentIntentResponse,
     CheckoutOrderInfoResponse,
     ConfirmPaymentRequest,
-    ExternalPaymentOrderResponse
+    ExternalPaymentOrderResponse,
+    ResendWebhookResponse
 )
 from src.services.external_app_service import ExternalAppService
 
@@ -109,6 +110,20 @@ async def list_all_external_orders(
     Historial global de todas las órdenes y cobros procesados por apps externas.
     """
     return await ExternalAppService.get_all_orders(db, limit)
+
+@router.post(
+    "/admin/external-apps/orders/{order_id}/resend-webhook",
+    response_model=ResendWebhookResponse,
+    dependencies=[Depends(RequirePermission(["admin.external_apps.manage", "admin.roles.manage", "admin.users.manage"]))]
+)
+async def resend_order_webhook(
+    order_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reintenta el despacho manual de webhook para una orden completada y retorna el código y cuerpo de respuesta inmediato.
+    """
+    return await ExternalAppService.resend_webhook(db, order_id)
 
 
 # ==============================================================================

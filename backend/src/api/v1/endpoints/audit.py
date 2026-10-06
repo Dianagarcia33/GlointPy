@@ -552,6 +552,7 @@ async def update_acceleration_date(
 
 
 @router.get("/users/{user_id}/wallet-transactions", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+@router.get("/users/{user_id}/wallet-history", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def get_user_wallet_transactions(
     user_id: int,
     db: AsyncSession = Depends(get_db)
@@ -569,6 +570,7 @@ async def get_user_wallet_transactions(
     return transactions
 
 @router.post("/users/{user_id}/create-wallet", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+@router.post("/wallets/{user_id}", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def create_user_wallet(
     user_id: int,
     db: AsyncSession = Depends(get_db)

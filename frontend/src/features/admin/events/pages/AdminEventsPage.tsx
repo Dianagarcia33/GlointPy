@@ -93,11 +93,23 @@ export const AdminEventsPage: React.FC = () => {
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedbackMsg(null);
+
+    const occupiedSeats = summary?.event.occupied_in_person || 0;
+    const requestedCapacity = Number(formData.capacity_in_person);
+
+    if (requestedCapacity < occupiedSeats) {
+      setFeedbackMsg({
+        type: 'error',
+        text: `El aforo presencial (${requestedCapacity}) no puede ser menor a los cupos ya confirmados (${occupiedSeats} cupos). Por favor cancela o reubica asistentes antes de reducir el aforo.`
+      });
+      return;
+    }
+
     try {
       setSavingConfig(true);
       await updateAdminEventConfig({
         ...formData,
-        capacity_in_person: Number(formData.capacity_in_person)
+        capacity_in_person: requestedCapacity
       });
       setFeedbackMsg({ type: 'success', text: '¡Configuración del evento guardada con éxito!' });
       await loadSummary();
@@ -171,7 +183,7 @@ export const AdminEventsPage: React.FC = () => {
   });
 
   const percentOccupied = summary?.event.capacity_in_person 
-    ? Math.min(100, Math.round((summary.event.occupied_in_person / summary.event.capacity_in_person) * 100))
+    ? Math.round((summary.event.occupied_in_person / summary.event.capacity_in_person) * 100)
     : 0;
 
   return (
@@ -240,16 +252,18 @@ export const AdminEventsPage: React.FC = () => {
         {/* Cupos Ocupados */}
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Cupos Ocupados</span>
-          <p className="text-2xl font-black text-brand-600 font-montserrat mt-1">
+          <p className={`text-2xl font-black font-montserrat mt-1 ${percentOccupied > 100 ? 'text-rose-600' : 'text-brand-600'}`}>
             {summary?.event.occupied_in_person || 0}
           </p>
           <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
             <div 
-              className="bg-brand-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${percentOccupied}%` }}
+              className={`h-full rounded-full transition-all duration-500 ${percentOccupied > 100 ? 'bg-rose-500' : 'bg-brand-500'}`}
+              style={{ width: `${Math.min(100, percentOccupied)}%` }}
             />
           </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">{percentOccupied}% del aforo ocupado</span>
+          <span className={`text-[10px] mt-1 block font-semibold ${percentOccupied > 100 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
+            {percentOccupied}% del aforo ocupado {percentOccupied > 100 && '(Sobreventa)'}
+          </span>
         </div>
 
         {/* Cupos Disponibles */}
@@ -320,13 +334,18 @@ export const AdminEventsPage: React.FC = () => {
               <label className="font-bold text-slate-700 block mb-1">Aforo Máximo Presencial (Cupos)</label>
               <input
                 type="number"
-                min={1}
+                min={summary?.event.occupied_in_person || 1}
                 required
                 value={formData.capacity_in_person}
                 onChange={(e) => setFormData({ ...formData, capacity_in_person: parseInt(e.target.value) || 0 })}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <span className="text-[10px] text-slate-400 mt-1 block">
+                {summary && summary.event.occupied_in_person > 0 ? (
+                  <span className="text-amber-600 font-semibold block mb-0.5">
+                    Mínimo permitido: {summary.event.occupied_in_person} cupos (actualmente confirmados).
+                  </span>
+                ) : null}
                 Al agotarse, el sistema solo ofrecerá modalidad virtual automáticamente.
               </span>
             </div>

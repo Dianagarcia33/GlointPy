@@ -47,6 +47,79 @@ export const ExternalAppModal: React.FC<ExternalAppModalProps> = ({
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  const getWebhookUrlValidation = (urlStr: string): { type: 'success' | 'warning' | 'error'; message: string } | null => {
+    const trimmed = urlStr.trim();
+    if (!trimmed) return null;
+
+    let url: URL;
+    try {
+      url = new URL(trimmed);
+    } catch {
+      if (trimmed.includes('://')) {
+        return {
+          type: 'error',
+          message: 'Formato de URL no válido. Ejemplo: https://mi-dominio.com/webhook',
+        };
+      }
+      return {
+        type: 'warning',
+        message: 'Falta el protocolo seguro. Debe iniciar con https://',
+      };
+    }
+
+    const protocol = url.protocol.toLowerCase();
+    const hostname = url.hostname.toLowerCase();
+
+    if (protocol !== 'https:' && protocol !== 'http:') {
+      return {
+        type: 'error',
+        message: `Protocolo '${protocol.replace(':', '')}' no permitido. El endpoint debe utilizar HTTPS.`,
+      };
+    }
+
+    // Check internal hostnames and loopback
+    const isLoopback =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      /^127\.\d+\.\d+\.\d+$/.test(hostname);
+    const isInternal =
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal') ||
+      hostname.endsWith('.lan') ||
+      hostname.endsWith('.corp') ||
+      hostname.endsWith('.localhost') ||
+      hostname === 'metadata.google.internal' ||
+      hostname === 'instance-data';
+    const isPrivateIp =
+      /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(hostname) ||
+      /^192\.168\.\d+\.\d+$/.test(hostname);
+    const isLinkLocal = /^169\.254\.\d+\.\d+$/.test(hostname) || /^fe80:/i.test(hostname);
+    const isZeroIp = /^0\.0\.0\.0$/.test(hostname);
+
+    if (isLoopback || isInternal || isPrivateIp || isLinkLocal || isZeroIp) {
+      return {
+        type: 'error',
+        message: `La dirección '${hostname}' es interna o de loopback. Bloqueada por protección SSRF.`,
+      };
+    }
+
+    if (protocol === 'http:') {
+      return {
+        type: 'warning',
+        message: 'Protocolo HTTP (sin cifrar TLS). Se exige HTTPS para proteger los eventos firmados HMAC en tránsito.',
+      };
+    }
+
+    return {
+      type: 'success',
+      message: 'Endpoint HTTPS seguro con cifrado TLS verificado.',
+    };
+  };
+
+  const webhookValidation = getWebhookUrlValidation(webhookUrl);
+
   useEffect(() => {
     if (isOpen) {
       if (app) {
@@ -72,6 +145,24 @@ export const ExternalAppModal: React.FC<ExternalAppModalProps> = ({
     if (!name.trim()) {
       setError('El nombre de la aplicación es obligatorio.');
       return;
+    }
+
+    if (webhookUrl.trim()) {
+      const val = getWebhookUrlValidation(webhookUrl.trim());
+      if (val && val.type === 'error') {
+        setError(val.message);
+        return;
+      }
+      try {
+        const parsed = new URL(webhookUrl.trim());
+        if (parsed.protocol !== 'https:') {
+          setError('La URL de Webhook debe utilizar el protocolo seguro HTTPS (https://) para garantizar el cifrado TLS.');
+          return;
+        }
+      } catch {
+        setError('Introduce una URL válida que inicie con https://');
+        return;
+      }
     }
 
     try {
@@ -290,19 +381,63 @@ export const ExternalAppModal: React.FC<ExternalAppModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 font-montserrat flex items-center gap-1.5">
-                  <Link2 className="w-3.5 h-3.5 text-brand-600" />
-                  URL de Webhook (Notificación de Pago)
+                <label className="text-xs font-bold text-slate-700 font-montserrat flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Link2 className="w-3.5 h-3.5 text-brand-600" />
+                    URL de Webhook (Notificación de Pago)
+                  </span>
+                  <span className="text-[10px] text-brand-700 font-semibold bg-brand-50 border border-brand-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5" /> HTTPS Exigido
+                  </span>
                 </label>
-                <input
-                  type="url"
-                  placeholder="https://tu-servidor.com/api/webhooks/gloint-pay"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type="url"
+                    placeholder="https://tu-servidor.com/api/webhooks/gloint-pay"
+                    value={webhookUrl}
+                    onChange={(e) => {
+                      setWebhookUrl(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 transition-all ${
+                      webhookValidation?.type === 'error'
+                        ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 text-rose-900'
+                        : webhookValidation?.type === 'success'
+                        ? 'border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500/20 text-emerald-900'
+                        : 'border-slate-200 focus:border-brand-500 focus:ring-brand-500/20'
+                    }`}
+                  />
+                  {webhookValidation?.type === 'success' && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                  )}
+                  {webhookValidation?.type === 'error' && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-500 pointer-events-none">
+                      <AlertTriangle className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+
+                {webhookValidation && (
+                  <div
+                    className={`text-[11px] font-medium px-3 py-1.5 rounded-xl flex items-center gap-2 ${
+                      webhookValidation.type === 'error'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : webhookValidation.type === 'warning'
+                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}
+                  >
+                    {webhookValidation.type === 'error' && <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600" />}
+                    {webhookValidation.type === 'warning' && <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600" />}
+                    {webhookValidation.type === 'success' && <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-emerald-600" />}
+                    <span>{webhookValidation.message}</span>
+                  </div>
+                )}
+
                 <span className="text-[10px] text-slate-400 block">
-                  Gloint enviará un HTTP POST con la firma de seguridad cada vez que un usuario complete un pago.
+                  Gloint enviará un HTTP POST con la firma de seguridad HMAC-SHA256 cada vez que un usuario complete un pago. Se requiere un endpoint público HTTPS (no se permiten direcciones locales 127.0.0.1 ni redes internas).
                 </span>
               </div>
 

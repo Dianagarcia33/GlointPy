@@ -172,6 +172,12 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
             return;
         }
 
+        const cleanCel = formData.numero_celular.replace(/[\s\-\(\)\.]/g, '');
+        if (!/^(\+?57)?3\d{9}$/.test(cleanCel)) {
+            setError('El número celular debe ser un móvil colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567)');
+            return;
+        }
+
         if (!formData.banco || !formData.numero_cuenta) {
             setError('Por favor diligencia la cuenta bancaria del cliente.');
             return;
@@ -304,7 +310,11 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                                 <div className="space-y-1">
                                     <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Teléfono / Celular *</label>
                                     <input 
-                                        type="text" 
+                                        type="tel"
+                                        inputMode="tel"
+                                        maxLength={15}
+                                        pattern="^(\+?57)?3[0-9]{9}$"
+                                        placeholder="Ej. 3001234567 o +573001234567"
                                         required 
                                         value={formData.numero_celular} 
                                         onChange={e => setFormData({ ...formData, numero_celular: e.target.value })} 
