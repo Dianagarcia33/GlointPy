@@ -99,18 +99,18 @@ export const YieldBatchesModal: React.FC<YieldBatchesModalProps> = ({
       <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
         
         {/* Modal Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-brand-100 flex items-center justify-center text-brand-700">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-brand-100 flex items-center justify-center text-brand-700 shrink-0">
               <History className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 font-montserrat">Historial de Lotes de Rendimientos</h2>
-              <p className="text-xs text-slate-500">Trazabilidad forense, liquidaciones automáticas (00:00 COT) y reversión de lotes</p>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 font-montserrat">Historial de Lotes de Rendimientos</h2>
+              <p className="text-[11px] sm:text-xs text-slate-500">Trazabilidad forense, liquidaciones automáticas (00:00 COT) y reversión de lotes</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={handleForceAutomatic}
               disabled={isForcingRun}
@@ -140,7 +140,7 @@ export const YieldBatchesModal: React.FC<YieldBatchesModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 flex-1 overflow-y-auto space-y-4">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4">
           {error && (
             <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -156,7 +156,7 @@ export const YieldBatchesModal: React.FC<YieldBatchesModalProps> = ({
           )}
 
           {/* Banner Informativo */}
-          <div className="p-4 bg-blue-50/70 border border-blue-100 rounded-2xl flex items-start gap-3">
+          <div className="p-3.5 sm:p-4 bg-blue-50/70 border border-blue-100 rounded-2xl flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="text-xs text-blue-900 leading-relaxed">
               <strong className="font-bold">Proceso 100% Automático a Medianoche:</strong> El sistema dispersa diariamente a las <strong>00:00 COT (05:00 UTC)</strong> los rendimientos del día anterior con estricta idempotencia (nunca paga dos veces un mismo día por contrato). Cada movimiento queda registrado en auditoría y puede ser <strong>reversado</strong> si se requiere.
@@ -174,8 +174,8 @@ export const YieldBatchesModal: React.FC<YieldBatchesModalProps> = ({
               <p className="text-sm font-medium">No se han registrado ejecuciones de dispersión aún.</p>
             </div>
           ) : (
-            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-              <table className="w-full text-left text-xs">
+            <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-sm">
+              <table className="w-full min-w-[720px] text-left text-xs">
                 <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-200 text-[10px]">
                   <tr>
                     <th className="px-4 py-3">Lote / Identificador</th>

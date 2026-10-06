@@ -86,71 +86,72 @@ export const AdminInvestmentsPage: React.FC = () => {
       />
 
       {/* Header & Actions */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2 font-montserrat">
-            <Briefcase className="w-8 h-8 text-brand-600" />
-            Auditoría Financiera y Rendimientos
-          </h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2 font-montserrat">
+              <Briefcase className="w-7 h-7 sm:w-8 sm:h-8 text-brand-600 shrink-0" />
+              <span>Auditoría Financiera y Rendimientos</span>
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200/80 rounded-full text-xs font-bold shadow-xs">
+              <Zap className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span>Automático: 00:00 COT</span>
+            </span>
+          </div>
           <p className="text-slate-500 mt-1 text-xs sm:text-sm">Supervisión integral de contratos, balances en billeteras y transferencias masivas a inversionistas.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200/60 rounded-xl text-xs font-bold shadow-xs">
-            <Zap className="w-3.5 h-3.5 text-purple-600" />
-            <span>Automático: 00:00 COT</span>
-          </div>
-
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto shrink-0">
           <button
             onClick={() => setIsBatchesModalOpen(true)}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 text-sm cursor-pointer border border-slate-200"
+            className="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3.5 sm:px-4 py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer border border-slate-200 shadow-xs"
             title="Ver historial de lotes, liquidaciones automáticas y reversión"
           >
-            <History className="w-4 h-4 text-slate-600" />
-            <span>Historial de Lotes</span>
+            <History className="w-4 h-4 text-slate-600 shrink-0" />
+            <span className="whitespace-nowrap">Historial de Lotes</span>
           </button>
 
           <button
             onClick={() => setIsBulkModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 text-sm cursor-pointer shrink-0"
+            className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer whitespace-nowrap"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4 h-4 shrink-0" />
             <span>Transferencia Masiva General</span>
           </button>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1 relative w-full">
-              <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre, email o documento..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex gap-4 w-full md:w-auto bg-slate-50 p-2 rounded-lg border border-slate-100">
-              <div>
-                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 ml-1">Inicio Ciclo</label>
-                <input
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch md:items-center">
+        <div className="flex-1 relative w-full">
+          <Search className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, email o documento..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+          />
+        </div>
+        <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 w-full md:w-auto bg-slate-50/80 p-1.5 sm:p-2 rounded-xl border border-slate-100">
+          <div className="flex-1 sm:flex-initial">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 ml-1">Inicio Ciclo</label>
+            <input
               type="date"
               value={cycleStartDate}
               onChange={(e) => setCycleStartDate(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded md:w-36 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full bg-white border border-slate-200 rounded-lg md:w-36 px-2.5 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
             />
           </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1 ml-1">Fin Ciclo</label>
+          <div className="flex-1 sm:flex-initial">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 ml-1">Fin Ciclo</label>
             <input
               type="date"
               value={cycleEndDate}
               onChange={(e) => setCycleEndDate(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded md:w-36 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full bg-white border border-slate-200 rounded-lg md:w-36 px-2.5 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
             />
           </div>
         </div>
