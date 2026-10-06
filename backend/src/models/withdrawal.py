@@ -61,3 +61,4 @@ class Withdrawal(Base):
     investor = relationship("Investor", back_populates="withdrawals")
     approver = relationship("User", foreign_keys=[aprobado_por])
     processor = relationship("User", foreign_keys=[procesado_por])
+    yoint_dispersions = relationship("YointDispersion", back_populates="withdrawal", cascade="all, delete-orphan", order_by="desc(YointDispersion.id)")

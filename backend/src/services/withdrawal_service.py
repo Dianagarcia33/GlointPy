@@ -251,6 +251,13 @@ class WithdrawalService:
                 )
                 db.add(tx)
 
+        # Revertir el 3.2% de retención de la Billetera Corporativa si fue acreditado
+        try:
+            from src.services.company_wallet_service import CompanyWalletService
+            await CompanyWalletService.refund_tax_retention(db, withdrawal)
+        except Exception as cw_err:
+            logger.warning(f"Aviso al revertir retención en Billetera Corporativa para retiro #{withdrawal.id}: {cw_err}")
+
         await db.commit()
         await db.refresh(withdrawal)
 

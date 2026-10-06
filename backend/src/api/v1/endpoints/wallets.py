@@ -293,13 +293,38 @@ async def request_withdrawal(
     tx.reference_type = "withdrawal"
     tx.reference_id = withdrawal.id
 
+    # 7. Acreditar el 3.2% de retención a la Billetera Corporativa de la Empresa
+    try:
+        from src.services.company_wallet_service import CompanyWalletService
+        await CompanyWalletService.credit_tax_retention(db, withdrawal, current_user.name)
+    except Exception as cw_err:
+        logger.warning(f"Aviso al acreditar retención 3.2% a Billetera Corporativa: {cw_err}")
+
     try:
         await db.commit()
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-        
-    return {"message": "Retiro solicitado con éxito.", "withdrawal_id": withdrawal.id, "new_balance": wallet.balance}
+
+    # 8. Disparar dispersión automática a la API v2 de Yoint
+    yoint_tracking = None
+    try:
+        from src.services.yoint_service import YointService
+        dispersion = await YointService.send_dispersion(db=db, withdrawal=withdrawal, user=current_user)
+        yoint_tracking = {
+            "dispersion_id": dispersion.id,
+            "order_id": dispersion.order_id,
+            "status": dispersion.status
+        }
+    except Exception as y_err:
+        logger.error(f"Error al enviar dispersión a Yoint para retiro #{withdrawal.id}: {y_err}")
+
+    return {
+        "message": "Retiro solicitado con éxito.", 
+        "withdrawal_id": withdrawal.id, 
+        "new_balance": wallet.balance,
+        "yoint": yoint_tracking
+    }
 
 @router.get("/me/movements")
 async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

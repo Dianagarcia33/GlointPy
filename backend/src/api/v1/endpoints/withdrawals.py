@@ -42,6 +42,17 @@ async def get_withdrawals(
         end_date=end_date
     )
 
+@router.get("/company-tax-wallet", dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def get_company_tax_wallet(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene el balance y los últimos movimientos contables de la Billetera Corporativa (Caja de Impuestos 3.2%).
+    """
+    from src.services.company_wallet_service import CompanyWalletService
+    return await CompanyWalletService.get_tax_wallet_summary(db)
+
 @router.get("/{withdrawal_id}", response_model=WithdrawalResponse)
 async def get_withdrawal(
     withdrawal_id: int,
@@ -52,6 +63,115 @@ async def get_withdrawal(
     if not withdrawal:
         raise HTTPException(status_code=404, detail="Withdrawal not found")
     return withdrawal
+
+@router.get("/{withdrawal_id}/yoint", dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def get_withdrawal_yoint_info(
+    withdrawal_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Obtiene el historial forense y payloads completos de dispersión de Yoint para un retiro.
+    """
+    from sqlalchemy.future import select
+    from src.models.yoint_dispersion import YointDispersion
+
+    q = select(YointDispersion).where(YointDispersion.withdrawal_id == withdrawal_id).order_by(YointDispersion.id.desc())
+    res = await db.execute(q)
+    dispersions = res.scalars().all()
+
+    return [
+        {
+            "id": d.id,
+            "order_id": d.order_id,
+            "idempotency_key": d.idempotency_key,
+            "payment_reference": d.payment_reference,
+            "status": d.status,
+            "amount": float(d.amount),
+            "tax_amount": float(d.tax_amount),
+            "financial_entity_id": d.financial_entity_id,
+            "financial_entity_name": d.financial_entity_name,
+            "account_number": d.account_number,
+            "account_type": d.account_type,
+            "recipient_name": d.recipient_name,
+            "recipient_document": d.recipient_document,
+            "request_payload": d.request_payload,
+            "response_payload": d.response_payload,
+            "webhook_payload": d.webhook_payload,
+            "error_message": d.error_message,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+            "updated_at": d.updated_at.isoformat() if d.updated_at else None
+        }
+        for d in dispersions
+    ]
+
+@router.post("/{withdrawal_id}/disperse-yoint", dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def manually_disperse_to_yoint(
+    withdrawal_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Permite al Administrador reenviar o forzar la dispersión de un retiro a la API de Yoint.
+    """
+    from src.services.yoint_service import YointService
+
+    withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
+    if not withdrawal:
+        raise HTTPException(status_code=404, detail="Retiro no encontrado")
+
+    if not withdrawal.user:
+        raise HTTPException(status_code=400, detail="El retiro no tiene usuario asignado")
+
+    dispersion = await YointService.send_dispersion(db=db, withdrawal=withdrawal, user=withdrawal.user)
+
+    await log_audit_trail(
+        db=db,
+        action="WITHDRAWAL_YOINT_DISPERSE",
+        module="withdrawals",
+        user=current_user,
+        entity_type="Withdrawal",
+        entity_id=withdrawal_id,
+        description=f"Dispersión manual a Yoint para retiro #{withdrawal_id}. Estado: {dispersion.status}, OrderId: {dispersion.order_id}",
+        details={"dispersion_id": dispersion.id, "order_id": dispersion.order_id, "status": dispersion.status},
+        request=request
+    )
+
+    return {
+        "message": "Dispersión procesada con Yoint",
+        "dispersion_id": dispersion.id,
+        "order_id": dispersion.order_id,
+        "status": dispersion.status,
+        "error_message": dispersion.error_message
+    }
+
+@router.get("/{withdrawal_id}/yoint-status", dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
+async def check_withdrawal_yoint_status(
+    withdrawal_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Consulta en vivo a la API de Yoint el estado de la última orden de este retiro.
+    """
+    from sqlalchemy.future import select
+    from src.models.yoint_dispersion import YointDispersion
+    from src.services.yoint_service import YointService
+
+    q = select(YointDispersion).where(YointDispersion.withdrawal_id == withdrawal_id).order_by(YointDispersion.id.desc())
+    res = await db.execute(q)
+    dispersion = res.scalars().first()
+
+    if not dispersion:
+        raise HTTPException(status_code=404, detail="Este retiro no tiene dispersiones registradas en Yoint")
+
+    live_status = await YointService.query_order_status(db, dispersion)
+    return {
+        "order_id": dispersion.order_id,
+        "current_local_status": dispersion.status,
+        "live_yoint_response": live_status
+    }
 
 @router.get("/{withdrawal_id}/receipt")
 async def get_withdrawal_receipt(

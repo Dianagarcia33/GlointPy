@@ -66,6 +66,9 @@ async def on_startup():
         # Iniciar worker en segundo plano para dispersión automática diaria de rendimientos (medianoche COT)
         from src.services.daily_yield_service import background_daily_yield_worker
         asyncio.create_task(background_daily_yield_worker())
+        # Iniciar worker en segundo plano para conciliación periódica con Yoint
+        from src.services.yoint_sync_worker import background_yoint_sync_worker
+        asyncio.create_task(background_yoint_sync_worker())
         import src.models
         from src.core.database import engine, Base, async_session_maker
         from src.run_seed import seed_permissions_db

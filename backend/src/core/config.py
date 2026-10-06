@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     TICKEDS_API_UPLOAD_URL: str = "http://tickeds.glointech.com.co/api/v1/upload"
     TICKEDS_API_KEY: str = "gtk_live_glointpy_b13847f78de39d43"
 
+    # Yoint Payments API (Dispersions)
+    YOINT_API_URL: str = "https://dev-transaccional-payments.yoint.co"
+    YOINT_API_KEY: Optional[str] = None
+    YOINT_CLIENT_ID: Optional[str] = None
+    YOINT_CLIENT_SECRET: Optional[str] = None
+    YOINT_WEBHOOK_SECRET: Optional[str] = None
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
         env_file_encoding="utf-8",
