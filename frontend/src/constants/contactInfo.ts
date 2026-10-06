@@ -7,9 +7,9 @@ export const CONTACT_INFO = {
   pqrsEmail: "pqrs@gloint.com.co",
   phone: "+57 320 957 3995",
   whatsappLink: "https://wa.me/573209573995",
-  address: "Calle 31 # 14 - 31 Oficina 201",
+  address: "Ak 7 #32-29 Edificio Telesentinel Oficina 2003",
   cityCountry: "Bogotá, Colombia",
-  fullAddress: "Calle 31 # 14 - 31 Oficina 201, Bogotá, Colombia",
+  fullAddress: "Ak 7 #32-29 Edificio Telesentinel Oficina 2003, Bogotá, Colombia",
   hours: "Lunes a viernes de 8:00 AM - 5:30 PM",
   socials: {
     facebook: "https://web.facebook.com/people/Gloint-SAS/100090908195698/",
