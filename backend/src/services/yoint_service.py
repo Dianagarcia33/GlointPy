@@ -1,7 +1,7 @@
 import logging
 import uuid
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional, Dict, Any, Tuple
 import httpx
@@ -23,8 +23,75 @@ class YointService:
     """
     Servicio de integración con la API v2 de Pagos y Dispersiones de Yoint.
     Maneja el mapeo de entidades financieras (data_bancks), envío de dispersiones,
-    idempotencia, persistencia forense y actualización automática de estados.
+    autenticación OAuth2 Client Credentials (AWS Cognito), idempotencia y persistencia.
     """
+
+    _cached_token: Optional[str] = None
+    _token_expires_at: Optional[datetime] = None
+
+    @classmethod
+    async def get_access_token(cls) -> Optional[str]:
+        """
+        Obtiene o renueva el Bearer JWT Token usando client_id y client_secret
+        a través del servidor de autenticación OAuth2 de Yoint (AWS Cognito).
+        """
+        # 1. Si se configuró API Key directa en el .env, se usa directamente
+        if settings.YOINT_API_KEY:
+            return settings.YOINT_API_KEY
+
+        # 2. Si no hay client_id o client_secret configurados, no se puede autenticar
+        if not settings.YOINT_CLIENT_ID or not settings.YOINT_CLIENT_SECRET:
+            return None
+
+        # 3. Validar si el token en caché en memoria sigue vigente
+        now = datetime.utcnow()
+        if cls._cached_token and cls._token_expires_at and now < cls._token_expires_at:
+            return cls._cached_token
+
+        # 4. Solicitar nuevo token con grant_type=client_credentials
+        auth_url = getattr(settings, "YOINT_AUTH_URL", "https://payments-dev.auth.us-east-1.amazoncognito.com/oauth2/token")
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        data = {
+            "grant_type": "client_credentials",
+            "client_id": settings.YOINT_CLIENT_ID.strip(),
+            "client_secret": settings.YOINT_CLIENT_SECRET.strip()
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                logger.info(f"Solicitando token OAuth2 a Yoint ({auth_url})...")
+                res = await client.post(auth_url, data=data, headers=headers)
+                if res.status_code == 200:
+                    res_json = res.json()
+                    token = res_json.get("access_token")
+                    expires_in = int(res_json.get("expires_in", 3600))
+                    
+                    cls._cached_token = token
+                    # Margen de seguridad: renovar 5 minutos antes de expirar
+                    cls._token_expires_at = now + timedelta(seconds=max(60, expires_in - 300))
+                    logger.info("✅ Token Bearer OAuth2 de Yoint obtenido exitosamente.")
+                    return token
+                else:
+                    logger.error(f"Error autenticando con Yoint OAuth2 (HTTP {res.status_code}): {res.text}")
+                    return None
+        except Exception as e:
+            logger.error(f"Excepción al solicitar token OAuth2 a Yoint: {e}")
+            return None
+
+    @classmethod
+    async def _get_headers(cls, idempotency_key: str) -> Dict[str, str]:
+        """
+        Construye headers requeridos por Yoint v2 con autenticación automática.
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "X-Idempotency-Key": idempotency_key
+        }
+        token = await cls.get_access_token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+            headers["x-api-key"] = token
+        return headers
 
     @staticmethod
     def _normalize_account_type(raw_type: Optional[str]) -> str:
@@ -120,20 +187,6 @@ class YointService:
 
         return default_code, bank_query.upper()
 
-    @staticmethod
-    def _get_headers(idempotency_key: str) -> Dict[str, str]:
-        """
-        Construye headers requeridos por Yoint v2.
-        """
-        headers = {
-            "Content-Type": "application/json",
-            "X-Idempotency-Key": idempotency_key
-        }
-        if settings.YOINT_API_KEY:
-            headers["Authorization"] = f"Bearer {settings.YOINT_API_KEY}"
-            headers["x-api-key"] = settings.YOINT_API_KEY
-        return headers
-
     @classmethod
     async def build_dispersion_payload(
         cls, 
@@ -221,16 +274,16 @@ class YointService:
         await db.flush()
 
         # Si las credenciales no están configuradas aún, se deja en cola de forma segura
-        if not settings.YOINT_API_KEY and not settings.YOINT_CLIENT_ID:
+        if not settings.YOINT_API_KEY and not (settings.YOINT_CLIENT_ID and settings.YOINT_CLIENT_SECRET):
             dispersion.status = "QUEUED_PENDING_CONFIG"
-            dispersion.error_message = "Credenciales de Yoint pendientes de configurar en backend/.env"
+            dispersion.error_message = "Credenciales de Yoint (client_id y client_secret) pendientes de configurar en backend/.env"
             logger.warning(f"Yoint API credentials no configuradas. Retiro #{withdrawal.id} encolado para dispersión.")
             await db.commit()
             return dispersion
 
         # Realizar la petición HTTP a Yoint v2
         endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions"
-        headers = cls._get_headers(idempotency_key)
+        headers = await cls._get_headers(idempotency_key)
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -389,11 +442,11 @@ class YointService:
         if not dispersion.order_id:
             return {"status": dispersion.status, "message": "Orden sin orderId"}
 
-        if not settings.YOINT_API_KEY and not settings.YOINT_CLIENT_ID:
+        if not settings.YOINT_API_KEY and not (settings.YOINT_CLIENT_ID and settings.YOINT_CLIENT_SECRET):
             return {"status": dispersion.status, "message": "Credenciales Yoint no configuradas"}
 
         endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions/{dispersion.order_id}"
-        headers = cls._get_headers(idempotency_key=dispersion.idempotency_key or str(uuid.uuid4()))
+        headers = await cls._get_headers(idempotency_key=dispersion.idempotency_key or str(uuid.uuid4()))
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:

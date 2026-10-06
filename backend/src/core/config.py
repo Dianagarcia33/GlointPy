@@ -47,6 +47,7 @@ class Settings(BaseSettings):
 
     # Yoint Payments API (Dispersions)
     YOINT_API_URL: str = "https://dev-transaccional-payments.yoint.co"
+    YOINT_AUTH_URL: str = "https://payments-dev.auth.us-east-1.amazoncognito.com/oauth2/token"
     YOINT_API_KEY: Optional[str] = None
     YOINT_CLIENT_ID: Optional[str] = None
     YOINT_CLIENT_SECRET: Optional[str] = None
