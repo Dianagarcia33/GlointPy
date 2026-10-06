@@ -550,6 +550,13 @@ async def cancel_my_withdrawal(
         reference_id=withdrawal.id
     )
     db.add(tx)
+
+    # Revertir retención del 3.2% en el libro fiscal corporativo
+    try:
+        from src.services.company_wallet_service import CompanyWalletService
+        await CompanyWalletService.refund_tax_retention(db, withdrawal)
+    except Exception as cw_err:
+        logger.warning(f"Aviso al revertir retención en libro fiscal para retiro cancelado #{withdrawal.id}: {cw_err}")
     
     try:
         await db.commit()
