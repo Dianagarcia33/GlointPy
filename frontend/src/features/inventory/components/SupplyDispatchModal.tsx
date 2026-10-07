@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, AlertTriangle, Building2, FileText, DollarSign, CheckCircle2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, Send, AlertTriangle, Building2, FileText, DollarSign, Loader2 } from 'lucide-react';
 import { InventoryItem, CreateMovementPayload } from '../../../services/inventoryService';
 
 interface SupplyDispatchModalProps {
@@ -35,20 +36,22 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
   const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
   const [reference, setReference] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (preselectedItem) {
-      setSelectedItemId(preselectedItem.id);
-    } else if (supplyItems.length > 0 && !selectedItemId) {
-      setSelectedItemId(supplyItems[0].id);
+    if (isOpen) {
+      if (preselectedItem) {
+        setSelectedItemId(preselectedItem.id);
+      } else if (supplyItems.length > 0 && !selectedItemId) {
+        setSelectedItemId(supplyItems[0].id);
+      }
+      setQuantity(1);
+      setReference('');
+      setNotes('');
+      setError(null);
     }
-    setQuantity(1);
-    setReference('');
-    setNotes('');
-    setError(null);
-  }, [preselectedItem, isOpen]);
+  }, [isOpen, preselectedItem]);
 
   if (!isOpen) return null;
 
@@ -63,7 +66,7 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
     setError(null);
 
     if (!selectedItemId) {
-      setError('Debes seleccionar un insumo de oficina.');
+      setError('Por favor selecciona un insumo de oficina.');
       return;
     }
 
@@ -82,8 +85,8 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
       return;
     }
 
-    setLoading(true);
     try {
+      setIsLoading(true);
       const payload: CreateMovementPayload = {
         movement_type: 'DISPATCH_OFFICE',
         quantity: Number(quantity),
@@ -96,50 +99,58 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
     } catch (err: any) {
       setError(err?.message || 'Error al procesar el consumo de insumo.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-amber-600 to-brand-600 text-white">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div 
+        className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabecera estándar GlointPy */}
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-xl">
-              <Send className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white bg-amber-500 shadow-sm">
+              <Send className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base font-montserrat">Consumo de Insumo de Oficina</h3>
-              <p className="text-xs text-amber-100">Registrar salida y computar gasto operativo del negocio</p>
+              <h2 className="text-base font-bold text-slate-900 font-montserrat">
+                Consumo de Insumo de Oficina
+              </h2>
+              <p className="text-xs text-slate-500">
+                Registra la salida y computa el gasto operativo del negocio
+              </p>
             </div>
           </div>
           <button
-            type="button"
             onClick={onClose}
-            className="p-1.5 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            disabled={isLoading}
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* Formulario */}
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
           {error && (
-            <div className="flex items-center gap-2 p-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl">
-              <AlertTriangle className="w-4 h-4 shrink-0 text-red-500" />
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
               <span>{error}</span>
             </div>
           )}
 
           {/* Selector de Insumo */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Insumo a Despachar *</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+              Insumo a Despachar *
+            </label>
             <select
               value={selectedItemId}
               onChange={(e) => setSelectedItemId(e.target.value ? Number(e.target.value) : '')}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
               required
             >
               <option value="">Selecciona un insumo...</option>
@@ -151,53 +162,55 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
             </select>
           </div>
 
-          {/* Indicador de Stock Disponible */}
+          {/* Stock Disponible */}
           {currentItem && (
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
               <div className="flex items-center gap-2">
-                <span className="text-slate-500">Stock Actual en Bodega:</span>
-                <span className="font-bold font-mono text-slate-800">
+                <span className="text-slate-500 font-medium">Stock en Bodega:</span>
+                <span className="font-bold font-mono text-slate-900">
                   {availableStock} {currentItem.unit_measure}
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-slate-500">Costo unitario: </span>
-                <span className="font-bold text-slate-800">${Number(unitCost).toLocaleString('es-CO', { minimumFractionDigits: 2 })}</span>
+                <span className="text-slate-500 font-medium">Costo unitario: </span>
+                <span className="font-bold text-slate-900">${Number(unitCost).toLocaleString('es-CO', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           )}
 
           {/* Cantidad y Departamento Destino */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Cantidad a Tomar *</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+                Cantidad a Tomar *
+              </label>
               <input
                 type="number"
                 min="1"
                 max={availableStock}
+                required
                 value={quantity}
                 onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                className={`w-full px-3 py-2 text-sm rounded-xl font-bold font-mono focus:ring-2 border ${
+                className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border focus:outline-none focus:ring-2 transition-all ${
                   isStockInsufficient
-                    ? 'bg-red-50 border-red-300 text-red-700 focus:ring-red-200'
+                    ? 'bg-rose-50 border-rose-300 text-rose-700 focus:ring-rose-200'
                     : 'bg-slate-50 border-slate-200 text-slate-800 focus:ring-brand-500/20 focus:border-brand-500'
                 }`}
-                required
               />
               {isStockInsufficient && (
-                <span className="text-[10px] text-red-600 mt-1 block">Supera el stock actual ({availableStock})</span>
+                <span className="text-[10px] text-rose-600 mt-1 block">Supera el stock disponible ({availableStock})</span>
               )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
                 <span>Área / Departamento *</span>
               </label>
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                 required
               >
                 {DEPARTMENTS.map((dept) => (
@@ -209,12 +222,12 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
             </div>
           </div>
 
-          {/* Desglose de Impacto Financiero (Gasto Registrado) */}
+          {/* Desglose de Impacto Financiero */}
           <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200/80 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-amber-600" />
               <div>
-                <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">Gasto de Negocio Generado</p>
+                <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wider font-montserrat">Gasto de Negocio Generado</p>
                 <p className="text-xs text-amber-700">Se imputará al centro de costos de {department}</p>
               </div>
             </div>
@@ -225,53 +238,66 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
             </div>
           </div>
 
-          {/* Consecutivo / Referencia */}
+          {/* Referencia */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-slate-400" />
-              <span>Referencia / Nro. Requisición (Opcional)</span>
+              <span>Nro. Requisición / Referencia (Opcional)</span>
             </label>
             <input
               type="text"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
-              placeholder="Ej: SOL-042 o Ticket #381"
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+              placeholder="Ej. REQ-2026-042 o Ticket #381"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
             />
           </div>
 
-          {/* Justificación / Notas */}
+          {/* Motivo */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Motivo / Notas del Consumo</label>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+              Motivo / Notas del Consumo
+            </label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ej: Material solicitado para reunión con inversionistas..."
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 resize-none"
+              placeholder="Ej. Material para reunión comercial o capacitación interna..."
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all resize-none"
             />
           </div>
 
-          {/* Botones de Acción */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          {/* Botones de acción estándar */}
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-colors"
+              disabled={isLoading}
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={loading || isStockInsufficient}
-              className="flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-brand-600 hover:from-amber-700 hover:to-brand-700 rounded-xl shadow-md shadow-amber-500/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+              disabled={isLoading || isStockInsufficient}
+              className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              {loading ? 'Procesando...' : 'Confirmar Salida y Registrar Gasto'}
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Procesando...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Confirmar Salida y Registrar Gasto</span>
+                </>
+              )}
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
