@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
+import { sarlaftService } from '../../../../services/sarlaft';
 import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
 import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
-import { maskAccountNumber, formatAccountNumber, formatColombiaDate } from '../../../../utils/format';
+import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency } from '../../../../utils/format';
 
 export const AdminUsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -42,6 +43,12 @@ export const AdminUsersPage = () => {
   const [isForceAllModalOpen, setIsForceAllModalOpen] = useState(false);
   const [isForcingAll, setIsForcingAll] = useState(false);
   const [togglingUserId, setTogglingUserId] = useState<number | null>(null);
+
+  // Validación masiva SARLAFT para inversionistas (botón temporal)
+  const [isBatchSarlaftModalOpen, setIsBatchSarlaftModalOpen] = useState(false);
+  const [isBatchSarlaftLoading, setIsBatchSarlaftLoading] = useState(false);
+  const [batchSarlaftAllUsers, setBatchSarlaftAllUsers] = useState(false);
+  const [batchSarlaftResult, setBatchSarlaftResult] = useState<{ message: string; processed_users: number; updated_count: number } | null>(null);
 
   // Menú de acciones por fila
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
@@ -158,6 +165,21 @@ export const AdminUsersPage = () => {
       setError(err.message || 'Error al forzar actualización masiva.');
     } finally {
       setIsForcingAll(false);
+    }
+  };
+
+  const handleBatchValidateSarlaft = async () => {
+    try {
+      setIsBatchSarlaftLoading(true);
+      setError(null);
+      const res = await sarlaftService.validateExistingInvestors(batchSarlaftAllUsers);
+      setSuccess(res.message);
+      setBatchSarlaftResult(res);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Error al validar SARLAFT masivo.');
+    } finally {
+      setIsBatchSarlaftLoading(false);
     }
   };
 
@@ -299,6 +321,21 @@ export const AdminUsersPage = () => {
 
           <Can permission="admin.users.manage">
             <button 
+              onClick={() => {
+                setBatchSarlaftResult(null);
+                setBatchSarlaftAllUsers(false);
+                setIsBatchSarlaftModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-2xl transition-all text-xs font-bold border border-emerald-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
+              title="Aprobar SARLAFT masivamente a usuarios que ya cuentan con inversiones"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Validar SARLAFT Inversionistas</span>
+            </button>
+          </Can>
+
+          <Can permission="admin.users.manage">
+            <button 
               onClick={() => setIsForceAllModalOpen(true)}
               className="flex items-center gap-2 px-4 py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-2xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
               title="Obligar a todos los usuarios a actualizar sus datos de perfil"
@@ -384,141 +421,174 @@ export const AdminUsersPage = () => {
       <div className="bg-white rounded-3xl shadow-xs border border-slate-200">
         <div className="overflow-x-auto min-h-[400px] pb-12">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+            <thead className="bg-slate-50/90 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
-                <th className="px-6 py-4">Usuario & Contacto</th>
-                <th className="px-6 py-4 hidden md:table-cell">Billetera & Cuentas</th>
-                <th className="px-6 py-4">Roles & Estado</th>
-                <th className="px-6 py-4 text-center w-36">Acciones</th>
+                <th className="px-5 py-4 min-w-[210px]">Usuario</th>
+                <th className="px-5 py-4 min-w-[170px]">Identificación & Contacto</th>
+                <th className="px-5 py-4 min-w-[130px]">Roles</th>
+                <th className="px-5 py-4 min-w-[160px]">Billetera & Saldo</th>
+                <th className="px-5 py-4 min-w-[190px]">Cuentas Bancarias</th>
+                <th className="px-5 py-4 min-w-[140px]">Estado & Registro</th>
+                <th className="px-5 py-4 text-center w-28 min-w-[110px]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {users.map((user, index) => (
                 <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0 mt-0.5">
-                          <UserIcon className="w-4 h-4 text-brand-600" />
+                  {/* 1. Usuario */}
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100/90 border border-brand-200/60 flex items-center justify-center shrink-0 text-brand-700 font-extrabold text-sm shadow-2xs">
+                        {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="w-4 h-4 text-brand-600" />}
                       </div>
-                      <div className="space-y-1 text-xs">
-                        <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
-                          {user.name} 
-                          {user.is_superuser && <span className="text-[10px] bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-bold uppercase">Admin</span>}
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5 truncate">
+                          <span className="truncate">{user.name}</span>
+                          {user.is_superuser && (
+                            <span className="text-[9px] bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-bold uppercase shrink-0">Admin</span>
+                          )}
                         </div>
-                        <div className="text-slate-500 font-mono">{user.email}</div>
-                        {user.document_id && <div className="text-slate-500">Doc: <strong className="font-bold text-slate-700">{user.document_id}</strong></div>}
-                        {user.phone_number && <div className="text-slate-500">Tel: <strong className="font-bold text-slate-700">{user.phone_number}</strong></div>}
-                        {user.date_of_birth && <div className="text-slate-500">Nac: <strong className="font-bold text-slate-700">{formatColombiaDate(user.date_of_birth)}</strong></div>}
-                        <div className="text-[10px] text-slate-400">Reg: {formatColombiaDate(user.created_at)}</div>
+                        <div className="text-slate-500 font-mono text-xs truncate max-w-[180px]" title={user.email}>
+                          {user.email}
+                        </div>
                         {user.parent ? (
-                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-md text-[10px]">
-                            <span className="font-bold">Tutor:</span> {user.parent.name} {user.parent.document_id ? `(${user.parent.document_id})` : ''}
+                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200/80 text-amber-900 rounded-md text-[10px]">
+                            <span className="font-bold">Tutor:</span> <span className="truncate max-w-[110px]">{user.parent.name}</span>
                           </div>
                         ) : (user.children && user.children.length > 0) ? (
-                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-900 rounded-md text-[10px]">
+                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200/80 text-blue-900 rounded-md text-[10px]">
                             <span className="font-bold">Tutor de:</span> {user.children.length} menor(es)
                           </div>
                         ) : null}
-                        {user.must_update_profile && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-[10px] font-bold">
-                              <AlertCircle className="w-3 h-3 text-amber-600" />
-                              Actualización de datos obligatoria
-                            </span>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 hidden md:table-cell">
-                    <div className="space-y-3">
-                      {/* Billetera */}
-                      <div className="text-xs">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Billetera</div>
-                        {user.wallet ? (
-                          <>
-                            <div className="font-extrabold text-slate-900 font-montserrat">
-                              {Number(user.wallet.balance).toLocaleString('es-CO', { style: 'currency', currency: user.wallet.currency || 'COP', minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                            </div>
-                            <div className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase inline-block mt-0.5 border ${
-                              user.wallet.status === 'active' 
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200' 
-                                : 'bg-red-100 text-red-700 border-red-200'
-                            }`}>
-                              {user.wallet.status === 'active' ? 'ACTIVA' : 'CONGELADA'}
-                            </div>
-                          </>
-                        ) : (
-                          <div className="space-y-1">
-                            <div className="text-slate-400 italic">Sin billetera</div>
-                            <button
-                              onClick={() => handleCreateWallet(user.id, user.name)}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 transition-all cursor-pointer"
-                            >
-                              + Crear Billetera
-                            </button>
-                          </div>
-                        )}
+
+                  {/* 2. Identificación & Contacto */}
+                  <td className="px-5 py-4">
+                    <div className="space-y-1 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">CC</span>
+                        <span className="font-bold text-slate-800 font-mono">{user.document_id || 'Sin documento'}</span>
                       </div>
-                      
-                      {/* Cuentas */}
-                      <div className="text-xs">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex justify-between items-center w-48 font-montserrat">
-                          <span>Cuentas Bancarias</span>
-                          <span className="bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-600">{user.bank_accounts?.length || 0}</span>
+                      <div className="text-slate-500 flex items-center gap-1.5">
+                        <span className="text-slate-400 text-[11px]">Tel:</span>
+                        <span className="font-semibold text-slate-700">{user.phone_number || '—'}</span>
+                      </div>
+                      {user.date_of_birth && (
+                        <div className="text-slate-400 text-[10px]">
+                          Nac: {formatColombiaDate(user.date_of_birth)}
                         </div>
-                        {user.bank_accounts && user.bank_accounts.length > 0 ? (
-                          <div className="space-y-1.5 w-48">
-                            {user.bank_accounts.map(acc => {
-                              const isRevealed = revealedAccounts.has(acc.id);
-                              return (
-                                <div key={acc.id} className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
-                                  <div className="font-bold text-slate-800 truncate">{acc.banco} - {acc.tipo_cuenta}</div>
-                                  <div className="flex items-center justify-between gap-1 text-slate-600 font-mono mt-0.5">
-                                    <span className="select-all">
-                                      {isRevealed ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta)}
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleRevealAccount(acc.id)}
-                                      className="p-0.5 text-slate-400 hover:text-brand-600 hover:bg-slate-200 rounded transition-colors cursor-pointer"
-                                      title={isRevealed ? "Ocultar número completo" : "Mostrar número completo"}
-                                    >
-                                      {isRevealed ? <EyeOff className="w-3 h-3 text-brand-600" /> : <Eye className="w-3 h-3" />}
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="text-slate-400 italic">Sin cuentas registradas</div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-1.5 max-w-[150px]">
-                        {user.roles.length > 0 ? user.roles.map(r => (
-                          <span key={r.id} className="inline-flex px-2.5 py-0.5 bg-brand-50 text-brand-800 border border-brand-100 rounded-lg text-[10px] font-bold whitespace-nowrap">
-                            {r.display_name}
+
+                  {/* 3. Roles */}
+                  <td className="px-5 py-4">
+                    <div className="flex flex-wrap gap-1 max-w-[130px]">
+                      {user.roles && user.roles.length > 0 ? (
+                        user.roles.map(r => (
+                          <span key={r.id} className="inline-flex px-2 py-0.5 bg-brand-50 text-brand-800 border border-brand-200/60 rounded-lg text-[10px] font-bold whitespace-nowrap">
+                            {r.display_name || r.name}
                           </span>
-                        )) : <span className="text-slate-400 italic text-xs">Sin roles</span>}
+                        ))
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">Sin roles</span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* 4. Billetera & Saldo */}
+                  <td className="px-5 py-4">
+                    {user.wallet ? (
+                      <div className="space-y-1">
+                        <div className="font-extrabold text-slate-900 font-montserrat text-sm tracking-tight">
+                          {formatCurrency(Number(user.wallet.balance))}
+                        </div>
+                        <div>
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase inline-block border ${
+                            user.wallet.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
+                          }`}>
+                            {user.wallet.status === 'active' ? 'Activa' : 'Congelada'}
+                          </span>
+                        </div>
                       </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <span className="text-slate-400 italic text-xs block">Sin billetera</span>
+                        <button
+                          onClick={() => handleCreateWallet(user.id, user.name)}
+                          className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold inline-flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                        >
+                          + Crear Billetera
+                        </button>
+                      </div>
+                    )}
+                  </td>
+
+                  {/* 5. Cuentas Bancarias */}
+                  <td className="px-5 py-4">
+                    {user.bank_accounts && user.bank_accounts.length > 0 ? (
+                      <div className="space-y-1.5 max-w-[180px]">
+                        {user.bank_accounts.map(acc => {
+                          const isRevealed = revealedAccounts.has(acc.id);
+                          return (
+                            <div key={acc.id} className="text-[11px] bg-slate-50/80 border border-slate-200/90 rounded-xl px-2.5 py-1.5 shadow-2xs">
+                              <div className="font-bold text-slate-800 truncate text-[11px]" title={`${acc.banco} - ${acc.tipo_cuenta}`}>
+                                {acc.banco} · {acc.tipo_cuenta}
+                              </div>
+                              <div className="flex items-center justify-between gap-1 text-slate-600 font-mono mt-0.5">
+                                <span className="select-all text-[11px]">
+                                  {isRevealed ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta)}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRevealAccount(acc.id)}
+                                  className="p-0.5 text-slate-400 hover:text-brand-600 hover:bg-slate-200 rounded transition-colors cursor-pointer"
+                                  title={isRevealed ? "Ocultar número completo" : "Mostrar número completo"}
+                                >
+                                  {isRevealed ? <EyeOff className="w-3 h-3 text-brand-600" /> : <Eye className="w-3 h-3" />}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 italic text-xs">Sin cuentas</span>
+                    )}
+                  </td>
+
+                  {/* 6. Estado & Registro */}
+                  <td className="px-5 py-4">
+                    <div className="space-y-1.5 text-xs">
                       <div>
                         {user.is_active ? (
-                          <span className="text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">Activo</span>
+                          <span className="text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Activo</span>
                         ) : (
-                          <span className="text-rose-800 bg-rose-100 border border-rose-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">Inactivo</span>
+                          <span className="text-rose-800 bg-rose-100/80 border border-rose-200 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Inactivo</span>
                         )}
+                      </div>
+                      {user.must_update_profile && (
+                        <div>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-[10px] font-bold" title="Requiere actualizar datos">
+                            <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                            Actualizar datos
+                          </span>
+                        </div>
+                      )}
+                      <div className="text-[10px] text-slate-400">
+                        Reg: {formatColombiaDate(user.created_at)}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-center">
+
+                  {/* 7. Acciones */}
+                  <td className="px-5 py-4 text-center">
                     <Can permission="admin.users.manage">
                       <div className="flex items-center justify-center gap-1.5">
-                        {/* Botón Editar Principal */}
                         <button 
                           onClick={() => handleEdit(user)} 
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 bg-white cursor-pointer shadow-2xs"
@@ -528,7 +598,6 @@ export const AdminUsersPage = () => {
                           <span>Editar</span>
                         </button>
 
-                        {/* Menú de Más Acciones */}
                         <div className="relative inline-block text-left user-action-menu">
                           <button 
                             onClick={(e) => {
@@ -606,6 +675,23 @@ export const AdminUsersPage = () => {
                                   <span className="text-[10px] text-slate-400 font-normal">Asignar clave temporal segura</span>
                                 </div>
                               </button>
+
+                              {/* Crear Billetera si no tiene */}
+                              {!user.wallet && (
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    handleCreateWallet(user.id, user.name);
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-slate-100"
+                                >
+                                  <Landmark className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <div>
+                                    <div className="font-bold text-emerald-800">Crear Billetera</div>
+                                    <div className="text-[10px] text-emerald-600 font-normal">Habilita balance financiero</div>
+                                  </div>
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -616,7 +702,7 @@ export const AdminUsersPage = () => {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">
                     No se encontraron usuarios.
                   </td>
                 </tr>
@@ -844,6 +930,104 @@ export const AdminUsersPage = () => {
               >
                 Entendido y Cerrar
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal Temporal para Validación Masiva SARLAFT de Inversionistas */}
+      {isBatchSarlaftModalOpen && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl space-y-6 animate-in fade-in duration-200 border border-slate-100">
+            <div className="flex items-start gap-4">
+              <div className="p-3.5 bg-emerald-100/80 rounded-2xl text-emerald-700 shrink-0">
+                <ShieldCheck className="w-7 h-7 text-emerald-600" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900 font-montserrat">
+                  Validación Masiva SARLAFT (Inversionistas)
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Aprueba administrativamente el estado preventivo de SARLAFT para los usuarios existentes en la base de datos que ya tienen inversiones registradas.
+                </p>
+              </div>
+            </div>
+
+            {batchSarlaftResult ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                  <CheckCircle className="w-5 h-5 text-emerald-600" />
+                  <span>¡Proceso Completado con Éxito!</span>
+                </div>
+                <p className="text-xs text-emerald-700">
+                  {batchSarlaftResult.message}
+                </p>
+                <div className="text-[11px] text-emerald-600 font-mono">
+                  Usuarios evaluados: {batchSarlaftResult.processed_users} | Registros aprobados: {batchSarlaftResult.updated_count}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs text-slate-600 space-y-2">
+                  <p className="font-semibold text-slate-800">
+                    ¿Qué hace esta acción?
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-600">
+                    <li>Genera o actualiza el registro SARLAFT con estado <strong>CLEAN / FINALIZADO</strong>.</li>
+                    <li>Desbloquea inmediatamente la posibilidad de crear inversiones o aumentos de capital.</li>
+                    <li>Elimina banners preventivos a los inversionistas históricos ya verificados.</li>
+                  </ul>
+                </div>
+
+                <label className="flex items-start gap-3 p-3.5 bg-brand-50/50 border border-brand-100 rounded-2xl cursor-pointer hover:bg-brand-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={batchSarlaftAllUsers}
+                    onChange={(e) => setBatchSarlaftAllUsers(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                  />
+                  <div className="text-xs">
+                    <span className="font-bold text-slate-800 block">Aprobar a TODOS los usuarios del sistema</span>
+                    <span className="text-slate-500 text-[11px]">Si no se marca, solo se aprobará a usuarios que tengan al menos una inversión registrada.</span>
+                  </div>
+                </label>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBatchSarlaftModalOpen(false);
+                  setBatchSarlaftResult(null);
+                }}
+                disabled={isBatchSarlaftLoading}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+              >
+                {batchSarlaftResult ? 'Cerrar' : 'Cancelar'}
+              </button>
+
+              {!batchSarlaftResult && (
+                <button
+                  type="button"
+                  onClick={handleBatchValidateSarlaft}
+                  disabled={isBatchSarlaftLoading}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isBatchSarlaftLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Validando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Confirmar Validación Masiva</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>,

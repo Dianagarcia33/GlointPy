@@ -129,3 +129,90 @@ async def download_sarlaft_pdf(check_id: int, db: AsyncSession = Depends(get_db)
         )
 
     raise HTTPException(status_code=404, detail="Archivo PDF no encontrado en el servidor")
+
+
+class BatchValidateInvestorsRequest(BaseModel):
+    all_users: bool = False
+
+
+@router.post("/admin/validate-existing-investors", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def validate_existing_investors(
+    data: Optional[BatchValidateInvestorsRequest] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Aprueba administrativamente el SARLAFT para usuarios que ya cuentan con inversiones en el sistema (o todos si all_users=True).
+    Crea o actualiza su registro SarlaftCheck como 'finalizado' con risk_level='CLEAN'.
+    """
+    from datetime import datetime
+    from src.models.investor import Investor
+    from src.models.investment_request import InvestmentRequest
+
+    all_users = data.all_users if data else False
+
+    if all_users:
+        user_query = select(User.id, User.document_id)
+    else:
+        investor_ids_q = select(Investor.user_id).distinct()
+        req_ids_q = select(InvestmentRequest.user_id).distinct()
+        combined = investor_ids_q.union(req_ids_q)
+        user_query = select(User.id, User.document_id).where(User.id.in_(combined))
+
+    res = await db.execute(user_query)
+    target_users = res.all()
+
+    updated_count = 0
+    now = datetime.utcnow()
+
+    for u_id, u_doc in target_users:
+        c_res = await db.execute(
+            select(SarlaftCheck).where(SarlaftCheck.user_id == u_id).order_by(SarlaftCheck.id.desc())
+        )
+        existing_check = c_res.scalars().first()
+
+        if existing_check:
+            if (
+                existing_check.tusdatos_status == "finalizado"
+                and existing_check.risk_level == "CLEAN"
+                and not existing_check.has_findings
+            ):
+                continue
+
+            existing_check.tusdatos_status = "finalizado"
+            existing_check.risk_level = "CLEAN"
+            existing_check.has_findings = False
+            existing_check.tusdatos_hallazgos_corregidos = True
+            existing_check.tusdatos_fecha_correccion = now
+            existing_check.tusdatos_corregido_por = current_user.id
+            existing_check.tusdatos_justificacion = "Aprobado administrativamente por contar con inversiones previas registradas."
+            existing_check.tusdatos_msg = "Aprobado por administración"
+            existing_check.updated_at = now
+            updated_count += 1
+        else:
+            new_check = SarlaftCheck(
+                user_id=u_id,
+                document_number=u_doc or f"LEGACY_{u_id}",
+                document_type="CC",
+                tusdatos_status="finalizado",
+                risk_level="CLEAN",
+                has_findings=False,
+                tusdatos_hallazgos_corregidos=True,
+                tusdatos_fecha_correccion=now,
+                tusdatos_corregido_por=current_user.id,
+                tusdatos_justificacion="Aprobado administrativamente por contar con inversiones previas registradas.",
+                tusdatos_msg="Aprobado por administración",
+                details={"source": "admin_batch_legacy_approval", "approved_by": current_user.id},
+                created_at=now,
+                updated_at=now
+            )
+            db.add(new_check)
+            updated_count += 1
+
+    await db.commit()
+    return {
+        "message": f"Se validaron y aprobaron {updated_count} usuario(s) exitosamente.",
+        "processed_users": len(target_users),
+        "updated_count": updated_count
+    }
+
