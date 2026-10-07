@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Loader2, Package, Tag, Layers, DollarSign, AlertCircle } from 'lucide-react';
+import { X, Save, Loader2, Package, Tag, Layers, DollarSign, AlertCircle, Plus } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CreateItemPayload, UpdateItemPayload } from '../../../services/inventoryService';
 
 interface ItemModalProps {
@@ -10,6 +10,7 @@ interface ItemModalProps {
   itemToEdit?: InventoryItem | null;
   categories: InventoryCategory[];
   defaultType?: 'PRODUCT' | 'OFFICE_SUPPLY';
+  onOpenCategoryModal?: () => void;
 }
 
 const UNIT_MEASURES = [
@@ -30,6 +31,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
   itemToEdit,
   categories,
   defaultType = 'PRODUCT',
+  onOpenCategoryModal,
 }) => {
   const isEdit = !!itemToEdit;
 
@@ -239,9 +241,21 @@ export const ItemModal: React.FC<ItemModalProps> = ({
           {/* Categoría y Unidad de Medida */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
-                Categoría
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-montserrat">
+                  Categoría
+                </label>
+                {onOpenCategoryModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenCategoryModal}
+                    className="text-[11px] font-bold text-brand-600 hover:text-brand-800 transition-colors flex items-center gap-1 cursor-pointer font-montserrat"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Nueva Categoría
+                  </button>
+                )}
+              </div>
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : '')}

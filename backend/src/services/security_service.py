@@ -256,6 +256,16 @@ class SecurityService:
                 if not conflict:
                     p.name = canonical
                 else:
+                    existing_role_ids = (await db.execute(
+                        select(role_permissions.c.role_id).where(role_permissions.c.permission_id == conflict.id)
+                    )).scalars().all()
+                    if existing_role_ids:
+                        await db.execute(
+                            delete(role_permissions).where(
+                                (role_permissions.c.permission_id == p.id) &
+                                (role_permissions.c.role_id.in_(existing_role_ids))
+                            )
+                        )
                     await db.execute(
                         role_permissions.update()
                         .where(role_permissions.c.permission_id == p.id)

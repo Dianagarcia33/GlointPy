@@ -13,7 +13,8 @@ import {
   TrendingDown, 
   Building2, 
   CheckCircle2,
-  Filter
+  Filter,
+  FolderPlus
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { 
@@ -32,6 +33,7 @@ import { SupplyDispatchModal } from '../components/SupplyDispatchModal';
 import { StockAdjustmentModal } from '../components/StockAdjustmentModal';
 import { QuickEntryModal } from '../components/QuickEntryModal';
 import { KardexDrawer } from '../components/KardexDrawer';
+import { CategoryManagementModal } from '../components/CategoryManagementModal';
 import { Can } from '../../../components/security/Can';
 
 export const InventoryPage: React.FC = () => {
@@ -63,6 +65,8 @@ export const InventoryPage: React.FC = () => {
 
   const [kardexDrawerOpen, setKardexDrawerOpen] = useState(false);
   const [kardexFilterItem, setKardexFilterItem] = useState<InventoryItem | null>(null);
+
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
   // Alerta de acción exitosa (Toast)
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -191,6 +195,18 @@ export const InventoryPage: React.FC = () => {
             >
               <History className="w-4 h-4 text-slate-500" />
               <span>Bitácora Kardex</span>
+            </button>
+          </Can>
+
+          {/* Botón Gestionar Categorías */}
+          <Can permission="inventory:create">
+            <button
+              type="button"
+              onClick={() => setCategoryModalOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-xs hover:border-slate-300 transition-all cursor-pointer font-montserrat"
+            >
+              <FolderPlus className="w-4 h-4 text-brand-500" />
+              <span>Categorías</span>
             </button>
           </Can>
 
@@ -416,7 +432,7 @@ export const InventoryPage: React.FC = () => {
             />
           </div>
 
-          <div className="relative">
+          <div className="relative flex items-center gap-1.5">
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : '')}
@@ -429,6 +445,17 @@ export const InventoryPage: React.FC = () => {
                 </option>
               ))}
             </select>
+
+            <Can permission="inventory:create">
+              <button
+                type="button"
+                onClick={() => setCategoryModalOpen(true)}
+                className="p-1.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-brand-600 hover:text-brand-800 transition-colors cursor-pointer"
+                title="Administrar / Crear Categorías"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+              </button>
+            </Can>
           </div>
 
           <button
@@ -478,6 +505,7 @@ export const InventoryPage: React.FC = () => {
         itemToEdit={itemToEdit}
         categories={categories}
         defaultType={defaultItemType}
+        onOpenCategoryModal={() => setCategoryModalOpen(true)}
       />
 
       <SupplyDispatchModal
@@ -507,6 +535,17 @@ export const InventoryPage: React.FC = () => {
         onClose={() => setKardexDrawerOpen(false)}
         filterItemId={kardexFilterItem?.id}
         filterItemName={kardexFilterItem?.name}
+      />
+
+      <CategoryManagementModal
+        isOpen={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        categories={categories}
+        onCategoryCreated={(newCat) => {
+          setCategories((prev) => [...prev, newCat]);
+          setSelectedCategory(newCat.id);
+          showToast(`Categoría "${newCat.name}" agregada.`);
+        }}
       />
 
     </div>
