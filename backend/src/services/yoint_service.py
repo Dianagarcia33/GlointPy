@@ -530,7 +530,17 @@ class YointService:
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
+                logger.info(f"[YointService] Consultando estado a Yoint para Retiro #{dispersion.withdrawal_id}: {endpoint}")
                 res = await client.get(endpoint, headers=headers)
+                logger.info(f"[YointService] Respuesta Yoint para #{dispersion.withdrawal_id}: HTTP {res.status_code} -> {res.text[:300]}")
+
+                # Si dio 404 con target_id, intentar por paymentReference como fallback
+                if res.status_code == 404 and target_id and dispersion.payment_reference:
+                    fallback_endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions?paymentReference={dispersion.payment_reference}"
+                    logger.info(f"[YointService] Fallback a query param: {fallback_endpoint}")
+                    res = await client.get(fallback_endpoint, headers=headers)
+                    logger.info(f"[YointService] Respuesta Fallback Yoint: HTTP {res.status_code} -> {res.text[:300]}")
+
                 if res.status_code == 200:
                     data = res.json()
                     new_status = None
@@ -562,4 +572,5 @@ class YointService:
                 else:
                     return {"http_code": res.status_code, "body": res.text}
         except Exception as e:
+            logger.error(f"[YointService] Error consultando orden {dispersion.order_id or dispersion.payment_reference}: {e}")
             return {"error": str(e)}
