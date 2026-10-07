@@ -185,6 +185,28 @@ async def get_payin_status(
             except Exception as auto_err:
                 logger.warning(f"Error en reintento de auto-aprobación para inversión #{payin.investment_request_id}: {auto_err}")
 
+    # Verificar si la recarga de billetera ya quedó acreditada
+    recharge_approved = False
+    if payin.wallet_recharge_id:
+        rec_res = await db.execute(
+            select(WalletRecharge.status).where(WalletRecharge.id == payin.wallet_recharge_id)
+        )
+        rec_status = rec_res.scalar_one_or_none()
+        if rec_status == "approved":
+            recharge_approved = True
+        elif payin.status == "SUCCESS":
+            try:
+                await YointService.process_payin_status_transition(
+                    db=db, payin=payin, new_status="SUCCESS", payload=payin.webhook_payload
+                )
+                rec_res2 = await db.execute(
+                    select(WalletRecharge.status).where(WalletRecharge.id == payin.wallet_recharge_id)
+                )
+                if rec_res2.scalar_one_or_none() == "approved":
+                    recharge_approved = True
+            except Exception as auto_rec_err:
+                logger.warning(f"Error en reintento de acreditación para recarga #{payin.wallet_recharge_id}: {auto_rec_err}")
+
     return {
         "payin_id": payin.id,
         "order_id": payin.order_id,
@@ -195,6 +217,8 @@ async def get_payin_status(
         "redirect_url": payin.redirect_url,
         "investment_request_id": payin.investment_request_id,
         "investment_approved": investment_approved,
+        "wallet_recharge_id": payin.wallet_recharge_id,
+        "recharge_approved": recharge_approved,
         "created_at": payin.created_at.isoformat() if payin.created_at else None,
         "updated_at": payin.updated_at.isoformat() if payin.updated_at else None
     }

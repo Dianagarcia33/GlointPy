@@ -36,6 +36,8 @@ export interface PayinStatusResponse {
   redirect_url?: string;
   investment_request_id?: number;
   investment_approved: boolean;
+  wallet_recharge_id?: number;
+  recharge_approved?: boolean;
   created_at: string;
   updated_at: string;
 }

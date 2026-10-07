@@ -673,13 +673,19 @@ class YointService:
             return True
 
         if is_success:
-            # Si ya fue marcado como SUCCESS previamente, verificar si la inversión realmente quedó aprobada
+            # Si ya fue marcado como SUCCESS previamente, verificar si la inversión o recarga realmente quedó aprobada
             if payin.status == "SUCCESS":
                 if payin.payin_type == "INVESTMENT_REQUEST" and payin.investment_request_id:
                     chk_res = await db.execute(
                         select(InvestmentRequest.status).where(InvestmentRequest.id == payin.investment_request_id)
                     )
                     if chk_res.scalar_one_or_none() == InvestmentRequestStatus.approved:
+                        return True
+                elif payin.payin_type == "WALLET_TOPUP" and payin.wallet_recharge_id:
+                    chk_wr = await db.execute(
+                        select(WalletRecharge.status).where(WalletRecharge.id == payin.wallet_recharge_id)
+                    )
+                    if chk_wr.scalar_one_or_none() == "approved":
                         return True
                 else:
                     return True
@@ -1008,6 +1014,16 @@ class YointService:
         y ejecuta la transición de estado si cambió.
         """
         target_id = payin.order_id
+        if not target_id and payin.response_payload:
+            target_id = cls._extract_order_id(payin.response_payload)
+            if target_id:
+                payin.order_id = target_id
+                db.add(payin)
+                await db.commit()
+
+        if not target_id and payin.payment_reference:
+            target_id = payin.payment_reference
+
         if not target_id:
             return {"status": payin.status, "message": "Payin sin order_id"}
 
@@ -1087,7 +1103,8 @@ class YointService:
                 if new_status:
                     curr_status = (payin.status or "").upper()
                     target_status = str(new_status).upper()
-                    if target_status != curr_status or (target_status == "SUCCESS" and curr_status != "SUCCESS"):
+                    is_target_success = any(ok in target_status for ok in ["SUCCES", "EXITOS", "APPROV", "COMPLET", "PAID", "PAGAD", "CONFIRM", "OK"])
+                    if target_status != curr_status or is_target_success:
                         await cls.process_payin_status_transition(
                             db=db, payin=payin, new_status=str(new_status), payload=data
                         )

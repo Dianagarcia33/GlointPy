@@ -48,7 +48,6 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
   const [activePayin, setActivePayin] = useState<InitPayinResponse | null>(null);
   const [pollingStatus, setPollingStatus] = useState<string>('PENDING');
   const [pollingError, setPollingError] = useState<string | null>(null);
-  const [isCheckingManual, setIsCheckingManual] = useState(false);
 
   const IN_PROGRESS_STATUSES = [
     'PENDING',
@@ -104,9 +103,8 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
     }
   }, [method]);
 
-  const checkStatusOnce = async (isManual = false) => {
+  const checkStatusOnce = async () => {
     if (!activePayin) return;
-    if (isManual) setIsCheckingManual(true);
     try {
       const res = await yointService.getPayinStatus(activePayin.payin_id);
       const currentStatus = (res.status || '').toUpperCase();
@@ -121,8 +119,6 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
       }
     } catch (e: any) {
       console.warn("Error consultando estado de la pasarela:", e);
-    } finally {
-      if (isManual) setIsCheckingManual(false);
     }
     return null;
   };
@@ -133,7 +129,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
 
     if (activePayin && isPending) {
       intervalId = setInterval(async () => {
-        await checkStatusOnce(false);
+        await checkStatusOnce();
       }, 3000);
     }
 
@@ -206,42 +202,33 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
-              {activePayin.redirect_url && (
+            {activePayin.redirect_url && (
+              <div className="pt-1">
                 <a
                   href={activePayin.redirect_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer font-montserrat"
                 >
                   <ExternalLink className="w-4 h-4" />
                   <span>Reabrir Ventana de Pago</span>
                 </a>
-              )}
+              </div>
+            )}
 
-              <button
-                type="button"
-                onClick={() => checkStatusOnce(true)}
-                disabled={isCheckingManual}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
-              >
-                {isCheckingManual ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Verificando...</span>
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Ya pagué (Verificar Ahora)</span>
-                  </>
-                )}
-              </button>
+            <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-3.5 text-xs text-amber-900 text-left space-y-1 font-montserrat">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                <span>Activación 100% Automática en Segundo Plano</span>
+              </div>
+              <p className="text-[11px] text-amber-800/90 leading-relaxed font-normal">
+                Una vez autorices la transacción en tu banco o aplicación, el sistema activará tu {payinType === 'INVESTMENT_REQUEST' ? 'inversión' : 'recarga'} de forma inmediata sin que tengas que realizar ninguna acción adicional, incluso si cierras esta ventana o te sales de la plataforma.
+              </p>
             </div>
 
             <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
-              <Clock className="w-3.5 h-3.5 animate-pulse text-amber-500" />
-              <span>Verificando confirmación del pago en tiempo real...</span>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
+              <span>Sincronizando confirmación bancaria en tiempo real...</span>
             </div>
           </div>
         )}
