@@ -1,6 +1,6 @@
-
 import os
 import uuid
+import logging
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,7 @@ from src.models.withdrawal import Withdrawal, WithdrawalType, WithdrawalStatus
 from src.api.v1.endpoints.wallets import check_withdrawal_dates_active
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/me")
 async def get_my_investments(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -587,6 +588,7 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     # --- Fetch Movements (Withdrawals linked to this investment) ---
     w_res = await db.execute(
         select(Withdrawal)
+        .options(selectinload(Withdrawal.yoint_dispersions))
         .where(Withdrawal.investor_id == inv_id)
         .order_by(desc(Withdrawal.created_at))
     )
@@ -597,17 +599,31 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     movements = []
     
     for w in withdrawals:
-        w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else w.tipo
-        if w_tipo.lower() == "capital" and w.estado.lower() in ["pendiente", "aprobado", "procesado"]:
+        w_tipo = w.tipo.value if hasattr(w.tipo, 'value') else str(w.tipo)
+        w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+        if w_tipo.lower() == "capital" and w_estado.lower() in ["pendiente", "aprobado", "procesado"]:
             capital_retirado += float(w.monto)
             
+        monto_float = float(w.monto or 0)
+        impuesto_float = float(w.impuesto) if w.impuesto is not None else 0.0
+        neto_float = float(w.monto_neto) if w.monto_neto is not None else (monto_float - impuesto_float)
+
         movements.append({
             "id": w.id,
             "tipo": w_tipo,
-            "monto": float(w.monto),
-            "estado": w.estado.value if hasattr(w.estado, 'value') else w.estado,
-            "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
-            "metodo_pago": w.metodo_pago
+            "monto": monto_float,
+            "impuesto": impuesto_float,
+            "monto_neto": neto_float,
+            "estado": w_estado,
+            "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else (w.created_at.isoformat() if w.created_at else None),
+            "fecha_retiro": w.fecha_retiro.isoformat() if w.fecha_retiro else None,
+            "metodo_pago": w.metodo_pago,
+            "banco": w.banco,
+            "tipo_cuenta": w.tipo_cuenta,
+            "numero_cuenta": w.numero_cuenta,
+            "comprobante_pago": w.comprobante_pago,
+            "motivo_rechazo": w.motivo_rechazo,
+            "created_at": w.created_at.isoformat() if w.created_at else None
         })
         
     capital_disponible = capital_liberado - capital_retirado
@@ -768,6 +784,7 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
         "can_withdraw_capital": (await check_withdrawal_dates_active(db))[0] and (capital_disponible > 0),
         "withdrawal_date_message": (await check_withdrawal_dates_active(db))[1],
         "can_upgrade": can_upgrade,
+        "capital_withdrawals": [m for m in movements if str(m.get("tipo", "")).lower() == "capital"],
         "movements": movements,
         "history": history,
         "projection": projection_table,
@@ -1049,11 +1066,39 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
     )
     
     db.add(withdrawal)
-    
+    await db.flush()
+
+    # 6. Acreditar el 3.2% de retención a la Billetera Corporativa de la Empresa
+    try:
+        from src.services.company_wallet_service import CompanyWalletService
+        await CompanyWalletService.credit_tax_retention(db, withdrawal, current_user.name)
+    except Exception as cw_err:
+        logger.warning(f"Aviso al acreditar retención 3.2% de capital a Billetera Corporativa: {cw_err}")
+
     try:
         await db.commit()
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+    # 7. Disparar dispersión automática a la API v2 de Yoint (idéntico a retiros de wallet)
+    yoint_tracking = None
+    try:
+        from src.services.yoint_service import YointService
+        dispersion = await YointService.send_dispersion(db=db, withdrawal=withdrawal, user=current_user)
+        yoint_tracking = {
+            "dispersion_id": dispersion.id,
+            "order_id": dispersion.order_id,
+            "status": dispersion.status
+        }
+    except Exception as y_err:
+        logger.error(f"Error al enviar dispersión a Yoint para retiro de capital #{withdrawal.id}: {y_err}")
         
-    return {"message": "Retiro de capital solicitado exitosamente", "monto": capital_disponible}
+    return {
+        "message": "Retiro de capital solicitado exitosamente", 
+        "monto": capital_disponible,
+        "monto_neto": net_amount,
+        "impuesto": tax,
+        "withdrawal_id": withdrawal.id,
+        "yoint": yoint_tracking
+    }

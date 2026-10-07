@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchApi, getMediaUrl } from '../../../services/api';
 import { formatCurrency } from '../../../utils/format';
-import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar, Download, ShieldCheck, User, Hash } from 'lucide-react';
+import { ArrowLeft, Clock, DollarSign, Activity, FileText, ArrowDownToLine, Zap, PlusCircle, Printer, Eye, X, Calendar, Download, ShieldCheck, User, Hash, CheckCircle2, AlertCircle } from 'lucide-react';
 import { CapitalWithdrawalModal } from '../components/CapitalWithdrawalModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
 import { investorDocumentsService, InvestorDocument } from '../../../services/investorDocuments';
@@ -69,6 +69,9 @@ export const InvestmentDetailPage = () => {
 
     const progressPct = inv.dias_contrato > 0 ? Math.min(100, Math.max(0, (inv.dias_transcurridos / inv.dias_contrato) * 100)) : 0;
     const daysLeft = Math.max(0, inv.dias_contrato - inv.dias_transcurridos);
+    const capitalWithdrawals = (inv.capital_withdrawals && inv.capital_withdrawals.length > 0)
+        ? inv.capital_withdrawals
+        : (inv.movements?.filter((m: any) => String(m.tipo || '').toLowerCase() === 'capital') || []);
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -77,7 +80,6 @@ export const InvestmentDetailPage = () => {
                 onClose={() => setIsWithdrawModalOpen(false)}
                 onSuccess={() => {
                     setIsWithdrawModalOpen(false);
-                    alert("¡Retiro solicitado con éxito!");
                     loadDetails();
                 }}
                 investmentId={inv.id}
@@ -371,6 +373,124 @@ export const InvestmentDetailPage = () => {
                                 </div>
                             </div>
                         )}
+                        {/* Historial de Retiros de Capital */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-brand-50 text-brand-500 rounded-xl border border-brand-100">
+                                        <ArrowDownToLine className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-bold text-slate-900 font-montserrat uppercase tracking-wider">
+                                            Historial de Retiros de Capital
+                                        </h3>
+                                        <p className="text-xs text-slate-500">Solicitudes y transferencias de capital liberado de esta inversión</p>
+                                    </div>
+                                </div>
+                                <span className="text-xs font-bold bg-brand-50 text-brand-700 px-3 py-1 rounded-full border border-brand-200">
+                                    {capitalWithdrawals.length} {capitalWithdrawals.length === 1 ? 'retiro' : 'retiros'}
+                                </span>
+                            </div>
+
+                            {capitalWithdrawals.length > 0 ? (
+                                <div className="overflow-x-auto rounded-xl border border-slate-100">
+                                    <table className="w-full text-left text-xs whitespace-nowrap">
+                                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-100">
+                                            <tr>
+                                                <th className="py-3 px-3.5">Solicitud</th>
+                                                <th className="py-3 px-3.5">Fecha</th>
+                                                <th className="py-3 px-3.5 text-right">Monto Bruto</th>
+                                                <th className="py-3 px-3.5 text-right">Retención (3.2%)</th>
+                                                <th className="py-3 px-3.5 text-right">Monto Neto</th>
+                                                <th className="py-3 px-3.5">Cuenta Destino</th>
+                                                <th className="py-3 px-3.5 text-center">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 font-medium">
+                                            {capitalWithdrawals.map((w: any) => {
+                                                const st = String(w.estado || '').toLowerCase();
+                                                const isApproved = st === 'aprobado' || st === 'procesado';
+                                                const isPending = st === 'pendiente';
+                                                const isRejected = st === 'rechazado' || st === 'cancelado';
+
+                                                return (
+                                                    <tr key={w.id} className="hover:bg-slate-50/70 transition-colors">
+                                                        <td className="py-3 px-3.5 font-mono font-bold text-slate-800">
+                                                            #RET-{w.id}
+                                                        </td>
+                                                        <td className="py-3 px-3.5 text-slate-600 font-mono text-[11px]">
+                                                            {formatDate(w.fecha_solicitud || w.created_at)}
+                                                        </td>
+                                                        <td className="py-3 px-3.5 text-right text-slate-700 font-mono">
+                                                            {formatCurrency(w.monto || 0)}
+                                                        </td>
+                                                        <td className="py-3 px-3.5 text-right text-red-500 font-mono">
+                                                            -{formatCurrency(w.impuesto || (w.monto * 0.032))}
+                                                        </td>
+                                                        <td className="py-3 px-3.5 text-right font-bold text-slate-900 font-mono">
+                                                            {formatCurrency(w.monto_neto || (w.monto * 0.968))}
+                                                        </td>
+                                                        <td className="py-3 px-3.5 text-slate-600">
+                                                            {w.banco ? (
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-semibold text-slate-800">{w.banco}</span>
+                                                                    <span className="text-[10px] text-slate-400">
+                                                                        {w.tipo_cuenta || 'Ahorros'} ••• {String(w.numero_cuenta || '').slice(-4)}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-slate-400 text-xs">Cuenta bancaria registrada</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-3 px-3.5 text-center">
+                                                            {isApproved && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                                                    {st === 'procesado' ? 'Procesado' : 'Aprobado'}
+                                                                </span>
+                                                            )}
+                                                            {isPending && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                                    <Clock className="w-3 h-3 text-amber-600" />
+                                                                    En Proceso
+                                                                </span>
+                                                            )}
+                                                            {isRejected && (
+                                                                <span 
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 cursor-help"
+                                                                    title={w.motivo_rechazo || "Solicitud rechazada"}
+                                                                >
+                                                                    <AlertCircle className="w-3 h-3 text-red-600" />
+                                                                    Rechazado
+                                                                </span>
+                                                            )}
+                                                            {!isApproved && !isPending && !isRejected && (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">
+                                                                    {w.estado}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="bg-slate-50 p-6 rounded-2xl border border-dashed border-slate-200 flex items-center gap-4">
+                                    <div className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl shrink-0 shadow-2xs">
+                                        <ArrowDownToLine className="w-5 h-5 text-brand-500" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Sin retiros de capital</h4>
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                            Aún no has solicitado retiros de capital liberado para esta inversión. Cuando realices un retiro, su estado y liquidación se mostrarán aquí.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Documentos y Contratos Emitidos */}
                         {documents.length > 0 ? (
                             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
