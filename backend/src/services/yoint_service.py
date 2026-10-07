@@ -8,6 +8,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from sqlalchemy import or_
 
 from src.core.config import settings
 from src.models.user import User
@@ -336,13 +337,28 @@ class YointService:
         - APPROVED / COMPLETED / EXITOSA: Marca retiro como aprobado.
         - REJECTED / FAILED / RECHAZADA: Marca retiro como rechazado, devuelve fondos a la wallet y revierte el 3.2% de impuesto.
         """
-        # Buscar la dispersión asociada
-        q = select(YointDispersion).where(YointDispersion.order_id == str(order_id))
+        # Buscar la dispersión asociada de forma flexible (por order_id, payment_reference, idempotency_key o withdrawal_id)
+        clean_id = str(order_id).strip()
+        conditions = [
+            YointDispersion.order_id == clean_id,
+            YointDispersion.payment_reference == clean_id,
+            YointDispersion.idempotency_key == clean_id
+        ]
+        if clean_id.upper().startswith("RET-"):
+            try:
+                w_id = int(clean_id.upper().replace("RET-", ""))
+                conditions.append(YointDispersion.withdrawal_id == w_id)
+            except Exception:
+                pass
+        elif clean_id.isdigit():
+            conditions.append(YointDispersion.withdrawal_id == int(clean_id))
+
+        q = select(YointDispersion).where(or_(*conditions)).order_by(YointDispersion.id.desc())
         res = await db.execute(q)
         dispersion = res.scalars().first()
 
         if not dispersion:
-            logger.warning(f"No se encontró YointDispersion para order_id={order_id}")
+            logger.warning(f"No se encontró YointDispersion para identificador={order_id}")
             return False
 
         # Guardar payload del webhook si viene
@@ -361,12 +377,16 @@ class YointService:
         if not withdrawal:
             return False
 
-        # 1. Casos de ÉXITO
-        if status_upper in ["APPROVED", "COMPLETED", "PAID", "SUCCESS", "EXITOSA", "APROBADO"]:
+        # 1. Casos de ÉXITO / APROBADO
+        if status_upper in [
+            "APPROVED", "COMPLETED", "PAID", "SUCCESS", "EXITOSA", "EXITOSO", 
+            "APROBADO", "APROBADA", "PAGADA", "PAGADO", "TRANSFERRED", "TRANSFERIDA", 
+            "DISPERSED", "DISPERSADA", "LIQUIDATED", "LIQUIDADA"
+        ]:
             dispersion.status = "APPROVED"
             withdrawal.estado = WithdrawalStatus.APPROVED
             withdrawal.fecha_aprobacion = datetime.utcnow()
-            withdrawal.comprobante_pago = f"YOINT-PAID-{order_id}"
+            withdrawal.comprobante_pago = f"YOINT-PAID-{dispersion.order_id or clean_id}"
             
             # Notificar al usuario
             try:
@@ -383,12 +403,15 @@ class YointService:
             except Exception as e:
                 logger.warning(f"Error notificando aprobación Yoint retiro #{withdrawal.id}: {e}")
 
-            logger.info(f"Retiro #{withdrawal.id} (Yoint {order_id}) completado y APROBADO.")
+            logger.info(f"Retiro #{withdrawal.id} (Yoint {clean_id}) completado y APROBADO.")
 
         # 2. Casos de RECHAZO O FALLO
-        elif status_upper in ["REJECTED", "FAILED", "RECHAZADA", "DEVUELTA", "RECHAZADO"]:
+        elif status_upper in [
+            "REJECTED", "FAILED", "RECHAZADA", "RECHAZADO", "DEVUELTA", "DEVUELTO", 
+            "ERROR", "DECLINED", "CANCELLED", "CANCELADA", "FALLIDA", "FALLIDO", "DENIED"
+        ]:
             dispersion.status = "REJECTED"
-            motivo = payload.get("message") or payload.get("error") or "Rechazo de dispersión bancaria reportado por Yoint"
+            motivo = (payload.get("message") if isinstance(payload, dict) else None) or (payload.get("error") if isinstance(payload, dict) else None) or "Rechazo de dispersión bancaria reportado por Yoint"
             dispersion.error_message = str(motivo)
 
             withdrawal.estado = WithdrawalStatus.REJECTED
@@ -453,13 +476,27 @@ class YointService:
                 res = await client.get(endpoint, headers=headers)
                 if res.status_code == 200:
                     data = res.json()
-                    new_status = data.get("status") or data.get("state")
+                    new_status = None
+                    if isinstance(data, dict):
+                        data_inner = data.get("data") if isinstance(data.get("data"), dict) else {}
+                        dispersions_arr = data.get("dispersions") if isinstance(data.get("dispersions"), list) else []
+                        first_disp = dispersions_arr[0] if dispersions_arr and isinstance(dispersions_arr[0], dict) else {}
+
+                        new_status = (
+                            data.get("status") 
+                            or data.get("state")
+                            or data_inner.get("status")
+                            or data_inner.get("state")
+                            or first_disp.get("status")
+                            or first_disp.get("state")
+                        )
+
                     if new_status:
                         await cls.process_status_transition(
                             db=db, 
-                            order_id=dispersion.order_id, 
-                            new_status=new_status, 
-                            payload=data
+                            order_id=dispersion.order_id or dispersion.payment_reference, 
+                            new_status=str(new_status), 
+                            payload=data if isinstance(data, dict) else {"raw": data}
                         )
                     return data
                 else:

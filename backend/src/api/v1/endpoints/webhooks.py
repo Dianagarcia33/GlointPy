@@ -15,7 +15,10 @@ router = APIRouter()
 async def yoint_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    x_webhook_secret: Optional[str] = Header(None)
+    x_webhook_secret: Optional[str] = Header(None),
+    x_yoint_secret: Optional[str] = Header(None),
+    x_signature: Optional[str] = Header(None),
+    authorization: Optional[str] = Header(None)
 ):
     """
     Webhook público para recibir notificaciones automáticas en tiempo real de Yoint Payments.
@@ -24,8 +27,20 @@ async def yoint_webhook(
     """
     # 1. Validación de seguridad si se configuró YOINT_WEBHOOK_SECRET
     if settings.YOINT_WEBHOOK_SECRET:
-        if x_webhook_secret != settings.YOINT_WEBHOOK_SECRET:
-            logger.warning("Intento de acceso a webhook Yoint con secreto inválido o ausente.")
+        expected_secret = settings.YOINT_WEBHOOK_SECRET.strip()
+        auth_val = (authorization or "").replace("Bearer ", "").replace("bearer ", "").strip()
+        query_val = request.query_params.get("secret", "").strip()
+
+        received = [
+            (x_webhook_secret or "").strip(),
+            (x_yoint_secret or "").strip(),
+            (x_signature or "").strip(),
+            auth_val,
+            query_val
+        ]
+
+        if not any(expected_secret == r for r in received if r):
+            logger.warning(f"Intento de acceso a webhook Yoint no autorizado (secreto no coincide).")
             raise HTTPException(status_code=401, detail="Unauthorized webhook")
 
     # 2. Leer payload JSON
@@ -37,21 +52,35 @@ async def yoint_webhook(
 
     logger.info(f"Webhook Yoint recibido: {payload}")
 
-    # 3. Extraer orderId y estado (tolerante a múltiples formatos de pasarela)
+    # 3. Extraer orderId / referencia y estado (tolerante a múltiples formatos de pasarela)
+    data_obj = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+    dispersions_list = payload.get("dispersions") if isinstance(payload.get("dispersions"), list) else []
+    first_disp = dispersions_list[0] if dispersions_list and isinstance(dispersions_list[0], dict) else {}
+
     order_id = (
         payload.get("orderId") 
         or payload.get("order_id")
-        or payload.get("data", {}).get("orderId")
-        or payload.get("data", {}).get("order_id")
+        or payload.get("paymentReference")
+        or payload.get("payment_reference")
+        or payload.get("reference")
         or payload.get("id")
+        or data_obj.get("orderId")
+        or data_obj.get("order_id")
+        or data_obj.get("paymentReference")
+        or data_obj.get("reference")
+        or data_obj.get("id")
+        or first_disp.get("orderId")
+        or first_disp.get("paymentReference")
     )
     
     new_status = (
         payload.get("status") 
         or payload.get("state")
-        or payload.get("data", {}).get("status")
-        or payload.get("data", {}).get("state")
         or payload.get("event")
+        or data_obj.get("status")
+        or data_obj.get("state")
+        or first_disp.get("status")
+        or first_disp.get("state")
     )
 
     if not order_id or not new_status:
