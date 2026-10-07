@@ -437,12 +437,12 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
         </div>
       )}
 
-      {/* Botón de Pago Principal */}
+      {/* Botón de Pago Principal con diseño estándar de Gloint */}
       <button
         type="button"
         disabled={isProcessing || isSubmittingParent || (method === 'NEQUI' && phone.length < 10)}
         onClick={handleStartPayment}
-        className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+        className="w-full py-3 px-6 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
       >
         {isProcessing ? (
           <>
@@ -450,10 +450,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
             <span>Conectando con la pasarela segura...</span>
           </>
         ) : (
-          <>
-            <ShieldCheck className="w-4 h-4 text-emerald-300" />
-            <span>{submitButtonText} ({formatCurrency(amount)})</span>
-          </>
+          <span>{submitButtonText} ({formatCurrency(amount)})</span>
         )}
       </button>
     </div>

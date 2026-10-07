@@ -15,6 +15,8 @@ export default {
           400: '#fbbf24', // Ámbar
           500: '#f97316', // Naranja principal
           600: '#ea580c', // Naranja oscuro
+          700: '#c2410c', // Naranja profundo
+          800: '#9a3412', // Naranja quemado
         },
         surface: {
           bg: '#f1f5f9',    // slate-100
