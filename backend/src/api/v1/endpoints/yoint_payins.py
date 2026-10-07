@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from src.core.database import get_db
-from src.core.auth import get_current_user
+from src.api.deps import get_current_user
 from src.models.user import User
 from src.models.yoint_payin import YointPayin
 from src.models.wallet import Wallet
