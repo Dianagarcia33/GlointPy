@@ -422,10 +422,10 @@ class YointService:
         if not withdrawal:
             return False
 
-        # Clasificación de estado con tolerancia a variantes de Yoint (ej: 'Exitoso', 'No Exitoso', 'Aprobada')
+        # Clasificación de estado con tolerancia a variantes de Yoint (ej: 'SUCCESS', 'Exitoso', 'No Exitoso', 'Aprobada')
         is_success = (
             any(ok_word in status_upper for ok_word in [
-                "EXITOS", "APPROV", "COMPLET", "PAID", "PAGAD", "TRANSF", "DISPERS", "LIQUID"
+                "SUCCES", "EXITOS", "APPROV", "COMPLET", "PAID", "PAGAD", "TRANSF", "DISPERS", "LIQUID", "OK"
             ])
             and not any(neg in status_upper for neg in ["NO", "NOT", "FAIL", "REJECT", "ERROR", "DECLIN", "CANCEL"])
         )
@@ -512,7 +512,9 @@ class YointService:
     @classmethod
     async def query_order_status(cls, db: AsyncSession, dispersion: YointDispersion) -> Dict[str, Any]:
         """
-        Consulta en tiempo real el estado de una orden a Yoint.
+        Consulta en tiempo real el estado de una dispersión a Yoint usando los endpoints oficiales:
+        1. GET /api/payments/v1/dispersions/idempotency-key/{idempotency-key}
+        2. Fallback: GET /api/payments/v1/list-dispersion?ids={order_id}
         """
         # Si order_id está vacío, intentar recuperarlo de response_payload
         target_id = dispersion.order_id
@@ -523,51 +525,66 @@ class YointService:
                 db.add(dispersion)
                 await db.commit()
 
-        if not target_id and not dispersion.payment_reference:
-            return {"status": dispersion.status, "message": "Orden sin orderId ni paymentReference"}
+        if not target_id and not dispersion.idempotency_key and not dispersion.payment_reference:
+            return {"status": dispersion.status, "message": "Orden sin orderId ni idempotency_key"}
 
         if not settings.YOINT_API_KEY and not (settings.YOINT_CLIENT_ID and settings.YOINT_CLIENT_SECRET):
             return {"status": dispersion.status, "message": "Credenciales Yoint no configuradas"}
 
-        if target_id:
-            endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions/{target_id}"
-        else:
-            endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions?paymentReference={dispersion.payment_reference}"
-
+        base_url = settings.YOINT_API_URL.rstrip('/')
         headers = await cls._get_headers(idempotency_key=dispersion.idempotency_key or str(uuid.uuid4()))
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                logger.info(f"[YointService] Consultando estado a Yoint para Retiro #{dispersion.withdrawal_id}: {endpoint}")
-                res = await client.get(endpoint, headers=headers)
-                logger.info(f"[YointService] Respuesta Yoint para #{dispersion.withdrawal_id}: HTTP {res.status_code} -> {res.text[:300]}")
+                res = None
+                used_endpoint = None
 
-                # Si dio 404 con target_id, intentar por paymentReference como fallback
-                if res.status_code == 404 and target_id and dispersion.payment_reference:
-                    fallback_endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions?paymentReference={dispersion.payment_reference}"
-                    logger.info(f"[YointService] Fallback a query param: {fallback_endpoint}")
-                    res = await client.get(fallback_endpoint, headers=headers)
-                    logger.info(f"[YointService] Respuesta Fallback Yoint: HTTP {res.status_code} -> {res.text[:300]}")
+                # 1. Estrategia Principal: Consultar por Idempotency Key (Oficial en Yoint API Docs)
+                if dispersion.idempotency_key:
+                    used_endpoint = f"{base_url}/api/payments/v1/dispersions/idempotency-key/{dispersion.idempotency_key}"
+                    logger.info(f"[YointService] Consultando por idempotency-key para Retiro #{dispersion.withdrawal_id}: {used_endpoint}")
+                    res = await client.get(used_endpoint, headers=headers)
+                    logger.info(f"[YointService] Respuesta idempotency-key: HTTP {res.status_code} -> {res.text[:300]}")
+
+                # 2. Estrategia Secundaria: Consultar por lista de IDs (GET /api/payments/v1/list-dispersion?ids=...)
+                if (not res or res.status_code not in [200, 202]) and target_id:
+                    used_endpoint = f"{base_url}/api/payments/v1/list-dispersion?ids={target_id}"
+                    logger.info(f"[YointService] Consultando list-dispersion por ID para Retiro #{dispersion.withdrawal_id}: {used_endpoint}")
+                    res = await client.get(used_endpoint, headers=headers)
+                    logger.info(f"[YointService] Respuesta list-dispersion: HTTP {res.status_code} -> {res.text[:300]}")
+
+                if not res:
+                    return {"status": dispersion.status, "message": "No se pudo consultar ningún endpoint válido"}
 
                 if res.status_code == 200:
                     data = res.json()
                     new_status = None
                     if isinstance(data, dict):
-                        data_inner = data.get("data") if isinstance(data.get("data"), dict) else {}
-                        dispersions_arr = data.get("dispersions") if isinstance(data.get("dispersions"), list) else []
-                        first_disp = dispersions_arr[0] if dispersions_arr and isinstance(dispersions_arr[0], dict) else {}
+                        operations = data.get("operations") if isinstance(data.get("operations"), list) else []
+                        if operations:
+                            # Buscar la operación específica por ID o tomar la primera
+                            matching_op = None
+                            if target_id:
+                                for op in operations:
+                                    if str(op.get("id")) == str(target_id):
+                                        matching_op = op
+                                        break
+                            if not matching_op and operations:
+                                matching_op = operations[0]
+                            
+                            if matching_op:
+                                new_status = matching_op.get("status")
+                                # Si no teníamos order_id y la operación trae id, guardarlo
+                                if not dispersion.order_id and matching_op.get("id"):
+                                    dispersion.order_id = str(matching_op["id"])
+                                    db.add(dispersion)
 
-                        new_status = (
-                            data.get("status") 
-                            or data.get("state")
-                            or data.get("estado")
-                            or data_inner.get("status")
-                            or data_inner.get("state")
-                            or data_inner.get("estado")
-                            or first_disp.get("status")
-                            or first_disp.get("state")
-                            or first_disp.get("estado")
-                        )
+                        if not new_status:
+                            new_status = (
+                                data.get("status") 
+                                or data.get("state") 
+                                or data.get("estado")
+                            )
 
                     if new_status:
                         await cls.process_status_transition(
@@ -578,7 +595,7 @@ class YointService:
                         )
                     return data
                 else:
-                    return {"http_code": res.status_code, "body": res.text}
+                    return {"http_code": res.status_code, "body": res.text, "endpoint": used_endpoint}
         except Exception as e:
             logger.error(f"[YointService] Error consultando orden {dispersion.order_id or dispersion.payment_reference}: {e}")
             return {"error": str(e)}
