@@ -29,7 +29,7 @@ async def background_yoint_sync_worker():
             # Solo consultar si hay credenciales configuradas
             if settings.YOINT_API_KEY or settings.YOINT_CLIENT_ID:
                 async with async_session_maker() as db:
-                    # Buscar dispersiones activas o retiros en estado 'procesado'
+                    # 1. Buscar dispersiones activas o retiros en estado 'procesado'
                     q = (
                         select(YointDispersion)
                         .join(Withdrawal, YointDispersion.withdrawal_id == Withdrawal.id)
@@ -50,18 +50,40 @@ async def background_yoint_sync_worker():
                     res = await db.execute(q)
                     pending_dispersions = res.scalars().all()
 
-                    if pending_dispersions:
-                        # Si hay órdenes en proceso, acelerar la sincronización a 30 segundos
-                        poll_interval = 30
-                        logger.info(f"[YointSyncWorker] Conciliando {len(pending_dispersions)} dispersión(es) activa(s) con Yoint...")
+                    # 2. Buscar recaudos/payins activos en estado 'PENDING'
+                    from src.models.yoint_payin import YointPayin
+                    q_payins = (
+                        select(YointPayin)
+                        .where(
+                            YointPayin.status == "PENDING",
+                            YointPayin.order_id.isnot(None)
+                        )
+                        .order_by(YointPayin.id.asc())
+                        .limit(30)
+                    )
+                    res_payins = await db.execute(q_payins)
+                    pending_payins = res_payins.scalars().all()
 
-                        for disp in pending_dispersions:
-                            try:
-                                await YointService.query_order_status(db, disp)
-                                # Pequeña pausa entre llamadas a la API de Yoint para no saturar
-                                await asyncio.sleep(1)
-                            except Exception as item_err:
-                                logger.warning(f"[YointSyncWorker] Error consultando orden {disp.order_id or disp.payment_reference}: {item_err}")
+                    if pending_dispersions or pending_payins:
+                        poll_interval = 30
+                        if pending_dispersions:
+                            logger.info(f"[YointSyncWorker] Conciliando {len(pending_dispersions)} dispersión(es) activa(s) con Yoint...")
+                            for disp in pending_dispersions:
+                                try:
+                                    await YointService.query_order_status(db, disp)
+                                    await asyncio.sleep(1)
+                                except Exception as item_err:
+                                    logger.warning(f"[YointSyncWorker] Error consultando orden de dispersión {disp.order_id or disp.payment_reference}: {item_err}")
+
+                        if pending_payins:
+                            logger.info(f"[YointSyncWorker] Conciliando {len(pending_payins)} recaudo(s) activo(s) con Yoint...")
+                            for p in pending_payins:
+                                try:
+                                    await YointService.query_payin_status(db, p)
+                                    await asyncio.sleep(1)
+                                except Exception as payin_err:
+                                    logger.warning(f"[YointSyncWorker] Error consultando recaudo #{p.id} ({p.order_id}): {payin_err}")
+
 
         except asyncio.CancelledError:
             logger.info("[YointSyncWorker] Deteniendo worker de conciliación Yoint.")

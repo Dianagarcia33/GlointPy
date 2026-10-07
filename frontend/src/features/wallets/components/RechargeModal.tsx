@@ -10,10 +10,13 @@ import {
     AlertCircle, 
     CheckCircle2, 
     FileText,
-    Loader2
+    Loader2,
+    Zap
 } from 'lucide-react';
 import { createWalletRecharge } from '../../../services/wallets';
 import { GLOINT_BANK_INFO } from '../../../constants/contactInfo';
+import { useAuthStore } from '../../../store/authStore';
+import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
 
 interface RechargeModalProps {
     isOpen: boolean;
@@ -43,6 +46,8 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
     onClose,
     onSuccess
 }) => {
+    const { user } = useAuthStore();
+    const [rechargeMode, setRechargeMode] = useState<'YOINT_ONLINE' | 'MANUAL_TRANSFER'>('YOINT_ONLINE');
     const [amount, setAmount] = useState<number | ''>(100000);
     const [paymentMethod, setPaymentMethod] = useState('Transferencia Bancolombia');
     const [referenceNumber, setReferenceNumber] = useState('');
@@ -142,7 +147,37 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                         </p>
                     </div>
                 ) : (
-                    <form onSubmit={handleSubmit} className="space-y-5 pt-4">
+                    <div className="space-y-4 pt-2">
+                        {/* Selector de Modo de Recarga */}
+                        <div className="grid grid-cols-2 p-1 bg-slate-100/90 rounded-2xl border border-slate-200/80">
+                            <button
+                                type="button"
+                                onClick={() => { setRechargeMode('YOINT_ONLINE'); setError(null); }}
+                                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    rechargeMode === 'YOINT_ONLINE'
+                                        ? 'bg-white text-brand-600 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                                <span>En Línea (Automático)</span>
+                                <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider hidden sm:inline">
+                                    Inmediato
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setRechargeMode('MANUAL_TRANSFER'); setError(null); }}
+                                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    rechargeMode === 'MANUAL_TRANSFER'
+                                        ? 'bg-white text-slate-800 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                }`}
+                            >
+                                <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Transferencia Manual</span>
+                            </button>
+                        </div>
 
                         {error && (
                             <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2.5 text-xs text-rose-700 font-medium animate-in fade-in">
@@ -151,13 +186,12 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                             </div>
                         )}
 
-                        {/* Monto a recargar */}
+                        {/* Monto a recargar (compartido por ambos modos) */}
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-700 block">
                                 Monto a Recargar ($ COP) <span className="text-rose-500">*</span>
                             </label>
                             
-                            {/* Input principal */}
                             <div className="relative">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold font-mono text-sm">
                                     $
@@ -174,7 +208,6 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                                 />
                             </div>
 
-                            {/* Botones de sugerencia rápida */}
                             <div className="flex flex-wrap gap-1.5 pt-1">
                                 {PRESET_AMOUNTS.map((val) => (
                                     <button
@@ -193,192 +226,215 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                             </div>
                         </div>
 
-                        {/* Datos Bancarios Oficiales de Gloint */}
-                        <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4.5 space-y-3">
-                            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
-                                        <Building2 className="w-4 h-4 text-brand-600" />
+                        {rechargeMode === 'YOINT_ONLINE' ? (
+                            <div className="pt-2">
+                                <YointPaymentWidget
+                                    amount={Number(amount) || 0}
+                                    payinType="WALLET_TOPUP"
+                                    userPhone={user?.phone_number || ''}
+                                    submitButtonText="Recargar Billetera Ahora"
+                                    onSuccess={() => {
+                                        setSuccessMessage('¡Pago confirmado exitosamente! Tu saldo ha sido acreditado de inmediato en tu billetera.');
+                                        setTimeout(() => {
+                                            onSuccess();
+                                            onClose();
+                                        }, 2500);
+                                    }}
+                                    onFailed={(_status, err) => {
+                                        setError(err || 'El pago no se pudo completar o fue rechazado.');
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                {/* Datos Bancarios Oficiales de Gloint */}
+                                <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
+                                                <Building2 className="w-4 h-4 text-brand-600" />
+                                            </div>
+                                            <div>
+                                                <span className="text-xs font-bold text-slate-900 block font-montserrat">
+                                                    Datos Bancarios Oficiales de Gloint
+                                                </span>
+                                                <span className="text-[10px] text-slate-500 font-medium block">
+                                                    Transferencia para recarga de billetera
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span className="text-[11px] font-bold text-brand-700 bg-brand-50 border border-brand-200/70 px-2.5 py-0.5 rounded-full shadow-2xs">
+                                            {BANK_INFO.bank}
+                                        </span>
                                     </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                                        <div>
+                                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Titular de la Cuenta</span>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="font-bold text-slate-800 text-xs leading-tight break-words">{BANK_INFO.holder}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopy(BANK_INFO.holder, 'holder')}
+                                                    className="text-slate-400 hover:text-brand-600 transition-colors p-1 shrink-0"
+                                                    title="Copiar Titular"
+                                                >
+                                                    {copiedField === 'holder' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">NIT</span>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="font-bold text-slate-800 font-mono text-xs">{BANK_INFO.nit}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopy(BANK_INFO.nit, 'nit')}
+                                                    className="text-slate-400 hover:text-brand-600 transition-colors p-1 shrink-0"
+                                                    title="Copiar NIT"
+                                                >
+                                                    {copiedField === 'nit' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Tipo de Cuenta</span>
+                                            <span className="font-bold text-slate-800 text-xs block mt-0.5">{BANK_INFO.accountType}</span>
+                                        </div>
+
+                                        <div>
+                                            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Número de Cuenta</span>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="font-mono font-bold text-sm text-slate-900 bg-white border border-slate-300/80 px-2.5 py-1 rounded-xl shadow-2xs select-all">
+                                                    {BANK_INFO.accountNumber}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopy(BANK_INFO.accountNumber, 'acc')}
+                                                    className="text-slate-400 hover:text-brand-600 transition-colors p-1.5 bg-white border border-slate-200 rounded-lg hover:border-brand-300 shadow-2xs"
+                                                    title="Copiar Número de Cuenta"
+                                                >
+                                                    {copiedField === 'acc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Método y Referencia */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                        <span className="text-xs font-bold text-slate-900 block font-montserrat">
-                                            Datos Bancarios Oficiales de Gloint
-                                        </span>
-                                        <span className="text-[10px] text-slate-500 font-medium block">
-                                            Transferencia para recarga de billetera
-                                        </span>
-                                    </div>
-                                </div>
-                                <span className="text-[11px] font-bold text-brand-700 bg-brand-50 border border-brand-200/70 px-2.5 py-0.5 rounded-full shadow-2xs">
-                                    {BANK_INFO.bank}
-                                </span>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
-                                <div>
-                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Titular de la Cuenta</span>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <span className="font-bold text-slate-800 text-xs leading-tight break-words">{BANK_INFO.holder}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleCopy(BANK_INFO.holder, 'holder')}
-                                            className="text-slate-400 hover:text-brand-600 transition-colors p-1 shrink-0"
-                                            title="Copiar Titular"
+                                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                                            Método de Pago
+                                        </label>
+                                        <select
+                                            value={paymentMethod}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-hidden"
                                         >
-                                            {copiedField === 'holder' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                        </button>
+                                            <option value="Transferencia Bancolombia">Transferencia Bancolombia</option>
+                                            <option value="Nequi">Nequi</option>
+                                            <option value="Daviplata">Daviplata</option>
+                                            <option value="PSE / Otra Entidad">PSE / Otra Entidad Bancaria</option>
+                                            <option value="Depósito en Efectivo">Corresponsal / Depósito en Efectivo</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                                            N° de Comprobante / Referencia
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={referenceNumber}
+                                            onChange={(e) => setReferenceNumber(e.target.value)}
+                                            placeholder="Ej. REF-983421"
+                                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:ring-2 focus:ring-brand-500 outline-hidden"
+                                        />
                                     </div>
                                 </div>
 
+                                {/* Subida de Comprobante */}
                                 <div>
-                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">NIT</span>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <span className="font-bold text-slate-800 font-mono text-xs">{BANK_INFO.nit}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleCopy(BANK_INFO.nit, 'nit')}
-                                            className="text-slate-400 hover:text-brand-600 transition-colors p-1 shrink-0"
-                                            title="Copiar NIT"
-                                        >
-                                            {copiedField === 'nit' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                        </button>
+                                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                                        Adjuntar Comprobante de Transferencia (JPG, PNG, PDF) <span className="text-rose-500">*</span>
+                                    </label>
+                                    
+                                    <div className="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-50/60 hover:bg-brand-50/20 relative group">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                                            onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            required
+                                        />
+                                        <div className="space-y-1">
+                                            <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-brand-500 mx-auto transition-colors" />
+                                            <p className="text-xs font-bold text-slate-700 block truncate">
+                                                {receiptFile ? receiptFile.name : "Haz clic o arrastra tu comprobante aquí"}
+                                            </p>
+                                            <p className="text-[10px] text-slate-400">
+                                                {receiptFile ? `${(receiptFile.size / 1024 / 1024).toFixed(2)} MB adjuntado` : "Formatos soportados: JPG, PNG, PDF (Máx. 10 MB)"}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
+                                {/* Notas opcionales */}
                                 <div>
-                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Tipo de Cuenta</span>
-                                    <span className="font-bold text-slate-800 text-xs block mt-0.5">{BANK_INFO.accountType}</span>
+                                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                                        Observaciones o Notas (Opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        placeholder="Ej. Transferencia desde cuenta personal"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-brand-500 outline-hidden"
+                                    />
                                 </div>
 
-                                <div>
-                                    <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">Número de Cuenta</span>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="font-mono font-bold text-sm text-slate-900 bg-white border border-slate-300/80 px-2.5 py-1 rounded-xl shadow-2xs select-all">
-                                            {BANK_INFO.accountNumber}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleCopy(BANK_INFO.accountNumber, 'acc')}
-                                            className="text-slate-400 hover:text-brand-600 transition-colors p-1.5 bg-white border border-slate-200 rounded-lg hover:border-brand-300 shadow-2xs"
-                                            title="Copiar Número de Cuenta"
-                                        >
-                                            {copiedField === 'acc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                        </button>
-                                    </div>
+                                {/* Seguridad y Disclaimer */}
+                                <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-start gap-2 text-[11px] text-slate-500">
+                                    <ShieldCheck className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
+                                    <span>
+                                        Tu solicitud quedará en estado <strong>Pendiente</strong> y se acreditará en tu saldo una vez validada por administración.
+                                    </span>
                                 </div>
-                            </div>
-                        </div>
 
-                        {/* Método y Referencia */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label className="text-xs font-bold text-slate-700 block mb-1">
-                                    Método de Pago
-                                </label>
-                                <select
-                                    value={paymentMethod}
-                                    onChange={(e) => setPaymentMethod(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-brand-500 outline-hidden"
-                                >
-                                    <option value="Transferencia Bancolombia">Transferencia Bancolombia</option>
-                                    <option value="Nequi">Nequi</option>
-                                    <option value="Daviplata">Daviplata</option>
-                                    <option value="PSE / Otra Entidad">PSE / Otra Entidad Bancaria</option>
-                                    <option value="Depósito en Efectivo">Corresponsal / Depósito en Efectivo</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-bold text-slate-700 block mb-1">
-                                    N° de Comprobante / Referencia
-                                </label>
-                                <input
-                                    type="text"
-                                    value={referenceNumber}
-                                    onChange={(e) => setReferenceNumber(e.target.value)}
-                                    placeholder="Ej. REF-983421"
-                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium focus:ring-2 focus:ring-brand-500 outline-hidden"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Subida de Comprobante */}
-                        <div>
-                            <label className="text-xs font-bold text-slate-700 block mb-1">
-                                Adjuntar Comprobante de Transferencia (JPG, PNG, PDF) <span className="text-rose-500">*</span>
-                            </label>
-                            
-                            <div className="border-2 border-dashed border-slate-300 hover:border-brand-500 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-50/60 hover:bg-brand-50/20 relative group">
-                                <input
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    required
-                                />
-                                <div className="space-y-1">
-                                    <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-brand-500 mx-auto transition-colors" />
-                                    <p className="text-xs font-bold text-slate-700 block truncate">
-                                        {receiptFile ? receiptFile.name : "Haz clic o arrastra tu comprobante aquí"}
-                                    </p>
-                                    <p className="text-[10px] text-slate-400">
-                                        {receiptFile ? `${(receiptFile.size / 1024 / 1024).toFixed(2)} MB adjuntado` : "Formatos soportados: JPG, PNG, PDF (Máx. 10 MB)"}
-                                    </p>
+                                {/* Botones de acción */}
+                                <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        disabled={loading}
+                                        className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                <span>Enviando Comprobante...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ArrowDownToLine className="w-4 h-4" />
+                                                <span>Solicitar Recarga</span>
+                                            </>
+                                        )}
+                                    </button>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Notas opcionales */}
-                        <div>
-                            <label className="text-xs font-bold text-slate-700 block mb-1">
-                                Observaciones o Notas (Opcional)
-                            </label>
-                            <input
-                                type="text"
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Ej. Transferencia desde cuenta personal"
-                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-brand-500 outline-hidden"
-                            />
-                        </div>
-
-                        {/* Seguridad y Disclaimer */}
-                        <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-start gap-2 text-[11px] text-slate-500">
-                            <ShieldCheck className="w-4 h-4 text-brand-600 shrink-0 mt-0.5" />
-                            <span>
-                                Tu solicitud quedará en estado <strong>Pendiente</strong> y se acreditará inmediatamente en tu saldo una vez confirmada por el área financiera.
-                            </span>
-                        </div>
-
-                        {/* Botones de acción */}
-                        <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                disabled={loading}
-                                className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        <span>Enviando Comprobante...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <ArrowDownToLine className="w-4 h-4" />
-                                        <span>Solicitar Recarga</span>
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </form>
+                            </form>
+                        )}
+                    </div>
                 )}
 
             </div>

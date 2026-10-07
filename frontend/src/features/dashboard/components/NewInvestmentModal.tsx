@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck, Clock, ShieldAlert } from 'lucide-react';
+import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck, Clock, ShieldAlert, Zap, CheckCircle2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
 import { sarlaftService } from '../../../services/sarlaft';
 import { compressImage } from '../../../utils/imageCompression';
+import { useAuthStore } from '../../../store/authStore';
+import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
 
 interface NewInvestmentModalProps {
     isOpen: boolean;
@@ -18,6 +20,7 @@ interface NewInvestmentModalProps {
 
 export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentPackageAmount, currentPeriodId, investorId, isUpgrade = false }: NewInvestmentModalProps) => {
     const queryClient = useQueryClient();
+    const { user } = useAuthStore();
     
     // UI State
     const [step, setStep] = useState(1);
@@ -27,6 +30,9 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
     // Step 2 State
     const [useWallet, setUseWallet] = useState(false);
     const [walletAmount, setWalletAmount] = useState<number>(0);
+    const [paymentChoice, setPaymentChoice] = useState<'YOINT_ONLINE' | 'MANUAL_VOUCHER'>('YOINT_ONLINE');
+    const [autoApproved, setAutoApproved] = useState(false);
+    const [createdRequestId, setCreatedRequestId] = useState<number | null>(null);
     const [files, setFiles] = useState<FileList | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -90,7 +96,46 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         setWalletAmount(0);
         setFiles(null);
         setSubmitError(null);
+        setCreatedRequestId(null);
+        setAutoApproved(false);
+        setPaymentChoice('YOINT_ONLINE');
         onClose();
+    };
+
+    const handleCreateRequestForOnlinePayment = async (): Promise<number> => {
+        if (!selectedPackage || !selectedPeriod) {
+            throw new Error('Debes seleccionar un paquete y un periodo de contrato.');
+        }
+        if (createdRequestId) {
+            return createdRequestId;
+        }
+
+        const formData = new FormData();
+        formData.append('paquete_inversion_id', selectedPackage.id.toString());
+        formData.append('monto', packageAmount.toString());
+        formData.append('periodo_contrato', selectedPeriod.id.toString());
+        
+        if (useWallet && walletAmount > 0) {
+            formData.append('monto_billetera_usado', walletAmount.toString());
+        }
+        if (isUpgrade) {
+            formData.append('is_upgrade', 'true');
+        }
+        if (investorId) {
+            formData.append('investor_id', investorId.toString());
+        }
+
+        const res = await fetchApi('/investments/requests', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!res || !res.id) {
+            throw new Error(res?.detail || 'No se pudo crear la solicitud de inversión previa al pago.');
+        }
+
+        setCreatedRequestId(res.id);
+        return res.id;
     };
 
     const handleFilesSelected = (selectedFiles: FileList | null) => {
@@ -502,100 +547,210 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                 </div>
                             </div>
 
-                            {/* Comprobantes */}
-                            <div>
-                                <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Upload className="w-4 h-4 text-slate-400" />
-                                        <span>Comprobantes de Pago</span>
-                                    </div>
-                                    {amountToPay === 0 && (
-                                        <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                            100% Cubierto con Billetera (Opcional)
-                                        </span>
-                                    )}
-                                </label>
-
-                                {amountToPay === 0 ? (
-                                    <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold mb-3">
-                                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                                        <div>
-                                            <p className="font-bold text-sm text-emerald-900">¡Diferencia 100% cubierta con tu Billetera!</p>
-                                            <p className="font-normal text-emerald-700 mt-0.5">El valor del aumento se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.</p>
-                                        </div>
-                                    </div>
-                                ) : null}
-
-                                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-brand-400 transition-colors bg-slate-50">
-                                    <input 
-                                        type="file" 
-                                        id="comprobantes" 
-                                        multiple
-                                        accept="image/*,.pdf"
-                                        className="hidden"
-                                        onChange={(e) => handleFilesSelected(e.target.files)}
-                                    />
-                                    <label htmlFor="comprobantes" className="cursor-pointer flex flex-col items-center">
-                                        <Upload className="w-8 h-8 text-slate-400 mb-2" />
-                                        <span className="text-sm font-semibold text-slate-700">
-                                            {amountToPay === 0 ? 'Adjuntar soporte voluntario (opcional)' : 'Haz clic para subir o arrastra tus archivos'}
-                                        </span>
-                                        <span className="text-xs text-slate-500 mt-1">Imágenes (PNG, JPG, WEBP) o PDF • <strong>Máx. 10 MB por archivo</strong></span>
+                            {/* Selector de Método de Pago si hay saldo a transferir */}
+                            {amountToPay > 0 && (
+                                <div className="space-y-3 pt-1">
+                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                                        Selecciona cómo pagar los {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(amountToPay)}:
                                     </label>
-                                    
-                                    {files && files.length > 0 && (
-                                        <div className="mt-4 pt-4 border-t border-slate-200 text-left space-y-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentChoice('YOINT_ONLINE')}
+                                            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                                paymentChoice === 'YOINT_ONLINE'
+                                                    ? 'bg-brand-50/50 border-brand-500 ring-2 ring-brand-500/20 shadow-xs'
+                                                    : 'bg-white border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
                                             <div className="flex items-center justify-between">
-                                                <p className="text-xs font-bold text-slate-500 uppercase">Archivos seleccionados:</p>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setFiles(null);
-                                                        const inputEl = document.getElementById('comprobantes') as HTMLInputElement;
-                                                        if (inputEl) inputEl.value = '';
-                                                    }}
-                                                    className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                                                >
-                                                    <Trash2 className="w-3.5 h-3.5" />
-                                                    Quitar archivos
-                                                </button>
-                                            </div>
-                                            {Array.from(files).map((file, i) => (
-                                                <div key={i} className="text-sm text-slate-700 flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-100">
-                                                    <div className="w-2 h-2 rounded-full bg-brand-500"></div>
-                                                    <span className="truncate flex-1">{file.name}</span>
-                                                    <span className="text-xs font-mono text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-xl bg-brand-100/70 text-brand-600 flex items-center justify-center font-bold">
+                                                        <Zap className="w-4 h-4 text-brand-600 fill-brand-600" />
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-900 font-montserrat">
+                                                        Pago en Línea Automático
+                                                    </span>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                                <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-extrabold uppercase tracking-wider">
+                                                    Inmediato
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 leading-tight">
+                                                Nequi, Botón Bancolombia o PSE. Tu inversión se <strong>aprueba automáticamente</strong> al pagar.
+                                            </p>
+                                        </button>
 
-                            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
-                                <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-blue-700 leading-relaxed">
-                                    Al enviar tu solicitud, el estado de tu inversión será "Pendiente" hasta que el equipo administrativo valide los comprobantes de pago.
-                                </p>
-                            </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentChoice('MANUAL_VOUCHER')}
+                                            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                                                paymentChoice === 'MANUAL_VOUCHER'
+                                                    ? 'bg-brand-50/50 border-brand-500 ring-2 ring-brand-500/20 shadow-xs'
+                                                    : 'bg-white border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold">
+                                                        <Upload className="w-4 h-4 text-slate-600" />
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-900 font-montserrat">
+                                                        Transferencia Manual
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-slate-500 leading-tight">
+                                                Consigna a nuestra cuenta bancaria y sube tu comprobante para validación manual.
+                                            </p>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Contenido según el modo de pago seleccionado */}
+                            {amountToPay > 0 && paymentChoice === 'YOINT_ONLINE' ? (
+                                <div className="pt-2">
+                                    <YointPaymentWidget
+                                        amount={amountToPay}
+                                        payinType="INVESTMENT_REQUEST"
+                                        userPhone={user?.phone_number || ''}
+                                        submitButtonText="Pagar Inversión con Yoint"
+                                        onRequestCreate={handleCreateRequestForOnlinePayment}
+                                        onSuccess={(statusRes) => {
+                                            setAutoApproved(statusRes.investment_approved || statusRes.status === 'SUCCESS');
+                                            queryClient.invalidateQueries({ queryKey: ['my_investments'] });
+                                            queryClient.invalidateQueries({ queryKey: ['wallet'] });
+                                            setStep(3);
+                                        }}
+                                        onFailed={(_statusRes, errMsg) => {
+                                            setSubmitError(errMsg || 'El pago de la inversión no fue aprobado por la pasarela.');
+                                        }}
+                                    />
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Comprobantes */}
+                                    <div>
+                                        <label className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-2 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Upload className="w-4 h-4 text-slate-400" />
+                                                <span>Comprobantes de Pago</span>
+                                            </div>
+                                            {amountToPay === 0 && (
+                                                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                                    100% Cubierto con Billetera (Opcional)
+                                                </span>
+                                            )}
+                                        </label>
+
+                                        {amountToPay === 0 ? (
+                                            <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold mb-3">
+                                                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                                                <div>
+                                                    <p className="font-bold text-sm text-emerald-900">¡Diferencia 100% cubierta con tu Billetera!</p>
+                                                    <p className="font-normal text-emerald-700 mt-0.5">El valor del aumento se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.</p>
+                                                </div>
+                                            </div>
+                                        ) : null}
+
+                                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:border-brand-400 transition-colors bg-slate-50">
+                                            <input 
+                                                type="file" 
+                                                id="comprobantes" 
+                                                multiple
+                                                accept="image/*,.pdf"
+                                                className="hidden"
+                                                onChange={(e) => handleFilesSelected(e.target.files)}
+                                            />
+                                            <label htmlFor="comprobantes" className="cursor-pointer flex flex-col items-center">
+                                                <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                                                <span className="text-sm font-semibold text-slate-700">
+                                                    {amountToPay === 0 ? 'Adjuntar soporte voluntario (opcional)' : 'Haz clic para subir o arrastra tus archivos'}
+                                                </span>
+                                                <span className="text-xs text-slate-500 mt-1">Imágenes (PNG, JPG, WEBP) o PDF • <strong>Máx. 10 MB por archivo</strong></span>
+                                            </label>
+                                            
+                                            {files && files.length > 0 && (
+                                                <div className="mt-4 pt-4 border-t border-slate-200 text-left space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-xs font-bold text-slate-500 uppercase">Archivos seleccionados:</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFiles(null);
+                                                                const inputEl = document.getElementById('comprobantes') as HTMLInputElement;
+                                                                if (inputEl) inputEl.value = '';
+                                                            }}
+                                                            className="text-xs text-red-500 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                            Quitar archivos
+                                                        </button>
+                                                    </div>
+                                                    {Array.from(files).map((file, i) => (
+                                                        <div key={i} className="text-sm text-slate-700 flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-100">
+                                                            <div className="w-2 h-2 rounded-full bg-brand-500"></div>
+                                                            <span className="truncate flex-1">{file.name}</span>
+                                                            <span className="text-xs font-mono text-slate-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3">
+                                        <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                                        <p className="text-xs text-blue-700 leading-relaxed">
+                                            Al enviar tu solicitud, el estado de tu inversión será "Pendiente" hasta que el equipo administrativo valide los comprobantes de pago.
+                                        </p>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                     
                     {step === 3 && (
                         <div className="flex flex-col items-center justify-center p-8 text-center animate-fadeIn space-y-4">
-                            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4 border-4 border-emerald-50">
-                                <TrendingUp className="w-10 h-10 text-emerald-500" />
-                            </div>
-                            <h3 className="text-2xl font-bold text-slate-800">¡Solicitud Registrada!</h3>
-                            <p className="text-slate-600 text-sm max-w-sm mx-auto">
-                                Hemos recibido tu solicitud de inversión. Nuestro equipo administrativo la validará en breve y te notificaremos cuando esté aprobada.
-                            </p>
-                            <button 
-                                onClick={handleFinalClose}
-                                className="mt-6 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md transition-all"
-                            >
-                                Entendido
-                            </button>
+                            {autoApproved ? (
+                                <>
+                                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-2 border-4 border-emerald-50 text-emerald-600 shadow-md animate-bounce">
+                                        <CheckCircle2 className="w-10 h-10" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full inline-block">
+                                            Aprobación Inmediata Confirmada
+                                        </span>
+                                        <h3 className="text-2xl font-bold text-slate-900 font-montserrat">¡Inversión Aprobada y Activa!</h3>
+                                        <p className="text-slate-600 text-sm max-w-sm mx-auto leading-relaxed">
+                                            Tu pago en línea fue validado exitosamente por Yoint. Tu contrato de inversión y rentabilidad ya se encuentran activos en tu panel.
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={handleFinalClose}
+                                        className="mt-6 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer"
+                                    >
+                                        Ver Mis Inversiones
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4 border-4 border-emerald-50">
+                                        <TrendingUp className="w-10 h-10 text-emerald-500" />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-slate-800">¡Solicitud Registrada!</h3>
+                                    <p className="text-slate-600 text-sm max-w-sm mx-auto">
+                                        Hemos recibido tu solicitud de inversión. Nuestro equipo administrativo la validará en breve y te notificaremos cuando esté aprobada.
+                                    </p>
+                                    <button 
+                                        onClick={handleFinalClose}
+                                        className="mt-6 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer"
+                                    >
+                                        Entendido
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
                         </>
@@ -626,14 +781,16 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                     <ChevronLeft className="w-4 h-4" />
                                     Atrás
                                 </button>
-                                <button 
-                                    onClick={handleSubmit}
-                                    disabled={createRequestMutation.isPending || (amountToPay > 0 && (!files || files.length === 0))}
-                                    className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                                >
-                                    {createRequestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                                    Confirmar Inversión
-                                </button>
+                                {(amountToPay === 0 || paymentChoice === 'MANUAL_VOUCHER') && (
+                                    <button 
+                                        onClick={handleSubmit}
+                                        disabled={createRequestMutation.isPending || (amountToPay > 0 && (!files || files.length === 0))}
+                                        className="flex items-center gap-2 px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        {createRequestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                        Confirmar Inversión
+                                    </button>
+                                )}
                             </>
                         )}
                     </div>

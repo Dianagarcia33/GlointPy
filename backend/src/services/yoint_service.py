@@ -3,7 +3,7 @@ import uuid
 import re
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -14,6 +14,9 @@ from src.core.config import settings
 from src.models.user import User
 from src.models.withdrawal import Withdrawal, WithdrawalStatus
 from src.models.yoint_dispersion import YointDispersion
+from src.models.yoint_payin import YointPayin
+from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
+from src.models.wallet_recharge import WalletRecharge
 from src.models.data_bank import DataBank
 from src.models.wallet import Wallet, WalletTransaction
 from src.services.company_wallet_service import CompanyWalletService
@@ -382,8 +385,37 @@ class YointService:
         - APPROVED / COMPLETED / EXITOSA: Marca retiro como aprobado.
         - REJECTED / FAILED / RECHAZADA: Marca retiro como rechazado, devuelve fondos a la wallet y revierte el 3.2% de impuesto.
         """
-        # Buscar la dispersión asociada de forma flexible (por order_id, payment_reference, idempotency_key o withdrawal_id)
         clean_id = str(order_id).strip()
+
+        # 1. Verificar primero si el identificador corresponde a un Recaudo / Payin (Inversión o Recarga)
+        payin_conditions = [
+            YointPayin.order_id == clean_id,
+            YointPayin.transaction_id == clean_id,
+            YointPayin.idempotency_key == clean_id,
+            YointPayin.payment_reference == clean_id
+        ]
+        if clean_id.upper().startswith("INV-"):
+            try:
+                inv_id = int(clean_id.upper().replace("INV-", ""))
+                payin_conditions.append(YointPayin.investment_request_id == inv_id)
+            except Exception:
+                pass
+        elif clean_id.upper().startswith("REC-"):
+            try:
+                rec_id = int(clean_id.upper().replace("REC-", ""))
+                payin_conditions.append(YointPayin.wallet_recharge_id == rec_id)
+            except Exception:
+                pass
+
+        payin_q = select(YointPayin).where(or_(*payin_conditions)).order_by(YointPayin.id.desc())
+        payin_res = await db.execute(payin_q)
+        payin = payin_res.scalars().first()
+        if payin:
+            return await cls.process_payin_status_transition(
+                db=db, payin=payin, new_status=new_status, payload=payload
+            )
+
+        # 2. Si no es un Payin, buscar en Dispersiones (Retiros / Payouts)
         conditions = [
             YointDispersion.order_id == clean_id,
             YointDispersion.payment_reference == clean_id,
@@ -599,3 +631,435 @@ class YointService:
         except Exception as e:
             logger.error(f"[YointService] Error consultando orden {dispersion.order_id or dispersion.payment_reference}: {e}")
             return {"error": str(e)}
+
+    @classmethod
+    async def process_payin_status_transition(
+        cls,
+        db: AsyncSession,
+        payin: YointPayin,
+        new_status: str,
+        payload: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Procesa la transición de estado de un recaudo/payin (Inversión o Recarga de Billetera).
+        - SUCCESS / APROBADO:
+            * INVESTMENT_REQUEST -> Aprueba automáticamente la inversión, crea el Investor y su contrato.
+            * WALLET_TOPUP -> Acredita el saldo a la billetera y registra la transacción de ingreso.
+        - FAILED / REJECTED:
+            * INVESTMENT_REQUEST -> Rechaza automáticamente la solicitud con el motivo de la pasarela.
+            * WALLET_TOPUP -> Marca la recarga como rechazada/fallida.
+        """
+        if payload:
+            payin.webhook_payload = payload
+
+        status_upper = new_status.upper().strip()
+        is_success = (
+            any(ok_word in status_upper for ok_word in [
+                "SUCCES", "EXITOS", "APPROV", "COMPLET", "PAID", "PAGAD", "OK"
+            ])
+            and not any(neg in status_upper for neg in ["NO", "NOT", "FAIL", "REJECT", "ERROR", "DECLIN", "CANCEL"])
+        )
+
+        is_failed = (
+            any(fail_word in status_upper for fail_word in [
+                "NO EXITOS", "RECHAZ", "FAIL", "REJECT", "DEVUELT", "ERROR", "DECLIN", "CANCEL", "FALLI", "DENI", "EXPI"
+            ])
+        )
+
+        if not is_success and not is_failed:
+            logger.info(f"[YointService] Payin #{payin.id} status update: {new_status} (en espera)")
+            payin.status = new_status
+            await db.commit()
+            return True
+
+        if is_success:
+            if payin.status == "SUCCESS":
+                return True # Ya fue procesado previamente para evitar duplicados
+
+            payin.status = "SUCCESS"
+            logger.info(f"✅ [YointService] Payin #{payin.id} confirmado EXITOSO ({payin.payin_type}, monto: {payin.amount})")
+
+            # 1. Caso: Solicitud de Inversión
+            if payin.payin_type == "INVESTMENT_REQUEST" and payin.investment_request_id:
+                from src.services.investment_request_service import InvestmentRequestService
+                req_res = await db.execute(
+                    select(InvestmentRequest).where(InvestmentRequest.id == payin.investment_request_id)
+                )
+                inv_req = req_res.scalars().first()
+                if inv_req and inv_req.status == InvestmentRequestStatus.pending:
+                    # Encontrar usuario admin para registrar la revisión
+                    admin_res = await db.execute(
+                        select(User.id).where(User.is_superuser == True).order_by(User.id.asc()).limit(1)
+                    )
+                    admin_id = admin_res.scalar_one_or_none() or 1
+
+                    # Agregar trazabilidad en extra_data
+                    extra = dict(inv_req.extra_data or {})
+                    extra["yoint_payin_id"] = payin.id
+                    extra["yoint_order_id"] = payin.order_id
+                    extra["yoint_payment_method"] = payin.payment_method
+                    extra["auto_approved_by"] = "YOINT_GATEWAY"
+                    extra["approved_at"] = datetime.utcnow().isoformat()
+                    inv_req.extra_data = extra
+                    db.add(inv_req)
+                    await db.flush()
+
+                    # Llamar al servicio de aprobación automática
+                    try:
+                        await InvestmentRequestService.approve_request(
+                            db=db,
+                            request_id=inv_req.id,
+                            user_id=admin_id
+                        )
+                        logger.info(f"🎉 [YointService] Solicitud de inversión #{inv_req.id} APROBADA AUTOMÁTICAMENTE por confirmación de pago Yoint.")
+                    except Exception as app_err:
+                        logger.error(f"[YointService] Error aprobando automáticamente solicitud #{inv_req.id}: {app_err}")
+
+            # 2. Caso: Recarga de Billetera
+            elif payin.payin_type == "WALLET_TOPUP":
+                # Buscar o crear billetera
+                w_res = await db.execute(select(Wallet).where(Wallet.user_id == payin.user_id))
+                wallet = w_res.scalars().first()
+                if not wallet:
+                    wallet = Wallet(user_id=payin.user_id, balance=Decimal("0.00"), currency="COP")
+                    db.add(wallet)
+                    await db.flush()
+
+                payin_amount = Decimal(str(payin.amount))
+                wallet.balance = Decimal(str(wallet.balance)) + payin_amount
+
+                # Transacción en wallet
+                tx = WalletTransaction(
+                    wallet_id=wallet.id,
+                    amount=payin_amount,
+                    type="wallet_recharge",
+                    reference_type="yoint_payin",
+                    reference_id=payin.id,
+                    description=f"Recarga en línea Yoint ({payin.payment_method})",
+                    balance_after=wallet.balance
+                )
+                db.add(tx)
+
+                # Si existía WalletRecharge asociada, actualizarla a approved
+                if payin.wallet_recharge_id:
+                    wr_res = await db.execute(select(WalletRecharge).where(WalletRecharge.id == payin.wallet_recharge_id))
+                    wr = wr_res.scalars().first()
+                    if wr and wr.status == "pending":
+                        wr.status = "approved"
+                        wr.reviewed_at = datetime.utcnow()
+                        wr.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({payin.order_id})"
+                        db.add(wr)
+
+                # Notificación al usuario
+                try:
+                    from src.services.push_notification_service import PushNotificationService
+                    await PushNotificationService.create_and_send_notification(
+                        db=db,
+                        user_id=payin.user_id,
+                        title="¡Recarga de Saldo Exitosa!",
+                        message=f"Tu billetera ha sido recargada con éxito por valor de ${float(payin_amount):,.0f} COP vía {payin.payment_method}.",
+                        type="recarga",
+                        link="/dashboard/wallet"
+                    )
+                except Exception as notif_err:
+                    logger.warning(f"Error enviando notificación de recarga Yoint: {notif_err}")
+
+        elif is_failed:
+            payin.status = "FAILED"
+            logger.warning(f"❌ [YointService] Payin #{payin.id} RECHAZADO / FALLIDO ({new_status})")
+
+            # 1. Caso Solicitud de Inversión
+            if payin.payin_type == "INVESTMENT_REQUEST" and payin.investment_request_id:
+                from src.services.investment_request_service import InvestmentRequestService
+                req_res = await db.execute(
+                    select(InvestmentRequest).where(InvestmentRequest.id == payin.investment_request_id)
+                )
+                inv_req = req_res.scalars().first()
+                if inv_req and inv_req.status == InvestmentRequestStatus.pending:
+                    admin_res = await db.execute(
+                        select(User.id).where(User.is_superuser == True).order_by(User.id.asc()).limit(1)
+                    )
+                    admin_id = admin_res.scalar_one_or_none() or 1
+
+                    try:
+                        await InvestmentRequestService.reject_request(
+                            db=db,
+                            request_id=inv_req.id,
+                            user_id=admin_id,
+                            rejection_reason=f"Pago rechazado o expirado en la pasarela Yoint ({new_status})"
+                        )
+                        logger.warning(f"[YointService] Solicitud de inversión #{inv_req.id} RECHAZADA AUTOMÁTICAMENTE debido a pago fallido en Yoint.")
+                    except Exception as rej_err:
+                        logger.error(f"[YointService] Error rechazando automáticamente solicitud #{inv_req.id}: {rej_err}")
+
+            # 2. Caso Recarga de Billetera
+            elif payin.payin_type == "WALLET_TOPUP" and payin.wallet_recharge_id:
+                wr_res = await db.execute(select(WalletRecharge).where(WalletRecharge.id == payin.wallet_recharge_id))
+                wr = wr_res.scalars().first()
+                if wr and wr.status == "pending":
+                    wr.status = "rejected"
+                    wr.reviewed_at = datetime.utcnow()
+                    wr.admin_notes = f"Pago rechazado o expirado en Yoint ({new_status})"
+                    db.add(wr)
+
+        await db.commit()
+        return True
+
+    @classmethod
+    async def create_payin_order(
+        cls,
+        db: AsyncSession,
+        user: User,
+        amount: Decimal,
+        payment_method: str, # "NEQUI", "BOTON_BANCOLOMBIA", "PSE"
+        payin_type: str,     # "WALLET_TOPUP", "INVESTMENT_REQUEST"
+        investment_request_id: Optional[int] = None,
+        wallet_recharge_id: Optional[int] = None,
+        phone_nequi: Optional[str] = None,
+        redirect_url: Optional[str] = None,
+        bank_id: Optional[str] = None,
+        ip_address: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Crea una orden de recaudo (Payin) en la API de Yoint y registra el objeto YointPayin.
+        Soporta Nequi, Botón Bancolombia y PSE.
+        """
+        method_upper = payment_method.upper().strip()
+        doc_type, doc_num = cls._clean_document(user.document_id)
+        phone = cls._clean_phone(phone_nequi or user.phone_number)
+        payer_name = str(user.name or "Inversionista Gloint")[:60]
+        payer_email = str(user.email or "notificaciones@gloint.com.co")[:60]
+
+        idempotency_key = f"payin-{payin_type.lower()[:3]}-{uuid.uuid4().hex[:12]}"
+        reference_code = f"GLO-{payin_type[:3]}-{int(datetime.utcnow().timestamp())}"
+
+        default_return_url = f"{getattr(settings, 'FRONTEND_URL', 'https://app.gloint.co').rstrip('/')}/dashboard/wallet"
+        final_redirect_url = redirect_url or default_return_url
+
+        headers = await cls._get_headers(idempotency_key=idempotency_key)
+        base_url = settings.YOINT_API_URL.rstrip('/')
+
+        order_id = None
+        transaction_id = None
+        checkout_redirect_url = None
+        request_payload: Dict[str, Any] = {}
+        response_payload: Dict[str, Any] = {}
+        error_message = None
+
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            try:
+                if method_upper in ["NEQUI", "BOTON_BANCOLOMBIA"]:
+                    # POST /api/payments/v2/payments
+                    endpoint_url = f"{base_url}/api/payments/v2/payments"
+                    
+                    if method_upper == "NEQUI":
+                        payment_details = {
+                            "phoneNumber": {
+                                "countryCode": "57",
+                                "number": phone[-10:]
+                            }
+                        }
+                    else: # BOTON_BANCOLOMBIA
+                        payment_details = {
+                            "redirectUrl": final_redirect_url
+                        }
+
+                    request_payload = {
+                        "amount": float(amount),
+                        "paymentMethod": method_upper,
+                        "description": f"Gloint {payin_type}".strip(),
+                        "payer": {
+                            "fullName": payer_name,
+                            "identityDocument": {
+                                "type": doc_type,
+                                "number": doc_num[:15]
+                            },
+                            "email": payer_email,
+                            "phoneNumber": {
+                                "countryCode": "57",
+                                "number": phone[-10:]
+                            }
+                        },
+                        "paymentDetails": payment_details
+                    }
+
+                    logger.info(f"[YointService] Enviando Payin {method_upper} ({amount} COP) a {endpoint_url}...")
+                    res = await client.post(endpoint_url, json=request_payload, headers=headers)
+                    logger.info(f"[YointService] Respuesta {method_upper}: HTTP {res.status_code} -> {res.text[:300]}")
+
+                    if res.status_code in [200, 201]:
+                        response_payload = res.json()
+                        order_id = str(response_payload.get("id") or "")
+                        metadata_list = response_payload.get("metadata") or []
+                        for meta in metadata_list:
+                            k = meta.get("key")
+                            v = meta.get("value")
+                            if k == "async_payment_url":
+                                checkout_redirect_url = v
+                            elif k == "transactionId":
+                                transaction_id = v
+                    else:
+                        error_message = f"Error Yoint HTTP {res.status_code}: {res.text}"
+                        logger.error(f"[YointService] {error_message}")
+
+                elif method_upper == "PSE":
+                    # POST /api/payments/v1/payment-pse
+                    endpoint_url = f"{base_url}/api/payments/v1/payment-pse"
+                    request_payload = {
+                        "amount": float(amount),
+                        "personType": "0",
+                        "url": final_redirect_url,
+                        "address": "Colombia",
+                        "ip": ip_address or "127.0.0.1",
+                        "financialEntity": {
+                            "id": str(bank_id or "1007")
+                        },
+                        "payer": {
+                            "payerFullName": payer_name,
+                            "identityDocument": {
+                                "type": doc_type,
+                                "number": doc_num[:15]
+                            },
+                            "email": payer_email,
+                            "phoneNumber": phone[-10:]
+                        }
+                    }
+
+                    logger.info(f"[YointService] Enviando Payin PSE ({amount} COP, Banco: {bank_id}) a {endpoint_url}...")
+                    res = await client.post(endpoint_url, json=request_payload, headers=headers)
+                    logger.info(f"[YointService] Respuesta PSE: HTTP {res.status_code} -> {res.text[:300]}")
+
+                    if res.status_code in [200, 201]:
+                        response_payload = res.json()
+                        order_id = str(response_payload.get("orderId") or "")
+                        checkout_redirect_url = response_payload.get("url")
+                    else:
+                        error_message = f"Error Yoint PSE HTTP {res.status_code}: {res.text}"
+                        logger.error(f"[YointService] {error_message}")
+                else:
+                    error_message = f"Método de pago no soportado: {payment_method}"
+
+            except Exception as e:
+                error_message = f"Excepción de conexión con Yoint: {str(e)}"
+                logger.error(f"[YointService] {error_message}")
+
+        # Guardar registro en la base de datos
+        payin = YointPayin(
+            user_id=user.id,
+            payin_type=payin_type,
+            investment_request_id=investment_request_id,
+            wallet_recharge_id=wallet_recharge_id,
+            payment_method=method_upper,
+            order_id=order_id,
+            transaction_id=transaction_id,
+            idempotency_key=idempotency_key,
+            payment_reference=reference_code,
+            status="PENDING" if not error_message else "FAILED",
+            amount=amount,
+            currency="COP",
+            description=f"Gloint {payin_type}",
+            redirect_url=checkout_redirect_url,
+            return_url=final_redirect_url,
+            payer_name=payer_name,
+            payer_email=payer_email,
+            payer_document_type=doc_type,
+            payer_document_number=doc_num,
+            payer_phone=phone,
+            financial_entity_id=str(bank_id) if bank_id else None,
+            request_payload=request_payload,
+            response_payload=response_payload,
+            error_message=error_message
+        )
+        db.add(payin)
+        await db.commit()
+        await db.refresh(payin)
+
+        if error_message:
+            return {
+                "success": False,
+                "payin_id": payin.id,
+                "error": error_message,
+                "status": "FAILED"
+            }
+
+        return {
+            "success": True,
+            "payin_id": payin.id,
+            "order_id": order_id,
+            "transaction_id": transaction_id,
+            "redirect_url": checkout_redirect_url,
+            "payment_method": method_upper,
+            "status": "PENDING"
+        }
+
+    @classmethod
+    async def query_payin_status(cls, db: AsyncSession, payin: YointPayin) -> Dict[str, Any]:
+        """
+        Consulta el estado de una orden de recaudo ante Yoint (GET /api/payments/v1/{order-id})
+        y ejecuta la transición de estado si cambió.
+        """
+        target_id = payin.order_id
+        if not target_id:
+            return {"status": payin.status, "message": "Payin sin order_id"}
+
+        base_url = settings.YOINT_API_URL.rstrip('/')
+        url = f"{base_url}/api/payments/v1/{target_id}"
+        headers = await cls._get_headers(idempotency_key=str(uuid.uuid4()))
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                res = await client.get(url, headers=headers)
+                if res.status_code == 200:
+                    data = res.json()
+                    new_status = None
+                    if isinstance(data, dict):
+                        sub = data.get("subscription")
+                        if isinstance(sub, dict) and sub.get("status"):
+                            new_status = sub.get("status")
+                        
+                        if not new_status:
+                            p_details = data.get("paymentDetails")
+                            if isinstance(p_details, list) and p_details and isinstance(p_details[0], dict):
+                                new_status = p_details[0].get("status")
+                        
+                        if not new_status:
+                            new_status = data.get("status") or data.get("state")
+
+                    if new_status and new_status.upper() != payin.status.upper():
+                        await cls.process_payin_status_transition(
+                            db=db, payin=payin, new_status=str(new_status), payload=data
+                        )
+                    return {"status": payin.status, "raw": data}
+                else:
+                    return {"status": payin.status, "http_code": res.status_code, "body": res.text}
+        except Exception as e:
+            logger.error(f"[YointService] Error consultando estado de payin #{payin.id}: {e}")
+            return {"status": payin.status, "error": str(e)}
+
+    @classmethod
+    async def get_financial_entities(cls, db: AsyncSession) -> List[Dict[str, Any]]:
+        """
+        Retorna el catálogo de entidades financieras soportadas (bancos y billeteras)
+        consultando a Yoint (GET /api/payments/v2/financial-entities), con fallback a data_bancks.
+        """
+        base_url = settings.YOINT_API_URL.rstrip('/')
+        url = f"{base_url}/api/payments/v2/financial-entities"
+        headers = await cls._get_headers(idempotency_key=str(uuid.uuid4()))
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(url, headers=headers)
+                if res.status_code == 200:
+                    data = res.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        return data
+                    elif isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
+                        return data["data"]
+        except Exception as e:
+            logger.warning(f"[YointService] Error consultando financial-entities a Yoint, usando fallback local: {e}")
+
+        # Fallback a tabla local data_bancks
+        res = await db.execute(select(DataBank).order_by(DataBank.banck.asc()))
+        banks = res.scalars().all()
+        return [{"id": b.code_banck, "name": b.banck} for b in banks if b.code_banck and b.banck]
+
