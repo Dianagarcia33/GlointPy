@@ -104,22 +104,22 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera estándar GlointPy */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white bg-amber-500 shadow-sm">
-              <Send className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white bg-amber-500 shadow-sm shrink-0">
+              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 font-montserrat">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 font-montserrat">
                 Consumo de Insumo de Oficina
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 Registra la salida y computa el gasto operativo del negocio
               </p>
             </div>
@@ -134,7 +134,7 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
         </div>
 
         {/* Formulario */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-4">
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
@@ -268,19 +268,19 @@ export const SupplyDispatchModal: React.FC<SupplyDispatchModalProps> = ({
           </div>
 
           {/* Botones de acción estándar */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <div className="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer font-montserrat text-center"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isLoading || isStockInsufficient}
-              className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 font-montserrat text-center"
             >
               {isLoading ? (
                 <>

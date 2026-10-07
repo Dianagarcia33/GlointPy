@@ -82,22 +82,22 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white bg-brand-500 shadow-sm">
-              <FolderPlus className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white bg-brand-500 shadow-sm shrink-0">
+              <FolderPlus className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 font-montserrat">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 font-montserrat">
                 Gestión de Categorías de Inventario
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 Clasifica tus productos comerciales e insumos de oficina
               </p>
             </div>
@@ -110,7 +110,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto space-y-6">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-6">
           {/* Mensajes de feedback */}
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2">

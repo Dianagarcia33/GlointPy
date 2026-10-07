@@ -99,21 +99,21 @@ export const KardexDrawer: React.FC<KardexDrawerProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera estándar GlointPy */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white bg-slate-900 shadow-sm">
-              <History className="w-5 h-5 text-brand-400" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white bg-slate-900 shadow-sm shrink-0">
+              <History className="w-4 h-4 sm:w-5 sm:h-5 text-brand-400" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 font-montserrat">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 font-montserrat">
                 Bitácora de Movimientos (Kardex)
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 {filterItemName ? `Filtrando por: ${filterItemName}` : 'Trazabilidad general de entradas, salidas y gastos operativos'}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={fetchKardex}
@@ -134,14 +134,14 @@ export const KardexDrawer: React.FC<KardexDrawerProps> = ({
         </div>
 
         {/* Filtros Rápidos */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-bold text-slate-700 font-montserrat uppercase tracking-wider">Tipo:</span>
+        <div className="p-3 sm:p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <span className="text-xs font-bold text-slate-700 font-montserrat uppercase tracking-wider shrink-0">Tipo:</span>
             <select
               value={movementType}
               onChange={(e) => setMovementType(e.target.value)}
-              className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium"
+              className="w-full sm:w-auto px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium"
             >
               <option value="ALL">Todos los tipos</option>
               <option value="ENTRY">Entradas / Compras</option>
@@ -152,12 +152,12 @@ export const KardexDrawer: React.FC<KardexDrawerProps> = ({
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700 font-montserrat uppercase tracking-wider">Área Destino:</span>
+          <div className="flex items-center gap-2 flex-1">
+            <span className="text-xs font-bold text-slate-700 font-montserrat uppercase tracking-wider shrink-0">Área Destino:</span>
             <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium"
+              className="w-full sm:w-auto px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-medium"
             >
               <option value="">Todas las áreas</option>
               <option value="Administración y Gerencia">Administración y Gerencia</option>
@@ -171,7 +171,7 @@ export const KardexDrawer: React.FC<KardexDrawerProps> = ({
         </div>
 
         {/* Tabla Kardex */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
               <Loader2 className="w-7 h-7 animate-spin mb-2 text-brand-500" />
@@ -186,7 +186,7 @@ export const KardexDrawer: React.FC<KardexDrawerProps> = ({
               </p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full min-w-[850px] text-left border-collapse text-xs">
               <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200 text-[10px] font-bold">
                 <tr>
                   <th className="py-3.5 px-4 font-montserrat">Fecha / Hora</th>

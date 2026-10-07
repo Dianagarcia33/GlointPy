@@ -58,19 +58,26 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs">
-          <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200 select-none">
+    <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Indicador de scroll horizontal en móviles */}
+      <div className="sm:hidden px-4 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+        <span>Artículos ({items.length})</span>
+        <span className="text-[10px] text-brand-600 font-bold flex items-center gap-1 font-montserrat">
+          Desliza para ver más columnas →
+        </span>
+      </div>
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="w-full min-w-[850px] text-left border-collapse text-xs">
+          <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200 select-none font-montserrat">
             <tr>
-              <th className="py-3.5 px-5">Artículo / SKU</th>
-              <th className="py-3.5 px-4">Tipo</th>
-              <th className="py-3.5 px-4">Categoría</th>
-              <th className="py-3.5 px-4 text-center">Stock Actual</th>
-              <th className="py-3.5 px-4 text-right">Costo Unit.</th>
-              <th className="py-3.5 px-4 text-right">Precio Venta</th>
-              <th className="py-3.5 px-4 text-right">Valuación Total</th>
-              <th className="py-3.5 px-5 text-right">Acciones</th>
+              <th className="py-3.5 px-4 sm:px-5">Artículo / SKU</th>
+              <th className="py-3.5 px-3 sm:px-4">Tipo</th>
+              <th className="py-3.5 px-3 sm:px-4">Categoría</th>
+              <th className="py-3.5 px-3 sm:px-4 text-center">Stock Actual</th>
+              <th className="py-3.5 px-3 sm:px-4 text-right">Costo Unit.</th>
+              <th className="py-3.5 px-3 sm:px-4 text-right">Precio Venta</th>
+              <th className="py-3.5 px-3 sm:px-4 text-right">Valuación Total</th>
+              <th className="py-3.5 px-4 sm:px-5 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 font-inter">
