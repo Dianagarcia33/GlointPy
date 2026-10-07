@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   Package, 
   Layers, 
@@ -10,7 +9,8 @@ import {
   Pencil, 
   Trash2, 
   History, 
-  ArrowDownRight 
+  ArrowDownRight,
+  ArrowUpRight
 } from 'lucide-react';
 import { InventoryItem } from '../../../services/inventoryService';
 import { Can } from '../../../components/security/Can';
@@ -21,6 +21,7 @@ interface InventoryTableProps {
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
   onDispatch: (item: InventoryItem) => void;
+  onProductDispatch: (item: InventoryItem) => void;
   onQuickEntry: (item: InventoryItem) => void;
   onAdjust: (item: InventoryItem) => void;
   onViewKardex: (item: InventoryItem) => void;
@@ -32,6 +33,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   onEdit,
   onDelete,
   onDispatch,
+  onProductDispatch,
   onQuickEntry,
   onAdjust,
   onViewKardex,
@@ -191,6 +193,20 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                             title="Despachar insumo para oficina (Registrar Gasto)"
                           >
                             <Send className="w-4 h-4" />
+                          </button>
+                        </Can>
+                      )}
+
+                      {/* Botón rápido Salida / Venta de Producto (solo productos) */}
+                      {item.item_type === 'PRODUCT' && (
+                        <Can permission="inventory:dispatch">
+                          <button
+                            type="button"
+                            onClick={() => onProductDispatch(item)}
+                            className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="Registrar salida o venta del producto"
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
                           </button>
                         </Can>
                       )}

@@ -14,7 +14,8 @@ import {
   Building2, 
   CheckCircle2,
   Filter,
-  FolderPlus
+  FolderPlus,
+  ArrowUpRight
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { 
@@ -30,6 +31,7 @@ import {
 import { InventoryTable } from '../components/InventoryTable';
 import { ItemModal } from '../components/ItemModal';
 import { SupplyDispatchModal } from '../components/SupplyDispatchModal';
+import { ProductDispatchModal } from '../components/ProductDispatchModal';
 import { StockAdjustmentModal } from '../components/StockAdjustmentModal';
 import { QuickEntryModal } from '../components/QuickEntryModal';
 import { KardexDrawer } from '../components/KardexDrawer';
@@ -56,6 +58,9 @@ export const InventoryPage: React.FC = () => {
 
   const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
   const [preselectedSupplyItem, setPreselectedSupplyItem] = useState<InventoryItem | null>(null);
+
+  const [productDispatchModalOpen, setProductDispatchModalOpen] = useState(false);
+  const [preselectedProductItem, setPreselectedProductItem] = useState<InventoryItem | null>(null);
 
   const [quickEntryModalOpen, setQuickEntryModalOpen] = useState(false);
   const [entryItem, setEntryItem] = useState<InventoryItem | null>(null);
@@ -143,6 +148,13 @@ export const InventoryPage: React.FC = () => {
     await fetchData();
   };
 
+  const handleProductDispatch = async (itemId: number, payload: CreateMovementPayload) => {
+    await inventoryService.createMovement(itemId, payload);
+    const isSale = payload.movement_type === 'SALE';
+    showToast(isSale ? 'Venta comercial registrada y descontada de stock.' : 'Baja / merma de producto registrada en Kardex.');
+    await fetchData();
+  };
+
   const handleQuickEntry = async (itemId: number, payload: CreateMovementPayload) => {
     await inventoryService.createMovement(itemId, payload);
     showToast('Entrada de inventario registrada con éxito.');
@@ -222,6 +234,21 @@ export const InventoryPage: React.FC = () => {
             >
               <Send className="w-4 h-4 text-amber-600 shrink-0" />
               <span className="whitespace-nowrap">Consumo Insumo</span>
+            </button>
+          </Can>
+
+          {/* Botón Salida / Venta Producto Comercial */}
+          <Can permission="inventory:dispatch">
+            <button
+              type="button"
+              onClick={() => {
+                setPreselectedProductItem(null);
+                setProductDispatchModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-2 px-3 sm:px-3.5 py-2 sm:py-2.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100/80 border border-blue-200 rounded-xl sm:rounded-2xl shadow-xs transition-all cursor-pointer font-montserrat"
+            >
+              <ArrowUpRight className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="whitespace-nowrap">Venta / Salida</span>
             </button>
           </Can>
 
@@ -489,6 +516,10 @@ export const InventoryPage: React.FC = () => {
           setPreselectedSupplyItem(item);
           setDispatchModalOpen(true);
         }}
+        onProductDispatch={(item) => {
+          setPreselectedProductItem(item);
+          setProductDispatchModalOpen(true);
+        }}
         onQuickEntry={(item) => {
           setEntryItem(item);
           setQuickEntryModalOpen(true);
@@ -520,6 +551,14 @@ export const InventoryPage: React.FC = () => {
         onDispatch={handleDispatchSupply}
         items={items}
         preselectedItem={preselectedSupplyItem}
+      />
+
+      <ProductDispatchModal
+        isOpen={productDispatchModalOpen}
+        onClose={() => setProductDispatchModalOpen(false)}
+        onDispatch={handleProductDispatch}
+        items={items}
+        preselectedItem={preselectedProductItem}
       />
 
       <QuickEntryModal

@@ -101,13 +101,11 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      // Persistir únicamente el estado de autenticación y datos básicos no sensibles.
-      // 1. El accessToken NO se persiste para evitar XSS (OWASP / Caso H-33).
-      // 2. Se excluye PII (document_id, phone_number, date_of_birth) y flags de autorización
-      //    (roles, permissions, is_superuser) de localStorage para prevenir manipulación y filtración (Caso H-34).
-      // Al iniciar o recargar la app, /auth/me hidrata en memoria el perfil completo y los permisos reales validados por el servidor.
+      // Persistir token de acceso, estado de autenticación y datos de usuario en localStorage
+      // para mantener la sesión activa y los permisos hidratados al recargar la página.
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
+        accessToken: state.accessToken,
         user: state.user
           ? {
               id: state.user.id,
@@ -117,17 +115,14 @@ export const useAuthStore = create<AuthState>()(
               must_update_profile: state.user.must_update_profile,
               must_change_password: state.user.must_change_password,
               parent_user_id: state.user.parent_user_id,
+              roles_list: state.user.roles_list,
+              permissions: state.user.permissions,
             }
           : null,
         parentBackup: state.parentBackup
           ? {
-              user: {
-                id: state.parentBackup.user.id,
-                name: state.parentBackup.user.name,
-                email: state.parentBackup.user.email,
-                is_active: state.parentBackup.user.is_active,
-              } as User,
-              token: '',
+              user: state.parentBackup.user,
+              token: state.parentBackup.token,
             }
           : null,
       }),
