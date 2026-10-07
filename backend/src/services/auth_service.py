@@ -248,6 +248,21 @@ class AuthService:
         except Exception as e:
             print(f"Error al iniciar validación SARLAFT en background: {e}")
 
+        # Enviar correo corporativo de bienvenida y notificación de revisión de cuenta
+        try:
+            from src.services.email_service import EmailService
+            import asyncio
+
+            asyncio.create_task(
+                EmailService.send_welcome_and_review_email(
+                    to_email=new_user.email,
+                    user_name=new_user.name,
+                    document_id=new_user.document_id or data.documento,
+                    document_type=data.tipo_documento or "CC"
+                )
+            )
+        except Exception as mail_err:
+            print(f"Error al programar correo de bienvenida para {new_user.email}: {mail_err}")
 
         # Si el inversionista seleccionó un Directivo de Inversiones, notificar al Directivo
         if data.commercial_id:

@@ -219,6 +219,29 @@ class TusdatosService:
                     check.tusdatos_evidencia_paths = [pdf_path]
 
                 await db.commit()
+
+                # Notificar al usuario por correo corporativo sobre el resultado de la validación
+                try:
+                    from src.models.user import User
+                    from src.services.email_service import EmailService
+
+                    user_q = await db.execute(select(User).where(User.id == check.user_id))
+                    user_obj = user_q.scalars().first()
+                    if user_obj and user_obj.email:
+                        asyncio.create_task(
+                            EmailService.send_sarlaft_result_email(
+                                to_email=user_obj.email,
+                                user_name=user_obj.name,
+                                document_id=check.document_number,
+                                document_type=check.document_type or "CC",
+                                has_findings=check.has_findings,
+                                risk_level=check.risk_level,
+                                hallazgos_summary=hallazgo_principal if check.has_findings else None
+                            )
+                        )
+                except Exception as mail_err:
+                    logger.warning(f"Error al programar correo de resultado SARLAFT para usuario {check.user_id}: {mail_err}")
+
                 return check
 
             elif "error" in results or estado == "error":
@@ -226,6 +249,29 @@ class TusdatosService:
                 check.tusdatos_status = "error"
                 check.tusdatos_msg = str(results.get("error") or results.get("message"))
                 await db.commit()
+
+                # Notificar al usuario sobre revisión preventiva
+                try:
+                    from src.models.user import User
+                    from src.services.email_service import EmailService
+
+                    user_q = await db.execute(select(User).where(User.id == check.user_id))
+                    user_obj = user_q.scalars().first()
+                    if user_obj and user_obj.email:
+                        asyncio.create_task(
+                            EmailService.send_sarlaft_result_email(
+                                to_email=user_obj.email,
+                                user_name=user_obj.name,
+                                document_id=check.document_number,
+                                document_type=check.document_type or "CC",
+                                has_findings=True,
+                                risk_level="MEDIUM",
+                                hallazgos_summary="Validación con novedad en la consulta inicial"
+                            )
+                        )
+                except Exception as mail_err:
+                    logger.warning(f"Error al programar correo de revisión SARLAFT para usuario {check.user_id}: {mail_err}")
+
                 return check
 
         # Si agotó intentos y sigue en proceso

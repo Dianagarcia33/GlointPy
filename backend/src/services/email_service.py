@@ -372,3 +372,61 @@ class EmailService:
         """
         return EmailService.send_html_email(to_email, subject, html_content)
 
+    @classmethod
+    async def send_welcome_and_review_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        document_id: str,
+        document_type: str = "CC"
+    ) -> bool:
+        """
+        Envía el correo corporativo de bienvenida al registrarse notificando sobre la revisión SARLAFT preventiva.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        import asyncio
+        subject, html = EmailTemplateService.get_welcome_and_review_template(
+            user_name=user_name,
+            document_id=document_id,
+            document_type=document_type
+        )
+        return await asyncio.to_thread(cls.send_html_email, to_email, subject, html)
+
+    @classmethod
+    async def send_sarlaft_result_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        document_id: str,
+        document_type: str = "CC",
+        has_findings: bool = False,
+        risk_level: str = "CLEAN",
+        hallazgos_summary: Optional[str] = None
+    ) -> bool:
+        """
+        Envía el correo corporativo con el resultado de la validación de TusDatos:
+        - Si no tiene hallazgos y el riesgo es CLEAN / LOW: correo de cuenta validada y 100% habilitada.
+        - Si tiene hallazgos o riesgo MEDIUM / HIGH: correo informativo de revisión manual preventiva.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        import asyncio
+
+        is_approved = (not has_findings) and (risk_level.upper() in ["CLEAN", "LOW"])
+
+        if is_approved:
+            subject, html = EmailTemplateService.get_sarlaft_approved_template(
+                user_name=user_name,
+                document_id=document_id,
+                document_type=document_type
+            )
+        else:
+            subject, html = EmailTemplateService.get_sarlaft_findings_template(
+                user_name=user_name,
+                document_id=document_id,
+                document_type=document_type,
+                risk_level=risk_level,
+                hallazgos_summary=hallazgos_summary
+            )
+
+        return await asyncio.to_thread(cls.send_html_email, to_email, subject, html)
+
