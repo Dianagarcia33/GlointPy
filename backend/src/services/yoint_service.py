@@ -31,25 +31,20 @@ class YointService:
     _token_expires_at: Optional[datetime] = None
 
     @classmethod
-    async def get_access_token(cls) -> Optional[str]:
+    async def get_oauth_token(cls) -> Optional[str]:
         """
         Obtiene o renueva el Bearer JWT Token usando client_id y client_secret
         a través del servidor de autenticación OAuth2 de Yoint (AWS Cognito).
         """
-        # 1. Si se configuró API Key directa en el .env, se usa directamente
-        if settings.YOINT_API_KEY:
-            return settings.YOINT_API_KEY
-
-        # 2. Si no hay client_id o client_secret configurados, no se puede autenticar
         if not settings.YOINT_CLIENT_ID or not settings.YOINT_CLIENT_SECRET:
             return None
 
-        # 3. Validar si el token en caché en memoria sigue vigente
+        # Validar si el token en caché en memoria sigue vigente
         now = datetime.utcnow()
         if cls._cached_token and cls._token_expires_at and now < cls._token_expires_at:
             return cls._cached_token
 
-        # 4. Solicitar nuevo token con grant_type=client_credentials
+        # Solicitar nuevo token con grant_type=client_credentials
         auth_url = getattr(settings, "YOINT_AUTH_URL", "https://payments-dev.auth.us-east-1.amazoncognito.com/oauth2/token")
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         data = {
@@ -60,7 +55,7 @@ class YointService:
 
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                logger.info(f"Solicitando token OAuth2 a Yoint ({auth_url})...")
+                logger.info(f"Solicitando token OAuth2 a Yoint Cognito ({auth_url})...")
                 res = await client.post(auth_url, data=data, headers=headers)
                 if res.status_code == 200:
                     res_json = res.json()
@@ -70,7 +65,7 @@ class YointService:
                     cls._cached_token = token
                     # Margen de seguridad: renovar 5 minutos antes de expirar
                     cls._token_expires_at = now + timedelta(seconds=max(60, expires_in - 300))
-                    logger.info("✅ Token Bearer OAuth2 de Yoint obtenido exitosamente.")
+                    logger.info("✅ Token Bearer OAuth2 de Yoint obtenido exitosamente de Cognito.")
                     return token
                 else:
                     logger.error(f"Error autenticando con Yoint OAuth2 (HTTP {res.status_code}): {res.text}")
@@ -80,18 +75,31 @@ class YointService:
             return None
 
     @classmethod
+    async def get_access_token(cls) -> Optional[str]:
+        """Alias retrocompatible para get_oauth_token"""
+        return await cls.get_oauth_token()
+
+    @classmethod
     async def _get_headers(cls, idempotency_key: str) -> Dict[str, str]:
         """
         Construye headers requeridos por Yoint v2 con autenticación automática.
+        - Authorization: Bearer <token_jwt_cognito> (ÚNICAMENTE si es token OAuth de Cognito)
+        - x-api-key: <api_key> (NUNCA como Bearer)
         """
         headers = {
             "Content-Type": "application/json",
             "X-Idempotency-Key": idempotency_key
         }
-        token = await cls.get_access_token()
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-            headers["x-api-key"] = token
+
+        # 1. Obtener Bearer Token de Cognito
+        oauth_token = await cls.get_oauth_token()
+        if oauth_token:
+            headers["Authorization"] = f"Bearer {oauth_token}"
+
+        # 2. Si se configuró YOINT_API_KEY, se coloca en x-api-key (NUNCA en Authorization)
+        if settings.YOINT_API_KEY:
+            headers["x-api-key"] = settings.YOINT_API_KEY.strip()
+
         return headers
 
     @staticmethod
