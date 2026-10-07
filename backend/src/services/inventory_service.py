@@ -181,8 +181,7 @@ class InventoryService:
             setattr(item, field, value)
 
         await db.commit()
-        await db.refresh(item)
-        return item
+        return await InventoryService.get_item_by_id(db, item.id)
 
     @staticmethod
     async def delete_item(db: AsyncSession, item_id: int) -> Dict[str, Any]:
@@ -270,8 +269,18 @@ class InventoryService:
             await InventoryService._trigger_low_stock_notification(db, item, new_stock)
 
         await db.commit()
-        await db.refresh(movement)
-        return movement
+        
+        # Recargar el movimiento con relaciones para evitar MissingGreenlet
+        reload_query = (
+            select(InventoryMovement)
+            .options(
+                selectinload(InventoryMovement.item),
+                selectinload(InventoryMovement.user)
+            )
+            .where(InventoryMovement.id == movement.id)
+        )
+        res = await db.execute(reload_query)
+        return res.scalars().first()
 
     @staticmethod
     async def adjust_stock(
@@ -318,8 +327,18 @@ class InventoryService:
             await InventoryService._trigger_low_stock_notification(db, item, new_stock)
 
         await db.commit()
-        await db.refresh(movement)
-        return movement
+        
+        # Recargar el movimiento con relaciones para evitar MissingGreenlet
+        reload_query = (
+            select(InventoryMovement)
+            .options(
+                selectinload(InventoryMovement.item),
+                selectinload(InventoryMovement.user)
+            )
+            .where(InventoryMovement.id == movement.id)
+        )
+        res = await db.execute(reload_query)
+        return res.scalars().first()
 
     @staticmethod
     async def get_movements(

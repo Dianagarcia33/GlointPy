@@ -118,7 +118,7 @@ async def get_item(
     }
 
 
-@router.post("/items", status_code=status.HTTP_201_CREATED)
+@router.post("/items", response_model=InventoryItemResponse, status_code=status.HTTP_201_CREATED)
 async def create_item(
     data: InventoryItemCreate,
     db: AsyncSession = Depends(get_db),
@@ -127,10 +127,28 @@ async def create_item(
     """
     Crear un nuevo producto comercial o insumo de oficina en el inventario.
     """
-    return await InventoryService.create_item(db, data, user_id=current_user.id)
+    item = await InventoryService.create_item(db, data, user_id=current_user.id)
+    return {
+        "id": item.id,
+        "sku": item.sku,
+        "name": item.name,
+        "description": item.description,
+        "item_type": item.item_type,
+        "category_id": item.category_id,
+        "category_name": item.category.name if item.category else None,
+        "unit_measure": item.unit_measure,
+        "current_stock": item.current_stock,
+        "min_stock": item.min_stock,
+        "unit_cost": item.unit_cost,
+        "sale_price": item.sale_price,
+        "is_active": item.is_active,
+        "is_low_stock": item.current_stock <= item.min_stock,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at
+    }
 
 
-@router.put("/items/{item_id}")
+@router.put("/items/{item_id}", response_model=InventoryItemResponse)
 async def update_item(
     item_id: int,
     data: InventoryItemUpdate,
@@ -140,7 +158,25 @@ async def update_item(
     """
     Actualizar datos básicos de un producto o insumo.
     """
-    return await InventoryService.update_item(db, item_id, data)
+    item = await InventoryService.update_item(db, item_id, data)
+    return {
+        "id": item.id,
+        "sku": item.sku,
+        "name": item.name,
+        "description": item.description,
+        "item_type": item.item_type,
+        "category_id": item.category_id,
+        "category_name": item.category.name if item.category else None,
+        "unit_measure": item.unit_measure,
+        "current_stock": item.current_stock,
+        "min_stock": item.min_stock,
+        "unit_cost": item.unit_cost,
+        "sale_price": item.sale_price,
+        "is_active": item.is_active,
+        "is_low_stock": item.current_stock <= item.min_stock,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at
+    }
 
 
 @router.delete("/items/{item_id}")
@@ -191,7 +227,7 @@ async def create_movement(
         "unit_cost": movement.unit_cost,
         "total_cost": movement.total_cost,
         "user_id": movement.user_id,
-        "user_name": current_user.name,
+        "user_name": movement.user.name if movement.user else current_user.name,
         "destination_department": movement.destination_department,
         "reference": movement.reference,
         "notes": movement.notes,
@@ -228,7 +264,7 @@ async def adjust_stock(
         "unit_cost": movement.unit_cost,
         "total_cost": movement.total_cost,
         "user_id": movement.user_id,
-        "user_name": current_user.name,
+        "user_name": movement.user.name if movement.user else current_user.name,
         "destination_department": movement.destination_department,
         "reference": movement.reference,
         "notes": movement.notes,
