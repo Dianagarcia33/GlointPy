@@ -229,6 +229,15 @@ class SecurityService:
             {"name": "crm:calendar:view", "description": "Calendario / Agenda: Consultar eventos, citas y reuniones programadas", "module": "CRM"},
             {"name": "crm:calendar:manage", "description": "Calendario / Agenda: Crear, editar, agendar y sincronizar citas", "module": "CRM"},
             {"name": "admin:crm:manage", "description": "CRM: Administración global, métricas e historial del CRM", "module": "CRM"},
+
+            # Módulo Inventario e Insumos de Oficina
+            {"name": "inventory:view", "description": "Acceso general y consulta del catálogo de inventario e insumos", "module": "Inventario"},
+            {"name": "inventory:create", "description": "Dar de alta nuevos productos comerciales o insumos de oficina", "module": "Inventario"},
+            {"name": "inventory:edit", "description": "Editar precios, unidades y umbrales de stock mínimo de artículos", "module": "Inventario"},
+            {"name": "inventory:delete", "description": "Desactivar artículos del catálogo de inventario", "module": "Inventario"},
+            {"name": "inventory:dispatch", "description": "Registrar salidas y consumo interno de insumos de oficina (Gasto de negocio)", "module": "Inventario"},
+            {"name": "inventory:adjust", "description": "Realizar ajustes de stock por auditoría o conteo físico", "module": "Inventario"},
+            {"name": "inventory:kardex", "description": "Visualizar la bitácora completa de movimientos detallados (Kardex)", "module": "Inventario"},
         ]
 
         # 0. Migración in-place de permisos con separador punto (.) o formato legado a dos puntos (:)

@@ -29,7 +29,8 @@ import {
   Sparkles,
   ArrowRight,
   CornerDownLeft,
-  Command
+  Command,
+  Package
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -339,6 +340,16 @@ const MODULES_CATALOG: ModuleItem[] = [
     icon: Sparkles,
     permissions: ['admin.events.manage', 'admin.roles.manage'],
     keywords: ['evento', 'gloint power tech', 'asistentes', 'rsvp', 'aforo', 'presencial', 'invitados', 'conferencia']
+  },
+  {
+    id: 'inventory-admin',
+    title: 'Inventario & Insumos de Oficina',
+    description: 'Control de stock, trazabilidad Kardex, consumo interno de insumos y registro de gastos',
+    path: '/dashboard/inventory',
+    category: 'Administración',
+    icon: Package,
+    permissions: ['inventory:view', 'inventory.view'],
+    keywords: ['inventario', 'insumos', 'oficina', 'stock', 'kardex', 'papeleria', 'articulos', 'productos', 'gastos', 'consumo']
   }
 ];
 

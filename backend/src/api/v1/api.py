@@ -1,11 +1,12 @@
 from fastapi import APIRouter
-from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents, uploads, banks, investment_ranks, external_apps, share_market, events, rooms, webhooks
+from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents, uploads, banks, investment_ranks, external_apps, share_market, events, rooms, webhooks, inventory
 
 api_router = APIRouter()
 
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(roles.router, prefix="", tags=["security"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+api_router.include_router(inventory.router, prefix="/inventory", tags=["inventory"])
 api_router.include_router(periods.router, prefix="/periods", tags=["periods"])
 api_router.include_router(packages.router, prefix="/packages", tags=["packages"])
 api_router.include_router(investors.router, prefix="/investors", tags=["investors"])

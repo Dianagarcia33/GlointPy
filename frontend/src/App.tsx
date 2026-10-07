@@ -51,6 +51,7 @@ import { AdminEventsPage } from "./features/admin/events/pages/AdminEventsPage";
 import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
 import { RoomsPage } from "./features/rooms/pages/RoomsPage";
+import { InventoryPage } from "./features/inventory/pages/InventoryPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -175,6 +176,7 @@ function App() {
         <Route path="admin-notifications" element={<RequirePermission permissions={["admin.notifications.manage", "admin.roles.manage"]}><AdminNotificationsPage /></RequirePermission>} />
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
         <Route path="rooms" element={<RequirePermission permissions={["rooms:view", "rooms:reserve", "admin.rooms.manage"]}><RoomsPage /></RequirePermission>} />
+        <Route path="inventory" element={<RequirePermission permissions={["inventory:view", "inventory.view"]}><InventoryPage /></RequirePermission>} />
         {/* Alias de compatibilidad documentados en Módulos 12 y 13 */}
         <Route path="admin/investors" element={<Navigate to="/dashboard/investors" replace />} />
         <Route path="admin/rankings" element={<Navigate to="/dashboard/rankings" replace />} />

@@ -31,7 +31,8 @@ import {
     Layers,
     Sparkles,
     DoorClosed,
-    ShieldAlert
+    ShieldAlert,
+    Package
 } from 'lucide-react';
 import { Can } from '../../components/security/Can';
 import { useAuthStore } from '../../store/authStore';
@@ -301,7 +302,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                     "admin.packages.manage",
                     "admin.periods.manage",
                     "admin.audits.manage",
-                    "manage_system_events"
+                    "manage_system_events",
+                    "inventory:view",
+                    "inventory.view"
                 ]}>
                     <div className="flex flex-col gap-1">
                         <button 
@@ -466,6 +469,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                 <Sparkles className="w-[18px] h-[18px] text-amber-500" />
                                             </span>
                                             <span className="flex-1 text-[13px] font-outfit">Gloint Power Tech</span>
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["inventory:view", "inventory.view"]}>
+                                        <NavLink to="/dashboard/inventory" className={navLinkClass}>
+                                            <span className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                                <Package className="w-[18px] h-[18px] text-brand-500" />
+                                            </span>
+                                            <span className="flex-1 text-[13px] font-outfit">Inventario e Insumos</span>
                                         </NavLink>
                                     </Can>
                                 </motion.div>
