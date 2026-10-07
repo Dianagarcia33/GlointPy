@@ -11,6 +11,7 @@ import { YointPaymentWidget } from '../../../components/payments/YointPaymentWid
 interface NewInvestmentModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void;
     currentPackageId?: number;
     currentPackageAmount?: number;
     currentPeriodId?: number;
@@ -18,7 +19,16 @@ interface NewInvestmentModalProps {
     isUpgrade?: boolean;
 }
 
-export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentPackageAmount, currentPeriodId, investorId, isUpgrade = false }: NewInvestmentModalProps) => {
+export const NewInvestmentModal = ({ 
+    isOpen, 
+    onClose, 
+    onSuccess,
+    currentPackageId, 
+    currentPackageAmount, 
+    currentPeriodId, 
+    investorId, 
+    isUpgrade = false 
+}: NewInvestmentModalProps) => {
     const queryClient = useQueryClient();
     const { user } = useAuthStore();
     
@@ -168,6 +178,17 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my_investments'] });
+            queryClient.invalidateQueries({ queryKey: ['investments'] });
+            if (investorId) {
+                queryClient.invalidateQueries({ queryKey: ['investment', investorId] });
+            }
+            if (onSuccess) {
+                try {
+                    onSuccess();
+                } catch (e) {
+                    console.error("Error ejecutando onSuccess en NewInvestmentModal:", e);
+                }
+            }
             setSubmitError(null);
             setStep(3);
         },
@@ -618,9 +639,22 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                         submitButtonText="Pagar Inversión en Línea"
                                         onRequestCreate={handleCreateRequestForOnlinePayment}
                                         onSuccess={(statusRes) => {
-                                            setAutoApproved(statusRes.investment_approved || statusRes.status === 'SUCCESS');
+                                            const isAppr = Boolean(statusRes.investment_approved || statusRes.status === 'SUCCESS');
+                                            setAutoApproved(isAppr);
                                             queryClient.invalidateQueries({ queryKey: ['my_investments'] });
                                             queryClient.invalidateQueries({ queryKey: ['wallet'] });
+                                            queryClient.invalidateQueries({ queryKey: ['investments'] });
+                                            if (investorId) {
+                                                queryClient.invalidateQueries({ queryKey: ['investment', investorId] });
+                                            }
+                                            // Recargar el componente padre inmediatamente sin quitar el modal
+                                            if (onSuccess) {
+                                                try {
+                                                    onSuccess();
+                                                } catch (e) {
+                                                    console.error("Error ejecutando onSuccess en NewInvestmentModal:", e);
+                                                }
+                                            }
                                             setStep(3);
                                         }}
                                         onFailed={(_statusRes, errMsg) => {
@@ -722,16 +756,20 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                         <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full inline-block">
                                             Aprobación Inmediata Confirmada
                                         </span>
-                                        <h3 className="text-2xl font-bold text-slate-900 font-montserrat">¡Inversión Aprobada y Activa!</h3>
+                                        <h3 className="text-2xl font-bold text-slate-900 font-montserrat">
+                                            {isUpgrade ? '¡Aumento de Capital Aprobado y Activo!' : '¡Inversión Aprobada y Activa!'}
+                                        </h3>
                                         <p className="text-slate-600 text-sm max-w-sm mx-auto leading-relaxed">
-                                            Tu pago en línea fue validado y confirmado exitosamente. Tu contrato de inversión y rentabilidad ya se encuentran activos en tu panel.
+                                            {isUpgrade
+                                                ? 'Tu pago en línea fue validado y confirmado exitosamente. Tu inversión y nuevos rendimientos ya se encuentran actualizados en tu panel.'
+                                                : 'Tu pago en línea fue validado y confirmado exitosamente. Tu contrato de inversión y rentabilidad ya se encuentran activos en tu panel.'}
                                         </p>
                                     </div>
                                     <button 
                                         onClick={handleFinalClose}
                                         className="mt-6 px-8 py-3 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer"
                                     >
-                                        Ver Mis Inversiones
+                                        {isUpgrade ? 'Continuar' : 'Ver Mis Inversiones'}
                                     </button>
                                 </>
                             ) : (

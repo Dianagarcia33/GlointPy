@@ -37,8 +37,10 @@ export const InvestmentDetailPage = () => {
             }
         } catch (err) {
             console.error("Error loading investment:", err);
-            alert("Error al cargar los detalles de la inversión");
-            navigate('/dashboard');
+            if (!inv) {
+                alert("Error al cargar los detalles de la inversión");
+                navigate('/dashboard');
+            }
         } finally {
             setLoading(false);
         }
@@ -87,6 +89,10 @@ export const InvestmentDetailPage = () => {
             <NewInvestmentModal 
                 isOpen={isUpgradeModalOpen} 
                 onClose={() => setIsUpgradeModalOpen(false)} 
+                onSuccess={() => {
+                    // Recargar los detalles de la inversión en el fondo sin cerrar el modal de éxito
+                    loadDetails();
+                }}
                 isUpgrade={true}
                 investorId={inv.id}
                 currentPackageId={inv.paquete?.id}
