@@ -1,43 +1,17 @@
 import React, { useState, useRef } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, Camera, User, UserCheck, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { CheckCircle2, Loader2, Camera, User, UserCheck, FileText, Mail, LockKeyhole, Eye, EyeOff, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
 import { commercialService } from '../../../services/commercial';
-import { bankAccountsService, DataBank } from '../../../services/bankAccounts';
 import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 import { compressImage } from '../../../utils/imageCompression';
 
 export const InvestorRegistrationFlow = () => {
     const [step, setStep] = useState(1);
     
-    const { data: officialBanks = [] } = useQuery<DataBank[]>({
-        queryKey: ['official_banks'],
-        queryFn: () => bankAccountsService.getBanks(),
-        staleTime: 1000 * 60 * 30
-    });
 
-    const DEFAULT_BANKS: DataBank[] = [
-        { id: 4, banck: "BANCOLOMBIA", code_banck: "1007" },
-        { id: 14, banck: "BANCO DAVIVIENDA SA", code_banck: "1051" },
-        { id: 36, banck: "NEQUI", code_banck: "1507" },
-        { id: 1, banck: "BANCO DE BOGOTÁ", code_banck: "1001" },
-        { id: 7, banck: "BBVA COLOMBIA", code_banck: "1013" },
-        { id: 37, banck: "DAVIPLATA", code_banck: "1551" },
-        { id: 9, banck: "BANCO DE OCCIDENTE", code_banck: "1023" },
-        { id: 15, banck: "BANCO AV VILLAS", code_banck: "1052" },
-        { id: 27, banck: "LULO BANK S.A", code_banck: "1070" },
-        { id: 11, banck: "BANCO CAJA SOCIAL BCSC SA", code_banck: "1032" },
-        { id: 33, banck: "CONFIAR COOPERATIVA FINANCIERA", code_banck: "1292" },
-        { id: 12, banck: "BANCO AGRARIO", code_banck: "1040" },
-        { id: 3, banck: "ITAU", code_banck: "1006" },
-        { id: 21, banck: "BANCO FALABELLA S.A.", code_banck: "1062" },
-        { id: 41, banck: "MOVII", code_banck: "1801" },
-        { id: 44, banck: "UALA", code_banck: "1804" }
-    ];
-
-    const availableBanks = (officialBanks && officialBanks.length > 0) ? officialBanks : DEFAULT_BANKS;
     
     // KYC Images States
     const [frontImage, setFrontImage] = useState<File | null>(null);
@@ -62,10 +36,6 @@ export const InvestorRegistrationFlow = () => {
         numero_celular: '',
         ciudad: '',
         custom_ciudad: '',
-        banco: '',
-        custom_banco: '',
-        tipo_cuenta: 'Ahorros',
-        numero_cuenta: '',
         referred_by: '',
         commercial_id: ''
     });
@@ -75,7 +45,6 @@ export const InvestorRegistrationFlow = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [showCustomCity, setShowCustomCity] = useState(false);
-    const [showCustomBank, setShowCustomBank] = useState(false);
 
     // Fetch commercial users (Directivos de Inversión)
     React.useEffect(() => {
@@ -336,10 +305,6 @@ export const InvestorRegistrationFlow = () => {
             setShowCustomCity(value === 'Otra');
         }
 
-        if (name === 'banco') {
-            setShowCustomBank(value === 'Otro / Cooperativa' || value === 'Otro');
-        }
-
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -348,7 +313,6 @@ export const InvestorRegistrationFlow = () => {
         if (!acceptedTerms) return;
 
         const finalCity = formData.ciudad === 'Otra' ? formData.custom_ciudad : formData.ciudad;
-        const finalBank = (formData.banco === 'Otro / Cooperativa' || formData.banco === 'Otro') ? formData.custom_banco : formData.banco;
 
         const payload = {
             name: formData.name.trim(),
@@ -360,9 +324,9 @@ export const InvestorRegistrationFlow = () => {
             numero_celular: formData.numero_celular.trim(),
             fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null,
             ciudad: finalCity,
-            banco: finalBank || null,
-            tipo_cuenta: formData.tipo_cuenta || null,
-            numero_cuenta: formData.numero_cuenta ? formData.numero_cuenta.trim() : null,
+            banco: null,
+            tipo_cuenta: null,
+            numero_cuenta: null,
             kyc_docs: kycPaths,
             biometric_verified: !requiresManualReview && (biometricSimilarity !== null),
             biometric_similarity: biometricSimilarity,
@@ -414,11 +378,6 @@ export const InvestorRegistrationFlow = () => {
         // Validar fecha de expedición (no puede ser futura)
         const isExpedicionValid = !!formData.fecha_expedicion && formData.fecha_expedicion <= getTodayDate();
 
-        // Validar datos bancarios si empezó a ingresarlos
-        const bankValid = formData.banco 
-            ? (formData.banco === 'Otro' ? !!formData.custom_banco : true) && !!formData.tipo_cuenta && !!formData.numero_cuenta
-            : true;
-
         return (
             !!formData.name.trim() &&
             !!formData.tipo_documento &&
@@ -429,7 +388,6 @@ export const InvestorRegistrationFlow = () => {
             !!formData.numero_celular.trim() &&
             !!selectedDepartmentId &&
             cityValid &&
-            bankValid &&
             !referralError &&
             !isCheckingReferral
         );
@@ -817,48 +775,7 @@ export const InvestorRegistrationFlow = () => {
                             </div>
                         </div>
 
-                        {/* Datos Bancarios (Opcionales para registro, requeridos para retiros) */}
-                        <div className="pt-4 border-t border-slate-200">
-                            <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2 border-b border-slate-200 pb-2">
-                                <Landmark className="w-5 h-5 text-brand-600" /> Datos Bancarios para Desembolsos
-                            </h3>
-                            <p className="text-xs text-slate-500 mb-3">Ingresa la cuenta bancaria donde recibirás tus rendimientos y liquidaciones.</p>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Banco</label>
-                                    <select 
-                                        name="banco" 
-                                        value={formData.banco} 
-                                        onChange={handleChange} 
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
-                                    >
-                                        <option value="">Selecciona tu banco...</option>
-                                        {availableBanks.map(b => (
-                                            <option key={b.id} value={b.banck}>{b.banck}</option>
-                                        ))}
-                                        <option value="Otro">Otro / Cooperativa</option>
-                                    </select>
-                                </div>
-                                {showCustomBank && (
-                                    <div className="md:col-span-2 animate-fadeIn">
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué banco o cooperativa?</label>
-                                        <input type="text" name="custom_banco" value={formData.custom_banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Cooperativa Confiar" />
-                                    </div>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta</label>
-                                    <select name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                        <option value="Ahorros">Ahorros</option>
-                                        <option value="Corriente">Corriente</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Número de Cuenta</label>
-                                    <input type="text" name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 123456789" />
-                                </div>
-                            </div>
-                        </div>
+
 
                         {/* Asesor y Código de Referido */}
                         <div className="pt-4 border-t border-slate-200 space-y-4">
