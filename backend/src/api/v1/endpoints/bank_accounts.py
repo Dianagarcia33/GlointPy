@@ -86,51 +86,18 @@ async def send_bank_account_otp(
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-        
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Código de Verificación - Bóveda Bancaria</title>
-        <style>
-            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 0; background-color: #f7f9fc; }}
-            .container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
-            .header {{ background-color: #0f172a; padding: 30px; text-align: center; }}
-            .header h1 {{ margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }}
-            .content {{ padding: 40px 30px; }}
-            .code-box {{ background-color: #f0fdf4; border: 2px dashed #16a34a; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0; }}
-            .code {{ font-size: 36px; font-weight: bold; color: #15803d; letter-spacing: 5px; margin: 0; }}
-            .footer {{ background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; }}
-            .footer p {{ margin: 0; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Bóveda Bancaria - Gloint</h1>
-            </div>
-            <div class="content">
-                <p>Hola <strong>{current_user.name}</strong>,</p>
-                <p>Has solicitado realizar una operación en tu <strong>Bóveda Bancaria</strong> (Agregar, Editar o Eliminar cuenta bancaria).</p>
-                <p>Para autorizar esta acción, ingresa el siguiente código de verificación de 6 dígitos:</p>
-                <div class="code-box">
-                    <p class="code">{code}</p>
-                </div>
-                <p style="font-size: 14px; color: #64748b; text-align: center;">Este código expirará en 10 minutos por motivos de seguridad.</p>
-                <p style="margin-top: 30px;">Si no realizaste esta solicitud, por favor ignora este mensaje y contacta a nuestro equipo de soporte.</p>
-            </div>
-            <div class="footer">
-                <p>&copy; {datetime.now().year} Gloint. Todos los derechos reservados.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    from src.services.email_template_service import EmailTemplateService
+    subject, html_content = EmailTemplateService.get_otp_verification_template(
+        user_name=current_user.name or "Inversionista",
+        code=code,
+        purpose="Operación en Bóveda Bancaria",
+        action_details="Has solicitado realizar una operación en tu Bóveda Bancaria (Agregar, Editar o Eliminar cuenta bancaria).",
+        expires_minutes=10
+    )
     
     EmailService.send_html_email(
         to_email=current_user.email,
-        subject="Código de Verificación - Bóveda Bancaria Gloint",
+        subject=subject,
         html_content=html_content
     )
     

@@ -444,10 +444,51 @@ async def send_test_email(
             risk_level="MEDIUM",
             hallazgos_summary="Se detectaron alertas normativas preliminares en listas de control que requieren validación documental."
         )
+    elif email_type == "password_reset":
+        template_label = "Recuperación de Contraseña"
+        sent = EmailService.send_password_reset_email(to_email=recipient, reset_token="test-token-demo-999")
+    elif email_type == "otp":
+        template_label = "Código de Seguridad (OTP)"
+        sent = EmailService.send_withdrawal_verification_code(to_email=recipient, code="749201")
+    elif email_type == "withdrawal_approved":
+        template_label = "Retiro Aprobado y Transferido"
+        sent = EmailService.send_withdrawal_approval_email(
+            to_email=recipient,
+            user_name=user_name,
+            amount=2500000.0,
+            method="Transferencia Bancaria",
+            bank="Bancolombia",
+            account_number="•••• 7890"
+        )
+    elif email_type == "chatbot_investor":
+        template_label = "Confirmación Asesoría Lead"
+        sent = EmailService.send_chatbot_lead_investor_confirmation(
+            to_email=recipient,
+            investor_name=user_name,
+            director_name="Carlos Méndez (Directivo Asignado)",
+            package_name="Paquete Empresarial $10,000,000 COP",
+            preferred_time="Tarde (2:00 PM - 5:00 PM)"
+        )
+    elif email_type == "chatbot_director":
+        template_label = "Notificación Lead a Directivo"
+        sent = EmailService.send_chatbot_lead_director_notification(
+            to_email=recipient,
+            director_name=user_name,
+            lead_data={
+                "name": "Andrea Morales",
+                "phone": "+57 312 345 6789",
+                "email": recipient,
+                "city": "Medellín",
+                "department": "Antioquia",
+                "package_name": "Paquete Titan $50,000,000 COP",
+                "investment_goal": "Crecimiento patrimonial a 12 meses",
+                "preferred_contact_time": "Mañana (9:00 AM - 12:00 PM)"
+            }
+        )
     else:
         raise HTTPException(
             status_code=400,
-            detail=f"Tipo de correo no válido ('{payload.email_type}'). Opciones válidas: 'welcome', 'sarlaft_approved', 'sarlaft_findings'"
+            detail=f"Tipo de correo no válido ('{payload.email_type}'). Opciones: 'welcome', 'sarlaft_approved', 'sarlaft_findings', 'password_reset', 'otp', 'withdrawal_approved', 'chatbot_investor', 'chatbot_director'"
         )
 
     if not sent:

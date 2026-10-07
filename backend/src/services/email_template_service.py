@@ -422,3 +422,358 @@ class EmailTemplateService:
         )
         return subject, html
 
+    @classmethod
+    def get_password_reset_template(cls, reset_token: str) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Recuperación de Contraseña.
+        """
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        reset_link = f"{frontend_url}/reset-password?token={reset_token}"
+        subject = "Recuperación de Contraseña - Gloint"
+        title = "Recuperación de Contraseña"
+        preheader = "Recibimos una solicitud para restablecer la contraseña de tu cuenta en Gloint."
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Hola,
+        </p>
+        <p style="margin: 0 0 16px; line-height: 1.65; color: #334155;">
+            Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>Gloint International Partners</strong>. Si fuiste tú, haz clic en el siguiente botón para asignar una nueva contraseña segura:
+        </p>
+
+        <div style="background-color: #fff7ed; border-left: 3px solid #f97316; border-radius: 10px; padding: 14px 18px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 13px; color: #7c2d12; line-height: 1.5;">
+                ⏱ <strong>Enlace de seguridad temporal:</strong> Este enlace expirará en <strong>15 minutos</strong> por protección de tu cuenta.
+            </p>
+        </div>
+
+        <p style="margin: 20px 0 0; font-size: 13px; line-height: 1.5; color: #64748b;">
+            Si el botón no funciona en tu cliente de correo, copia y pega el siguiente enlace directo en tu navegador:
+            <br>
+            <a href="{reset_link}" style="color: #f97316; word-break: break-all; text-decoration: underline;">{reset_link}</a>
+        </p>
+        <p style="margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: #64748b;">
+            Si tú no solicitaste este cambio, puedes ignorar este correo de forma segura; tu clave actual permanecerá protegida.
+        </p>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="SEGURIDAD DE LA CUENTA",
+            badge_variant="orange",
+            cta_text="Restablecer mi Contraseña",
+            cta_url=reset_link
+        )
+        return subject, html
+
+    @classmethod
+    def get_otp_verification_template(
+        cls,
+        user_name: str,
+        code: str,
+        purpose: str,
+        action_details: Optional[str] = None,
+        expires_minutes: int = 10
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Códigos OTP de Verificación de Seguridad (Retiros, Bóveda Bancaria, Contraseñas).
+        """
+        subject = f"Código de Seguridad ({code}) - Gloint"
+        title = f"Código de Seguridad: {purpose}"
+        preheader = f"Tu código de seguridad Gloint es {code} para autorizar: {purpose}."
+
+        details_html = f"<p style='margin: 0 0 14px; font-size: 14px; color: #475569;'>{action_details}</p>" if action_details else ""
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Hola <strong>{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 16px; line-height: 1.65; color: #334155;">
+            Has iniciado una solicitud para <strong>{purpose}</strong> en la plataforma. Para autorizar y procesar esta acción de forma segura, ingresa el siguiente código de verificación:
+        </p>
+        {details_html}
+
+        <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 22px 20px; text-align: center; margin: 24px 0;">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                Código de Autorización
+            </div>
+            <div style="font-size: 34px; font-weight: 800; letter-spacing: 6px; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, monospace;">
+                {code}
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 8px; font-weight: 500;">
+                ⏱ Válido por {expires_minutes} minutos
+            </div>
+        </div>
+
+        <div style="background-color: #fff7ed; border-left: 3px solid #f97316; border-radius: 8px; padding: 12px 16px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 12.5px; color: #7c2d12; line-height: 1.5;">
+                <strong>Aviso de Confidencialidad:</strong> Nunca compartas este código con terceros. Ningún asesor ni colaborador de Gloint te solicitará este código.
+            </p>
+        </div>
+
+        <p style="margin: 16px 0 0; font-size: 13px; line-height: 1.5; color: #64748b;">
+            Si tú no iniciaste esta solicitud, por favor ignora este correo y contacta de inmediato al canal de soporte oficial.
+        </p>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="AUTORIZACIÓN DE SEGURIDAD",
+            badge_variant="orange"
+        )
+        return subject, html
+
+    @classmethod
+    def get_withdrawal_approval_template(
+        cls,
+        user_name: str,
+        amount: float,
+        method: str,
+        bank: str,
+        account_number: str
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Confirmación de Retiro Aprobado y Dispersado.
+        """
+        subject = "¡Tu retiro ha sido aprobado y transferido! - Gloint"
+        title = "¡Retiro Aprobado y Procesado!"
+        preheader = f"Hola {user_name}, tu retiro por ${amount:,.2f} COP ha sido aprobado y transferido exitosamente."
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Estimado/a <strong>{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Nos complace informarte que tu solicitud de retiro de fondos ha sido <strong>aprobada y transferida exitosamente</strong> a tu cuenta de destino registrada.
+        </p>
+
+        <!-- Details Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 22px; margin: 22px 0;">
+            <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                Resumen de la Transacción
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.8;">
+                <tr>
+                    <td style="font-weight: 600; width: 140px; color: #64748b;">Monto Transferido:</td>
+                    <td style="font-size: 17px; font-weight: 800; color: #16a34a;">${amount:,.2f} COP</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Método de Pago:</td>
+                    <td style="font-weight: 600; color: #0f172a;">{method}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Entidad Bancaria:</td>
+                    <td style="font-weight: 600; color: #0f172a;">{bank}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Cuenta Destino:</td>
+                    <td style="font-weight: 600; color: #0f172a;">{account_number}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="background-color: #f0fdf4; border-left: 3px solid #16a34a; border-radius: 8px; padding: 12px 16px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 12.5px; color: #15803d; line-height: 1.5;">
+                💡 <strong>Tiempo de acreditación:</strong> Dependiendo del ciclo interbancario de tu entidad financiera, los fondos se verán reflejados en tu extracto en un lapso de pocos minutos a pocas horas hábiles.
+            </p>
+        </div>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="TRANSACCIÓN APROBADA",
+            badge_variant="green",
+            cta_text="Consultar Billetera en Gloint",
+            cta_url=f"{frontend_url}/dashboard/wallet"
+        )
+        return subject, html
+
+    @classmethod
+    def get_chatbot_lead_investor_template(
+        cls,
+        investor_name: str,
+        director_name: str,
+        package_name: str,
+        preferred_time: Optional[str] = None
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Confirmación al Inversionista tras dejar sus datos en el Chatbot.
+        """
+        subject = "Solicitud de Asesoría de Inversión Recibida - Gloint"
+        title = "¡Hemos recibido tu solicitud de asesoría!"
+        preheader = f"Hola {investor_name}, tu solicitud para el paquete {package_name} ha sido asignada a {director_name}."
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+
+        time_row = f"""
+        <tr>
+            <td style="font-weight: 600; color: #64748b;">Horario preferido:</td>
+            <td style="font-weight: 600; color: #0f172a;">{preferred_time}</td>
+        </tr>
+        """ if preferred_time else ""
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Estimado/a <strong>{investor_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Agradecemos tu interés en formar parte de nuestro fondo de inversión. Hemos recibido satisfactoriamente tu solicitud de asesoría personalizada para el paquete <strong>{package_name}</strong>.
+        </p>
+
+        <!-- Details Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 22px; margin: 22px 0;">
+            <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                Asignación Comercial Directa
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.8;">
+                <tr>
+                    <td style="font-weight: 600; width: 160px; color: #64748b;">Directivo de Inversión:</td>
+                    <td style="font-weight: 700; color: #0f172a;">{director_name}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Paquete de Interés:</td>
+                    <td style="font-weight: 700; color: #ea580c;">{package_name}</td>
+                </tr>
+                {time_row}
+            </table>
+        </div>
+
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Tu directivo asignado se comunicará contigo vía telefónica o WhatsApp para compartirte las proyecciones financieras, los contratos de garantía y resolver cualquier inquietud de manera personalizada.
+        </p>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="ASESORÍA PATRIMONIAL",
+            badge_variant="orange",
+            cta_text="Conocer Más de Gloint",
+            cta_url=frontend_url
+        )
+        return subject, html
+
+    @classmethod
+    def get_chatbot_lead_director_template(
+        cls,
+        director_name: str,
+        lead_data: dict
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Notificación al Director Comercial de un nuevo lead del Chatbot.
+        """
+        investor_name = lead_data.get("name", "Prospecto")
+        subject = f"🎯 Nuevo Prospecto Asignado: {investor_name} - Gloint CRM"
+        title = "Nuevo Prospecto de Inversión Asignado"
+        preheader = f"Hola {director_name}, se te ha asignado a {investor_name} a través del Chatbot web."
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        pkg_name = lead_data.get("package_name") or f"${lead_data.get('package_value', 0):,.0f} COP"
+        phone = lead_data.get('phone', 'No especificado')
+        email = lead_data.get('email', 'No especificado')
+        city = lead_data.get('city', 'N/A')
+        dept = lead_data.get('department', '')
+        city_dept = f"{city} ({dept})" if dept else city
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Hola <strong>{director_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Se te ha asignado un nuevo prospecto de inversión de manera equitativa a través del Chatbot de la Landing Page. A continuación los datos clave para tu contacto y cierre:
+        </p>
+
+        <!-- Details Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 22px; margin: 20px 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.8;">
+                <tr><td style="font-weight: 600; width: 150px; color: #64748b;">Inversionista:</td><td style="font-weight: 700; color: #0f172a;">{investor_name}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Teléfono / WhatsApp:</td><td><a href="tel:{phone}" style="color: #0284c7; font-weight: 600; text-decoration: none;">{phone}</a></td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Correo Electrónico:</td><td><a href="mailto:{email}" style="color: #0284c7; font-weight: 600; text-decoration: none;">{email}</a></td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Ciudad / Dpto:</td><td style="color: #0f172a;">{city_dept}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Paquete de Interés:</td><td style="color: #ea580c; font-weight: 700;">{pkg_name}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Objetivo:</td><td style="color: #0f172a;">{lead_data.get('investment_goal', 'Inversión')}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Horario de Contacto:</td><td style="color: #0f172a;">{lead_data.get('preferred_contact_time', 'Indiferente')}</td></tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 16px; font-size: 13.5px; line-height: 1.6; color: #475569;">
+            El prospecto ya se encuentra registrado en tu tablero de <strong>CRM Leads</strong> en la etapa <em>Lead Entrante</em> listo para gestión comercial inmediata.
+        </p>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="GESTIÓN COMERCIAL • LEAD CHATBOT",
+            badge_variant="blue",
+            cta_text="Gestionar Lead en CRM",
+            cta_url=f"{frontend_url}/dashboard/crm"
+        )
+        return subject, html
+
+    @classmethod
+    def get_external_form_director_template(
+        cls,
+        director_name: str,
+        platform_name: str,
+        lead_data: dict
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Notificación al Director Comercial de un prospecto de formulario externo.
+        """
+        contact_name = lead_data.get("name", "Prospecto")
+        subject = f"🔔 Nuevo Prospecto desde {platform_name}: {contact_name} - Gloint CRM"
+        title = f"Nuevo Contacto desde {platform_name}"
+        preheader = f"Hola {director_name}, has recibido un nuevo prospecto desde {platform_name}."
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        message_txt = lead_data.get("message") or "Sin mensaje adicional"
+        company_txt = lead_data.get("company") or "No especificada"
+        city_txt = lead_data.get("city") or "No especificada"
+        phone_val = lead_data.get("phone", "No especificado")
+        email_val = lead_data.get("email", "No especificado")
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Hola <strong>{director_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Se te ha asignado un nuevo prospecto de manera equitativa proveniente del formulario de <strong>{platform_name}</strong>. A continuación los detalles registrados:
+        </p>
+
+        <!-- Details Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 22px; margin: 20px 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.8;">
+                <tr><td style="font-weight: 600; width: 140px; color: #64748b;">Origen:</td><td style="color: #0284c7; font-weight: 700;">{platform_name}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Nombre:</td><td style="font-weight: 700; color: #0f172a;">{contact_name}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Teléfono:</td><td><a href="tel:{phone_val}" style="color: #0284c7; font-weight: 600; text-decoration: none;">{phone_val}</a></td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Correo:</td><td><a href="mailto:{email_val}" style="color: #0284c7; font-weight: 600; text-decoration: none;">{email_val}</a></td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Empresa:</td><td style="color: #0f172a;">{company_txt}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Ciudad:</td><td style="color: #0f172a;">{city_txt}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b; vertical-align: top;">Mensaje:</td><td style="white-space: pre-line; color: #0f172a;">{message_txt}</td></tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 16px; font-size: 13.5px; line-height: 1.6; color: #475569;">
+            Este contacto ha quedado registrado en tu tablero de <strong>CRM Leads</strong> en la etapa <em>Lead Entrante</em> listo para gestión inmediata.
+        </p>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text=f"FORMULARIO • {platform_name.upper()}",
+            badge_variant="blue",
+            cta_text="Ver Prospecto en CRM",
+            cta_url=f"{frontend_url}/dashboard/crm"
+        )
+        return subject, html
+
+

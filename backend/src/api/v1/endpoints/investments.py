@@ -891,50 +891,18 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Error al generar el código: {str(e)}")
     
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Código de Verificación - Retiro de Capital</title>
-        <style>
-            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 0; background-color: #f7f9fc; }}
-            .container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
-            .header {{ background-color: #6366f1; padding: 30px; text-align: center; }}
-            .header h1 {{ margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }}
-            .content {{ padding: 40px 30px; }}
-            .code-box {{ background-color: #f0fdf4; border: 2px dashed #22c55e; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0; }}
-            .code {{ font-size: 36px; font-weight: bold; color: #166534; letter-spacing: 5px; margin: 0; }}
-            .footer {{ background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; }}
-            .footer p {{ margin: 0; color: #64748b; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Retiro de Capital - Gloint</h1>
-            </div>
-            <div class="content">
-                <p>Hola <strong>{current_user.name}</strong>,</p>
-                <p>Has solicitado retirar capital disponible de tu inversión <strong>#{inv_record.id}</strong>.</p>
-                <p>Para confirmar y procesar esta solicitud, por favor ingresa el siguiente código de 6 dígitos en la plataforma:</p>
-                <div class="code-box">
-                    <p class="code">{code}</p>
-                </div>
-                <p style="font-size: 14px; color: #64748b; text-align: center;">Este código expirará en 10 minutos por razones de seguridad.</p>
-                <p style="margin-top: 30px;">Si no has solicitado este retiro, por favor ignora este correo y contacta a soporte inmediatamente.</p>
-            </div>
-            <div class="footer">
-                <p>&copy; {datetime.now().year} Gloint. Todos los derechos reservados.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    from src.services.email_template_service import EmailTemplateService
+    subject, html_content = EmailTemplateService.get_otp_verification_template(
+        user_name=current_user.name or "Inversionista",
+        code=code,
+        purpose=f"Retiro de Capital (Inversión #{inv_record.id})",
+        action_details=f"Has solicitado retirar capital disponible de tu contrato de inversión #{inv_record.id}.",
+        expires_minutes=10
+    )
+    
     EmailService.send_html_email(
         to_email=current_user.email,
-        subject="Código de Verificación - Retiro de Capital Gloint",
+        subject=subject,
         html_content=html_content
     )
     

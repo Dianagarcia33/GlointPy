@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ShieldCheck, Loader2, Trophy, Sparkles, ChevronRight, Clock, ShieldAlert, Mail, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Loader2, Trophy, Sparkles, ChevronRight, Clock, ShieldAlert, Mail, CheckCircle2, AlertTriangle, KeyRound, ArrowUpRight } from 'lucide-react';
 import { fetchApi } from '../../../services/api';
 import { useAuthStore } from '../../../store/authStore';
 import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
@@ -136,7 +136,7 @@ export const DashboardPage = () => {
     const [emailTestingType, setEmailTestingType] = useState<string | null>(null);
     const [emailFeedback, setEmailFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    const handleSendTestEmail = async (type: 'welcome' | 'sarlaft_approved' | 'sarlaft_findings') => {
+    const handleSendTestEmail = async (type: string) => {
         try {
             setEmailTestingType(type);
             setEmailFeedback(null);
@@ -509,49 +509,105 @@ export const DashboardPage = () => {
                                     </span>
                                 </div>
 
-                                {/* Botones de prueba */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <button
-                                        type="button"
-                                        disabled={emailTestingType !== null}
-                                        onClick={() => handleSendTestEmail('welcome')}
-                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800/90 hover:bg-slate-700/90 active:scale-[0.98] border border-slate-600/80 hover:border-brand-500/50 text-white rounded-2xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                    >
-                                        {emailTestingType === 'welcome' ? (
-                                            <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
-                                        ) : (
-                                            <Mail className="w-4 h-4 text-brand-400 group-hover:scale-110 transition-transform" />
-                                        )}
-                                        <span>1. Bienvenida & Revisión</span>
-                                    </button>
+                                {/* Botones de prueba organizados por categorías */}
+                                <div className="space-y-3">
+                                    <div className="space-y-1.5">
+                                        <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider font-montserrat">
+                                            Onboarding & SARLAFT
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                            <button
+                                                type="button"
+                                                disabled={emailTestingType !== null}
+                                                onClick={() => handleSendTestEmail('welcome')}
+                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700/90 active:scale-[0.98] border border-slate-600/80 hover:border-brand-500/50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
+                                            >
+                                                {emailTestingType === 'welcome' ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
+                                                ) : (
+                                                    <Mail className="w-3.5 h-3.5 text-brand-400 group-hover:scale-110 transition-transform" />
+                                                )}
+                                                <span>1. Bienvenida & Revisión</span>
+                                            </button>
 
-                                    <button
-                                        type="button"
-                                        disabled={emailTestingType !== null}
-                                        onClick={() => handleSendTestEmail('sarlaft_approved')}
-                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-950/40 hover:bg-emerald-900/60 active:scale-[0.98] border border-emerald-700/60 hover:border-emerald-500 text-emerald-200 rounded-2xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                    >
-                                        {emailTestingType === 'sarlaft_approved' ? (
-                                            <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-                                        ) : (
-                                            <CheckCircle2 className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-                                        )}
-                                        <span>2. SARLAFT Aprobada</span>
-                                    </button>
+                                            <button
+                                                type="button"
+                                                disabled={emailTestingType !== null}
+                                                onClick={() => handleSendTestEmail('sarlaft_approved')}
+                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/60 active:scale-[0.98] border border-emerald-700/60 hover:border-emerald-500 text-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
+                                            >
+                                                {emailTestingType === 'sarlaft_approved' ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                                                ) : (
+                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                                                )}
+                                                <span>2. SARLAFT Aprobada</span>
+                                            </button>
 
-                                    <button
-                                        type="button"
-                                        disabled={emailTestingType !== null}
-                                        onClick={() => handleSendTestEmail('sarlaft_findings')}
-                                        className="flex items-center justify-center gap-2 px-4 py-3 bg-amber-950/40 hover:bg-amber-900/60 active:scale-[0.98] border border-amber-700/60 hover:border-amber-500 text-amber-200 rounded-2xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                    >
-                                        {emailTestingType === 'sarlaft_findings' ? (
-                                            <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                                        ) : (
-                                            <AlertTriangle className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-                                        )}
-                                        <span>3. SARLAFT con Alertas</span>
-                                    </button>
+                                            <button
+                                                type="button"
+                                                disabled={emailTestingType !== null}
+                                                onClick={() => handleSendTestEmail('sarlaft_findings')}
+                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-amber-950/40 hover:bg-amber-900/60 active:scale-[0.98] border border-amber-700/60 hover:border-amber-500 text-amber-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
+                                            >
+                                                {emailTestingType === 'sarlaft_findings' ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                                                ) : (
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+                                                )}
+                                                <span>3. SARLAFT Alertas</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5 pt-1">
+                                        <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider font-montserrat">
+                                            Seguridad & Transacciones de Capital
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                            <button
+                                                type="button"
+                                                disabled={emailTestingType !== null}
+                                                onClick={() => handleSendTestEmail('otp')}
+                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700/90 active:scale-[0.98] border border-slate-600/80 hover:border-brand-500/50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
+                                            >
+                                                {emailTestingType === 'otp' ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
+                                                ) : (
+                                                    <KeyRound className="w-3.5 h-3.5 text-brand-400 group-hover:scale-110 transition-transform" />
+                                                )}
+                                                <span>4. Código OTP Seguridad</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                disabled={emailTestingType !== null}
+                                                onClick={() => handleSendTestEmail('withdrawal_approved')}
+                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/60 active:scale-[0.98] border border-emerald-700/60 hover:border-emerald-500 text-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
+                                            >
+                                                {emailTestingType === 'withdrawal_approved' ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                                                ) : (
+                                                    <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+                                                )}
+                                                <span>5. Retiro Transferido</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                disabled={emailTestingType !== null}
+                                                onClick={() => handleSendTestEmail('password_reset')}
+                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-indigo-950/40 hover:bg-indigo-900/60 active:scale-[0.98] border border-indigo-700/60 hover:border-indigo-500 text-indigo-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
+                                            >
+                                                {emailTestingType === 'password_reset' ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                                                ) : (
+                                                    <Mail className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
+                                                )}
+                                                <span>6. Reset Password</span>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Feedback Notification */}

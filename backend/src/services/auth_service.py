@@ -392,50 +392,18 @@ class AuthService:
         db.add(verification)
         await db.commit()
 
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Código de Verificación - Cambio de Contraseña</title>
-            <style>
-                body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333333; margin: 0; padding: 0; background-color: #f7f9fc; }}
-                .container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }}
-                .header {{ background-color: #0f172a; padding: 30px; text-align: center; }}
-                .header h1 {{ margin: 0; color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }}
-                .content {{ padding: 40px 30px; }}
-                .code-box {{ background-color: #f0fdf4; border: 2px dashed #16a34a; border-radius: 8px; padding: 20px; text-align: center; margin: 30px 0; }}
-                .code {{ font-size: 36px; font-weight: bold; color: #15803d; letter-spacing: 5px; margin: 0; }}
-                .footer {{ background-color: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; }}
-                .footer p {{ margin: 0; color: #64748b; font-size: 14px; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>Cambio de Contraseña - Gloint</h1>
-                </div>
-                <div class="content">
-                    <p>Hola <strong>{user.name}</strong>,</p>
-                    <p>Has ingresado con una contraseña temporal y se requiere el cambio obligatorio de tu contraseña por seguridad.</p>
-                    <p>Para autorizar la asignación de tu nueva contraseña, ingresa el siguiente código de verificación de 6 dígitos:</p>
-                    <div class="code-box">
-                        <p class="code">{code}</p>
-                    </div>
-                    <p style="font-size: 14px; color: #64748b; text-align: center;">Este código expirará en 10 minutos por motivos de seguridad.</p>
-                    <p style="margin-top: 30px;">Si tú no iniciaste este proceso, por favor contacta de inmediato al soporte técnico de Gloint.</p>
-                </div>
-                <div class="footer">
-                    <p>&copy; {datetime.now().year} Gloint. Todos los derechos reservados.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html_content = EmailTemplateService.get_otp_verification_template(
+            user_name=user.name or "Usuario",
+            code=code,
+            purpose="Cambio Obligatorio de Contraseña",
+            action_details="Has ingresado con una clave temporal y se requiere el cambio obligatorio de tu contraseña por seguridad.",
+            expires_minutes=10
+        )
 
         EmailService.send_html_email(
             to_email=user.email,
-            subject="Código de Verificación - Cambio de Contraseña Gloint",
+            subject=subject,
             html_content=html_content
         )
 
