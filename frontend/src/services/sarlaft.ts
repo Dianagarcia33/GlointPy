@@ -23,11 +23,17 @@ export interface SarlaftCheckResponse {
         infos?: any[];
       };
     };
+    tusdatos_status?: string;
+    tusdatos_hallazgos_corregidos?: boolean;
     created_at?: string;
   } | null;
 }
 
 export const sarlaftService = {
+  async getMyCheck(): Promise<SarlaftCheckResponse> {
+    return await fetchApi('/sarlaft/me');
+  },
+
   async getCheckByUser(userId: number): Promise<SarlaftCheckResponse> {
     return await fetchApi(`/sarlaft/user/${userId}`);
   },

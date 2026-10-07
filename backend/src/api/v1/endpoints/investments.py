@@ -322,17 +322,42 @@ async def create_investment_request(
             .order_by(SarlaftCheck.id.desc())
         )
         last_sarlaft = sarlaft_res.scalars().first()
-        if last_sarlaft:
-            if last_sarlaft.risk_level == "HIGH" and not last_sarlaft.tusdatos_hallazgos_corregidos:
+
+        user_roles = [getattr(r, "name", "") for r in getattr(current_user, "roles", [])]
+        is_admin = any(role_name in ["Super Admin", "Admin"] for role_name in user_roles)
+        is_owner = (current_user.id == target_user_id)
+
+        # Regla: Si la validación está pendiente o fue rechazada, el usuario no podrá solicitar inversiones
+        if is_owner or not is_admin:
+            if not last_sarlaft or str(last_sarlaft.status or "").lower() in ["processing", "procesando", "pending"] or str(last_sarlaft.tusdatos_status or "").lower() in ["processing", "procesando"]:
                 raise HTTPException(
                     status_code=403,
-                    detail="Tu cuenta presenta hallazgos de alto riesgo en la verificación SARLAFT (listas restrictivas). No es posible generar solicitudes de inversión hasta que un oficial de cumplimiento revise tu expediente."
+                    detail="Tu validación de antecedentes e identidad (SARLAFT) se encuentra en proceso. No puedes solicitar inversiones hasta que la verificación finalice satisfactoriamente."
                 )
-            if last_sarlaft.details and isinstance(last_sarlaft.details, dict):
-                if "kyc_docs" in last_sarlaft.details and not extra_data.get("kyc_docs"):
-                    extra_data["kyc_docs"] = last_sarlaft.details["kyc_docs"]
-                if "biometrics" in last_sarlaft.details and not extra_data.get("biometrics"):
-                    extra_data["biometrics"] = last_sarlaft.details["biometrics"]
+
+            is_rejected = (
+                (last_sarlaft.risk_level == "HIGH" and not last_sarlaft.tusdatos_hallazgos_corregidos) or
+                str(last_sarlaft.status or "").lower() in ["failed", "error"] or
+                str(last_sarlaft.tusdatos_status or "").lower() in ["failed", "error"]
+            )
+            if is_rejected:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Tu validación SARLAFT fue rechazada o presenta hallazgos de alto riesgo en listas restrictivas. No es posible generar solicitudes de inversión hasta que un oficial de cumplimiento revise tu expediente."
+                )
+        else:
+            # Si un administrador crea la solicitud en nombre del usuario, bloquear si presenta riesgo alto no corregido
+            if last_sarlaft and last_sarlaft.risk_level == "HIGH" and not last_sarlaft.tusdatos_hallazgos_corregidos:
+                raise HTTPException(
+                    status_code=403,
+                    detail="El usuario presenta hallazgos de alto riesgo en la verificación SARLAFT (listas restrictivas). No es posible generar solicitudes de inversión hasta que un oficial de cumplimiento revise y apruebe el expediente."
+                )
+
+        if last_sarlaft and last_sarlaft.details and isinstance(last_sarlaft.details, dict):
+            if "kyc_docs" in last_sarlaft.details and not extra_data.get("kyc_docs"):
+                extra_data["kyc_docs"] = last_sarlaft.details["kyc_docs"]
+            if "biometrics" in last_sarlaft.details and not extra_data.get("biometrics"):
+                extra_data["biometrics"] = last_sarlaft.details["biometrics"]
 
     new_request = InvestmentRequest(
         user_id=target_user_id,

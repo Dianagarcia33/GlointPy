@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck } from 'lucide-react';
+import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck, Clock, ShieldAlert } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '../../../services/api';
+import { sarlaftService } from '../../../services/sarlaft';
 import { compressImage } from '../../../utils/imageCompression';
 
 interface NewInvestmentModalProps {
@@ -53,6 +54,26 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
         queryFn: () => fetchApi('/investments/me'),
         enabled: isOpen && step === 2,
     });
+
+    // SARLAFT Compliance Query
+    const { data: sarlaftData, isLoading: loadingSarlaft } = useQuery({
+        queryKey: ['my_sarlaft_check'],
+        queryFn: () => sarlaftService.getMyCheck(),
+        enabled: isOpen,
+    });
+
+    const sarlaftCheck = sarlaftData?.check;
+    const rawStatus = (sarlaftCheck?.status || sarlaftCheck?.tusdatos_status || sarlaftData?.status || 'none').toLowerCase();
+    
+    // Si no hay verificación o está en proceso -> Pendiente
+    const isSarlaftPending = rawStatus === 'none' || rawStatus === 'pending' || rawStatus === 'processing' || rawStatus === 'procesando';
+    
+    // Si falló o fue clasificado de alto riesgo sin corregir -> Rechazado
+    const isSarlaftRejected = !isSarlaftPending && (
+        rawStatus === 'failed' || rawStatus === 'error' || (
+            sarlaftCheck?.risk_level === 'HIGH' && !(sarlaftCheck as any)?.tusdatos_hallazgos_corregidos
+        )
+    );
 
     React.useEffect(() => {
         if (isUpgrade && currentPeriodId && periods) {
@@ -179,10 +200,26 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                 <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <div>
                         <h2 className="text-xl font-bold text-slate-800">
-                            {step === 1 ? (isUpgrade ? 'Aumento de Capital' : 'Nueva Inversión') : step === 2 ? 'Detalles de Pago' : (isUpgrade ? '¡Solicitud de Aumento Registrada!' : '¡Inversión Registrada!')}
+                            {isSarlaftPending
+                                ? 'Validación de Identidad'
+                                : isSarlaftRejected
+                                ? 'Verificación de Seguridad'
+                                : step === 1 
+                                ? (isUpgrade ? 'Aumento de Capital' : 'Nueva Inversión') 
+                                : step === 2 
+                                ? 'Detalles de Pago' 
+                                : (isUpgrade ? '¡Solicitud de Aumento Registrada!' : '¡Inversión Registrada!')}
                         </h2>
                         <p className="text-xs text-slate-500 mt-1">
-                            {step === 1 ? 'Configura tu plan y descubre tu rentabilidad' : step === 2 ? 'Adjunta tus soportes y código de referido' : 'Tu solicitud ha sido procesada con éxito'}
+                            {isSarlaftPending
+                                ? 'Cumplimiento normativo y validación con Tusdatos.co'
+                                : isSarlaftRejected
+                                ? 'Estado de la cuenta para solicitudes de inversión'
+                                : step === 1 
+                                ? 'Configura tu plan y descubre tu rentabilidad' 
+                                : step === 2 
+                                ? 'Adjunta tus soportes y código de referido' 
+                                : 'Tu solicitud ha sido procesada con éxito'}
                         </p>
                     </div>
                     <button onClick={step === 3 ? handleFinalClose : onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
@@ -192,7 +229,67 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto custom-scrollbar">
-                    {step === 1 && (
+                    {loadingSarlaft ? (
+                        <div className="py-16 flex flex-col items-center justify-center space-y-3">
+                            <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
+                            <p className="text-sm font-semibold text-slate-500">Verificando cumplimiento normativo SARLAFT...</p>
+                        </div>
+                    ) : isSarlaftPending ? (
+                        <div className="py-8 px-4 text-center space-y-5 animate-fadeIn">
+                            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
+                                <Clock className="w-8 h-8 animate-pulse" />
+                            </div>
+                            <div className="space-y-2 max-w-md mx-auto">
+                                <h3 className="text-lg font-bold text-slate-900">Validación de Identidad en Proceso</h3>
+                                <p className="text-sm text-slate-600">
+                                    Tu cuenta se encuentra en proceso de validación automática de antecedentes y listas restrictivas con Tusdatos.co.
+                                </p>
+                                <div className="text-xs text-amber-800 bg-amber-50 p-3.5 rounded-2xl border border-amber-200 text-left space-y-1">
+                                    <p className="font-bold flex items-center gap-1.5">
+                                        <span>⏳</span> Cumplimiento SARLAFT / SAGRILAFT
+                                    </p>
+                                    <p className="text-amber-700">
+                                        Por disposiciones legales y normativas, las solicitudes de inversión sólo pueden realizarse una vez tu verificación de identidad haya finalizado satisfactoriamente.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="pt-2">
+                                <button onClick={handleFinalClose} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm">
+                                    Entendido
+                                </button>
+                            </div>
+                        </div>
+                    ) : isSarlaftRejected ? (
+                        <div className="py-8 px-4 text-center space-y-5 animate-fadeIn">
+                            <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-3xl mx-auto flex items-center justify-center shadow-inner">
+                                <ShieldAlert className="w-8 h-8" />
+                            </div>
+                            <div className="space-y-2 max-w-md mx-auto">
+                                <h3 className="text-lg font-bold text-slate-900">Cuenta No Habilitada para Inversiones</h3>
+                                <p className="text-sm text-slate-600">
+                                    Tu validación SARLAFT fue rechazada o presentó alertas de alto riesgo en listas restrictivas y antecedentes normativos.
+                                </p>
+                                <div className="text-xs text-rose-800 bg-rose-50 p-3.5 rounded-2xl border border-rose-200 text-left space-y-1">
+                                    <p className="font-bold flex items-center gap-1.5">
+                                        <span>🛡️</span> Revisión de Cumplimiento Requerida
+                                    </p>
+                                    <p className="text-rose-700">
+                                        Por seguridad y políticas regulatorias, no es posible generar solicitudes de inversión. Tu expediente debe ser evaluado manualmente por un oficial de cumplimiento.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="pt-2 flex justify-center gap-3">
+                                <button onClick={handleFinalClose} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">
+                                    Cerrar
+                                </button>
+                                <button onClick={() => { handleFinalClose(); window.location.href = '/dashboard/tickets'; }} className="px-6 py-2.5 bg-brand-600 text-white rounded-xl font-bold text-sm hover:bg-brand-700 transition-colors shadow-sm">
+                                    Contactar a Soporte
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {step === 1 && (
                         <div className="space-y-6 animate-fadeIn">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Packages Selector */}
@@ -501,10 +598,12 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                             </button>
                         </div>
                     )}
+                        </>
+                    )}
                 </div>
 
                 {/* Footer */}
-                {step !== 3 && (
+                {step !== 3 && !isSarlaftPending && !isSarlaftRejected && !loadingSarlaft && (
                     <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center">
                         {step === 1 ? (
                             <div className="w-full flex justify-end">

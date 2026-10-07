@@ -53,6 +53,13 @@ async def trigger_sarlaft_check(
         "details": check.details
     }
 
+@router.get("/me")
+async def get_my_sarlaft_check(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """
+    Obtiene el último resultado de verificación SARLAFT del usuario autenticado.
+    """
+    return await get_user_sarlaft_check(user_id=current_user.id, current_user=current_user, db=db)
+
 @router.get("/user/{user_id}")
 async def get_user_sarlaft_check(user_id: int, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
