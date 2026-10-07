@@ -1,6 +1,7 @@
 import boto3
 import re
-from typing import Dict
+from typing import Dict, Any
+from botocore.exceptions import ClientError
 from src.core.config import settings
 
 class OCRService:
@@ -84,5 +85,80 @@ class OCRService:
         ]
         text_upper = text.upper()
         return any(k in text_upper for k in keywords)
+
+    def compare_faces(self, document_bytes: bytes, selfie_bytes: bytes, threshold: float = 80.0) -> Dict[str, Any]:
+        """
+        Compara biométricamente el rostro en la foto de la cédula contra la selfie tomada por el usuario.
+        Utiliza AWS Rekognition CompareFaces.
+        """
+        # Si no hay credenciales de AWS y estamos en desarrollo, permitir fallback controlado
+        if not settings.AWS_ACCESS_KEY_ID or not settings.AWS_SECRET_ACCESS_KEY:
+            if settings.ENVIRONMENT == "development":
+                return {
+                    "matched": True,
+                    "similarity": 95.0,
+                    "message": "Validación biométrica exitosa (Modo desarrollo)."
+                }
+            return {
+                "matched": False,
+                "similarity": 0.0,
+                "message": "El servicio de verificación biométrica (AWS Rekognition) no está configurado."
+            }
+
+        try:
+            response = self.client.compare_faces(
+                SourceImage={'Bytes': document_bytes},
+                TargetImage={'Bytes': selfie_bytes},
+                SimilarityThreshold=threshold
+            )
+            matches = response.get('FaceMatches', [])
+            if matches:
+                similarity = float(matches[0].get('Similarity', 0.0))
+                if similarity >= threshold:
+                    return {
+                        "matched": True,
+                        "similarity": round(similarity, 1),
+                        "message": f"Identidad verificada exitosamente. Coincidencia facial: {similarity:.1f}%."
+                    }
+                else:
+                    return {
+                        "matched": False,
+                        "similarity": round(similarity, 1),
+                        "message": f"Similitud facial insuficiente ({similarity:.1f}%). Se requiere al menos un {threshold}% de coincidencia."
+                    }
+            else:
+                return {
+                    "matched": False,
+                    "similarity": 0.0,
+                    "message": "El rostro de la selfie no coincide con el de la foto del documento de identidad."
+                }
+        except ClientError as e:
+            code = e.response.get('Error', {}).get('Code', '')
+            msg = e.response.get('Error', {}).get('Message', '')
+            if code == 'InvalidParameterException':
+                msg_lower = msg.lower()
+                if 'source' in msg_lower:
+                    return {
+                        "matched": False,
+                        "similarity": 0.0,
+                        "message": "No se detectó un rostro visible en la foto de tu documento. Asegúrate de subir la parte frontal de tu cédula donde aparece tu foto con nitidez."
+                    }
+                elif 'target' in msg_lower:
+                    return {
+                        "matched": False,
+                        "similarity": 0.0,
+                        "message": "No se detectó un rostro visible en tu selfie. Por favor tómate una foto de frente con buena iluminación y sin accesorios."
+                    }
+            return {
+                "matched": False,
+                "similarity": 0.0,
+                "message": f"No se pudo completar la validación facial: {msg or code}"
+            }
+        except Exception as e:
+            return {
+                "matched": False,
+                "similarity": 0.0,
+                "message": f"Error al procesar la validación biométrica: {str(e)}"
+            }
 
 ocr_service = OCRService()

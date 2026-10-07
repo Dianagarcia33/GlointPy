@@ -347,3 +347,38 @@ async def extract_ocr_data(file: UploadFile = File(...)):
         print(f"Error procesando OCR: {e}")
         # Retornamos vacío si falla, el frontend hace fallback manual
         return {"document_number": "", "full_name": ""}
+
+@router.post("/public/compare-faces")
+async def compare_faces_endpoint(
+    document: UploadFile = File(...),
+    selfie: UploadFile = File(...)
+):
+    """
+    Compara biométricamente el rostro en la foto de la cédula contra la selfie tomada por el usuario.
+    Retorna si coinciden (matched: True/False), porcentaje de similitud y mensaje descriptivo.
+    """
+    allowed_exts = ['.jpg', '.jpeg', '.png', '.webp']
+    for f in [document, selfie]:
+        ext = os.path.splitext(f.filename)[1].lower() if f.filename else ""
+        if ext not in allowed_exts:
+            raise HTTPException(status_code=400, detail="Solo se permiten imágenes (JPG, PNG, WEBP) para la validación biométrica.")
+
+    try:
+        from src.services.ocr_service import ocr_service
+        document_bytes = await document.read()
+        selfie_bytes = await selfie.read()
+
+        if len(document_bytes) == 0 or len(selfie_bytes) == 0:
+            raise HTTPException(status_code=400, detail="Los archivos de imagen no pueden estar vacíos.")
+
+        result = ocr_service.compare_faces(document_bytes, selfie_bytes)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error procesando compare-faces: {e}")
+        return {
+            "matched": False,
+            "similarity": 0.0,
+            "message": f"No se pudo completar la validación biométrica: {str(e)}"
+        }

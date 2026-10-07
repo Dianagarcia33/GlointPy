@@ -45,6 +45,8 @@ export const InvestorRegistrationFlow = () => {
     const [frontImage, setFrontImage] = useState<File | null>(null);
     const [backImage, setBackImage] = useState<File | null>(null);
     const [selfieImage, setSelfieImage] = useState<File | null>(null);
+    const [biometricError, setBiometricError] = useState<string | null>(null);
+    const [biometricSimilarity, setBiometricSimilarity] = useState<number | null>(null);
 
     const [kycPaths, setKycPaths] = useState<string[]>([]);
 
@@ -233,11 +235,13 @@ export const InvestorRegistrationFlow = () => {
         }
     };
 
-    // Upload KYC single file to backend in background
+    // Upload KYC single file to backend and perform biometric facial comparison
     const uploadKycDocsMutation = useMutation({
         mutationFn: async () => {
-            if (!frontImage || !backImage || !selfieImage) throw new Error("Faltan imágenes");
+            if (!frontImage || !backImage || !selfieImage) throw new Error("Faltan imágenes por seleccionar.");
             
+            setBiometricError(null);
+
             const uploadSingleFile = async (file: File) => {
                 const compressedFile = await compressImage(file);
                 const fd = new FormData();
@@ -249,50 +253,46 @@ export const InvestorRegistrationFlow = () => {
                 return res.path;
             };
 
-            const extractOcr = async (file: File) => {
-                const compressedFile = await compressImage(file);
+            const compareFaces = async (docFile: File, selfieFile: File) => {
+                const compressedDoc = await compressImage(docFile);
+                const compressedSelfie = await compressImage(selfieFile);
                 const fd = new FormData();
-                fd.append('file', compressedFile);
-                try {
-                    const res = await fetchApi('/auth/public/ocr-extract', {
-                        method: 'POST',
-                        body: fd
-                    });
-                    return res;
-                } catch (e) {
-                    console.error("OCR failed", e);
-                    return { full_name: "", document_number: "" };
-                }
+                fd.append('document', compressedDoc);
+                fd.append('selfie', compressedSelfie);
+                return await fetchApi('/auth/public/compare-faces', {
+                    method: 'POST',
+                    body: fd
+                });
             };
 
-            // Upload all three documents and extract OCR in parallel
-            const [frontPath, backPath, selfiePath, ocrData] = await Promise.all([
+            // Upload all three documents and perform biometric facial comparison
+            const [frontPath, backPath, selfiePath, bioResult] = await Promise.all([
                 uploadSingleFile(frontImage),
                 uploadSingleFile(backImage),
                 uploadSingleFile(selfieImage),
-                extractOcr(frontImage)
+                compareFaces(frontImage, selfieImage)
             ]);
 
-            return { paths: [frontPath, backPath, selfiePath], ocrData };
-        },
-        onSuccess: ({ paths, ocrData }: { paths: string[], ocrData: any }) => {
-            setKycPaths(paths);
-            
-            if (ocrData?.full_name || ocrData?.document_number) {
-                setFormData(prev => ({
-                    ...prev,
-                    name: prev.name || ocrData.full_name || '',
-                    documento: prev.documento || ocrData.document_number || ''
-                }));
+            if (!bioResult || !bioResult.matched) {
+                const failMsg = bioResult?.message || "El rostro de la selfie no coincide con el de la foto del documento de identidad.";
+                throw new Error(failMsg);
             }
 
+            return { paths: [frontPath, backPath, selfiePath], bioResult };
+        },
+        onSuccess: ({ paths, bioResult }: { paths: string[], bioResult: any }) => {
+            setKycPaths(paths);
+            setBiometricSimilarity(bioResult?.similarity ?? null);
+            setBiometricError(null);
+
+            // Transición fluida al paso 3 tras confirmar la coincidencia facial
             setTimeout(() => {
-                setStep(3); // Advance to Step 3 after simulation delay
-            }, 1500);
+                setStep(3);
+            }, 1200);
         },
         onError: (error: any) => {
-            alert(error.message || "Error al subir tus documentos. Por favor intenta de nuevo.");
-            setStep(1);
+            setBiometricError(error.message || "Error al validar la identidad biométrica. Intenta con una selfie más nítida.");
+            setStep(1); // Regresar al paso 1 para que el usuario pueda corregir la foto
         }
     });
 
@@ -524,44 +524,74 @@ export const InvestorRegistrationFlow = () => {
 
     const calc = getCalculations();
 
-    const FileUploadZone = ({ label, file, onChange }: { label: string, file: File | null, onChange: (f: File) => void }) => (
-        <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-slate-300 border-dashed rounded-2xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors group">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                {file ? (
-                    <>
-                        <CheckCircle2 className="w-10 h-10 text-green-500 mb-3" />
-                        <p className="text-sm font-semibold text-slate-700">{file.name}</p>
-                    </>
-                ) : (
-                    <>
-                        <Camera className="w-10 h-10 text-slate-400 mb-3 group-hover:text-brand-500 transition-colors" />
-                        <p className="text-sm font-semibold text-slate-700">{label}</p>
-                        <p className="text-xs text-slate-500 mt-1">Sube o toma una foto (JPG, PNG)</p>
-                    </>
-                )}
-            </div>
-            <input 
-                type="file" 
-                className="hidden" 
-                accept="image/jpeg,image/png,image/webp,application/pdf" 
-                onChange={(e) => {
-                    const selected = e.target.files?.[0];
-                    if (!selected) return;
-                    if (selected.size > 10 * 1024 * 1024) {
-                        alert("El archivo excede el tamaño máximo permitido de 10MB.");
-                        return;
-                    }
-                    const ext = selected.name.split('.').pop()?.toLowerCase();
-                    if (!['jpg', 'jpeg', 'png', 'webp', 'pdf'].includes(ext || '')) {
-                        alert("Formato de archivo no permitido. Solo se aceptan imágenes JPG, PNG, WEBP o PDF.");
-                        return;
-                    }
-                    onChange(selected);
-                }} 
-            />
-        </label>
+    const FileUploadZone = ({ label, file, onChange }: { label: string, file: File | null, onChange: (f: File) => void }) => {
+        const [preview, setPreview] = useState<string | null>(null);
 
-    );
+        React.useEffect(() => {
+            if (file && file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                setPreview(url);
+                return () => URL.revokeObjectURL(url);
+            } else {
+                setPreview(null);
+            }
+        }, [file]);
+
+        return (
+            <label className={`relative flex flex-col items-center justify-center w-full h-44 border-2 border-dashed rounded-2xl cursor-pointer transition-all overflow-hidden group ${
+                file ? 'border-brand-400 bg-brand-50/20' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-brand-400'
+            }`}>
+                {preview ? (
+                    <div className="relative w-full h-full flex items-center justify-center p-2">
+                        <img src={preview} alt={label} className="max-h-full max-w-full object-contain rounded-xl" />
+                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-2">
+                            <Camera className="w-6 h-6 mb-1" />
+                            <span className="text-xs font-semibold">Clic para cambiar foto</span>
+                        </div>
+                        <div className="absolute top-2 right-2 bg-emerald-500 text-white p-1 rounded-full shadow-md">
+                            <CheckCircle2 className="w-4 h-4" />
+                        </div>
+                        <div className="absolute bottom-2 left-2 right-2 bg-slate-900/70 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-xs truncate">
+                            {label}: <span className="font-semibold">{file?.name}</span>
+                        </div>
+                    </div>
+                ) : file ? (
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-2" />
+                        <p className="text-sm font-semibold text-slate-700">{file.name}</p>
+                        <p className="text-xs text-brand-600 mt-1">Clic para cambiar</p>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                        <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                            <Camera className="w-6 h-6 text-slate-400 group-hover:text-brand-500 transition-colors" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-800">{label}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Sube o toma una foto clara (JPG, PNG)</p>
+                    </div>
+                )}
+                <input 
+                    type="file" 
+                    className="hidden" 
+                    accept="image/jpeg,image/png,image/webp" 
+                    onChange={(e) => {
+                        const selected = e.target.files?.[0];
+                        if (!selected) return;
+                        if (selected.size > 10 * 1024 * 1024) {
+                            alert("El archivo excede el tamaño máximo permitido de 10MB.");
+                            return;
+                        }
+                        const ext = selected.name.split('.').pop()?.toLowerCase();
+                        if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) {
+                            alert("Solo se aceptan imágenes JPG, PNG o WEBP.");
+                            return;
+                        }
+                        onChange(selected);
+                    }} 
+                />
+            </label>
+        );
+    };
 
     const stepsInfo = [
         { num: 1, label: "Documentos" },
@@ -608,10 +638,22 @@ export const InvestorRegistrationFlow = () => {
                     <div className="space-y-6 animate-fadeIn">
                         <div className="text-center mb-4">
                             <h3 className="text-lg font-bold text-slate-900">Carga tu Documento y Selfie</h3>
-                            <p className="text-sm text-slate-500">Sube tus fotos para verificar tu identidad.</p>
+                            <p className="text-sm text-slate-500">Sube tus fotos para comprobar que seas el titular de la cédula.</p>
                         </div>
 
-                        
+                        {biometricError && (
+                            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-700 text-sm animate-fadeIn">
+                                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                                <div className="space-y-1">
+                                    <p className="font-bold">Verificación Facial Fallida</p>
+                                    <p>{biometricError}</p>
+                                    <p className="text-xs text-rose-600 font-normal">
+                                        Consejo: Asegúrate de tomar la selfie de frente, con buena iluminación, sin gafas oscuras ni gorra.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 gap-4">
                             <FileUploadZone label="Foto Frontal del Documento" file={frontImage} onChange={setFrontImage} />
                             <FileUploadZone label="Foto Trasera del Documento" file={backImage} onChange={setBackImage} />
@@ -620,7 +662,10 @@ export const InvestorRegistrationFlow = () => {
 
                         <div className="flex gap-3">
                             <button 
-                                onClick={() => setStep(2)}
+                                onClick={() => {
+                                    setBiometricError(null);
+                                    setStep(2);
+                                }}
                                 disabled={!frontImage || !backImage || !selfieImage}
                                 className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4"
                             >
@@ -637,9 +682,17 @@ export const InvestorRegistrationFlow = () => {
                             <div className="absolute inset-0 bg-brand-500/20 blur-xl rounded-full animate-pulse"></div>
                             <Loader2 className="w-16 h-16 text-brand-500 animate-spin relative z-10" />
                         </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-slate-900 mb-2">Procesando Documentos</h3>
-                            <p className="text-sm text-slate-500">Guardando imágenes and preparando validación de identidad...</p>
+                        <div className="max-w-md mx-auto space-y-2">
+                            <h3 className="text-xl font-bold text-slate-900 mb-1">Verificando Identidad Biométrica</h3>
+                            <p className="text-sm text-slate-500">
+                                Comparando los rasgos faciales de tu documento de identidad con tu selfie mediante reconocimiento facial...
+                            </p>
+                            {biometricSimilarity !== null && (
+                                <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-full text-sm font-semibold border border-emerald-200 mt-2 animate-fadeIn">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                    ¡Rostros coincidentes! ({biometricSimilarity}% de similitud)
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -648,9 +701,15 @@ export const InvestorRegistrationFlow = () => {
                 {step === 3 && (
                     <div className="space-y-6 animate-fadeIn">
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                            <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2 border-b border-slate-200 pb-2">
                                 <User className="w-5 h-5 text-brand-600" /> Datos Personales
                             </h3>
+                            {biometricSimilarity !== null && (
+                                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 mb-4 w-fit">
+                                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                                    Identidad Verificada Biométricamente ({biometricSimilarity}% coincidencia)
+                                </div>
+                            )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Completo *</label>
