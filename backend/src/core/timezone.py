@@ -1,7 +1,10 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from zoneinfo import ZoneInfo
 
-BOGOTA_TZ = ZoneInfo("America/Bogota")
+try:
+    BOGOTA_TZ = ZoneInfo("America/Bogota")
+except Exception:
+    BOGOTA_TZ = timezone(timedelta(hours=-5))
 
 def get_colombia_now() -> datetime:
     """

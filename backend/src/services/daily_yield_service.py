@@ -481,16 +481,66 @@ class DailyYieldService:
         return batches
 
 
+async def check_and_run_daily_yield(db: AsyncSession) -> Optional[Dict[str, Any]]:
+    """
+    Verifica si la liquidación del ciclo diario (ayer -> hoy) ya fue ejecutada.
+    Si no se ha ejecutado hoy, la dispara automáticamente (Catch-up seguro e idempotente).
+    """
+    run_time_cot = get_colombia_now()
+    today_cot = run_time_cot.date()
+    yesterday_cot = today_cot - timedelta(days=1)
+
+    # Comprobar en audit_logs si ya hay un lote registrado para este ciclo (ayer -> hoy)
+    batch_check_query = select(AuditLog).where(
+        AuditLog.module == "audit",
+        AuditLog.action.in_(["AUTOMATIC_DAILY_YIELD_DISPERSAL", "MANUAL_BULK_YIELD_DISPERSAL"]),
+        AuditLog.status == "SUCCESS"
+    ).order_by(AuditLog.id.desc()).limit(20)
+
+    res = await db.execute(batch_check_query)
+    logs = res.scalars().all()
+    already_run = False
+    for l in logs:
+        det = l.details or {}
+        if det.get("cycle_end_date") == str(today_cot) and det.get("cycle_start_date") == str(yesterday_cot):
+            already_run = True
+            print(f"[DailyYieldWorker] ℹ️ El ciclo de rendimientos ({yesterday_cot} -> {today_cot}) ya fue ejecutado previamente en lote {l.entity_id}.", flush=True)
+            break
+
+    if already_run:
+        return None
+
+    print(f"[DailyYieldWorker] 🔔 INICIANDO liquidación de rendimientos: Ciclo {yesterday_cot} -> {today_cot}...", flush=True)
+    summary = await DailyYieldService.execute_yield_dispersal(
+        db=db,
+        start_date=yesterday_cot,
+        end_date=today_cot,
+        pay_mode="all",
+        is_automatic=True
+    )
+    print(f"[DailyYieldWorker] ✅ Liquidación automática finalizada con éxito: {summary['message']}", flush=True)
+    return summary
+
+
 async def background_daily_yield_worker():
     """
     Worker asíncrono en segundo plano que se ejecuta permanentemente en el backend.
-    Calcula con precisión la llegada de la medianoche hora de Colombia (00:00:05 COT).
-    Dispersa automáticamente los rendimientos del día recién finalizado (ayer -> hoy).
+    1. Al arrancar (con retardo de 10s), verifica si la liquidación de hoy ya corrió. Si no, la ejecuta (Catch-up).
+    2. Luego duerme hasta la próxima medianoche hora de Colombia (00:00:05 COT).
+    3. Al despertar a medianoche, ejecuta la liquidación del día recién finalizado.
     """
-    print("[DailyYieldWorker] 🚀 Iniciando servicio de dispersión automática diaria de rendimientos (Zona horaria: America/Bogota)...")
+    print("[DailyYieldWorker] 🚀 Iniciando servicio de dispersión automática diaria de rendimientos (Zona horaria: America/Bogota)...", flush=True)
 
     # Pequeño retardo de arranque para no interferir con la inicialización del servidor
-    await asyncio.sleep(15)
+    await asyncio.sleep(10)
+
+    # CATCH-UP AL INICIAR: Si el servidor arrancó después de medianoche o fue reiniciado
+    try:
+        async with async_session_maker() as db:
+            await check_and_run_daily_yield(db)
+    except Exception as e:
+        print(f"[DailyYieldWorker] ⚠️ Error en catch-up inicial de rendimientos: {e}", flush=True)
+        traceback.print_exc()
 
     while True:
         try:
@@ -506,35 +556,21 @@ async def background_daily_yield_worker():
             hours = int(sleep_seconds // 3600)
             minutes = int((sleep_seconds % 3600) // 60)
             secs = int(sleep_seconds % 60)
-            print(f"[DailyYieldWorker] ⏳ Próxima liquidación automática programada para: {next_midnight.strftime('%Y-%m-%d %H:%M:%S COT')} (en {hours}h {minutes}m {secs}s).")
+            print(f"[DailyYieldWorker] ⏳ Próxima liquidación automática programada para: {next_midnight.strftime('%Y-%m-%d %H:%M:%S COT')} (en {hours}h {minutes}m {secs}s).", flush=True)
 
             await asyncio.sleep(sleep_seconds)
 
             # --- EJECUCIÓN A MEDIANOCHE COT ---
-            run_time_cot = get_colombia_now()
-            today_cot = run_time_cot.date()
-            yesterday_cot = today_cot - timedelta(days=1)
-
-            print(f"[DailyYieldWorker] 🔔 INICIANDO liquidación automática de medianoche COT: Ciclo {yesterday_cot} -> {today_cot}...")
-
             async with async_session_maker() as db:
-                summary = await DailyYieldService.execute_yield_dispersal(
-                    db=db,
-                    start_date=yesterday_cot,
-                    end_date=today_cot,
-                    pay_mode="all",
-                    is_automatic=True
-                )
-                print(f"[DailyYieldWorker] ✅ Liquidación automática finalizada con éxito: {summary['message']}")
+                await check_and_run_daily_yield(db)
 
             # Pausa de seguridad de 60s para no disparar dos veces en el mismo segundo
             await asyncio.sleep(60)
 
         except asyncio.CancelledError:
-            print("[DailyYieldWorker] 🛑 Worker de rendimientos cancelado.")
+            print("[DailyYieldWorker] 🛑 Worker de rendimientos cancelado.", flush=True)
             break
         except Exception as e:
-            print(f"[DailyYieldWorker] ⚠️ Error en ciclo automático de rendimientos: {e}")
+            print(f"[DailyYieldWorker] ⚠️ Error en ciclo automático de rendimientos: {e}", flush=True)
             traceback.print_exc()
-            # Esperar 60 segundos antes de reintentar si ocurrió un fallo inesperado
             await asyncio.sleep(60)

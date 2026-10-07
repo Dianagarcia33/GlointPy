@@ -58,17 +58,27 @@ async def background_imap_sync_worker():
         # Comprobar cada 45 segundos
         await asyncio.sleep(45)
 
+_background_tasks = set()
+
 @app.on_event("startup")
 async def on_startup():
     try:
         # Iniciar worker en segundo plano para sincronización automática de correos
-        asyncio.create_task(background_imap_sync_worker())
+        t_imap = asyncio.create_task(background_imap_sync_worker())
+        _background_tasks.add(t_imap)
+        t_imap.add_done_callback(_background_tasks.discard)
+
         # Iniciar worker en segundo plano para dispersión automática diaria de rendimientos (medianoche COT)
         from src.services.daily_yield_service import background_daily_yield_worker
-        asyncio.create_task(background_daily_yield_worker())
+        t_yield = asyncio.create_task(background_daily_yield_worker())
+        _background_tasks.add(t_yield)
+        t_yield.add_done_callback(_background_tasks.discard)
+
         # Iniciar worker en segundo plano para conciliación periódica con Yoint
         from src.services.yoint_sync_worker import background_yoint_sync_worker
-        asyncio.create_task(background_yoint_sync_worker())
+        t_yoint = asyncio.create_task(background_yoint_sync_worker())
+        _background_tasks.add(t_yoint)
+        t_yoint.add_done_callback(_background_tasks.discard)
         import src.models
         from src.core.database import engine, Base, async_session_maker
         from src.run_seed import seed_permissions_db
