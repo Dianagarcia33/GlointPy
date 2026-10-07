@@ -9,6 +9,7 @@ import { TransferModal } from '../components/TransferModal';
 import { RechargeModal } from '../components/RechargeModal';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 import { getMyRecharges, cancelMyRecharge, WalletRecharge } from '../../../services/wallets';
+import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 
 export interface Movement {
     id: number | string;
@@ -69,6 +70,7 @@ export const WalletsPage = () => {
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
     const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
     const [isNewInvestmentModalOpen, setIsNewInvestmentModalOpen] = useState(false);
+    const { canInvest, isPending: isSarlaftPending, isRejected: isSarlaftRejected } = useSarlaftStatus();
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
     const [cancellingWithdrawalId, setCancellingWithdrawalId] = useState<number | null>(null);
@@ -290,11 +292,26 @@ export const WalletsPage = () => {
                         {!isDirectivo && (
                             <Can permission="wallets:new_investment">
                                 <button 
-                                    onClick={() => setIsNewInvestmentModalOpen(true)}
-                                    className="flex items-center justify-center gap-2 w-full py-3.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold rounded-xl transition-all active:scale-95 cursor-pointer"
+                                    onClick={canInvest ? () => setIsNewInvestmentModalOpen(true) : undefined}
+                                    disabled={!canInvest}
+                                    title={!canInvest ? (isSarlaftPending ? "Validación SARLAFT con Tusdatos.co en proceso" : "Cuenta no habilitada para inversiones") : undefined}
+                                    className={`flex items-center justify-center gap-2 w-full py-3.5 px-4 font-bold rounded-xl transition-all ${
+                                        !canInvest
+                                            ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 active:scale-95 cursor-pointer'
+                                    }`}
                                 >
                                     <TrendingUp className="w-5 h-5" />
-                                    Nueva Inversión
+                                    <span>Nueva Inversión</span>
+                                    {!canInvest && (
+                                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${
+                                            isSarlaftPending 
+                                                ? 'bg-amber-100 text-amber-800 border-amber-200' 
+                                                : 'bg-rose-100 text-rose-800 border-rose-200'
+                                        }`}>
+                                            {isSarlaftPending ? "En validación" : "Bloqueado"}
+                                        </span>
+                                    )}
                                 </button>
                             </Can>
                         )}

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ShieldCheck, Loader2, Trophy, Sparkles, ChevronRight } from 'lucide-react';
+import { ShieldCheck, Loader2, Trophy, Sparkles, ChevronRight, Clock, ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
+import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 import { Can } from '../../../components/security/Can';
 import { investmentsService, Investment } from '../../../services/investments';
 import { analyticsService, AdminAnalyticsDashboardData } from '../../../services/analytics';
@@ -155,6 +156,7 @@ export const DashboardPage = () => {
     );
 
     const isInvestorView = !isSuperAdmin && !isDirectorOnly && !isAccountingOnly;
+    const { isPending: isSarlaftPending, isRejected: isSarlaftRejected } = useSarlaftStatus();
 
     // Analytics Query for Admin
     const { data: adminAnalytics, isLoading: isLoadingAnalytics } = useQuery<AdminAnalyticsDashboardData>({
@@ -388,6 +390,67 @@ export const DashboardPage = () => {
                     <InvestorDashboardSkeleton />
                 ) : (
                     <>
+                        {/* Banner de Validación SARLAFT Pendiente */}
+                        {isSarlaftPending && (
+                            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300/80 rounded-3xl p-5 sm:p-6 mb-6 backdrop-blur-sm shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-600 mt-0.5 shadow-xs">
+                                        <Clock className="w-6 h-6 animate-pulse" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-900 text-[10px] font-extrabold uppercase rounded-full border border-amber-500/30">
+                                                En Verificación
+                                            </span>
+                                            <h4 className="font-bold text-slate-900 text-sm sm:text-base font-montserrat">
+                                                Validación de Identidad y SARLAFT en Proceso
+                                            </h4>
+                                        </div>
+                                        <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
+                                            Estamos validando automáticamente tus antecedentes normativos con Tusdatos.co. Las opciones de inversión se habilitarán automáticamente tan pronto finalice el análisis.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                    <span className="text-xs font-semibold text-amber-800 bg-amber-100/80 px-3 py-1.5 rounded-xl border border-amber-200 flex items-center gap-1.5">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-700" /> Consultando antecedentes...
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Banner de Validación SARLAFT Rechazada / Con Alertas */}
+                        {isSarlaftRejected && (
+                            <div className="bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-300/80 rounded-3xl p-5 sm:p-6 mb-6 backdrop-blur-sm shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
+                                <div className="flex items-start gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0 text-rose-600 mt-0.5 shadow-xs">
+                                        <ShieldAlert className="w-6 h-6" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2.5 py-0.5 bg-rose-500/20 text-rose-900 text-[10px] font-extrabold uppercase rounded-full border border-rose-500/30">
+                                                Requiere Revisión
+                                            </span>
+                                            <h4 className="font-bold text-slate-900 text-sm sm:text-base font-montserrat">
+                                                Cuenta No Habilitada para Inversiones
+                                            </h4>
+                                        </div>
+                                        <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
+                                            Tu validación SARLAFT presentó alertas en listas restrictivas o inconsistencias normativas. Por seguridad legal, tu cuenta requiere revisión manual por parte de un oficial de cumplimiento.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                    <button 
+                                        onClick={() => window.location.href = '/dashboard/tickets'} 
+                                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                                    >
+                                        Contactar Soporte
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* HERO Y KPIS */}
                         <Can permission="dashboard:view_kpis">
                             <HeroCard 

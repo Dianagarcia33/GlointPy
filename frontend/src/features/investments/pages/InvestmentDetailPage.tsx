@@ -8,11 +8,13 @@ import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModa
 import { investorDocumentsService, InvestorDocument } from '../../../services/investorDocuments';
 import { DocumentPagesPreview, printPaginatedDocument } from '../../../components/common/DocumentPagesPreview';
 import { usePermissions } from '../../../hooks/usePermissions';
+import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 
 export const InvestmentDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { isAdmin } = usePermissions();
+    const { canInvest, isPending: isSarlaftPending } = useSarlaftStatus();
     const [inv, setInv] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
@@ -278,11 +280,22 @@ export const InvestmentDetailPage = () => {
 
                             {inv.can_upgrade && (
                                 <button 
-                                    onClick={() => setIsUpgradeModalOpen(true)}
-                                    className="w-full mt-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                                    onClick={() => canInvest && setIsUpgradeModalOpen(true)}
+                                    disabled={!canInvest}
+                                    title={!canInvest ? (isSarlaftPending ? "Tu validación SARLAFT está en proceso" : "Validación SARLAFT pendiente o requiere revisión") : undefined}
+                                    className={`w-full mt-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                                        canInvest
+                                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 cursor-pointer'
+                                            : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-75'
+                                    }`}
                                 >
                                     <PlusCircle className="w-4 h-4" />
-                                    Aumento de Capital
+                                    <span>Aumento de Capital</span>
+                                    {!canInvest && (
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-semibold ml-1">
+                                            {isSarlaftPending ? 'En validación' : 'Bloqueado'}
+                                        </span>
+                                    )}
                                 </button>
                             )}
                             
