@@ -382,3 +382,86 @@ async def compare_faces_endpoint(
             "similarity": 0.0,
             "message": f"No se pudo completar la validación biométrica: {str(e)}"
         }
+
+
+from pydantic import BaseModel
+
+class TestEmailRequest(BaseModel):
+    email_type: str  # "welcome" | "sarlaft_approved" | "sarlaft_findings"
+    target_email: Optional[str] = None
+
+
+@router.post("/test-email")
+async def send_test_email(
+    payload: TestEmailRequest,
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    """
+    Endpoint temporal para probar los nuevos correos corporativos:
+    - welcome: Bienvenida y notificación de revisión SARLAFT
+    - sarlaft_approved: Validación SARLAFT aprobada y cuenta habilitada
+    - sarlaft_findings: Validación SARLAFT con alertas/hallazgos
+    """
+    from src.services.email_service import EmailService
+
+    recipient = payload.target_email.strip() if payload.target_email else current_user.email
+    if not recipient:
+        raise HTTPException(status_code=400, detail="No se encontró una dirección de correo válida para enviar la prueba.")
+
+    user_name = current_user.name or "Inversionista Gloint"
+    doc_id = current_user.document_id or "1234567890"
+
+    email_type = payload.email_type.lower().strip()
+    sent = False
+    template_label = ""
+
+    if email_type == "welcome":
+        template_label = "Bienvenida y Revisión Preventiva"
+        sent = await EmailService.send_welcome_and_review_email(
+            to_email=recipient,
+            user_name=user_name,
+            document_id=doc_id,
+            document_type="CC"
+        )
+    elif email_type == "sarlaft_approved":
+        template_label = "Validación SARLAFT Aprobada"
+        sent = await EmailService.send_sarlaft_result_email(
+            to_email=recipient,
+            user_name=user_name,
+            document_id=doc_id,
+            document_type="CC",
+            has_findings=False,
+            risk_level="CLEAN"
+        )
+    elif email_type == "sarlaft_findings":
+        template_label = "Validación SARLAFT con Alertas / Hallazgos"
+        sent = await EmailService.send_sarlaft_result_email(
+            to_email=recipient,
+            user_name=user_name,
+            document_id=doc_id,
+            document_type="CC",
+            has_findings=True,
+            risk_level="MEDIUM",
+            hallazgos_summary="Se detectaron alertas normativas preliminares en listas de control que requieren validación documental."
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tipo de correo no válido ('{payload.email_type}'). Opciones válidas: 'welcome', 'sarlaft_approved', 'sarlaft_findings'"
+        )
+
+    if not sent:
+        return {
+            "success": False,
+            "message": f"El servicio intentó despachar '{template_label}' a {recipient}, pero el envío no se completó. Verifica los logs o las credenciales de RESEND_API_KEY.",
+            "recipient": recipient,
+            "template": template_label
+        }
+
+    return {
+        "success": True,
+        "message": f"¡Correo '{template_label}' enviado exitosamente a {recipient}!",
+        "recipient": recipient,
+        "template": template_label
+    }
+
