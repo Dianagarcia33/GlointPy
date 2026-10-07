@@ -52,10 +52,19 @@ async def yoint_webhook(
 
     logger.info(f"Webhook Yoint recibido: {payload}")
 
-    # 3. Extraer orderId / referencia y estado (tolerante a múltiples formatos de pasarela)
+    # 3. Extraer orderId / referencia y estado (tolerante a dispersiones y recaudos/payins)
     data_obj = payload.get("data") if isinstance(payload.get("data"), dict) else {}
     dispersions_list = payload.get("dispersions") if isinstance(payload.get("dispersions"), list) else []
     first_disp = dispersions_list[0] if dispersions_list and isinstance(dispersions_list[0], dict) else {}
+
+    # Estructuras de recaudos / payins (paymentDetails, subscription, operations)
+    p_details_list = payload.get("paymentDetails") or data_obj.get("paymentDetails") or []
+    first_p_detail = p_details_list[0] if isinstance(p_details_list, list) and p_details_list and isinstance(p_details_list[0], dict) else {}
+    sub_obj = payload.get("subscription") or data_obj.get("subscription") or {}
+    if not isinstance(sub_obj, dict):
+        sub_obj = {}
+    ops_list = payload.get("operations") or data_obj.get("operations") or []
+    first_op = ops_list[0] if isinstance(ops_list, list) and ops_list and isinstance(ops_list[0], dict) else {}
 
     order_id = (
         payload.get("orderId") 
@@ -64,6 +73,9 @@ async def yoint_webhook(
         or payload.get("payment_reference")
         or payload.get("reference")
         or payload.get("id")
+        or sub_obj.get("orderId")
+        or first_p_detail.get("paymentReference")
+        or (str(first_op.get("id")) if first_op.get("id") is not None else None)
         or data_obj.get("orderId")
         or data_obj.get("order_id")
         or data_obj.get("paymentReference")
@@ -77,6 +89,11 @@ async def yoint_webhook(
         payload.get("status") 
         or payload.get("state")
         or payload.get("event")
+        or sub_obj.get("status")
+        or first_p_detail.get("status")
+        or first_p_detail.get("externalResponse")
+        or first_op.get("status")
+        or first_op.get("externalResponse")
         or data_obj.get("status")
         or data_obj.get("state")
         or first_disp.get("status")

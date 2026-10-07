@@ -149,8 +149,13 @@ async def get_payin_status(
     if not payin:
         raise HTTPException(status_code=404, detail="Orden de pago no encontrada")
 
-    # Si está pendiente y tiene order_id, consultar estado a Yoint
-    if payin.status == "PENDING" and payin.order_id:
+    PENDING_STATUSES = {
+        "PENDING", "IN_PROGRESS", "PROCESSING", "WAITING", 
+        "CREATED", "INITIATED", "EN_PROCESO", "PENDIENTE"
+    }
+
+    # Si está pendiente o en proceso y tiene order_id, consultar estado a Yoint
+    if (not payin.status or payin.status.upper() in PENDING_STATUSES) and payin.order_id:
         try:
             await YointService.query_payin_status(db, payin)
             await db.refresh(payin)
@@ -166,6 +171,19 @@ async def get_payin_status(
         inv_status = inv_res.scalar_one_or_none()
         if inv_status == InvestmentRequestStatus.approved:
             investment_approved = True
+        elif payin.status == "SUCCESS":
+            # Si el pago ya está confirmado como exitoso pero la inversión aún no se aprobó, intentar aprobar ahora
+            try:
+                await YointService.process_payin_status_transition(
+                    db=db, payin=payin, new_status="SUCCESS", payload=payin.webhook_payload
+                )
+                inv_res2 = await db.execute(
+                    select(InvestmentRequest.status).where(InvestmentRequest.id == payin.investment_request_id)
+                )
+                if inv_res2.scalar_one_or_none() == InvestmentRequestStatus.approved:
+                    investment_approved = True
+            except Exception as auto_err:
+                logger.warning(f"Error en reintento de auto-aprobación para inversión #{payin.investment_request_id}: {auto_err}")
 
     return {
         "payin_id": payin.id,

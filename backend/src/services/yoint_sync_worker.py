@@ -50,12 +50,15 @@ async def background_yoint_sync_worker():
                     res = await db.execute(q)
                     pending_dispersions = res.scalars().all()
 
-                    # 2. Buscar recaudos/payins activos en estado 'PENDING'
+                    # 2. Buscar recaudos/payins activos en estado pendiente o en proceso
                     from src.models.yoint_payin import YointPayin
                     q_payins = (
                         select(YointPayin)
                         .where(
-                            YointPayin.status == "PENDING",
+                            YointPayin.status.in_([
+                                "PENDING", "IN_PROGRESS", "PROCESSING", 
+                                "WAITING", "CREATED", "INITIATED", "EN_PROCESO", "PENDIENTE"
+                            ]),
                             YointPayin.order_id.isnot(None)
                         )
                         .order_by(YointPayin.id.asc())

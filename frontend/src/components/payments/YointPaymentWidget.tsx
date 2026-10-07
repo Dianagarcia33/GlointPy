@@ -48,6 +48,43 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
   const [activePayin, setActivePayin] = useState<InitPayinResponse | null>(null);
   const [pollingStatus, setPollingStatus] = useState<string>('PENDING');
   const [pollingError, setPollingError] = useState<string | null>(null);
+  const [isCheckingManual, setIsCheckingManual] = useState(false);
+
+  const IN_PROGRESS_STATUSES = [
+    'PENDING',
+    'IN_PROGRESS',
+    'PROCESSING',
+    'WAITING',
+    'CREATED',
+    'INITIATED',
+    'EN_PROCESO',
+    'PENDIENTE'
+  ];
+
+  const SUCCESS_STATUSES = [
+    'SUCCESS',
+    'APPROVED',
+    'COMPLETED',
+    'PAID',
+    'EXITOSA',
+    'APROBADA'
+  ];
+
+  const FAILED_STATUSES = [
+    'FAILED',
+    'REJECTED',
+    'EXPIRED',
+    'ERROR',
+    'DECLINED',
+    'FALLIDA',
+    'RECHAZADA',
+    'CANCELADA'
+  ];
+
+  const normalizedStatus = (pollingStatus || 'PENDING').toUpperCase();
+  const isPending = IN_PROGRESS_STATUSES.includes(normalizedStatus);
+  const isSuccess = SUCCESS_STATUSES.includes(normalizedStatus);
+  const isFailed = FAILED_STATUSES.includes(normalizedStatus);
 
   // Cargar entidades financieras cuando se seleccione PSE
   useEffect(() => {
@@ -62,39 +99,48 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
             }
           }
         })
-        .catch((err) => console.error("Error cargando bancos Yoint:", err))
+        .catch((err) => console.error("Error cargando entidades bancarias:", err))
         .finally(() => setLoadingBanks(false));
     }
   }, [method]);
 
-  // Polling de verificación de estado mientras activePayin esté en PENDING
+  const checkStatusOnce = async (isManual = false) => {
+    if (!activePayin) return;
+    if (isManual) setIsCheckingManual(true);
+    try {
+      const res = await yointService.getPayinStatus(activePayin.payin_id);
+      const currentStatus = (res.status || '').toUpperCase();
+      setPollingStatus(currentStatus);
+
+      if (SUCCESS_STATUSES.includes(currentStatus) || res.investment_approved) {
+        onSuccess(res);
+        return true;
+      } else if (FAILED_STATUSES.includes(currentStatus)) {
+        if (onFailed) onFailed(res);
+        return false;
+      }
+    } catch (e: any) {
+      console.warn("Error consultando estado de la pasarela:", e);
+    } finally {
+      if (isManual) setIsCheckingManual(false);
+    }
+    return null;
+  };
+
+  // Polling continuo mientras el pago esté en curso
   useEffect(() => {
     let intervalId: any = null;
 
-    if (activePayin && pollingStatus === 'PENDING') {
+    if (activePayin && isPending) {
       intervalId = setInterval(async () => {
-        try {
-          const res = await yointService.getPayinStatus(activePayin.payin_id);
-          const currentStatus = res.status.toUpperCase();
-          setPollingStatus(currentStatus);
-
-          if (currentStatus === 'SUCCESS' || res.investment_approved) {
-            clearInterval(intervalId);
-            onSuccess(res);
-          } else if (currentStatus === 'FAILED' || currentStatus === 'REJECTED' || currentStatus === 'EXPIRED') {
-            clearInterval(intervalId);
-            if (onFailed) onFailed(res);
-          }
-        } catch (e: any) {
-          console.warn("Error en polling de Yoint:", e);
-        }
-      }, 4000);
+        await checkStatusOnce(false);
+      }, 3000);
     }
 
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [activePayin, pollingStatus]);
+  }, [activePayin, pollingStatus, isPending]);
 
   const handleStartPayment = async () => {
     try {
@@ -127,7 +173,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
         window.open(res.redirect_url, '_blank', 'noopener,noreferrer');
       }
     } catch (err: any) {
-      console.error("Error iniciando pago Yoint:", err);
+      console.error("Error iniciando pago:", err);
       setPollingError(err.message || 'Error al conectar con la pasarela de pagos.');
       if (onFailed) onFailed(null, err.message);
     } finally {
@@ -139,7 +185,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
   if (activePayin) {
     return (
       <div className="p-6 bg-slate-50 border border-slate-200 rounded-3xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
-        {pollingStatus === 'PENDING' && (
+        {isPending && (
           <div className="text-center space-y-4">
             <div className="relative inline-flex items-center justify-center">
               <div className="w-16 h-16 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600 shadow-sm">
@@ -160,19 +206,38 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
               </p>
             </div>
 
-            {activePayin.redirect_url && (
-              <div className="pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+              {activePayin.redirect_url && (
                 <a
                   href={activePayin.redirect_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  <span>Reabrir Pasarela de Pago</span>
+                  <span>Reabrir Ventana de Pago</span>
                 </a>
-              </div>
-            )}
+              )}
+
+              <button
+                type="button"
+                onClick={() => checkStatusOnce(true)}
+                disabled={isCheckingManual}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+              >
+                {isCheckingManual ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verificando...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Ya pagué (Verificar Ahora)</span>
+                  </>
+                )}
+              </button>
+            </div>
 
             <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
               <Clock className="w-3.5 h-3.5 animate-pulse text-amber-500" />
@@ -181,7 +246,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
           </div>
         )}
 
-        {pollingStatus === 'SUCCESS' && (
+        {isSuccess && (
           <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2 text-emerald-800">
             <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
             <h4 className="font-bold text-base text-emerald-900">¡Pago Confirmado Exitosamente!</h4>
@@ -193,7 +258,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
           </div>
         )}
 
-        {(pollingStatus === 'FAILED' || pollingStatus === 'REJECTED' || pollingStatus === 'EXPIRED') && (
+        {isFailed && (
           <div className="p-5 bg-rose-50 border border-rose-200 rounded-2xl text-center space-y-3 text-rose-800">
             <AlertCircle className="w-10 h-10 text-rose-600 mx-auto" />
             <div>

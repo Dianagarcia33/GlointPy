@@ -655,7 +655,7 @@ class YointService:
         status_upper = new_status.upper().strip()
         is_success = (
             any(ok_word in status_upper for ok_word in [
-                "SUCCES", "EXITOS", "APPROV", "COMPLET", "PAID", "PAGAD", "OK"
+                "SUCCES", "EXITOS", "APPROV", "COMPLET", "PAID", "PAGAD", "CONFIRM", "OK"
             ])
             and not any(neg in status_upper for neg in ["NO", "NOT", "FAIL", "REJECT", "ERROR", "DECLIN", "CANCEL"])
         )
@@ -673,8 +673,16 @@ class YointService:
             return True
 
         if is_success:
+            # Si ya fue marcado como SUCCESS previamente, verificar si la inversión realmente quedó aprobada
             if payin.status == "SUCCESS":
-                return True # Ya fue procesado previamente para evitar duplicados
+                if payin.payin_type == "INVESTMENT_REQUEST" and payin.investment_request_id:
+                    chk_res = await db.execute(
+                        select(InvestmentRequest.status).where(InvestmentRequest.id == payin.investment_request_id)
+                    )
+                    if chk_res.scalar_one_or_none() == InvestmentRequestStatus.approved:
+                        return True
+                else:
+                    return True
 
             payin.status = "SUCCESS"
             logger.info(f"✅ [YointService] Payin #{payin.id} confirmado EXITOSO ({payin.payin_type}, monto: {payin.amount})")
@@ -786,9 +794,9 @@ class YointService:
                             db=db,
                             request_id=inv_req.id,
                             user_id=admin_id,
-                            rejection_reason=f"Pago rechazado o expirado en la pasarela Yoint ({new_status})"
+                            reason=f"Pago rechazado o expirado en la pasarela ({new_status})"
                         )
-                        logger.warning(f"[YointService] Solicitud de inversión #{inv_req.id} RECHAZADA AUTOMÁTICAMENTE debido a pago fallido en Yoint.")
+                        logger.warning(f"[YointService] Solicitud de inversión #{inv_req.id} RECHAZADA AUTOMÁTICAMENTE debido a pago fallido.")
                     except Exception as rej_err:
                         logger.error(f"[YointService] Error rechazando automáticamente solicitud #{inv_req.id}: {rej_err}")
 
@@ -996,6 +1004,7 @@ class YointService:
     async def query_payin_status(cls, db: AsyncSession, payin: YointPayin) -> Dict[str, Any]:
         """
         Consulta el estado de una orden de recaudo ante Yoint (GET /api/payments/v1/{order-id})
+        con fallback a (GET /api/payments/v1/list-payments?ids={order-id})
         y ejecuta la transición de estado si cambió.
         """
         target_id = payin.order_id
@@ -1009,29 +1018,80 @@ class YointService:
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 res = await client.get(url, headers=headers)
+                data = None
                 if res.status_code == 200:
-                    data = res.json()
-                    new_status = None
-                    if isinstance(data, dict):
+                    try:
+                        data = res.json()
+                    except Exception:
+                        data = None
+
+                # Fallback secundario si url principal da error o 404
+                if not data or res.status_code not in [200, 202]:
+                    fallback_url = f"{base_url}/api/payments/v1/list-payments?ids={target_id}"
+                    logger.info(f"[YointService] Consultando fallback list-payments para payin #{payin.id}: {fallback_url}")
+                    res_fb = await client.get(fallback_url, headers=headers)
+                    if res_fb.status_code in [200, 202]:
+                        try:
+                            data = res_fb.json()
+                        except Exception:
+                            pass
+
+                if not data:
+                    return {"status": payin.status, "http_code": res.status_code, "body": res.text}
+
+                new_status = None
+                if isinstance(data, dict):
+                    # 1. Caso operations (de list-payments)
+                    ops = data.get("operations")
+                    if isinstance(ops, list) and ops and isinstance(ops[0], dict):
+                        op = ops[0]
+                        new_status = op.get("status")
+                        ext_resp = op.get("externalResponse")
+                        if ext_resp:
+                            ext_up = str(ext_resp).upper()
+                            if any(ok in ext_up for ok in ["APPROV", "COMPLET", "CONFIRM", "EXITOS", "R00", "SUCCESS"]):
+                                new_status = "SUCCESS"
+                            elif any(fail in ext_up for fail in ["DECLIN", "REJECT", "FAIL", "ERROR"]):
+                                new_status = "FAILED"
+
+                    # 2. Caso subscription
+                    if not new_status:
                         sub = data.get("subscription")
                         if isinstance(sub, dict) and sub.get("status"):
                             new_status = sub.get("status")
-                        
-                        if not new_status:
-                            p_details = data.get("paymentDetails")
-                            if isinstance(p_details, list) and p_details and isinstance(p_details[0], dict):
-                                new_status = p_details[0].get("status")
-                        
-                        if not new_status:
-                            new_status = data.get("status") or data.get("state")
 
-                    if new_status and new_status.upper() != payin.status.upper():
+                    # 3. Caso paymentDetails
+                    p_details = data.get("paymentDetails")
+                    if isinstance(p_details, list) and p_details and isinstance(p_details[0], dict):
+                        p_item = p_details[0]
+                        pref = p_item.get("paymentReference")
+                        if pref and not payin.transaction_id:
+                            payin.transaction_id = str(pref)
+                            db.add(payin)
+
+                        if not new_status:
+                            new_status = p_item.get("status")
+
+                        ext_resp = p_item.get("externalResponse")
+                        if ext_resp:
+                            ext_up = str(ext_resp).upper()
+                            if any(ok in ext_up for ok in ["APPROV", "COMPLET", "CONFIRM", "EXITOS", "R00", "SUCCESS"]):
+                                new_status = "SUCCESS"
+                            elif any(fail in ext_up for fail in ["DECLIN", "REJECT", "FAIL", "ERROR"]):
+                                new_status = "FAILED"
+
+                    # 4. Caso estado raíz
+                    if not new_status:
+                        new_status = data.get("status") or data.get("state") or data.get("estado")
+
+                if new_status:
+                    curr_status = (payin.status or "").upper()
+                    target_status = str(new_status).upper()
+                    if target_status != curr_status or (target_status == "SUCCESS" and curr_status != "SUCCESS"):
                         await cls.process_payin_status_transition(
                             db=db, payin=payin, new_status=str(new_status), payload=data
                         )
-                    return {"status": payin.status, "raw": data}
-                else:
-                    return {"status": payin.status, "http_code": res.status_code, "body": res.text}
+                return {"status": payin.status, "raw": data}
         except Exception as e:
             logger.error(f"[YointService] Error consultando estado de payin #{payin.id}: {e}")
             return {"status": payin.status, "error": str(e)}
