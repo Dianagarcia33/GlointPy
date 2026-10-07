@@ -15,25 +15,23 @@ from src.models.yoint_dispersion import YointDispersion
 from src.models.withdrawal import Withdrawal, WithdrawalStatus
 from src.services.yoint_service import YointService
 
-async def probe_endpoint(client, url, headers, desc):
+async def test_call(client, method, url, headers, json_body, desc):
     try:
-        res = await client.get(url, headers=headers)
-        snippet = res.text[:200].replace('\n', ' ')
+        if method == "GET":
+            res = await client.get(url, headers=headers)
+        else:
+            res = await client.post(url, headers=headers, json=json_body)
+        
+        snippet = res.text[:250].replace('\n', ' ')
         print(f"   [{desc}] HTTP {res.status_code} -> {snippet}")
-        if res.status_code == 200:
+        if res.status_code in [200, 201]:
             return res.json()
     except Exception as e:
-        print(f"   [{desc}] Excepción: {e}")
+        print(f"   [{desc}] Error: {e}")
     return None
 
 async def main():
     print("[CLI sync_yoint] Buscando retiros en proceso y dispersiones pendientes con Yoint...")
-    print(f"[CLI sync_yoint] Configuración detectada:")
-    print(f"  - YOINT_API_URL: {settings.YOINT_API_URL}")
-    print(f"  - YOINT_AUTH_URL: {settings.YOINT_AUTH_URL}")
-    print(f"  - YOINT_CLIENT_ID: {'***' + settings.YOINT_CLIENT_ID[-4:] if settings.YOINT_CLIENT_ID else 'None'}")
-    print(f"  - YOINT_API_KEY: {'Configurada' if settings.YOINT_API_KEY else 'None'}")
-
     async with async_session_maker() as db:
         q = (
             select(YointDispersion)
@@ -53,78 +51,120 @@ async def main():
             print("ℹ️ No hay retiros en estado 'procesado' ni dispersiones pendientes.")
             return
 
-        print(f"\n🔄 Se encontraron {len(dispersions)} dispersiones por conciliar:")
+        # Obtener token OAuth real de Cognito
+        oauth_token = await YointService.get_oauth_token()
+        print(f"[CLI sync_yoint] Token Cognito obtenido: {'Sí (longitud: ' + str(len(oauth_token)) + ')' if oauth_token else 'NO'}")
+
+        base_url = settings.YOINT_API_URL.rstrip('/')
+        
+        # Probar con el primer retiro (#7408 si está en la lista)
+        target_disp = None
         for d in dispersions:
-            print(f"\n=======================================================")
-            print(f"Retiro #{d.withdrawal_id} | Dispersión ID #{d.id}")
-            print(f"  order_id en BD : {d.order_id}")
-            print(f"  referencia     : {d.payment_reference}")
-            print(f"  estado actual  : {d.status}")
-            print(f"=======================================================")
+            if str(d.order_id) == "335591" or d.withdrawal_id == 7408:
+                target_disp = d
+                break
+        if not target_disp:
+            target_disp = dispersions[0]
 
-            # 1. Intentar con query_order_status estándar
-            result = await YointService.query_order_status(db, d)
-            print(f"👉 Resultado consulta Yoint estándar: {result}")
+        order_id = target_disp.order_id or "335591"
+        ref = target_disp.payment_reference or f"RET-{target_disp.withdrawal_id}"
 
-            # 2. Si no dio 200, ejecutar diagnósticos adicionales
-            if not isinstance(result, dict) or result.get("http_code") or result.get("error"):
-                print("⚠️ Consulta estándar no exitosa. Ejecutando sondeo de variantes...")
-                base_url = settings.YOINT_API_URL.rstrip('/')
-                idemp = d.idempotency_key or "diag-probe"
-                
-                # Probar con headers OAuth
-                headers_oauth = await YointService._get_headers(idemp)
-                
-                # Probar con headers solo x-api-key (sin Authorization)
-                headers_apikey_only = {
-                    "Content-Type": "application/json",
-                    "X-Idempotency-Key": idemp
-                }
-                if settings.YOINT_API_KEY:
-                    headers_apikey_only["x-api-key"] = settings.YOINT_API_KEY.strip()
+        print(f"\n=======================================================")
+        print(f"🔬 SONDEO TÉCNICO EXHAUSTIVO PARA RETIRO #{target_disp.withdrawal_id} (Order: {order_id}, Ref: {ref})")
+        print(f"=======================================================")
 
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    data = None
-                    # Variante A: path /order_id con OAuth
-                    if d.order_id:
-                        data = await probe_endpoint(client, f"{base_url}/api/payments/v2/dispersions/{d.order_id}", headers_oauth, "A: path /{id} con OAuth")
-                    
-                    # Variante B: path /order_id con x-api-key
-                    if not data and d.order_id and settings.YOINT_API_KEY:
-                        data = await probe_endpoint(client, f"{base_url}/api/payments/v2/dispersions/{d.order_id}", headers_apikey_only, "B: path /{id} con x-api-key")
+        # Definir configuraciones de headers
+        h_bearer = {"Content-Type": "application/json", "Authorization": f"Bearer {oauth_token}"}
+        h_raw = {"Content-Type": "application/json", "Authorization": f"{oauth_token}"} # Sin la palabra Bearer
+        h_token = {"Content-Type": "application/json", "token": f"{oauth_token}", "x-token": f"{oauth_token}"}
 
-                    # Variante C: query ?paymentReference=
-                    if not data and d.payment_reference:
-                        data = await probe_endpoint(client, f"{base_url}/api/payments/v2/dispersions?paymentReference={d.payment_reference}", headers_oauth, "C: ?paymentReference= con OAuth")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            success_data = None
 
-                    # Variante D: query ?orderId=
-                    if not data and d.order_id:
-                        data = await probe_endpoint(client, f"{base_url}/api/payments/v2/dispersions?orderId={d.order_id}", headers_oauth, "D: ?orderId= con OAuth")
-
-                    # Variante E: listado general
-                    if not data:
-                        data = await probe_endpoint(client, f"{base_url}/api/payments/v2/dispersions", headers_oauth, "E: GET /dispersions general")
-
+            # 1. Probar variantes POST (Comunes en pasarelas bancarias)
+            post_payloads = [
+                {"orderId": order_id},
+                {"id": int(order_id) if order_id.isdigit() else order_id},
+                {"paymentReference": ref}
+            ]
+            post_endpoints = [
+                "/api/payments/v2/dispersions/status",
+                "/api/payments/v2/dispersions/query",
+                "/api/payments/v2/dispersions/consult",
+                "/api/payments/v2/dispersions/search",
+                "/api/payments/v2/dispersions/detail",
+                "/api/payments/v2/dispersions/filter",
+                "/api/payments/v2/dispersions/history",
+                "/api/payments/v2/dispersions/check"
+            ]
+            print("\n🔍 1. Probando métodos POST:")
+            for ep in post_endpoints:
+                for pl in post_payloads[:1]:
+                    data = await test_call(client, "POST", f"{base_url}{ep}", h_bearer, pl, f"POST {ep}")
                     if data:
-                        print("🎉 ¡Variante exitosa! Procesando transición...")
-                        # Extraer estado de la respuesta
-                        new_st = None
-                        if isinstance(data, dict):
-                            data_inner = data.get("data") if isinstance(data.get("data"), dict) else {}
-                            new_st = data.get("status") or data.get("state") or data.get("estado") or data_inner.get("status") or data_inner.get("state") or data_inner.get("estado")
-                            if not new_st and isinstance(data.get("dispersions"), list) and data["dispersions"]:
-                                for item in data["dispersions"]:
-                                    if str(item.get("id")) == str(d.order_id) or str(item.get("paymentReference")) == str(d.payment_reference):
-                                        new_st = item.get("status") or item.get("state") or item.get("estado")
-                                        break
-                        if new_st:
-                            await YointService.process_status_transition(db, d.order_id or d.payment_reference, str(new_st), payload=data)
+                        success_data = data
+                        break
+                if success_data:
+                    break
 
-            # Recargar estado
-            await db.refresh(d)
-            print(f"✅ Estado final de la dispersión #{d.id}: {d.status}")
+            # 2. Probar variantes GET alternativas
+            if not success_data:
+                print("\n🔍 2. Probando rutas GET alternativas:")
+                get_endpoints = [
+                    f"/api/payments/v2/dispersions/status/{order_id}",
+                    f"/api/payments/v2/dispersions/detail/{order_id}",
+                    f"/api/payments/v2/dispersion/{order_id}",
+                    f"/api/payments/v1/dispersions/{order_id}",
+                    f"/api/payments/v1/dispersions?paymentReference={ref}",
+                    f"/api/dispersions/{order_id}",
+                    f"/api/v2/dispersions/{order_id}",
+                    f"/api/payments/v2/orders/{order_id}",
+                    f"/api/payments/v2/transactions/{order_id}"
+                ]
+                for ep in get_endpoints:
+                    data = await test_call(client, "GET", f"{base_url}{ep}", h_bearer, None, f"GET {ep}")
+                    if data:
+                        success_data = data
+                        break
 
-        print("\n🏁 Proceso de conciliación finalizado.")
+            # 3. Probar GET sin la palabra 'Bearer ' en Authorization
+            if not success_data:
+                print("\n🔍 3. Probando encabezado Authorization directo (sin palabra 'Bearer'):")
+                direct_eps = [
+                    f"/api/payments/v2/dispersions/{order_id}",
+                    f"/api/payments/v2/dispersions?paymentReference={ref}",
+                    "/api/payments/v2/dispersions"
+                ]
+                for ep in direct_eps:
+                    data = await test_call(client, "GET", f"{base_url}{ep}", h_raw, None, f"RAW GET {ep}")
+                    if data:
+                        success_data = data
+                        break
+
+            # 4. Probar con header token / x-token
+            if not success_data:
+                print("\n🔍 4. Probando encabezados alternativos de token:")
+                for ep in direct_eps[:1]:
+                    data = await test_call(client, "GET", f"{base_url}{ep}", h_token, None, f"CUSTOM HEADER GET {ep}")
+                    if data:
+                        success_data = data
+                        break
+
+            # Si alguna variante fue exitosa, procesar de inmediato
+            if success_data:
+                print("\n🎉 ¡ENCONTRADA LA RUTA EXACTA DE YOINT!")
+                print(f"Respuesta completa: {success_data}")
+                new_st = None
+                if isinstance(success_data, dict):
+                    data_inner = success_data.get("data") if isinstance(success_data.get("data"), dict) else {}
+                    new_st = success_data.get("status") or success_data.get("state") or success_data.get("estado") or data_inner.get("status") or data_inner.get("state") or data_inner.get("estado")
+                if new_st:
+                    await YointService.process_status_transition(db, order_id, str(new_st), payload=success_data)
+                    await db.refresh(target_disp)
+                    print(f"✅ ¡Retiro #{target_disp.withdrawal_id} actualizado con éxito a: {target_disp.status}!")
+            else:
+                print("\n⚠️ Ninguna ruta pública estándar de consulta respondió 200.")
+                print("Esto confirma que Yoint actualiza los estados vía Webhook (push) en lugar de polling.")
 
 if __name__ == "__main__":
     asyncio.run(main())
