@@ -9,25 +9,26 @@ from sqlalchemy.future import select
 
 from src.models.sarlaft_check import SarlaftCheck
 from src.core.database import async_session_maker
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-TUSDATOS_BASE_URL = os.getenv("TUSDATOS_BASE_URL", "https://docs.tusdatos.co").rstrip("/")
-TUSDATOS_USERNAME = os.getenv("TUSDATOS_USERNAME", "pruebas")
-TUSDATOS_PASSWORD = os.getenv("TUSDATOS_PASSWORD", "password")
-
 class TusdatosService:
 
-    @staticmethod
-    def _get_auth():
-        return (TUSDATOS_USERNAME, TUSDATOS_PASSWORD)
+    @classmethod
+    def _get_base_url(cls) -> str:
+        return (settings.TUSDATOS_BASE_URL or "https://docs.tusdatos.co").rstrip("/")
+
+    @classmethod
+    def _get_auth(cls):
+        return (settings.TUSDATOS_USERNAME or "pruebas", settings.TUSDATOS_PASSWORD or "password")
 
     @classmethod
     async def launch_check(cls, doc: str, typedoc: str = "CC", fecha_expedicion: Optional[str] = None) -> Dict[str, Any]:
         """
         Lanza una consulta de antecedentes en la API de Tusdatos.co
         """
-        url = f"{TUSDATOS_BASE_URL}/api/launch"
+        url = f"{cls._get_base_url()}/api/launch"
         
         # Limpiar documento de puntos, comas o guiones
         raw_doc = str(doc).replace(".", "").replace(",", "").replace("-", "").strip()
@@ -64,7 +65,7 @@ class TusdatosService:
         Consulta el estado de una tarea lanzada en Tusdatos.co (/api/results/{jobkey}).
         Maneja HTTP 200 (finalizado) y HTTP 207 (procesando).
         """
-        url = f"{TUSDATOS_BASE_URL}/api/results/{job_id}"
+        url = f"{cls._get_base_url()}/api/results/{job_id}"
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 response = await client.get(url, auth=cls._get_auth())
@@ -81,7 +82,7 @@ class TusdatosService:
         Obtiene el desglose de hallazgos en formato JSON (/api/report_json/{id})
         con la categorización completa (dict_hallazgos).
         """
-        url = f"{TUSDATOS_BASE_URL}/api/report_json/{report_id}"
+        url = f"{cls._get_base_url()}/api/report_json/{report_id}"
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 response = await client.get(url, auth=cls._get_auth())
@@ -97,7 +98,7 @@ class TusdatosService:
         """
         Descarga el PDF del reporte (/api/v2/report_pdf/{id}) y lo guarda en uploads/sarlaft_reports/
         """
-        url = f"{TUSDATOS_BASE_URL}/api/v2/report_pdf/{report_id}"
+        url = f"{cls._get_base_url()}/api/v2/report_pdf/{report_id}"
         os.makedirs("uploads/sarlaft_reports", exist_ok=True)
         filename = f"sarlaft_{report_id}.pdf"
         file_path = os.path.join("uploads/sarlaft_reports", filename)

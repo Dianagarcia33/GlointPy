@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     YOINT_CLIENT_SECRET: Optional[str] = None
     YOINT_WEBHOOK_SECRET: Optional[str] = None
 
+    # Tusdatos.co SARLAFT API (Sandbox / Ambiente de pruebas oficial por defecto)
+    TUSDATOS_BASE_URL: str = "https://docs.tusdatos.co"
+    TUSDATOS_USERNAME: str = "pruebas"
+    TUSDATOS_PASSWORD: str = "password"
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
         env_file_encoding="utf-8",
