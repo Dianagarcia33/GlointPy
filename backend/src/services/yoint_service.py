@@ -232,6 +232,44 @@ class YointService:
         }
 
     @classmethod
+    def _extract_order_id(cls, data: Any) -> Optional[str]:
+        """
+        Extrae recursivamente el identificador único de la dispersión de cualquier estructura JSON de Yoint.
+        """
+        if not data:
+            return None
+        if isinstance(data, (int, str)):
+            val = str(data).strip()
+            return val if val else None
+        if isinstance(data, dict):
+            for k in ["orderId", "order_id", "id", "dispersionId", "dispersion_id", "referenceId"]:
+                val = data.get(k)
+                if isinstance(val, list) and val:
+                    return str(val[0]).strip()
+                elif val is not None and str(val).strip():
+                    return str(val).strip()
+            
+            # Revisar dentro de dispersions list
+            if isinstance(data.get("dispersions"), list) and data["dispersions"]:
+                for item in data["dispersions"]:
+                    found = cls._extract_order_id(item)
+                    if found:
+                        return found
+            
+            # Revisar dentro de data
+            if "data" in data:
+                found = cls._extract_order_id(data["data"])
+                if found:
+                    return found
+
+        elif isinstance(data, list) and data:
+            for item in data:
+                found = cls._extract_order_id(item)
+                if found:
+                    return found
+        return None
+
+    @classmethod
     async def send_dispersion(
         cls, 
         db: AsyncSession, 
@@ -300,17 +338,16 @@ class YointService:
                 dispersion.response_payload = res_json
 
                 if 200 <= status_code < 300:
-                    # Éxito: Extraer orderId
-                    order_ids = res_json.get("orderId", [])
-                    order_id_val = str(order_ids[0]) if isinstance(order_ids, list) and order_ids else str(res_json.get("orderId") or "")
+                    # Éxito: Extraer orderId con el extractor robusto
+                    order_id_val = cls._extract_order_id(res_json) or ""
                     
                     dispersion.order_id = order_id_val
                     dispersion.status = "PROCESSING"
                     
                     # Actualizar retiro en Gloint
                     withdrawal.estado = WithdrawalStatus.PROCESSED
-                    withdrawal.comprobante_pago = f"YOINT-ORDER-{order_id_val}"
-                    logger.info(f"Dispersión Yoint exitosa para Retiro #{withdrawal.id}. OrderId: {order_id_val}")
+                    withdrawal.comprobante_pago = f"YOINT-ORDER-{order_id_val}" if order_id_val else f"YOINT-REF-{payment_ref}"
+                    logger.info(f"Dispersión Yoint exitosa para Retiro #{withdrawal.id}. OrderId: {order_id_val or payment_ref}")
                 else:
                     dispersion.status = "FAILED"
                     dispersion.error_message = f"HTTP {status_code}: {res_json}"
@@ -377,12 +414,22 @@ class YointService:
         if not withdrawal:
             return False
 
-        # 1. Casos de ÉXITO / APROBADO
-        if status_upper in [
-            "APPROVED", "COMPLETED", "PAID", "SUCCESS", "EXITOSA", "EXITOSO", 
-            "APROBADO", "APROBADA", "PAGADA", "PAGADO", "TRANSFERRED", "TRANSFERIDA", 
-            "DISPERSED", "DISPERSADA", "LIQUIDATED", "LIQUIDADA"
-        ]:
+        # Clasificación de estado con tolerancia a variantes de Yoint (ej: 'Exitoso', 'No Exitoso', 'Aprobada')
+        is_success = (
+            any(ok_word in status_upper for ok_word in [
+                "EXITOS", "APPROV", "COMPLET", "PAID", "PAGAD", "TRANSF", "DISPERS", "LIQUID"
+            ])
+            and not any(neg in status_upper for neg in ["NO", "NOT", "FAIL", "REJECT", "ERROR", "DECLIN", "CANCEL"])
+        )
+        
+        is_failed = (
+            any(fail_word in status_upper for fail_word in [
+                "NO EXITOS", "RECHAZ", "FAIL", "REJECT", "DEVUELT", "ERROR", "DECLIN", "CANCEL", "FALLI", "DENI"
+            ])
+        )
+
+        # 1. Casos de ÉXITO / APROBADO (ej. 'Exitoso', 'Aprobada', 'Transferred')
+        if is_success:
             dispersion.status = "APPROVED"
             withdrawal.estado = WithdrawalStatus.APPROVED
             withdrawal.fecha_aprobacion = datetime.utcnow()
@@ -405,13 +452,10 @@ class YointService:
 
             logger.info(f"Retiro #{withdrawal.id} (Yoint {clean_id}) completado y APROBADO.")
 
-        # 2. Casos de RECHAZO O FALLO
-        elif status_upper in [
-            "REJECTED", "FAILED", "RECHAZADA", "RECHAZADO", "DEVUELTA", "DEVUELTO", 
-            "ERROR", "DECLINED", "CANCELLED", "CANCELADA", "FALLIDA", "FALLIDO", "DENIED"
-        ]:
+        # 2. Casos de RECHAZO O FALLO (ej. 'No Exitoso', 'Rechazado', 'Failed')
+        elif is_failed:
             dispersion.status = "REJECTED"
-            motivo = (payload.get("message") if isinstance(payload, dict) else None) or (payload.get("error") if isinstance(payload, dict) else None) or "Rechazo de dispersión bancaria reportado por Yoint"
+            motivo = (payload.get("message") if isinstance(payload, dict) else None) or (payload.get("error") if isinstance(payload, dict) else None) or "Dispersión no exitosa reportada por Yoint"
             dispersion.error_message = str(motivo)
 
             withdrawal.estado = WithdrawalStatus.REJECTED
@@ -452,7 +496,7 @@ class YointService:
             except Exception as e:
                 logger.warning(f"Error notificando rechazo Yoint retiro #{withdrawal.id}: {e}")
 
-            logger.warning(f"Retiro #{withdrawal.id} (Yoint {order_id}) RECHAZADO y fondos devueltos a la wallet.")
+            logger.warning(f"Retiro #{withdrawal.id} (Yoint {clean_id}) RECHAZADO y fondos devueltos a la wallet.")
 
         await db.commit()
         return True
@@ -462,13 +506,26 @@ class YointService:
         """
         Consulta en tiempo real el estado de una orden a Yoint.
         """
-        if not dispersion.order_id:
-            return {"status": dispersion.status, "message": "Orden sin orderId"}
+        # Si order_id está vacío, intentar recuperarlo de response_payload
+        target_id = dispersion.order_id
+        if not target_id and dispersion.response_payload:
+            target_id = cls._extract_order_id(dispersion.response_payload)
+            if target_id:
+                dispersion.order_id = target_id
+                db.add(dispersion)
+                await db.commit()
+
+        if not target_id and not dispersion.payment_reference:
+            return {"status": dispersion.status, "message": "Orden sin orderId ni paymentReference"}
 
         if not settings.YOINT_API_KEY and not (settings.YOINT_CLIENT_ID and settings.YOINT_CLIENT_SECRET):
             return {"status": dispersion.status, "message": "Credenciales Yoint no configuradas"}
 
-        endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions/{dispersion.order_id}"
+        if target_id:
+            endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions/{target_id}"
+        else:
+            endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions?paymentReference={dispersion.payment_reference}"
+
         headers = await cls._get_headers(idempotency_key=dispersion.idempotency_key or str(uuid.uuid4()))
 
         try:
@@ -485,16 +542,19 @@ class YointService:
                         new_status = (
                             data.get("status") 
                             or data.get("state")
+                            or data.get("estado")
                             or data_inner.get("status")
                             or data_inner.get("state")
+                            or data_inner.get("estado")
                             or first_disp.get("status")
                             or first_disp.get("state")
+                            or first_disp.get("estado")
                         )
 
                     if new_status:
                         await cls.process_status_transition(
                             db=db, 
-                            order_id=dispersion.order_id or dispersion.payment_reference, 
+                            order_id=dispersion.order_id or dispersion.payment_reference or str(dispersion.withdrawal_id), 
                             new_status=str(new_status), 
                             payload=data if isinstance(data, dict) else {"raw": data}
                         )
