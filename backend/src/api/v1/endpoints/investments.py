@@ -314,10 +314,26 @@ async def create_investment_request(
     if paquete_inversion_id:
         pkg_res = await db.execute(select(Package).where(Package.id == paquete_inversion_id))
         target_pkg = pkg_res.scalars().first()
-        if target_pkg:
-            extra_data["new_package_id"] = target_pkg.id
-            extra_data["new_package_value"] = float(target_pkg.value)
-        
+        # Verificar cumplimiento SARLAFT del usuario y heredar documentos KYC
+        from src.models.sarlaft_check import SarlaftCheck
+        sarlaft_res = await db.execute(
+            select(SarlaftCheck)
+            .where(SarlaftCheck.user_id == target_user_id)
+            .order_by(SarlaftCheck.id.desc())
+        )
+        last_sarlaft = sarlaft_res.scalars().first()
+        if last_sarlaft:
+            if last_sarlaft.risk_level == "HIGH" and not last_sarlaft.tusdatos_hallazgos_corregidos:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Tu cuenta presenta hallazgos de alto riesgo en la verificación SARLAFT (listas restrictivas). No es posible generar solicitudes de inversión hasta que un oficial de cumplimiento revise tu expediente."
+                )
+            if last_sarlaft.details and isinstance(last_sarlaft.details, dict):
+                if "kyc_docs" in last_sarlaft.details and not extra_data.get("kyc_docs"):
+                    extra_data["kyc_docs"] = last_sarlaft.details["kyc_docs"]
+                if "biometrics" in last_sarlaft.details and not extra_data.get("biometrics"):
+                    extra_data["biometrics"] = last_sarlaft.details["biometrics"]
+
     new_request = InvestmentRequest(
         user_id=target_user_id,
         investor_id=investor_id,

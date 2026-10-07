@@ -8,10 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from src.models.sarlaft_check import SarlaftCheck
+from src.core.database import async_session_maker
 
 logger = logging.getLogger(__name__)
 
-TUSDATOS_BASE_URL = os.getenv("TUSDATOS_BASE_URL", "http://docs.tusdatos.co")
+TUSDATOS_BASE_URL = os.getenv("TUSDATOS_BASE_URL", "https://docs.tusdatos.co").rstrip("/")
 TUSDATOS_USERNAME = os.getenv("TUSDATOS_USERNAME", "pruebas")
 TUSDATOS_PASSWORD = os.getenv("TUSDATOS_PASSWORD", "password")
 
@@ -37,7 +38,13 @@ class TusdatosService:
             "typedoc": typedoc
         }
         if fecha_expedicion:
-            payload["fechaE"] = fecha_expedicion
+            clean_fecha = str(fecha_expedicion).strip()
+            # Si viene en formato YYYY-MM-DD (HTML5 date input), convertir a DD/MM/YYYY
+            if "-" in clean_fecha:
+                parts = clean_fecha.split("-")
+                if len(parts) == 3 and len(parts[0]) == 4:
+                    clean_fecha = f"{parts[2]}/{parts[1]}/{parts[0]}"
+            payload["fechaE"] = clean_fecha
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
@@ -54,13 +61,14 @@ class TusdatosService:
     @classmethod
     async def poll_job_results(cls, job_id: str) -> Dict[str, Any]:
         """
-        Consulta el estado de una tarea lanzada en Tusdatos.co (/api/results/{jobkey})
+        Consulta el estado de una tarea lanzada en Tusdatos.co (/api/results/{jobkey}).
+        Maneja HTTP 200 (finalizado) y HTTP 207 (procesando).
         """
         url = f"{TUSDATOS_BASE_URL}/api/results/{job_id}"
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 response = await client.get(url, auth=cls._get_auth())
-                if response.status_code == 200:
+                if response.status_code in [200, 207]:
                     return response.json()
                 else:
                     return {"estado": "error", "message": f"Error {response.status_code}"}
@@ -71,6 +79,7 @@ class TusdatosService:
     async def get_report_json(cls, report_id: str) -> Dict[str, Any]:
         """
         Obtiene el desglose de hallazgos en formato JSON (/api/report_json/{id})
+        con la categorización completa (dict_hallazgos).
         """
         url = f"{TUSDATOS_BASE_URL}/api/report_json/{report_id}"
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -112,14 +121,16 @@ class TusdatosService:
         document_number: str, 
         document_type: str = "CC", 
         fecha_expedicion: Optional[str] = None,
-        investment_request_id: Optional[int] = None
+        investment_request_id: Optional[int] = None,
+        initial_details: Optional[Dict[str, Any]] = None
     ) -> SarlaftCheck:
         """
         Ejecuta el flujo completo SARLAFT:
-        1. Crea el registro SarlaftCheck con status='processing'
-        2. Lanza la consulta en Tusdatos.co
-        3. Pollea hasta finalizar (máx 12 reintentos con delay de 5s)
-        4. Si finaliza, descarga el JSON y PDF y actualiza el registro en la BD.
+        1. Crea o reutiliza el registro SarlaftCheck con status='processing'
+        2. Lanza la consulta en Tusdatos.co (/api/launch)
+        3. Pollea hasta finalizar (máx 15 reintentos con delay de 4s)
+        4. Clasifica hallazgos según https://docs.tusdatos.co/redoc#section/Categorizacion-de-Hallazgos
+        5. Descarga el JSON detallado y el reporte en PDF oficial.
         """
         import json
 
@@ -127,8 +138,11 @@ class TusdatosService:
         check = SarlaftCheck(
             user_id=user_id,
             investment_request_id=investment_request_id,
+            document_number=document_number,
+            document_type=document_type,
             tusdatos_status="processing",
-            tusdatos_last_check=datetime.utcnow()
+            tusdatos_last_check=datetime.utcnow(),
+            details=initial_details or {}
         )
         db.add(check)
         await db.commit()
@@ -145,50 +159,59 @@ class TusdatosService:
             await db.commit()
             return check
 
-        check.job_id = job_id
-        check.tusdatos_job_id = job_id
+        check.job_id = str(job_id)
+        check.tusdatos_job_id = str(job_id)
         await db.commit()
 
-        # En ambiente de pruebas o producción, iterar polling
-        max_attempts = 12
+        # Polling de resultados (máx 15 reintentos, intervalo 4 seg)
+        max_attempts = 15
         for _ in range(max_attempts):
-            await asyncio.sleep(5)
+            await asyncio.sleep(4)
             results = await cls.poll_job_results(job_id)
-            estado = results.get("estado", "").lower()
+            estado = str(results.get("estado", "")).lower()
 
             if estado == "finalizado":
-                report_id = results.get("id") or job_id
+                report_id = str(results.get("id") or job_id)
                 check.report_id = report_id
                 check.tusdatos_report_id = report_id
                 check.status = "completed"
                 check.tusdatos_status = "finalizado"
                 check.has_findings = bool(results.get("hallazgo", False))
                 check.tusdatos_last_check = datetime.utcnow()
-                check.tusdatos_msg = "Consulta finalizada exitosamente"
+                check.tusdatos_msg = "Consulta SARLAFT finalizada exitosamente"
 
-                # Clasificar nivel de riesgo SARLAFT
-                dict_hallazgos = results.get("dict_hallazgos") or {}
+                # Obtener desglose de categorización de hallazgos
+                report_json = await cls.get_report_json(report_id)
+                dict_hallazgos = report_json.get("dict_hallazgos") or results.get("dict_hallazgos") or {}
+
+                # Clasificación oficial de riesgo según docs.tusdatos.co/redoc#section/Categorizacion-de-Hallazgos
+                hallazgo_principal = str(results.get("hallazgos", "")).strip().capitalize()
                 altos = dict_hallazgos.get("altos", [])
                 medios = dict_hallazgos.get("medios", [])
+                bajos = dict_hallazgos.get("bajos", [])
 
-                if altos and len(altos) > 0:
+                if hallazgo_principal == "Alto" or (isinstance(altos, list) and len(altos) > 0):
                     check.risk_level = "HIGH"
-                elif medios and len(medios) > 0:
+                elif hallazgo_principal == "Medio" or (isinstance(medios, list) and len(medios) > 0):
                     check.risk_level = "MEDIUM"
-                elif check.has_findings:
+                elif hallazgo_principal in ["Bajo", "Info"] or check.has_findings or (isinstance(bajos, list) and len(bajos) > 0):
                     check.risk_level = "LOW"
                 else:
                     check.risk_level = "CLEAN"
 
-                check.tusdatos_hallazgos = json.dumps(results.get("hallazgos") or dict_hallazgos)
-                check.details = {
+                check.tusdatos_hallazgos = json.dumps(dict_hallazgos if dict_hallazgos else {"hallazgo_principal": hallazgo_principal})
+                
+                updated_details = dict(check.details or {})
+                updated_details.update({
                     "validado": results.get("validado", True),
                     "nombre": results.get("nombre", ""),
-                    "hallazgos_resumen": results.get("hallazgos", ""),
-                    "dict_hallazgos": dict_hallazgos
-                }
+                    "hallazgo_principal": hallazgo_principal,
+                    "dict_hallazgos": dict_hallazgos,
+                    "sources_results": results.get("results", {})
+                })
+                check.details = updated_details
 
-                # Descargar PDF
+                # Descargar PDF oficial
                 pdf_path = await cls.download_report_pdf(report_id)
                 if pdf_path:
                     check.pdf_path = pdf_path
@@ -209,3 +232,30 @@ class TusdatosService:
         check.tusdatos_status = "procesando"
         await db.commit()
         return check
+
+    @classmethod
+    async def execute_full_sarlaft_check_background(
+        cls,
+        user_id: int,
+        document_number: str,
+        document_type: str = "CC",
+        fecha_expedicion: Optional[str] = None,
+        initial_details: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Ejecuta la validación SARLAFT en segundo plano utilizando su propia sesión asíncrona.
+        No bloquea el proceso de respuesta de la API.
+        """
+        try:
+            async with async_session_maker() as db:
+                await cls.execute_full_sarlaft_check(
+                    db=db,
+                    user_id=user_id,
+                    document_number=document_number,
+                    document_type=document_type,
+                    fecha_expedicion=fecha_expedicion,
+                    initial_details=initial_details
+                )
+        except Exception as e:
+            logger.error(f"Error en validación SARLAFT en background para usuario {user_id}: {e}")
+

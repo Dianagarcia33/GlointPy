@@ -1,9 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { UploadCloud, CheckCircle2, Loader2, Camera, User, UserCheck, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, CreditCard, Calculator, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar } from 'lucide-react';
-
+import { CheckCircle2, Loader2, Camera, User, UserCheck, FileText, Mail, LockKeyhole, Eye, EyeOff, Landmark, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import imageCompression from 'browser-image-compression';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
 import { commercialService } from '../../../services/commercial';
@@ -56,36 +54,28 @@ export const InvestorRegistrationFlow = () => {
     const [formData, setFormData] = useState({
         name: '',
         documento: '',
-        tipo_documento: '',
+        tipo_documento: 'CC',
+        fecha_expedicion: '',
+        fecha_nacimiento: '',
         email: '',
         password: '',
         numero_celular: '',
         ciudad: '',
         custom_ciudad: '',
-        fecha_nacimiento: '',
         banco: '',
         custom_banco: '',
-        tipo_cuenta: '',
+        tipo_cuenta: 'Ahorros',
         numero_cuenta: '',
-        paquete_id: '',
-        monto: '',
-        periodo_id: '',
-        comprobante_path: '',
         referred_by: '',
         commercial_id: ''
     });
 
     const [commercialUsers, setCommercialUsers] = useState<Array<{ id: number; name: string; email?: string }>>([]);
-
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [showCustomCity, setShowCustomCity] = useState(false);
     const [showCustomBank, setShowCustomBank] = useState(false);
-    const [uploadingComprobante, setUploadingComprobante] = useState(false);
-    const [comprobanteError, setComprobanteError] = useState<string | null>(null);
-    const [comprobanteFileName, setComprobanteFileName] = useState<string | null>(null);
-    const comprobanteInputRef = useRef<HTMLInputElement | null>(null);
 
     // Fetch commercial users (Directivos de Inversión)
     React.useEffect(() => {
@@ -144,18 +134,6 @@ export const InvestorRegistrationFlow = () => {
     const [loadingDepartments, setLoadingDepartments] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
 
-    const navigate = useNavigate();
-    const loginAction = useAuthStore((state) => state.login);
-
-    // Fetch Public Config (Paquetes and Periodos)
-    const { data: config } = useQuery({
-        queryKey: ['public-investments-config'],
-        queryFn: () => fetchApi('/auth/public/config')
-    });
-
-    const paquetes = config?.paquetes || [];
-    const periodos = config?.periodos || [];
-
     // Fetch Departments on Mount
     React.useEffect(() => {
         const fetchDepartments = async () => {
@@ -168,7 +146,6 @@ export const InvestorRegistrationFlow = () => {
                 setDepartments(sorted);
             } catch (err) {
                 console.error("Error fetching departments", err);
-                // Fallback list of departments in case public API is down
                 setDepartments([
                     { id: 1, name: "Antioquia" },
                     { id: 2, name: "Bogotá D.C." },
@@ -212,7 +189,6 @@ export const InvestorRegistrationFlow = () => {
             setCities([...sorted, { id: 9999, name: "Otra" }]);
         } catch (err) {
             console.error("Error fetching cities", err);
-            // Fallback cities for major departments
             const fallbackCities: Record<string, { id: number; name: string }[]> = {
                 "1": [{ id: 101, name: "Medellín" }, { id: 102, name: "Bello" }, { id: 103, name: "Envigado" }, { id: 104, name: "Itagüí" }, { id: 105, name: "Rionegro" }],
                 "2": [{ id: 201, name: "Bogotá" }],
@@ -237,7 +213,7 @@ export const InvestorRegistrationFlow = () => {
         }
     };
 
-    // Upload KYC single file to backend and perform biometric facial comparison
+    // Upload KYC files to backend and perform biometric facial comparison
     const uploadKycDocsMutation = useMutation({
         mutationFn: async () => {
             if (!frontImage || !backImage || !selfieImage) throw new Error("Faltan imágenes por seleccionar.");
@@ -277,7 +253,6 @@ export const InvestorRegistrationFlow = () => {
                 compareFaces(frontImage, selfieImage)
             ]);
 
-            // Guardar siempre las rutas de los archivos
             setKycPaths([frontPath, backPath, selfiePath]);
 
             if (!bioResult || !bioResult.matched) {
@@ -307,11 +282,10 @@ export const InvestorRegistrationFlow = () => {
         },
         onError: (error: any) => {
             if (error.message === "MAX_ATTEMPTS_REACHED") {
-                // Al alcanzar los 3 intentos, regresamos al paso 1 mostrando la alerta de validación manual
                 setStep(1);
             } else {
                 setBiometricError(error.message || "Error al validar la identidad biométrica. Intenta con una selfie más nítida.");
-                setStep(1); // Regresar al paso 1 para que el usuario pueda corregir la foto
+                setStep(1);
             }
         }
     });
@@ -322,6 +296,9 @@ export const InvestorRegistrationFlow = () => {
             uploadKycDocsMutation.mutate();
         }
     }, [step]);
+
+    const navigate = useNavigate();
+    const loginAction = useAuthStore((state: any) => state.login);
 
     // Final Registration Mutation
     const registerMutation = useMutation({
@@ -352,57 +329,6 @@ export const InvestorRegistrationFlow = () => {
         },
     });
 
-    const handleComprobanteUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        
-        setComprobanteError(null);
-
-        // Pre-validar tamaño de archivo (máximo 10 MB)
-        const MAX_SIZE = 10 * 1024 * 1024;
-        if (file.size > MAX_SIZE) {
-            setComprobanteError("El archivo seleccionado excede el tamaño máximo permitido de 10 MB. Por favor comprime la imagen o sube un documento más liviano.");
-            if (e.target) e.target.value = '';
-            setFormData(prev => ({ ...prev, comprobante_path: '' }));
-            setComprobanteFileName(null);
-            return;
-        }
-
-        try {
-            setUploadingComprobante(true);
-            setComprobanteFileName(file.name);
-            const compressedFile = await compressImage(file);
-            const fd = new FormData();
-            fd.append('file', compressedFile);
-            const res = await fetchApi('/auth/public/upload-file', {
-                method: 'POST',
-                body: fd
-            });
-            if (!res || !res.path) {
-                throw new Error("Respuesta inválida del servidor al guardar el comprobante.");
-            }
-            setFormData(prev => ({ ...prev, comprobante_path: res.path }));
-            setComprobanteError(null);
-        } catch (error: any) {
-            console.error("Error al subir archivo", error);
-            setComprobanteError(error.message || "Error al procesar y subir el comprobante. Por favor verifica tu conexión y vuelve a intentar.");
-            setFormData(prev => ({ ...prev, comprobante_path: '' }));
-            setComprobanteFileName(null);
-            if (e.target) e.target.value = '';
-        } finally {
-            setUploadingComprobante(false);
-        }
-    };
-
-    const handleRemoveComprobante = () => {
-        setFormData(prev => ({ ...prev, comprobante_path: '' }));
-        setComprobanteFileName(null);
-        setComprobanteError(null);
-        if (comprobanteInputRef.current) {
-            comprobanteInputRef.current.value = '';
-        }
-    };
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         
@@ -411,14 +337,7 @@ export const InvestorRegistrationFlow = () => {
         }
 
         if (name === 'banco') {
-            setShowCustomBank(value === 'Otro / Cooperativa');
-        }
-
-        if (name === 'paquete_id') {
-            const pkg = paquetes.find((p: any) => p.id.toString() === value);
-            const montoVal = pkg ? pkg.value.toString() : '';
-            setFormData(prev => ({ ...prev, paquete_id: value, monto: montoVal }));
-            return;
+            setShowCustomBank(value === 'Otro / Cooperativa' || value === 'Otro');
         }
 
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -429,21 +348,26 @@ export const InvestorRegistrationFlow = () => {
         if (!acceptedTerms) return;
 
         const finalCity = formData.ciudad === 'Otra' ? formData.custom_ciudad : formData.ciudad;
-        const finalBank = formData.banco === 'Otro / Cooperativa' ? formData.custom_banco : formData.banco;
+        const finalBank = (formData.banco === 'Otro / Cooperativa' || formData.banco === 'Otro') ? formData.custom_banco : formData.banco;
 
         const payload = {
-            ...formData,
+            name: formData.name.trim(),
+            documento: formData.documento.trim(),
+            tipo_documento: formData.tipo_documento,
+            fecha_expedicion: formData.fecha_expedicion || null,
+            email: formData.email.trim().toLowerCase(),
+            password: formData.password,
+            numero_celular: formData.numero_celular.trim(),
+            fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null,
             ciudad: finalCity,
-            banco: finalBank,
-            monto: parseFloat(formData.monto),
-            paquete_id: parseInt(formData.paquete_id),
-            contract_period_id: parseInt(formData.periodo_id),
+            banco: finalBank || null,
+            tipo_cuenta: formData.tipo_cuenta || null,
+            numero_cuenta: formData.numero_cuenta ? formData.numero_cuenta.trim() : null,
             kyc_docs: kycPaths,
             biometric_verified: !requiresManualReview && (biometricSimilarity !== null),
             biometric_similarity: biometricSimilarity,
             biometric_attempts: biometricAttempts,
             requires_manual_review: requiresManualReview,
-            fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null,
             referred_by: formData.referred_by ? formData.referred_by.trim() : null,
             commercial_id: formData.commercial_id ? parseInt(formData.commercial_id) : null
         };
@@ -477,76 +401,48 @@ export const InvestorRegistrationFlow = () => {
         return today.toISOString().split('T')[0];
     };
 
+    const getTodayDate = () => {
+        return new Date().toISOString().split('T')[0];
+    };
+
     // Validation helpers for wizard steps
     const isStep3Valid = () => {
         const cityValid = formData.ciudad === 'Otra' ? !!formData.custom_ciudad : !!formData.ciudad;
         const age = calculateAge(formData.fecha_nacimiento);
         const isAdult = age !== null && age >= 18 && age <= 110;
+        
+        // Validar fecha de expedición (no puede ser futura)
+        const isExpedicionValid = !!formData.fecha_expedicion && formData.fecha_expedicion <= getTodayDate();
+
+        // Validar datos bancarios si empezó a ingresarlos
+        const bankValid = formData.banco 
+            ? (formData.banco === 'Otro' ? !!formData.custom_banco : true) && !!formData.tipo_cuenta && !!formData.numero_cuenta
+            : true;
+
         return (
-            !!formData.name &&
+            !!formData.name.trim() &&
             !!formData.tipo_documento &&
-            !!formData.documento &&
+            !!formData.documento.trim() &&
+            isExpedicionValid &&
             !!formData.fecha_nacimiento &&
             isAdult &&
-            !!formData.numero_celular &&
+            !!formData.numero_celular.trim() &&
             !!selectedDepartmentId &&
-            cityValid
+            cityValid &&
+            bankValid &&
+            !referralError &&
+            !isCheckingReferral
         );
     };
 
     const isStep4Valid = () => {
-        const bankValid = formData.banco === 'Otro / Cooperativa' ? !!formData.custom_banco : !!formData.banco;
-        return bankValid && !!formData.tipo_cuenta && !!formData.numero_cuenta;
-    };
-
-    const isStep5Valid = () => {
-        return !!formData.paquete_id && !!formData.monto && !!formData.periodo_id && !!formData.comprobante_path && !referralError && !isCheckingReferral;
-    };
-
-    const isStep6Valid = () => {
         return (
-            !!formData.email &&
+            !!formData.email.trim() &&
             isValidPassword(formData.password) &&
             formData.password === confirmPassword &&
             acceptedTerms
         );
     };
-
-    // Calculations
-    const getCalculations = () => {
-        const monto = parseFloat(formData.monto) || 0;
-        const periodo = periodos.find((p: any) => p.id.toString() === formData.periodo_id);
-        
-        if (!monto || !periodo) return null;
-
-        const percentage = periodo.percentage;
-        const months = periodo.months;
-        const days = periodo.days;
-        
-        const rendimientoMensual = monto * (percentage / 100);
-        const rendimientoTotal = rendimientoMensual * months;
-        const rendimientoDiario = days > 0 ? rendimientoTotal / days : 0;
-        const totalContrato = monto + rendimientoTotal;
-
-        return {
-            porcentaje: percentage,
-            meses: months,
-            rendimientoMensual,
-            rendimientoTotal,
-            rendimientoDiario,
-            totalContrato
-        };
-    };
-
-    const formatCOP = (value: number) => {
-        return new Intl.NumberFormat('es-CO', { 
-            style: 'currency', 
-            currency: 'COP', 
-            minimumFractionDigits: 0
-        }).format(value);
-    };
-
-    const calc = getCalculations();
 
     const FileUploadZone = ({ label, file, onChange }: { label: string, file: File | null, onChange: (f: File) => void }) => {
         const [preview, setPreview] = useState<string | null>(null);
@@ -591,7 +487,7 @@ export const InvestorRegistrationFlow = () => {
                             <Camera className="w-6 h-6 text-slate-400 group-hover:text-brand-500 transition-colors" />
                         </div>
                         <p className="text-sm font-bold text-slate-800">{label}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Sube o toma una foto clara (JPG, PNG)</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Sube o toma una foto clara (JPG, PNG, WEBP)</p>
                     </div>
                 )}
                 <input 
@@ -599,18 +495,9 @@ export const InvestorRegistrationFlow = () => {
                     className="hidden" 
                     accept="image/jpeg,image/png,image/webp" 
                     onChange={(e) => {
-                        const selected = e.target.files?.[0];
-                        if (!selected) return;
-                        if (selected.size > 10 * 1024 * 1024) {
-                            alert("El archivo excede el tamaño máximo permitido de 10MB.");
-                            return;
+                        if (e.target.files && e.target.files[0]) {
+                            onChange(e.target.files[0]);
                         }
-                        const ext = selected.name.split('.').pop()?.toLowerCase();
-                        if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext || '')) {
-                            alert("Solo se aceptan imágenes JPG, PNG o WEBP.");
-                            return;
-                        }
-                        onChange(selected);
                     }} 
                 />
             </label>
@@ -620,10 +507,8 @@ export const InvestorRegistrationFlow = () => {
     const stepsInfo = [
         { num: 1, label: "Documentos" },
         { num: 2, label: "Validación" },
-        { num: 3, label: "Datos" },
-        { num: 4, label: "Banco" },
-        { num: 5, label: "Inversión" },
-        { num: 6, label: "Acceso" }
+        { num: 3, label: "Datos Personales" },
+        { num: 4, label: "Acceso" }
     ];
 
     const passwordsMatch = formData.password && confirmPassword ? formData.password === confirmPassword : false;
@@ -662,7 +547,7 @@ export const InvestorRegistrationFlow = () => {
                     <div className="space-y-6 animate-fadeIn">
                         <div className="text-center mb-4">
                             <h3 className="text-lg font-bold text-slate-900">Carga tu Documento y Selfie</h3>
-                            <p className="text-sm text-slate-500">Sube tus fotos para comprobar que seas el titular de la cédula.</p>
+                            <p className="text-sm text-slate-500">Sube tus fotos para verificar biométricamente que seas el titular de la cédula.</p>
                         </div>
 
                         {/* 1. Alerta de 3 intentos agotados -> Permite continuar con validación manual */}
@@ -745,7 +630,7 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                 )}
 
-                {/* Step 2: Processing / Validation */}
+                {/* Step 2: Processing / Biometric Facial Comparison */}
                 {step === 2 && (
                     <div className="flex flex-col items-center justify-center py-12 space-y-6 animate-fadeIn text-center">
                         <div className="relative">
@@ -767,12 +652,12 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                 )}
 
-                {/* Step 3: Personal Details */}
+                {/* Step 3: Personal & Bank Details */}
                 {step === 3 && (
                     <div className="space-y-6 animate-fadeIn">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2 border-b border-slate-200 pb-2">
-                                <User className="w-5 h-5 text-brand-600" /> Datos Personales
+                                <User className="w-5 h-5 text-brand-600" /> Datos Personales y de Identidad
                             </h3>
                             {requiresManualReview ? (
                                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium flex items-center gap-2 mb-4 animate-fadeIn">
@@ -785,6 +670,7 @@ export const InvestorRegistrationFlow = () => {
                                     Identidad Verificada Biométricamente ({biometricSimilarity}% coincidencia)
                                 </div>
                             ) : null}
+                            
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Completo *</label>
@@ -792,27 +678,53 @@ export const InvestorRegistrationFlow = () => {
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <User className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Ana Pérez" />
+                                        <input required type="text" name="name" value={formData.name} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Ana Pérez Gómez" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Tipo Doc. *</label>
                                     <select required name="tipo_documento" value={formData.tipo_documento} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                        <option value="">Selecciona...</option>
-                                        <option value="CC">Cédula</option>
-                                        <option value="CE">Cédula Extranjería</option>
+                                        <option value="CC">Cédula de Ciudadanía (CC)</option>
+                                        <option value="CE">Cédula de Extranjería (CE)</option>
                                         <option value="PAS">Pasaporte</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Documento *</label>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Número de Documento *</label>
                                     <div className="relative group">
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <FileText className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required type="text" name="documento" value={formData.documento} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 12345678" />
+                                        <input required type="text" name="documento" value={formData.documento} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 1020304050" />
                                     </div>
                                 </div>
+
+                                {/* Fecha de Expedición de la Cédula (Requerida para SARLAFT / Tusdatos.co) */}
+                                <div>
+                                    <label htmlFor="fecha_expedicion" className="block text-sm font-bold text-slate-700 mb-1 font-sans">
+                                        Fecha de Expedición del Documento *
+                                    </label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <Calendar className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input 
+                                            required
+                                            type="date" 
+                                            id="fecha_expedicion"
+                                            name="fecha_expedicion" 
+                                            max={getTodayDate()}
+                                            value={formData.fecha_expedicion} 
+                                            onChange={handleChange} 
+                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
+                                        />
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-1">
+                                        Indispensable para la validación automática de antecedentes en Registraduría.
+                                    </p>
+                                </div>
+
+                                {/* Fecha de Nacimiento */}
                                 <div>
                                     <label htmlFor="fecha_nacimiento" className="block text-sm font-bold text-slate-700 mb-1 font-sans">
                                         Fecha de Nacimiento * <span className="text-xs font-normal text-slate-500">(Mayor de 18 años)</span>
@@ -843,12 +755,8 @@ export const InvestorRegistrationFlow = () => {
                                             Debes ser mayor de 18 años para registrarte (edad calculada: {calculateAge(formData.fecha_nacimiento) ?? 0} años).
                                         </p>
                                     )}
-                                    {formData.fecha_nacimiento && (calculateAge(formData.fecha_nacimiento) || 0) >= 18 && (
-                                        <p className="text-xs text-emerald-600 font-medium mt-1">
-                                            Edad: {calculateAge(formData.fecha_nacimiento)} años (Mayor de edad ✓)
-                                        </p>
-                                    )}
                                 </div>
+
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Celular *</label>
                                     <div className="relative group">
@@ -873,7 +781,7 @@ export const InvestorRegistrationFlow = () => {
                                             className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
                                             disabled={loadingDepartments}
                                         >
-                                            <option value="">{loadingDepartments ? 'Cargando...' : 'Selecciona...'}</option>
+                                            <option value="">{loadingDepartments ? 'Cargando...' : 'Selecciona departamento...'}</option>
                                             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                         </select>
                                     </div>
@@ -894,7 +802,7 @@ export const InvestorRegistrationFlow = () => {
                                             className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
                                             disabled={!selectedDepartmentId || loadingCities}
                                         >
-                                            <option value="">{loadingCities ? 'Cargando...' : 'Selecciona...'}</option>
+                                            <option value="">{loadingCities ? 'Cargando...' : 'Selecciona ciudad...'}</option>
                                             {cities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                                         </select>
                                     </div>
@@ -903,7 +811,178 @@ export const InvestorRegistrationFlow = () => {
                                 {showCustomCity && (
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué ciudad? *</label>
-                                        <input required type="text" name="custom_ciudad" value={formData.custom_ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" />
+                                        <input required type="text" name="custom_ciudad" value={formData.custom_ciudad} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Nombre de tu municipio o ciudad" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Datos Bancarios (Opcionales para registro, requeridos para retiros) */}
+                        <div className="pt-4 border-t border-slate-200">
+                            <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2 border-b border-slate-200 pb-2">
+                                <Landmark className="w-5 h-5 text-brand-600" /> Datos Bancarios para Desembolsos
+                            </h3>
+                            <p className="text-xs text-slate-500 mb-3">Ingresa la cuenta bancaria donde recibirás tus rendimientos y liquidaciones.</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Banco</label>
+                                    <select 
+                                        name="banco" 
+                                        value={formData.banco} 
+                                        onChange={handleChange} 
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
+                                    >
+                                        <option value="">Selecciona tu banco...</option>
+                                        {availableBanks.map(b => (
+                                            <option key={b.id} value={b.banck}>{b.banck}</option>
+                                        ))}
+                                        <option value="Otro">Otro / Cooperativa</option>
+                                    </select>
+                                </div>
+                                {showCustomBank && (
+                                    <div className="md:col-span-2 animate-fadeIn">
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué banco o cooperativa?</label>
+                                        <input type="text" name="custom_banco" value={formData.custom_banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Cooperativa Confiar" />
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta</label>
+                                    <select name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
+                                        <option value="Ahorros">Ahorros</option>
+                                        <option value="Corriente">Corriente</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Número de Cuenta</label>
+                                    <input type="text" name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 123456789" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Asesor y Código de Referido */}
+                        <div className="pt-4 border-t border-slate-200 space-y-4">
+                            {/* Advisor Selection Block */}
+                            <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3">
+                                <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
+                                    <span className="flex items-center gap-1.5 text-brand-700">
+                                        <User className="w-4 h-4 text-brand-600" /> 👤 Directivo de Inversiones / Asesor Comercial
+                                    </span>
+                                    <span className="text-[11px] text-slate-500 font-semibold">(Opcional)</span>
+                                </label>
+                                
+                                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                                    <div
+                                        onClick={() => setFormData(prev => ({ ...prev, commercial_id: '' }))}
+                                        className={`relative cursor-pointer p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
+                                            !formData.commercial_id
+                                                ? 'bg-brand-50/90 border-brand-500 font-bold text-brand-900 shadow-sm'
+                                                : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="text-sm">🌐</span>
+                                            <div>
+                                                <p className="font-bold">Sin Asesor / Ingreso Independiente</p>
+                                                <p className="text-[10px] text-slate-500 font-normal">Llegué por cuenta propia a Gloint</p>
+                                            </div>
+                                        </div>
+                                        {!formData.commercial_id && (
+                                            <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
+                                        )}
+                                    </div>
+
+                                    {commercialUsers.map((u) => {
+                                        const isSelected = formData.commercial_id === u.id.toString();
+                                        const initials = u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+                                        return (
+                                            <div
+                                                key={u.id}
+                                                onClick={() => setFormData(prev => ({ ...prev, commercial_id: u.id.toString() }))}
+                                                className={`relative cursor-pointer p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
+                                                    isSelected
+                                                        ? 'bg-brand-50/90 border-brand-500 font-bold text-brand-900 shadow-sm'
+                                                        : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                                                        isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                        {initials}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <p className="font-bold truncate">{u.name}</p>
+                                                            <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[9px] font-extrabold rounded uppercase">
+                                                                Directivo
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[10px] text-slate-500 font-normal truncate">{u.email}</p>
+                                                    </div>
+                                                </div>
+                                                {isSelected && (
+                                                    <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Referral Code Block (H-70) */}
+                            <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-2">
+                                <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
+                                    <span className="flex items-center gap-1.5 text-brand-700">
+                                        <UserCheck className="w-4 h-4 text-brand-600" /> 👥 Código de Referido
+                                    </span>
+                                    <span className="text-[11px] text-slate-500 font-semibold">(Opcional)</span>
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        name="referred_by"
+                                        value={formData.referred_by}
+                                        onChange={(e) => {
+                                            const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 25);
+                                            setFormData(prev => ({ ...prev, referred_by: val }));
+                                            setReferralError(null);
+                                            setIsReferralValid(false);
+                                        }}
+                                        onBlur={(e) => {
+                                            if (e.target.value.trim()) {
+                                                validateReferralCode(e.target.value);
+                                            } else {
+                                                setReferralError(null);
+                                                setIsReferralValid(false);
+                                            }
+                                        }}
+                                        placeholder="Ej: IG1974"
+                                        className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-mono uppercase focus:outline-none transition-all ${
+                                            referralError 
+                                                ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-2 focus:ring-rose-500/20' 
+                                                : isReferralValid 
+                                                ? 'border-emerald-400 bg-emerald-50/50 text-emerald-900' 
+                                                : 'border-slate-200 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
+                                        }`}
+                                        maxLength={25}
+                                    />
+                                    {isCheckingReferral && (
+                                        <div className="absolute right-3 top-2.5">
+                                            <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
+                                        </div>
+                                    )}
+                                    {isReferralValid && !isCheckingReferral && (
+                                        <div className="absolute right-3 top-2.5 text-emerald-600 flex items-center gap-1 text-xs font-bold">
+                                            <CheckCircle2 className="w-4 h-4" /> Válido
+                                        </div>
+                                    )}
+                                </div>
+                                {referralError && (
+                                    <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold pt-1">
+                                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                        <span>{referralError}</span>
                                     </div>
                                 )}
                             </div>
@@ -921,7 +1000,7 @@ export const InvestorRegistrationFlow = () => {
                                 type="button"
                                 onClick={() => setStep(4)}
                                 disabled={!isStep3Valid()}
-                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
+                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors cursor-pointer"
                             >
                                 Siguiente paso
                             </button>
@@ -929,348 +1008,15 @@ export const InvestorRegistrationFlow = () => {
                     </div>
                 )}
 
-                {/* Step 4: Bank Details */}
+                {/* Step 4: Access Credentials, SARLAFT Notice & Submission */}
                 {step === 4 && (
-                    <div className="space-y-6 animate-fadeIn">
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                                <Landmark className="w-5 h-5 text-brand-600" /> Datos Bancarios para Desembolsos
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Banco *</label>
-                                    <select 
-                                        required 
-                                        name="banco" 
-                                        value={formData.banco} 
-                                        onChange={handleChange} 
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900"
-                                    >
-                                        <option value="">Selecciona tu banco...</option>
-                                        {availableBanks.map(b => (
-                                            <option key={b.id} value={b.banck}>{b.banck}</option>
-                                        ))}
-                                        <option value="Otro">Otro / Cooperativa</option>
-                                    </select>
-                                </div>
-                                {showCustomBank && (
-                                    <div className="md:col-span-2 animate-fadeIn">
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">¿Qué banco o cooperativa? *</label>
-                                        <input required type="text" name="custom_banco" value={formData.custom_banco} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: Cooperativa Confiar" />
-                                    </div>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Tipo de Cuenta *</label>
-                                    <select required name="tipo_cuenta" value={formData.tipo_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                        <option value="">Selecciona...</option>
-                                        <option value="Ahorros">Ahorros</option>
-                                        <option value="Corriente">Corriente</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Número de Cuenta *</label>
-                                    <input required type="text" name="numero_cuenta" value={formData.numero_cuenta} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 123456789" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex justify-between pt-4 border-t border-slate-100">
-                            <button
-                                type="button"
-                                onClick={() => setStep(3)}
-                                className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
-                            >
-                                Atrás
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setStep(5)}
-                                disabled={!isStep4Valid()}
-                                className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors"
-                            >
-                                Siguiente paso
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 5: Investment Details */}
-                {step === 5 && (
-                    <div className="space-y-6 animate-fadeIn">
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-                                <CreditCard className="w-5 h-5 text-brand-600" /> Detalles de tu Inversión
-                            </h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Paquete de Inversión *</label>
-                                    <select required name="paquete_id" value={formData.paquete_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                        <option value="">Selecciona un paquete...</option>
-                                        {paquetes.map((p: any) => (
-                                            <option key={p.id} value={p.id}>{p.paquete_accion_adquirido}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Monto a Invertir (COP) *</label>
-                                    <input required type="number" min="0" step="1000" name="monto" value={formData.monto} readOnly className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-lg outline-none cursor-not-allowed" placeholder="El monto se asignará automáticamente" />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Plazo del Contrato *</label>
-                                    <select required name="periodo_id" value={formData.periodo_id} onChange={handleChange} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900">
-                                        <option value="">Selecciona el plazo...</option>
-                                        {periodos.map((p: any) => (
-                                            <option key={p.id} value={p.id}>{p.name} ({p.months} meses al {p.percentage}%)</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* Advisor Selection Block */}
-                                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3">
-                                    <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
-                                        <span className="flex items-center gap-1.5 text-brand-700">
-                                            <User className="w-4 h-4 text-brand-600" /> 👤 Directivo de Inversiones / Asesor Comercial
-                                        </span>
-                                        <span className="text-[11px] text-slate-500 font-semibold">(Opcional)</span>
-                                    </label>
-                                    
-                                    <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                                        {/* Option 0: Sin Asesor */}
-                                        <div
-                                            onClick={() => setFormData(prev => ({ ...prev, commercial_id: '' }))}
-                                            className={`relative cursor-pointer p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
-                                                !formData.commercial_id
-                                                    ? 'bg-brand-50/90 border-brand-500 font-bold text-brand-900 shadow-sm'
-                                                    : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-2.5">
-                                                <span className="text-sm">🌐</span>
-                                                <div>
-                                                    <p className="font-bold">Sin Asesor / Ingreso Independiente</p>
-                                                    <p className="text-[10px] text-slate-500 font-normal">Llegué por cuenta propia a Gloint</p>
-                                                </div>
-                                            </div>
-                                            {!formData.commercial_id && (
-                                                <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
-                                            )}
-                                        </div>
-
-                                        {/* Advisor Cards */}
-                                        {commercialUsers.map((u) => {
-                                            const isSelected = formData.commercial_id === u.id.toString();
-                                            const initials = u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
-                                            return (
-                                                <div
-                                                    key={u.id}
-                                                    onClick={() => setFormData(prev => ({ ...prev, commercial_id: u.id.toString() }))}
-                                                    className={`relative cursor-pointer p-3 rounded-xl border transition-all flex items-center justify-between text-xs ${
-                                                        isSelected
-                                                            ? 'bg-brand-50/90 border-brand-500 font-bold text-brand-900 shadow-sm'
-                                                            : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center gap-2.5 min-w-0">
-                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                                                            isSelected ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'
-                                                        }`}>
-                                                            {initials}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <p className="font-bold truncate">{u.name}</p>
-                                                                <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[9px] font-extrabold rounded uppercase">
-                                                                    Directivo
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-[10px] text-slate-500 font-normal truncate">{u.email}</p>
-                                                        </div>
-                                                    </div>
-                                                    {isSelected && (
-                                                        <CheckCircle2 className="w-4 h-4 text-brand-600 shrink-0" />
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Referral Code Block (H-70) */}
-                                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-2">
-                                    <label className="block text-xs font-bold text-slate-800 flex items-center justify-between">
-                                        <span className="flex items-center gap-1.5 text-brand-700">
-                                            <UserCheck className="w-4 h-4 text-brand-600" /> 👥 Código de Referido
-                                        </span>
-                                        <span className="text-[11px] text-slate-500 font-semibold">(Opcional)</span>
-                                    </label>
-                                    <p className="text-[11px] text-slate-500">
-                                        Si fuiste invitado por otro inversionista de Gloint, ingresa su código de contrato (ej. IG1974).
-                                    </p>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            name="referred_by"
-                                            value={formData.referred_by}
-                                            onChange={(e) => {
-                                                const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 25);
-                                                setFormData(prev => ({ ...prev, referred_by: val }));
-                                                setReferralError(null);
-                                                setIsReferralValid(false);
-                                            }}
-                                            onBlur={(e) => {
-                                                if (e.target.value.trim()) {
-                                                    validateReferralCode(e.target.value);
-                                                } else {
-                                                    setReferralError(null);
-                                                    setIsReferralValid(false);
-                                                }
-                                            }}
-                                            placeholder="Ej: IG1974"
-                                            className={`w-full px-4 py-2.5 bg-white border rounded-xl text-sm font-mono uppercase focus:outline-none transition-all ${
-                                                referralError 
-                                                    ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:ring-2 focus:ring-rose-500/20' 
-                                                    : isReferralValid 
-                                                    ? 'border-emerald-400 bg-emerald-50/50 text-emerald-900' 
-                                                    : 'border-slate-200 focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500'
-                                            }`}
-                                            maxLength={25}
-                                        />
-                                        {isCheckingReferral && (
-                                            <div className="absolute right-3 top-2.5">
-                                                <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
-                                            </div>
-                                        )}
-                                        {isReferralValid && !isCheckingReferral && (
-                                            <div className="absolute right-3 top-2.5 text-emerald-600 flex items-center gap-1 text-xs font-bold">
-                                                <CheckCircle2 className="w-4 h-4" /> Válido
-                                            </div>
-                                        )}
-                                    </div>
-                                    {referralError && (
-                                        <div className="flex items-center gap-1.5 text-xs text-rose-600 font-semibold pt-1">
-                                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                                            <span>{referralError}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {calc && (
-                                    <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-brand-900 mt-4 shadow-sm">
-                                        <h4 className="font-bold mb-3 flex items-center gap-2 text-sm">
-                                            <Calculator className="w-4 h-4" /> Proyección de Rendimiento
-                                        </h4>
-                                        <div className="grid grid-cols-2 gap-3 text-sm">
-                                            <div>
-                                                <p className="text-brand-600/80 text-xs font-semibold uppercase">Rendimiento Mensual</p>
-                                                <p className="font-bold">{formatCOP(calc.rendimientoMensual)}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-brand-600/80 text-xs font-semibold uppercase">Rendimiento Total ({calc.meses}m)</p>
-                                                <p className="font-bold">{formatCOP(calc.rendimientoTotal)}</p>
-                                            </div>
-                                        </div>
-                                        <div className="mt-3 pt-3 border-t border-brand-200/50 flex justify-between items-center">
-                                            <span className="font-bold text-sm">Capital + Rendimiento:</span>
-                                            <span className="font-black text-lg text-brand-700">{formatCOP(calc.totalContrato)}</span>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="pt-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-1">Comprobante de Pago *</label>
-                                    <p className="text-xs text-slate-500 mb-2">Por favor sube la foto (PNG, JPG, WEBP) o el PDF de tu consignación (Máx. 10 MB).</p>
-                                    
-                                    <input 
-                                        ref={comprobanteInputRef}
-                                        required={!formData.comprobante_path} 
-                                        type="file" 
-                                        accept="image/*,.pdf" 
-                                        onChange={handleComprobanteUpload} 
-                                        disabled={uploadingComprobante}
-                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-brand-100 file:text-brand-700 hover:file:bg-brand-200 cursor-pointer disabled:opacity-50" 
-                                    />
-
-                                    {uploadingComprobante && (
-                                        <div className="mt-2.5 p-3 bg-brand-50 border border-brand-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-brand-700 animate-in fade-in">
-                                            <Loader2 className="w-4 h-4 animate-spin shrink-0 text-brand-600"/>
-                                            <span>Subiendo y verificando comprobante ({comprobanteFileName})...</span>
-                                        </div>
-                                    )}
-
-                                    {comprobanteError && (
-                                        <div className="mt-2.5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-700 animate-in fade-in">
-                                            <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
-                                            <div className="flex-1">
-                                                <p className="font-bold">Error al procesar el comprobante:</p>
-                                                <p className="mt-0.5">{comprobanteError}</p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {formData.comprobante_path && !uploadingComprobante && (
-                                        <div className="mt-2.5 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-800 animate-in fade-in">
-                                            <span className="flex items-center gap-2 font-bold">
-                                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0"/>
-                                                <span>Comprobante cargado correctamente {comprobanteFileName ? `(${comprobanteFileName})` : ''}</span>
-                                            </span>
-                                            <button 
-                                                type="button" 
-                                                onClick={handleRemoveComprobante} 
-                                                className="text-rose-600 hover:text-rose-800 font-bold ml-2 underline cursor-pointer"
-                                            >
-                                                Cambiar
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {!formData.comprobante_path && !uploadingComprobante && !comprobanteError && (
-                                        <p className="text-[11px] text-amber-700 mt-2 font-medium flex items-center gap-1.5 bg-amber-50/80 p-2 rounded-lg border border-amber-200/60">
-                                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                                            Adjunta tu comprobante de pago para habilitar el siguiente paso.
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2 pt-4 border-t border-slate-100">
-                            <div className="flex justify-between items-center">
-                                <button
-                                    type="button"
-                                    onClick={() => setStep(4)}
-                                    className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
-                                >
-                                    Atrás
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setStep(6)}
-                                    disabled={!isStep5Valid() || uploadingComprobante}
-                                    className="px-6 py-3 bg-brand-600 text-white font-bold rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-colors cursor-pointer"
-                                >
-                                    Siguiente paso
-                                </button>
-                            </div>
-                            {!isStep5Valid() && !uploadingComprobante && (
-                                <p className="text-[11px] text-slate-400 text-right">
-                                    Completa todos los campos obligatorios (*) y adjunta tu comprobante para continuar.
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 6: Credentials & Submission */}
-                {step === 6 && (
                     <form onSubmit={handleFinalSubmit} method="post" className="space-y-6 animate-fadeIn">
                         <div>
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+                            <h3 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2 border-b border-slate-200 pb-2">
                                 <LockKeyhole className="w-5 h-5 text-brand-600" /> Datos de Acceso
                             </h3>
-                            <p className="text-xs text-slate-500 mb-4">Define tu correo electrónico y tu contraseña para iniciar sesión en tu cuenta.</p>
+                            <p className="text-xs text-slate-500 mb-4">Define tu correo electrónico y tu contraseña para iniciar sesión en tu cuenta de inversionista.</p>
+                            
                             <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Correo Electrónico *</label>
@@ -1317,29 +1063,42 @@ export const InvestorRegistrationFlow = () => {
                             </div>
                         </div>
 
+                        {/* Banner Informativo de Validación SARLAFT (Tusdatos.co) */}
+                        <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-start gap-3 text-xs text-slate-700">
+                            <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-200">
+                                <ShieldCheck className="w-5 h-5" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="font-bold text-slate-900 text-sm">Validación de Cumplimiento SARLAFT</p>
+                                <p className="text-slate-600 leading-relaxed">
+                                    Al completar tu registro, tu identidad y antecedentes serán consultados automáticamente en tiempo real mediante <strong>Tusdatos.co</strong> en listas restrictivas y de prevención de lavado de activos para habilitar tus operaciones en la plataforma.
+                                </p>
+                            </div>
+                        </div>
+
                         {registerMutation.isError && (
                             <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
                                 <span className="mt-0.5">⚠️</span>
-                                <span>{registerMutation.error instanceof Error ? registerMutation.error.message : 'Error al registrar tu inversión'}</span>
+                                <span>{registerMutation.error instanceof Error ? registerMutation.error.message : 'Error al registrar tu cuenta'}</span>
                             </div>
                         )}
 
                         <div className="border-t border-slate-200 pt-6">
                             <div className="flex items-start gap-3 mb-6">
                                 <div className="flex items-center h-5 mt-0.5">
-                                    <input id="terms" type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500" required />
+                                    <input id="terms" type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500 cursor-pointer" required />
                                 </div>
-                                <label htmlFor="terms" className="text-sm text-slate-600 leading-snug">
+                                <label htmlFor="terms" className="text-sm text-slate-600 leading-snug cursor-pointer">
                                     Declaro que la información proporcionada es verdadera y acepto los{' '}
                                     <Link to="/terminos" target="_blank" className="font-bold text-brand-500 hover:text-brand-600">Términos y Condiciones</Link>
-                                    {' '}de inversión.
+                                    {' '}y la Política de Tratamiento de Datos.
                                 </label>
                             </div>
 
                             <div className="flex justify-between pt-4 gap-4">
                                 <button
                                     type="button"
-                                    onClick={() => setStep(6)}
+                                    onClick={() => setStep(3)}
                                     className="px-6 py-3 border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors"
                                     disabled={registerMutation.isPending}
                                 >
@@ -1348,11 +1107,11 @@ export const InvestorRegistrationFlow = () => {
                                 <div className="flex flex-col items-end gap-2 w-full md:w-auto">
                                     <button
                                         type="submit"
-                                        disabled={registerMutation.isPending || !isStep6Valid()}
-                                        className="w-full md:w-auto px-8 py-3 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98]"
+                                        disabled={registerMutation.isPending || !isStep4Valid()}
+                                        className="w-full md:w-auto px-8 py-3 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-70 transition-all active:scale-[0.98] cursor-pointer"
                                     >
-                                        {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white" /> : null}
-                                        {registerMutation.isPending ? 'Enviando Solicitud...' : 'Confirmar y Enviar Solicitud'}
+                                        {registerMutation.isPending ? <Loader2 className="animate-spin mr-2 h-5 w-5 text-white inline" /> : null}
+                                        {registerMutation.isPending ? 'Creando Cuenta...' : 'Completar Registro'}
                                     </button>
                                 </div>
                             </div>

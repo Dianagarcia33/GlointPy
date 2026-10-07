@@ -173,45 +173,81 @@ class AuthService:
         )
         db.add(wallet)
 
-        bank_acc = UserBankAccount(
-            user_id=new_user.id,
-            banco=data.banco,
-            tipo_cuenta=data.tipo_cuenta,
-            numero_cuenta=data.numero_cuenta
-        )
-        db.add(bank_acc)
+        if data.banco and data.numero_cuenta:
+            bank_acc = UserBankAccount(
+                user_id=new_user.id,
+                banco=data.banco,
+                tipo_cuenta=data.tipo_cuenta or "Ahorros",
+                numero_cuenta=data.numero_cuenta
+            )
+            db.add(bank_acc)
 
-        req = InvestmentRequest(
-            user_id=new_user.id,
-            investor_id=None,
-            paquete_inversion_id=data.paquete_id,
-            monto=data.monto,
-            comprobante_path=data.comprobante_path,
-            extra_data={
-                "nombre_completo": data.name,
-                "tipo_documento": data.tipo_documento,
-                "documento": data.documento,
-                "fecha_nacimiento": data.fecha_nacimiento,
-                "numero_celular": data.numero_celular,
-                "ciudad": data.ciudad,
-                "banco": data.banco,
-                "tipo_cuenta": data.tipo_cuenta,
-                "numero_cuenta": data.numero_cuenta,
+        # Si se enviaron datos de paquete y comprobante (llamadas heredadas), crear solicitud de inversión
+        if data.paquete_id and data.monto and data.comprobante_path:
+            req = InvestmentRequest(
+                user_id=new_user.id,
+                investor_id=None,
+                paquete_inversion_id=data.paquete_id,
+                monto=data.monto,
+                comprobante_path=data.comprobante_path,
+                extra_data={
+                    "nombre_completo": data.name,
+                    "tipo_documento": data.tipo_documento,
+                    "documento": data.documento,
+                    "fecha_nacimiento": data.fecha_nacimiento,
+                    "fecha_expedicion": getattr(data, "fecha_expedicion", None),
+                    "numero_celular": data.numero_celular,
+                    "ciudad": data.ciudad,
+                    "banco": data.banco,
+                    "tipo_cuenta": data.tipo_cuenta,
+                    "numero_cuenta": data.numero_cuenta,
+                    "kyc_docs": getattr(data, "kyc_docs", None),
+                    "contract_period_id": getattr(data, "contract_period_id", None) or getattr(data, "periodo_id", None),
+                    "referred_by": getattr(data, "referred_by", None),
+                    "commercial_id": getattr(data, "commercial_id", None),
+                    "biometrics": {
+                        "verified": getattr(data, "biometric_verified", False),
+                        "similarity": getattr(data, "biometric_similarity", None),
+                        "attempts": getattr(data, "biometric_attempts", 0),
+                        "requires_manual_review": getattr(data, "requires_manual_review", False),
+                    }
+                }
+            )
+            db.add(req)
+
+        await db.commit()
+
+        # Lanzar validación de antecedentes SARLAFT en segundo plano con Tusdatos.co
+        try:
+            from src.services.tusdatos_service import TusdatosService
+            import asyncio
+
+            kyc_metadata = {
                 "kyc_docs": getattr(data, "kyc_docs", None),
-                "contract_period_id": getattr(data, "contract_period_id", None) or getattr(data, "periodo_id", None),
-                "referred_by": getattr(data, "referred_by", None),
-                "commercial_id": getattr(data, "commercial_id", None),
                 "biometrics": {
                     "verified": getattr(data, "biometric_verified", False),
                     "similarity": getattr(data, "biometric_similarity", None),
                     "attempts": getattr(data, "biometric_attempts", 0),
                     "requires_manual_review": getattr(data, "requires_manual_review", False),
-                }
+                },
+                "fecha_nacimiento": data.fecha_nacimiento,
+                "fecha_expedicion": getattr(data, "fecha_expedicion", None),
+                "ciudad": data.ciudad,
+                "numero_celular": data.numero_celular
             }
-        )
-        db.add(req)
 
-        await db.commit()
+            asyncio.create_task(
+                TusdatosService.execute_full_sarlaft_check_background(
+                    user_id=new_user.id,
+                    document_number=data.documento,
+                    document_type=data.tipo_documento,
+                    fecha_expedicion=getattr(data, "fecha_expedicion", None),
+                    initial_details=kyc_metadata
+                )
+            )
+        except Exception as e:
+            print(f"Error al iniciar validación SARLAFT en background: {e}")
+
 
         # Si el inversionista seleccionó un Directivo de Inversiones, notificar al Directivo
         if data.commercial_id:

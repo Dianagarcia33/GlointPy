@@ -23,19 +23,20 @@ class InvestorRegisterRequest(BaseModel):
     name: str
     documento: str
     tipo_documento: str
+    fecha_expedicion: Optional[str] = None
     email: EmailStr
     password: str
     numero_celular: str
     fecha_nacimiento: str
     ciudad: str
-    banco: str
-    tipo_cuenta: str
-    numero_cuenta: str
-    monto: float
-    paquete_id: int
+    banco: Optional[str] = None
+    tipo_cuenta: Optional[str] = None
+    numero_cuenta: Optional[str] = None
+    monto: Optional[float] = None
+    paquete_id: Optional[int] = None
     periodo_id: Optional[int] = None
     contract_period_id: Optional[int] = None
-    comprobante_path: str
+    comprobante_path: Optional[str] = None
     kyc_docs: Optional[Any] = None
     biometric_verified: Optional[bool] = False
     biometric_similarity: Optional[float] = None
