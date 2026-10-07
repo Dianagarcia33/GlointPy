@@ -55,10 +55,9 @@ export const sarlaftService = {
     return getMediaUrl(`/api/v1/sarlaft/pdf/${checkId}`);
   },
 
-  async validateExistingInvestors(allUsers: boolean = false): Promise<{ message: string; processed_users: number; updated_count: number }> {
+  async validateExistingInvestors(): Promise<{ message: string; processed_users: number; updated_count: number; reverted_count?: number }> {
     return await fetchApi('/sarlaft/admin/validate-existing-investors', {
-      method: 'POST',
-      body: JSON.stringify({ all_users: allUsers })
+      method: 'POST'
     });
   }
 };

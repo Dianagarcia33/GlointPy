@@ -47,8 +47,7 @@ export const AdminUsersPage = () => {
   // Validación masiva SARLAFT para inversionistas (botón temporal)
   const [isBatchSarlaftModalOpen, setIsBatchSarlaftModalOpen] = useState(false);
   const [isBatchSarlaftLoading, setIsBatchSarlaftLoading] = useState(false);
-  const [batchSarlaftAllUsers, setBatchSarlaftAllUsers] = useState(false);
-  const [batchSarlaftResult, setBatchSarlaftResult] = useState<{ message: string; processed_users: number; updated_count: number } | null>(null);
+  const [batchSarlaftResult, setBatchSarlaftResult] = useState<{ message: string; processed_users: number; updated_count: number; reverted_count?: number } | null>(null);
 
   // Menú de acciones por fila
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
@@ -172,7 +171,7 @@ export const AdminUsersPage = () => {
     try {
       setIsBatchSarlaftLoading(true);
       setError(null);
-      const res = await sarlaftService.validateExistingInvestors(batchSarlaftAllUsers);
+      const res = await sarlaftService.validateExistingInvestors();
       setSuccess(res.message);
       setBatchSarlaftResult(res);
       fetchData();
@@ -295,60 +294,59 @@ export const AdminUsersPage = () => {
       )}
 
       {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <UserIcon className="w-4 h-4 text-emerald-400" /> Administración de Identidad & Accesos
+      <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 md:p-7 shadow-xl relative overflow-hidden flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+        <div className="relative z-10 space-y-1.5 flex-1 min-w-[280px]">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/10 rounded-full text-[11px] font-bold text-brand-300 backdrop-blur-sm">
+            <UserIcon className="w-3.5 h-3.5 text-emerald-400" /> Administración de Identidad & Accesos
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-montserrat text-white whitespace-nowrap">
             Gestión de Usuarios
           </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
-            Administra los usuarios de la plataforma, roles asignados, billeteras asociadas e historial de seguridad.
+          <p className="text-slate-300 text-xs sm:text-sm max-w-lg">
+            Administra usuarios de la plataforma, roles asignados, billeteras asociadas y seguridad.
           </p>
         </div>
         
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+        <div className="relative z-10 flex flex-wrap items-center gap-2.5 shrink-0">
           <button 
             onClick={() => setIsGlobalStatementOpen(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
             title="Ver auditoría financiera y extracto general de la plataforma"
           >
             <Landmark className="w-4 h-4 text-emerald-400" />
-            <span>Estado de Cuenta General</span>
+            <span>Estado General</span>
           </button>
 
           <Can permission="admin.users.manage">
             <button 
               onClick={() => {
                 setBatchSarlaftResult(null);
-                setBatchSarlaftAllUsers(false);
                 setIsBatchSarlaftModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-3 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-2xl transition-all text-xs font-bold border border-emerald-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-xl transition-all text-xs font-bold border border-emerald-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
               title="Aprobar SARLAFT masivamente a usuarios que ya cuentan con inversiones"
             >
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Validar SARLAFT Inversionistas</span>
+              <span>Validar SARLAFT</span>
             </button>
           </Can>
 
           <Can permission="admin.users.manage">
             <button 
               onClick={() => setIsForceAllModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-2xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
               title="Obligar a todos los usuarios a actualizar sus datos de perfil"
             >
               <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span>Forzar Actualización a Todos</span>
+              <span>Forzar Perfil</span>
             </button>
           </Can>
 
           <Can permission="admin.users.manage">
             <button 
               onClick={handleCreate}
-              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+              className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-xs sm:text-sm font-bold cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>Crear Usuario</span>
@@ -418,45 +416,44 @@ export const AdminUsersPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200">
-        <div className="overflow-x-auto min-h-[400px] pb-12">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50/90 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
-                <th className="px-5 py-4 min-w-[210px]">Usuario</th>
-                <th className="px-5 py-4 min-w-[170px]">Identificación & Contacto</th>
-                <th className="px-5 py-4 min-w-[130px]">Roles</th>
-                <th className="px-5 py-4 min-w-[160px]">Billetera & Saldo</th>
-                <th className="px-5 py-4 min-w-[190px]">Cuentas Bancarias</th>
-                <th className="px-5 py-4 min-w-[140px]">Estado & Registro</th>
-                <th className="px-5 py-4 text-center w-28 min-w-[110px]">Acciones</th>
+                <th className="px-3.5 py-3 w-[24%]">Usuario</th>
+                <th className="px-3.5 py-3 w-[18%]">Identificación & Contacto</th>
+                <th className="px-3.5 py-3 w-[13%]">Roles</th>
+                <th className="px-3.5 py-3 w-[23%]">Billetera & Cuentas</th>
+                <th className="px-3.5 py-3 w-[11%]">Estado</th>
+                <th className="px-3.5 py-3 text-center w-[11%]">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium">
               {users.map((user, index) => (
                 <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
                   {/* 1. Usuario */}
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100/90 border border-brand-200/60 flex items-center justify-center shrink-0 text-brand-700 font-extrabold text-sm shadow-2xs">
-                        {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="w-4 h-4 text-brand-600" />}
+                  <td className="px-3.5 py-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100/90 border border-brand-200/60 flex items-center justify-center shrink-0 text-brand-700 font-extrabold text-xs shadow-2xs">
+                        {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="w-3.5 h-3.5 text-brand-600" />}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5 truncate">
+                        <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5 truncate">
                           <span className="truncate">{user.name}</span>
                           {user.is_superuser && (
-                            <span className="text-[9px] bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-bold uppercase shrink-0">Admin</span>
+                            <span className="text-[8px] bg-purple-100 text-purple-700 border border-purple-200 px-1.5 py-0.2 rounded font-bold uppercase shrink-0">Admin</span>
                           )}
                         </div>
-                        <div className="text-slate-500 font-mono text-xs truncate max-w-[180px]" title={user.email}>
+                        <div className="text-slate-400 font-mono text-[11px] truncate" title={user.email}>
                           {user.email}
                         </div>
                         {user.parent ? (
-                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200/80 text-amber-900 rounded-md text-[10px]">
-                            <span className="font-bold">Tutor:</span> <span className="truncate max-w-[110px]">{user.parent.name}</span>
+                          <div className="text-[10px] text-amber-800 truncate">
+                            <span className="font-bold">Tutor:</span> {user.parent.name}
                           </div>
                         ) : (user.children && user.children.length > 0) ? (
-                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200/80 text-blue-900 rounded-md text-[10px]">
+                          <div className="text-[10px] text-blue-800">
                             <span className="font-bold">Tutor de:</span> {user.children.length} menor(es)
                           </div>
                         ) : null}
@@ -465,136 +462,132 @@ export const AdminUsersPage = () => {
                   </td>
 
                   {/* 2. Identificación & Contacto */}
-                  <td className="px-5 py-4">
-                    <div className="space-y-1 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">CC</span>
-                        <span className="font-bold text-slate-800 font-mono">{user.document_id || 'Sin documento'}</span>
+                  <td className="px-3.5 py-3">
+                    <div className="space-y-0.5 text-xs">
+                      <div className="font-bold text-slate-800 font-mono text-xs">
+                        {user.document_id ? `CC ${user.document_id}` : <span className="text-slate-400 font-normal italic">Sin documento</span>}
                       </div>
-                      <div className="text-slate-500 flex items-center gap-1.5">
-                        <span className="text-slate-400 text-[11px]">Tel:</span>
-                        <span className="font-semibold text-slate-700">{user.phone_number || '—'}</span>
+                      <div className="text-slate-500 text-[11px] flex items-center gap-1">
+                        <span>{user.phone_number || '—'}</span>
+                        {user.date_of_birth && (
+                          <span className="text-slate-400 text-[10px]">
+                            · {formatColombiaDate(user.date_of_birth)}
+                          </span>
+                        )}
                       </div>
-                      {user.date_of_birth && (
-                        <div className="text-slate-400 text-[10px]">
-                          Nac: {formatColombiaDate(user.date_of_birth)}
-                        </div>
-                      )}
                     </div>
                   </td>
 
                   {/* 3. Roles */}
-                  <td className="px-5 py-4">
-                    <div className="flex flex-wrap gap-1 max-w-[130px]">
+                  <td className="px-3.5 py-3">
+                    <div className="flex flex-wrap gap-1">
                       {user.roles && user.roles.length > 0 ? (
                         user.roles.map(r => (
-                          <span key={r.id} className="inline-flex px-2 py-0.5 bg-brand-50 text-brand-800 border border-brand-200/60 rounded-lg text-[10px] font-bold whitespace-nowrap">
+                          <span key={r.id} className="inline-flex px-2 py-0.5 bg-brand-50 text-brand-800 border border-brand-200/60 rounded-md text-[10px] font-bold whitespace-nowrap">
                             {r.display_name || r.name}
                           </span>
                         ))
                       ) : (
-                        <span className="text-slate-400 italic text-xs">Sin roles</span>
+                        <span className="text-slate-400 italic text-[11px]">Sin roles</span>
                       )}
                     </div>
                   </td>
 
-                  {/* 4. Billetera & Saldo */}
-                  <td className="px-5 py-4">
-                    {user.wallet ? (
-                      <div className="space-y-1">
-                        <div className="font-extrabold text-slate-900 font-montserrat text-sm tracking-tight">
-                          {formatCurrency(Number(user.wallet.balance))}
-                        </div>
-                        <div>
-                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase inline-block border ${
-                            user.wallet.status === 'active'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
-                          }`}>
-                            {user.wallet.status === 'active' ? 'Activa' : 'Congelada'}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <span className="text-slate-400 italic text-xs block">Sin billetera</span>
-                        <button
-                          onClick={() => handleCreateWallet(user.id, user.name)}
-                          className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold inline-flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                        >
-                          + Crear Billetera
-                        </button>
-                      </div>
-                    )}
-                  </td>
-
-                  {/* 5. Cuentas Bancarias */}
-                  <td className="px-5 py-4">
-                    {user.bank_accounts && user.bank_accounts.length > 0 ? (
-                      <div className="space-y-1.5 max-w-[180px]">
-                        {user.bank_accounts.map(acc => {
-                          const isRevealed = revealedAccounts.has(acc.id);
-                          return (
-                            <div key={acc.id} className="text-[11px] bg-slate-50/80 border border-slate-200/90 rounded-xl px-2.5 py-1.5 shadow-2xs">
-                              <div className="font-bold text-slate-800 truncate text-[11px]" title={`${acc.banco} - ${acc.tipo_cuenta}`}>
-                                {acc.banco} · {acc.tipo_cuenta}
-                              </div>
-                              <div className="flex items-center justify-between gap-1 text-slate-600 font-mono mt-0.5">
-                                <span className="select-all text-[11px]">
-                                  {isRevealed ? formatAccountNumber(acc.numero_cuenta) : maskAccountNumber(acc.numero_cuenta)}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleRevealAccount(acc.id)}
-                                  className="p-0.5 text-slate-400 hover:text-brand-600 hover:bg-slate-200 rounded transition-colors cursor-pointer"
-                                  title={isRevealed ? "Ocultar número completo" : "Mostrar número completo"}
-                                >
-                                  {isRevealed ? <EyeOff className="w-3 h-3 text-brand-600" /> : <Eye className="w-3 h-3" />}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 italic text-xs">Sin cuentas</span>
-                    )}
-                  </td>
-
-                  {/* 6. Estado & Registro */}
-                  <td className="px-5 py-4">
-                    <div className="space-y-1.5 text-xs">
-                      <div>
-                        {user.is_active ? (
-                          <span className="text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Activo</span>
+                  {/* 4. Billetera & Cuentas (Consolidada) */}
+                  <td className="px-3.5 py-3">
+                    <div className="space-y-1">
+                      {/* Saldo y Estado de Billetera */}
+                      <div className="flex items-center gap-2">
+                        {user.wallet ? (
+                          <>
+                            <span className="font-extrabold text-slate-900 font-mono text-xs tracking-tight">
+                              {formatCurrency(Number(user.wallet.balance))}
+                            </span>
+                            <span className={`text-[8px] px-1.5 py-0.2 rounded-full font-bold uppercase border ${
+                              user.wallet.status === 'active'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                            }`}>
+                              {user.wallet.status === 'active' ? 'Activa' : 'Congelada'}
+                            </span>
+                          </>
                         ) : (
-                          <span className="text-rose-800 bg-rose-100/80 border border-rose-200 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">Inactivo</span>
+                          <button
+                            onClick={() => handleCreateWallet(user.id, user.name)}
+                            className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 underline cursor-pointer"
+                          >
+                            + Crear Billetera
+                          </button>
                         )}
                       </div>
-                      {user.must_update_profile && (
-                        <div>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-[10px] font-bold" title="Requiere actualizar datos">
-                            <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
-                            Actualizar datos
+
+                      {/* Cuentas Bancarias */}
+                      {user.bank_accounts && user.bank_accounts.length > 0 && user.bank_accounts[0] ? (
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                          <span className="font-semibold text-slate-700 truncate max-w-[90px]" title={user.bank_accounts[0].banco}>
+                            {user.bank_accounts[0].banco}
                           </span>
+                          <span className="font-mono text-slate-500 text-[10px]">
+                            {revealedAccounts.has(user.bank_accounts[0].id)
+                              ? formatAccountNumber(user.bank_accounts[0].numero_cuenta)
+                              : maskAccountNumber(user.bank_accounts[0].numero_cuenta)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const accId = user.bank_accounts?.[0]?.id;
+                              if (accId !== undefined) toggleRevealAccount(accId);
+                            }}
+                            className="p-0.5 text-slate-400 hover:text-brand-600 rounded cursor-pointer"
+                            title={revealedAccounts.has(user.bank_accounts[0].id) ? "Ocultar" : "Mostrar"}
+                          >
+                            {revealedAccounts.has(user.bank_accounts[0].id) ? <EyeOff className="w-2.5 h-2.5 text-brand-600" /> : <Eye className="w-2.5 h-2.5" />}
+                          </button>
+                          {user.bank_accounts.length > 1 && (
+                            <span className="text-[9px] px-1 rounded bg-slate-100 text-slate-600 font-bold" title={`${user.bank_accounts.length} cuentas registradas`}>
+                              +{user.bank_accounts.length - 1}
+                            </span>
+                          )}
                         </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 italic">Sin cuentas</div>
                       )}
+                    </div>
+                  </td>
+
+                  {/* 5. Estado & Registro */}
+                  <td className="px-3.5 py-3">
+                    <div className="space-y-0.5 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                          user.is_active 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
+                          {user.is_active ? 'Activo' : 'Inactivo'}
+                        </span>
+                        {user.must_update_profile && (
+                          <span className="p-0.5 text-amber-600" title="Actualización obligatoria de datos">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-slate-400">
-                        Reg: {formatColombiaDate(user.created_at)}
+                        {formatColombiaDate(user.created_at)}
                       </div>
                     </div>
                   </td>
 
-                  {/* 7. Acciones */}
-                  <td className="px-5 py-4 text-center">
+                  {/* 6. Acciones */}
+                  <td className="px-3.5 py-3 text-center">
                     <Can permission="admin.users.manage">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1">
                         <button 
                           onClick={() => handleEdit(user)} 
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 bg-white cursor-pointer shadow-2xs"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-all border border-brand-200 bg-white cursor-pointer shadow-2xs"
                           title="Editar información de usuario"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-3 h-3" />
                           <span>Editar</span>
                         </button>
 
@@ -604,18 +597,18 @@ export const AdminUsersPage = () => {
                               e.stopPropagation();
                               setOpenActionMenuId(openActionMenuId === user.id ? null : user.id);
                             }}
-                            className={`p-1.5 rounded-xl transition-all border cursor-pointer ${
+                            className={`p-1 rounded-lg transition-all border cursor-pointer ${
                               openActionMenuId === user.id
                                 ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                                : 'bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200 shadow-2xs'
+                                : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-slate-200 shadow-2xs'
                             }`}
                             title="Más opciones de usuario"
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            <MoreVertical className="w-3.5 h-3.5" />
                           </button>
 
                           {openActionMenuId === user.id && (
-                            <div className={`absolute right-0 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
+                            <div className={`absolute right-0 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${
                               isNearBottom(index) ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'
                             }`}>
                               {/* Estado de Cuenta */}
@@ -624,12 +617,12 @@ export const AdminUsersPage = () => {
                                   setOpenActionMenuId(null);
                                   setStatementUser(user);
                                 }}
-                                className="w-full px-4 py-2.5 text-left text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                className="w-full px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 flex items-center gap-2 transition-colors cursor-pointer"
                               >
-                                <Receipt className="w-4 h-4 text-brand-600 shrink-0" />
+                                <Receipt className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                                 <div>
                                   <div className="font-bold text-slate-800">Estado de Cuenta</div>
-                                  <div className="text-[10px] text-slate-400 font-normal">Extractos y movimientos financieros</div>
+                                  <div className="text-[10px] text-slate-400 font-normal">Extractos y movimientos</div>
                                 </div>
                               </button>
 
@@ -640,23 +633,23 @@ export const AdminUsersPage = () => {
                                   handleToggleForceProfile(user);
                                 }}
                                 disabled={togglingUserId === user.id}
-                                className={`w-full px-4 py-2.5 text-left text-xs flex items-center gap-2.5 transition-colors cursor-pointer border-t border-slate-100 ${
+                                className={`w-full px-3.5 py-2 text-left text-xs flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100 ${
                                   user.must_update_profile
                                     ? 'text-amber-800 hover:bg-amber-50 hover:text-amber-900'
                                     : 'text-slate-700 hover:bg-amber-50 hover:text-amber-800'
                                 }`}
                               >
                                 {togglingUserId === user.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0" />
                                 ) : (
-                                  <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                 )}
                                 <div className="flex flex-col">
                                   <span className="font-bold">
                                     {user.must_update_profile ? 'Desmarcar Obligatorio' : 'Forzar Actualización'}
                                   </span>
                                   <span className="text-[10px] text-slate-400 font-normal">
-                                    {user.must_update_profile ? 'Exige actualizar datos al ingresar' : 'Pedir validación de datos'}
+                                    {user.must_update_profile ? 'Exige actualizar datos' : 'Pedir validación'}
                                   </span>
                                 </div>
                               </button>
@@ -667,12 +660,12 @@ export const AdminUsersPage = () => {
                                   setOpenActionMenuId(null);
                                   setResettingUser(user);
                                 }}
-                                className="w-full px-4 py-2.5 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-slate-100"
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
                               >
-                                <KeyRound className="w-4 h-4 text-rose-600 shrink-0" />
+                                <KeyRound className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                                 <div className="flex flex-col">
                                   <span className="font-bold">Restablecer Clave</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">Asignar clave temporal segura</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Asignar clave temporal</span>
                                 </div>
                               </button>
 
@@ -683,9 +676,9 @@ export const AdminUsersPage = () => {
                                     setOpenActionMenuId(null);
                                     handleCreateWallet(user.id, user.name);
                                   }}
-                                  className="w-full px-4 py-2.5 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors cursor-pointer border-t border-slate-100"
+                                  className="w-full px-3.5 py-2 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
                                 >
-                                  <Landmark className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <Landmark className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                   <div>
                                     <div className="font-bold text-emerald-800">Crear Billetera</div>
                                     <div className="text-[10px] text-emerald-600 font-normal">Habilita balance financiero</div>
@@ -702,7 +695,7 @@ export const AdminUsersPage = () => {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                     No se encontraron usuarios.
                   </td>
                 </tr>
@@ -958,40 +951,28 @@ export const AdminUsersPage = () => {
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2">
                 <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
                   <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span>¡Proceso Completado con Éxito!</span>
+                  <span>¡Validación Actualizada!</span>
                 </div>
                 <p className="text-xs text-emerald-700">
                   {batchSarlaftResult.message}
                 </p>
                 <div className="text-[11px] text-emerald-600 font-mono">
-                  Usuarios evaluados: {batchSarlaftResult.processed_users} | Registros aprobados: {batchSarlaftResult.updated_count}
+                  Inversionistas evaluados: {batchSarlaftResult.processed_users} | Aprobados: {batchSarlaftResult.updated_count}
+                  {batchSarlaftResult.reverted_count ? ` | Revocados: ${batchSarlaftResult.reverted_count}` : ''}
                 </div>
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs text-slate-600 space-y-2">
                   <p className="font-semibold text-slate-800">
-                    ¿Qué hace esta acción?
+                    Alcance de la validación:
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-slate-600">
-                    <li>Genera o actualiza el registro SARLAFT con estado <strong>CLEAN / FINALIZADO</strong>.</li>
-                    <li>Desbloquea inmediatamente la posibilidad de crear inversiones o aumentos de capital.</li>
-                    <li>Elimina banners preventivos a los inversionistas históricos ya verificados.</li>
+                    <li>Se evaluarán <strong>únicamente los usuarios que cuentan con inversiones reales</strong> registradas en el sistema.</li>
+                    <li>Los usuarios sin inversiones continuarán con el flujo regular de verificación previa.</li>
+                    <li>Cualquier aprobación previa asignada por error a usuarios sin inversiones será revocada automáticamente.</li>
                   </ul>
                 </div>
-
-                <label className="flex items-start gap-3 p-3.5 bg-brand-50/50 border border-brand-100 rounded-2xl cursor-pointer hover:bg-brand-50 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={batchSarlaftAllUsers}
-                    onChange={(e) => setBatchSarlaftAllUsers(e.target.checked)}
-                    className="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
-                  />
-                  <div className="text-xs">
-                    <span className="font-bold text-slate-800 block">Aprobar a TODOS los usuarios del sistema</span>
-                    <span className="text-slate-500 text-[11px]">Si no se marca, solo se aprobará a usuarios que tengan al menos una inversión registrada.</span>
-                  </div>
-                </label>
               </div>
             )}
 

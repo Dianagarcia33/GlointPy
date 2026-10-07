@@ -131,34 +131,38 @@ async def download_sarlaft_pdf(check_id: int, db: AsyncSession = Depends(get_db)
     raise HTTPException(status_code=404, detail="Archivo PDF no encontrado en el servidor")
 
 
-class BatchValidateInvestorsRequest(BaseModel):
-    all_users: bool = False
-
-
 @router.post("/admin/validate-existing-investors", dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def validate_existing_investors(
-    data: Optional[BatchValidateInvestorsRequest] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Aprueba administrativamente el SARLAFT para usuarios que ya cuentan con inversiones en el sistema (o todos si all_users=True).
-    Crea o actualiza su registro SarlaftCheck como 'finalizado' con risk_level='CLEAN'.
+    Aprueba administrativamente el SARLAFT ÚNICAMENTE para los usuarios que cuentan con inversiones reales en la tabla 'investors'.
+    Revierte y limpia automáticamente cualquier registro erróneo asignado a usuarios sin inversiones.
     """
     from datetime import datetime
     from src.models.investor import Investor
-    from src.models.investment_request import InvestmentRequest
 
-    all_users = data.all_users if data else False
+    # 1. Obtener los IDs únicos de usuarios con inversiones reales registradas
+    investor_ids_res = await db.execute(select(distinct(Investor.user_id)))
+    investor_user_ids = set(investor_ids_res.scalars().all())
 
-    if all_users:
-        user_query = select(User.id, User.document_id)
-    else:
-        investor_ids_q = select(Investor.user_id).distinct()
-        req_ids_q = select(InvestmentRequest.user_id).distinct()
-        combined = investor_ids_q.union(req_ids_q)
-        user_query = select(User.id, User.document_id).where(User.id.in_(combined))
+    # 2. Revertir / eliminar chequeos creados por lote previo para usuarios que NO tienen inversiones
+    all_checks_res = await db.execute(select(SarlaftCheck))
+    all_checks = all_checks_res.scalars().all()
+    reverted_count = 0
+    for c in all_checks:
+        if (
+            c.details
+            and isinstance(c.details, dict)
+            and c.details.get("source") == "admin_batch_legacy_approval"
+            and c.user_id not in investor_user_ids
+        ):
+            await db.delete(c)
+            reverted_count += 1
 
+    # 3. Validar únicamente a usuarios con inversiones reales
+    user_query = select(User.id, User.document_id).where(User.id.in_(investor_user_ids))
     res = await db.execute(user_query)
     target_users = res.all()
 
@@ -210,9 +214,15 @@ async def validate_existing_investors(
             updated_count += 1
 
     await db.commit()
+    msg = f"Validación de inversionistas completada. Se validaron {updated_count} usuarios con inversiones reales."
+    if reverted_count > 0:
+        msg += f" Se revocó la validación errónea a {reverted_count} usuarios que no tenían inversiones."
+
     return {
-        "message": f"Se validaron y aprobaron {updated_count} usuario(s) exitosamente.",
+        "message": msg,
         "processed_users": len(target_users),
-        "updated_count": updated_count
+        "updated_count": updated_count,
+        "reverted_count": reverted_count
     }
+
 
