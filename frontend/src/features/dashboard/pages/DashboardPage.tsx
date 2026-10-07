@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ShieldCheck, Loader2, Trophy, Sparkles, ChevronRight, Clock, ShieldAlert, Mail, CheckCircle2, AlertTriangle, KeyRound, ArrowUpRight } from 'lucide-react';
-import { fetchApi } from '../../../services/api';
+import { ShieldCheck, Loader2, Trophy, ChevronRight, Clock, ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { useSarlaftStatus } from '../../../hooks/useSarlaftStatus';
 import { Can } from '../../../components/security/Can';
@@ -131,34 +130,6 @@ export const DashboardPage = () => {
     const { user } = useAuthStore();
     const [activeTab, setActiveTab] = useState<'approved' | 'finished' | 'pending'>('approved');
     const [isClubModalOpen, setIsClubModalOpen] = useState(false);
-
-    // Estado para pruebas de correos corporativos (temporal)
-    const [emailTestingType, setEmailTestingType] = useState<string | null>(null);
-    const [emailFeedback, setEmailFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-    const handleSendTestEmail = async (type: string) => {
-        try {
-            setEmailTestingType(type);
-            setEmailFeedback(null);
-            const res = await fetchApi<{ success: boolean; message: string }>('/auth/test-email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email_type: type })
-            });
-            if (res.success) {
-                setEmailFeedback({ type: 'success', message: res.message });
-            } else {
-                setEmailFeedback({ type: 'error', message: res.message });
-            }
-        } catch (err: any) {
-            setEmailFeedback({
-                type: 'error',
-                message: err.message || 'Error de conexión al enviar el correo de prueba.'
-            });
-        } finally {
-            setEmailTestingType(null);
-        }
-    };
 
     const [adminViewMode, setAdminViewMode] = useState<'admin' | 'director' | 'accounting'>('admin');
     const isSuperAdmin = user?.is_superuser === true || user?.permissions?.includes('admin.audits.manage') === true;
@@ -480,164 +451,6 @@ export const DashboardPage = () => {
                             </div>
                         )}
 
-                        {/* BOTÓN / PANEL TEMPORAL: Pruebas de Correos Corporativos */}
-                        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-6 mb-6 shadow-xl relative overflow-hidden">
-                            <div className="absolute right-0 top-0 w-72 h-72 bg-brand-500/10 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16"></div>
-                            
-                            <div className="relative z-10 space-y-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-700/60">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-9 h-9 rounded-xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-brand-400 shrink-0">
-                                            <Mail className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-extrabold uppercase rounded-full border border-amber-500/30 tracking-wider">
-                                                    Pruebas (Temporal)
-                                                </span>
-                                                <h4 className="font-extrabold text-white text-sm sm:text-base font-montserrat">
-                                                    Probar Correos Corporativos
-                                                </h4>
-                                            </div>
-                                            <p className="text-xs text-slate-400 mt-0.5">
-                                                Se enviará la plantilla de prueba directamente a: <strong className="text-brand-300 font-mono">{user?.email}</strong>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <span className="text-[11px] font-semibold text-slate-400 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700/80 self-start sm:self-auto shrink-0 flex items-center gap-1.5">
-                                        <Sparkles className="w-3.5 h-3.5 text-brand-400" /> Plantillas Corporativas
-                                    </span>
-                                </div>
-
-                                {/* Botones de prueba organizados por categorías */}
-                                <div className="space-y-3">
-                                    <div className="space-y-1.5">
-                                        <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider font-montserrat">
-                                            Onboarding & SARLAFT
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                            <button
-                                                type="button"
-                                                disabled={emailTestingType !== null}
-                                                onClick={() => handleSendTestEmail('welcome')}
-                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700/90 active:scale-[0.98] border border-slate-600/80 hover:border-brand-500/50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                            >
-                                                {emailTestingType === 'welcome' ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
-                                                ) : (
-                                                    <Mail className="w-3.5 h-3.5 text-brand-400 group-hover:scale-110 transition-transform" />
-                                                )}
-                                                <span>1. Bienvenida & Revisión</span>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                disabled={emailTestingType !== null}
-                                                onClick={() => handleSendTestEmail('sarlaft_approved')}
-                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/60 active:scale-[0.98] border border-emerald-700/60 hover:border-emerald-500 text-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                            >
-                                                {emailTestingType === 'sarlaft_approved' ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                                                ) : (
-                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-                                                )}
-                                                <span>2. SARLAFT Aprobada</span>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                disabled={emailTestingType !== null}
-                                                onClick={() => handleSendTestEmail('sarlaft_findings')}
-                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-amber-950/40 hover:bg-amber-900/60 active:scale-[0.98] border border-amber-700/60 hover:border-amber-500 text-amber-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                            >
-                                                {emailTestingType === 'sarlaft_findings' ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                                                ) : (
-                                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-                                                )}
-                                                <span>3. SARLAFT Alertas</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-1.5 pt-1">
-                                        <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider font-montserrat">
-                                            Seguridad & Transacciones de Capital
-                                        </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                            <button
-                                                type="button"
-                                                disabled={emailTestingType !== null}
-                                                onClick={() => handleSendTestEmail('otp')}
-                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-800/90 hover:bg-slate-700/90 active:scale-[0.98] border border-slate-600/80 hover:border-brand-500/50 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                            >
-                                                {emailTestingType === 'otp' ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-400" />
-                                                ) : (
-                                                    <KeyRound className="w-3.5 h-3.5 text-brand-400 group-hover:scale-110 transition-transform" />
-                                                )}
-                                                <span>4. Código OTP Seguridad</span>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                disabled={emailTestingType !== null}
-                                                onClick={() => handleSendTestEmail('withdrawal_approved')}
-                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-950/40 hover:bg-emerald-900/60 active:scale-[0.98] border border-emerald-700/60 hover:border-emerald-500 text-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                            >
-                                                {emailTestingType === 'withdrawal_approved' ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                                                ) : (
-                                                    <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-                                                )}
-                                                <span>5. Retiro Transferido</span>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                disabled={emailTestingType !== null}
-                                                onClick={() => handleSendTestEmail('password_reset')}
-                                                className="flex items-center justify-center gap-2 px-3.5 py-2.5 bg-indigo-950/40 hover:bg-indigo-900/60 active:scale-[0.98] border border-indigo-700/60 hover:border-indigo-500 text-indigo-200 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group text-left sm:text-center"
-                                            >
-                                                {emailTestingType === 'password_reset' ? (
-                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                                                ) : (
-                                                    <Mail className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform" />
-                                                )}
-                                                <span>6. Reset Password</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Feedback Notification */}
-                                {emailFeedback && (
-                                    <div
-                                        className={`flex items-start justify-between gap-3 p-3.5 rounded-2xl border text-xs animate-in fade-in slide-in-from-top-2 duration-200 ${
-                                            emailFeedback.type === 'success'
-                                                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
-                                                : 'bg-rose-500/15 border-rose-500/40 text-rose-200'
-                                        }`}
-                                    >
-                                        <div className="flex items-center gap-2.5">
-                                            {emailFeedback.type === 'success' ? (
-                                                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                                            ) : (
-                                                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                                            )}
-                                            <span className="font-medium leading-relaxed">{emailFeedback.message}</span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setEmailFeedback(null)}
-                                            className="text-slate-400 hover:text-white text-xs font-bold px-2 py-0.5 rounded-lg hover:bg-white/10 transition-colors"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
 
                         {/* HERO Y KPIS */}
                         <Can permission="dashboard:view_kpis">
