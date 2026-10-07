@@ -176,7 +176,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
 
             <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 font-medium">
               <Clock className="w-3.5 h-3.5 animate-pulse text-amber-500" />
-              <span>Verificando automáticamente con Yoint...</span>
+              <span>Verificando confirmación del pago en tiempo real...</span>
             </div>
           </div>
         )}
@@ -224,7 +224,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
       <div className="space-y-2">
         <label className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Selecciona tu método de pago Yoint</span>
+          <span>Selecciona tu método de pago en línea</span>
         </label>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -395,7 +395,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
         {isProcessing ? (
           <>
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Conectando con Yoint Payments...</span>
+            <span>Conectando con la pasarela segura...</span>
           </>
         ) : (
           <>

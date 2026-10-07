@@ -615,7 +615,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                         amount={amountToPay}
                                         payinType="INVESTMENT_REQUEST"
                                         userPhone={user?.phone_number || ''}
-                                        submitButtonText="Pagar Inversión con Yoint"
+                                        submitButtonText="Pagar Inversión en Línea"
                                         onRequestCreate={handleCreateRequestForOnlinePayment}
                                         onSuccess={(statusRes) => {
                                             setAutoApproved(statusRes.investment_approved || statusRes.status === 'SUCCESS');
@@ -724,7 +724,7 @@ export const NewInvestmentModal = ({ isOpen, onClose, currentPackageId, currentP
                                         </span>
                                         <h3 className="text-2xl font-bold text-slate-900 font-montserrat">¡Inversión Aprobada y Activa!</h3>
                                         <p className="text-slate-600 text-sm max-w-sm mx-auto leading-relaxed">
-                                            Tu pago en línea fue validado exitosamente por Yoint. Tu contrato de inversión y rentabilidad ya se encuentran activos en tu panel.
+                                            Tu pago en línea fue validado y confirmado exitosamente. Tu contrato de inversión y rentabilidad ya se encuentran activos en tu panel.
                                         </p>
                                     </div>
                                     <button 
