@@ -47,6 +47,8 @@ export const InvestorRegistrationFlow = () => {
     const [selfieImage, setSelfieImage] = useState<File | null>(null);
     const [biometricError, setBiometricError] = useState<string | null>(null);
     const [biometricSimilarity, setBiometricSimilarity] = useState<number | null>(null);
+    const [biometricAttempts, setBiometricAttempts] = useState<number>(0);
+    const [requiresManualReview, setRequiresManualReview] = useState<boolean>(false);
 
     const [kycPaths, setKycPaths] = useState<string[]>([]);
 
@@ -241,6 +243,8 @@ export const InvestorRegistrationFlow = () => {
             if (!frontImage || !backImage || !selfieImage) throw new Error("Faltan imágenes por seleccionar.");
             
             setBiometricError(null);
+            const currentAttempt = biometricAttempts + 1;
+            setBiometricAttempts(currentAttempt);
 
             const uploadSingleFile = async (file: File) => {
                 const compressedFile = await compressImage(file);
@@ -273,9 +277,19 @@ export const InvestorRegistrationFlow = () => {
                 compareFaces(frontImage, selfieImage)
             ]);
 
+            // Guardar siempre las rutas de los archivos
+            setKycPaths([frontPath, backPath, selfiePath]);
+
             if (!bioResult || !bioResult.matched) {
                 const failMsg = bioResult?.message || "El rostro de la selfie no coincide con el de la foto del documento de identidad.";
-                throw new Error(failMsg);
+                if (currentAttempt >= 3) {
+                    setRequiresManualReview(true);
+                    setBiometricSimilarity(null);
+                    setBiometricError(null);
+                    throw new Error("MAX_ATTEMPTS_REACHED");
+                } else {
+                    throw new Error(failMsg);
+                }
             }
 
             return { paths: [frontPath, backPath, selfiePath], bioResult };
@@ -283,6 +297,7 @@ export const InvestorRegistrationFlow = () => {
         onSuccess: ({ paths, bioResult }: { paths: string[], bioResult: any }) => {
             setKycPaths(paths);
             setBiometricSimilarity(bioResult?.similarity ?? null);
+            setRequiresManualReview(false);
             setBiometricError(null);
 
             // Transición fluida al paso 3 tras confirmar la coincidencia facial
@@ -291,8 +306,13 @@ export const InvestorRegistrationFlow = () => {
             }, 1200);
         },
         onError: (error: any) => {
-            setBiometricError(error.message || "Error al validar la identidad biométrica. Intenta con una selfie más nítida.");
-            setStep(1); // Regresar al paso 1 para que el usuario pueda corregir la foto
+            if (error.message === "MAX_ATTEMPTS_REACHED") {
+                // Al alcanzar los 3 intentos, regresamos al paso 1 mostrando la alerta de validación manual
+                setStep(1);
+            } else {
+                setBiometricError(error.message || "Error al validar la identidad biométrica. Intenta con una selfie más nítida.");
+                setStep(1); // Regresar al paso 1 para que el usuario pueda corregir la foto
+            }
         }
     });
 
@@ -419,6 +439,10 @@ export const InvestorRegistrationFlow = () => {
             paquete_id: parseInt(formData.paquete_id),
             contract_period_id: parseInt(formData.periodo_id),
             kyc_docs: kycPaths,
+            biometric_verified: !requiresManualReview && (biometricSimilarity !== null),
+            biometric_similarity: biometricSimilarity,
+            biometric_attempts: biometricAttempts,
+            requires_manual_review: requiresManualReview,
             fecha_nacimiento: formData.fecha_nacimiento ? formData.fecha_nacimiento : null,
             referred_by: formData.referred_by ? formData.referred_by.trim() : null,
             commercial_id: formData.commercial_id ? parseInt(formData.commercial_id) : null
@@ -641,18 +665,39 @@ export const InvestorRegistrationFlow = () => {
                             <p className="text-sm text-slate-500">Sube tus fotos para comprobar que seas el titular de la cédula.</p>
                         </div>
 
-                        {biometricError && (
-                            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-700 text-sm animate-fadeIn">
-                                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                                <div className="space-y-1">
-                                    <p className="font-bold">Verificación Facial Fallida</p>
-                                    <p>{biometricError}</p>
-                                    <p className="text-xs text-rose-600 font-normal">
-                                        Consejo: Asegúrate de tomar la selfie de frente, con buena iluminación, sin gafas oscuras ni gorra.
+                        {/* 1. Alerta de 3 intentos agotados -> Permite continuar con validación manual */}
+                        {requiresManualReview ? (
+                            <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-start gap-3.5 text-amber-900 text-sm animate-fadeIn shadow-sm">
+                                <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0 text-amber-600 mt-0.5">
+                                    <AlertTriangle className="w-5 h-5" />
+                                </div>
+                                <div className="space-y-1.5 flex-1">
+                                    <p className="font-bold text-amber-950 text-base">Validación automática no completada (3 intentos)</p>
+                                    <p className="text-amber-900 text-xs leading-relaxed">
+                                        No fue posible verificar automáticamente que el titular de la cédula y la selfie coincidan tras 3 intentos.
+                                    </p>
+                                    <p className="text-amber-800 text-xs font-medium bg-amber-100/60 p-2 rounded-lg border border-amber-200">
+                                        ℹ️ <strong>Puedes continuar con tu registro.</strong> Tus fotos quedarán registradas y un administrador de Gloint validará tu identidad de forma manual para aprobar tu cuenta.
                                     </p>
                                 </div>
                             </div>
-                        )}
+                        ) : biometricError ? (
+                            /* 2. Alerta de intento fallido (< 3 intentos) */
+                            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-700 text-sm animate-fadeIn">
+                                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                                <div className="space-y-1">
+                                    <p className="font-bold">
+                                        Verificación Facial No Coincide (Intento {biometricAttempts} de 3)
+                                    </p>
+                                    <p>{biometricError}</p>
+                                    {biometricAttempts < 3 && (
+                                        <p className="text-xs text-rose-600 font-medium">
+                                            Te queda{3 - biometricAttempts === 1 ? '' : 'n'} {3 - biometricAttempts} intento{3 - biometricAttempts === 1 ? '' : 's'} restante{3 - biometricAttempts === 1 ? '' : 's'}. Por favor sube una foto frontal más nítida o tómate una nueva selfie con buena iluminación y de frente.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ) : null}
 
                         <div className="grid grid-cols-1 gap-4">
                             <FileUploadZone label="Foto Frontal del Documento" file={frontImage} onChange={setFrontImage} />
@@ -660,17 +705,42 @@ export const InvestorRegistrationFlow = () => {
                             <FileUploadZone label="Selfie (Foto de tu Rostro)" file={selfieImage} onChange={setSelfieImage} />
                         </div>
 
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={() => {
-                                    setBiometricError(null);
-                                    setStep(2);
-                                }}
-                                disabled={!frontImage || !backImage || !selfieImage}
-                                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-4"
-                            >
-                                Continuar a Validación
-                            </button>
+                        <div className="flex flex-col gap-2.5 mt-4">
+                            {requiresManualReview ? (
+                                <>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setStep(3)}
+                                        className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <span>Continuar con Validación Manual de Administrador</span>
+                                        <CheckCircle2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setBiometricAttempts(0);
+                                            setRequiresManualReview(false);
+                                            setBiometricError(null);
+                                        }}
+                                        className="text-xs text-slate-500 hover:text-slate-700 py-1 text-center font-medium underline"
+                                    >
+                                        Reiniciar intentos y volver a intentar con otras fotos
+                                    </button>
+                                </>
+                            ) : (
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        setBiometricError(null);
+                                        setStep(2);
+                                    }}
+                                    disabled={!frontImage || !backImage || !selfieImage}
+                                    className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {biometricAttempts > 0 ? `Reintentar Validación Facial (${3 - biometricAttempts} restante${3 - biometricAttempts === 1 ? '' : 's'})` : 'Continuar a Validación'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -704,12 +774,17 @@ export const InvestorRegistrationFlow = () => {
                             <h3 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2 border-b border-slate-200 pb-2">
                                 <User className="w-5 h-5 text-brand-600" /> Datos Personales
                             </h3>
-                            {biometricSimilarity !== null && (
-                                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 mb-4 w-fit">
+                            {requiresManualReview ? (
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium flex items-center gap-2 mb-4 animate-fadeIn">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <span>Tu registro requerirá <strong>validación manual de identidad</strong> por parte de un administrador antes de la activación.</span>
+                                </div>
+                            ) : biometricSimilarity !== null ? (
+                                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 mb-4 w-fit animate-fadeIn">
                                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
                                     Identidad Verificada Biométricamente ({biometricSimilarity}% coincidencia)
                                 </div>
-                            )}
+                            ) : null}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Completo *</label>

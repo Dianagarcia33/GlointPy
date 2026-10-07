@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
 import { commercialService } from '../../../../services/commercial';
-import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink } from 'lucide-react';
+import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { getMediaUrl, fetchApi } from '../../../../services/api';
 import { sarlaftService } from '../../../../services/sarlaft';
@@ -326,6 +326,12 @@ export const InvestmentRequestsTable = () => {
                             {request.user.document_id && (
                               <div className="text-xs text-slate-500">Doc: {request.user.document_id}</div>
                             )}
+                            {request.extra_data?.biometrics?.requires_manual_review && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 mt-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                Validar Identidad
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-400">Usuario #{request.user_id}</span>
@@ -490,7 +496,8 @@ export const InvestmentRequestsTable = () => {
                                       'created_by_nombre',
                                       'created_by_user_nombre',
                                       'advisor_nombre',
-                                      'adviser_nombre'
+                                      'adviser_nombre',
+                                      'biometrics'
                                     ];
 
                                     if (internalKeysToHide.includes(key)) return null;
@@ -597,7 +604,20 @@ export const InvestmentRequestsTable = () => {
                                   {/* Documentos KYC con Vista Previa */}
                                   {request.extra_data?.kyc_docs && Array.isArray(request.extra_data.kyc_docs) && request.extra_data.kyc_docs.length > 0 && (
                                     <div className="pt-2 border-t border-slate-100 space-y-2">
-                                      <span className="text-slate-500 font-medium block">Documentos de Identidad (KYC):</span>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 font-medium block">Documentos de Identidad (KYC):</span>
+                                        {request.extra_data?.biometrics?.requires_manual_review ? (
+                                          <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-bold rounded border border-amber-300 inline-flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3 text-amber-600" />
+                                            Validación Manual ({request.extra_data.biometrics.attempts || 3} intentos)
+                                          </span>
+                                        ) : request.extra_data?.biometrics?.verified ? (
+                                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded border border-emerald-200 inline-flex items-center gap-1">
+                                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                            Biometría Aprobada ({request.extra_data.biometrics.similarity}%)
+                                          </span>
+                                        ) : null}
+                                      </div>
                                       <div className="grid grid-cols-3 gap-2">
                                         {request.extra_data.kyc_docs.map((path: string, idx: number) => {
                                           const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];
@@ -932,8 +952,34 @@ export const InvestmentRequestsTable = () => {
                   </div>
 
                   {selectedRequestToReview.extra_data.kyc_docs && Array.isArray(selectedRequestToReview.extra_data.kyc_docs) && selectedRequestToReview.extra_data.kyc_docs.length > 0 && (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <h4 className="text-sm font-semibold text-slate-800 mb-3 border-b border-slate-200 pb-2">Documentos de Identidad (KYC)</h4>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <h4 className="text-sm font-semibold text-slate-800">Documentos de Identidad (KYC)</h4>
+                        {selectedRequestToReview.extra_data?.biometrics?.requires_manual_review ? (
+                          <span className="px-2.5 py-1 bg-amber-100 text-amber-900 text-xs font-bold rounded-lg border border-amber-300 flex items-center gap-1.5 shadow-sm">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                            Requiere Validación Manual ({selectedRequestToReview.extra_data.biometrics.attempts || 3} intentos fallidos)
+                          </span>
+                        ) : selectedRequestToReview.extra_data?.biometrics?.verified ? (
+                          <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg border border-emerald-200 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            Biometría Aprobada ({selectedRequestToReview.extra_data.biometrics.similarity}%)
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {selectedRequestToReview.extra_data?.biometrics?.requires_manual_review && (
+                        <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs flex items-start gap-2.5">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <p className="font-bold text-amber-950">Atención: Validación Facial Automática No Completada</p>
+                            <p className="text-amber-800 leading-relaxed">
+                              El sistema agotó los {selectedRequestToReview.extra_data.biometrics.attempts || 3} intentos de comparación biométrica sin éxito. Por favor coteja visualmente la foto del documento de identidad con la selfie del usuario antes de proceder con la aprobación de la solicitud.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-3 gap-3">
                         {selectedRequestToReview.extra_data.kyc_docs.map((path: string, index: number) => {
                           const kycLabels = ["Frontal Cédula", "Reverso Cédula", "Foto Selfie"];

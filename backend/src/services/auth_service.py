@@ -200,7 +200,13 @@ class AuthService:
                 "kyc_docs": getattr(data, "kyc_docs", None),
                 "contract_period_id": getattr(data, "contract_period_id", None) or getattr(data, "periodo_id", None),
                 "referred_by": getattr(data, "referred_by", None),
-                "commercial_id": getattr(data, "commercial_id", None)
+                "commercial_id": getattr(data, "commercial_id", None),
+                "biometrics": {
+                    "verified": getattr(data, "biometric_verified", False),
+                    "similarity": getattr(data, "biometric_similarity", None),
+                    "attempts": getattr(data, "biometric_attempts", 0),
+                    "requires_manual_review": getattr(data, "requires_manual_review", False),
+                }
             }
         )
         db.add(req)

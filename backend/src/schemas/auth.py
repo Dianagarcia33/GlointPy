@@ -37,6 +37,10 @@ class InvestorRegisterRequest(BaseModel):
     contract_period_id: Optional[int] = None
     comprobante_path: str
     kyc_docs: Optional[Any] = None
+    biometric_verified: Optional[bool] = False
+    biometric_similarity: Optional[float] = None
+    biometric_attempts: Optional[int] = 0
+    requires_manual_review: Optional[bool] = False
     referred_by: Optional[str] = None
     commercial_id: Optional[int] = None
 
