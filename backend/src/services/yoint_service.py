@@ -795,6 +795,23 @@ class YointService:
                 except Exception as notif_err:
                     logger.warning(f"Error enviando notificación de recarga Yoint: {notif_err}")
 
+                # Correo corporativo al inversionista
+                try:
+                    u_res = await db.execute(select(User).where(User.id == payin.user_id))
+                    u_obj = u_res.scalars().first()
+                    if u_obj and u_obj.email:
+                        from src.services.email_service import EmailService
+                        EmailService.send_wallet_recharge_confirmed_email(
+                            to_email=u_obj.email,
+                            user_name=u_obj.name or "Inversionista",
+                            amount=float(payin_amount),
+                            new_balance=float(wallet.balance),
+                            payment_method=f"Yoint ({payin.payment_method})",
+                            reference_id=payin.order_id or payin.payment_reference or f"REC-{payin.id}"
+                        )
+                except Exception as mail_err:
+                    logger.warning(f"Error enviando correo corporativo de recarga Yoint confirmada: {mail_err}")
+
         elif is_failed:
             payin.status = "FAILED"
             logger.warning(f"❌ [YointService] Payin #{payin.id} RECHAZADO / FALLIDO ({new_status})")

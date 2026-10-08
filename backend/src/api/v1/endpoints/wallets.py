@@ -1220,6 +1220,24 @@ async def approve_wallet_recharge_admin(
     except Exception as err:
         print(f"Warning sending recharge approval notification: {err}")
 
+    # Enviar correo corporativo de recarga aprobada
+    try:
+        from src.models.user import User
+        u_res = await db.execute(select(User).where(User.id == recharge.user_id))
+        u_obj = u_res.scalars().first()
+        if u_obj and u_obj.email:
+            from src.services.email_service import EmailService
+            EmailService.send_wallet_recharge_confirmed_email(
+                to_email=u_obj.email,
+                user_name=u_obj.name or "Inversionista",
+                amount=float(recharge_amount),
+                new_balance=float(wallet.balance),
+                payment_method=recharge.payment_method or "Consignación / Transferencia",
+                reference_id=recharge.reference_number or f"REC-{recharge.id}"
+            )
+    except Exception as mail_err:
+        print(f"Warning sending recharge approval email: {mail_err}")
+
     return {
         "message": "Recarga aprobada exitosamente y saldo acreditado en la billetera.",
         "new_balance": float(wallet.balance)

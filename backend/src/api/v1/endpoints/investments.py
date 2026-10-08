@@ -405,6 +405,46 @@ async def create_investment_request(
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+    # Notificar al inversionista por correo electrónico corporativo
+    try:
+        target_user = current_user
+        if target_user_id != current_user.id:
+            u_res = await db.execute(select(User).where(User.id == target_user_id))
+            target_user = u_res.scalars().first() or current_user
+
+        if target_user and target_user.email:
+            pkg_name = f"Paquete ${monto:,.0f} COP"
+            from src.models.package import Package
+            pkg_res = await db.execute(select(Package).where(Package.id == paquete_inversion_id))
+            pkg_obj = pkg_res.scalar_one_or_none()
+            if pkg_obj:
+                pkg_name = getattr(pkg_obj, 'name', None) or f"Paquete ${float(pkg_obj.value or monto):,.0f} COP"
+
+            from src.models.period import Period
+            period_str = f"{periodo_contrato} meses"
+            p_res = await db.execute(select(Period).where(Period.id == periodo_contrato))
+            p_obj = p_res.scalar_one_or_none()
+            if p_obj:
+                period_str = f"{p_obj.months} meses ({p_obj.percentage}% mensual)"
+
+            pay_method_desc = "Pasarela en línea Yoint (PSE / Bancolombia / Nequi)" if not comprobante_path else "Transferencia bancaria con soporte adjunto"
+            if monto_billetera_usado > 0:
+                pay_method_desc += f" + Saldo de Billetera (${monto_billetera_usado:,.0f} COP)"
+
+            from src.services.email_service import EmailService
+            EmailService.send_investment_request_created_email(
+                to_email=target_user.email,
+                user_name=target_user.name or "Inversionista",
+                request_id=new_request.id,
+                amount=float(monto),
+                package_name=pkg_name,
+                period_months=period_str,
+                is_upgrade=is_upgrade,
+                payment_method=pay_method_desc
+            )
+    except Exception as email_err:
+        logger.warning(f"Error enviando correo de solicitud de inversión radicada #{new_request.id}: {email_err}")
         
     return {"message": "Solicitud creada exitosamente", "id": new_request.id}
 

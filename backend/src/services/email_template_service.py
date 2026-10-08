@@ -776,4 +776,255 @@ class EmailTemplateService:
         )
         return subject, html
 
+    @classmethod
+    def get_investment_request_created_template(
+        cls,
+        user_name: str,
+        request_id: int,
+        amount: float,
+        package_name: str,
+        period_months: str,
+        is_upgrade: bool = False,
+        payment_method: str = "Pasarela en línea / Transferencia"
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Solicitud de Inversión o Aumento de Capital Radicada.
+        """
+        op_title = "Aumento de Capital" if is_upgrade else "Nueva Inversión"
+        subject = f"📋 Solicitud de {op_title} #{request_id} Radicada - GLOINT"
+        title = f"Solicitud de {op_title} #{request_id}"
+        preheader = f"Tu solicitud de {op_title.lower()} por ${amount:,.0f} COP ha sido registrada exitosamente en Gloint."
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+
+        intro_text = (
+            f"Hemos recibido y radicado con éxito tu solicitud de <strong>Aumento de Capital</strong>. "
+            f"Si iniciaste el pago en línea mediante la pasarela <strong>Yoint</strong> (PSE, Botón Bancolombia o Nequi), "
+            f"tu contrato se actualizará y activará automáticamente una vez tu entidad bancaria confirme los fondos."
+            if is_upgrade else
+            f"Hemos recibido y radicado con éxito tu solicitud de <strong>Nueva Inversión</strong>. "
+            f"Si iniciaste el pago en línea mediante la pasarela <strong>Yoint</strong> (PSE, Botón Bancolombia o Nequi), "
+            f"tu contrato se activará automáticamente una vez tu entidad bancaria confirme los fondos."
+        )
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Hola <strong style="color: #0f172a;">{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            {intro_text}
+        </p>
+
+        <!-- Summary Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; margin: 22px 0;">
+            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                Detalles de la Solicitud
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.85;">
+                <tr><td style="font-weight: 600; width: 150px; color: #64748b;">N° de Radicado:</td><td style="font-weight: 700; color: #0f172a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">#{request_id}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Operación:</td><td style="color: #0f172a; font-weight: 700;">{op_title}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Monto:</td><td style="font-weight: 800; color: #0f172a; font-size: 16px;">${amount:,.0f} COP</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Paquete:</td><td style="color: #0f172a; font-weight: 600;">{package_name}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Plazo / Periodo:</td><td style="color: #0f172a;">{period_months}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Método de Pago:</td><td style="color: #0f172a;">{payment_method}</td></tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Estado:</td>
+                    <td>
+                        <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 9999px; background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">
+                            Pendiente de Confirmación
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #166534; line-height: 1.6;">
+            <strong>ℹ️ Información importante:</strong><br>
+            • Si realizaste tu pago en línea a través de <strong>Yoint (PSE, Bancolombia o Nequi)</strong>, el sistema concilia de forma continua y activará tu contrato de inmediato al recibir la confirmación de la pasarela.<br>
+            • Si realizaste una transferencia bancaria con soporte adjunto, nuestro equipo administrativo validará la consignación y activará tu inversión en horario hábil.
+        </div>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="SOLICITUD RADICADA • EN PROCESO",
+            badge_variant="amber" if is_upgrade else "blue",
+            cta_text="Ver Mis Inversiones",
+            cta_url=f"{frontend_url}/dashboard/investments"
+        )
+        return subject, html
+
+    @classmethod
+    def get_investment_activated_template(
+        cls,
+        user_name: str,
+        contract_code: str,
+        amount: float,
+        package_name: str,
+        period_info: str,
+        is_upgrade: bool = False,
+        granted_shares: int = 0,
+        accrued_yield_paid: float = 0.0,
+        payment_method: Optional[str] = None
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Inversión o Aumento de Capital Activado (Pago confirmado por Yoint o Aprobado).
+        """
+        op_title = "Aumento de Capital" if is_upgrade else "Inversión"
+        subject = f"🎉 ¡Tu {op_title} ha sido Activada! Contrato {contract_code} - GLOINT"
+        title = f"¡{op_title} Activada Exitosamente!"
+        preheader = f"Tu contrato {contract_code} por ${amount:,.0f} COP se encuentra 100% activo y generando rendimientos."
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        from datetime import datetime
+        today_str = datetime.utcnow().strftime("%d/%m/%Y")
+
+        pay_line = f'<tr><td style="font-weight: 600; color: #64748b;">Confirmado vía:</td><td style="color: #0f172a;">{payment_method}</td></tr>' if payment_method else ''
+
+        shares_block = ""
+        if granted_shares and granted_shares > 0:
+            shares_block = f"""
+            <div style="background-color: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #166534; line-height: 1.6;">
+                <strong>🎖️ Acciones Corporativas Otorgadas:</strong><br>
+                Se han acreditado <strong>{granted_shares:,} acciones</strong> en tu Libro de Accionistas Gloint asociadas al contrato <strong>{contract_code}</strong>.
+            </div>
+            """
+
+        yield_block = ""
+        if accrued_yield_paid and accrued_yield_paid > 0:
+            yield_block = f"""
+            <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #1e40af; line-height: 1.6;">
+                <strong>💰 Rendimientos Liquidados:</strong><br>
+                Se han transferido automáticamente <strong>${accrued_yield_paid:,.0f} COP</strong> a tu Billetera Digital correspondientes a los rendimientos acumulados de tu contrato previo.
+            </div>
+            """
+
+        intro_text = (
+            f"Nos complace informarte que el pago de tu <strong>Aumento de Capital</strong> ha sido confirmado exitosamente. "
+            f"Tu contrato de inversión ha sido actualizado al nuevo paquete y tu nuevo capital activo ha comenzado a generar rendimientos hoy mismo."
+            if is_upgrade else
+            f"¡Felicitaciones! Tu pago ha sido confirmado exitosamente por el sistema y tu contrato de inversión ha sido <strong>oficialmente activado</strong>. "
+            f"A partir de este momento tu capital ya se encuentra trabajando y generando rendimientos en el portafolio Gloint."
+        )
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Estimado(a) <strong style="color: #0f172a;">{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            {intro_text}
+        </p>
+
+        <!-- Contract Details Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; margin: 22px 0;">
+            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                Ficha del Contrato de Inversión
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.85;">
+                <tr>
+                    <td style="font-weight: 600; width: 160px; color: #64748b;">Código de Contrato:</td>
+                    <td style="font-weight: 800; color: #ea580c; font-size: 15px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">{contract_code}</td>
+                </tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Capital Activo:</td><td style="font-weight: 800; color: #0f172a; font-size: 16px;">${amount:,.0f} COP</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Paquete de Inversión:</td><td style="color: #0f172a; font-weight: 600;">{package_name}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Términos / Plazo:</td><td style="color: #0f172a;">{period_info}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Fecha de Activación:</td><td style="color: #0f172a;">{today_str}</td></tr>
+                {pay_line}
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Estado:</td>
+                    <td>
+                        <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 9999px; background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">
+                            ✓ Activo / Generando Rendimientos
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        {shares_block}
+        {yield_block}
+
+        <p style="margin: 0 0 16px; font-size: 13.5px; line-height: 1.6; color: #475569;">
+            Puedes monitorear tus rendimientos diarios, descargar tu contrato firmado y consultar tu extracto de cuenta en tiempo real desde tu panel de inversionista.
+        </p>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="CONTRATO ACTIVADO • OFICIAL",
+            badge_variant="green",
+            cta_text="Ver Mi Portafolio de Inversión",
+            cta_url=f"{frontend_url}/dashboard/investments"
+        )
+        return subject, html
+
+    @classmethod
+    def get_wallet_recharge_confirmed_template(
+        cls,
+        user_name: str,
+        amount: float,
+        new_balance: float,
+        payment_method: str,
+        reference_id: str,
+        date_str: Optional[str] = None
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Recarga de Billetera Digital Confirmada y Acreditada.
+        """
+        subject = f"✅ Recarga Exitosa: ${amount:,.0f} COP Acreditados en tu Billetera - GLOINT"
+        title = "Recarga de Billetera Confirmada"
+        preheader = f"Hemos acreditado exitosamente ${amount:,.0f} COP en tu Billetera Digital Gloint."
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        from datetime import datetime
+        cur_date = date_str or datetime.utcnow().strftime("%d/%m/%Y %H:%M UTC")
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Hola <strong style="color: #0f172a;">{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Te confirmamos que tu transacción de recarga de fondos ha sido aprobada y procesada exitosamente. El saldo correspondiente ya se encuentra acreditado y disponible para su uso inmediato en tu cuenta.
+        </p>
+
+        <!-- Transaction Details Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; margin: 22px 0;">
+            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                Comprobante de Recarga Acreditada
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.85;">
+                <tr><td style="font-weight: 600; width: 160px; color: #64748b;">Monto Recargado:</td><td style="font-weight: 800; color: #15803d; font-size: 17px;">+${amount:,.0f} COP</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Nuevo Saldo Disponible:</td><td style="font-weight: 800; color: #0f172a; font-size: 15px;">${new_balance:,.0f} COP</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Método de Pago:</td><td style="color: #0f172a; font-weight: 600;">{payment_method}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Referencia / Orden:</td><td style="color: #0f172a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">{reference_id}</td></tr>
+                <tr><td style="font-weight: 600; color: #64748b;">Fecha y Hora:</td><td style="color: #0f172a;">{cur_date}</td></tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Estado:</td>
+                    <td>
+                        <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 9999px; background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">
+                            ✓ Acreditado en Billetera
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #166534; line-height: 1.6;">
+            <strong>💡 Saldo disponible:</strong><br>
+            Puedes utilizar este saldo para aperturar nuevas inversiones, realizar aumentos de capital en tus contratos vigentes o transferir fondos cuando lo desees.
+        </div>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="RECARGA CONFIRMADA • FONDOS ACREDITADOS",
+            badge_variant="green",
+            cta_text="Ir a Mi Billetera Digital",
+            cta_url=f"{frontend_url}/dashboard/wallet"
+        )
+        return subject, html
+
 

@@ -232,3 +232,87 @@ class EmailService:
 
         return await asyncio.to_thread(cls.send_html_email, to_email, subject, html)
 
+    @classmethod
+    def send_investment_request_created_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        request_id: int,
+        amount: float,
+        package_name: str,
+        period_months: str,
+        is_upgrade: bool = False,
+        payment_method: str = "Pasarela en línea / Transferencia"
+    ) -> bool:
+        """
+        Envía el correo corporativo cuando una solicitud de inversión o aumento de capital es radicada.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_investment_request_created_template(
+            user_name=user_name,
+            request_id=request_id,
+            amount=amount,
+            package_name=package_name,
+            period_months=period_months,
+            is_upgrade=is_upgrade,
+            payment_method=payment_method
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+    @classmethod
+    def send_investment_activated_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        contract_code: str,
+        amount: float,
+        package_name: str,
+        period_info: str,
+        is_upgrade: bool = False,
+        granted_shares: int = 0,
+        accrued_yield_paid: float = 0.0,
+        payment_method: Optional[str] = None
+    ) -> bool:
+        """
+        Envía el correo corporativo cuando una inversión o aumento de capital ha sido activado
+        (por confirmación de pago Yoint o aprobación administrativa).
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_investment_activated_template(
+            user_name=user_name,
+            contract_code=contract_code,
+            amount=amount,
+            package_name=package_name,
+            period_info=period_info,
+            is_upgrade=is_upgrade,
+            granted_shares=granted_shares,
+            accrued_yield_paid=accrued_yield_paid,
+            payment_method=payment_method
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+    @classmethod
+    def send_wallet_recharge_confirmed_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        amount: float,
+        new_balance: float,
+        payment_method: str,
+        reference_id: str,
+        date_str: Optional[str] = None
+    ) -> bool:
+        """
+        Envía el correo corporativo cuando una recarga de billetera digital ha sido confirmada y acreditada.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_wallet_recharge_confirmed_template(
+            user_name=user_name,
+            amount=amount,
+            new_balance=new_balance,
+            payment_method=payment_method,
+            reference_id=reference_id,
+            date_str=date_str
+        )
+        return cls.send_html_email(to_email, subject, html)
+

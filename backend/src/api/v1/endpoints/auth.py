@@ -485,10 +485,59 @@ async def send_test_email(
                 "preferred_contact_time": "Mañana (9:00 AM - 12:00 PM)"
             }
         )
+    elif email_type == "investment_request_created":
+        template_label = "Solicitud de Inversión Radicada"
+        sent = EmailService.send_investment_request_created_email(
+            to_email=recipient,
+            user_name=user_name,
+            request_id=1042,
+            amount=10000000.0,
+            package_name="Paquete Empresarial $10,000,000 COP",
+            period_months="12 meses (2.5% mensual)",
+            is_upgrade=False,
+            payment_method="Pasarela Yoint (PSE / Bancolombia / Nequi)"
+        )
+    elif email_type == "investment_activated":
+        template_label = "Inversión Activada y Confirmada"
+        sent = EmailService.send_investment_activated_email(
+            to_email=recipient,
+            user_name=user_name,
+            contract_code="GLO-00892",
+            amount=10000000.0,
+            package_name="Paquete Empresarial $10,000,000 COP",
+            period_info="12 meses (2.5% mensual)",
+            is_upgrade=False,
+            granted_shares=150,
+            payment_method="Pasarela Yoint (PSE Bancolombia)"
+        )
+    elif email_type == "capital_upgrade_activated":
+        template_label = "Aumento de Capital Activado"
+        sent = EmailService.send_investment_activated_email(
+            to_email=recipient,
+            user_name=user_name,
+            contract_code="GLO-00892",
+            amount=25000000.0,
+            package_name="Paquete Titan $25,000,000 COP",
+            period_info="12 meses (2.8% mensual)",
+            is_upgrade=True,
+            granted_shares=200,
+            accrued_yield_paid=1250000.0,
+            payment_method="Pasarela Yoint (PSE)"
+        )
+    elif email_type == "wallet_recharge_confirmed":
+        template_label = "Recarga de Billetera Confirmada"
+        sent = EmailService.send_wallet_recharge_confirmed_email(
+            to_email=recipient,
+            user_name=user_name,
+            amount=2000000.0,
+            new_balance=3500000.0,
+            payment_method="Yoint (PSE Bancolombia)",
+            reference_id="ORD-YOINT-994821"
+        )
     else:
         raise HTTPException(
             status_code=400,
-            detail=f"Tipo de correo no válido ('{payload.email_type}'). Opciones: 'welcome', 'sarlaft_approved', 'sarlaft_findings', 'password_reset', 'otp', 'withdrawal_approved', 'chatbot_investor', 'chatbot_director'"
+            detail=f"Tipo de correo no válido ('{payload.email_type}'). Opciones: 'welcome', 'sarlaft_approved', 'sarlaft_findings', 'password_reset', 'otp', 'withdrawal_approved', 'chatbot_investor', 'chatbot_director', 'investment_request_created', 'investment_activated', 'capital_upgrade_activated', 'wallet_recharge_confirmed'"
         )
 
     if not sent:

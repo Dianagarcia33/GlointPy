@@ -632,6 +632,50 @@ class InvestmentRequestService:
 
         await db.commit()
         await db.refresh(req)
+
+        # Enviar correo corporativo de Inversión / Aumento de Capital Activada
+        try:
+            if investor_user and investor_user.email:
+                from src.services.email_service import EmailService
+                
+                if is_upgrade and existing_investor:
+                    c_code = existing_investor.assigned_code or f"CON-{existing_investor.id}"
+                    c_amount = float(new_pkg.value or req.monto) if (new_pkg and new_pkg.value) else float(req.monto)
+                    c_pkg_name = new_pkg.name if (new_pkg and getattr(new_pkg, 'name', None)) else f"Paquete ${c_amount:,.0f} COP"
+                    c_period = f"{existing_investor.period.months} meses ({existing_investor.period.percentage}% mensual)" if existing_investor.period else "12 meses"
+                    c_shares = shares_diff if ('shares_diff' in locals() and shares_diff > 0) else 0
+                    c_yield = accrued_yield if ('accrued_yield' in locals() and accrued_yield > 0) else 0.0
+                else:
+                    c_code = investor.assigned_code if ('investor' in locals() and investor) else (req.investor.assigned_code if getattr(req, 'investor', None) else f"CON-{req.id}")
+                    c_amount = float(req.monto)
+                    c_pkg_name = pkg.name if ('pkg' in locals() and pkg and getattr(pkg, 'name', None)) else f"Paquete ${c_amount:,.0f} COP"
+                    c_period = f"{period.months} meses ({period.percentage}% mensual)" if ('period' in locals() and period) else "12 meses"
+                    c_shares = pkg.granted_shares if ('pkg' in locals() and pkg and getattr(pkg, 'granted_shares', None)) else 0
+                    c_yield = 0.0
+
+                # Identificar si vino confirmado por Yoint
+                yoint_method = None
+                if req.extra_data and isinstance(req.extra_data, dict):
+                    if req.extra_data.get("yoint_payment_method"):
+                        yoint_method = f"Pasarela Yoint ({req.extra_data.get('yoint_payment_method')})"
+                    elif req.extra_data.get("auto_approved_by") == "YOINT_GATEWAY":
+                        yoint_method = "Pasarela en línea Yoint"
+
+                EmailService.send_investment_activated_email(
+                    to_email=investor_user.email,
+                    user_name=investor_user.name or "Inversionista",
+                    contract_code=c_code,
+                    amount=c_amount,
+                    package_name=c_pkg_name,
+                    period_info=c_period,
+                    is_upgrade=is_upgrade,
+                    granted_shares=c_shares,
+                    accrued_yield_paid=c_yield,
+                    payment_method=yoint_method
+                )
+        except Exception as mail_err:
+            logger.error(f"Error enviando correo corporativo de activación de contrato para solicitud #{req.id}: {mail_err}")
+
         return req
 
 
