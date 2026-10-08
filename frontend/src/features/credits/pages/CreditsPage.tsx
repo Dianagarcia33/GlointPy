@@ -139,7 +139,7 @@ export const CreditsPage: React.FC = () => {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-            Accede a crédito rotativo y liquidez con desembolso directo a tu cuenta bancaria vía Yoint.
+            Accede a crédito rotativo y liquidez con desembolso directo a tu cuenta bancaria registrada.
           </p>
         </div>
 
@@ -310,7 +310,7 @@ export const CreditsPage: React.FC = () => {
                   <Clock className="w-8 h-8 text-amber-600 mx-auto" />
                   <h4 className="text-base font-bold text-slate-900 font-montserrat">Solicitud en Estudio Administrativo</h4>
                   <p className="text-xs text-slate-600 max-w-md mx-auto">
-                    Tu solicitud está siendo validada por la mesa de crédito. Una vez aprobada, el sistema desembolsará los fondos de forma automática vía Yoint hacia tu cuenta bancaria registrada.
+                    Tu solicitud está siendo validada por la mesa de crédito. Una vez aprobada, el sistema desembolsará los fondos de forma automática hacia tu cuenta bancaria registrada.
                   </p>
                 </div>
               )}

@@ -79,7 +79,7 @@ export const ApproveCreditModal: React.FC<ApproveCreditModalProps> = ({
         onClose();
       }, 2500);
     } catch (err: any) {
-      setError(err.message || 'Error al aprobar el crédito o enviar la dispersión a Yoint.');
+      setError(err.message || 'Error al aprobar el crédito o enviar la dispersión bancaria.');
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ export const ApproveCreditModal: React.FC<ApproveCreditModalProps> = ({
                 Aprobar y Desembolsar Crédito #{credit.id}
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                Dispersión automática en 1 Clic con Yoint
+                Desembolso y dispersión bancaria inmediata
               </p>
             </div>
           </div>
@@ -167,7 +167,7 @@ export const ApproveCreditModal: React.FC<ApproveCreditModalProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-500 pt-1 border-t border-amber-500/10">
-              ⚡ Al confirmar, Yoint enviará los fondos directamente a esta cuenta bancaria.
+              ⚡ Al confirmar, el sistema dispersará los fondos directamente a esta cuenta bancaria.
             </p>
           </div>
 
@@ -183,7 +183,7 @@ export const ApproveCreditModal: React.FC<ApproveCreditModalProps> = ({
               <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
               <h4 className="text-base font-bold text-slate-900 font-montserrat">¡Crédito Aprobado y Dispersado!</h4>
               <p className="text-xs text-slate-600">
-                Se generaron {successData.installments_count} cuotas de amortización. Orden de dispersión Yoint: <strong>{successData.disbursement_reference}</strong>.
+                Se generaron {successData.installments_count} cuotas de amortización. Ref. de dispersión bancaria: <strong>{successData.disbursement_reference}</strong>.
               </p>
             </div>
           )}
@@ -300,12 +300,12 @@ export const ApproveCreditModal: React.FC<ApproveCreditModalProps> = ({
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Dispersando con Yoint y Aprobando...</span>
+                    <span>Procesando y Desembolsando...</span>
                   </>
                 ) : (
                   <>
                     <Zap className="w-4 h-4 fill-white" />
-                    <span>Aprobar y Desembolsar vía Yoint</span>
+                    <span>Aprobar y Desembolsar</span>
                   </>
                 )}
               </button>

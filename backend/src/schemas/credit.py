@@ -14,6 +14,8 @@ class CreditConfigOut(BaseModel):
     max_amount: float
     min_term_months: int
     max_term_months: int
+    allowed_amounts: Optional[str] = "500000, 1000000, 2000000, 5000000, 10000000"
+    allowed_terms: Optional[str] = "3, 6, 12, 18, 24"
     updated_at: datetime
 
     class Config:
@@ -28,6 +30,8 @@ class CreditConfigUpdate(BaseModel):
     max_amount: Optional[float] = Field(None, ge=100000.0)
     min_term_months: Optional[int] = Field(None, ge=1, le=12)
     max_term_months: Optional[int] = Field(None, ge=1, le=72)
+    allowed_amounts: Optional[str] = None
+    allowed_terms: Optional[str] = None
 
 
 # --- Simulador ---

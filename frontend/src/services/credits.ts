@@ -9,6 +9,8 @@ export interface CreditConfig {
   max_amount: number;
   min_term_months: number;
   max_term_months: number;
+  allowed_amounts?: string;
+  allowed_terms?: string;
   updated_at: string;
 }
 
@@ -20,6 +22,8 @@ export interface CreditConfigUpdate {
   max_amount?: number;
   min_term_months?: number;
   max_term_months?: number;
+  allowed_amounts?: string;
+  allowed_terms?: string;
 }
 
 export interface CreditSimulationInstallment {

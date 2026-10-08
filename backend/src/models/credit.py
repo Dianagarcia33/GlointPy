@@ -26,6 +26,10 @@ class CreditConfig(Base):
     min_term_months = Column(Integer, default=1, nullable=False)
     max_term_months = Column(Integer, default=24, nullable=False)
     
+    # Cantidades y plazos autorizados por el Administrador
+    allowed_amounts = Column(String(500), default="500000, 1000000, 2000000, 5000000, 10000000", nullable=True)
+    allowed_terms = Column(String(255), default="3, 6, 12, 18, 24", nullable=True)
+    
     # Auditoría
     updated_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

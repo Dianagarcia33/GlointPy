@@ -142,7 +142,7 @@ export const AdminCreditsPage: React.FC = () => {
               Mesa de Créditos & Fintech
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 uppercase tracking-wider font-montserrat">
-              Yoint Dispersions
+              Dispersión Inmediata
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
@@ -422,7 +422,7 @@ export const AdminCreditsPage: React.FC = () => {
                     <th className="py-3 px-4">Solicitante</th>
                     <th className="py-3 px-4">Monto Solicitado</th>
                     <th className="py-3 px-4">Plazo</th>
-                    <th className="py-3 px-4">Cuenta Destino (Yoint)</th>
+                    <th className="py-3 px-4">Cuenta Bancaria Destino</th>
                     <th className="py-3 px-4">Fecha</th>
                     <th className="py-3 px-4">Estado</th>
                     <th className="py-3 px-4 text-right">Acción</th>
@@ -474,7 +474,7 @@ export const AdminCreditsPage: React.FC = () => {
                               className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-[11px] font-montserrat uppercase tracking-wider transition-all shadow-xs flex items-center gap-1 cursor-pointer active:scale-95"
                             >
                               <Zap className="w-3.5 h-3.5 fill-white" />
-                              <span>Aprobar Yoint</span>
+                              <span>Aprobar y Desembolsar</span>
                             </button>
                             <button
                               onClick={() => setRejectingCredit(c)}
@@ -596,7 +596,7 @@ export const AdminCreditsPage: React.FC = () => {
                   Amortización Crédito #{inspectingCredit.id}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {inspectingCredit.user_name} • Desembolso Yoint: <strong>{inspectingCredit.disbursement_reference || 'N/A'}</strong>
+                  {inspectingCredit.user_name} • Ref. Desembolso: <strong>{inspectingCredit.disbursement_reference || 'N/A'}</strong>
                 </p>
               </div>
               <button

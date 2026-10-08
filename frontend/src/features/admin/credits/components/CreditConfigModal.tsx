@@ -32,6 +32,8 @@ export const CreditConfigModal: React.FC<CreditConfigModalProps> = ({
   const [maxAmount, setMaxAmount] = useState<number>(20000000);
   const [minTerm, setMinTerm] = useState<number>(1);
   const [maxTerm, setMaxTerm] = useState<number>(24);
+  const [allowedAmounts, setAllowedAmounts] = useState<string>("500000, 1000000, 2000000, 5000000, 10000000");
+  const [allowedTerms, setAllowedTerms] = useState<string>("3, 6, 12, 18, 24");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +48,8 @@ export const CreditConfigModal: React.FC<CreditConfigModalProps> = ({
       setMaxAmount(currentConfig.max_amount);
       setMinTerm(currentConfig.min_term_months);
       setMaxTerm(currentConfig.max_term_months);
+      if (currentConfig.allowed_amounts) setAllowedAmounts(currentConfig.allowed_amounts);
+      if (currentConfig.allowed_terms) setAllowedTerms(currentConfig.allowed_terms);
     }
   }, [currentConfig, isOpen]);
 
@@ -88,7 +92,9 @@ export const CreditConfigModal: React.FC<CreditConfigModalProps> = ({
         min_amount: minAmount,
         max_amount: maxAmount,
         min_term_months: minTerm,
-        max_term_months: maxTerm
+        max_term_months: maxTerm,
+        allowed_amounts: allowedAmounts.trim(),
+        allowed_terms: allowedTerms.trim()
       });
 
       setSuccess(true);
@@ -265,6 +271,44 @@ export const CreditConfigModal: React.FC<CreditConfigModalProps> = ({
                   onChange={(e) => setMaxTerm(Number(e.target.value))}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500"
                 />
+              </div>
+            </div>
+
+            {/* Cantidades y Plazos definidos por el Admin */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+              <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block font-montserrat">
+                🎯 Cantidades & Plazos que el Admin Autoriza al Cliente
+              </span>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                  Cantidades fijas autorizadas (separadas por coma en COP)
+                </label>
+                <input
+                  type="text"
+                  value={allowedAmounts}
+                  onChange={(e) => setAllowedAmounts(e.target.value)}
+                  placeholder="500000, 1000000, 2000000, 5000000, 10000000"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                />
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Ej: 500000, 1000000, 2000000, 5000000, 10000000
+                </span>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                  Plazos fijos autorizados (separados por coma en meses)
+                </label>
+                <input
+                  type="text"
+                  value={allowedTerms}
+                  onChange={(e) => setAllowedTerms(e.target.value)}
+                  placeholder="3, 6, 12, 18, 24"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-medium text-slate-900 focus:outline-none focus:border-amber-500"
+                />
+                <span className="text-[10px] text-slate-400 block mt-0.5">
+                  Ej: 3, 6, 12, 18, 24
+                </span>
               </div>
             </div>
 

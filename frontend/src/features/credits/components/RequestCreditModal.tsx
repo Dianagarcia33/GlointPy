@@ -30,16 +30,6 @@ interface RequestCreditModalProps {
   bankAccounts: UserBankAccountOption[];
 }
 
-const PRESET_AMOUNTS = [
-  500000,
-  1000000,
-  2000000,
-  5000000,
-  10000000
-];
-
-const PRESET_TERMS = [3, 6, 12, 18, 24];
-
 export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
   isOpen,
   onClose,
@@ -47,8 +37,31 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
   config,
   bankAccounts
 }) => {
-  const [amount, setAmount] = useState<number>(1000000);
-  const [termMonths, setTermMonths] = useState<number>(6);
+  // Cantidades y Plazos autorizados por el Administrador
+  const adminAmounts = React.useMemo(() => {
+    if (config?.allowed_amounts) {
+      const parsed = config.allowed_amounts
+        .split(',')
+        .map(s => Number(s.trim()))
+        .filter(n => !isNaN(n) && n > 0);
+      if (parsed.length > 0) return parsed;
+    }
+    return [500000, 1000000, 2000000, 5000000, 10000000];
+  }, [config?.allowed_amounts]);
+
+  const adminTerms = React.useMemo(() => {
+    if (config?.allowed_terms) {
+      const parsed = config.allowed_terms
+        .split(',')
+        .map(s => Number(s.trim()))
+        .filter(n => !isNaN(n) && n > 0);
+      if (parsed.length > 0) return parsed;
+    }
+    return [3, 6, 12, 18, 24];
+  }, [config?.allowed_terms]);
+
+  const [amount, setAmount] = useState<number>(adminAmounts[0] || 1000000);
+  const [termMonths, setTermMonths] = useState<number>(adminTerms[0] || 6);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState<number | 'manual'>(
     bankAccounts.length > 0 ? bankAccounts[0].id : 'manual'
   );
@@ -66,6 +79,20 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [lastCreatedCredit, setLastCreatedCredit] = useState<any | null>(null);
+
+  // Actualizar valores cuando cargan las opciones del admin
+  useEffect(() => {
+    if (adminAmounts.length > 0 && !adminAmounts.includes(amount)) {
+      setAmount(adminAmounts[0]);
+    }
+  }, [adminAmounts]);
+
+  useEffect(() => {
+    if (adminTerms.length > 0 && !adminTerms.includes(termMonths)) {
+      setTermMonths(adminTerms[0]);
+    }
+  }, [adminTerms]);
 
   // Inicializar cuenta seleccionada cuando carguen las cuentas
   useEffect(() => {
@@ -91,6 +118,16 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
   }, [isOpen, amount, termMonths, config]);
 
   if (!isOpen) return null;
+
+  const handleResetForm = () => {
+    setSuccess(false);
+    setLastCreatedCredit(null);
+    setPurpose('');
+    setTermsAccepted(false);
+    setError(null);
+    if (adminAmounts.length > 0) setAmount(adminAmounts[0]);
+    if (adminTerms.length > 0) setTermMonths(adminTerms[0]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,12 +170,12 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
 
     try {
       setIsSubmitting(true);
-      await requestCredit(payload);
+      const res = await requestCredit(payload);
+      setLastCreatedCredit(res);
       setSuccess(true);
-      setTimeout(() => {
-        onSuccess();
-        onClose();
-      }, 2000);
+      
+      // RECARGA EL COMPONENTE INMEDIATAMENTE (sin cerrar el modal)
+      onSuccess();
     } catch (err: any) {
       setError(err.message || 'Error al radicar la solicitud de crédito.');
     } finally {
@@ -161,7 +198,7 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
                 Solicitar Línea de Crédito
               </h3>
               <p className="text-xs text-slate-500 font-medium">
-                Desembolso directo a tu cuenta bancaria vía Yoint
+                Desembolso directo a tu cuenta bancaria registrada
               </p>
             </div>
           </div>
@@ -197,81 +234,145 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
           )}
 
           {success && (
-            <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-              <h4 className="text-base font-bold text-slate-900 font-montserrat">¡Solicitud Radicada con Éxito!</h4>
-              <p className="text-xs text-slate-600">
-                Tu solicitud ha ingresado a estudio. Un administrador validará los datos para el desembolso automático a tu cuenta bancaria.
-              </p>
+            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-3xl text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-slate-900 font-montserrat">
+                    ¡Solicitud Radicada con Éxito!
+                  </h4>
+                  <p className="text-xs text-slate-600 mt-1 max-w-md mx-auto">
+                    Tu solicitud fue radicada correctamente y el componente de créditos ha sido actualizado en tiempo real.
+                  </p>
+                </div>
+              </div>
+
+              {/* Resumen de Radicación */}
+              <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 text-xs">
+                <div className="flex items-center justify-between font-bold text-slate-800 font-montserrat pb-2 border-b border-slate-200">
+                  <span>Detalles de tu Solicitud</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    En Estudio Administrativo
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-slate-700">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold">No. Radicado</span>
+                    <span className="font-bold text-slate-900 font-mono text-sm">
+                      #{lastCreatedCredit?.id || 'Generado'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Monto Solicitado</span>
+                    <span className="font-bold text-slate-900 font-montserrat text-sm">
+                      ${amount.toLocaleString('es-CO')} COP
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Plazo Solicitado</span>
+                    <span className="font-semibold text-slate-800">{termMonths} meses</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block uppercase font-bold">Cuenta de Desembolso</span>
+                    <span className="font-semibold text-slate-800 truncate block">
+                      {selectedBankAccountId !== 'manual' 
+                        ? (bankAccounts.find(b => b.id === selectedBankAccountId)?.banco + ' • ' + bankAccounts.find(b => b.id === selectedBankAccountId)?.numero_cuenta)
+                        : (manualBank + ' • ' + manualAccountNumber)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 text-[11px] text-slate-500">
+                  📌 El administrador evaluará tu perfil y definirá las cantidades y plazos definitivos al momento de la aprobación.
+                </div>
+              </div>
+
+              {/* Botones de acción dentro del modal abierto */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="w-full sm:flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs font-montserrat uppercase tracking-wider transition-all shadow-xs cursor-pointer active:scale-95"
+                >
+                  Radicar Otra Solicitud
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full sm:flex-1 py-3 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs font-montserrat uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           )}
 
           {!success && (
             <form onSubmit={handleSubmit} className="space-y-6">
               
-              {/* Monto */}
+              {/* Cantidades Autorizadas por el Administrador */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <label className="font-bold text-slate-800 font-montserrat uppercase tracking-wider">
-                    Monto a Solicitar (COP)
+                  <label className="font-bold text-slate-800 font-montserrat uppercase tracking-wider flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+                    Cantidad a Solicitar (COP)
                   </label>
-                  <span className="text-slate-400">
-                    Mín: ${(config?.min_amount || 100000).toLocaleString('es-CO')}
+                  <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                    Definida por Administración
                   </span>
                 </div>
 
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 font-bold">
-                    $
-                  </div>
-                  <input
-                    type="number"
-                    min={config?.min_amount || 100000}
-                    max={config?.max_amount || 20000000}
-                    step={50000}
-                    value={amount}
-                    onChange={(e) => setAmount(Number(e.target.value))}
-                    className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
-                  />
-                </div>
-
-                {/* Presets de monto */}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {PRESET_AMOUNTS.map((val) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                  {adminAmounts.map((val) => (
                     <button
                       key={val}
                       type="button"
                       onClick={() => setAmount(val)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                         amount === val
-                          ? 'bg-amber-500 text-white shadow-xs font-bold'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          ? 'bg-amber-500/10 border-amber-500 text-amber-950 shadow-xs ring-1 ring-amber-500/20'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
                       }`}
                     >
-                      ${(val / 1000000).toFixed(val % 1000000 === 0 ? 0 : 1)}M
+                      <span className="text-[10px] text-slate-400 block font-semibold">Monto Autorizado</span>
+                      <span className="text-sm font-black font-montserrat tracking-tight block text-slate-900">
+                        ${val.toLocaleString('es-CO')}
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-600 block mt-0.5">COP</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Plazo en Meses */}
+              {/* Plazos Autorizados por el Administrador */}
               <div className="space-y-2">
-                <label className="font-bold text-slate-800 text-xs font-montserrat uppercase tracking-wider block">
-                  Plazo en Meses
-                </label>
-                <div className="grid grid-cols-5 gap-2">
-                  {PRESET_TERMS.map((term) => (
+                <div className="flex items-center justify-between text-xs">
+                  <label className="font-bold text-slate-800 font-montserrat uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                    Plazo en Meses
+                  </label>
+                  <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                    Definido por Administración
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-1">
+                  {adminTerms.map((term) => (
                     <button
                       key={term}
                       type="button"
                       onClick={() => setTermMonths(term)}
-                      className={`py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border ${
+                      className={`py-3 px-2 rounded-2xl text-xs font-bold transition-all cursor-pointer border text-center ${
                         termMonths === term
-                          ? 'bg-amber-500/10 border-amber-500 text-amber-800 shadow-2xs'
-                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                          ? 'bg-amber-500/10 border-amber-500 text-amber-900 shadow-2xs ring-1 ring-amber-500/20'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300'
                       }`}
                     >
-                      {term} {term === 1 ? 'mes' : 'meses'}
+                      <span className="block font-black text-sm text-slate-900">{term}</span>
+                      <span className="text-[10px] text-slate-500">{term === 1 ? 'mes' : 'meses'}</span>
                     </button>
                   ))}
                 </div>
@@ -441,7 +542,7 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
                   className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-400 mt-0.5 cursor-pointer"
                 />
                 <span className="leading-relaxed font-medium">
-                  Certifico que la cuenta bancaria indicada es de mi titularidad y autorizo que, en caso de ser aprobado, el crédito sea desembolsado por dispersión automática mediante la pasarela bancaria oficial de Gloint (Yoint).
+                  Certifico que la cuenta bancaria indicada es de mi titularidad y autorizo que, en caso de ser aprobado, el crédito sea desembolsado por transferencia automática a mi cuenta bancaria registrada.
                 </span>
               </label>
 

@@ -293,7 +293,7 @@ export const PayInstallmentModal: React.FC<PayInstallmentModalProps> = ({
                       }`}
                     >
                       <Zap className="w-3.5 h-3.5 text-amber-500" />
-                      Pago Online (Yoint)
+                      Pago en Línea (PSE / Bancolombia)
                     </button>
                   </div>
 
@@ -369,7 +369,7 @@ export const PayInstallmentModal: React.FC<PayInstallmentModalProps> = ({
                       <YointPaymentWidget
                         payinType="CREDIT_INSTALLMENT"
                         amount={pendingExternalAmount}
-                        submitButtonText="Pagar con Yoint (PSE / Bancolombia)"
+                        submitButtonText="Pagar en Línea (PSE / Bancolombia)"
                         onSuccess={() => {
                           onSuccess();
                           onClose();

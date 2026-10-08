@@ -26,11 +26,25 @@ def upgrade() -> None:
             sa.Column('max_amount', sa.Numeric(15, 2), nullable=False, server_default='20000000.00'),
             sa.Column('min_term_months', sa.Integer(), nullable=False, server_default='1'),
             sa.Column('max_term_months', sa.Integer(), nullable=False, server_default='24'),
+            sa.Column('allowed_amounts', sa.String(500), nullable=True, server_default='500000, 1000000, 2000000, 5000000, 10000000'),
+            sa.Column('allowed_terms', sa.String(255), nullable=True, server_default='3, 6, 12, 18, 24'),
             sa.Column('updated_by', sa.BigInteger(), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
             sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.now())
         )
     except Exception as e:
         print("credit_configs create error / already exists:", e)
+
+    # Asegurar columnas si la tabla ya existía
+    try:
+        bind = op.get_bind()
+        inspector = sa.inspect(bind)
+        cols = [c['name'] for c in inspector.get_columns('credit_configs')] if bind.dialect.has_table(bind, 'credit_configs') else []
+        if 'allowed_amounts' not in cols:
+            op.add_column('credit_configs', sa.Column('allowed_amounts', sa.String(500), nullable=True, server_default='500000, 1000000, 2000000, 5000000, 10000000'))
+        if 'allowed_terms' not in cols:
+            op.add_column('credit_configs', sa.Column('allowed_terms', sa.String(255), nullable=True, server_default='3, 6, 12, 18, 24'))
+    except Exception as e:
+        print("credit_configs alter columns check error:", e)
 
     # 2. Tabla credits
     try:

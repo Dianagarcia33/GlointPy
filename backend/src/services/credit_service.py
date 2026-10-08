@@ -111,6 +111,10 @@ class CreditService:
             config.min_term_months = data.min_term_months
         if data.max_term_months is not None:
             config.max_term_months = data.max_term_months
+        if data.allowed_amounts is not None:
+            config.allowed_amounts = data.allowed_amounts
+        if data.allowed_terms is not None:
+            config.allowed_terms = data.allowed_terms
 
         config.updated_by = admin_user.id
         config.updated_at = datetime.utcnow()
