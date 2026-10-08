@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Loader2, DoorClosed, Users, MapPin, Monitor, Palette, Sparkles } from 'lucide-react';
+import { X, Save, Loader2, DoorClosed, Users, MapPin, Monitor, Palette } from 'lucide-react';
 import { roomsService, MeetingRoom } from '../../../services/rooms';
 
 interface RoomModalProps {
@@ -15,8 +15,8 @@ const COLOR_PRESETS = [
   { name: 'Azul Gloint', hex: '#2563eb' },
   { name: 'Índigo', hex: '#6366f1' },
   { name: 'Púrpura', hex: '#8b5cf6' },
-  { name: 'Ámbar Gloint', hex: '#f59e0b' },
-  { name: 'Rosa Coral', hex: '#ec4899' },
+  { name: 'Ámbar', hex: '#f59e0b' },
+  { name: 'Rosa', hex: '#ec4899' },
   { name: 'Cian', hex: '#06b6d4' },
 ];
 
@@ -104,31 +104,26 @@ export const RoomModal: React.FC<RoomModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-lg overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200"
+        className="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl border border-slate-200/80 ring-1 ring-white w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
           <div className="flex items-center gap-3">
             <div 
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0"
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-sm ring-2 ring-white"
               style={{ backgroundColor: color }}
             >
               <DoorClosed className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-black text-slate-900 font-montserrat tracking-tight">
-                  {room ? 'Editar Sala de Reuniones' : 'Nueva Sala de Reuniones'}
-                </h2>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-100 text-slate-700 uppercase tracking-wider font-montserrat">
-                  Administración
-                </span>
-              </div>
+              <h2 className="text-base font-extrabold text-slate-900 font-montserrat tracking-tight">
+                {room ? 'Editar Sala de Reuniones' : 'Nueva Sala de Reuniones'}
+              </h2>
               <p className="text-xs text-slate-500 font-medium">
-                {room ? 'Actualiza los datos del espacio de trabajo' : 'Configura un nuevo espacio para la sede'}
+                {room ? 'Actualiza los datos del espacio corporativo' : 'Configura un nuevo espacio disponible para reservas'}
               </p>
             </div>
           </div>
@@ -144,8 +139,8 @@ export const RoomModal: React.FC<RoomModalProps> = ({
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
           {error && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-semibold animate-in fade-in">
-              {error}
+            <div className="p-3.5 bg-rose-50/90 backdrop-blur-xs border border-rose-200/80 rounded-2xl text-rose-800 text-xs font-semibold flex items-start gap-2 shadow-2xs animate-in fade-in">
+              <span>{error}</span>
             </div>
           )}
 
@@ -159,12 +154,12 @@ export const RoomModal: React.FC<RoomModalProps> = ({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej. Sala de Juntas VIP, Sala Creativa"
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-slate-400"
+              placeholder="Ej. Sala de Juntas VIP, Sala Innovación"
+              className="w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all shadow-2xs"
             />
           </div>
 
-          {/* Capacidad y Ubicación */}
+          {/* Capacidad y Ubicación en 2 columnas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat flex items-center gap-1.5">
@@ -177,8 +172,8 @@ export const RoomModal: React.FC<RoomModalProps> = ({
                 max="100"
                 required
                 value={capacity}
-                onChange={(e) => setCapacity(parseInt(e.target.value, 10) || 1)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                onChange={(e) => setCapacity(parseInt(e.target.value) || 1)}
+                className="w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all shadow-2xs"
               />
             </div>
 
@@ -191,8 +186,8 @@ export const RoomModal: React.FC<RoomModalProps> = ({
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="Ej. Piso 2 - Torre Empresarial"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-slate-400"
+                placeholder="Ej. Piso 2 - Torre A"
+                className="w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all shadow-2xs"
               />
             </div>
           </div>
@@ -201,14 +196,14 @@ export const RoomModal: React.FC<RoomModalProps> = ({
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat flex items-center gap-1.5">
               <Monitor className="w-3.5 h-3.5 text-slate-400" />
-              Equipamiento / Recursos <span className="text-slate-400 font-normal lowercase">(separar por comas)</span>
+              Equipamiento / Recursos
             </label>
             <input
               type="text"
               value={equipment}
               onChange={(e) => setEquipment(e.target.value)}
-              placeholder="Ej. TV 65', Conferencia Polycom, Wi-Fi 6, Tablero acrílico"
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all placeholder:text-slate-400"
+              placeholder="Ej. Pantalla 65', Tablero acrílico, Sistema videoconferencia"
+              className="w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all shadow-2xs"
             />
           </div>
 
@@ -219,46 +214,37 @@ export const RoomModal: React.FC<RoomModalProps> = ({
               Color Identificador
             </label>
             <div className="flex items-center gap-2.5 flex-wrap">
-              {COLOR_PRESETS.map((p) => {
-                const isSelected = color === p.hex;
-                return (
-                  <button
-                    key={p.hex}
-                    type="button"
-                    onClick={() => setColor(p.hex)}
-                    className={`w-8 h-8 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
-                      isSelected
-                        ? 'ring-2 ring-slate-900 ring-offset-2 scale-110 shadow-xs'
-                        : 'opacity-70 hover:opacity-100 hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: p.hex }}
-                    title={p.name}
-                  >
-                    {isSelected && (
-                      <span className="w-2 h-2 rounded-full bg-white shadow-xs" />
-                    )}
-                  </button>
-                );
-              })}
+              {COLOR_PRESETS.map((p) => (
+                <button
+                  key={p.hex}
+                  type="button"
+                  onClick={() => setColor(p.hex)}
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                    color === p.hex ? 'scale-115 ring-2 ring-slate-900 ring-offset-2 shadow-sm' : 'hover:scale-105 opacity-80 hover:opacity-100'
+                  }`}
+                  style={{ backgroundColor: p.hex }}
+                  title={p.name}
+                />
+              ))}
             </div>
           </div>
 
           {/* Descripción */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
-              Descripción Adicional
+              Descripción Adicional <span className="text-slate-400 font-normal lowercase">(opcional)</span>
             </label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Políticas específicas, uso exclusivo, etc."
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none placeholder:text-slate-400"
+              placeholder="Lineamientos de uso, reservas recurrentes, etc."
+              className="w-full px-3.5 py-2.5 bg-slate-50/80 border border-slate-200/90 rounded-2xl text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none shadow-2xs"
             />
           </div>
 
           {/* Estado activo/inactivo */}
-          <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-2xl">
+          <div className="flex items-center gap-3 pt-1">
             <input
               type="checkbox"
               id="room-is-active"
@@ -266,25 +252,25 @@ export const RoomModal: React.FC<RoomModalProps> = ({
               onChange={(e) => setIsActive(e.target.checked)}
               className="w-4 h-4 text-amber-600 rounded-md border-slate-300 focus:ring-amber-500 cursor-pointer"
             />
-            <label htmlFor="room-is-active" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
-              Sala habilitada para reservas en el sistema
+            <label htmlFor="room-is-active" className="text-xs font-bold text-slate-700 cursor-pointer select-none font-montserrat">
+              Sala habilitada para reservas
             </label>
           </div>
 
           {/* Botones de acción */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer"
+              className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer font-montserrat"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="py-2.5 px-5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs font-montserrat uppercase tracking-wider transition-all inline-flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+              className="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 rounded-2xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 active:scale-95 disabled:opacity-50 font-montserrat uppercase tracking-wider ring-1 ring-inset ring-white/30"
             >
               {isLoading ? (
                 <>
