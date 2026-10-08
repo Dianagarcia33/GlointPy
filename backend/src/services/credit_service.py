@@ -44,8 +44,29 @@ class CreditService:
         """
         Obtiene la configuración vigente de créditos o crea los valores legales por defecto.
         """
-        res = await db.execute(select(CreditConfig).limit(1))
-        config = res.scalars().first()
+        try:
+            res = await db.execute(select(CreditConfig).limit(1))
+            config = res.scalars().first()
+        except Exception as e:
+            # Auto-recuperación si faltaban columnas como allowed_amounts o allowed_terms
+            logger.warning(f"Error consultando credit_configs ({e}), intentando auto-reparar columnas...")
+            await db.rollback()
+            try:
+                from sqlalchemy import text
+                await db.execute(text("ALTER TABLE credit_configs ADD COLUMN allowed_amounts VARCHAR(500) NULL DEFAULT '500000, 1000000, 2000000, 5000000, 10000000'"))
+                await db.commit()
+            except Exception:
+                await db.rollback()
+            try:
+                from sqlalchemy import text
+                await db.execute(text("ALTER TABLE credit_configs ADD COLUMN allowed_terms VARCHAR(255) NULL DEFAULT '3, 6, 12, 18, 24'"))
+                await db.commit()
+            except Exception:
+                await db.rollback()
+            
+            res = await db.execute(select(CreditConfig).limit(1))
+            config = res.scalars().first()
+
         if not config:
             config = CreditConfig(
                 max_usury_rate_ea=Decimal("26.50"),
@@ -54,7 +75,9 @@ class CreditService:
                 min_amount=Decimal("100000.00"),
                 max_amount=Decimal("20000000.00"),
                 min_term_months=1,
-                max_term_months=24
+                max_term_months=24,
+                allowed_amounts="500000, 1000000, 2000000, 5000000, 10000000",
+                allowed_terms="3, 6, 12, 18, 24"
             )
             db.add(config)
             await db.commit()

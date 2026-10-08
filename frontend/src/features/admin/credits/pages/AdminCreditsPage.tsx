@@ -63,7 +63,7 @@ export const AdminCreditsPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [creditsRes, configRes, pendingInstRes] = await Promise.all([
+      const [creditsResult, configResult, pendingInstResult] = await Promise.allSettled([
         getAdminCredits({
           status: activeTab === 'REVIEW_INSTALLMENTS' ? 'ALL' : (activeTab === 'HISTORY' ? 'PAID' : activeTab),
           search: search.trim() || undefined
@@ -72,10 +72,24 @@ export const AdminCreditsPage: React.FC = () => {
         getPendingReviewInstallments()
       ]);
 
-      setCredits(creditsRes.items);
-      setTotalCredits(creditsRes.total);
-      setConfig(configRes);
-      setPendingInstallments(pendingInstRes);
+      if (creditsResult.status === 'fulfilled') {
+        setCredits(creditsResult.value.items);
+        setTotalCredits(creditsResult.value.total);
+      } else {
+        console.warn('Error cargando créditos admin:', creditsResult.reason);
+      }
+
+      if (configResult.status === 'fulfilled') {
+        setConfig(configResult.value);
+      } else {
+        console.warn('Error cargando configuración de créditos:', configResult.reason);
+      }
+
+      if (pendingInstResult.status === 'fulfilled') {
+        setPendingInstallments(pendingInstResult.value);
+      } else {
+        console.warn('Error cargando cuotas pendientes de revisión:', pendingInstResult.reason);
+      }
     } catch (err) {
       console.error('Error cargando créditos admin:', err);
     } finally {
