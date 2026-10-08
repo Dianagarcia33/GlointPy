@@ -54,6 +54,7 @@ import { RoomsPage } from "./features/rooms/pages/RoomsPage";
 import { InventoryPage } from "./features/inventory/pages/InventoryPage";
 import { CreditsPage } from "./features/credits/pages/CreditsPage";
 import { AdminCreditsPage } from "./features/admin/credits/pages/AdminCreditsPage";
+import { DailyYieldsPage } from "./features/admin/daily_yields/pages/DailyYieldsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -151,6 +152,7 @@ function App() {
         <Route path="investments" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentsPage /></RequirePermission>} />
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
+        <Route path="daily-yields" element={<RequirePermission permissions={["admin.audits.manage", "admin.investors.manage"]}><DailyYieldsPage /></RequirePermission>} />
         <Route path="security-logs" element={<RequirePermission permissions={["admin.audits.manage", "admin.roles.manage"]}><SecurityLogsPage /></RequirePermission>} />
         <Route path="roles" element={<RequirePermission permission="admin.roles.manage"><AdminRolesPage /></RequirePermission>} />
         <Route path="users" element={<RequirePermission permission="admin.users.manage"><AdminUsersPage /></RequirePermission>} />

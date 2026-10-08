@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents, uploads, banks, investment_ranks, external_apps, share_market, events, rooms, webhooks, inventory, yoint_payins, credits
+from src.api.v1.endpoints import roles, users, auth, periods, packages, investors, bank_accounts, wallets, investment_requests, withdrawals, investments, system_events, audit, sarlaft, commercial_sales, analytics, templates, beneficiaries, potential_referrals, chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents, uploads, banks, investment_ranks, external_apps, share_market, events, rooms, webhooks, inventory, yoint_payins, credits, daily_yields
 
 api_router = APIRouter()
 
@@ -41,3 +41,4 @@ api_router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(yoint_payins.router, prefix="/yoint/payins", tags=["yoint-payins"])
 api_router.include_router(credits.router, prefix="/credits", tags=["credits"])
+api_router.include_router(daily_yields.router, prefix="/daily-yields", tags=["daily-yields"])
