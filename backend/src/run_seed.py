@@ -74,6 +74,19 @@ PERMISSIONS = [
     {"name": "rooms:reserve", "description": "Reservar salas de reuniones y gestionar reservas propias", "module": "salas"},
     {"name": "admin:rooms:manage", "description": "Administrar salas de reuniones, configuración y todas las reservas", "module": "salas"},
     {"name": "accounting:dashboard:view", "description": "Visualización del Dashboard Contable y de Tesorería", "module": "dashboard"},
+    # Módulo Inventario
+    {"name": "inventory:view", "description": "Acceso general y consulta del catálogo de inventario e insumos", "module": "Inventario"},
+    {"name": "inventory:create", "description": "Dar de alta nuevos productos comerciales o insumos de oficina", "module": "Inventario"},
+    {"name": "inventory:edit", "description": "Editar precios, unidades y umbrales de stock mínimo de artículos", "module": "Inventario"},
+    {"name": "inventory:delete", "description": "Desactivar artículos del catálogo de inventario", "module": "Inventario"},
+    {"name": "inventory:dispatch", "description": "Registrar salidas y consumo interno de insumos de oficina", "module": "Inventario"},
+    {"name": "inventory:adjust", "description": "Realizar ajustes de stock por auditoría o conteo físico", "module": "Inventario"},
+    {"name": "inventory:kardex", "description": "Visualizar la bitácora completa de movimientos detallados (Kardex)", "module": "Inventario"},
+    # Módulo Créditos Fintech
+    {"name": "credits:view", "description": "Acceso a la línea de crédito y consulta de cuotas propias", "module": "Créditos"},
+    {"name": "credits:request", "description": "Solicitar nueva línea de crédito a la plataforma", "module": "Créditos"},
+    {"name": "credits:pay", "description": "Pagar o abonar a cuotas de créditos activos", "module": "Créditos"},
+    {"name": "admin:credits:manage", "description": "Aprobar, parametrizar, desembolsar vía Yoint y auditar créditos", "module": "Créditos"},
 ]
 
 async def seed_permissions_db(db):
@@ -207,13 +220,14 @@ async def seed_permissions_db(db):
                             permission_id=perm.id
                         ))
             print(f"🔑 Permisos de Directivo / Comercial asignados a: {role.name}")
-        elif "investor" in r_name or "inversionista" in r_name:
+        elif any(k in r_name for k in ["investor", "inversionista", "cliente"]):
             investor_perms = [
                 "beneficiaries:view", "referrals:view", "wallets:view", "wallets:view_balance", 
                 "wallets:view_history", "wallets:request_withdrawal", 
                 "wallets:new_investment", "dashboard:view_kpis", 
                 "dashboard:view_quick_actions", "dashboard:view_investments", 
-                "dashboard:view_requests", "bank_accounts:manage"
+                "dashboard:view_requests", "bank_accounts:manage",
+                "credits:view", "credits:request", "credits:pay"
             ]
             for p_name in investor_perms:
                 if p_name in all_perms_map:
@@ -227,7 +241,7 @@ async def seed_permissions_db(db):
                             role_id=role.id,
                             permission_id=perm.id
                         ))
-            print(f"🔑 Permisos de Inversionista asignados a: {role.name}")
+            print(f"🔑 Permisos de Inversionista/Cliente asignados a: {role.name}")
 
     await db.commit()
     print("✅ PERMISOS REGISTRADOS Y ASIGNADOS EXITOSAMENTE.")

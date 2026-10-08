@@ -116,6 +116,71 @@ def upgrade() -> None:
     except Exception as e:
         print("alter withdrawal_id nullable error:", e)
 
+    # 5. Insertar permisos en la tabla permissions y asociarlos a los roles principales
+    try:
+        bind = op.get_bind()
+        if bind.dialect.has_table(bind, 'permissions'):
+            perms_to_insert = [
+                ("credits:view", "Acceso a la línea de crédito y consulta de cuotas propias", "Créditos"),
+                ("credits:request", "Solicitar nueva línea de crédito a la plataforma", "Créditos"),
+                ("credits:pay", "Pagar o abonar a cuotas de créditos activos", "Créditos"),
+                ("admin:credits:manage", "Aprobar, parametrizar, desembolsar vía Yoint y auditar créditos", "Créditos"),
+            ]
+            for p_name, p_desc, p_mod in perms_to_insert:
+                bind.execute(
+                    sa.text("""
+                        INSERT INTO permissions (name, description, module, created_at)
+                        SELECT :name, :description, :module, NOW()
+                        WHERE NOT EXISTS (SELECT 1 FROM permissions WHERE name = :name)
+                    """),
+                    {"name": p_name, "description": p_desc, "module": p_mod}
+                )
+
+            if bind.dialect.has_table(bind, 'roles') and bind.dialect.has_table(bind, 'role_permissions'):
+                admin_roles = ('admin', 'superadmin', 'super_admin', 'super admin')
+                admin_perms = ('credits:view', 'credits:request', 'credits:pay', 'admin:credits:manage')
+                bind.execute(
+                    sa.text("""
+                        INSERT INTO role_permissions (role_id, permission_id)
+                        SELECT r.id, p.id
+                        FROM roles r
+                        CROSS JOIN permissions p
+                        WHERE LOWER(TRIM(r.name)) IN :role_names
+                          AND p.name IN :perm_names
+                          AND NOT EXISTS (
+                              SELECT 1 FROM role_permissions rp
+                              WHERE rp.role_id = r.id AND rp.permission_id = p.id
+                          )
+                    """).bindparams(
+                        sa.bindparam('role_names', expanding=True),
+                        sa.bindparam('perm_names', expanding=True)
+                    ),
+                    {"role_names": admin_roles, "perm_names": admin_perms}
+                )
+
+                client_roles = ('inversionista', 'investor', 'cliente')
+                client_perms = ('credits:view', 'credits:request', 'credits:pay')
+                bind.execute(
+                    sa.text("""
+                        INSERT INTO role_permissions (role_id, permission_id)
+                        SELECT r.id, p.id
+                        FROM roles r
+                        CROSS JOIN permissions p
+                        WHERE LOWER(TRIM(r.name)) IN :role_names
+                          AND p.name IN :perm_names
+                          AND NOT EXISTS (
+                              SELECT 1 FROM role_permissions rp
+                              WHERE rp.role_id = r.id AND rp.permission_id = p.id
+                          )
+                    """).bindparams(
+                        sa.bindparam('role_names', expanding=True),
+                        sa.bindparam('perm_names', expanding=True)
+                    ),
+                    {"role_names": client_roles, "perm_names": client_perms}
+                )
+    except Exception as e:
+        print("permissions seed error in migration:", e)
+
 
 def downgrade() -> None:
     try:
