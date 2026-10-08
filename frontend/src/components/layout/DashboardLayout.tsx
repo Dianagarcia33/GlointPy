@@ -94,27 +94,6 @@ export const DashboardLayout = () => {
                 )}
                 </div>
             </div>
-
-            {/* Botón flotante para abrir el menú en móviles en caso de scroll largo */}
-            {!mobileSidebarOpen && (
-                <button
-                    type="button"
-                    onClick={() => setMobileSidebarOpen(true)}
-                    className="md:hidden fixed bottom-6 right-5 z-40 group flex items-center gap-2.5 pl-3 pr-3.5 py-2.5 bg-gradient-to-r from-brand-500 via-brand-500 to-amber-500 text-white rounded-2xl shadow-xl shadow-brand-500/30 border border-white/25 backdrop-blur-md active:scale-95 transition-all cursor-pointer select-none"
-                    title="Abrir Menú de Gestión"
-                >
-                    <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center text-white border border-white/20 group-hover:scale-105 transition-transform shrink-0">
-                        <LayoutDashboard className="w-4 h-4" />
-                    </div>
-                    <span className="font-extrabold text-xs font-montserrat tracking-tight text-white drop-shadow-xs">
-                        Menú
-                    </span>
-                    <span className="relative flex h-2 w-2 ml-0.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-300" />
-                    </span>
-                </button>
-            )}
         </div>
     );
 };
