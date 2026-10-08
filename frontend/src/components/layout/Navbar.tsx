@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon, ShieldAlert, ArrowLeft, Users, Loader2 } from 'lucide-react';
+import { Menu, X, ChevronDown, Activity, ChevronRight, Wallet, LogOut, User as UserIcon, ShieldAlert, ArrowLeft, Users, Loader2, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { walletService } from '../../features/dashboard/api/walletService';
 import { usersService } from '../../services/users';
@@ -411,19 +411,27 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
               <button
                 type="button"
                 onClick={onToggleMobileSidebar}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-brand-500 to-amber-600 text-white font-bold text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-xl bg-gradient-to-r from-brand-500 via-brand-500 to-amber-500 text-white font-extrabold text-[11px] font-montserrat tracking-tight shadow-sm shadow-brand-500/25 border border-white/20 active:scale-95 transition-all cursor-pointer"
+                title="Abrir Menú de Navegación"
               >
-                <Activity className="w-4 h-4" />
-                <span>Menú Principal</span>
+                <div className="w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center shrink-0 border border-white/20">
+                  <LayoutDashboard className="w-3 h-3 text-white" />
+                </div>
+                <span>Menú</span>
               </button>
             )}
 
             <button
               type="button"
               onClick={() => setIsOpen(!isOpen)}
-              className={`p-2 rounded-lg transition-colors ${isSolid ? 'text-slate-900 hover:bg-slate-100' : 'text-white hover:bg-white/10'}`}
+              className={`p-2 rounded-xl border transition-all active:scale-95 cursor-pointer ${
+                isSolid 
+                  ? 'bg-slate-900/80 border-slate-700/80 text-white hover:bg-slate-800' 
+                  : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+              }`}
+              aria-label="Menú de opciones"
             >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -431,8 +439,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
       {/* Mobile Menu Dropdown */}
       {isOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-white border-b border-slate-200 shadow-xl overflow-hidden animate-slideInDown">
-          <div className="px-4 py-6 space-y-4">
+        <div className="md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-2xl overflow-hidden animate-slideInDown">
+          <div className="px-4 py-5 space-y-4">
             {!isDashboard ? (
               <>
                 <Link to="/" className="block text-slate-900 font-bold text-lg border-b border-slate-100 pb-3" onClick={() => setIsOpen(false)}>Inicio</Link>
@@ -460,10 +468,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
               </>
             ) : (
               <div className="space-y-3">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-xs text-slate-500 font-semibold">Usuario Conectado</p>
-                  <p className="text-base font-bold text-slate-900">{user?.name}</p>
-                  <p className="text-xs text-slate-400">{user?.email}</p>
+                <div className="p-3.5 bg-slate-900 text-white rounded-2xl border border-slate-800 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-amber-600 text-white flex items-center justify-center font-extrabold text-sm shadow-xs font-montserrat shrink-0">
+                    {user?.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white truncate font-montserrat">{user?.name}</p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{user?.email}</p>
+                  </div>
                 </div>
 
                 {onToggleMobileSidebar && (
@@ -473,9 +485,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                       setIsOpen(false);
                       onToggleMobileSidebar();
                     }}
-                    className="w-full py-3 px-4 bg-brand-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                    className="w-full py-2.5 px-4 bg-gradient-to-r from-brand-500 via-brand-500 to-amber-500 text-white font-extrabold text-xs font-montserrat rounded-xl flex items-center justify-center gap-2.5 shadow-md shadow-brand-500/20 border border-white/15 active:scale-[0.98] transition-all cursor-pointer"
                   >
-                    <Activity className="w-5 h-5" />
+                    <div className="w-5 h-5 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                      <LayoutDashboard className="w-3 h-3 text-white" />
+                    </div>
                     <span>Ver Opciones de Gestión (Sidebar)</span>
                   </button>
                 )}
@@ -486,7 +500,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                     setIsOpen(false);
                     logout();
                   }}
-                  className="w-full py-3 text-center text-red-600 font-bold bg-red-50 hover:bg-red-100 rounded-xl border border-red-200 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2.5 px-4 text-center text-rose-500 font-bold text-xs font-montserrat bg-rose-500/10 hover:bg-rose-500/20 rounded-xl border border-rose-500/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Cerrar sesión</span>
