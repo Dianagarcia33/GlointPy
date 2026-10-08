@@ -149,7 +149,60 @@ export const getMyCredits = async (): Promise<Credit[]> => {
 };
 
 export const getMyCreditBankAccounts = async (): Promise<UserBankAccountOption[]> => {
-  return await fetchApi('/credits/me/bank-accounts');
+  // 1. Intentar endpoint dedicado de créditos
+  try {
+    const res = await fetchApi('/credits/me/bank-accounts');
+    if (Array.isArray(res) && res.length > 0) {
+      return res.map(acc => ({
+        id: Number(acc.id),
+        banco: String(acc.banco),
+        tipo_cuenta: String(acc.tipo_cuenta || 'Ahorros'),
+        numero_cuenta: String(acc.numero_cuenta)
+      }));
+    }
+  } catch (err) {
+    console.warn('Aviso: /credits/me/bank-accounts falló o no disponible, buscando en Bóveda Bancaria:', err);
+  }
+
+  // 2. Fallback a Bóveda Bancaria (/bank-accounts/me)
+  try {
+    const vaultRes = await fetchApi('/bank-accounts/me');
+    if (Array.isArray(vaultRes) && vaultRes.length > 0) {
+      return vaultRes.map(acc => ({
+        id: Number(acc.id),
+        banco: String(acc.banco),
+        tipo_cuenta: String(acc.tipo_cuenta || 'Ahorros'),
+        numero_cuenta: String(acc.numero_cuenta)
+      }));
+    }
+  } catch (err) {
+    console.warn('Aviso: Fallback /bank-accounts/me falló, consultando /wallets/me/balance:', err);
+  }
+
+  // 3. Fallback a Cuentas de Retiro (/wallets/me/balance)
+  try {
+    const walletRes = await fetchApi('/wallets/me/balance');
+    if (walletRes?.bank_accounts && Array.isArray(walletRes.bank_accounts) && walletRes.bank_accounts.length > 0) {
+      return walletRes.bank_accounts.map((acc: any) => ({
+        id: Number(acc.id),
+        banco: String(acc.banco),
+        tipo_cuenta: String(acc.tipo_cuenta || 'Ahorros'),
+        numero_cuenta: String(acc.numero_cuenta)
+      }));
+    }
+    if (walletRes?.bank_details && walletRes.bank_details.banco && walletRes.bank_details.numero_cuenta) {
+      return [{
+        id: Number(walletRes.bank_details.id || 1),
+        banco: String(walletRes.bank_details.banco),
+        tipo_cuenta: String(walletRes.bank_details.tipo_cuenta || 'Ahorros'),
+        numero_cuenta: String(walletRes.bank_details.numero_cuenta)
+      }];
+    }
+  } catch (err) {
+    console.warn('Aviso: Fallback /wallets/me/balance falló:', err);
+  }
+
+  return [];
 };
 
 export const requestCredit = async (data: {

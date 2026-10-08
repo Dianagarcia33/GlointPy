@@ -43,22 +43,37 @@ export const CreditsPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [creditsRes, configRes, banksRes] = await Promise.all([
+      const [creditsResult, configResult, banksResult] = await Promise.allSettled([
         getMyCredits(),
         getCreditConfig(),
         getMyCreditBankAccounts()
       ]);
-      setCredits(creditsRes);
-      setConfig(configRes);
-      setBankAccounts(banksRes);
 
-      if (creditsRes.length > 0 && selectedCreditId === null) {
-        // Seleccionar por defecto el crédito activo o el primero
-        const activeCredit = creditsRes.find(c => c.status === 'ACTIVE') || creditsRes[0];
-        setSelectedCreditId(activeCredit.id);
+      if (creditsResult.status === 'fulfilled') {
+        const creditsRes = creditsResult.value;
+        setCredits(creditsRes);
+        if (creditsRes.length > 0 && selectedCreditId === null) {
+          // Seleccionar por defecto el crédito activo o el primero
+          const activeCredit = creditsRes.find(c => c.status === 'ACTIVE') || creditsRes[0];
+          setSelectedCreditId(activeCredit.id);
+        }
+      } else {
+        console.warn('Error cargando créditos de usuario:', creditsResult.reason);
+      }
+
+      if (configResult.status === 'fulfilled') {
+        setConfig(configResult.value);
+      } else {
+        console.warn('Error cargando configuración de créditos:', configResult.reason);
+      }
+
+      if (banksResult.status === 'fulfilled') {
+        setBankAccounts(banksResult.value);
+      } else {
+        console.warn('Error cargando cuentas bancarias:', banksResult.reason);
       }
     } catch (err) {
-      console.error('Error cargando créditos:', err);
+      console.error('Error cargando datos de créditos:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);

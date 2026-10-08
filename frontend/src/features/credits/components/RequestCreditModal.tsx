@@ -19,6 +19,7 @@ import {
   UserBankAccountOption, 
   simulateCredit, 
   requestCredit, 
+  getMyCreditBankAccounts,
   CreditSimulationResponse 
 } from '../../../services/credits';
 
@@ -62,6 +63,10 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
 
   const [amount, setAmount] = useState<number>(adminAmounts[0] || 1000000);
   const [termMonths, setTermMonths] = useState<number>(adminTerms[0] || 6);
+
+  // Cuentas locales sincronizadas activamente con Bóveda Bancaria
+  const [localAccounts, setLocalAccounts] = useState<UserBankAccountOption[]>(bankAccounts);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [selectedBankAccountId, setSelectedBankAccountId] = useState<number | 'manual'>(
     bankAccounts.length > 0 ? bankAccounts[0].id : 'manual'
   );
@@ -94,12 +99,36 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
     }
   }, [adminTerms]);
 
-  // Inicializar cuenta seleccionada cuando carguen las cuentas
+  // Sincronizar cuentas cuando cambian los props
   useEffect(() => {
-    if (bankAccounts.length > 0 && selectedBankAccountId === 'manual') {
-      setSelectedBankAccountId(bankAccounts[0].id);
+    if (bankAccounts && bankAccounts.length > 0) {
+      setLocalAccounts(bankAccounts);
+      if (selectedBankAccountId === 'manual' || !bankAccounts.some(b => b.id === selectedBankAccountId)) {
+        setSelectedBankAccountId(bankAccounts[0].id);
+      }
     }
   }, [bankAccounts]);
+
+  // Al abrir el modal, consultar activamente Bóveda Bancaria para garantizar que siempre salga la cuenta
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingAccounts(true);
+      getMyCreditBankAccounts()
+        .then(res => {
+          if (res && res.length > 0) {
+            setLocalAccounts(res);
+            setSelectedBankAccountId(prev => {
+              if (prev === 'manual' || !res.some(b => b.id === prev)) {
+                return res[0].id;
+              }
+              return prev;
+            });
+          }
+        })
+        .catch(err => console.warn('Aviso: Error cargando cuentas bancarias en modal:', err))
+        .finally(() => setLoadingAccounts(false));
+    }
+  }, [isOpen]);
 
   // Ejecutar simulación cuando cambia monto o plazo
   useEffect(() => {
@@ -157,7 +186,13 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
     };
 
     if (selectedBankAccountId !== 'manual') {
+      const selectedAcc = localAccounts.find(a => a.id === selectedBankAccountId);
       payload.user_bank_account_id = selectedBankAccountId;
+      if (selectedAcc) {
+        payload.banco = selectedAcc.banco;
+        payload.tipo_cuenta = selectedAcc.tipo_cuenta;
+        payload.numero_cuenta = selectedAcc.numero_cuenta;
+      }
     } else {
       if (!manualBank.trim() || !manualAccountNumber.trim()) {
         setError('Por favor completa todos los datos de tu cuenta bancaria de desembolso.');
@@ -279,7 +314,7 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
                     <span className="text-[10px] text-slate-400 block uppercase font-bold">Cuenta de Desembolso</span>
                     <span className="font-semibold text-slate-800 truncate block">
                       {selectedBankAccountId !== 'manual' 
-                        ? (bankAccounts.find(b => b.id === selectedBankAccountId)?.banco + ' • ' + bankAccounts.find(b => b.id === selectedBankAccountId)?.numero_cuenta)
+                        ? (localAccounts.find(b => b.id === selectedBankAccountId)?.banco + ' • ' + localAccounts.find(b => b.id === selectedBankAccountId)?.numero_cuenta)
                         : (manualBank + ' • ' + manualAccountNumber)}
                     </span>
                   </div>
@@ -423,13 +458,22 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
                     Cuenta Bancaria para Recibir los Fondos
                   </label>
                   <span className="text-[11px] text-slate-400">
-                    Misma cuenta utilizada para retiros
+                    Misma cuenta de Bóveda Bancaria utilizada para retiros
                   </span>
                 </div>
 
-                {bankAccounts.length > 0 && (
+                {/* Indicador de carga de cuentas */}
+                {loadingAccounts && localAccounts.length === 0 && (
+                  <div className="flex items-center gap-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-500 animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-500 shrink-0" />
+                    <span>Consultando tus cuentas registradas en Bóveda Bancaria...</span>
+                  </div>
+                )}
+
+                {/* Lista de cuentas registradas en Bóveda Bancaria */}
+                {localAccounts.length > 0 && (
                   <div className="space-y-2">
-                    {bankAccounts.map((acc) => (
+                    {localAccounts.map((acc) => (
                       <label
                         key={acc.id}
                         className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
@@ -447,20 +491,36 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
                             className="w-4 h-4 text-amber-500 border-slate-300 focus:ring-amber-400 cursor-pointer"
                           />
                           <div>
-                            <span className="text-xs font-bold text-slate-900 block font-montserrat">
-                              {acc.banco} • {acc.tipo_cuenta}
-                            </span>
-                            <span className="text-[11px] text-slate-500 font-mono">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-900 block font-montserrat">
+                                {acc.banco} • {acc.tipo_cuenta}
+                              </span>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Bóveda Bancaria (Retiros)
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-500 font-mono mt-0.5 block">
                               N° {acc.numero_cuenta}
                             </span>
                           </div>
                         </div>
-                        <Landmark className="w-4 h-4 text-slate-400" />
+                        <Landmark className="w-4 h-4 text-amber-600" />
                       </label>
                     ))}
                   </div>
                 )}
 
+                {/* Aviso si no tiene ninguna cuenta registrada en la bóveda */}
+                {!loadingAccounts && localAccounts.length === 0 && (
+                  <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span className="leading-relaxed">
+                      Aún no tienes una cuenta registrada en tu Bóveda Bancaria para retiros. Puedes ingresar los datos de tu cuenta bancaria a continuación.
+                    </span>
+                  </div>
+                )}
+
+                {/* Opción de ingresar otra cuenta bancaria manual */}
                 <label
                   className={`p-3.5 rounded-2xl border flex items-center gap-3 cursor-pointer transition-all ${
                     selectedBankAccountId === 'manual'
@@ -476,7 +536,7 @@ export const RequestCreditModal: React.FC<RequestCreditModalProps> = ({
                     className="w-4 h-4 text-amber-500 border-slate-300 focus:ring-amber-400 cursor-pointer"
                   />
                   <span className="text-xs font-semibold text-slate-800">
-                    Ingresar otra cuenta bancaria
+                    Ingresar otra cuenta bancaria para este desembolso
                   </span>
                 </label>
 

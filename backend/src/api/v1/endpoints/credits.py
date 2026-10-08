@@ -1,6 +1,7 @@
 import json
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status, Request
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -177,21 +178,76 @@ async def get_my_credit_bank_accounts(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Retorna las cuentas bancarias registradas del usuario para seleccionar destino del desembolso.
+    Retorna las cuentas bancarias registradas del usuario para seleccionar destino del desembolso
+    (las mismas cuentas utilizadas para retiros en Bóveda Bancaria).
     """
     res = await db.execute(
         select(UserBankAccount).where(
-            (UserBankAccount.user_id == current_user.id) & 
-            (UserBankAccount.is_active == True)
-        )
+            UserBankAccount.user_id == current_user.id,
+            or_(
+                UserBankAccount.is_active == True,
+                UserBankAccount.is_active == 1,
+                UserBankAccount.is_active.isnot(False)
+            )
+        ).order_by(UserBankAccount.id.desc())
     )
     accounts = res.scalars().all()
+
+    if not accounts:
+        # Fallback a cualquier cuenta vinculada al usuario
+        res_fb = await db.execute(
+            select(UserBankAccount)
+            .where(UserBankAccount.user_id == current_user.id)
+            .order_by(UserBankAccount.id.desc())
+        )
+        accounts = res_fb.scalars().all()
+
+    if not accounts:
+        # Fallback a la cuenta bancaria del último retiro del usuario
+        from src.models.withdrawal import Withdrawal
+        w_res = await db.execute(
+            select(Withdrawal)
+            .where(
+                Withdrawal.user_id == current_user.id,
+                Withdrawal.banco.isnot(None),
+                Withdrawal.numero_cuenta.isnot(None)
+            )
+            .order_by(Withdrawal.id.desc())
+            .limit(1)
+        )
+        last_w = w_res.scalars().first()
+        if last_w and last_w.banco and last_w.numero_cuenta:
+            try:
+                new_acc = UserBankAccount(
+                    user_id=current_user.id,
+                    banco=last_w.banco.strip(),
+                    tipo_cuenta=(last_w.tipo_cuenta or "Ahorros").strip(),
+                    numero_cuenta=last_w.numero_cuenta.strip(),
+                    is_active=True
+                )
+                db.add(new_acc)
+                await db.commit()
+                await db.refresh(new_acc)
+                accounts = [new_acc]
+            except Exception:
+                await db.rollback()
+                return [
+                    {
+                        "id": 0,
+                        "banco": last_w.banco,
+                        "tipo_cuenta": last_w.tipo_cuenta or "Ahorros",
+                        "numero_cuenta": last_w.numero_cuenta,
+                        "is_active": True
+                    }
+                ]
+
     return [
         {
             "id": a.id,
             "banco": a.banco,
             "tipo_cuenta": a.tipo_cuenta,
-            "numero_cuenta": a.numero_cuenta
+            "numero_cuenta": a.numero_cuenta,
+            "is_active": getattr(a, "is_active", True)
         }
         for a in accounts
     ]
