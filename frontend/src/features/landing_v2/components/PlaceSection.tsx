@@ -42,13 +42,13 @@ export function PlaceSection() {
           <Badge text="GLOINT Place" />
 
           <motion.h2
-            className="text-3xl md:text-4xl font-black mb-4"
+            className="text-3xl sm:text-4xl md:text-5xl font-black mb-4 font-montserrat tracking-tight leading-tight"
             style={{ color: DARK }}
           >
             Productos que marcan{" "}
             <motion.span
               style={{ color: ORANGE }}
-              animate={{ textShadow: [`0 0 0px ${ORANGE}`, `0 0 14px ${ORANGE}44`, `0 0 0px ${ORANGE}`] }}
+              animate={{ textShadow: [`0 0 0px ${ORANGE}`, `0 0 16px ${ORANGE}55`, `0 0 0px ${ORANGE}`] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             >
               diferencia
@@ -57,7 +57,7 @@ export function PlaceSection() {
           </motion.h2>
 
           <motion.p
-            className="text-slate-500 max-w-xl mx-auto"
+            className="text-slate-600 max-w-xl mx-auto text-base sm:text-lg font-normal"
             initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -74,8 +74,7 @@ export function PlaceSection() {
           {products.map((p, i) => (
             <motion.div
               key={p.name}
-              className="rounded-2xl p-6 text-center relative overflow-hidden cursor-default"
-              style={{ background: "#f8fafc", border: "1px solid #e2e8f0", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}
+              className="rounded-3xl p-6 text-center relative overflow-hidden cursor-default bg-slate-50/80 border border-slate-200/90 shadow-2xs hover:shadow-xl hover:bg-white transition-all group"
               initial={{ opacity: 0, y: 45 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}
@@ -91,19 +90,19 @@ export function PlaceSection() {
                 transition={{ duration: 4 + i * 0.5, repeat: Infinity, ease: "easeInOut" }}
               />
 
-              {/* Emoji */}
+              {/* Emoji inside container */}
               <motion.div
-                className="relative z-10 text-5xl mb-4"
-                animate={{ y: [0, -5, 0], rotate: [0, 2, 0, -2, 0] }}
+                className="relative z-10 w-16 h-16 mx-auto mb-4 rounded-2xl bg-white shadow-2xs border border-slate-200/60 flex items-center justify-center text-3xl sm:text-4xl"
+                animate={{ y: [0, -3, 0] }}
                 transition={{ duration: 4 + i * 0.3, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
-                whileHover={{ scale: 1.2, rotate: 8 }}
+                whileHover={{ scale: 1.1, rotate: 6 }}
               >
                 {p.emoji}
               </motion.div>
 
               {/* TAG */}
               <motion.div
-                className="text-xs font-semibold tracking-wider uppercase mb-2"
+                className="text-[10px] font-extrabold tracking-widest uppercase mb-1.5 font-montserrat"
                 style={{ color: ORANGE }}
                 initial={{ opacity: 0, y: 8 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -113,7 +112,7 @@ export function PlaceSection() {
                 {p.tag}
               </motion.div>
 
-              <div className="font-bold text-sm relative z-10" style={{ color: DARK }}>
+              <div className="font-extrabold text-sm sm:text-base relative z-10 font-montserrat tracking-tight leading-snug" style={{ color: DARK }}>
                 {p.name}
               </div>
 
@@ -131,7 +130,7 @@ export function PlaceSection() {
 
         {/* BENEFICIOS */}
         <motion.div
-          className="flex flex-wrap justify-center gap-6"
+          className="flex flex-wrap justify-center gap-3 sm:gap-4"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -140,22 +139,22 @@ export function PlaceSection() {
           {benefits.map(({ icon, label }, i) => (
             <motion.div
               key={label}
-              className="flex items-center gap-2 px-5 py-3 rounded-full text-sm font-medium cursor-default"
+              className="flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold font-montserrat tracking-tight cursor-default shadow-2xs transition-all"
               style={{ background: "#fff7ed", border: `1px solid ${ORANGE}33`, color: DARK }}
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.35, delay: 0.2 + i * 0.05 }}
-              whileHover={{ y: -4, scale: 1.04, borderColor: `${ORANGE}66`, boxShadow: `0 8px 20px ${ORANGE}15` }}
+              whileHover={{ y: -3, scale: 1.03, borderColor: `${ORANGE}66`, boxShadow: `0 8px 20px ${ORANGE}15` }}
             >
-              <motion.span
-                style={{ color: ORANGE }}
-                whileHover={{ scale: 1.2, rotate: 8 }}
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: `${ORANGE}15`, color: ORANGE }}
               >
                 {icon}
-              </motion.span>
+              </div>
 
-              {label}
+              <span>{label}</span>
             </motion.div>
           ))}
         </motion.div>

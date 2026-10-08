@@ -236,9 +236,10 @@ export function EventRegistrationSection() {
           {/* Columna Derecha: Formulario para No Inversionistas */}
           <div className="lg:col-span-6">
             
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/60 relative overflow-hidden">
+            <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/60 relative overflow-hidden group">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
               
-              <div className="mb-6">
+              <div className="mb-6 relative z-10">
                 <span className="text-[11px] font-bold text-amber-600 font-montserrat uppercase tracking-wider block">
                   Registro Abierto al Público
                 </span>

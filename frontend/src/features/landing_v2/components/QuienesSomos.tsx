@@ -47,7 +47,7 @@ export function QuienesSomos() {
           </motion.div>
 
           <motion.h2
-            className="text-3xl md:text-4xl font-black leading-tight mb-6"
+            className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight mb-6 font-montserrat"
             style={{ color: DARK }}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -60,7 +60,7 @@ export function QuienesSomos() {
               animate={{
                 textShadow: [
                   `0 0 0px ${ORANGE}`,
-                  `0 0 12px ${ORANGE}44`,
+                  `0 0 16px ${ORANGE}55`,
                   `0 0 0px ${ORANGE}`,
                 ],
               }}
@@ -72,7 +72,7 @@ export function QuienesSomos() {
           </motion.h2>
 
           <motion.p
-            className="text-slate-600 leading-relaxed mb-4"
+            className="text-slate-600 leading-relaxed mb-4 text-base sm:text-lg"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -84,7 +84,7 @@ export function QuienesSomos() {
           </motion.p>
 
           <motion.p
-            className="text-slate-600 leading-relaxed mb-10"
+            className="text-slate-600 leading-relaxed mb-10 text-base sm:text-lg"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -96,25 +96,25 @@ export function QuienesSomos() {
           </motion.p>
 
           {/* INDICADORES */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
             {indicators.map(({ icon, label }, index) => (
               <motion.div
                 key={label}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-default"
-                style={{ background: "#f8fafc", border: `1px solid #e2e8f0` }}
+                className="flex items-center gap-3 p-3.5 rounded-2xl cursor-default bg-slate-50/80 border border-slate-200/80 shadow-2xs transition-all group"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: 0.45 + index * 0.1 }}
                 whileHover={{
-                  y: -5,
+                  y: -4,
                   scale: 1.02,
                   borderColor: `${GOLD}66`,
-                  boxShadow: `0 10px 25px ${DARK}10`,
+                  backgroundColor: "#ffffff",
+                  boxShadow: `0 12px 25px ${DARK}10`,
                 }}
               >
                 <motion.div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-xs"
                   style={{ background: `linear-gradient(135deg, ${GOLD}, ${ORANGE})`, color: "#fff" }}
                   whileHover={{ rotate: 8, scale: 1.1 }}
                   transition={{ type: "spring", stiffness: 300 }}
@@ -122,7 +122,7 @@ export function QuienesSomos() {
                   {icon}
                 </motion.div>
 
-                <span className="font-semibold text-sm" style={{ color: DARK }}>
+                <span className="font-bold text-sm tracking-tight font-montserrat" style={{ color: DARK }}>
                   {label}
                 </span>
               </motion.div>
@@ -151,9 +151,11 @@ export function QuienesSomos() {
           />
 
           <div
-            className="rounded-2xl p-8 relative overflow-hidden"
+            className="rounded-3xl p-7 sm:p-8 relative overflow-hidden border border-slate-800 shadow-2xl"
             style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
           >
+            {/* Top specular highlight */}
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
             {/* Glow interno */}
             <motion.div
@@ -181,13 +183,14 @@ export function QuienesSomos() {
             <div className="relative z-10">
 
               <motion.div
-                className="text-xs font-semibold tracking-widest mb-4"
+                className="text-[11px] font-extrabold tracking-widest uppercase mb-5 font-montserrat flex items-center gap-2"
                 style={{ color: GOLD }}
                 initial={{ opacity: 0, x: -10 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5 }}
               >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: GOLD }} />
                 GLOINT ECOSYSTEM
               </motion.div>
 
@@ -195,7 +198,7 @@ export function QuienesSomos() {
               {units.map(({ name, color, icon }, index) => (
                 <motion.div
                   key={name}
-                  className="flex items-center gap-4 mb-4 last:mb-0 p-4 rounded-xl cursor-default relative overflow-hidden"
+                  className="flex items-center gap-4 mb-3.5 last:mb-0 p-4 rounded-2xl cursor-default relative overflow-hidden backdrop-blur-xs transition-all"
                   style={{
                     background: "rgba(255,255,255,0.05)",
                     border: "1px solid rgba(255,255,255,0.08)",
@@ -224,8 +227,8 @@ export function QuienesSomos() {
                   />
 
                   <motion.div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: `${color}22`, color }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-xs border border-white/10"
+                    style={{ background: `${color}25`, color }}
                     whileHover={{ scale: 1.1, rotate: 5 }}
                     transition={{ type: "spring", stiffness: 300 }}
                   >
@@ -233,11 +236,11 @@ export function QuienesSomos() {
                   </motion.div>
 
                   <div>
-                    <div className="text-white font-semibold text-sm">
+                    <div className="text-white font-bold text-sm tracking-tight font-montserrat">
                       {name}
                     </div>
 
-                    <div className="text-slate-400 text-xs mt-0.5">
+                    <div className="text-slate-400 text-xs mt-0.5 font-medium">
                       Unidad estratégica
                     </div>
                   </div>
@@ -268,7 +271,7 @@ export function QuienesSomos() {
               />
 
               <motion.div
-                className="flex items-center gap-2 mt-4 text-xs text-slate-400"
+                className="flex items-center gap-2 mt-4 text-xs text-slate-400 font-medium font-montserrat"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}

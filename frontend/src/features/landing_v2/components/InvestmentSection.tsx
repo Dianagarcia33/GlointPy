@@ -88,7 +88,7 @@ export function InvestmentSection() {
             </motion.div>
 
             <motion.h2
-              className="text-3xl md:text-4xl font-black text-white mb-6"
+              className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-6 font-montserrat tracking-tight leading-tight"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -100,7 +100,7 @@ export function InvestmentSection() {
                 animate={{
                   textShadow: [
                     `0 0 0px ${GOLD}`,
-                    `0 0 16px ${GOLD}55`,
+                    `0 0 18px ${GOLD}88`,
                     `0 0 0px ${GOLD}`,
                   ],
                 }}
@@ -116,7 +116,7 @@ export function InvestmentSection() {
             </motion.h2>
 
             <motion.p
-              className="text-slate-400 leading-relaxed mb-10"
+              className="text-slate-300 text-base sm:text-lg leading-relaxed mb-10 font-normal"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -128,14 +128,11 @@ export function InvestmentSection() {
             </motion.p>
 
             {/* CARDS */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
               {cards.map((c, i) => (
                 <motion.div
                   key={c}
-                  className="p-4 rounded-xl relative overflow-hidden cursor-default"
-                  style={{ background: "rgba(197,155,78,0.08)",
-                    border: `1px solid ${GOLD}33`,
-                  }}
+                  className="p-4 sm:p-5 rounded-2xl relative overflow-hidden cursor-default bg-white/[0.04] backdrop-blur-xs border border-white/[0.08] transition-all group"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -144,10 +141,10 @@ export function InvestmentSection() {
                     delay: 0.2 + i * 0.05,
                   }}
                   whileHover={{
-                    y: -5,
-                    backgroundColor: "rgba(197,155,78,0.13)",
+                    y: -4,
+                    backgroundColor: "rgba(255,255,255,0.08)",
                     borderColor: `${GOLD}66`,
-                    boxShadow: `0 10px 30px ${GOLD}12`,
+                    boxShadow: `0 12px 30px ${GOLD}15`,
                   }}
                 >
 
@@ -160,22 +157,13 @@ export function InvestmentSection() {
                     transition={{ duration: 0.25 }}
                   />
 
-                  {/* Punto */}
-                  <motion.div
-                    className="w-2 h-2 rounded-full mb-3"
-                    style={{ background: GOLD }}
-                    animate={{
-                      scale: [1, 1.4, 1],
-                      opacity: [0.5, 1, 0.5],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      delay: i * 0.3,
-                    }}
+                  {/* Punto con resplandor */}
+                  <div
+                    className="w-2.5 h-2.5 rounded-full mb-3 shadow-xs"
+                    style={{ background: GOLD, boxShadow: `0 0 8px ${GOLD}` }}
                   />
 
-                  <div className="text-white font-semibold text-sm">
+                  <div className="text-white font-bold text-sm sm:text-base font-montserrat tracking-tight leading-snug">
                     {c}
                   </div>
                 </motion.div>
@@ -214,11 +202,9 @@ export function InvestmentSection() {
             />
 
             <motion.div
-              className="relative rounded-2xl p-6"
+              className="relative rounded-3xl p-7 border border-white/10 shadow-2xl backdrop-blur-md overflow-hidden"
               style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                backdropFilter: "blur(8px)",
+                background: "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
               }}
               whileHover={{
                 borderColor: `${GOLD}44`,
@@ -226,17 +212,19 @@ export function InvestmentSection() {
               }}
               transition={{ duration: 0.3 }}
             >
+              {/* Top specular highlight */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
               {/* HEADER DEL CHART */}
               <div className="flex items-center justify-between mb-6">
 
                 <div>
-                  <div className="text-xs text-slate-400 tracking-widest">
+                  <div className="text-[11px] font-extrabold text-slate-400 tracking-widest uppercase font-montserrat">
                     RENTABILIDAD MENSUAL
                   </div>
 
                   <motion.div
-                    className="text-2xl font-black text-white mt-1"
+                    className="text-2xl sm:text-3xl font-black text-white mt-1 font-montserrat tracking-tight"
                     initial={{ opacity: 0, scale: 0.8 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
@@ -246,14 +234,15 @@ export function InvestmentSection() {
                       type: "spring",
                     }}
                   >
-                    3.2% - 4.8% <span className="text-xs font-medium text-slate-400">/ mes</span>
+                    3.2% - 4.8% <span className="text-xs font-semibold text-slate-400 font-montserrat">/ mes</span>
                   </motion.div>
                 </div>
 
                 <motion.div
-                  className="px-3 py-1 rounded-full text-xs font-semibold"
+                  className="px-3.5 py-1 rounded-full text-xs font-bold font-montserrat border shadow-xs"
                   style={{
                     background: "rgba(197,155,78,0.15)",
+                    borderColor: `${GOLD}40`,
                     color: GOLD,
                   }}
                   animate={{

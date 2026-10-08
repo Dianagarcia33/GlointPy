@@ -76,7 +76,7 @@ export function Unidades() {
           <Badge text="Nuestras Unidades" />
 
           <motion.h2
-            className="text-3xl md:text-4xl font-black mb-4"
+            className="text-3xl sm:text-4xl md:text-5xl font-black mb-4 font-montserrat tracking-tight"
             style={{ color: DARK }}
           >
             Tres unidades.{" "}
@@ -85,7 +85,7 @@ export function Unidades() {
               animate={{
                 textShadow: [
                   `0 0 0px ${ORANGE}`,
-                  `0 0 14px ${ORANGE}44`,
+                  `0 0 16px ${ORANGE}55`,
                   `0 0 0px ${ORANGE}`,
                 ],
               }}
@@ -95,7 +95,7 @@ export function Unidades() {
             </motion.span>
           </motion.h2>
 
-          <p className="text-slate-500 max-w-xl mx-auto">
+          <p className="text-slate-600 max-w-xl mx-auto text-base sm:text-lg">
             Creamos soluciones especializadas que impulsan el crecimiento de personas,
             empresas e inversionistas.
           </p>
@@ -134,25 +134,21 @@ export function Unidades() {
               />
 
               <motion.div
-                className="relative rounded-2xl overflow-hidden flex flex-col h-full"
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-                }}
+                className="relative rounded-3xl overflow-hidden flex flex-col h-full bg-white border border-slate-200/90 shadow-md hover:shadow-2xl transition-all"
                 whileHover={{
-                  y: -10,
-                  boxShadow: `0 20px 45px ${c.color}25`,
-                  borderColor: `${c.color}55`,
+                  y: -8,
+                  borderColor: `${c.color}66`,
                 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
               >
 
                 {/* HEADER */}
                 <div
-                  className="p-6 flex items-center gap-4 relative overflow-hidden"
+                  className="p-6 sm:p-7 flex items-center gap-4 relative overflow-hidden border-b border-slate-800"
                   style={{ background: `linear-gradient(135deg, ${DARK} 0%, #162040 100%)` }}
                 >
+                  {/* Top highlight */}
+                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
                   {/* Número */}
                   <motion.div
@@ -201,13 +197,13 @@ export function Unidades() {
 
                   <div className="relative z-10">
                     <div
-                      className="text-xs font-semibold tracking-widest uppercase mb-1"
+                      className="text-[10px] font-extrabold tracking-widest uppercase mb-1 font-montserrat"
                       style={{ color: c.color }}
                     >
                       {c.tag}
                     </div>
 
-                    <div className="text-white font-bold text-sm leading-tight">
+                    <div className="text-white font-extrabold text-sm sm:text-base leading-tight font-montserrat tracking-tight">
                       {c.title}
                     </div>
                   </div>
@@ -228,10 +224,10 @@ export function Unidades() {
                 </div>
 
                 {/* BODY */}
-                <div className="p-6 flex flex-col flex-1">
+                <div className="p-6 sm:p-7 flex flex-col flex-1 bg-white">
 
                   <motion.p
-                    className="text-slate-500 text-sm leading-relaxed mb-6"
+                    className="text-slate-600 text-sm leading-relaxed mb-6 font-normal"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
@@ -241,11 +237,11 @@ export function Unidades() {
                   </motion.p>
 
                   {/* BENEFICIOS */}
-                  <ul className="space-y-2 flex-1">
+                  <ul className="space-y-2.5 flex-1">
                     {c.benefits.map((b, benefitIndex) => (
                       <motion.li
                         key={b}
-                        className="flex items-start gap-2 text-sm text-slate-700"
+                        className="flex items-start gap-2.5 text-sm text-slate-700 font-medium"
                         initial={{ opacity: 0, x: -10 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
@@ -258,10 +254,10 @@ export function Unidades() {
                           whileHover={{ scale: 1.2 }}
                           className="mt-0.5 flex-shrink-0"
                         >
-                          <CheckCircle size={15} style={{ color: c.color }} />
+                          <CheckCircle size={16} style={{ color: c.color }} />
                         </motion.div>
 
-                        {b}
+                        <span>{b}</span>
                       </motion.li>
                     ))}
                   </ul>
@@ -274,11 +270,11 @@ export function Unidades() {
                   >
                     <motion.button
                       whileHover={{
-                        scale: 1.03,
-                        boxShadow: `0 8px 20px ${c.color}35`,
+                        scale: 1.02,
+                        boxShadow: `0 10px 25px ${c.color}35`,
                       }}
-                      whileTap={{ scale: 0.97 }}
-                      className="mt-6 w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+                      whileTap={{ scale: 0.98 }}
+                      className="mt-6 w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 font-montserrat tracking-tight transition-all cursor-pointer shadow-sm"
                       style={{
                         background: c.color,
                         color: c.color === "#60a5fa" ? DARK : "#fff",

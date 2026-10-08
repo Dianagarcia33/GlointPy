@@ -11,10 +11,12 @@ import {
 import { FadeUp, FadeIn, AnimatedCounter } from "../utils/animations";
 import { DARK, DARK2, GOLD, ORANGE, SERVICE_LINKS } from "../utils/constants";
 
+import { CONTACT_INFO } from "../../../constants/contactInfo";
+
 export function CTAFinal() {
   return (
     <section
-      className="py-24 relative overflow-hidden"
+      className="py-24 sm:py-28 relative overflow-hidden"
       style={{
         background: `linear-gradient(135deg, ${DARK} 0%, #162040 50%, #1a1000 100%)`,
       }}
@@ -32,28 +34,36 @@ export function CTAFinal() {
       />
 
       <FadeUp className="max-w-3xl mx-auto px-6 text-center relative z-10">
-        <h2 className="text-3xl md:text-5xl font-black text-white mb-6 leading-tight">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-6 leading-tight font-montserrat tracking-tight">
           Conoce cómo GLOINT puede impulsar tu{" "}
           <span style={{ color: GOLD }}>crecimiento</span>.
         </h2>
-        <p className="text-slate-300 text-lg mb-10">
+        <p className="text-slate-300 text-base sm:text-lg mb-10 max-w-2xl mx-auto font-normal">
           Descubre nuestras soluciones en inversión, comercio digital y tecnología empresarial.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <motion.button
-            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-            className="px-8 py-4 rounded-xl font-bold text-white text-base"
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-8 py-4 rounded-xl font-bold text-white text-base font-montserrat tracking-tight shadow-xl shadow-brand-500/25 border border-white/20 relative overflow-hidden group cursor-pointer"
             style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})` }}
+            onClick={() => window.open(CONTACT_INFO.whatsappLink, "_blank")}
           >
-            Hablar con un asesor
+            <span className="relative z-10">Hablar con un asesor</span>
+            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
           </motion.button>
           <motion.button
-            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-            className="px-8 py-4 rounded-xl font-bold text-base"
+            whileHover={{ scale: 1.03, y: -2, backgroundColor: "rgba(255,255,255,0.1)" }}
+            whileTap={{ scale: 0.98 }}
+            className="px-8 py-4 rounded-xl font-bold text-base font-montserrat tracking-tight border backdrop-blur-md transition-all cursor-pointer"
             style={{
               border: `1px solid rgba(255,255,255,0.2)`,
               color: "#fff",
               background: "rgba(255,255,255,0.06)",
+            }}
+            onClick={() => {
+              const el = document.getElementById("unidades");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
             }}
           >
             Explorar unidades de negocio

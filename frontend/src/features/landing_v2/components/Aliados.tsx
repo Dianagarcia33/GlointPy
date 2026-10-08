@@ -44,11 +44,11 @@ export function Aliados() {
               Respaldados por
             </motion.div>
 
-            <h2 className="text-2xl md:text-3xl font-black" style={{ color: DARK }}>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-black font-montserrat tracking-tight" style={{ color: DARK }}>
               Aliados <span style={{ color: ORANGE }}>Estratégicos</span>
             </h2>
 
-            <p className="text-slate-500 text-sm mt-4 max-w-lg mx-auto">
+            <p className="text-slate-600 text-sm sm:text-base mt-4 max-w-lg mx-auto font-normal">
               Construimos relaciones estratégicas con empresas que comparten
               nuestra visión de innovación y crecimiento.
             </p>
@@ -121,7 +121,7 @@ export function Aliados() {
                 >
                   <div className="text-center">
                     <motion.div
-                      className="text-xs tracking-[0.3em] font-bold"
+                      className="text-sm tracking-[0.3em] font-black font-montserrat"
                       style={{ color: GOLD }}
                       animate={{ opacity: [0.8, 1, 0.8] }}
                       transition={{ duration: 2, repeat: Infinity }}
@@ -129,7 +129,7 @@ export function Aliados() {
                       GLOINT
                     </motion.div>
 
-                    <div className="text-[9px] text-slate-400 mt-1 font-medium">
+                    <div className="text-[10px] text-slate-400 mt-1 font-bold uppercase tracking-wider font-montserrat">
                       aliados
                     </div>
                   </div>
@@ -149,24 +149,21 @@ export function Aliados() {
                 transition={{ duration: 0.5, delay: 0.2 + i * 0.08, type: "spring" }}
               >
                 <motion.div
-                  className="relative w-32 h-16 rounded-xl flex items-center justify-center font-bold text-sm cursor-pointer select-none"
+                  className="relative w-32 sm:w-36 h-16 rounded-2xl flex items-center justify-center font-extrabold text-sm cursor-pointer select-none bg-white border border-slate-200/90 shadow-2xs font-montserrat"
                   style={{ 
-                    background: "#fff", 
-                    border: `1px solid ${GOLD}40`, 
-                    color: "#64748b", 
-                    boxShadow: "0 6px 20px rgba(0,0,0,0.06)" 
+                    color: DARK, 
                   }}
-                  whileHover={{ scale: 1.08, color: DARK, borderColor: GOLD, boxShadow: `0 10px 30px ${GOLD}30` }}
+                  whileHover={{ scale: 1.08, borderColor: GOLD, boxShadow: `0 12px 30px ${GOLD}25` }}
                   transition={{ duration: 0.2 }}
                 >
-                  {item.name}
+                  <span className="relative z-10">{item.name}</span>
                 </motion.div>
               </motion.div>
             ))}
           </div>
 
           {/* MÓVIL */}
-          <div className="md:hidden grid grid-cols-2 gap-4 px-2">
+          <div className="md:hidden grid grid-cols-2 gap-3.5 px-2">
             {partners.map((partner, i) => (
               <motion.div
                 key={partner}
@@ -176,12 +173,9 @@ export function Aliados() {
                 transition={{ duration: 0.4, delay: i * 0.06 }}
               >
                 <motion.div
-                  className="relative h-16 w-full rounded-xl flex items-center justify-center font-bold text-sm"
+                  className="relative h-16 w-full rounded-2xl flex items-center justify-center font-extrabold text-sm font-montserrat bg-white border border-slate-200/90 shadow-2xs"
                   style={{ 
-                    background: "#fff", 
-                    border: `1px solid ${GOLD}35`, 
-                    color: "#64748b", 
-                    boxShadow: "0 6px 20px rgba(0,0,0,0.06)" 
+                    color: DARK, 
                   }}
                   whileTap={{ scale: 0.97 }}
                 >
@@ -202,8 +196,8 @@ export function Aliados() {
           transition={{ duration: 0.6, delay: 0.8 }}
         >
           <div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium"
-            style={{ background: "#f8fafc", border: `1px solid ${GOLD}25`, color: "#64748b" }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold font-montserrat shadow-2xs"
+            style={{ background: "#f8fafc", border: `1px solid ${GOLD}30`, color: "#64748b" }}
           >
             <motion.span
               className="w-2 h-2 rounded-full"

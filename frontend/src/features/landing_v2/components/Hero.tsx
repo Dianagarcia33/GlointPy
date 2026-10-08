@@ -201,7 +201,7 @@ export function Hero() {
 
         {/* Title */}
         <motion.h1
-          className="text-4xl md:text-6xl font-black text-white leading-tight mb-6"
+          className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-[1.14] tracking-tight mb-6 font-montserrat"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.65, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
@@ -209,7 +209,7 @@ export function Hero() {
           Impulsamos el crecimiento empresarial a través{" "}
           <motion.span
             style={{ color: GOLD }}
-            animate={{ textShadow: [`0 0 0px ${GOLD}`, `0 0 15px ${GOLD}66`, `0 0 0px ${GOLD}`] }}
+            animate={{ textShadow: [`0 0 0px ${GOLD}`, `0 0 18px ${GOLD}88`, `0 0 0px ${GOLD}`] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
             inversión
@@ -217,7 +217,7 @@ export function Hero() {
           ,{" "}
           <motion.span
             style={{ color: ORANGE }}
-            animate={{ textShadow: [`0 0 0px ${ORANGE}`, `0 0 15px ${ORANGE}66`, `0 0 0px ${ORANGE}`] }}
+            animate={{ textShadow: [`0 0 0px ${ORANGE}`, `0 0 18px ${ORANGE}88`, `0 0 0px ${ORANGE}`] }}
             transition={{ duration: 3, repeat: Infinity, delay: 1, ease: "easeInOut" }}
           >
             comercio digital
@@ -227,7 +227,7 @@ export function Hero() {
 
         {/* Description */}
         <motion.p
-          className="text-slate-300 text-lg md:text-xl leading-relaxed max-w-2xl mx-auto mb-10"
+          className="text-slate-300 text-base sm:text-lg md:text-xl leading-relaxed max-w-2xl mx-auto mb-10 font-normal"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
@@ -246,23 +246,24 @@ export function Hero() {
           transition={{ duration: 0.5, delay: 0.45 }}
         >
           <motion.button
-            whileHover={{ scale: 1.04, y: -2 }}
-            whileTap={{ scale: 0.97 }}
-            className="px-8 py-4 rounded-xl font-bold text-white text-base"
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-8 py-4 rounded-xl font-bold text-white text-base font-montserrat tracking-tight shadow-xl shadow-brand-500/25 border border-white/20 relative overflow-hidden group cursor-pointer"
             style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})` }}
             onClick={() => {
               const element = document.getElementById("unidades");
               if (element) element.scrollIntoView({ behavior: "smooth" });
             }}
           >
-            Conocer nuestras unidades
+            <span className="relative z-10">Conocer nuestras unidades</span>
+            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
           </motion.button>
 
           <motion.button
-            whileHover={{ scale: 1.04, y: -2, backgroundColor: "rgba(197,155,78,0.16)" }}
-            whileTap={{ scale: 0.97 }}
-            className="px-8 py-4 rounded-xl font-bold text-base"
-            style={{ border: `1px solid ${GOLD}`, color: GOLD, background: "rgba(197,155,78,0.08)" }}
+            whileHover={{ scale: 1.03, y: -2, backgroundColor: "rgba(197,155,78,0.14)" }}
+            whileTap={{ scale: 0.98 }}
+            className="px-8 py-4 rounded-xl font-bold text-base font-montserrat tracking-tight border backdrop-blur-md transition-all cursor-pointer"
+            style={{ border: `1px solid ${GOLD}60`, color: GOLD, background: "rgba(197,155,78,0.06)" }}
             onClick={() => window.open(whatsappLink, "_blank")}
           >
             Contactar un asesor
@@ -271,7 +272,7 @@ export function Hero() {
 
         {/* Mini stats */}
         <motion.div
-          className="mt-16 grid grid-cols-3 gap-6 max-w-lg mx-auto"
+          className="mt-14 grid grid-cols-3 gap-3 sm:gap-6 max-w-lg mx-auto p-2 sm:p-3 rounded-2xl bg-white/[0.03] backdrop-blur-md border border-white/[0.08] shadow-2xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.65 }}
@@ -283,17 +284,17 @@ export function Hero() {
           ].map(({ n, suffix, label }, index) => (
             <motion.div
               key={label}
-              className="text-center"
+              className="text-center py-2 px-1 rounded-xl hover:bg-white/[0.04] transition-colors"
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.8 + index * 0.15 }}
-              whileHover={{ y: -5, scale: 1.05 }}
+              whileHover={{ y: -2, scale: 1.02 }}
             >
-              <motion.div className="text-2xl font-black" style={{ color: GOLD }}>
+              <motion.div className="text-2xl sm:text-3xl font-black font-montserrat tracking-tight" style={{ color: GOLD }}>
                 <AnimatedCounter value={n} suffix={suffix} />
               </motion.div>
 
-              <div className="text-xs text-slate-400 mt-1">
+              <div className="text-[11px] sm:text-xs text-slate-400 font-medium mt-0.5 uppercase tracking-wider font-montserrat">
                 {label}
               </div>
             </motion.div>
@@ -307,7 +308,7 @@ export function Hero() {
           animate={{ opacity: 1 }}
           transition={{ delay: 1.3 }}
         >
-          <span className="text-[10px] uppercase tracking-[0.25em] mb-2">Explora</span>
+          <span className="text-[10px] uppercase tracking-[0.25em] mb-2 font-montserrat font-bold">Explora</span>
           <motion.div
             animate={{ y: [0, 7, 0] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
@@ -319,9 +320,9 @@ export function Hero() {
       </div>
 
       {/* Bottom wave */}
-      <div className="absolute bottom-0 left-0 right-0">
-        <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M0 60L1440 60L1440 20C1200 55 960 0 720 30C480 60 240 10 0 40L0 60Z" fill="#ffffff" />
+      <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+        <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full block">
+          <path d="M0,35 C360,65 1080,10 1440,40 L1440,60 L0,60 Z" fill="#ffffff" />
         </svg>
       </div>
     </section>

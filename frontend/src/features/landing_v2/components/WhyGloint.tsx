@@ -51,11 +51,11 @@ export function WhyGloint() {
       <div className="max-w-6xl mx-auto px-6 relative z-10">
         <FadeUp className="text-center mb-16">
           <Badge text="Nuestra Diferencia" gold />
-          <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4 font-montserrat tracking-tight leading-tight">
             ¿Por qué elegir{" "}
             <span style={{ color: ORANGE }}>GLOINT</span>?
           </h2>
-          <p className="text-slate-400 max-w-lg mx-auto">
+          <p className="text-slate-300 max-w-lg mx-auto text-base sm:text-lg font-normal">
             Descubre las razones que nos hacen únicos en el mercado financiero.
           </p>
         </FadeUp>
@@ -64,27 +64,26 @@ export function WhyGloint() {
           {reasons.map((r, i) => (
             <FadeUp key={r.title} delay={i * 0.1}>
             <motion.div
-              className="p-6 rounded-2xl relative overflow-hidden h-full"
-              style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-              }}
-              whileHover={{ y: -6, background: "rgba(255,255,255,0.07)" }}
-              transition={{ duration: 0.2 }}
+              className="p-6 sm:p-7 rounded-3xl relative overflow-hidden h-full bg-white/[0.04] backdrop-blur-xs border border-white/[0.08] transition-all group shadow-xl"
+              whileHover={{ y: -6, background: "rgba(255,255,255,0.07)", borderColor: `${GOLD}55` }}
+              transition={{ duration: 0.25 }}
             >
+              {/* Top specular highlight */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
               <div
-                className="absolute top-4 right-4 text-4xl font-black opacity-10 select-none"
+                className="absolute top-4 right-4 text-4xl font-black opacity-15 select-none font-montserrat"
                 style={{ color: GOLD }}
               >
                 {r.n}
               </div>
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 border border-amber-500/25 shadow-xs"
                 style={{ background: `${GOLD}18`, color: GOLD }}
               >
                 {r.icon}
               </div>
-              <h3 className="text-white font-bold text-base mb-2">{r.title}</h3>
+              <h3 className="text-white font-extrabold text-base sm:text-lg mb-2 font-montserrat tracking-tight leading-snug">{r.title}</h3>
               <p className="text-slate-400 text-sm leading-relaxed">{r.desc}</p>
             </motion.div>
             </FadeUp>

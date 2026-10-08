@@ -77,11 +77,12 @@ export function TechSection() {
             />
 
             <motion.div
-              className="relative rounded-2xl p-6 overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(8px)" }}
+              className="relative rounded-3xl p-6 sm:p-7 overflow-hidden border border-white/10 shadow-2xl backdrop-blur-md bg-slate-950/80"
               whileHover={{ borderColor: "rgba(96,165,250,0.35)", boxShadow: "0 20px 60px rgba(96,165,250,0.08)" }}
               transition={{ duration: 0.3 }}
             >
+              {/* Top specular highlight */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
               {/* Barra superior */}
               <motion.div
@@ -91,20 +92,20 @@ export function TechSection() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4 }}
               >
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                <div className="w-3 h-3 rounded-full bg-green-400" />
-                <div className="ml-4 text-xs text-slate-500">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400/90" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/90" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400/90" />
+                <div className="ml-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider font-montserrat">
                   GLOINT Tech — Dashboard
                 </div>
 
                 {/* Indicador online */}
                 <motion.div
-                  className="ml-auto flex items-center gap-2 text-xs text-slate-500"
-                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  className="ml-auto flex items-center gap-2 text-xs font-semibold text-emerald-400 font-montserrat px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20"
+                  animate={{ opacity: [0.7, 1, 0.7] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 >
-                  <span className="w-2 h-2 rounded-full bg-green-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                   Online
                 </motion.div>
               </motion.div>
@@ -114,18 +115,17 @@ export function TechSection() {
                 {metrics.map(({ label, val, color }, i) => (
                   <motion.div
                     key={label}
-                    className="p-3 rounded-xl relative overflow-hidden"
-                    style={{ background: "rgba(255,255,255,0.05)" }}
+                    className="p-3.5 rounded-2xl relative overflow-hidden bg-white/[0.04] border border-white/[0.07]"
                     initial={{ opacity: 0, y: 20, scale: 0.95 }}
                     whileInView={{ opacity: 1, y: 0, scale: 1 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.4, delay: 0.25 + i * 0.08 }}
                     whileHover={{ y: -3, backgroundColor: "rgba(255,255,255,0.08)" }}
                   >
-                    <div className="text-xs text-slate-500 mb-1">{label}</div>
+                    <div className="text-[11px] font-medium text-slate-400 mb-1 font-montserrat uppercase tracking-wider">{label}</div>
 
                     <motion.div
-                      className="text-lg font-black"
+                      className="text-xl font-black font-montserrat tracking-tight"
                       style={{ color }}
                       initial={{ opacity: 0, scale: 0.7 }}
                       whileInView={{ opacity: 1, scale: 1 }}
@@ -152,7 +152,7 @@ export function TechSection() {
                 {chartValues.map((h, i) => (
                   <motion.div
                     key={i}
-                    className="flex-1 rounded-t-md origin-bottom"
+                    className="flex-1 rounded-t-lg origin-bottom"
                     style={{ height: `${h}%`, background: i === 5 ? `linear-gradient(180deg, ${GOLD}, ${ORANGE})` : "rgba(255,255,255,0.1)" }}
                     initial={{ scaleY: 0 }}
                     whileInView={{ scaleY: 1 }}
@@ -168,7 +168,7 @@ export function TechSection() {
                 {["L", "M", "X", "J", "V", "S", "D"].map((d, i) => (
                   <motion.span
                     key={d}
-                    className="text-xs text-slate-500 flex-1 text-center"
+                    className="text-xs font-bold text-slate-400 flex-1 text-center font-montserrat"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
@@ -181,14 +181,14 @@ export function TechSection() {
 
               {/* Estado */}
               <motion.div
-                className="flex items-center gap-2 mt-6 text-xs text-slate-500"
+                className="flex items-center gap-2 mt-6 text-xs text-slate-400 font-medium font-montserrat"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: 1.2 }}
               >
                 <motion.span
-                  className="w-2 h-2 rounded-full bg-green-400"
+                  className="w-2 h-2 rounded-full bg-emerald-400"
                   animate={{ scale: [1, 1.4, 1], opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 2, repeat: Infinity }}
                 />
@@ -216,7 +216,7 @@ export function TechSection() {
             </motion.div>
 
             <motion.h2
-              className="text-3xl md:text-4xl font-black text-white mb-6"
+              className="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-6 font-montserrat tracking-tight leading-tight"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -234,7 +234,7 @@ export function TechSection() {
             </motion.h2>
 
             <motion.p
-              className="text-slate-400 leading-relaxed mb-8"
+              className="text-slate-300 text-base sm:text-lg leading-relaxed mb-8 font-normal"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -246,33 +246,32 @@ export function TechSection() {
             </motion.p>
 
             {/* CARDS TECH */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3.5 sm:gap-4">
               {techCards.map((c, i) => (
                 <motion.div
                   key={c.title}
-                  className="p-4 rounded-xl relative overflow-hidden cursor-default"
-                  style={{ background: "rgba(96,165,250,0.06)", border: "1px solid rgba(96,165,250,0.15)" }}
+                  className="p-4 sm:p-5 rounded-2xl relative overflow-hidden cursor-default bg-white/[0.04] border border-white/[0.08] transition-all group"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: 0.4 + i * 0.07 }}
-                  whileHover={{ y: -5, backgroundColor: "rgba(96,165,250,0.10)", borderColor: "rgba(96,165,250,0.35)", boxShadow: "0 10px 30px rgba(96,165,250,0.10)" }}
+                  whileHover={{ y: -4, backgroundColor: "rgba(96,165,250,0.08)", borderColor: "rgba(96,165,250,0.35)", boxShadow: "0 12px 30px rgba(96,165,250,0.12)" }}
                 >
 
                   <motion.div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center mb-3"
-                    style={{ background: "rgba(96,165,250,0.12)", color: "#60a5fa" }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 border border-blue-400/20 shadow-xs"
+                    style={{ background: "rgba(96,165,250,0.15)", color: "#60a5fa" }}
                     whileHover={{ scale: 1.1, rotate: 6 }}
                     transition={{ type: "spring", stiffness: 300 }}
                   >
                     {c.icon}
                   </motion.div>
 
-                  <div className="text-white font-semibold text-sm mb-1">
+                  <div className="text-white font-bold text-sm sm:text-base mb-1 font-montserrat tracking-tight leading-snug">
                     {c.title}
                   </div>
 
-                  <div className="text-slate-400 text-xs leading-relaxed">
+                  <div className="text-slate-400 text-xs sm:text-sm leading-relaxed">
                     {c.desc}
                   </div>
 
