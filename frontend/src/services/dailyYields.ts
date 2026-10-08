@@ -88,6 +88,7 @@ export interface DailyYieldMovement {
   message?: string;
   created_at?: string;
   created_at_cot?: string;
+  time_cot?: string;
 }
 
 export interface MovementsFilter {

@@ -3,7 +3,7 @@ import csv
 import json
 import re
 import traceback
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 
@@ -62,6 +62,45 @@ def safe_dict(val: Any) -> Dict[str, Any]:
         except Exception:
             return {}
     return {}
+
+
+def to_colombia_datetime(dt: Optional[datetime]) -> Optional[datetime]:
+    """
+    Convierte cualquier datetime almacenado en la base de datos (UTC)
+    a la hora local oficial de Colombia (America/Bogota, UTC-5).
+    """
+    if not dt:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(BOGOTA_TZ)
+
+
+def format_colombia_time_12h(dt: Optional[datetime]) -> str:
+    """
+    Formatea la hora en formato 12 horas legible para Colombia (ej: '12:00:15 a. m.').
+    """
+    dt_cot = to_colombia_datetime(dt)
+    if not dt_cot:
+        return "N/A"
+    hour12 = dt_cot.hour % 12 or 12
+    ampm = "a. m." if dt_cot.hour < 12 else "p. m."
+    return f"{hour12:02d}:{dt_cot.minute:02d}:{dt_cot.second:02d} {ampm}"
+
+
+def get_utc_range_for_colombia_date(date_str: str) -> Tuple[datetime, datetime]:
+    """
+    Convierte una fecha calendario de Colombia (YYYY-MM-DD) al rango correspondiente
+    en UTC para consultar en la base de datos (donde los timestamps son UTC).
+    00:00:00 COT = 05:00:00 UTC
+    23:59:59.999999 COT = 04:59:59.999999 UTC del día siguiente.
+    """
+    target_d = datetime.strptime(date_str.strip(), "%Y-%m-%d").date()
+    start_cot = datetime.combine(target_d, datetime.min.time(), tzinfo=BOGOTA_TZ)
+    end_cot = datetime.combine(target_d, datetime.max.time(), tzinfo=BOGOTA_TZ)
+    start_utc = start_cot.astimezone(timezone.utc).replace(tzinfo=None)
+    end_utc = end_cot.astimezone(timezone.utc).replace(tzinfo=None)
+    return start_utc, end_utc
 
 
 def extract_assigned_code_from_desc(desc: Optional[str]) -> Optional[str]:
@@ -165,14 +204,29 @@ async def get_daily_yield_summary(
         batch_prefix = f"YIELD_BATCH_{yesterday_cot.strftime('%Y%m%d')}_{query_date.strftime('%Y%m%d')}"
 
         # 1. Buscar si ya se ejecutó un lote para este ciclo en audit_logs
-        batch_log_query = select(AuditLog).where(
-            AuditLog.module == "audit",
-            AuditLog.action.in_(["AUTOMATIC_DAILY_YIELD_DISPERSAL", "MANUAL_BULK_YIELD_DISPERSAL"]),
-            AuditLog.status == "SUCCESS"
-        ).order_by(AuditLog.created_at.desc()).limit(30)
+        # Para evitar el error 1038 de MySQL 'Out of sort memory', seleccionamos los IDs primero
+        recent_id_query = (
+            select(AuditLog.id)
+            .where(
+                AuditLog.module == "audit",
+                AuditLog.action.in_(["AUTOMATIC_DAILY_YIELD_DISPERSAL", "MANUAL_BULK_YIELD_DISPERSAL"]),
+                AuditLog.status == "SUCCESS"
+            )
+            .order_by(AuditLog.id.desc())
+            .limit(30)
+        )
+        recent_id_res = await db.execute(recent_id_query)
+        recent_ids = [r[0] for r in recent_id_res.fetchall()]
 
-        result = await db.execute(batch_log_query)
-        recent_batches = result.scalars().all()
+        recent_batches = []
+        if recent_ids:
+            batch_log_query = (
+                select(AuditLog)
+                .where(AuditLog.id.in_(recent_ids))
+                .order_by(AuditLog.id.desc())
+            )
+            result = await db.execute(batch_log_query)
+            recent_batches = result.scalars().all()
 
         target_batch = None
         for b in recent_batches:
@@ -201,8 +255,7 @@ async def get_daily_yield_summary(
             total_users_count = safe_int(det.get("total_users_paid"))
         else:
             # Consultar en wallet_transactions (fuente contable de verdad que siempre existe)
-            day_start = datetime.combine(query_date, datetime.min.time())
-            day_end = datetime.combine(query_date, datetime.max.time())
+            start_utc, end_utc = get_utc_range_for_colombia_date(str(query_date))
 
             wt_stmt = select(
                 WalletTransaction.reference_type,
@@ -210,8 +263,8 @@ async def get_daily_yield_summary(
                 func.count(WalletTransaction.id),
                 func.count(func.distinct(WalletTransaction.wallet_id))
             ).where(
-                WalletTransaction.created_at >= day_start,
-                WalletTransaction.created_at <= day_end,
+                WalletTransaction.created_at >= start_utc,
+                WalletTransaction.created_at <= end_utc,
                 WalletTransaction.reference_type.in_(["rendimiento_inversion", "bono_aceleracion"])
             ).group_by(WalletTransaction.reference_type)
 
@@ -234,12 +287,13 @@ async def get_daily_yield_summary(
         if recent_batches:
             first_b = recent_batches[0]
             f_det = safe_dict(first_b.details)
+            dt_first_cot = to_colombia_datetime(first_b.created_at)
             last_batch_info = {
                 "batch_id": first_b.entity_id or f"BATCH-{first_b.id}",
                 "action": first_b.action,
                 "status": first_b.status or "SUCCESS",
                 "is_automatic": f_det.get("is_automatic", first_b.action == "AUTOMATIC_DAILY_YIELD_DISPERSAL"),
-                "executed_at_cot": f_det.get("executed_at_cot") or (first_b.created_at.strftime("%Y-%m-%d %H:%M:%S") if first_b.created_at else None),
+                "executed_at_cot": f_det.get("executed_at_cot") or (dt_first_cot.strftime("%Y-%m-%d %I:%M:%S %p COT") if dt_first_cot else None),
                 "global_grand_total": safe_float(f_det.get("global_grand_total") or f_det.get("total_reverted_amount")),
                 "total_users_paid": safe_int(f_det.get("total_users_paid")),
                 "cycle_start_date": f_det.get("cycle_start_date") or f_det.get("original_cycle_start"),
@@ -287,10 +341,12 @@ async def get_daily_yield_summary(
         target_batch_info = None
         if target_batch:
             t_det = safe_dict(target_batch.details)
+            dt_target_cot = to_colombia_datetime(target_batch.created_at)
             target_batch_info = {
                 "batch_id": target_batch.entity_id,
                 "status": target_batch.status or "SUCCESS",
-                "executed_at": target_batch.created_at.isoformat() if target_batch.created_at else None,
+                "executed_at": (target_batch.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")) if target_batch.created_at else None,
+                "executed_at_cot": t_det.get("executed_at_cot") or (dt_target_cot.strftime("%Y-%m-%d %I:%M:%S %p COT") if dt_target_cot else None),
                 "cycle_start_date": t_det.get("cycle_start_date"),
                 "cycle_end_date": t_det.get("cycle_end_date"),
                 "total_users_paid": safe_int(t_det.get("total_users_paid")),
@@ -372,53 +428,68 @@ async def list_daily_yield_batches(
         total_count_res = await db.execute(count_stmt)
         total_records = total_count_res.scalar() or 0
 
-        # Paginación
+        # Paginación seleccionando únicamente IDs primero para evitar el error 1038 de MySQL
+        # ('Out of sort memory') al ordenar tablas con campos JSON/TEXT voluminosos
         offset = (page - 1) * page_size
-        query = (
-            select(AuditLog)
+        id_query = (
+            select(AuditLog.id)
             .where(and_(*conditions))
-            .order_by(AuditLog.created_at.desc())
+            .order_by(AuditLog.id.desc())
             .offset(offset)
             .limit(page_size)
         )
-        result = await db.execute(query)
-        logs = result.scalars().all()
+        id_res = await db.execute(id_query)
+        batch_ids = [r[0] for r in id_res.fetchall()]
 
         items = []
-        for log in logs:
-            det = safe_dict(log.details)
-            is_rollback = (log.action == "YIELD_BATCH_ROLLBACK")
-            action_label = "Reverso de Lote" if is_rollback else (
-                "Dispersión Automática" if log.action == "AUTOMATIC_DAILY_YIELD_DISPERSAL" else "Dispersión Manual"
+        if batch_ids:
+            query = (
+                select(AuditLog)
+                .where(AuditLog.id.in_(batch_ids))
+                .order_by(AuditLog.id.desc())
             )
+            result = await db.execute(query)
+            logs = result.scalars().all()
 
-            grand_total = safe_float(det.get("global_grand_total") or det.get("total_reverted_amount"))
-            users_count = safe_int(det.get("total_users_paid"))
-            transfers_count = safe_int(det.get("total_transfers_count") or det.get("total_transfers_reverted"))
-            skipped = safe_int(det.get("skipped_count"))
-            yield_total = safe_float(det.get("global_yield_total"))
-            bonus_total = safe_float(det.get("global_acceleration_bonus_total"))
+            for log in logs:
+                det = safe_dict(log.details)
+                is_rollback = (log.action == "YIELD_BATCH_ROLLBACK")
+                action_label = "Reverso de Lote" if is_rollback else (
+                    "Dispersión Automática" if log.action == "AUTOMATIC_DAILY_YIELD_DISPERSAL" else "Dispersión Manual"
+                )
 
-            items.append({
-                "id": log.id,
-                "batch_id": log.entity_id or f"BATCH-{log.id}",
-                "action": log.action,
-                "action_label": action_label,
-                "is_automatic": det.get("is_automatic", log.action == "AUTOMATIC_DAILY_YIELD_DISPERSAL"),
-                "cycle_start_date": det.get("cycle_start_date") or det.get("original_cycle_start"),
-                "cycle_end_date": det.get("cycle_end_date") or det.get("original_cycle_end"),
-                "executed_at_cot": det.get("executed_at_cot") or (log.created_at.strftime("%Y-%m-%d %H:%M:%S") if log.created_at else None),
-                "executed_at_utc": det.get("executed_at_utc"),
-                "total_users_paid": users_count,
-                "total_transfers_count": transfers_count,
-                "skipped_count": skipped,
-                "global_grand_total": grand_total,
-                "global_yield_total": yield_total,
-                "global_acceleration_bonus_total": bonus_total,
-                "status": log.status or "SUCCESS",
-                "description": log.description or "",
-                "created_at": log.created_at.isoformat() if log.created_at else None
-            })
+                grand_total = safe_float(det.get("global_grand_total") or det.get("total_reverted_amount"))
+                users_count = safe_int(det.get("total_users_paid"))
+                transfers_count = safe_int(det.get("total_transfers_count") or det.get("total_transfers_reverted"))
+                skipped = safe_int(det.get("skipped_count"))
+                yield_total = safe_float(det.get("global_yield_total"))
+                bonus_total = safe_float(det.get("global_acceleration_bonus_total"))
+
+                dt_log_cot = to_colombia_datetime(log.created_at)
+                executed_at_cot_val = det.get("executed_at_cot") or (
+                    dt_log_cot.strftime("%Y-%m-%d %I:%M:%S %p COT") if dt_log_cot else None
+                )
+
+                items.append({
+                    "id": log.id,
+                    "batch_id": log.entity_id or f"BATCH-{log.id}",
+                    "action": log.action,
+                    "action_label": action_label,
+                    "is_automatic": det.get("is_automatic", log.action == "AUTOMATIC_DAILY_YIELD_DISPERSAL"),
+                    "cycle_start_date": det.get("cycle_start_date") or det.get("original_cycle_start"),
+                    "cycle_end_date": det.get("cycle_end_date") or det.get("original_cycle_end"),
+                    "executed_at_cot": executed_at_cot_val,
+                    "executed_at_utc": det.get("executed_at_utc") or (log.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") if log.created_at else None),
+                    "total_users_paid": users_count,
+                    "total_transfers_count": transfers_count,
+                    "skipped_count": skipped,
+                    "global_grand_total": grand_total,
+                    "global_yield_total": yield_total,
+                    "global_acceleration_bonus_total": bonus_total,
+                    "status": log.status or "SUCCESS",
+                    "description": log.description or "",
+                    "created_at": (log.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")) if log.created_at else None
+                })
 
         return {
             "items": items,
@@ -465,24 +536,22 @@ async def list_daily_yield_movements(
 
         if date:
             try:
-                target_d = datetime.strptime(date.strip(), "%Y-%m-%d").date()
-                d_start = datetime.combine(target_d, datetime.min.time())
-                d_end = datetime.combine(target_d, datetime.max.time())
-                conditions.append(WalletTransaction.created_at >= d_start)
-                conditions.append(WalletTransaction.created_at <= d_end)
+                start_utc, end_utc = get_utc_range_for_colombia_date(date)
+                conditions.append(WalletTransaction.created_at >= start_utc)
+                conditions.append(WalletTransaction.created_at <= end_utc)
             except ValueError:
                 pass
         else:
             if start_date:
                 try:
-                    s_d = datetime.strptime(start_date.strip(), "%Y-%m-%d")
-                    conditions.append(WalletTransaction.created_at >= s_d)
+                    s_utc, _ = get_utc_range_for_colombia_date(start_date)
+                    conditions.append(WalletTransaction.created_at >= s_utc)
                 except ValueError:
                     pass
             if end_date:
                 try:
-                    e_d = datetime.strptime(end_date.strip(), "%Y-%m-%d") + timedelta(days=1)
-                    conditions.append(WalletTransaction.created_at < e_d)
+                    _, e_utc = get_utc_range_for_colombia_date(end_date)
+                    conditions.append(WalletTransaction.created_at <= e_utc)
                 except ValueError:
                     pass
 
@@ -535,7 +604,7 @@ async def list_daily_yield_movements(
 
         # Paginación
         offset = (page - 1) * page_size
-        query = base_query.order_by(WalletTransaction.created_at.desc()).offset(offset).limit(page_size)
+        query = base_query.order_by(WalletTransaction.id.desc()).offset(offset).limit(page_size)
         result = await db.execute(query)
         txs = result.scalars().all()
 
@@ -588,6 +657,11 @@ async def list_daily_yield_movements(
             bal_after = safe_float(tx.balance_after)
             bal_before = (bal_after - amt) if tx.type == "ingreso" else (bal_after + amt)
 
+            dt_cot = to_colombia_datetime(tx.created_at)
+            time_cot_12h = format_colombia_time_12h(tx.created_at)
+            created_at_cot_str = dt_cot.strftime("%Y-%m-%d %H:%M:%S") if dt_cot else None
+            iso_utc = (tx.created_at.strftime("%Y-%m-%dT%H:%M:%SZ")) if tx.created_at else None
+
             items.append({
                 "id": tx.id,
                 "batch_id": "PAGO_WALLET",
@@ -605,8 +679,9 @@ async def list_daily_yield_movements(
                 "balance_after": bal_after,
                 "status": "COMPLETED",
                 "message": tx.description or "",
-                "created_at": tx.created_at.isoformat() if tx.created_at else None,
-                "created_at_cot": tx.created_at.strftime("%Y-%m-%d %H:%M:%S") if tx.created_at else None
+                "created_at": iso_utc,
+                "created_at_cot": created_at_cot_str,
+                "time_cot": time_cot_12h
             })
 
         return {
@@ -688,24 +763,22 @@ async def export_daily_yields_csv(
 
         if date:
             try:
-                target_d = datetime.strptime(date.strip(), "%Y-%m-%d").date()
-                d_start = datetime.combine(target_d, datetime.min.time())
-                d_end = datetime.combine(target_d, datetime.max.time())
-                conditions.append(WalletTransaction.created_at >= d_start)
-                conditions.append(WalletTransaction.created_at <= d_end)
+                start_utc, end_utc = get_utc_range_for_colombia_date(date)
+                conditions.append(WalletTransaction.created_at >= start_utc)
+                conditions.append(WalletTransaction.created_at <= end_utc)
             except ValueError:
                 pass
         else:
             if start_date:
                 try:
-                    s_d = datetime.strptime(start_date.strip(), "%Y-%m-%d")
-                    conditions.append(WalletTransaction.created_at >= s_d)
+                    s_utc, _ = get_utc_range_for_colombia_date(start_date)
+                    conditions.append(WalletTransaction.created_at >= s_utc)
                 except ValueError:
                     pass
             if end_date:
                 try:
-                    e_d = datetime.strptime(end_date.strip(), "%Y-%m-%d") + timedelta(days=1)
-                    conditions.append(WalletTransaction.created_at < e_d)
+                    _, e_utc = get_utc_range_for_colombia_date(end_date)
+                    conditions.append(WalletTransaction.created_at <= e_utc)
                 except ValueError:
                     pass
 
@@ -723,7 +796,7 @@ async def export_daily_yields_csv(
                 .selectinload(Investor.package)
             )
             .where(and_(*conditions))
-            .order_by(WalletTransaction.created_at.desc())
+            .order_by(WalletTransaction.id.desc())
             .limit(5000)
         )
 
@@ -797,9 +870,12 @@ async def export_daily_yields_csv(
             bal_after = safe_float(tx.balance_after)
             bal_before = (bal_after - amt) if tx.type == "ingreso" else (bal_after + amt)
 
+            dt_cot = to_colombia_datetime(tx.created_at)
+            hora_cot_str = dt_cot.strftime("%Y-%m-%d %I:%M:%S %p") if dt_cot else ""
+
             writer.writerow([
                 tx.id,
-                tx.created_at.strftime("%Y-%m-%d %H:%M:%S") if tx.created_at else "",
+                hora_cot_str,
                 w_user.name if w_user else "N/A",
                 w_user.document_id if w_user else "N/A",
                 w_user.email if w_user else "",

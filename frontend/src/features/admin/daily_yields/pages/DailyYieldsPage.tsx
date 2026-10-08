@@ -35,6 +35,33 @@ import { ConfirmationModal } from '../../../../components/common/ConfirmationMod
 import { formatCurrency, getColombiaToday } from '../../../../utils/format';
 import { Can } from '../../../../components/security/Can';
 
+// Función para formatear la hora en zona horaria oficial de Colombia (America/Bogota, UTC-5)
+const formatColombiaTime = (isoString?: string | null, fallbackCot?: string | null, timeCot?: string | null): string => {
+  if (timeCot) return timeCot;
+  if (!isoString && !fallbackCot) return 'N/A';
+  try {
+    const raw = isoString || fallbackCot || '';
+    if (fallbackCot && !isoString) {
+      const parts = fallbackCot.trim().split(' ');
+      if (parts[1]) return parts[1];
+    }
+    const dateObj = new Date(raw.endsWith('Z') || raw.includes('+') ? raw : `${raw}Z`);
+    if (isNaN(dateObj.getTime())) {
+      const match = raw.match(/(\d{2}:\d{2}:\d{2})/);
+      return match ? match[1] : raw;
+    }
+    return new Intl.DateTimeFormat('es-CO', {
+      timeZone: 'America/Bogota',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).format(dateObj);
+  } catch {
+    return 'N/A';
+  }
+};
+
 export const DailyYieldsPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(getColombiaToday());
   const [summary, setSummary] = useState<DailyYieldSummary | null>(null);
@@ -648,9 +675,12 @@ export const DailyYieldsPage: React.FC = () => {
                           )}
                         </td>
 
-                        {/* Hora */}
-                        <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px] whitespace-nowrap">
-                          {m.created_at_cot || (m.created_at ? m.created_at.split('T')[1].slice(0, 8) : 'N/A')}
+                        {/* Hora (COT) */}
+                        <td className="py-3.5 px-4 text-slate-700 font-mono text-[11px] whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-700">
+                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>{formatColombiaTime(m.created_at, m.created_at_cot, m.time_cot)}</span>
+                          </div>
                         </td>
 
                         {/* Estado */}
