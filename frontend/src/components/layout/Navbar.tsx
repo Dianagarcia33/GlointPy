@@ -126,14 +126,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   return (
     <nav className={`fixed top-0 left-0 right-0 w-full z-30 transition-all duration-300 ${
       isDashboard
-        ? 'py-3 bg-slate-900/95 shadow-sm'
+        ? 'py-2.5 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/90 shadow-sm'
         : isSolid 
-            ? 'py-3 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm' 
+            ? 'py-2.5 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-sm' 
             : 'py-5 bg-transparent'
     }`}>
       {isDashboard && (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 border-b border-slate-800">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-brand-500/8 to-transparent"></div>
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+          {/* Sutil halo ambiental de marca */}
+          <div className="absolute top-0 left-1/4 w-1/2 h-full bg-gradient-to-r from-transparent via-brand-500/[0.04] to-transparent"></div>
+          {/* Micro-línea de luz superior */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
         </div>
       )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 font-inter relative z-10">
@@ -218,26 +221,32 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
           ) : null}
 
           {/* Actions */}
-          <div className="hidden md:flex items-center space-x-4 z-20">
+          <div className="hidden md:flex items-center space-x-3 z-20">
             {isAuthenticated ? (
-              <div className="flex items-center gap-4">
-                {/* Balance */}
+              <div className="flex items-center gap-3">
+                {/* Balance Widget: Estilo Fintech de Alta Gama */}
                 {balance !== null && (
-                  <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all duration-300 ${
-                    !isDashboard && isSolid
-                      ? 'bg-slate-800 border-slate-700 text-white shadow-sm hover:bg-slate-900' 
-                      : 'bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md'
-                  }`}>
-                    <div className={`p-1.5 rounded-full ${!isDashboard && isSolid ? 'bg-brand-500/20 text-brand-400' : 'bg-brand-500/30 text-brand-300'}`}>
+                  <Link
+                    to="/dashboard/wallet"
+                    className={`group flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      !isDashboard && isSolid
+                        ? 'bg-slate-900 border-slate-700 text-white shadow-xs hover:border-brand-500/50'
+                        : 'bg-slate-900/90 border-slate-700/80 hover:border-brand-500/50 text-white shadow-inner shadow-black/20 hover:bg-slate-800/90'
+                    }`}
+                    title="Ver mi Billetera Digital"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500/20 to-amber-500/10 border border-brand-500/30 flex items-center justify-center text-brand-400 group-hover:scale-105 transition-transform">
                       <Wallet className="w-3.5 h-3.5" />
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase tracking-wider font-bold text-slate-400/80 leading-none -mb-0.5">Saldo Disponible</span>
-                      <span className="font-bold text-[13px] tracking-tight">
+                    <div className="flex flex-col text-left">
+                      <span className="text-[8.5px] uppercase tracking-wider font-extrabold text-slate-400 font-montserrat leading-tight">
+                        Saldo Disponible
+                      </span>
+                      <span className="font-extrabold text-[13px] tracking-tight font-montserrat text-white group-hover:text-brand-300 transition-colors">
                         {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(balance)}
                       </span>
                     </div>
-                  </div>
+                  </Link>
                 )}
 
                 {/* Campana de Notificaciones Push */}
@@ -248,28 +257,44 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                   <ChatQuickAccess isDark={isDashboard || !isSolid} />
                 </Can>
                 
-                {/* User Dropdown */}
+                {/* Separador sutil */}
+                <div className="h-5 w-px bg-slate-800 hidden sm:block" />
+
+                {/* User Dropdown Capsule */}
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-200 ${
-                      !isDashboard && isSolid ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/10 text-white'
+                    className={`flex items-center gap-2.5 pl-1.5 pr-2.5 py-1 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      !isDashboard && isSolid 
+                        ? 'hover:bg-slate-100 text-slate-800 border-slate-200' 
+                        : 'bg-slate-900/80 hover:bg-slate-800/90 border-slate-700/80 text-white hover:border-slate-600'
                     }`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      !isDashboard && isSolid ? 'bg-brand-500 text-white' : 'bg-brand-500 text-white'
-                    }`}>
-                      {user?.name.charAt(0).toUpperCase()}
+                    <div className="relative">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-amber-600 text-white flex items-center justify-center font-extrabold text-xs shadow-xs font-montserrat">
+                        {user?.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900 absolute -bottom-0.5 -right-0.5" />
                     </div>
-                    <span className="font-semibold text-sm max-w-[120px] truncate">{user?.name}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                    <div className="flex flex-col text-left max-w-[110px] sm:max-w-[140px]">
+                      <span className="font-bold text-xs truncate leading-tight">{user?.name}</span>
+                      <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">
+                        {user?.is_superuser ? 'Super Admin' : (user?.roles?.[0]?.name || 'Inversionista')}
+                      </span>
+                    </div>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180 text-brand-400' : ''}`} />
                   </button>
 
                   {userMenuOpen && (
-                    <div className="absolute top-full right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="p-3 border-b border-slate-100 bg-slate-50/50">
-                        <p className="text-xs font-bold text-slate-900 truncate">{user?.name}</p>
-                        <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+                    <div className="absolute top-full right-0 mt-2.5 w-76 bg-white border border-slate-200/90 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="p-3.5 border-b border-slate-100 bg-slate-50/80 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-amber-600 text-white flex items-center justify-center font-extrabold text-sm shadow-xs font-montserrat shrink-0">
+                          {user?.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-extrabold text-slate-900 truncate font-montserrat">{user?.name}</p>
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">{user?.email}</p>
+                        </div>
                       </div>
 
                       {/* Modo Supervisión Parental Activo */}
@@ -324,11 +349,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                         </div>
                       )}
 
-                      <div className="p-1.5 space-y-1">
+                      <div className="p-2 space-y-1">
                         {!isDashboard && (
                           <Link
                             to="/dashboard"
-                            className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
                             onClick={() => setUserMenuOpen(false)}
                           >
                             <Activity className="w-4 h-4 text-brand-500" />
@@ -337,7 +362,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                         )}
                         <Link
                           to="/dashboard/profile"
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors"
                           onClick={() => setUserMenuOpen(false)}
                         >
                           <UserIcon className="w-4 h-4 text-brand-500" />
@@ -348,7 +373,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                             setUserMenuOpen(false);
                             logout();
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-semibold text-xs transition-colors text-left cursor-pointer"
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-rose-50 text-rose-600 font-semibold text-xs transition-colors text-left cursor-pointer"
                         >
                           <LogOut className="w-4 h-4" />
                           Cerrar sesión
