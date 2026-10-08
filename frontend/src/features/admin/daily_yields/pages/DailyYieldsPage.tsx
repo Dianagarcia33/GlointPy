@@ -541,7 +541,7 @@ export const DailyYieldsPage: React.FC = () => {
                 <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 uppercase font-montserrat text-[10.5px] font-extrabold tracking-wider">
                   <tr>
                     <th className="py-3.5 px-4">Beneficiario / Usuario</th>
-                    <th className="py-3.5 px-4">Inversión / Paquete</th>
+                    <th className="py-3.5 px-4">Código Inversión / Paquete</th>
                     <th className="py-3.5 px-4">Concepto</th>
                     <th className="py-3.5 px-4 text-right">Monto Pagado</th>
                     <th className="py-3.5 px-4 text-right">Saldo Billetera</th>
@@ -593,10 +593,14 @@ export const DailyYieldsPage: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* Inversión */}
+                        {/* Código Inversión (tabla investors) */}
                         <td className="py-3.5 px-4">
-                          <div className="font-mono font-bold text-slate-800">{m.assigned_code}</div>
-                          <div className="text-[11px] text-slate-400">{m.package_name}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 bg-slate-100 border border-slate-200/80 rounded-md text-[11px] font-mono font-extrabold text-slate-800">
+                              {m.assigned_code}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">{m.package_name}</div>
                         </td>
 
                         {/* Concepto / Tipo */}
