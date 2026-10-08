@@ -19,6 +19,7 @@ from src.models.investment_request import InvestmentRequest, InvestmentRequestSt
 from src.models.wallet_recharge import WalletRecharge
 from src.models.data_bank import DataBank
 from src.models.wallet import Wallet, WalletTransaction
+from src.models.credit import Credit
 from src.services.company_wallet_service import CompanyWalletService
 
 logger = logging.getLogger(__name__)
@@ -368,6 +369,110 @@ class YointService:
             dispersion.status = "FAILED"
             dispersion.error_message = f"Error de conexión con Yoint: {str(e)}"
             logger.error(f"Excepción al llamar a Yoint para Retiro #{withdrawal.id}: {str(e)}")
+
+        await db.commit()
+        return dispersion
+
+    @classmethod
+    async def send_credit_dispersion(
+        cls, 
+        db: AsyncSession, 
+        credit: Credit, 
+        user: User
+    ) -> YointDispersion:
+        """
+        Envía la dispersión del desembolso de un crédito a la API de Yoint
+        hacia la cuenta bancaria registrada por el cliente.
+        """
+        idempotency_key = f"gloint-cred-{credit.id}-{int(datetime.utcnow().timestamp())}"
+        payment_ref = f"CRED-{credit.id}"[:20]
+        net_amount = Decimal(str(credit.approved_amount or credit.requested_amount))
+        tax_amount = Decimal("0.00")
+
+        bank_code, bank_name = await cls.resolve_bank_entity(db, credit.banco)
+        account_type = cls._normalize_account_type(credit.tipo_cuenta)
+        doc_type, doc_num = cls._clean_document(user.document_id)
+        phone = cls._clean_phone(user.phone_number)
+
+        payload = {
+            "financial_entity_id": bank_code,
+            "account_number": str(credit.numero_cuenta or ""),
+            "account_type": account_type,
+            "amount": float(net_amount),
+            "currency": "COP",
+            "concept": f"Desembolso Credito #{credit.id} Gloint",
+            "payment_reference": payment_ref,
+            "beneficiary": {
+                "name": user.name,
+                "identification_type": doc_type,
+                "identification_number": doc_num,
+                "email": user.email,
+                "phone": phone
+            }
+        }
+
+        # Crear registro de dispersión
+        dispersion = YointDispersion(
+            credit_id=credit.id,
+            idempotency_key=idempotency_key,
+            payment_reference=payment_ref,
+            status="PENDING",
+            amount=net_amount,
+            tax_amount=tax_amount,
+            financial_entity_id=bank_code,
+            financial_entity_name=bank_name,
+            account_number=str(credit.numero_cuenta or ""),
+            account_type=account_type,
+            recipient_name=user.name,
+            recipient_document=f"{doc_type} {doc_num}",
+            recipient_email=user.email,
+            recipient_phone=phone,
+            request_payload=payload
+        )
+        db.add(dispersion)
+        await db.flush()
+
+        # Si las credenciales no están configuradas aún, se deja en cola de forma segura
+        if not settings.YOINT_API_KEY and not (settings.YOINT_CLIENT_ID and settings.YOINT_CLIENT_SECRET):
+            dispersion.status = "QUEUED_PENDING_CONFIG"
+            dispersion.error_message = "Credenciales de Yoint (client_id y client_secret) pendientes de configurar en backend/.env"
+            logger.warning(f"Yoint API credentials no configuradas. Crédito #{credit.id} encolado para dispersión.")
+            credit.disbursement_reference = payment_ref
+            await db.commit()
+            return dispersion
+
+        # Realizar la petición HTTP a Yoint v2
+        endpoint = f"{settings.YOINT_API_URL.rstrip('/')}/api/payments/v2/dispersions"
+        headers = await cls._get_headers(idempotency_key)
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                logger.info(f"Enviando dispersión Yoint para Crédito #{credit.id} a {endpoint}")
+                response = await client.post(endpoint, json=payload, headers=headers)
+                status_code = response.status_code
+                
+                try:
+                    res_json = response.json()
+                except Exception:
+                    res_json = {"raw_text": response.text}
+
+                dispersion.response_payload = res_json
+
+                if 200 <= status_code < 300:
+                    order_id_val = cls._extract_order_id(res_json) or ""
+                    dispersion.order_id = order_id_val
+                    dispersion.status = "PROCESSING"
+                    credit.disbursement_reference = f"YOINT-ORDER-{order_id_val}" if order_id_val else f"YOINT-REF-{payment_ref}"
+                    logger.info(f"Dispersión Yoint exitosa para Crédito #{credit.id}. OrderId: {order_id_val or payment_ref}")
+                else:
+                    dispersion.status = "FAILED"
+                    dispersion.error_message = f"HTTP {status_code}: {res_json}"
+                    logger.error(f"Fallo al dispersar en Yoint para Crédito #{credit.id}: {res_json}")
+
+        except Exception as e:
+            dispersion.status = "FAILED"
+            dispersion.error_message = f"Error de conexión con Yoint: {str(e)}"
+            logger.error(f"Excepción al llamar a Yoint para Crédito #{credit.id}: {str(e)}")
 
         await db.commit()
         return dispersion

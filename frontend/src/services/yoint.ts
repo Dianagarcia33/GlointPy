@@ -6,7 +6,7 @@ export interface YointBank {
 }
 
 export interface InitPayinPayload {
-  payin_type: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST';
+  payin_type: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST' | 'CREDIT_INSTALLMENT';
   amount: number;
   payment_method: 'NEQUI' | 'BOTON_BANCOLOMBIA' | 'PSE';
   investment_request_id?: number;

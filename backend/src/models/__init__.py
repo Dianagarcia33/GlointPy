@@ -35,4 +35,4 @@ from src.models.yoint_dispersion import YointDispersion
 from src.models.yoint_payin import YointPayin
 from src.models.company_tax_ledger import CompanyTaxLedger
 from src.models.inventory import InventoryCategory, InventoryItem, InventoryMovement
-
+from src.models.credit import Credit, CreditInstallment, CreditConfig

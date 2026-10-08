@@ -258,6 +258,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     </NavLink>
                                 </Can>
 
+                                <Can permissions={["credits:view", "credits:request", "wallets:view"]}>
+                                    <NavLink to="/dashboard/credits" className={navLinkClass}>
+                                        {({ isActive }) => (
+                                            <>
+                                                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                    isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                }`}>
+                                                    <CreditCard className="w-4 h-4" />
+                                                </span>
+                                                <span className="flex-1 text-[13px] font-outfit truncate">Línea de Crédito</span>
+                                                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                            </>
+                                        )}
+                                    </NavLink>
+                                </Can>
+
                                 {!isAdmin && (
                                     <>
                                         <Can permission="beneficiaries:view">
@@ -477,6 +493,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                         <ArrowDownToLine className="w-4 h-4" />
                                                     </span>
                                                     <span className="flex-1 text-[13px] font-outfit truncate">Gestión de Pagos</span>
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["admin.credits.manage", "credits:manage"]}>
+                                        <NavLink to="/dashboard/admin-credits" className={navLinkClass}>
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                    }`}>
+                                                        <CreditCard className="w-4 h-4" />
+                                                    </span>
+                                                    <span className="flex-1 text-[13px] font-outfit truncate">Gestión de Créditos</span>
                                                     {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
                                                 </>
                                             )}

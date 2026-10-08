@@ -52,6 +52,8 @@ import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
 import { RoomsPage } from "./features/rooms/pages/RoomsPage";
 import { InventoryPage } from "./features/inventory/pages/InventoryPage";
+import { CreditsPage } from "./features/credits/pages/CreditsPage";
+import { AdminCreditsPage } from "./features/admin/credits/pages/AdminCreditsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -177,9 +179,12 @@ function App() {
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
         <Route path="rooms" element={<RequirePermission permissions={["rooms:view", "rooms:reserve", "admin.rooms.manage"]}><RoomsPage /></RequirePermission>} />
         <Route path="inventory" element={<RequirePermission permissions={["inventory:view", "inventory.view"]}><InventoryPage /></RequirePermission>} />
+        <Route path="credits" element={<RequirePermission permissions={["credits:view", "credits:request", "dashboard:view_investments", "wallets:view"]}><CreditsPage /></RequirePermission>} />
+        <Route path="admin-credits" element={<RequirePermission permissions={["admin.credits.manage", "credits:manage"]}><AdminCreditsPage /></RequirePermission>} />
         {/* Alias de compatibilidad documentados en Módulos 12 y 13 */}
         <Route path="admin/investors" element={<Navigate to="/dashboard/investors" replace />} />
         <Route path="admin/rankings" element={<Navigate to="/dashboard/rankings" replace />} />
+        <Route path="admin/credits" element={<Navigate to="/dashboard/admin-credits" replace />} />
       </Route>
 
 

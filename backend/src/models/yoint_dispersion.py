@@ -7,7 +7,8 @@ class YointDispersion(Base):
     __tablename__ = "yoint_dispersions"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    withdrawal_id = Column(BigInteger, ForeignKey("withdrawals.id", ondelete="CASCADE"), nullable=False, index=True)
+    withdrawal_id = Column(BigInteger, ForeignKey("withdrawals.id", ondelete="CASCADE"), nullable=True, index=True)
+    credit_id = Column(BigInteger, ForeignKey("credits.id", ondelete="CASCADE"), nullable=True, index=True)
     
     # Yoint Reference Identifiers
     order_id = Column(String(100), nullable=True, index=True)
@@ -42,3 +43,4 @@ class YointDispersion(Base):
 
     # Relationships
     withdrawal = relationship("Withdrawal", back_populates="yoint_dispersions")
+    credit = relationship("Credit", back_populates="yoint_dispersions")

@@ -16,7 +16,7 @@ import { formatCurrency } from '../../utils/format';
 
 interface YointPaymentWidgetProps {
   amount: number;
-  payinType: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST';
+  payinType: 'WALLET_TOPUP' | 'INVESTMENT_REQUEST' | 'CREDIT_INSTALLMENT';
   investmentRequestId?: number;
   onRequestCreate?: () => Promise<number>;
   userPhone?: string;

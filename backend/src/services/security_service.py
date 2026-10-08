@@ -238,6 +238,12 @@ class SecurityService:
             {"name": "inventory:dispatch", "description": "Registrar salidas y consumo interno de insumos de oficina (Gasto de negocio)", "module": "Inventario"},
             {"name": "inventory:adjust", "description": "Realizar ajustes de stock por auditoría o conteo físico", "module": "Inventario"},
             {"name": "inventory:kardex", "description": "Visualizar la bitácora completa de movimientos detallados (Kardex)", "module": "Inventario"},
+
+            # Módulo Créditos Fintech
+            {"name": "credits:view", "description": "Acceso a la línea de crédito y consulta de cuotas propias", "module": "Créditos"},
+            {"name": "credits:request", "description": "Solicitar nueva línea de crédito a la plataforma", "module": "Créditos"},
+            {"name": "credits:pay", "description": "Pagar o abonar a cuotas de créditos activos", "module": "Créditos"},
+            {"name": "admin:credits:manage", "description": "Aprobar, parametrizar, desembolsar vía Yoint y auditar créditos", "module": "Créditos"},
         ]
 
         # 0. Migración in-place de permisos con separador punto (.) o formato legado a dos puntos (:)
@@ -306,13 +312,15 @@ class SecurityService:
                 "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
                 "wallets:view", "wallets:view_balance", "wallets:view_history", "wallets:request_withdrawal", "wallets:new_investment",
                 "bank_accounts:manage", "beneficiaries:view", "referrals:view", "shares:access",
-                "chat:view", "chat:send"
+                "chat:view", "chat:send",
+                "credits:view", "credits:request", "credits:pay"
             ],
             "cliente": [
                 "dashboard:view_kpis", "dashboard:view_quick_actions", "dashboard:view_investments", "dashboard:view_requests",
                 "wallets:view", "wallets:view_balance", "wallets:view_history", "wallets:request_withdrawal", "wallets:new_investment",
                 "bank_accounts:manage", "beneficiaries:view", "referrals:view", "shares:access",
-                "chat:view", "chat:send"
+                "chat:view", "chat:send",
+                "credits:view", "credits:request", "credits:pay"
             ],
             "directivo_de_inversiones": [
                 "commercial:view", "director:dashboard:view", "referrals:view", "admin:referrals:manage",
