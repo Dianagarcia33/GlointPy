@@ -111,10 +111,10 @@ export const CreditConfigModal: React.FC<CreditConfigModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col">
+      <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center shadow-xs">
               <Percent className="w-5 h-5 text-amber-600" />
@@ -130,14 +130,14 @@ export const CreditConfigModal: React.FC<CreditConfigModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-5">
+        {/* Content con scroll */}
+        <div className="p-6 overflow-y-auto space-y-5 flex-1">
 
           {error && (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex items-center gap-2.5">
