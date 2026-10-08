@@ -13,6 +13,9 @@ from typing import Dict, Any, Optional
 
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
 from src.models.user import User
+from src.models.investor import Investor
+from src.models.package import Package
+from src.models.period import Period
 
 logger = logging.getLogger(__name__)
 
@@ -278,8 +281,6 @@ class InvestmentRequestService:
     @staticmethod
     async def approve_request(db: AsyncSession, request_id: int, user_id: int, override_commercial_id: Optional[int] = None) -> InvestmentRequest:
         import random
-        from src.models.investor import Investor
-        from src.models.period import Period
         from src.models.acceleration import Acceleration
         from sqlalchemy.orm import selectinload
         from fastapi import HTTPException
@@ -434,7 +435,6 @@ class InvestmentRequestService:
             db.add(history)
 
             # 4. Actualizar contrato existente
-            from src.models.package import Package
             from src.services.share_market_service import ShareMarketService
             prev_pkg_shares = 0
             if existing_investor.package_id:
@@ -499,7 +499,6 @@ class InvestmentRequestService:
                 await db.flush()
 
             # Acreditar acciones otorgadas por el paquete de inversión si aplica
-            from src.models.package import Package
             from src.services.share_market_service import ShareMarketService
             pkg_res = await db.execute(select(Package).where(Package.id == req.paquete_inversion_id))
             pkg = pkg_res.scalar_one_or_none()

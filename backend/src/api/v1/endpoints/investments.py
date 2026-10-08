@@ -13,6 +13,8 @@ from src.core.database import get_db
 from src.api.deps import get_current_user, RequirePermission
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
 from sqlalchemy import or_, and_, func, desc
+from src.models.user import User
+from src.models.period import Period
 from src.models.contract_history import ContractHistory
 from src.models.investor import Investor
 from src.models.package import Package
@@ -415,13 +417,9 @@ async def create_investment_request(
 
         if target_user and target_user.email:
             pkg_name = f"Paquete ${monto:,.0f} COP"
-            from src.models.package import Package
-            pkg_res = await db.execute(select(Package).where(Package.id == paquete_inversion_id))
-            pkg_obj = pkg_res.scalar_one_or_none()
-            if pkg_obj:
-                pkg_name = getattr(pkg_obj, 'name', None) or f"Paquete ${float(pkg_obj.value or monto):,.0f} COP"
+            if 'target_pkg' in locals() and target_pkg:
+                pkg_name = getattr(target_pkg, 'name', None) or f"Paquete ${float(target_pkg.value or monto):,.0f} COP"
 
-            from src.models.period import Period
             period_str = f"{periodo_contrato} meses"
             p_res = await db.execute(select(Period).where(Period.id == periodo_contrato))
             p_obj = p_res.scalar_one_or_none()
