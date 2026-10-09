@@ -38,7 +38,7 @@ async def background_yoint_sync_worker():
                     # 1. Buscar dispersiones activas o retiros en estado 'procesado'
                     q_disp = (
                         select(YointDispersion)
-                        .join(Withdrawal, YointDispersion.withdrawal_id == Withdrawal.id)
+                        .outerjoin(Withdrawal, YointDispersion.withdrawal_id == Withdrawal.id)
                         .where(
                             or_(
                                 YointDispersion.order_id.isnot(None),

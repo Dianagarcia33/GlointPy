@@ -226,8 +226,7 @@ class YointService:
                 "type": account_type,
                 "number": str(withdrawal.numero_cuenta or "").strip(),
                 "financialEntity": {
-                    "id": bank_code,
-                    "name": bank_name
+                    "id": str(bank_code)
                 }
             },
             "name": str(user.name or "Inversionista Gloint")[:100],
@@ -395,20 +394,24 @@ class YointService:
         phone = cls._clean_phone(user.phone_number)
 
         payload = {
-            "financial_entity_id": bank_code,
-            "account_number": str(credit.numero_cuenta or ""),
-            "account_type": account_type,
-            "amount": float(net_amount),
-            "currency": "COP",
-            "concept": f"Desembolso Credito #{credit.id} Gloint",
-            "payment_reference": payment_ref,
-            "beneficiary": {
-                "name": user.name,
-                "identification_type": doc_type,
-                "identification_number": doc_num,
-                "email": user.email,
-                "phone": phone
-            }
+            "dispersions": [
+                {
+                    "bankAccount": {
+                        "type": account_type,
+                        "number": str(credit.numero_cuenta or "").strip(),
+                        "financialEntity": {
+                            "id": str(bank_code)
+                        }
+                    },
+                    "name": str(user.name or "Beneficiario Credito Gloint")[:100],
+                    "documentType": doc_type,
+                    "documentNumber": doc_num,
+                    "amount": float(net_amount),
+                    "paymentReference": payment_ref,
+                    "phoneNumber": phone,
+                    "email": str(user.email or "notificaciones@gloint.com.co")
+                }
+            ]
         }
 
         # Crear registro de dispersión
@@ -532,8 +535,15 @@ class YointService:
                 conditions.append(YointDispersion.withdrawal_id == w_id)
             except Exception:
                 pass
+        elif clean_id.upper().startswith("CRED-"):
+            try:
+                c_id = int(clean_id.upper().replace("CRED-", ""))
+                conditions.append(YointDispersion.credit_id == c_id)
+            except Exception:
+                pass
         elif clean_id.isdigit():
             conditions.append(YointDispersion.withdrawal_id == int(clean_id))
+            conditions.append(YointDispersion.credit_id == int(clean_id))
 
         q = select(YointDispersion).where(or_(*conditions)).order_by(YointDispersion.id.desc())
         res = await db.execute(q)
@@ -549,16 +559,6 @@ class YointService:
 
         status_upper = new_status.upper().strip()
 
-        # Buscar el retiro
-        w_res = await db.execute(
-            select(Withdrawal)
-            .options(selectinload(Withdrawal.user))
-            .where(Withdrawal.id == dispersion.withdrawal_id)
-        )
-        withdrawal = w_res.scalars().first()
-        if not withdrawal:
-            return False
-
         # Clasificación de estado con tolerancia a variantes de Yoint (ej: 'SUCCESS', 'Exitoso', 'No Exitoso', 'Aprobada')
         is_success = (
             any(ok_word in status_upper for ok_word in [
@@ -573,92 +573,159 @@ class YointService:
             ])
         )
 
-        # 1. Casos de ÉXITO / APROBADO (ej. 'Exitoso', 'Aprobada', 'Transferred')
-        if is_success:
-            dispersion.status = "APPROVED"
-            withdrawal.estado = WithdrawalStatus.APPROVED
-            withdrawal.fecha_aprobacion = datetime.utcnow()
-            withdrawal.comprobante_pago = f"YOINT-PAID-{dispersion.order_id or clean_id}"
-            
-            # Notificar al usuario
-            try:
-                from src.services.push_notification_service import PushNotificationService
-                formatted_amount = f"${float(withdrawal.monto_neto):,.0f}" if withdrawal.monto_neto else "$0"
-                if withdrawal.origen == "investment_capital":
-                    notif_title = "¡Pago de Retiro de Capital Exitoso!"
-                    notif_msg = f"Tu retiro de capital #{withdrawal.id} por {formatted_amount} COP ha sido pagado y transferido exitosamente a tu cuenta bancaria."
-                    notif_link = f"/dashboard/investments/{withdrawal.investor_id}"
-                else:
-                    notif_title = "¡Pago de Retiro Exitoso!"
-                    notif_msg = f"Tu retiro #{withdrawal.id} por {formatted_amount} COP ha sido pagado y acreditado a tu cuenta bancaria."
-                    notif_link = "/dashboard/wallet"
+        # ----------------------------------------------------
+        # CASO A: Dispersión asociada a un Retiro de Usuario
+        # ----------------------------------------------------
+        if dispersion.withdrawal_id:
+            w_res = await db.execute(
+                select(Withdrawal)
+                .options(selectinload(Withdrawal.user))
+                .where(Withdrawal.id == dispersion.withdrawal_id)
+            )
+            withdrawal = w_res.scalars().first()
+            if not withdrawal:
+                return False
 
-                await PushNotificationService.create_and_send_notification(
-                    db=db,
-                    user_id=withdrawal.user_id,
-                    title=notif_title,
-                    message=notif_msg,
-                    type="retiro",
-                    link=notif_link
-                )
-            except Exception as e:
-                logger.warning(f"Error notificando aprobación Yoint retiro #{withdrawal.id}: {e}")
+            if is_success:
+                dispersion.status = "APPROVED"
+                withdrawal.estado = WithdrawalStatus.APPROVED
+                withdrawal.fecha_aprobacion = datetime.utcnow()
+                withdrawal.comprobante_pago = f"YOINT-PAID-{dispersion.order_id or clean_id}"
+                
+                # Notificar al usuario
+                try:
+                    from src.services.push_notification_service import PushNotificationService
+                    formatted_amount = f"${float(withdrawal.monto_neto):,.0f}" if withdrawal.monto_neto else "$0"
+                    if withdrawal.origen == "investment_capital":
+                        notif_title = "¡Pago de Retiro de Capital Exitoso!"
+                        notif_msg = f"Tu retiro de capital #{withdrawal.id} por {formatted_amount} COP ha sido pagado y transferido exitosamente a tu cuenta bancaria."
+                        notif_link = f"/dashboard/investments/{withdrawal.investor_id}"
+                    else:
+                        notif_title = "¡Pago de Retiro Exitoso!"
+                        notif_msg = f"Tu retiro #{withdrawal.id} por {formatted_amount} COP ha sido pagado y acreditado a tu cuenta bancaria."
+                        notif_link = "/dashboard/wallet"
 
-            logger.info(f"Retiro #{withdrawal.id} (Yoint {clean_id}) completado y APROBADO.")
-
-        # 2. Casos de RECHAZO O FALLO (ej. 'No Exitoso', 'Rechazado', 'Failed')
-        elif is_failed:
-            dispersion.status = "REJECTED"
-            motivo = (payload.get("message") if isinstance(payload, dict) else None) or (payload.get("error") if isinstance(payload, dict) else None) or "Dispersión no exitosa reportada por el banco"
-            dispersion.error_message = str(motivo)
-
-            withdrawal.estado = WithdrawalStatus.REJECTED
-            withdrawal.motivo_rechazo = str(motivo)
-
-            # Revertir fondos a la wallet del usuario SOLO si proviene de wallet (en capital el saldo se restaura automáticamente en la inversión)
-            if withdrawal.origen != "investment_capital":
-                user_wallet_res = await db.execute(
-                    select(Wallet).where(Wallet.user_id == withdrawal.user_id)
-                )
-                user_wallet = user_wallet_res.scalars().first()
-                if user_wallet:
-                    user_wallet.balance += withdrawal.monto
-                    tx = WalletTransaction(
-                        wallet_id=user_wallet.id,
-                        amount=withdrawal.monto,
-                        type="withdrawal_rejection",
-                        description=f"Devolución por rechazo bancario #{order_id}: {motivo}",
-                        balance_after=user_wallet.balance,
-                        reference_type="withdrawal",
-                        reference_id=withdrawal.id
+                    await PushNotificationService.create_and_send_notification(
+                        db=db,
+                        user_id=withdrawal.user_id,
+                        title=notif_title,
+                        message=notif_msg,
+                        type="retiro",
+                        link=notif_link
                     )
-                    db.add(tx)
+                except Exception as e:
+                    logger.warning(f"Error notificando aprobación Yoint retiro #{withdrawal.id}: {e}")
 
-            # Revertir el 3.2% de retención de la Billetera Corporativa
-            await CompanyWalletService.refund_tax_retention(db, withdrawal)
+                logger.info(f"Retiro #{withdrawal.id} (Yoint {clean_id}) completado y APROBADO.")
 
-            # Notificar al usuario
-            try:
-                from src.services.push_notification_service import PushNotificationService
-                if withdrawal.origen == "investment_capital":
-                    notif_msg = f"Tu solicitud de retiro de capital #{withdrawal.id} no pudo ser completada por el banco ({motivo}). El capital liberado ha sido restituido en tu contrato de inversión."
-                    notif_link = f"/dashboard/investments/{withdrawal.investor_id}"
-                else:
-                    notif_msg = f"Tu solicitud de retiro #{withdrawal.id} no pudo ser completada por el banco ({motivo}). Los fondos han sido reintegrados a tu saldo."
-                    notif_link = "/dashboard/wallet"
+            elif is_failed:
+                dispersion.status = "REJECTED"
+                motivo = (payload.get("message") if isinstance(payload, dict) else None) or (payload.get("error") if isinstance(payload, dict) else None) or "Dispersión no exitosa reportada por el banco"
+                dispersion.error_message = str(motivo)
 
-                await PushNotificationService.create_and_send_notification(
-                    db=db,
-                    user_id=withdrawal.user_id,
-                    title="Aviso sobre tu Retiro",
-                    message=notif_msg,
-                    type="retiro",
-                    link=notif_link
-                )
-            except Exception as e:
-                logger.warning(f"Error notificando rechazo Yoint retiro #{withdrawal.id}: {e}")
+                withdrawal.estado = WithdrawalStatus.REJECTED
+                withdrawal.motivo_rechazo = str(motivo)
 
-            logger.warning(f"Retiro #{withdrawal.id} (Yoint {clean_id}) RECHAZADO.")
+                # Revertir fondos a la wallet del usuario SOLO si proviene de wallet (en capital el saldo se restaura automáticamente en la inversión)
+                if withdrawal.origen != "investment_capital":
+                    user_wallet_res = await db.execute(
+                        select(Wallet).where(Wallet.user_id == withdrawal.user_id)
+                    )
+                    user_wallet = user_wallet_res.scalars().first()
+                    if user_wallet:
+                        user_wallet.balance += withdrawal.monto
+                        tx = WalletTransaction(
+                            wallet_id=user_wallet.id,
+                            amount=withdrawal.monto,
+                            type="withdrawal_rejection",
+                            description=f"Devolución por rechazo bancario #{order_id}: {motivo}",
+                            balance_after=user_wallet.balance,
+                            reference_type="withdrawal",
+                            reference_id=withdrawal.id
+                        )
+                        db.add(tx)
+
+                # Revertir el 3.2% de retención de la Billetera Corporativa
+                await CompanyWalletService.refund_tax_retention(db, withdrawal)
+
+                # Notificar al usuario
+                try:
+                    from src.services.push_notification_service import PushNotificationService
+                    if withdrawal.origen == "investment_capital":
+                        notif_msg = f"Tu solicitud de retiro de capital #{withdrawal.id} no pudo ser completada por el banco ({motivo}). El capital liberado ha sido restituido en tu contrato de inversión."
+                        notif_link = f"/dashboard/investments/{withdrawal.investor_id}"
+                    else:
+                        notif_msg = f"Tu solicitud de retiro #{withdrawal.id} no pudo ser completada por el banco ({motivo}). Los fondos han sido reintegrados a tu saldo."
+                        notif_link = "/dashboard/wallet"
+
+                    await PushNotificationService.create_and_send_notification(
+                        db=db,
+                        user_id=withdrawal.user_id,
+                        title="Aviso sobre tu Retiro",
+                        message=notif_msg,
+                        type="retiro",
+                        link=notif_link
+                    )
+                except Exception as e:
+                    logger.warning(f"Error notificando rechazo Yoint retiro #{withdrawal.id}: {e}")
+
+                logger.warning(f"Retiro #{withdrawal.id} (Yoint {clean_id}) RECHAZADO.")
+
+        # ----------------------------------------------------
+        # CASO B: Dispersión asociada a Desembolso de Crédito
+        # ----------------------------------------------------
+        elif dispersion.credit_id:
+            c_res = await db.execute(
+                select(Credit)
+                .options(selectinload(Credit.user))
+                .where(Credit.id == dispersion.credit_id)
+            )
+            credit = c_res.scalars().first()
+            if not credit:
+                return False
+
+            if is_success:
+                dispersion.status = "APPROVED"
+                credit.status = "ACTIVE"
+                credit.disbursed_at = datetime.utcnow()
+                credit.disbursement_reference = f"YOINT-PAID-{dispersion.order_id or clean_id}"
+
+                try:
+                    from src.services.push_notification_service import PushNotificationService
+                    formatted_amount = f"${float(credit.approved_amount or credit.requested_amount):,.0f}"
+                    await PushNotificationService.create_and_send_notification(
+                        db=db,
+                        user_id=credit.user_id,
+                        title="¡Desembolso de Crédito Exitoso!",
+                        message=f"Tu crédito #{credit.id} por {formatted_amount} COP ha sido desembolsado exitosamente a tu cuenta bancaria.",
+                        type="credito",
+                        link="/dashboard/credits"
+                    )
+                except Exception as e:
+                    logger.warning(f"Error notificando desembolso Yoint crédito #{credit.id}: {e}")
+
+                logger.info(f"Crédito #{credit.id} (Yoint {clean_id}) desembolsado y APROBADO.")
+
+            elif is_failed:
+                dispersion.status = "REJECTED"
+                motivo = (payload.get("message") if isinstance(payload, dict) else None) or (payload.get("error") if isinstance(payload, dict) else None) or "Dispersión no exitosa reportada por el banco"
+                dispersion.error_message = str(motivo)
+                credit.admin_notes = f"Fallo desembolso Yoint: {motivo}"
+
+                try:
+                    from src.services.push_notification_service import PushNotificationService
+                    await PushNotificationService.create_and_send_notification(
+                        db=db,
+                        user_id=credit.user_id,
+                        title="Aviso sobre Desembolso de Crédito",
+                        message=f"Hubo un inconveniente con el desembolso bancario de tu crédito #{credit.id} ({motivo}). Nuestro equipo administrativo lo está revisando.",
+                        type="credito",
+                        link="/dashboard/credits"
+                    )
+                except Exception as e:
+                    logger.warning(f"Error notificando fallo Yoint crédito #{credit.id}: {e}")
+
+                logger.warning(f"Crédito #{credit.id} (Yoint {clean_id}) desembolso RECHAZADO.")
 
         await db.commit()
         return True
@@ -688,6 +755,8 @@ class YointService:
         base_url = settings.YOINT_API_URL.rstrip('/')
         headers = await cls._get_headers(idempotency_key=dispersion.idempotency_key or str(uuid.uuid4()))
 
+        target_label = f"Crédito #{dispersion.credit_id}" if dispersion.credit_id else f"Retiro #{dispersion.withdrawal_id}"
+
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 res = None
@@ -696,14 +765,14 @@ class YointService:
                 # 1. Estrategia Principal: Consultar por Idempotency Key (Oficial en Yoint API Docs)
                 if dispersion.idempotency_key:
                     used_endpoint = f"{base_url}/api/payments/v1/dispersions/idempotency-key/{dispersion.idempotency_key}"
-                    logger.info(f"[YointService] Consultando por idempotency-key para Retiro #{dispersion.withdrawal_id}: {used_endpoint}")
+                    logger.info(f"[YointService] Consultando por idempotency-key para {target_label}: {used_endpoint}")
                     res = await client.get(used_endpoint, headers=headers)
                     logger.info(f"[YointService] Respuesta idempotency-key: HTTP {res.status_code} -> {res.text[:300]}")
 
                 # 2. Estrategia Secundaria: Consultar por lista de IDs (GET /api/payments/v1/list-dispersion?ids=...)
                 if (not res or res.status_code not in [200, 202]) and target_id:
                     used_endpoint = f"{base_url}/api/payments/v1/list-dispersion?ids={target_id}"
-                    logger.info(f"[YointService] Consultando list-dispersion por ID para Retiro #{dispersion.withdrawal_id}: {used_endpoint}")
+                    logger.info(f"[YointService] Consultando list-dispersion por ID para {target_label}: {used_endpoint}")
                     res = await client.get(used_endpoint, headers=headers)
                     logger.info(f"[YointService] Respuesta list-dispersion: HTTP {res.status_code} -> {res.text[:300]}")
 
@@ -743,7 +812,7 @@ class YointService:
                     if new_status:
                         await cls.process_status_transition(
                             db=db, 
-                            order_id=dispersion.order_id or dispersion.payment_reference or str(dispersion.withdrawal_id), 
+                            order_id=dispersion.order_id or dispersion.payment_reference or str(dispersion.withdrawal_id or dispersion.credit_id), 
                             new_status=str(new_status), 
                             payload=data if isinstance(data, dict) else {"raw": data}
                         )

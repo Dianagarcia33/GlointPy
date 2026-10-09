@@ -35,7 +35,7 @@ async def main():
     async with async_session_maker() as db:
         q = (
             select(YointDispersion)
-            .join(Withdrawal, YointDispersion.withdrawal_id == Withdrawal.id)
+            .outerjoin(Withdrawal, YointDispersion.withdrawal_id == Withdrawal.id)
             .where(
                 or_(
                     YointDispersion.status.in_(["PROCESSING", "PENDING", "QUEUED"]),
@@ -50,12 +50,18 @@ async def main():
         print(f"🔄 Se encontraron {len(dispersions)} dispersiones por conciliar:\n")
 
         for d in dispersions:
-            w_res = await db.execute(select(Withdrawal).where(Withdrawal.id == d.withdrawal_id))
-            withdrawal = w_res.scalars().first()
-            w_estado = withdrawal.estado.value if withdrawal else "N/A"
+            w_estado = "N/A"
+            tipo_disp = "Crédito" if d.credit_id else "Retiro"
+            target_num = d.credit_id if d.credit_id else d.withdrawal_id
+            if d.withdrawal_id:
+                w_res = await db.execute(select(Withdrawal).where(Withdrawal.id == d.withdrawal_id))
+                withdrawal = w_res.scalars().first()
+                w_estado = withdrawal.estado.value if withdrawal else "N/A"
+            else:
+                withdrawal = None
 
             print("=" * 60)
-            print(f"Retiro #{d.withdrawal_id} | Dispersión ID #{d.id}")
+            print(f"{tipo_disp} #{target_num} | Dispersión ID #{d.id}")
             print(f"  order_id en BD    : {d.order_id}")
             print(f"  idempotency_key   : {d.idempotency_key}")
             print(f"  referencia        : {d.payment_reference}")
