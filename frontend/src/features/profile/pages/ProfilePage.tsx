@@ -13,12 +13,7 @@ import {
   Eye, 
   EyeOff, 
   KeyRound, 
-  Shield, 
-  Sparkles,
-  ShieldCheck,
-  Layers,
-  Check,
-  Copy
+  Shield
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { usersService } from '../../../services/users';
@@ -26,8 +21,8 @@ import { usersService } from '../../../services/users';
 export const ProfilePage: React.FC = () => {
   const { user, setUser } = useAuthStore();
 
-  // Active tab: 'personal' | 'security' | 'roles'
-  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'roles'>('personal');
+  // Active tab: 'personal' | 'security'
+  const [activeTab, setActiveTab] = useState<'personal' | 'security'>('personal');
 
   // Personal Info Form
   const [name, setName] = useState('');
@@ -169,7 +164,6 @@ export const ProfilePage: React.FC = () => {
   };
 
   const roles = user?.roles_list || (user?.roles?.map((r: any) => typeof r === 'string' ? r : r.name) || []);
-  const permissions = user?.permissions || [];
 
   return (
     <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
@@ -184,7 +178,7 @@ export const ProfilePage: React.FC = () => {
             Mi Perfil de Usuario
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Gestiona tu información personal, credenciales de seguridad y consulta tus roles en la plataforma
+            Gestiona tu información personal y credenciales de acceso de forma segura en la plataforma
           </p>
         </div>
 
@@ -301,18 +295,6 @@ export const ProfilePage: React.FC = () => {
           }`}
         >
           Seguridad & Contraseña
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('roles')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat ${
-            activeTab === 'roles'
-              ? 'bg-slate-900 text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          Permisos & Roles ({roles.length})
         </button>
       </div>
 
@@ -560,69 +542,6 @@ export const ProfilePage: React.FC = () => {
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* 🛡️ 6. TAB CONTENT: ROLES Y PERMISOS PBAC */}
-      {activeTab === 'roles' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-slate-900 font-montserrat">
-                Roles y Políticas de Acceso (PBAC)
-              </h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Resumen de roles y permisos granulares asignados a tu cuenta en Gloint
-              </p>
-            </div>
-            <span className="text-xs font-mono font-bold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl self-start sm:self-auto">
-              Total Permisos: <strong className="text-slate-900">{permissions.length}</strong>
-            </span>
-          </div>
-
-          {/* Roles Vinculados */}
-          <div className="space-y-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              Roles Asignados
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {roles.length === 0 ? (
-                <span className="text-xs text-slate-400 italic">No tienes roles asignados.</span>
-              ) : (
-                roles.map((r: string, idx: number) => (
-                  <div key={idx} className="px-3.5 py-2 rounded-2xl bg-brand-50 border border-brand-200/80 text-brand-800 text-xs font-bold font-montserrat flex items-center gap-2">
-                    <Shield className="w-3.5 h-3.5 text-brand-600" />
-                    <span>{r}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Permisos Granulares */}
-          <div className="space-y-3 pt-2">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-              Permisos Granulares Activos
-            </span>
-
-            {permissions.length === 0 ? (
-              <div className="p-8 bg-slate-50 rounded-2xl border border-slate-200 text-center text-xs text-slate-400 italic">
-                No hay permisos granulares listados para esta cuenta.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-96 overflow-y-auto pr-1">
-                {permissions.map((perm: string, idx: number) => (
-                  <div 
-                    key={idx}
-                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-slate-700 text-xs font-mono font-medium flex items-center gap-2 hover:bg-slate-100/70 transition-colors"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span className="truncate">{perm}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
