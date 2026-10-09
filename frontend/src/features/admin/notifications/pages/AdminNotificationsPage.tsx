@@ -217,117 +217,145 @@ export const AdminNotificationsPage: React.FC = () => {
       )}
 
       {/* Header Ejecutivo Estandarizado */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-montserrat tracking-tight text-slate-900 flex items-center gap-3">
-            <span className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs inline-flex items-center justify-center">
-              <Radio className="w-6 h-6" />
-            </span>
-            <span>Notificaciones Administrativas</span>
-          </h1>
-          <p className="text-sm text-slate-500 font-normal mt-1.5 whitespace-nowrap sm:whitespace-normal">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <Radio className="w-6 h-6" />
+              </div>
+              <span>Notificaciones Administrativas</span>
+            </h1>
+            <button
+              onClick={() => {
+                refetchOptions();
+                if (activeTab === 'history') refetchHistory();
+              }}
+              disabled={isFetchingOptions || isLoadingHistory}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${isFetchingOptions || isLoadingHistory ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
+          </div>
+          <p className="text-slate-500 text-sm mt-1 font-normal">
             Envío de comunicados oficiales, avisos de mantenimiento, actualizaciones del sistema y alertas push masivas o segmentadas.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
-          {/* Navigation Tabs */}
-          <div className="flex bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200">
-            <button
-              onClick={() => setActiveTab('send')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
-                activeTab === 'send' 
-                  ? 'bg-white text-brand-700 shadow-2xs' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Send className="w-3.5 h-3.5" />
-              Redactar
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
-                activeTab === 'history' 
-                  ? 'bg-white text-brand-700 shadow-2xs' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <History className="w-3.5 h-3.5" />
-              Historial
-            </button>
-          </div>
-
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
-            onClick={() => {
-              refetchOptions();
-              if (activeTab === 'history') refetchHistory();
-            }}
-            disabled={isFetchingOptions || isLoadingHistory}
-            className="p-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-2xl transition-all shadow-2xs hover:border-slate-300 disabled:opacity-50 cursor-pointer"
-            title="Recargar datos"
+            type="button"
+            onClick={() => setActiveTab('send')}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white px-4 sm:px-5 py-2.5 rounded-xl transition-all shadow-md shadow-brand-500/20 text-xs font-bold font-montserrat cursor-pointer whitespace-nowrap"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetchingOptions || isLoadingHistory ? 'animate-spin text-brand-600' : ''}`} />
+            <Send className="w-4 h-4" />
+            <span>Nuevo Comunicado</span>
           </button>
         </div>
       </div>
 
-      {/* 4 Tarjetas KPI Luminosas */}
+      {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1 */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Historial Envíos</p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
-              {isLoadingHistory ? '...' : (historyList?.length ?? 0)}
-            </h3>
-            <span className="text-[11px] text-slate-400 font-medium">comunicados registrados</span>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Historial Envíos
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <Radio className="w-4 h-4" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 shadow-2xs">
-            <Radio className="w-5 h-5" />
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {isLoadingHistory ? '...' : (historyList?.length ?? 0)}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            comunicados registrados
+          </span>
         </div>
 
         {/* KPI 2 */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Total Usuarios</p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
-              {isLoadingOptions ? '...' : totalUsersCount}
-            </h3>
-            <span className="text-[11px] text-emerald-600 font-bold">destinatarios potenciales</span>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Total Destinatarios
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs">
-            <Users className="w-5 h-5" />
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {isLoadingOptions ? '...' : totalUsersCount}
+          </span>
+          <span className="text-[11px] text-emerald-600 font-medium block truncate">
+            usuarios en la plataforma
+          </span>
         </div>
 
         {/* KPI 3 */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Roles Disponibles</p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
-              {availableRoles.length || targetOptions?.roles?.length || 0}
-            </h3>
-            <span className="text-[11px] text-blue-600 font-bold">segmentaciones activas</span>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-blue-700 font-bold uppercase tracking-wider block font-montserrat">
+              Roles Disponibles
+            </span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-2xs">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-blue-700 block tracking-tight font-mono">
+            {availableRoles.length || targetOptions?.roles?.length || 0}
+          </span>
+          <span className="text-[11px] text-blue-600 font-medium block truncate">
+            segmentaciones activas
+          </span>
         </div>
 
         {/* KPI 4 */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Alertas Críticas</p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
-              {historyList ? historyList.filter(h => h.type === 'alerta' || h.type === 'mantenimiento').length : 0}
-            </h3>
-            <span className="text-[11px] text-amber-600 font-bold">mantenimientos / avisos</span>
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Alertas y Avisos
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shadow-2xs">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
+            {historyList ? historyList.filter(h => h.type === 'alerta' || h.type === 'mantenimiento').length : 0}
+          </span>
+          <span className="text-[11px] text-amber-600 font-medium block truncate">
+            avisos emitidos
+          </span>
         </div>
+      </div>
+
+      {/* Tabs Selector Cápsula */}
+      <div className="flex bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveTab('send')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
+            activeTab === 'send' 
+              ? 'bg-white text-brand-700 shadow-2xs' 
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Send className="w-3.5 h-3.5" />
+          <span>Redactar Comunicado</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
+            activeTab === 'history' 
+              ? 'bg-white text-brand-700 shadow-2xs' 
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <History className="w-3.5 h-3.5" />
+          <span>Historial de Envíos ({historyList?.length ?? 0})</span>
+        </button>
       </div>
 
       {/* Tab 1: Redactar y Enviar Comunicado */}
