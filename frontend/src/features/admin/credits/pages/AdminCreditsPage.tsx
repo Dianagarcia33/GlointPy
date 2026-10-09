@@ -148,35 +148,40 @@ export const AdminCreditsPage: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-300 pb-12 font-inter">
       
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-montserrat tracking-tight">
-              Mesa de Créditos & Fintech
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <span>Gestión de Créditos & Fintech</span>
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 uppercase tracking-wider font-montserrat">
-              Dispersión Inmediata
-            </span>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
-            Evaluación crediticia, desembolso en 1 clic y auditoría de cartera bajo tope de usura legal.
+          <p className="text-slate-500 text-sm mt-1 font-normal">
+            Evaluación crediticia, dispersión en 1 clic y auditoría de cartera bajo tope de usura legal.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="p-2.5 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all shadow-xs cursor-pointer"
-            title="Refrescar"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
+        {/* Acciones principales */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs font-montserrat">
+            <Zap className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+            <span>Dispersión Inmediata ACH</span>
+          </div>
 
           <button
             onClick={() => setIsConfigModalOpen(true)}
-            className="py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs font-montserrat uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs font-montserrat uppercase tracking-wider shadow-sm transition-all cursor-pointer active:scale-95"
           >
             <Settings className="w-4 h-4 text-amber-400" />
             <span>Tasa de Usura & Config</span>
@@ -184,148 +189,160 @@ export const AdminCreditsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {/* Solicitudes Pendientes */}
+        {/* Solicitudes por Evaluar */}
         <div 
           onClick={() => setActiveTab('PENDING')}
-          className={`bg-white border rounded-3xl p-5 shadow-xs transition-all cursor-pointer ${
-            activeTab === 'PENDING' ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-slate-200/80 hover:border-amber-300'
+          className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 transition-all cursor-pointer ${
+            activeTab === 'PENDING' ? 'border-amber-500/90 ring-2 ring-amber-500/10' : 'border-slate-200/90 hover:border-amber-300'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider font-montserrat text-slate-500">Solicitudes por Evaluar</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Solicitudes por Evaluar
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 font-montserrat">
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
             {pendingCount}
-          </div>
-          <span className="text-[11px] text-amber-700 font-semibold mt-1 block">
-            {pendingCount > 0 ? '⚡ Requieren desembolso o revisión' : 'Todo al día'}
+          </span>
+          <span className="text-[11px] text-amber-700 font-medium block truncate">
+            {pendingCount > 0 ? `${pendingCount} requieren desembolso o revisión` : 'Todo al día'}
           </span>
         </div>
 
         {/* Cartera Activa */}
         <div 
           onClick={() => setActiveTab('ACTIVE')}
-          className={`bg-white border rounded-3xl p-5 shadow-xs transition-all cursor-pointer ${
-            activeTab === 'ACTIVE' ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-slate-200/80 hover:border-amber-300'
+          className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 transition-all cursor-pointer ${
+            activeTab === 'ACTIVE' ? 'border-emerald-500/90 ring-2 ring-emerald-500/10' : 'border-slate-200/90 hover:border-emerald-300'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider font-montserrat text-slate-500">Créditos Vigentes</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Créditos Vigentes
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
               <CreditCard className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 font-montserrat">
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
             {activeCount}
-          </div>
-          <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">
-            Cartera en amortización
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Cartera activa en amortización
           </span>
         </div>
 
         {/* Cuotas por Validar */}
         <div 
           onClick={() => setActiveTab('REVIEW_INSTALLMENTS')}
-          className={`bg-white border rounded-3xl p-5 shadow-xs transition-all cursor-pointer ${
-            activeTab === 'REVIEW_INSTALLMENTS' ? 'border-amber-500 ring-2 ring-amber-500/10' : 'border-slate-200/80 hover:border-amber-300'
+          className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 transition-all cursor-pointer ${
+            activeTab === 'REVIEW_INSTALLMENTS' ? 'border-sky-500/90 ring-2 ring-sky-500/10' : 'border-slate-200/90 hover:border-sky-300'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider font-montserrat text-slate-500">Cuotas por Validar</span>
-            <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-sky-700 font-bold uppercase tracking-wider block font-montserrat">
+              Cuotas por Validar
+            </span>
+            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl shrink-0">
               <FileText className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 font-montserrat">
+          <span className="text-xl sm:text-2xl font-black text-sky-600 block tracking-tight font-mono">
             {pendingInstallments.length}
-          </div>
-          <span className="text-[11px] text-sky-600 font-semibold mt-1 block">
-            Comprobantes adjuntos
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Comprobantes de pago adjuntos
           </span>
         </div>
 
         {/* Tope Legal de Usura */}
-        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-xs relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider font-montserrat text-slate-500">Tasa Usura Legal</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+        <div 
+          onClick={() => setIsConfigModalOpen(true)}
+          className="bg-white border border-slate-200/90 hover:border-purple-300 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 transition-all cursor-pointer"
+          title="Ver o editar configuración de usura"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-purple-700 font-bold uppercase tracking-wider block font-montserrat">
+              Tasa Usura Legal
+            </span>
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl shrink-0">
               <Percent className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900 font-montserrat">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
             {config?.max_usury_rate_monthly || 1.98}% <span className="text-xs font-normal text-slate-400">M.V.</span>
-          </div>
-          <span className="text-[11px] text-purple-700 font-semibold mt-1 block">
+          </span>
+          <span className="text-[11px] text-purple-700 font-medium block truncate">
             Tope Anual: {config?.max_usury_rate_ea || 26.50}% E.A.
           </span>
         </div>
-
       </div>
 
-      {/* Selector de Pestañas & Buscador */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
-        <div className="flex gap-2 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('PENDING')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'PENDING'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Solicitudes Pendientes ({pendingCount})
-          </button>
+      {/* Control Bar: Pestañas en Cápsula & Buscador */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 shadow-2xs overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('PENDING')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'PENDING'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Solicitudes Pendientes ({pendingCount})
+            </button>
 
-          <button
-            onClick={() => setActiveTab('ACTIVE')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'ACTIVE'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Créditos Activos & Cartera ({activeCount})
-          </button>
+            <button
+              onClick={() => setActiveTab('ACTIVE')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'ACTIVE'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Créditos Activos & Cartera ({activeCount})
+            </button>
 
-          <button
-            onClick={() => setActiveTab('REVIEW_INSTALLMENTS')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'REVIEW_INSTALLMENTS'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Cuotas por Revisar ({pendingInstallments.length})
-          </button>
+            <button
+              onClick={() => setActiveTab('REVIEW_INSTALLMENTS')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'REVIEW_INSTALLMENTS'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Cuotas por Revisar ({pendingInstallments.length})
+            </button>
 
-          <button
-            onClick={() => setActiveTab('HISTORY')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'HISTORY'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            Historial / Liquidados
-          </button>
-        </div>
+            <button
+              onClick={() => setActiveTab('HISTORY')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'HISTORY'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Historial / Liquidados
+            </button>
+          </div>
 
-        {/* Buscador */}
-        <div className="relative min-w-[240px]">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por cliente, cédula o cuenta..."
-            className="w-full pl-9 pr-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-amber-500"
-          />
+          {/* Buscador */}
+          <div className="relative w-full lg:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por cliente, cédula o cuenta..."
+              className="w-full pl-10 pr-4 py-2 bg-slate-50/70 focus:bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all font-medium"
+            />
+          </div>
         </div>
       </div>
 
@@ -336,7 +353,7 @@ export const AdminCreditsPage: React.FC = () => {
         </div>
       ) : activeTab === 'REVIEW_INSTALLMENTS' ? (
         /* Pestaña: Cuotas por Validar */
-        <div className="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-xs">
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
           {pendingInstallments.length === 0 ? (
             <div className="p-12 text-center text-slate-400 space-y-2">
               <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
@@ -346,7 +363,7 @@ export const AdminCreditsPage: React.FC = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 text-[11px] font-bold text-slate-700 font-montserrat uppercase tracking-wider border-b border-slate-200">
+                <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 font-montserrat uppercase tracking-wider border-b border-slate-200/80">
                   <tr>
                     <th className="py-3 px-4">Cuota / Crédito</th>
                     <th className="py-3 px-4">Cliente</th>
@@ -385,10 +402,10 @@ export const AdminCreditsPage: React.FC = () => {
                         {inst.receipt_url ? (
                           <button
                             onClick={() => setViewingReceiptUrl(inst.receipt_url)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 hover:bg-sky-100 font-bold text-[11px] transition-colors"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sky-50 hover:bg-sky-100/80 text-sky-800 border border-sky-200/80 font-semibold text-xs transition-colors cursor-pointer font-montserrat"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            Ver Recibo
+                            <span>Ver Recibo</span>
                           </button>
                         ) : (
                           <span className="text-slate-400">-</span>
@@ -399,14 +416,14 @@ export const AdminCreditsPage: React.FC = () => {
                           <button
                             onClick={() => handleReviewInstallment(inst.installment_id, true)}
                             disabled={isProcessingReview}
-                            className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] font-montserrat uppercase transition-all shadow-xs cursor-pointer"
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs font-montserrat transition-all shadow-2xs cursor-pointer"
                           >
                             Aprobar
                           </button>
                           <button
                             onClick={() => handleReviewInstallment(inst.installment_id, false)}
                             disabled={isProcessingReview}
-                            className="px-2.5 py-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100/80 text-rose-700 border border-rose-200/80 font-semibold text-xs transition-colors cursor-pointer font-montserrat"
                           >
                             Rechazar
                           </button>
@@ -421,7 +438,7 @@ export const AdminCreditsPage: React.FC = () => {
         </div>
       ) : (
         /* Pestañas de Créditos: PENDING, ACTIVE, HISTORY */
-        <div className="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-xs">
+        <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
           {credits.length === 0 ? (
             <div className="p-12 text-center text-slate-400 space-y-2">
               <CreditCard className="w-10 h-10 text-slate-300 mx-auto" />
@@ -429,8 +446,8 @@ export const AdminCreditsPage: React.FC = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 text-[11px] font-bold text-slate-700 font-montserrat uppercase tracking-wider border-b border-slate-200">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 font-montserrat uppercase tracking-wider border-b border-slate-200/80">
                   <tr>
                     <th className="py-3 px-4"># Crédito</th>
                     <th className="py-3 px-4">Solicitante</th>
@@ -485,14 +502,14 @@ export const AdminCreditsPage: React.FC = () => {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => setApprovingCredit(c)}
-                              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-[11px] font-montserrat uppercase tracking-wider transition-all shadow-xs flex items-center gap-1 cursor-pointer active:scale-95"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold text-xs font-montserrat transition-all shadow-md shadow-amber-500/20 cursor-pointer active:scale-95"
                             >
                               <Zap className="w-3.5 h-3.5 fill-white" />
                               <span>Aprobar y Desembolsar</span>
                             </button>
                             <button
                               onClick={() => setRejectingCredit(c)}
-                              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100/80 text-rose-700 border border-rose-200/80 text-xs font-semibold transition-colors cursor-pointer font-montserrat"
                             >
                               Rechazar
                             </button>
@@ -500,7 +517,7 @@ export const AdminCreditsPage: React.FC = () => {
                         ) : (
                           <button
                             onClick={() => setInspectingCredit(c)}
-                            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] font-montserrat uppercase transition-all cursor-pointer inline-flex items-center gap-1"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold text-xs font-montserrat transition-all cursor-pointer shadow-2xs"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>Ver Cuotas</span>
@@ -541,7 +558,7 @@ export const AdminCreditsPage: React.FC = () => {
       {/* Modal de Rechazo de Solicitud */}
       {rejectingCredit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-100 p-6 space-y-4">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl border border-slate-200/90 p-6 space-y-4">
             <h3 className="text-base font-bold text-slate-900 font-montserrat">
               Rechazar Solicitud de Crédito #{rejectingCredit.id}
             </h3>
@@ -559,7 +576,7 @@ export const AdminCreditsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setRejectingCredit(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold font-montserrat cursor-pointer transition-colors"
               >
                 Cancelar
               </button>
@@ -567,7 +584,7 @@ export const AdminCreditsPage: React.FC = () => {
                 type="button"
                 onClick={handleConfirmReject}
                 disabled={isRejecting || !rejectReason.trim()}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold font-montserrat cursor-pointer disabled:opacity-50 transition-colors shadow-xs"
               >
                 {isRejecting ? 'Rechazando...' : 'Confirmar Rechazo'}
               </button>
@@ -579,12 +596,12 @@ export const AdminCreditsPage: React.FC = () => {
       {/* Modal Visor de Comprobante de Cuota */}
       {viewingReceiptUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden p-6 space-y-4 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden p-6 space-y-4 max-h-[90vh] flex flex-col border border-slate-200/90">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900 font-montserrat">Comprobante de Pago Adjunto</h3>
               <button
                 onClick={() => setViewingReceiptUrl(null)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -603,19 +620,19 @@ export const AdminCreditsPage: React.FC = () => {
       {/* Modal Detalle de Cuotas de Crédito Activo */}
       {inspectingCredit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden p-6 space-y-6 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden p-6 space-y-5 max-h-[90vh] flex flex-col border border-slate-200/90">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 font-montserrat">
                   Amortización Crédito #{inspectingCredit.id}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 font-medium">
                   {inspectingCredit.user_name} • Ref. Desembolso: <strong>{inspectingCredit.disbursement_reference || 'N/A'}</strong>
                 </p>
               </div>
               <button
                 onClick={() => setInspectingCredit(null)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -623,7 +640,7 @@ export const AdminCreditsPage: React.FC = () => {
 
             <div className="flex-1 overflow-y-auto">
               <table className="w-full text-left text-xs text-slate-600">
-                <thead className="bg-slate-50 text-[11px] font-bold text-slate-700 font-montserrat uppercase tracking-wider border-b border-slate-200">
+                <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 font-montserrat uppercase tracking-wider border-b border-slate-200/80">
                   <tr>
                     <th className="py-2.5 px-3"># Cuota</th>
                     <th className="py-2.5 px-3">Fecha Vence</th>
