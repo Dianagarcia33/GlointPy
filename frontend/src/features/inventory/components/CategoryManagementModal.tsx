@@ -82,9 +82,9 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera */}
@@ -181,7 +181,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
               <button
                 type="submit"
                 disabled={isLoading}
-                className="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                className="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 rounded-2xl transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 font-montserrat active:scale-95"
               >
                 {isLoading ? (
                   <>
@@ -238,7 +238,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+            className="px-5 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer font-montserrat shadow-xs"
           >
             Listo
           </button>

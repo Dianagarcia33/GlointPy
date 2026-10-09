@@ -76,9 +76,9 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-md overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
+        className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera estándar GlointPy */}
@@ -190,14 +190,14 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer font-montserrat text-center"
+              className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer font-montserrat text-center"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isLoading || difference === 0}
-              className="w-full sm:w-auto px-5 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 font-montserrat text-center"
+              className="w-full sm:w-auto px-6 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-2xl transition-all inline-flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-purple-500/20 disabled:opacity-50 font-montserrat text-center active:scale-95"
             >
               {isLoading ? (
                 <>
@@ -206,7 +206,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                   <span>Aplicar Ajuste al Kardex</span>
                 </>
               )}

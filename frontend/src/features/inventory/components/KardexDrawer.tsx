@@ -93,7 +93,7 @@ export const KardexDrawer: React.FC<KardexDrawerProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div 
         className="relative w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
         onClick={(e) => e.stopPropagation()}
@@ -101,8 +101,8 @@ export const KardexDrawer: React.FC<KardexDrawerProps> = ({
         {/* Cabecera estándar GlointPy */}
         <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white bg-slate-900 shadow-sm shrink-0">
-              <History className="w-4 h-4 sm:w-5 sm:h-5 text-brand-400" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-brand-600 bg-brand-50 border border-brand-200 shadow-xs shrink-0">
+              <History className="w-5 h-5 text-brand-600" />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-slate-900 font-montserrat">
