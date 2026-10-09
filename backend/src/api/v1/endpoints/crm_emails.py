@@ -21,6 +21,17 @@ class SendEmailSchema(BaseModel):
     lead_id: Optional[int] = None
     project_id: Optional[int] = None
     attachments: Optional[List[dict]] = None
+    cc_emails: Optional[str] = None
+    bcc_emails: Optional[str] = None
+
+class BulkEmailActionSchema(BaseModel):
+    action: str  # mark_read, mark_unread, star, unstar, archive, unarchive, trash, restore, delete_permanent
+    email_ids: List[int]
+
+class CreateLeadFromEmailSchema(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    project_id: Optional[int] = None
 
 @router.post("/upload-attachment", dependencies=[Depends(RequirePermission(["crm:inbox:send", "crm:leads:manage"]))])
 async def upload_crm_email_attachment(
@@ -55,13 +66,29 @@ async def upload_crm_email_attachment(
 
 @router.get("", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
 async def get_crm_emails(
-    folder: str = Query("inbox"),  # 'inbox', 'sent'
+    folder: str = Query("inbox"),  # 'inbox', 'sent', 'starred', 'archived', 'trash'
     search: Optional[str] = Query(None),
+    has_meeting: Optional[bool] = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Obtiene la lista de correos de la bandeja de entrada o enviados."""
-    return await CRMEmailService.get_user_emails(db, user_id=current_user.id, folder=folder, search=search)
+    """Obtiene la lista de correos de la bandeja (inbox, sent, starred, archived, trash)."""
+    return await CRMEmailService.get_user_emails(
+        db, 
+        user_id=current_user.id, 
+        folder=folder, 
+        search=search, 
+        has_meeting=has_meeting
+    )
+
+
+@router.get("/counts", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def get_crm_email_counts(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtiene los contadores de correos por carpeta en tiempo real."""
+    return await CRMEmailService.get_folder_counts(db=db, user_id=current_user.id)
 
 
 @router.get("/templates", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:inbox:send", "crm:view"]))])
@@ -100,10 +127,149 @@ async def send_crm_email(
         body_html=data.body_html,
         lead_id=data.lead_id,
         project_id=data.project_id,
-        attachments=data.attachments
+        attachments=data.attachments,
+        cc_emails=data.cc_emails,
+        bcc_emails=data.bcc_emails
     )
 
     return {"message": "Correo enviado exitosamente", "data": result}
+
+
+@router.post("/{email_id}/accept-meeting", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def accept_crm_meeting(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Acepta una reunión recibida en el correo, la agenda en cPanel CalDAV y registra la actividad."""
+    try:
+        return await CRMEmailService.accept_meeting(db=db, user=current_user, email_id=email_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al agendar reunión en cPanel: {str(e)}")
+
+
+@router.post("/{email_id}/decline-meeting", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def decline_crm_meeting(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Rechaza una invitación a reunión."""
+    try:
+        return await CRMEmailService.decline_meeting(db=db, user=current_user, email_id=email_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{email_id}/star", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def toggle_crm_email_star(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Alterna el estado destacado (estrella) de un correo."""
+    res = await CRMEmailService.toggle_star(db=db, email_id=email_id, user_id=current_user.id)
+    if not res:
+        raise HTTPException(status_code=404, detail="Correo no encontrado")
+    return res
+
+
+@router.post("/{email_id}/archive", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def toggle_crm_email_archive(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Archiva o desarchiva un correo."""
+    res = await CRMEmailService.toggle_archive(db=db, email_id=email_id, user_id=current_user.id)
+    if not res:
+        raise HTTPException(status_code=404, detail="Correo no encontrado")
+    return res
+
+
+@router.post("/{email_id}/trash", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def move_crm_email_to_trash(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Mueve un correo a la papelera."""
+    res = await CRMEmailService.move_to_trash(db=db, email_id=email_id, user_id=current_user.id)
+    if not res:
+        raise HTTPException(status_code=404, detail="Correo no encontrado")
+    return res
+
+
+@router.post("/{email_id}/restore", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def restore_crm_email_from_trash(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Restaura un correo de la papelera."""
+    res = await CRMEmailService.restore_from_trash(db=db, email_id=email_id, user_id=current_user.id)
+    if not res:
+        raise HTTPException(status_code=404, detail="Correo no encontrado")
+    return res
+
+
+@router.delete("/{email_id}", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def delete_crm_email_permanently(
+    email_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Elimina definitivamente un correo."""
+    ok = await CRMEmailService.delete_permanently(db=db, email_id=email_id, user_id=current_user.id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Correo no encontrado")
+    return {"message": "Correo eliminado definitivamente"}
+
+
+@router.delete("/trash/empty", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def empty_crm_email_trash(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Vacía todos los correos en la papelera."""
+    count = await CRMEmailService.empty_trash(db=db, user_id=current_user.id)
+    return {"message": "Papelera vaciada exitosamente", "count": count}
+
+
+@router.post("/bulk", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])
+async def bulk_crm_email_action(
+    data: BulkEmailActionSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Aplica acciones masivas (leído, no leído, destacar, archivar, papelera, eliminar)."""
+    try:
+        return await CRMEmailService.bulk_action(db=db, user_id=current_user.id, action=data.action, email_ids=data.email_ids)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{email_id}/create-lead", dependencies=[Depends(RequirePermission(["crm:leads:manage", "crm:view"]))])
+async def create_lead_from_crm_email(
+    email_id: int,
+    data: Optional[CreateLeadFromEmailSchema] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Crea un prospecto en el CRM directamente a partir del remitente de un correo entrante."""
+    try:
+        return await CRMEmailService.create_lead_from_email(
+            db=db,
+            user=current_user,
+            email_id=email_id,
+            name=data.name if data else None,
+            phone=data.phone if data else None,
+            project_id=data.project_id if data else None
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/{email_id}/read", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])

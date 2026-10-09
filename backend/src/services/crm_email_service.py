@@ -25,6 +25,84 @@ def _parse_attachments(att_raw: Optional[str]) -> List[dict]:
         return []
 
 
+def _parse_calendar_event(email_rec: CRMEmail) -> Optional[dict]:
+    """Extrae la información estructurada de reunión / invitación desde calendar_event o attachments .ics."""
+    cal_raw = getattr(email_rec, "calendar_event", None)
+    if cal_raw:
+        try:
+            data = json.loads(cal_raw)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+
+    # Fallback inteligente: si calendar_event está vacío pero hay un archivo .ics en adjuntos
+    try:
+        att_list = _parse_attachments(email_rec.attachments)
+        for att in att_list:
+            fname = (att.get("filename") or "").lower()
+            ctype = (att.get("content_type") or "").lower()
+            if fname.endswith(".ics") or "calendar" in ctype:
+                file_url = att.get("file_url", "")
+                clean_path = file_url.lstrip("/")
+                if clean_path.startswith("api/v1/uploads/"):
+                    clean_path = clean_path.replace("api/v1/uploads/", "uploads/")
+                local_path = os.path.abspath(clean_path)
+                if os.path.exists(local_path):
+                    with open(local_path, "r", encoding="utf-8", errors="ignore") as f:
+                        ics_text = f.read()
+                    from src.services.crm_calendar_service import parse_vevent_ics
+                    events = parse_vevent_ics(ics_text)
+                    if events:
+                        ev = events[0]
+                        return {
+                            "uid": ev.get("uid"),
+                            "title": ev.get("title") or email_rec.subject or "Invitación a Reunión",
+                            "start": ev.get("start"),
+                            "end": ev.get("end"),
+                            "description": ev.get("description") or "",
+                            "location": ev.get("location") or "",
+                            "url": ev.get("url"),
+                            "organizer": ev.get("organizer"),
+                            "attendees": ev.get("attendees") or [],
+                            "status": ev.get("status") or "CONFIRMED",
+                            "user_response": "pending",
+                            "accepted_at": None,
+                            "declined_at": None,
+                            "calendar_uid": None
+                        }
+    except Exception as e:
+        print(f"Error parsing fallback calendar event: {e}")
+
+    # Fallback si en el cuerpo del correo hay un bloque VCALENDAR
+    if email_rec.body_html and "BEGIN:VCALENDAR" in email_rec.body_html:
+        try:
+            from src.services.crm_calendar_service import parse_vevent_ics
+            events = parse_vevent_ics(email_rec.body_html)
+            if events:
+                ev = events[0]
+                return {
+                    "uid": ev.get("uid"),
+                    "title": ev.get("title") or email_rec.subject or "Invitación a Reunión",
+                    "start": ev.get("start"),
+                    "end": ev.get("end"),
+                    "description": ev.get("description") or "",
+                    "location": ev.get("location") or "",
+                    "url": ev.get("url"),
+                    "organizer": ev.get("organizer"),
+                    "attendees": ev.get("attendees") or [],
+                    "status": ev.get("status") or "CONFIRMED",
+                    "user_response": "pending",
+                    "accepted_at": None,
+                    "declined_at": None,
+                    "calendar_uid": None
+                }
+        except Exception:
+            pass
+
+    return None
+
+
 def _format_datetime(dt: Optional[datetime]) -> Optional[str]:
     """Formatea la fecha a ISO-8601 con sufijo Z (UTC) para que el navegador la convierta a la hora local del usuario."""
     if not dt:
@@ -35,15 +113,45 @@ def _format_datetime(dt: Optional[datetime]) -> Optional[str]:
     return s
 
 
+def _email_to_dict(e: CRMEmail) -> dict:
+    """Serializa un objeto CRMEmail a un diccionario completo para el cliente frontend."""
+    return {
+        "id": e.id,
+        "lead_id": e.lead_id,
+        "lead_name": e.lead.name if getattr(e, "lead", None) else None,
+        "project_id": e.project_id,
+        "project_name": e.project.name if getattr(e, "project", None) else None,
+        "user_id": e.user_id,
+        "user_name": e.user.name if getattr(e, "user", None) else "Asesor",
+        "direction": e.direction,
+        "sender_email": e.sender_email,
+        "recipient_email": e.recipient_email,
+        "subject": e.subject,
+        "body_html": e.body_html,
+        "body_text": e.body_text,
+        "status": e.status,
+        "is_read": bool(e.is_read),
+        "is_starred": bool(getattr(e, "is_starred", False)),
+        "is_archived": bool(getattr(e, "is_archived", False)),
+        "is_deleted": bool(getattr(e, "is_deleted", False)),
+        "calendar_event": _parse_calendar_event(e),
+        "cc_emails": getattr(e, "cc_emails", None),
+        "bcc_emails": getattr(e, "bcc_emails", None),
+        "attachments": _parse_attachments(e.attachments),
+        "created_at": _format_datetime(e.created_at)
+    }
+
+
 class CRMEmailService:
     @staticmethod
     async def get_user_emails(
         db: AsyncSession, 
         user_id: int, 
         folder: str = "inbox", 
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        has_meeting: Optional[bool] = None
     ) -> List[dict]:
-        """Obtiene la lista de correos de la bandeja (inbox, sent, lead_id)."""
+        """Obtiene la lista de correos de la bandeja (inbox, sent, starred, archived, trash)."""
         stmt = (
             select(CRMEmail)
             .options(selectinload(CRMEmail.lead), selectinload(CRMEmail.project), selectinload(CRMEmail.user))
@@ -55,6 +163,8 @@ class CRMEmailService:
         if folder == "inbox":
             stmt = stmt.where(
                 and_(
+                    CRMEmail.is_deleted == False,
+                    CRMEmail.is_archived == False,
                     or_(
                         CRMEmail.direction.in_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
                         CRMEmail.status.in_([CRMEmailStatus.RECEIVED, "received"])
@@ -66,6 +176,8 @@ class CRMEmailService:
         elif folder == "sent":
             stmt = stmt.where(
                 and_(
+                    CRMEmail.is_deleted == False,
+                    CRMEmail.is_archived == False,
                     or_(
                         CRMEmail.direction.in_(["outbound", "OUTBOUND", CRMEmailDirection.OUTBOUND]),
                         CRMEmail.status.in_([CRMEmailStatus.SENT, CRMEmailStatus.DELIVERED, "sent", "delivered"])
@@ -73,6 +185,24 @@ class CRMEmailService:
                     CRMEmail.direction.notin_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
                     CRMEmail.status.notin_([CRMEmailStatus.RECEIVED, "received"])
                 )
+            )
+        elif folder == "starred":
+            stmt = stmt.where(
+                and_(
+                    CRMEmail.is_deleted == False,
+                    CRMEmail.is_starred == True
+                )
+            )
+        elif folder == "archived":
+            stmt = stmt.where(
+                and_(
+                    CRMEmail.is_deleted == False,
+                    CRMEmail.is_archived == True
+                )
+            )
+        elif folder == "trash":
+            stmt = stmt.where(
+                CRMEmail.is_deleted == True
             )
 
         if search:
@@ -82,61 +212,85 @@ class CRMEmailService:
                 CRMEmail.sender_email.ilike(f"%{search}%")
             ))
 
+        if has_meeting:
+            stmt = stmt.where(or_(
+                CRMEmail.calendar_event.isnot(None),
+                CRMEmail.attachments.ilike("%ics%")
+            ))
+
         stmt = stmt.order_by(desc(CRMEmail.created_at))
         res = await db.execute(stmt)
         emails = res.scalars().all()
 
-        return [
-            {
-                "id": e.id,
-                "lead_id": e.lead_id,
-                "lead_name": e.lead.name if e.lead else None,
-                "project_id": e.project_id,
-                "project_name": e.project.name if e.project else None,
-                "user_id": e.user_id,
-                "user_name": e.user.name if e.user else "Asesor",
-                "direction": e.direction,
-                "sender_email": e.sender_email,
-                "recipient_email": e.recipient_email,
-                "subject": e.subject,
-                "body_html": e.body_html,
-                "body_text": e.body_text,
-                "status": e.status,
-                "is_read": e.is_read,
-                "attachments": _parse_attachments(e.attachments),
-                "created_at": _format_datetime(e.created_at)
-            }
-            for e in emails
-        ]
+        return [_email_to_dict(e) for e in emails]
+
+    @staticmethod
+    async def get_folder_counts(db: AsyncSession, user_id: int) -> dict:
+        """Calcula el número de correos por cada carpeta para insignias en tiempo real."""
+        from sqlalchemy import func
+
+        inbound_base = and_(
+            CRMEmail.user_id == user_id,
+            CRMEmail.is_deleted == False,
+            CRMEmail.is_archived == False,
+            or_(
+                CRMEmail.direction.in_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
+                CRMEmail.status.in_([CRMEmailStatus.RECEIVED, "received"])
+            ),
+            CRMEmail.direction.notin_(["outbound", "OUTBOUND", CRMEmailDirection.OUTBOUND]),
+            CRMEmail.status.notin_([CRMEmailStatus.SENT, CRMEmailStatus.DELIVERED, "sent", "delivered"])
+        )
+
+        inbox_count = (await db.execute(select(func.count(CRMEmail.id)).where(inbound_base))).scalar() or 0
+        unread_inbox_count = (await db.execute(select(func.count(CRMEmail.id)).where(and_(inbound_base, CRMEmail.is_read == False)))).scalar() or 0
+
+        starred_count = (await db.execute(select(func.count(CRMEmail.id)).where(
+            and_(CRMEmail.user_id == user_id, CRMEmail.is_deleted == False, CRMEmail.is_starred == True)
+        ))).scalar() or 0
+
+        sent_base = and_(
+            CRMEmail.user_id == user_id,
+            CRMEmail.is_deleted == False,
+            CRMEmail.is_archived == False,
+            or_(
+                CRMEmail.direction.in_(["outbound", "OUTBOUND", CRMEmailDirection.OUTBOUND]),
+                CRMEmail.status.in_([CRMEmailStatus.SENT, CRMEmailStatus.DELIVERED, "sent", "delivered"])
+            ),
+            CRMEmail.direction.notin_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
+            CRMEmail.status.notin_([CRMEmailStatus.RECEIVED, "received"])
+        )
+        sent_count = (await db.execute(select(func.count(CRMEmail.id)).where(sent_base))).scalar() or 0
+
+        archived_count = (await db.execute(select(func.count(CRMEmail.id)).where(
+            and_(CRMEmail.user_id == user_id, CRMEmail.is_deleted == False, CRMEmail.is_archived == True)
+        ))).scalar() or 0
+
+        trash_count = (await db.execute(select(func.count(CRMEmail.id)).where(
+            and_(CRMEmail.user_id == user_id, CRMEmail.is_deleted == True)
+        ))).scalar() or 0
+
+        return {
+            "inbox": inbox_count,
+            "unread_inbox": unread_inbox_count,
+            "starred": starred_count,
+            "sent": sent_count,
+            "archived": archived_count,
+            "trash": trash_count
+        }
 
     @staticmethod
     async def get_lead_emails(db: AsyncSession, lead_id: int) -> List[dict]:
         """Obtiene el historial de correos de un prospecto en específico."""
         stmt = (
             select(CRMEmail)
-            .options(selectinload(CRMEmail.user))
-            .where(CRMEmail.lead_id == lead_id)
+            .options(selectinload(CRMEmail.user), selectinload(CRMEmail.lead), selectinload(CRMEmail.project))
+            .where(and_(CRMEmail.lead_id == lead_id, CRMEmail.is_deleted == False))
             .order_by(desc(CRMEmail.created_at))
         )
         res = await db.execute(stmt)
         emails = res.scalars().all()
 
-        return [
-            {
-                "id": e.id,
-                "lead_id": e.lead_id,
-                "direction": e.direction,
-                "sender_email": e.sender_email,
-                "recipient_email": e.recipient_email,
-                "user_name": e.user.name if e.user else "Asesor",
-                "subject": e.subject,
-                "body_html": e.body_html,
-                "status": e.status,
-                "attachments": _parse_attachments(e.attachments),
-                "created_at": _format_datetime(e.created_at)
-            }
-            for e in emails
-        ]
+        return [_email_to_dict(e) for e in emails]
 
     @staticmethod
     async def mark_email_read(db: AsyncSession, email_id: int, user_id: Optional[int] = None, is_read: bool = True) -> Optional[dict]:
@@ -160,6 +314,7 @@ class CRMEmailService:
             .where(
                 and_(
                     CRMEmail.user_id == user_id,
+                    CRMEmail.is_deleted == False,
                     or_(
                         CRMEmail.direction.in_(["inbound", "INBOUND", CRMEmailDirection.INBOUND]),
                         CRMEmail.status.in_([CRMEmailStatus.RECEIVED, "received"])
@@ -174,6 +329,285 @@ class CRMEmailService:
         return res.rowcount
 
     @staticmethod
+    async def toggle_star(db: AsyncSession, email_id: int, user_id: int) -> Optional[dict]:
+        """Alterna el estado de destacado/estrella de un correo."""
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec or email_rec.user_id != user_id:
+            return None
+        email_rec.is_starred = not bool(email_rec.is_starred)
+        db.add(email_rec)
+        await db.commit()
+        return {"id": email_rec.id, "is_starred": email_rec.is_starred}
+
+    @staticmethod
+    async def toggle_archive(db: AsyncSession, email_id: int, user_id: int) -> Optional[dict]:
+        """Archiva o desarchiva un correo."""
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec or email_rec.user_id != user_id:
+            return None
+        email_rec.is_archived = not bool(email_rec.is_archived)
+        db.add(email_rec)
+        await db.commit()
+        return {"id": email_rec.id, "is_archived": email_rec.is_archived}
+
+    @staticmethod
+    async def move_to_trash(db: AsyncSession, email_id: int, user_id: int) -> Optional[dict]:
+        """Mueve un correo a la papelera."""
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec or email_rec.user_id != user_id:
+            return None
+        email_rec.is_deleted = True
+        db.add(email_rec)
+        await db.commit()
+        return {"id": email_rec.id, "is_deleted": True}
+
+    @staticmethod
+    async def restore_from_trash(db: AsyncSession, email_id: int, user_id: int) -> Optional[dict]:
+        """Restaura un correo de la papelera a su bandeja correspondiente."""
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec or email_rec.user_id != user_id:
+            return None
+        email_rec.is_deleted = False
+        db.add(email_rec)
+        await db.commit()
+        return {"id": email_rec.id, "is_deleted": False}
+
+    @staticmethod
+    async def delete_permanently(db: AsyncSession, email_id: int, user_id: int) -> bool:
+        """Elimina definitivamente un correo de la base de datos."""
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec or email_rec.user_id != user_id:
+            return False
+        await db.delete(email_rec)
+        await db.commit()
+        return True
+
+    @staticmethod
+    async def empty_trash(db: AsyncSession, user_id: int) -> int:
+        """Vacía todos los correos en la papelera del usuario."""
+        from sqlalchemy import delete
+        stmt = delete(CRMEmail).where(and_(CRMEmail.user_id == user_id, CRMEmail.is_deleted == True))
+        res = await db.execute(stmt)
+        await db.commit()
+        return res.rowcount
+
+    @staticmethod
+    async def bulk_action(db: AsyncSession, user_id: int, action: str, email_ids: List[int]) -> dict:
+        """Aplica acciones masivas a una lista de correos."""
+        from sqlalchemy import update, delete
+        if not email_ids:
+            return {"affected": 0, "action": action}
+
+        base_cond = and_(CRMEmail.user_id == user_id, CRMEmail.id.in_(email_ids))
+
+        if action == "mark_read":
+            stmt = update(CRMEmail).where(base_cond).values(is_read=True)
+            res = await db.execute(stmt)
+        elif action == "mark_unread":
+            stmt = update(CRMEmail).where(base_cond).values(is_read=False)
+            res = await db.execute(stmt)
+        elif action == "star":
+            stmt = update(CRMEmail).where(base_cond).values(is_starred=True)
+            res = await db.execute(stmt)
+        elif action == "unstar":
+            stmt = update(CRMEmail).where(base_cond).values(is_starred=False)
+            res = await db.execute(stmt)
+        elif action == "archive":
+            stmt = update(CRMEmail).where(base_cond).values(is_archived=True, is_deleted=False)
+            res = await db.execute(stmt)
+        elif action == "unarchive":
+            stmt = update(CRMEmail).where(base_cond).values(is_archived=False)
+            res = await db.execute(stmt)
+        elif action == "trash":
+            stmt = update(CRMEmail).where(base_cond).values(is_deleted=True)
+            res = await db.execute(stmt)
+        elif action == "restore":
+            stmt = update(CRMEmail).where(base_cond).values(is_deleted=False)
+            res = await db.execute(stmt)
+        elif action == "delete_permanent":
+            stmt = delete(CRMEmail).where(base_cond)
+            res = await db.execute(stmt)
+        else:
+            raise ValueError(f"Acción no soportada: {action}")
+
+        await db.commit()
+        return {"affected": res.rowcount, "action": action}
+
+    @staticmethod
+    async def accept_meeting(db: AsyncSession, user: User, email_id: int) -> dict:
+        """
+        Acepta una invitación a reunión contenida en el correo:
+        1. Agenda la cita directamente en el Calendario CalDAV de cPanel.
+        2. Registra la actividad en el prospecto CRM si está vinculado.
+        3. Actualiza el estado de la invitación a 'accepted' en la BD.
+        4. Opcionalmente despacha un correo de confirmación RSVP al organizador.
+        """
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec or email_rec.user_id != user.id:
+            raise ValueError("Correo no encontrado o sin permisos.")
+
+        cal_event = _parse_calendar_event(email_rec)
+        if not cal_event:
+            raise ValueError("Este correo no contiene ninguna invitación o evento de calendario detectable.")
+
+        # 1. Crear evento en el Calendario CalDAV de cPanel usando CRMCalendarService
+        from src.services.crm_calendar_service import CRMCalendarService
+        cal_res = await CRMCalendarService.create_event(
+            user=user,
+            db=db,
+            title=cal_event.get("title") or "Reunión Aceptada",
+            start_datetime=cal_event.get("start"),
+            end_datetime=cal_event.get("end"),
+            description=cal_event.get("description", ""),
+            location=cal_event.get("location") or cal_event.get("url") or "",
+            lead_id=email_rec.lead_id
+        )
+
+        # 2. Actualizar estado de respuesta en calendar_event
+        cal_event["user_response"] = "accepted"
+        cal_event["accepted_at"] = datetime.utcnow().isoformat()
+        cal_event["calendar_uid"] = cal_res.get("uid")
+        email_rec.calendar_event = json.dumps(cal_event)
+        db.add(email_rec)
+        await db.commit()
+        await db.refresh(email_rec)
+
+        # 3. Notificar al organizador por correo (RSVP)
+        organizer_email = None
+        if cal_event.get("organizer") and isinstance(cal_event["organizer"], dict):
+            organizer_email = cal_event["organizer"].get("email")
+        elif email_rec.sender_email and email_rec.sender_email != user.email:
+            organizer_email = email_rec.sender_email
+
+        if organizer_email and organizer_email.lower() != user.email.lower():
+            try:
+                EmailService.send_crm_custom_email(
+                    to_email=organizer_email,
+                    subject=f"✓ Aceptada: {cal_event.get('title')}",
+                    html_content=f"""
+                    <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+                        <h3 style="color: #059669; margin-top: 0; font-size: 18px;">✓ Invitación a Reunión Aceptada</h3>
+                        <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+                            <strong>{user.name}</strong> ({user.email}) ha aceptado la reunión comercial:
+                        </p>
+                        <div style="background-color: #f8fafc; padding: 14px 18px; border-radius: 12px; border-left: 4px solid #059669; margin: 18px 0;">
+                            <p style="margin: 4px 0; font-weight: bold; color: #0f172a; font-size: 15px;">{cal_event.get('title')}</p>
+                            <p style="margin: 4px 0; font-size: 13px; color: #64748b;">📅 Fecha/Hora: {cal_event.get('start')} a {cal_event.get('end')}</p>
+                            {f'<p style="margin: 4px 0; font-size: 13px; color: #64748b;">📍 Lugar: {cal_event.get("location")}</p>' if cal_event.get("location") else ''}
+                        </div>
+                        <p style="font-size: 12px; color: #94a3b8; margin: 0;">Confirmación automática generada por GlointPy CRM</p>
+                    </div>
+                    """,
+                    from_name=user.name,
+                    reply_to_email=user.email
+                )
+            except Exception as rsvp_err:
+                print(f"Error enviando RSVP confirmation: {rsvp_err}")
+
+        return {
+            "success": True,
+            "message": f"¡Reunión '{cal_event.get('title')}' aceptada y agendada exitosamente en tu Calendario cPanel!",
+            "calendar_event": cal_event
+        }
+
+    @staticmethod
+    async def decline_meeting(db: AsyncSession, user: User, email_id: int) -> dict:
+        """Rechaza una invitación a reunión y la retira del Calendario cPanel si estaba agendada."""
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec or email_rec.user_id != user.id:
+            raise ValueError("Correo no encontrado o sin permisos.")
+
+        cal_event = _parse_calendar_event(email_rec)
+        if not cal_event:
+            raise ValueError("Este correo no contiene ninguna invitación o evento de calendario detectable.")
+
+        # Si estaba previamente agendada en cPanel, removerla
+        if cal_event.get("calendar_uid"):
+            try:
+                from src.services.crm_calendar_service import CRMCalendarService
+                await CRMCalendarService.delete_event(user=user, event_uid=cal_event["calendar_uid"])
+            except Exception as del_err:
+                print(f"Error eliminando evento de CalDAV al rechazar: {del_err}")
+
+        cal_event["user_response"] = "declined"
+        cal_event["declined_at"] = datetime.utcnow().isoformat()
+        cal_event["calendar_uid"] = None
+        email_rec.calendar_event = json.dumps(cal_event)
+        db.add(email_rec)
+        await db.commit()
+        await db.refresh(email_rec)
+
+        return {
+            "success": True,
+            "message": f"Invitación a la reunión '{cal_event.get('title')}' rechazada.",
+            "calendar_event": cal_event
+        }
+
+    @staticmethod
+    async def create_lead_from_email(
+        db: AsyncSession, 
+        user: User, 
+        email_id: int, 
+        name: Optional[str] = None, 
+        phone: Optional[str] = None, 
+        project_id: Optional[int] = None
+    ) -> dict:
+        """Crea un nuevo prospecto en el CRM a partir del remitente de un correo entrante."""
+        email_rec = await db.get(CRMEmail, email_id)
+        if not email_rec or email_rec.user_id != user.id:
+            raise ValueError("Correo no encontrado o sin permisos.")
+
+        if email_rec.lead_id:
+            lead = await db.get(CRMLead, email_rec.lead_id)
+            if lead:
+                return {"success": True, "lead_id": lead.id, "lead_name": lead.name, "already_existed": True}
+
+        if not project_id:
+            p_res = await db.execute(select(CRMProject).where(CRMProject.status == "activo").limit(1))
+            active_proj = p_res.scalars().first()
+            if not active_proj:
+                p_res_any = await db.execute(select(CRMProject).limit(1))
+                active_proj = p_res_any.scalars().first()
+            project_id = active_proj.id if active_proj else 1
+
+        clean_email = email_rec.sender_email.strip().lower()
+        lead_name = name.strip() if name and name.strip() else clean_email.split("@")[0].replace(".", " ").title()
+
+        new_lead = CRMLead(
+            project_id=project_id,
+            name=lead_name,
+            email=clean_email,
+            phone=phone.strip() if phone else None,
+            assigned_to=user.id,
+            stage="lead_entrante",
+            source="email_inbound"
+        )
+        db.add(new_lead)
+        await db.commit()
+        await db.refresh(new_lead)
+
+        email_rec.lead_id = new_lead.id
+        email_rec.project_id = project_id
+        db.add(email_rec)
+
+        activity = CRMActivity(
+            lead_id=new_lead.id,
+            user_id=user.id,
+            type=CRMActivityType.NOTA,
+            title=f"👤 Prospecto creado desde correo: {email_rec.subject[:50]}",
+            description=f"Prospecto registrado a partir de mensaje recibido de {clean_email}."
+        )
+        db.add(activity)
+        await db.commit()
+
+        return {
+            "success": True,
+            "lead_id": new_lead.id,
+            "lead_name": new_lead.name,
+            "message": f"Prospecto '{new_lead.name}' creado y vinculado exitosamente."
+        }
+
+    @staticmethod
     async def send_crm_email(
         db: AsyncSession, 
         user: User, 
@@ -182,10 +616,11 @@ class CRMEmailService:
         body_html: str,
         lead_id: Optional[int] = None,
         project_id: Optional[int] = None,
-        attachments: Optional[List[dict]] = None
+        attachments: Optional[List[dict]] = None,
+        cc_emails: Optional[str] = None,
+        bcc_emails: Optional[str] = None
     ) -> dict:
         """Envía un correo comercial a través de Resend, guarda la copia en la BD y registra la actividad."""
-        # Si no especifica lead_id pero el correo coincide con un lead
         if not lead_id:
             lead_res = await db.execute(select(CRMLead).where(CRMLead.email == recipient_email.strip()))
             found_lead = lead_res.scalars().first()
@@ -194,14 +629,19 @@ class CRMEmailService:
                 if not project_id:
                     project_id = found_lead.project_id
 
-        # Enviar vía Resend API con Reply-To al correo corporativo del asesor y adjuntos
+        cc_list = [c.strip() for c in cc_emails.replace(";", ",").split(",") if c.strip()] if cc_emails else None
+        bcc_list = [b.strip() for b in bcc_emails.replace(";", ",").split(",") if b.strip()] if bcc_emails else None
+
+        # Enviar vía Resend API con Reply-To al correo corporativo del asesor, adjuntos, CC y BCC
         success = EmailService.send_crm_custom_email(
             to_email=recipient_email.strip(),
             subject=subject.strip(),
             html_content=body_html,
             from_name=user.name,
             reply_to_email=user.email,
-            attachments=attachments
+            attachments=attachments,
+            cc=cc_list,
+            bcc=bcc_list
         )
 
         email_record = CRMEmail(
@@ -215,13 +655,17 @@ class CRMEmailService:
             body_html=body_html,
             status=CRMEmailStatus.SENT if success else CRMEmailStatus.FAILED,
             is_read=True,
+            is_starred=False,
+            is_archived=False,
+            is_deleted=False,
+            cc_emails=cc_emails.strip() if cc_emails else None,
+            bcc_emails=bcc_emails.strip() if bcc_emails else None,
             attachments=json.dumps(attachments) if attachments else None
         )
         db.add(email_record)
         await db.commit()
         await db.refresh(email_record)
 
-        # Registrar automáticamente la actividad en el timeline del prospecto
         if lead_id:
             att_suffix = f" ({len(attachments)} adjunto{'s' if len(attachments) > 1 else ''})" if attachments else ""
             activity = CRMActivity(
@@ -234,14 +678,7 @@ class CRMEmailService:
             db.add(activity)
             await db.commit()
 
-        return {
-            "id": email_record.id,
-            "status": email_record.status,
-            "subject": email_record.subject,
-            "recipient_email": email_record.recipient_email,
-            "attachments": attachments or [],
-            "created_at": _format_datetime(email_record.created_at)
-        }
+        return _email_to_dict(email_record)
 
     @staticmethod
     def get_email_templates() -> List[dict]:
@@ -436,6 +873,7 @@ class CRMEmailService:
                         body_text = ""
                         attachments = []
                         cid_map = {}
+                        detected_calendar_event = None
 
                         if msg.is_multipart():
                             for part in msg.walk():
@@ -450,10 +888,11 @@ class CRMEmailService:
                                 if filename:
                                     filename = decode_mime_string(filename)
 
-                                is_attachment = ("attachment" in c_disp.lower()) or bool(filename)
+                                is_calendar = (c_type == "text/calendar") or (filename and filename.lower().endswith(".ics")) or ("calendar" in c_disp.lower())
+                                is_attachment = ("attachment" in c_disp.lower()) or bool(filename) or is_calendar
 
                                 # Si no es adjunto y es texto plano o HTML del mensaje principal
-                                if not is_attachment and not filename and not cid:
+                                if not is_attachment and not filename and not cid and not is_calendar:
                                     if c_type == "text/html" and not body_html:
                                         try:
                                             body_html = part.get_payload(decode=True).decode(part.get_content_charset() or "utf-8", errors="ignore")
@@ -467,14 +906,44 @@ class CRMEmailService:
                                             body_text = part.get_payload(decode=True).decode(errors="ignore")
                                         continue
 
-                                # Es un archivo adjunto o una imagen (inline o adjunta)
+                                # Es un archivo adjunto, evento de calendario o una imagen (inline o adjunta)
                                 payload = part.get_payload(decode=True)
                                 if not payload:
                                     continue
 
+                                # Si es un archivo o parte de calendario .ics, parsearlo para widget de reunión
+                                if is_calendar and not detected_calendar_event:
+                                    try:
+                                        ics_text = payload.decode(part.get_content_charset() or "utf-8", errors="ignore") if isinstance(payload, bytes) else str(payload)
+                                        from src.services.crm_calendar_service import parse_vevent_ics
+                                        cal_evs = parse_vevent_ics(ics_text)
+                                        if cal_evs:
+                                            ev = cal_evs[0]
+                                            detected_calendar_event = {
+                                                "uid": ev.get("uid"),
+                                                "title": ev.get("title") or subject or "Invitación a Reunión",
+                                                "start": ev.get("start"),
+                                                "end": ev.get("end"),
+                                                "description": ev.get("description") or "",
+                                                "location": ev.get("location") or "",
+                                                "url": ev.get("url"),
+                                                "organizer": ev.get("organizer"),
+                                                "attendees": ev.get("attendees") or [],
+                                                "status": ev.get("status") or "CONFIRMED",
+                                                "user_response": "pending",
+                                                "accepted_at": None,
+                                                "declined_at": None,
+                                                "calendar_uid": None
+                                            }
+                                    except Exception as cal_err:
+                                        print(f"Error parseando VEVENT en IMAP part: {cal_err}")
+
                                 if not filename:
-                                    ext = mimetypes.guess_extension(c_type) or ".bin"
-                                    filename = f"adjunto_{uuid.uuid4().hex[:6]}{ext}"
+                                    if is_calendar:
+                                        filename = f"invitacion_{uuid.uuid4().hex[:6]}.ics"
+                                    else:
+                                        ext = mimetypes.guess_extension(c_type) or ".bin"
+                                        filename = f"adjunto_{uuid.uuid4().hex[:6]}{ext}"
 
                                 safe_fname = re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
                                 unique_name = f"{uuid.uuid4().hex[:10]}_{safe_fname}"
@@ -495,7 +964,7 @@ class CRMEmailService:
                                     attachments.append({
                                         "filename": filename,
                                         "file_url": file_rel_url,
-                                        "content_type": c_type,
+                                        "content_type": c_type or "text/calendar" if is_calendar else "application/octet-stream",
                                         "size": len(payload)
                                     })
                                 except Exception as save_err:
@@ -512,6 +981,31 @@ class CRMEmailService:
                                         body_html = raw_payload.decode(msg.get_content_charset() or "utf-8", errors="ignore")
                                     except Exception:
                                         body_html = raw_payload.decode(errors="ignore")
+                                elif c_type == "text/calendar" or b"BEGIN:VCALENDAR" in raw_payload:
+                                    try:
+                                        ics_text = raw_payload.decode(msg.get_content_charset() or "utf-8", errors="ignore")
+                                        from src.services.crm_calendar_service import parse_vevent_ics
+                                        cal_evs = parse_vevent_ics(ics_text)
+                                        if cal_evs:
+                                            ev = cal_evs[0]
+                                            detected_calendar_event = {
+                                                "uid": ev.get("uid"),
+                                                "title": ev.get("title") or subject or "Invitación a Reunión",
+                                                "start": ev.get("start"),
+                                                "end": ev.get("end"),
+                                                "description": ev.get("description") or "",
+                                                "location": ev.get("location") or "",
+                                                "url": ev.get("url"),
+                                                "organizer": ev.get("organizer"),
+                                                "attendees": ev.get("attendees") or [],
+                                                "status": ev.get("status") or "CONFIRMED",
+                                                "user_response": "pending",
+                                                "accepted_at": None,
+                                                "declined_at": None,
+                                                "calendar_uid": None
+                                            }
+                                    except Exception as cal_err:
+                                        print(f"Error parseando VEVENT en correo simple: {cal_err}")
                                 else:
                                     try:
                                         body_text = raw_payload.decode(msg.get_content_charset() or "utf-8", errors="ignore")
@@ -560,6 +1054,10 @@ class CRMEmailService:
                             if msg_date and matched_record.created_at != msg_date:
                                 matched_record.created_at = msg_date
                                 needs_update = True
+                            # Si se detectó un evento de reunión y no estaba guardado
+                            if detected_calendar_event and not matched_record.calendar_event:
+                                matched_record.calendar_event = json.dumps(detected_calendar_event)
+                                needs_update = True
                             if needs_update:
                                 db.add(matched_record)
                                 await db.commit()
@@ -581,6 +1079,10 @@ class CRMEmailService:
                             body_text=body_text or None,
                             status=CRMEmailStatus.RECEIVED,
                             is_read=is_seen_in_cpanel,
+                            is_starred=False,
+                            is_archived=False,
+                            is_deleted=False,
+                            calendar_event=json.dumps(detected_calendar_event) if detected_calendar_event else None,
                             attachments=json.dumps(attachments) if attachments else None,
                             created_at=msg_date or datetime.utcnow()
                         )

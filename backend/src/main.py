@@ -143,6 +143,20 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Migraciones para Bandeja de Correos Completa y Eventos de Calendario en crm_emails
+            for col_sql in [
+                "ALTER TABLE crm_emails ADD COLUMN is_starred TINYINT(1) NOT NULL DEFAULT 0",
+                "ALTER TABLE crm_emails ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0",
+                "ALTER TABLE crm_emails ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0",
+                "ALTER TABLE crm_emails ADD COLUMN calendar_event LONGTEXT NULL",
+                "ALTER TABLE crm_emails ADD COLUMN cc_emails VARCHAR(500) NULL",
+                "ALTER TABLE crm_emails ADD COLUMN bcc_emails VARCHAR(500) NULL",
+            ]:
+                try:
+                    await conn.execute(text(col_sql))
+                except Exception:
+                    pass
+
             try:
                 await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN is_forwarded BOOLEAN NOT NULL DEFAULT FALSE"))
             except Exception:

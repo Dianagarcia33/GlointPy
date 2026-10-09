@@ -19,7 +19,9 @@ class EmailService:
         html_content: str, 
         from_name: str = "GLOINT Comercial",
         reply_to_email: str = None,
-        attachments: Optional[List[dict]] = None
+        attachments: Optional[List[dict]] = None,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None
     ) -> bool:
         if not settings.RESEND_API_KEY:
             print("WARNING: RESEND_API_KEY is not set. Skipping CRM email dispatch.")
@@ -36,6 +38,10 @@ class EmailService:
         }
         if reply_to_email:
             email_payload["reply_to"] = reply_to_email
+        if cc and len(cc) > 0:
+            email_payload["cc"] = cc
+        if bcc and len(bcc) > 0:
+            email_payload["bcc"] = bcc
 
         if attachments:
             import os
