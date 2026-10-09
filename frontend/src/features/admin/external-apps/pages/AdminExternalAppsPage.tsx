@@ -233,121 +233,144 @@ export const AdminExternalAppsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <Globe className="w-4 h-4 text-emerald-400" /> Pasarela de Pagos & API Externa
-          </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Apps Externas (Gloint Pay)
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold font-montserrat tracking-tight text-slate-900 flex items-center gap-3">
+            <span className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs inline-flex items-center justify-center">
+              <Globe className="w-6 h-6" />
+            </span>
+            <span>Apps Externas (Gloint Pay)</span>
           </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
+          <p className="text-sm text-slate-500 font-normal mt-1.5 whitespace-nowrap sm:whitespace-normal">
             Conecta comercios y aplicaciones externas para cobrar y debitar automáticamente saldo de las billeteras de usuarios Gloint.
           </p>
         </div>
-        
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <button 
-            onClick={handleCreate}
-            className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+
+        <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+          <button
+            onClick={() => {
+              fetchApps();
+              if (activeTab === 'orders') fetchOrders();
+            }}
+            disabled={loading || ordersLoading}
+            className="p-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-2xl transition-all shadow-2xs hover:border-slate-300 disabled:opacity-50 cursor-pointer"
+            title="Recargar datos"
           >
-            <Plus className="w-4 h-4" />
-            <span>Nueva Aplicación</span>
+            <RefreshCw className={`w-4 h-4 ${loading || ordersLoading ? 'animate-spin text-brand-600' : ''}`} />
           </button>
+
+          <Can permission="admin.external_apps.manage">
+            <button
+              onClick={handleCreate}
+              className="flex items-center justify-center gap-2 px-5 py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-sm transition-all cursor-pointer font-montserrat"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nueva Aplicación</span>
+            </button>
+          </Can>
         </div>
       </div>
 
-      {/* Metric Cards */}
+      {/* 4 Tarjetas KPI Luminosas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider font-montserrat">Apps Registradas</span>
-            <Globe className="w-4 h-4 text-brand-600" />
+        {/* KPI 1 */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Apps Registradas</p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
+              {apps.length}
+            </h3>
+            <span className="text-[11px] text-brand-600 font-bold">{activeAppsCount} activas para cobros</span>
           </div>
-          <p className="text-2xl font-black text-slate-900 font-montserrat">{apps.length}</p>
-          <span className="text-[11px] text-slate-500 font-medium">{activeAppsCount} activas para cobros</span>
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 shadow-2xs">
+            <Globe className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider font-montserrat">Volumen Procesado</span>
-            <DollarSign className="w-4 h-4 text-emerald-600" />
+        {/* KPI 2 */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Volumen Procesado</p>
+            <h3 className="text-2xl font-black text-emerald-600 mt-1 font-montserrat">
+              {formatCurrency(totalVolume)}
+            </h3>
+            <span className="text-[11px] text-slate-400 font-medium">en billeteras Gloint</span>
           </div>
-          <p className="text-2xl font-black text-emerald-600 font-montserrat">{formatCurrency(totalVolume)}</p>
-          <span className="text-[11px] text-slate-500 font-medium">Cobrado en billeteras Gloint</span>
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs">
+            <DollarSign className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider font-montserrat">Órdenes Completadas</span>
-            <ShoppingBag className="w-4 h-4 text-blue-600" />
+        {/* KPI 3 */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Órdenes Pagadas</p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
+              {totalOrders}
+            </h3>
+            <span className="text-[11px] text-blue-600 font-bold">transacciones exitosas</span>
           </div>
-          <p className="text-2xl font-black text-slate-900 font-montserrat">{totalOrders}</p>
-          <span className="text-[11px] text-slate-500 font-medium">Transacciones exitosas</span>
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-2xs">
+            <ShoppingBag className="w-5 h-5" />
+          </div>
         </div>
 
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider font-montserrat">Estado del Gateway</span>
-            <Activity className={`w-4 h-4 ${isGatewayHealthy ? 'text-emerald-600' : 'text-amber-600'}`} />
+        {/* KPI 4 */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Estado Gateway</p>
+            <h3 className={`text-xl font-black mt-1 font-montserrat flex items-center gap-1.5 ${isGatewayHealthy ? 'text-emerald-700' : 'text-amber-700'}`}>
+              <span className={`w-2.5 h-2.5 rounded-full ${isGatewayHealthy ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+              {isGatewayHealthy ? 'Operacional' : `${webhookSuccessRate}% entrega`}
+            </h3>
+            <span className={`text-[11px] font-medium ${isGatewayHealthy ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {isGatewayHealthy ? 'Webhooks al 100%' : `${failedWebhooks.length} webhooks pendientes`}
+            </span>
           </div>
-          {isGatewayHealthy ? (
-            <>
-              <p className="text-lg font-black text-emerald-700 font-montserrat flex items-center gap-1.5 mt-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Operacional (100%)
-              </p>
-              <span className="text-[11px] text-slate-500 font-medium">Checkout y Webhooks listos</span>
-            </>
-          ) : (
-            <>
-              <p className="text-lg font-black text-amber-700 font-montserrat flex items-center gap-1.5 mt-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-                Atención ({webhookSuccessRate}% entrega)
-              </p>
-              <span className="text-[11px] text-rose-600 font-semibold">{failedWebhooks.length} de {completedOrders.length} webhooks fallidos</span>
-            </>
-          )}
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xs ${
+            isGatewayHealthy ? 'bg-emerald-50 border border-emerald-100 text-emerald-600' : 'bg-amber-50 border border-amber-100 text-amber-600'
+          }`}>
+            <Activity className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 gap-2">
+      {/* Tabs Selector Cápsula */}
+      <div className="flex bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200 w-fit">
         <button
           type="button"
           onClick={() => setActiveTab('apps')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
             activeTab === 'apps'
-              ? 'border-brand-600 text-brand-600 bg-brand-50/50 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-t-xl'
+              ? 'bg-white text-brand-700 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Globe className="w-4 h-4" />
+          <Globe className="w-3.5 h-3.5" />
           <span>Aplicaciones Conectadas ({apps.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('orders')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
             activeTab === 'orders'
-              ? 'border-brand-600 text-brand-600 bg-brand-50/50 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-t-xl'
+              ? 'bg-white text-brand-700 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <ShoppingBag className="w-4 h-4" />
+          <ShoppingBag className="w-3.5 h-3.5" />
           <span>Historial de Cobros & Órdenes</span>
         </button>
       </div>
 
       {/* Tab 1: Apps Table */}
       {activeTab === 'apps' && (
-        <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-xs border border-slate-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50/90 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+              <thead className="bg-slate-50/70 text-slate-400 font-bold border-b border-slate-100 uppercase text-[11px] tracking-wider font-montserrat">
                 <tr>
                   <th className="px-4 py-3.5 text-left min-w-[160px] xl:min-w-[180px]">Comercio / App</th>
                   <th className="px-3 py-3.5 text-left whitespace-nowrap min-w-[130px]">Client ID</th>
@@ -496,7 +519,7 @@ export const AdminExternalAppsPage: React.FC = () => {
 
       {/* Tab 2: Orders History */}
       {activeTab === 'orders' && (
-        <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden space-y-4 p-6">
+        <div className="bg-white rounded-3xl shadow-xs border border-slate-100 overflow-hidden space-y-4 p-6">
           <div className="flex items-center justify-between gap-4">
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -505,30 +528,30 @@ export const AdminExternalAppsPage: React.FC = () => {
                 placeholder="Buscar por referencia, comercio o usuario..."
                 value={searchOrder}
                 onChange={(e) => setSearchOrder(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-2xs"
               />
             </div>
             <button
               onClick={fetchOrders}
-              className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              className="p-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer"
               title="Refrescar órdenes"
             >
-              <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${ordersLoading ? 'animate-spin text-brand-600' : ''}`} />
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-2xs">
             <table className="w-full text-left text-xs whitespace-nowrap">
-              <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+              <thead className="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-bold uppercase text-[11px] tracking-wider font-montserrat">
                 <tr>
-                  <th className="py-3 px-4">Fecha</th>
-                  <th className="py-3 px-4">Comercio</th>
-                  <th className="py-3 px-4">Referencia Orden</th>
-                  <th className="py-3 px-4">Inversionista Pagador</th>
-                  <th className="py-3 px-4 text-right">Monto Cobrado</th>
-                  <th className="py-3 px-4 text-center">Estado Pago</th>
-                  <th className="py-3 px-4 text-center">Webhook</th>
-                  <th className="py-3 px-4 text-center">Acciones</th>
+                  <th className="py-3.5 px-4">Fecha</th>
+                  <th className="py-3.5 px-4">Comercio</th>
+                  <th className="py-3.5 px-4">Referencia Orden</th>
+                  <th className="py-3.5 px-4">Inversionista Pagador</th>
+                  <th className="py-3.5 px-4 text-right">Monto Cobrado</th>
+                  <th className="py-3.5 px-4 text-center">Estado Pago</th>
+                  <th className="py-3.5 px-4 text-center">Webhook</th>
+                  <th className="py-3.5 px-4 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">

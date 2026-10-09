@@ -216,48 +216,117 @@ export const AdminNotificationsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Main Executive Banner */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-brand-500/20 text-brand-300 rounded-full text-xs font-bold border border-brand-500/30 flex items-center gap-1.5">
-              <Radio className="w-3.5 h-3.5 animate-pulse text-brand-400" />
-              Módulo de Difusión Masiva
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold font-montserrat tracking-tight text-slate-900 flex items-center gap-3">
+            <span className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs inline-flex items-center justify-center">
+              <Radio className="w-6 h-6" />
             </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Notificaciones Administrativas
+            <span>Notificaciones Administrativas</span>
           </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
+          <p className="text-sm text-slate-500 font-normal mt-1.5 whitespace-nowrap sm:whitespace-normal">
             Envío de comunicados oficiales, avisos de mantenimiento, actualizaciones del sistema y alertas push masivas o segmentadas.
           </p>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="relative z-10 flex bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700/80 backdrop-blur-sm shrink-0">
+        <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
+          {/* Navigation Tabs */}
+          <div className="flex bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200">
+            <button
+              onClick={() => setActiveTab('send')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
+                activeTab === 'send' 
+                  ? 'bg-white text-brand-700 shadow-2xs' 
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Send className="w-3.5 h-3.5" />
+              Redactar
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer font-montserrat ${
+                activeTab === 'history' 
+                  ? 'bg-white text-brand-700 shadow-2xs' 
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              Historial
+            </button>
+          </div>
+
           <button
-            onClick={() => setActiveTab('send')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
-              activeTab === 'send' 
-                ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-            }`}
+            onClick={() => {
+              refetchOptions();
+              if (activeTab === 'history') refetchHistory();
+            }}
+            disabled={isFetchingOptions || isLoadingHistory}
+            className="p-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-2xl transition-all shadow-2xs hover:border-slate-300 disabled:opacity-50 cursor-pointer"
+            title="Recargar datos"
           >
-            <Send className="w-4 h-4" />
-            Redactar Comunicado
+            <RefreshCw className={`w-4 h-4 ${isFetchingOptions || isLoadingHistory ? 'animate-spin text-brand-600' : ''}`} />
           </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
-              activeTab === 'history' 
-                ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30' 
-                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            Historial de Envíos
-          </button>
+        </div>
+      </div>
+
+      {/* 4 Tarjetas KPI Luminosas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1 */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Historial Envíos</p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
+              {isLoadingHistory ? '...' : (historyList?.length ?? 0)}
+            </h3>
+            <span className="text-[11px] text-slate-400 font-medium">comunicados registrados</span>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 shadow-2xs">
+            <Radio className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* KPI 2 */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Total Usuarios</p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
+              {isLoadingOptions ? '...' : totalUsersCount}
+            </h3>
+            <span className="text-[11px] text-emerald-600 font-bold">destinatarios potenciales</span>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs">
+            <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* KPI 3 */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Roles Disponibles</p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
+              {availableRoles.length || targetOptions?.roles?.length || 0}
+            </h3>
+            <span className="text-[11px] text-blue-600 font-bold">segmentaciones activas</span>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-2xs">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* KPI 4 */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Alertas Críticas</p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
+              {historyList ? historyList.filter(h => h.type === 'alerta' || h.type === 'mantenimiento').length : 0}
+            </h3>
+            <span className="text-[11px] text-amber-600 font-bold">mantenimientos / avisos</span>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shadow-2xs">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
@@ -265,16 +334,16 @@ export const AdminNotificationsPage: React.FC = () => {
       {activeTab === 'send' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Formulario Principal (8 columnas) */}
-          <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-6">
+          {/* Formulario Principal (7 columnas) */}
+          <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-100 space-y-6">
             
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-brand-50 text-brand-700 rounded-2xl">
+                <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs">
                   <Send className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 text-lg">Nueva Notificación</h3>
+                  <h3 className="font-bold text-slate-800 text-lg font-montserrat">Nueva Notificación</h3>
                   <p className="text-xs text-slate-500">Configura la audiencia y el contenido del comunicado</p>
                 </div>
               </div>
@@ -732,11 +801,11 @@ export const AdminNotificationsPage: React.FC = () => {
 
       {/* Tab 2: Historial de Comunicados Masivos */}
       {activeTab === 'history' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-6">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xs border border-slate-100 space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
             <div>
-              <h3 className="font-bold text-slate-800 text-lg">Historial de Comunicaciones Enviadas</h3>
-              <p className="text-xs text-slate-500">Registro completo y auditoría de notificaciones masivas</p>
+              <h3 className="font-bold text-slate-800 text-lg font-montserrat">Historial de Comunicaciones Enviadas</h3>
+              <p className="text-xs text-slate-500 font-normal">Registro completo y auditoría de notificaciones masivas</p>
             </div>
 
             <div className="relative w-full sm:w-72">
@@ -745,7 +814,7 @@ export const AdminNotificationsPage: React.FC = () => {
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 placeholder="Buscar en historial..."
-                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             </div>
@@ -774,16 +843,16 @@ export const AdminNotificationsPage: React.FC = () => {
           ) : filteredHistory.length === 0 ? (
             <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-3">
               <History className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700">No hay comunicaciones registradas</p>
+              <p className="text-sm font-bold text-slate-700 font-montserrat">No hay comunicaciones registradas</p>
               <p className="text-xs text-slate-400 max-w-sm mx-auto">
                 Las notificaciones masivas o avisos de sistema que transmitas aparecerán registradas aquí.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-2xs">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/50 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-400 font-bold uppercase tracking-wider text-[11px] font-montserrat">
                     <th className="py-3 px-4">Fecha</th>
                     <th className="py-3 px-4">Tipo</th>
                     <th className="py-3 px-4">Título & Mensaje</th>

@@ -189,36 +189,34 @@ export const AdminEventsPage: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 font-inter animate-in fade-in duration-300">
       
-      {/* Header Principal */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200/60 text-brand-700 text-xs font-bold mb-1 font-montserrat">
-            <Sparkles className="w-3.5 h-3.5 text-brand-600" />
-            <span>Módulo de Presentaciones y Eventos</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-montserrat tracking-tight">
-            Gloint Power Tech • Gestión de Asistencia
+          <h1 className="text-2xl sm:text-3xl font-bold font-montserrat tracking-tight text-slate-900 flex items-center gap-3">
+            <span className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs inline-flex items-center justify-center">
+              <Sparkles className="w-6 h-6" />
+            </span>
+            <span>Gloint Power Tech • Asistencia</span>
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 font-normal mt-1.5 whitespace-nowrap sm:whitespace-normal">
             Supervisa en tiempo real los cupos presenciales, configura el evento y administra las confirmaciones.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 self-stretch sm:self-auto shrink-0">
           <button
             onClick={loadSummary}
             disabled={loading}
-            className="p-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-slate-700 text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+            className="p-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-2xl transition-all shadow-2xs hover:border-slate-300 disabled:opacity-50 cursor-pointer"
             title="Recargar datos"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-600' : ''}`} />
-            <span>Actualizar</span>
           </button>
 
           <button
             onClick={handleExportCSV}
             disabled={!summary?.attendees.length}
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-2xl shadow-sm transition-all cursor-pointer disabled:opacity-50 font-montserrat"
           >
             <Download className="w-4 h-4" />
             <span>Exportar CSV</span>
@@ -227,7 +225,7 @@ export const AdminEventsPage: React.FC = () => {
       </div>
 
       {feedbackMsg && (
-        <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in ${
+        <div className={`p-4 rounded-2xl border flex items-center gap-3 text-xs font-medium animate-in fade-in shadow-xs ${
           feedbackMsg.type === 'success' 
             ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
             : 'bg-rose-50 border-rose-200 text-rose-800'
@@ -237,79 +235,91 @@ export const AdminEventsPage: React.FC = () => {
         </div>
       )}
 
-      {/* KPI Cards de Aforo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        
-        {/* Aforo Total */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Aforo Total</span>
-          <p className="text-2xl font-black text-slate-900 font-montserrat mt-1">
-            {summary?.event.capacity_in_person || 0}
-          </p>
-          <span className="text-[11px] text-slate-500 mt-1 block">Cupos configurados</span>
-        </div>
-
-        {/* Cupos Ocupados */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Cupos Ocupados</span>
-          <p className={`text-2xl font-black font-montserrat mt-1 ${percentOccupied > 100 ? 'text-rose-600' : 'text-brand-600'}`}>
-            {summary?.event.occupied_in_person || 0}
-          </p>
-          <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-            <div 
-              className={`h-full rounded-full transition-all duration-500 ${percentOccupied > 100 ? 'bg-rose-500' : 'bg-brand-500'}`}
-              style={{ width: `${Math.min(100, percentOccupied)}%` }}
-            />
+      {/* 4 Tarjetas KPI Luminosas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Ocupación Presencial */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div className="flex-1 pr-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Aforo Presencial</p>
+            <div className="flex items-baseline gap-2 mt-1">
+              <h3 className={`text-2xl font-black font-montserrat ${percentOccupied > 100 ? 'text-rose-600' : 'text-slate-800'}`}>
+                {summary?.event.occupied_in_person || 0}
+              </h3>
+              <span className="text-xs text-slate-400 font-mono font-medium">/ {summary?.event.capacity_in_person || 0}</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+              <div 
+                className={`h-full rounded-full transition-all duration-500 ${percentOccupied > 100 ? 'bg-rose-500' : 'bg-brand-500'}`}
+                style={{ width: `${Math.min(100, percentOccupied)}%` }}
+              />
+            </div>
+            <span className={`text-[10px] mt-1 block font-semibold ${percentOccupied > 100 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
+              {percentOccupied}% aforo ocupado {percentOccupied > 100 && '(Sobreventa)'}
+            </span>
           </div>
-          <span className={`text-[10px] mt-1 block font-semibold ${percentOccupied > 100 ? 'text-rose-600 font-bold' : 'text-slate-400'}`}>
-            {percentOccupied}% del aforo ocupado {percentOccupied > 100 && '(Sobreventa)'}
-          </span>
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 shadow-2xs shrink-0">
+            <MapPin className="w-5 h-5" />
+          </div>
         </div>
 
-        {/* Cupos Disponibles */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Cupos Disponibles</span>
-          <p className={`text-2xl font-black font-montserrat mt-1 ${
-            (summary?.event.available_in_person || 0) <= 5 ? 'text-rose-600' : 'text-emerald-600'
-          }`}>
-            {summary?.event.available_in_person ?? 0}
-          </p>
-          <span className="text-[11px] text-slate-500 mt-1 block">
-            {(summary?.event.available_in_person ?? 0) <= 0 ? 'Aforo Agotado' : 'Asientos libres'}
-          </span>
+        {/* KPI 2: Cupos Libres */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Cupos Libres</p>
+            <h3 className={`text-2xl font-black font-montserrat mt-1 ${
+              (summary?.event.available_in_person ?? 0) <= 5 ? 'text-rose-600' : 'text-emerald-600'
+            }`}>
+              {summary?.event.available_in_person ?? 0}
+            </h3>
+            <span className="text-[11px] text-slate-400 font-medium">
+              {(summary?.event.available_in_person ?? 0) <= 0 ? 'Aforo completo' : 'asientos disponibles'}
+            </span>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-2xs">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
         </div>
 
-        {/* Asistentes Virtuales */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Modalidad Virtual</span>
-          <p className="text-2xl font-black text-indigo-600 font-montserrat mt-1">
-            {summary?.virtual_attendees || 0}
-          </p>
-          <span className="text-[11px] text-slate-500 mt-1 block">Transmisión online</span>
+        {/* KPI 3: Modalidad Virtual */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Modalidad Virtual</p>
+            <h3 className="text-2xl font-black text-indigo-600 font-montserrat mt-1">
+              {summary?.virtual_attendees || 0}
+            </h3>
+            <span className="text-[11px] text-slate-400 font-medium">transmisión online</span>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+            <Video className="w-5 h-5" />
+          </div>
         </div>
 
-        {/* Total General */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Confirmados</span>
-          <p className="text-2xl font-black text-slate-900 font-montserrat mt-1">
-            {summary?.total_attendees || 0}
-          </p>
-          <span className="text-[10px] text-slate-500 mt-1 block">
-            {summary?.investor_attendees || 0} inv. • {summary?.external_attendees || 0} externos
-          </span>
+        {/* KPI 4: Total Confirmados */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">Total Confirmados</p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1 font-montserrat">
+              {summary?.total_attendees || 0}
+            </h3>
+            <span className="text-[11px] text-blue-600 font-bold">
+              {summary?.investor_attendees || 0} inv. • {summary?.external_attendees || 0} ext.
+            </span>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-2xs">
+            <Users className="w-5 h-5" />
+          </div>
         </div>
-
       </div>
 
       {/* Grid: Configuración + Tabla */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Card: Configuración del Evento */}
-        <div className="lg:col-span-4 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
+        <div className="lg:col-span-4 bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-4">
           
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-            <div className="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-              <Settings className="w-4 h-4" />
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs">
+              <Settings className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 font-montserrat">Configuración de Gloint Power Tech</h2>
@@ -326,7 +336,7 @@ export const AdminEventsPage: React.FC = () => {
                 required
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               />
             </div>
 
@@ -338,7 +348,7 @@ export const AdminEventsPage: React.FC = () => {
                 required
                 value={formData.capacity_in_person}
                 onChange={(e) => setFormData({ ...formData, capacity_in_person: parseInt(e.target.value) || 0 })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               />
               <span className="text-[10px] text-slate-400 mt-1 block">
                 {summary && summary.event.occupied_in_person > 0 ? (
@@ -356,7 +366,7 @@ export const AdminEventsPage: React.FC = () => {
                 type="datetime-local"
                 value={formData.event_date}
                 onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               />
             </div>
 
@@ -367,7 +377,7 @@ export const AdminEventsPage: React.FC = () => {
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 placeholder="Auditorio Principal • Ciudad"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               />
             </div>
 
@@ -378,7 +388,7 @@ export const AdminEventsPage: React.FC = () => {
                 value={formData.virtual_url}
                 onChange={(e) => setFormData({ ...formData, virtual_url: e.target.value })}
                 placeholder="https://meet.gloint.com.co/..."
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               />
             </div>
 
@@ -416,7 +426,7 @@ export const AdminEventsPage: React.FC = () => {
             <button
               type="submit"
               disabled={savingConfig}
-              className="w-full mt-3 py-3 px-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 font-montserrat"
+              className="w-full mt-3 py-3 px-4 bg-brand-600 hover:bg-brand-700 text-white font-extrabold rounded-2xl text-xs shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 font-montserrat"
             >
               {savingConfig ? (
                 <>
@@ -436,7 +446,7 @@ export const AdminEventsPage: React.FC = () => {
         </div>
 
         {/* Card: Tabla de Asistentes */}
-        <div className="lg:col-span-8 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xs space-y-4">
+        <div className="lg:col-span-8 bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-4">
           
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
@@ -452,7 +462,7 @@ export const AdminEventsPage: React.FC = () => {
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as any)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               >
                 <option value="all">Todos los Tipos</option>
                 <option value="investor">Inversionistas</option>
@@ -463,7 +473,7 @@ export const AdminEventsPage: React.FC = () => {
               <select
                 value={modeFilter}
                 onChange={(e) => setModeFilter(e.target.value as any)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
               >
                 <option value="all">Todas las Modalidades</option>
                 <option value="in_person">Presenciales</option>
@@ -480,27 +490,27 @@ export const AdminEventsPage: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por nombre, correo, teléfono o cédula..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
             />
           </div>
 
           {/* Tabla */}
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-2xs">
             <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              <thead className="bg-slate-50/70 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-montserrat">
                 <tr>
-                  <th className="px-4 py-3">Asistente</th>
-                  <th className="px-4 py-3">Contacto</th>
-                  <th className="px-4 py-3">Modalidad</th>
-                  <th className="px-4 py-3">Acompañante</th>
-                  <th className="px-4 py-3">Cupos</th>
-                  <th className="px-4 py-3 text-right">Acción</th>
+                  <th className="px-4 py-3.5">Asistente</th>
+                  <th className="px-4 py-3.5">Contacto</th>
+                  <th className="px-4 py-3.5">Modalidad</th>
+                  <th className="px-4 py-3.5">Acompañante</th>
+                  <th className="px-4 py-3.5">Cupos</th>
+                  <th className="px-4 py-3.5 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredAttendees.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-slate-400">
+                    <td colSpan={6} className="text-center py-10 text-slate-400 font-montserrat">
                       No se encontraron asistentes con los filtros seleccionados.
                     </td>
                   </tr>
@@ -509,11 +519,11 @@ export const AdminEventsPage: React.FC = () => {
                     <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
                       
                       {/* Asistente */}
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-slate-900">{att.full_name}</div>
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5 ${
+                      <td className="px-4 py-3.5">
+                        <div className="font-bold text-slate-900 font-montserrat">{att.full_name}</div>
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${
                           att.attendee_type === 'investor'
-                            ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                            ? 'bg-brand-50 text-brand-700 border border-brand-200/60'
                             : 'bg-slate-100 text-slate-600'
                         }`}>
                           {att.attendee_type === 'investor' ? 'Inversionista' : 'Invitado Externo'}
@@ -521,18 +531,18 @@ export const AdminEventsPage: React.FC = () => {
                       </td>
 
                       {/* Contacto */}
-                      <td className="px-4 py-3 space-y-0.5">
-                        <div className="text-slate-900">{att.email}</div>
-                        {att.phone && <div className="text-[11px] text-slate-400">{att.phone}</div>}
+                      <td className="px-4 py-3.5 space-y-0.5">
+                        <div className="text-slate-900 font-medium">{att.email}</div>
+                        {att.phone && <div className="text-[11px] text-slate-400 font-mono">{att.phone}</div>}
                         {att.city && <div className="text-[10px] text-slate-400">{att.city}</div>}
                       </td>
 
                       {/* Modalidad */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                           att.attendance_mode === 'in_person'
-                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                            : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                            : 'bg-indigo-50 text-indigo-700 border border-indigo-200/60'
                         }`}>
                           {att.attendance_mode === 'in_person' ? (
                             <>
@@ -549,7 +559,7 @@ export const AdminEventsPage: React.FC = () => {
                       </td>
 
                       {/* Acompañante */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         {att.has_companion ? (
                           <div>
                             <span className="font-bold text-slate-900 text-xs">Sí</span>
@@ -565,20 +575,20 @@ export const AdminEventsPage: React.FC = () => {
                       </td>
 
                       {/* Cupos Reservados */}
-                      <td className="px-4 py-3">
-                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                      <td className="px-4 py-3.5">
+                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-lg text-xs">
                           {att.seats_reserved}
                         </span>
                       </td>
 
                       {/* Acciones */}
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3.5 text-right">
                         {att.status === 'confirmed' ? (
                           <button
                             type="button"
                             disabled={cancellingId === att.id}
                             onClick={() => handleCancelAttendee(att.id, att.full_name)}
-                            className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                            className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-2xs cursor-pointer"
                             title="Cancelar asistencia y liberar cupos"
                           >
                             {cancellingId === att.id ? (
@@ -588,7 +598,7 @@ export const AdminEventsPage: React.FC = () => {
                             )}
                           </button>
                         ) : (
-                          <span className="text-[10px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full">
+                          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
                             Cancelado
                           </span>
                         )}

@@ -7,7 +7,7 @@ import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency } from '../../../../utils/format';
 
@@ -246,41 +246,65 @@ export const AdminUsersPage = () => {
     }
   };
 
+  const activeUsersCount = users.filter(u => u.is_active).length;
+  const walletsCount = users.filter(u => !!u.wallet).length;
+  const totalWalletsBalance = users.reduce((acc, u) => acc + (u.wallet ? Number(u.wallet.balance || 0) : 0), 0);
+  const verifiedAccountsCount = users.filter(u => (u.bank_accounts && u.bank_accounts.length > 0) || u.document_id).length;
+
   if (isInitialLoading) {
-      return (
-          <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-pulse">
-              <div className="bg-slate-900/90 rounded-3xl p-8 h-40 shadow-xl relative overflow-hidden flex flex-col justify-center space-y-3">
-                  <div className="h-5 w-48 bg-slate-800 rounded-full"></div>
-                  <div className="h-8 w-64 bg-slate-800 rounded-xl"></div>
-              </div>
-              <div className="bg-white rounded-3xl border border-slate-200 p-4 h-16 w-full"></div>
-              <div className="bg-white rounded-3xl border border-slate-200 p-6 h-96 space-y-4">
-                  <div className="h-6 w-48 bg-slate-200 rounded"></div>
-                  <div className="space-y-3 pt-2">
-                      {[1, 2, 3, 4, 5].map(i => (
-                          <div key={i} className="h-12 bg-slate-100 rounded-2xl w-full"></div>
-                      ))}
-                  </div>
-              </div>
+    return (
+      <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-pulse font-inter">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-8 w-64 bg-slate-200 rounded-xl"></div>
+            <div className="h-4 w-96 bg-slate-100 rounded-lg"></div>
           </div>
-      );
+          <div className="flex gap-2">
+            <div className="h-10 w-32 bg-slate-200 rounded-xl"></div>
+            <div className="h-10 w-36 bg-slate-200 rounded-xl"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white border border-slate-200/90 rounded-2xl p-5 h-28 space-y-3">
+              <div className="h-4 w-24 bg-slate-100 rounded"></div>
+              <div className="h-6 w-32 bg-slate-200 rounded"></div>
+            </div>
+          ))}
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-4 h-16 w-full"></div>
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 h-96 space-y-4">
+          <div className="h-6 w-48 bg-slate-200 rounded"></div>
+          <div className="space-y-3 pt-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-12 bg-slate-100 rounded-xl w-full"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-      return (
-          <div className="w-full max-w-7xl mx-auto p-6 bg-red-50 border border-red-200 rounded-3xl flex items-start gap-4 text-red-700 shadow-xs">
-              <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
-              <div>
-                  <h3 className="font-bold font-montserrat text-base">Error cargando usuarios</h3>
-                  <p className="text-sm mt-1">{error}</p>
-                  <button onClick={fetchData} className="mt-3 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition-all cursor-pointer">Reintentar</button>
-              </div>
-          </div>
-      );
+    return (
+      <div className="w-full max-w-7xl mx-auto p-6 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-4 text-rose-700 shadow-xs font-inter">
+        <AlertCircle className="w-6 h-6 shrink-0 mt-0.5 text-rose-600" />
+        <div>
+          <h3 className="font-bold font-montserrat text-base text-rose-900">Error cargando usuarios</h3>
+          <p className="text-sm mt-1 text-rose-700">{error}</p>
+          <button 
+            onClick={fetchData} 
+            className="mt-3 px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-all cursor-pointer font-montserrat shadow-xs"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300 font-inter">
       {success && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-emerald-800 shadow-xs font-medium text-sm animate-in fade-in duration-200">
           <div className="flex items-center gap-3">
@@ -293,29 +317,38 @@ export const AdminUsersPage = () => {
         </div>
       )}
 
-      {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 md:p-7 shadow-xl relative overflow-hidden flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-        <div className="relative z-10 space-y-1.5 flex-1 min-w-[280px]">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/10 rounded-full text-[11px] font-bold text-brand-300 backdrop-blur-sm">
-            <UserIcon className="w-3.5 h-3.5 text-emerald-400" /> Administración de Identidad & Accesos
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <UserIcon className="w-6 h-6" />
+              </div>
+              <span>Gestión de Usuarios</span>
+            </h1>
+            <button
+              onClick={fetchData}
+              disabled={isTableLoading}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${isTableLoading ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-montserrat text-white whitespace-nowrap">
-            Gestión de Usuarios
-          </h1>
-          <p className="text-slate-300 text-xs sm:text-sm max-w-lg">
-            Administra usuarios de la plataforma, roles asignados, billeteras asociadas y seguridad.
+          <p className="text-slate-500 text-sm mt-1 font-normal">
+            Administra usuarios de la plataforma, roles asignados, billeteras asociadas y parámetros de seguridad.
           </p>
         </div>
         
-        <div className="relative z-10 flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button 
             onClick={() => setIsGlobalStatementOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl transition-all text-xs font-bold border border-slate-200/90 shadow-2xs cursor-pointer font-montserrat"
             title="Ver auditoría financiera y extracto general de la plataforma"
           >
-            <Landmark className="w-4 h-4 text-emerald-400" />
-            <span>Estado General</span>
+            <Landmark className="w-4 h-4 text-emerald-600" />
+            <span className="whitespace-nowrap">Estado General</span>
           </button>
 
           <Can permission="admin.users.manage">
@@ -324,29 +357,29 @@ export const AdminUsersPage = () => {
                 setBatchSarlaftResult(null);
                 setIsBatchSarlaftModalOpen(true);
               }}
-              className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-xl transition-all text-xs font-bold border border-emerald-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50/80 hover:bg-emerald-100/80 text-emerald-800 rounded-xl transition-all text-xs font-bold border border-emerald-200/80 shadow-2xs cursor-pointer font-montserrat"
               title="Aprobar SARLAFT masivamente a usuarios que ya cuentan con inversiones"
             >
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Validar SARLAFT</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span className="whitespace-nowrap">Validar SARLAFT</span>
             </button>
           </Can>
 
           <Can permission="admin.users.manage">
             <button 
               onClick={() => setIsForceAllModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-amber-50/80 hover:bg-amber-100/80 text-amber-800 rounded-xl transition-all text-xs font-bold border border-amber-200/80 shadow-2xs cursor-pointer font-montserrat"
               title="Obligar a todos los usuarios a actualizar sus datos de perfil"
             >
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span>Forzar Perfil</span>
+              <ShieldAlert className="w-4 h-4 text-amber-600" />
+              <span className="whitespace-nowrap">Forzar Perfil</span>
             </button>
           </Can>
 
           <Can permission="admin.users.manage">
             <button 
               onClick={handleCreate}
-              className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-xs sm:text-sm font-bold cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-xl transition-all shadow-md shadow-brand-500/20 text-xs font-bold cursor-pointer font-montserrat shrink-0 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Crear Usuario</span>
@@ -354,26 +387,101 @@ export const AdminUsersPage = () => {
           </Can>
         </div>
       </div>
+
+      {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Usuarios */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Total Usuarios
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <UserIcon className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {total}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            {activeUsersCount} activos en la plataforma
+          </span>
+        </div>
+
+        {/* Billeteras Vinculadas */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Billeteras Activas
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {walletsCount}
+          </span>
+          <span className="text-[11px] text-emerald-600 font-medium block truncate">
+            Cuentas financieras operativas
+          </span>
+        </div>
+
+        {/* Saldo Global Custodiado */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-blue-700 font-bold uppercase tracking-wider block font-montserrat">
+              Saldo en Billeteras (Pág.)
+            </span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+              <Landmark className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-blue-700 block tracking-tight font-mono">
+            {formatCurrency(totalWalletsBalance)}
+          </span>
+          <span className="text-[11px] text-blue-600 font-medium block truncate">
+            Fondos custodiados de usuarios
+          </span>
+        </div>
+
+        {/* Identificación & Bancarización */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Con Trazabilidad
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
+            {verifiedAccountsCount}
+          </span>
+          <span className="text-[11px] text-amber-600 font-medium block truncate">
+            Perfiles con documento o cuenta bancaria
+          </span>
+        </div>
+      </div>
       
       {/* Filters Bar */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200/90 flex flex-col md:flex-row gap-3 items-center">
         <div className="flex-1 w-full relative">
           <input 
             type="text" 
             placeholder="Buscar por nombre, correo o documento..." 
-            className="w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+            className="w-full pl-4 pr-10 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all font-inter"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
           {isTableLoading && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
             </div>
           )}
         </div>
         <div className="w-full md:w-48">
           <select 
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            className="w-full px-3.5 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all cursor-pointer"
             value={roleFilter}
             onChange={(e) => {
               setRoleFilter(e.target.value);
@@ -388,7 +496,7 @@ export const AdminUsersPage = () => {
         </div>
         <div className="w-full md:w-48">
           <select 
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            className="w-full px-3.5 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all cursor-pointer"
             value={activeFilter}
             onChange={(e) => {
               setActiveFilter(e.target.value);
@@ -402,7 +510,7 @@ export const AdminUsersPage = () => {
         </div>
         <div className="w-full md:w-48">
           <select 
-            className="w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white"
+            className="w-full px-3.5 py-2.5 border border-slate-200/90 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all cursor-pointer"
             value={walletFilter}
             onChange={(e) => {
               setWalletFilter(e.target.value);
@@ -416,10 +524,10 @@ export const AdminUsersPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/90 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+            <thead className="bg-slate-50/80 text-slate-400 font-bold border-b border-slate-200/80 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-3.5 py-3 w-[24%]">Usuario</th>
                 <th className="px-3.5 py-3 w-[18%]">Identificación & Contacto</th>

@@ -54,7 +54,7 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
     <div className="overflow-x-auto">
       <table className="w-full text-left border-collapse text-xs">
         <thead>
-          <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider font-montserrat">
+          <tr className="bg-slate-50/80 border-b border-slate-200/80 text-slate-400 font-bold uppercase text-[10px] tracking-wider font-montserrat">
             <th className="px-6 py-4">Tipo / Estado</th>
             <th className="px-6 py-4">Descripción</th>
             <th className="px-6 py-4">Configuración de Tiempo</th>
@@ -63,17 +63,17 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
         </thead>
         <tbody className="divide-y divide-slate-100 font-medium">
           {events.map((event) => (
-            <tr key={event.id} className="hover:bg-slate-50/80 transition-colors">
+            <tr key={event.id} className="hover:bg-slate-50/70 transition-colors">
               <td className="px-6 py-4">
                 <div className="flex flex-col gap-1">
-                  <span className="font-extrabold text-slate-900 capitalize text-sm">{event.type.replace(/_/g, ' ')}</span>
+                  <span className="font-extrabold text-slate-900 capitalize text-sm font-montserrat">{event.type.replace(/_/g, ' ')}</span>
                   <div>
                     {event.is_active ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-montserrat">
                         Activo
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200 font-montserrat">
                         Inactivo
                       </span>
                     )}
@@ -87,22 +87,22 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
                 {event.is_recurring ? (
                   <div className="flex items-center gap-2 text-slate-700 bg-blue-50/80 border border-blue-100 px-3 py-1.5 rounded-xl w-fit">
                     <RotateCw className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span className="font-bold text-blue-950">
+                    <span className="font-bold text-blue-950 font-mono text-xs">
                       Día {event.recurrence_start_day} al {event.recurrence_end_day} de cada mes
                     </span>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1.5 text-slate-600">
+                  <div className="flex flex-col gap-1.5 text-slate-600 text-xs">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>
-                        Inicio: <strong className="text-slate-800">{event.start_date ? format(new Date(event.start_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}</strong>
+                        Inicio: <strong className="text-slate-800 font-mono">{event.start_date ? format(new Date(event.start_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}</strong>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                       <span>
-                        Fin: <strong className="text-slate-800">{event.end_date ? format(new Date(event.end_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}</strong>
+                        Fin: <strong className="text-slate-800 font-mono">{event.end_date ? format(new Date(event.end_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}</strong>
                       </span>
                     </div>
                   </div>
@@ -112,7 +112,7 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
                 <div className="flex items-center justify-center gap-2">
                   <button
                     onClick={() => onEdit(event)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:text-brand-800 hover:bg-brand-100/70 bg-brand-50/70 rounded-xl transition-all border border-brand-200/80 shadow-2xs cursor-pointer font-montserrat"
                     title="Editar evento"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -120,7 +120,7 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
                   </button>
                   <button
                     onClick={() => setDeletingId(event.id)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-100/70 bg-rose-50/70 rounded-xl transition-all border border-rose-200/80 shadow-2xs cursor-pointer font-montserrat"
                     title="Eliminar evento"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

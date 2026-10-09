@@ -137,36 +137,114 @@ export const SecurityLogsPage: React.FC = () => {
     );
   };
 
+  const successCount = logs.filter(l => (l.status || '').toUpperCase() === 'SUCCESS').length;
+  const warningCount = logs.filter(l => (l.status || '').toUpperCase() === 'WARNING').length;
+  const failedCount = logs.filter(l => (l.status || '').toUpperCase() === 'FAILED').length;
+
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
-      {/* Header Ejecutivo */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <ShieldAlert className="w-4 h-4 text-emerald-400" /> Trazabilidad & No-Repudio (Audit Trail)
+    <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300 font-inter">
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <span>Logs de Seguridad</span>
+            </h1>
+            <button
+              onClick={fetchLogs}
+              disabled={isLoading}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Logs de Auditoría de Seguridad
-          </h1>
-          <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-            Pista inmutable de eventos sensibles del sistema: quién aprueba o rechaza pagos, reasigna roles, 
-            resetea credenciales, modifica permisos o interviene cuentas con registro de actor, IP y marca temporal.
+          <p className="text-slate-500 text-sm mt-1 font-normal">
+            Pista inmutable de auditoría (audit trail): trazabilidad de accesos, aprobación de pagos, roles y cambios críticos.
           </p>
         </div>
+      </div>
 
-        <button
-          onClick={fetchLogs}
-          disabled={isLoading}
-          className="relative z-10 flex items-center gap-2 bg-slate-800/80 hover:bg-slate-700/80 text-white px-5 py-3 rounded-2xl border border-slate-700 transition-all text-sm font-semibold cursor-pointer shrink-0 disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-400' : ''}`} />
-          <span>Actualizar</span>
-        </button>
+      {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Eventos */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Total Registros
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <ShieldAlert className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {total}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            {logs.length} en la página actual
+          </span>
+        </div>
+
+        {/* Exitosos */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Operaciones Exitosas
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {successCount}
+          </span>
+          <span className="text-[11px] text-emerald-600 font-medium block truncate">
+            Eventos validados correctamente
+          </span>
+        </div>
+
+        {/* Alertas */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Alertas del Sistema
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
+            {warningCount}
+          </span>
+          <span className="text-[11px] text-amber-600 font-medium block truncate">
+            Atención o intervención requerida
+          </span>
+        </div>
+
+        {/* Fallidos */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-rose-700 font-bold uppercase tracking-wider block font-montserrat">
+              Eventos Fallidos
+            </span>
+            <div className="p-2 bg-rose-50 text-rose-600 rounded-xl shrink-0">
+              <XCircle className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-rose-600 block tracking-tight font-mono">
+            {failedCount}
+          </span>
+          <span className="text-[11px] text-rose-600 font-medium block truncate">
+            Operaciones denegadas o errores
+          </span>
+        </div>
       </div>
 
       {/* Barra de Filtros */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 space-y-4">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 p-4 sm:p-5 space-y-4">
         <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Búsqueda por texto */}
           <div className="relative">
@@ -276,11 +354,11 @@ export const SecurityLogsPage: React.FC = () => {
       </div>
 
       {/* Tabla de Logs */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold text-xs uppercase tracking-wider">
+            <thead className="bg-slate-50/80 border-b border-slate-200/80 text-slate-400 font-bold text-[10px] uppercase tracking-wider font-montserrat">
+              <tr>
                 <th className="py-4 px-5">Fecha / Hora</th>
                 <th className="py-4 px-5">Actor (Usuario / IP)</th>
                 <th className="py-4 px-5">Módulo & Acción</th>
@@ -289,7 +367,7 @@ export const SecurityLogsPage: React.FC = () => {
                 <th className="py-4 px-5 text-center">Detalle</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 font-medium">
               {isLoading ? (
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-slate-400">
@@ -301,7 +379,7 @@ export const SecurityLogsPage: React.FC = () => {
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-slate-400">
                     <ShieldAlert className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-                    <p className="font-semibold text-slate-600 text-base">No hay registros de auditoría que coincidan</p>
+                    <p className="font-semibold text-slate-600 text-base font-montserrat">No hay registros de auditoría que coincidan</p>
                     <p className="text-xs text-slate-400 mt-1">Ajusta los filtros o realiza acciones en el panel administrativo.</p>
                   </td>
                 </tr>
@@ -319,12 +397,12 @@ export const SecurityLogsPage: React.FC = () => {
                     {/* Actor */}
                     <td className="py-3.5 px-5">
                       <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs font-montserrat">
                           <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span>{log.user_name || 'Sistema Automático'}</span>
                         </div>
                         {log.user_email && (
-                          <div className="text-[11px] text-slate-400 truncate max-w-[200px]">
+                          <div className="text-[11px] text-slate-400 font-mono truncate max-w-[200px]">
                             {log.user_email}
                           </div>
                         )}
@@ -341,7 +419,7 @@ export const SecurityLogsPage: React.FC = () => {
                     <td className="py-3.5 px-5 whitespace-nowrap">
                       <div className="space-y-1">
                         <div>{getModuleBadge(log.module)}</div>
-                        <div className="font-mono text-xs font-semibold text-slate-700">
+                        <div className="font-mono text-xs font-bold text-slate-700">
                           {log.action}
                         </div>
                       </div>
@@ -368,7 +446,7 @@ export const SecurityLogsPage: React.FC = () => {
                     <td className="py-3.5 px-5 text-center whitespace-nowrap">
                       <button
                         onClick={() => setSelectedLog(log)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-600 transition-all text-xs font-semibold cursor-pointer border border-slate-200 hover:border-brand-200"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-50/70 hover:bg-brand-100/70 text-brand-700 transition-all text-xs font-semibold cursor-pointer border border-brand-200/80 shadow-2xs font-montserrat"
                         title="Ver payload y detalles del evento"
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -383,22 +461,25 @@ export const SecurityLogsPage: React.FC = () => {
         </div>
 
         {/* Paginador */}
-        <div className="py-4 px-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/50 text-xs text-slate-600">
-          <div>
-            Mostrando página <strong className="text-slate-800">{page}</strong> de <strong className="text-slate-800">{totalPages}</strong> ({total} registros en total)
+        <div className="py-4 px-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white text-xs text-slate-600">
+          <div className="font-medium text-slate-500">
+            Mostrando página <strong className="text-slate-800 font-bold">{page}</strong> de <strong className="text-slate-800 font-bold">{totalPages}</strong> <span className="text-slate-400 font-normal">({total} registros en total)</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1 || isLoading}
-              className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1 px-3.5 py-1.5 bg-white border border-slate-200/90 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-slate-700 transition-all cursor-pointer shadow-2xs font-montserrat"
             >
               <ChevronLeft className="w-4 h-4" /> Anterior
             </button>
+            <span className="px-2 font-mono text-slate-500 font-semibold text-xs">
+              {page} / {totalPages}
+            </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages || isLoading}
-              className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1 px-3.5 py-1.5 bg-white border border-slate-200/90 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-slate-700 transition-all cursor-pointer shadow-2xs font-montserrat"
             >
               Siguiente <ChevronRight className="w-4 h-4" />
             </button>

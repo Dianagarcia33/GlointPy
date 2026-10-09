@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DocumentTemplate, templatesService } from '../../../../services/templates';
 import { TemplateModal } from '../components/TemplateModal';
-import { Plus, Edit2, Trash2, FileText, Loader2, AlertCircle, CheckCircle, Code, Eye, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, FileText, Loader2, AlertCircle, CheckCircle, Code, Eye, X, RefreshCw, FileCheck, Sparkles, Image } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, templateName, isDeleting }: any) => {
@@ -141,26 +141,35 @@ export const AdminTemplatesPage = () => {
         </div>
       )}
 
-      {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <FileText className="w-4 h-4 text-emerald-400" /> Plantillas & Documentos Legales
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <FileText className="w-6 h-6" />
+              </div>
+              <span>Gestión de Plantillas</span>
+            </h1>
+            <button
+              onClick={fetchData}
+              disabled={isLoading}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Plantillas
-          </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
-            Diseña, edita y administra los formatos de contratos de inversión y certificados legales.
+          <p className="text-slate-500 text-sm mt-1 font-normal">
+            Diseña, edita y administra los formatos de contratos de inversión y certificados legales con HTML dinámico.
           </p>
         </div>
         
         <Can permission="admin.roles.manage">
-          <div className="relative z-10 flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             <button 
               onClick={handleCreate}
-              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-xl transition-all shadow-md shadow-brand-500/20 text-xs font-bold font-montserrat cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Nueva Plantilla</span>
@@ -169,25 +178,100 @@ export const AdminTemplatesPage = () => {
         </Can>
       </div>
 
+      {/* KPI Cards Summary (4 Métricas Clave Estandarizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Plantillas */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Total Plantillas
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <FileText className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {templates.length}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Formatos legales configurados
+          </span>
+        </div>
+
+        {/* Contratos */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-blue-700 font-bold uppercase tracking-wider block font-montserrat">
+              Contratos de Inversión
+            </span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+              <FileCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-blue-700 block tracking-tight font-mono">
+            {templates.filter(t => t.type?.toLowerCase() === 'contract').length}
+          </span>
+          <span className="text-[11px] text-blue-600 font-medium block truncate">
+            Plantillas para contratos y pagarés
+          </span>
+        </div>
+
+        {/* Certificados */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Certificados Accionarios
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {templates.filter(t => t.type?.toLowerCase() === 'certificate').length}
+          </span>
+          <span className="text-[11px] text-emerald-600 font-medium block truncate">
+            Títulos de acciones emitidos
+          </span>
+        </div>
+
+        {/* Con Membrete Custom */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-purple-700 font-bold uppercase tracking-wider block font-montserrat">
+              Membrete Custom
+            </span>
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl shrink-0">
+              <Image className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-xl sm:text-2xl font-black text-purple-700 block tracking-tight font-mono">
+            {templates.filter(t => !!(t.file_path || (t as any).background_image)).length}
+          </span>
+          <span className="text-[11px] text-purple-600 font-medium block truncate">
+            Fondos corporativos personalizados
+          </span>
+        </div>
+      </div>
+
       {/* Info Banner */}
-      <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 flex items-start gap-3 text-xs text-blue-900">
-        <div className="p-1.5 bg-blue-100 rounded-lg text-brand-600 shrink-0 mt-0.5">
+      <div className="bg-brand-50/60 border border-brand-200/80 rounded-2xl p-4 flex items-start gap-3 text-xs text-brand-950 shadow-2xs">
+        <div className="p-1.5 bg-brand-100 rounded-xl text-brand-700 shrink-0 mt-0.5">
           <Code className="w-4 h-4" />
         </div>
         <div>
-          <span className="font-bold block text-sm mb-0.5">Plantillas HTML Dinámicas con Variables del Sistema</span>
+          <span className="font-bold block text-sm mb-0.5 font-montserrat">Plantillas HTML Dinámicas con Variables del Sistema</span>
           <p className="text-slate-600 leading-relaxed">
-            Las plantillas generan documentos legales en tiempo real integrando variables dinámicas como <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-mono text-[11px] text-brand-700">&#123;nombre_completo&#125;</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-mono text-[11px] text-brand-700">&#123;documento&#125;</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-mono text-[11px] text-brand-700">&#123;codigo_inversion&#125;</code> y <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-mono text-[11px] text-brand-700">&#123;firma_digital&#125;</code>.
+            Las plantillas generan documentos legales en tiempo real integrando variables dinámicas como <code className="bg-white px-1.5 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-700 font-semibold">&#123;nombre_completo&#125;</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-700 font-semibold">&#123;documento&#125;</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-700 font-semibold">&#123;codigo_inversion&#125;</code> y <code className="bg-white px-1.5 py-0.5 rounded border border-brand-200 font-mono text-[11px] text-brand-700 font-semibold">&#123;firma_digital&#125;</code>.
             La <strong>Hoja Membretada</strong> de fondo es opcional; si no se carga una imagen personalizada, el generador aplicará automáticamente el membrete estándar corporativo de <strong>GLOINT INTERNATIONAL PARTNERS S.A.S.</strong>
           </p>
         </div>
       </div>
 
       {/* Tabla de Plantillas */}
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+            <thead className="bg-slate-50/80 text-slate-400 font-bold border-b border-slate-200/80 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-6 py-4 w-16">ID</th>
                 <th className="px-6 py-4">Nombre de la Plantilla</th>
@@ -207,9 +291,9 @@ export const AdminTemplatesPage = () => {
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <FileText className="w-8 h-8 text-slate-300" />
-                      <p>No hay plantillas de documentos registradas.</p>
-                      <button onClick={handleCreate} className="text-brand-600 font-bold hover:underline text-xs mt-1 cursor-pointer">
-                        Crea la primera plantilla
+                      <p className="font-semibold text-slate-600">No hay plantillas de documentos registradas.</p>
+                      <button onClick={handleCreate} className="text-brand-600 font-bold hover:underline text-xs mt-1 cursor-pointer font-montserrat">
+                        + Crea tu primera plantilla
                       </button>
                     </div>
                   </td>
@@ -219,38 +303,38 @@ export const AdminTemplatesPage = () => {
                   const getTypeBadge = (type: string) => {
                     switch (type?.toLowerCase()) {
                       case 'certificate':
-                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase tracking-wider">Certificado Accionario</span>;
+                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80 uppercase tracking-wider font-montserrat">Certificado Accionario</span>;
                       case 'contract':
-                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200 uppercase tracking-wider">Contrato de Inversión</span>;
+                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200/80 uppercase tracking-wider font-montserrat">Contrato de Inversión</span>;
                       case 'promissory_note':
-                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-800 border border-purple-200 uppercase tracking-wider">Pagaré</span>;
+                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200/80 uppercase tracking-wider font-montserrat">Pagaré</span>;
                       case 'receipt':
-                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 uppercase tracking-wider">Comprobante</span>;
+                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 uppercase tracking-wider font-montserrat">Comprobante</span>;
                       default:
-                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase tracking-wider">{type || 'General'}</span>;
+                        return <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase tracking-wider font-montserrat">{type || 'General'}</span>;
                     }
                   };
 
                   const hasCustomLetterhead = !!(tpl.file_path || (tpl as any).background_image);
 
                   return (
-                    <tr key={tpl.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-6 py-4 font-mono text-slate-500">#{tpl.id}</td>
+                    <tr key={tpl.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-6 py-4 font-mono text-slate-400 font-bold">#{tpl.id}</td>
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-800 text-sm">{tpl.name}</div>
+                        <div className="font-extrabold text-slate-900 text-sm font-montserrat">{tpl.name}</div>
                       </td>
                       <td className="px-6 py-4">
                         {getTypeBadge(tpl.type)}
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200/80 font-mono">
                           <Code className="w-3 h-3 text-purple-600" />
                           <span>HTML Dinámico</span>
                         </span>
                       </td>
                       <td className="px-6 py-4">
                         {hasCustomLetterhead ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
                             🖼️ Membrete Personalizado
                           </span>
                         ) : (
@@ -264,7 +348,7 @@ export const AdminTemplatesPage = () => {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => handleEdit(tpl)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:text-brand-800 hover:bg-brand-100/70 bg-brand-50/70 rounded-xl transition-all border border-brand-200/80 shadow-2xs cursor-pointer font-montserrat"
                               title="Editar Plantilla"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -272,7 +356,7 @@ export const AdminTemplatesPage = () => {
                             </button>
                             <button
                               onClick={() => setTemplateToDelete(tpl)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-100/70 bg-rose-50/70 rounded-xl transition-all border border-rose-200/80 shadow-2xs cursor-pointer font-montserrat"
                               title="Eliminar Plantilla"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
