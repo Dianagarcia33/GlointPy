@@ -346,11 +346,12 @@ async def update_email_settings(
         current_user.imap_password = data.imap_password.strip()
     else:
         current_user.imap_password = None
+    has_saved = bool(current_user.imap_password) or bool(settings.IMAP_PASSWORD)
     db.add(current_user)
     await db.commit()
     return {
         "message": "Configuración de correo actualizada exitosamente",
-        "has_saved_password": bool(current_user.imap_password) or bool(settings.IMAP_PASSWORD)
+        "has_saved_password": has_saved
     }
 
 @router.post("/sync", dependencies=[Depends(RequirePermission("crm:view"))])
