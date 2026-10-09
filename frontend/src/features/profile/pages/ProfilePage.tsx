@@ -174,34 +174,32 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
       
-      {/* 🏛️ 1. Header de Página (Exacto al estilo Mercado de Acciones) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* 🏛️ 1. Encabezado de Página (Estándar Soporte en Tickets) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
-              Perfil de Usuario Gloint
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+            <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
+              <UserIcon className="w-6 h-6" />
             </span>
-            {user?.is_active ? (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Cuenta Verificada
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                Inactiva
-              </span>
-            )}
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-montserrat tracking-tight mt-1">
             Mi Perfil de Usuario
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+          <p className="text-xs text-slate-500 mt-1">
             Gestiona tu información personal, credenciales de seguridad y consulta tus roles en la plataforma
           </p>
         </div>
 
         {/* Roles y Badges (Alineados a la derecha del Header) */}
         <div className="flex flex-wrap items-center gap-2">
+          {user?.is_active ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-2xl border border-emerald-200 font-montserrat">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Cuenta Verificada
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-2xl border border-slate-200 font-montserrat">
+              Inactiva
+            </span>
+          )}
           {user?.is_superuser && (
             <span className="px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-2xl text-xs font-bold font-montserrat flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5 text-rose-600" />
