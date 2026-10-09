@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { getInvestmentRequests, approveInvestmentRequest, rejectInvestmentRequest, InvestmentRequest } from '../../../../services/investment_requests';
 import { periodsService, Period } from '../../../../services/periods';
 import { commercialService } from '../../../../services/commercial';
-import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Loader2, Users, ChevronDown, ChevronRight, CheckCircle, XCircle, User, Plus, ExternalLink, AlertTriangle, ShieldCheck, Search } from 'lucide-react';
 import { Can } from '../../../../components/security/Can';
 import { getMediaUrl, fetchApi } from '../../../../services/api';
 import { sarlaftService } from '../../../../services/sarlaft';
@@ -245,14 +245,15 @@ export const InvestmentRequestsTable = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Filters Bar */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xs border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex-1 w-full relative">
+      <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+        <div className="relative flex-1 min-w-[240px] sm:max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input 
             type="text" 
             placeholder="Buscar por nombre o correo del usuario..." 
-            className="w-full pl-4 pr-10 py-2.5 border border-slate-200 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+            className="w-full pl-10 pr-3.5 py-2 text-xs bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand-500 font-sans"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
@@ -260,9 +261,9 @@ export const InvestmentRequestsTable = () => {
         <Can permission="admin.investments.solicitud_inversion">
           <button
             onClick={() => setIsNewRequestModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer shrink-0 font-montserrat"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>Solicitud de Inversión</span>
           </button>
         </Can>
@@ -276,10 +277,10 @@ export const InvestmentRequestsTable = () => {
         }}
       />
 
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+            <thead className="bg-slate-50/80 text-slate-400 font-bold border-b border-slate-200/80 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-4 py-4 w-10"></th>
                 <th className="px-6 py-4">ID</th>
