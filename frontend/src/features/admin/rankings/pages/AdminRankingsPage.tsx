@@ -157,20 +157,33 @@ export const AdminRankingsPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-pulse">
-        <div className="bg-slate-900/90 rounded-3xl p-8 h-40 shadow-xl relative overflow-hidden flex flex-col justify-center space-y-3">
-          <div className="h-5 w-48 bg-slate-800 rounded-full"></div>
-          <div className="h-8 w-64 bg-slate-800 rounded-xl"></div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+          <div className="space-y-2">
+            <div className="h-8 w-64 bg-slate-200 rounded-2xl"></div>
+            <div className="h-4 w-96 bg-slate-100 rounded-xl"></div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 bg-slate-200 rounded-2xl"></div>
+            <div className="h-9 w-36 bg-slate-200 rounded-2xl"></div>
+            <div className="h-9 w-32 bg-slate-200 rounded-2xl"></div>
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 h-24 space-y-2"></div>
+            <div key={i} className="bg-white rounded-2xl border border-slate-200/90 p-5 h-28 space-y-3 shadow-xs">
+              <div className="flex justify-between">
+                <div className="h-3 w-20 bg-slate-200 rounded"></div>
+                <div className="h-6 w-6 bg-slate-100 rounded-lg"></div>
+              </div>
+              <div className="h-7 w-24 bg-slate-200 rounded"></div>
+            </div>
           ))}
         </div>
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 h-96 space-y-4">
-          <div className="h-6 w-48 bg-slate-200 rounded"></div>
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-6 h-96 space-y-4 shadow-xs">
+          <div className="h-5 w-40 bg-slate-200 rounded"></div>
           <div className="space-y-3 pt-2">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="h-12 bg-slate-100 rounded-2xl w-full"></div>
+              <div key={i} className="h-12 bg-slate-100 rounded-xl w-full"></div>
             ))}
           </div>
         </div>
@@ -180,7 +193,7 @@ export const AdminRankingsPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="w-full max-w-7xl mx-auto p-6 bg-red-50 border border-red-200 rounded-3xl flex items-start gap-4 text-red-700 shadow-xs">
+      <div className="w-full max-w-7xl mx-auto p-6 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-4 text-red-700 shadow-xs">
         <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
         <div>
           <h3 className="font-bold font-montserrat text-base">Error al cargar datos</h3>
@@ -206,105 +219,144 @@ export const AdminRankingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <Trophy className="w-4 h-4 text-emerald-400" /> Club de Beneficios
-          </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Rankings
+      {/* Header Ejecutivo Principal (Estándar Soporte en Tickets) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+            <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs shrink-0">
+              <Trophy className="w-6 h-6" />
+            </span>
+            <span className="whitespace-nowrap sm:whitespace-normal">Gestión de Rankings & Niveles</span>
           </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
-            Administra los niveles de inversionistas, porcentajes de bonos adicionales y beneficios exclusivos asignados automáticamente por capital activo.
+          <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+            Administra niveles de inversionistas, porcentajes de bonos adicionales y beneficios exclusivos asignados automáticamente por capital activo.
           </p>
         </div>
         
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
           <button 
+            type="button"
+            onClick={fetchData}
+            title="Actualizar datos"
+            className="p-2 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all shadow-xs cursor-pointer shrink-0"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-600' : ''}`} />
+          </button>
+
+          <button 
+            type="button"
             onClick={handleSyncAll}
             disabled={isSyncing}
-            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-50/80 border border-amber-200/90 hover:bg-amber-100/70 text-amber-800 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0 disabled:opacity-50"
             title="Sincroniza y asigna el rango correspondiente a todos los usuarios según su capital activo"
           >
-            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin text-amber-400" /> : <RefreshCw className="w-4 h-4 text-amber-400" />}
+            {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600 shrink-0" /> : <RefreshCw className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
             <span>Sincronizar Rangos</span>
           </button>
 
           {ranks.length === 0 && (
             <button 
+              type="button"
               onClick={handleSeedDefaults}
               disabled={isSeeding}
-              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50/80 border border-emerald-200/90 hover:bg-emerald-100/70 text-emerald-800 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0 disabled:opacity-50"
             >
-              {isSeeding ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" /> : <Sparkles className="w-4 h-4 text-emerald-400" />}
+              {isSeeding ? <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" /> : <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
               <span>Cargar Rangos Base</span>
             </button>
           )}
 
           <button 
+            type="button"
             onClick={handleCreate}
-            className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 font-montserrat transition-all active:scale-95 cursor-pointer shrink-0"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
             <span>Crear Rango</span>
           </button>
         </div>
       </div>
 
-      {/* Metric Cards */}
+      {/* Tarjetas KPI de Resumen */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider font-montserrat">Total Rangos</span>
-            <Layers className="w-4 h-4 text-brand-600" />
+        {/* Total Rangos */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Total Rangos
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <Layers className="w-4 h-4" />
+            </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 font-montserrat">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
             {ranks.length}
-          </p>
-          <span className="text-[11px] text-slate-500 font-medium">Niveles configurados</span>
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            {activeRanks.length} rangos activos
+          </span>
         </div>
 
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider font-montserrat">Inversionistas Asignados</span>
-            <Users className="w-4 h-4 text-emerald-600" />
+        {/* Inversionistas Asignados */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Inversionistas Asignados
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <Users className="w-4 h-4" />
+            </div>
           </div>
-          <p className="text-2xl font-black text-emerald-600 font-montserrat">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
             {totalInvestorsInClub}
-          </p>
-          <span className="text-[11px] text-slate-500 font-medium">Usuarios clasificados</span>
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Usuarios clasificados en club
+          </span>
         </div>
 
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider font-montserrat">Bono Máximo</span>
-            <Percent className="w-4 h-4 text-amber-600" />
+        {/* Bono Máximo */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Bono Máximo
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <Percent className="w-4 h-4" />
+            </div>
           </div>
-          <p className="text-2xl font-black text-amber-600 font-montserrat">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
             +{maxBonus}%
-          </p>
-          <span className="text-[11px] text-slate-500 font-medium">Rendimiento extra top</span>
+          </span>
+          <span className="text-[11px] text-amber-600 font-medium block truncate">
+            Rendimiento extra top
+          </span>
         </div>
 
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-bold uppercase tracking-wider font-montserrat">Nivel Cumbre</span>
-            <Crown className="w-4 h-4 text-purple-600" />
+        {/* Nivel Cumbre */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Nivel Cumbre
+            </span>
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-xl shrink-0">
+              <Crown className="w-4 h-4" />
+            </div>
           </div>
-          <p className="text-lg font-black text-purple-700 font-montserrat truncate">
+          <span className="text-xl sm:text-2xl font-black text-purple-700 block tracking-tight font-montserrat truncate">
             {summitRank?.name || 'N/A'}
-          </p>
-          <span className="text-[11px] text-slate-500 font-medium">Categoría máxima</span>
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            {summitRank?.min_investment ? `Desde ${formatCurrency(summitRank.min_investment)}` : 'Categoría máxima'}
+          </span>
         </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold border-b border-slate-200 uppercase text-[10px] tracking-wider font-montserrat">
+            <thead className="bg-slate-50/80 text-slate-400 font-bold border-b border-slate-200/80 uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-6 py-4">Nivel & Rango</th>
                 <th className="px-6 py-4">Capital Requerido</th>
@@ -332,7 +384,7 @@ export const AdminRankingsPage: React.FC = () => {
                 ranks.map((r) => {
                   const IconComponent = ICON_MAP[r.icon] || Trophy;
                   return (
-                    <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
                       {/* Nivel & Rango */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -344,7 +396,7 @@ export const AdminRankingsPage: React.FC = () => {
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-mono font-bold uppercase text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              <span className="text-[10px] font-mono font-bold uppercase text-slate-500 bg-slate-100 border border-slate-200/60 px-1.5 py-0.5 rounded">
                                 #{r.order}
                               </span>
                               <span className="font-extrabold text-slate-900 text-base font-montserrat">
@@ -416,14 +468,14 @@ export const AdminRankingsPage: React.FC = () => {
                         <div className="flex items-center justify-center gap-2">
                           <button 
                             onClick={() => handleEdit(r)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-all border border-brand-200 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:text-brand-800 hover:bg-brand-100/70 bg-brand-50/70 rounded-xl transition-all border border-brand-200/80 shadow-2xs cursor-pointer font-montserrat"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                             <span>Editar</span>
                           </button>
                           <button 
                             onClick={() => setDeletingRank(r)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all border border-rose-200 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:text-rose-800 hover:bg-rose-100/70 bg-rose-50/70 rounded-xl transition-all border border-rose-200/80 shadow-2xs cursor-pointer font-montserrat"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             <span>Eliminar</span>
