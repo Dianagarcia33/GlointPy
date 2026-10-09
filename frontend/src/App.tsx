@@ -20,7 +20,6 @@ import { LegalNoticePage } from "./features/landing/pages/LegalNoticePage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import { WalletsPage } from "./features/wallets/pages/WalletsPage";
-import { InvestmentsPage } from "./features/investments/pages/InvestmentsPage";
 import { InvestmentDetailPage } from "./features/investments/pages/InvestmentDetailPage";
 import { AdminInvestmentsPage } from "./features/admin/investments/pages/AdminInvestmentsPage";
 import { AdminRolesPage } from "./features/admin/roles/pages/AdminRolesPage";
@@ -152,7 +151,7 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="wallet" element={<RequirePermission permission="wallets:view"><WalletsPage /></RequirePermission>} />
-        <Route path="investments" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentsPage /></RequirePermission>} />
+        <Route path="investments" element={<Navigate to="/dashboard" replace />} />
         <Route path="investments/:id" element={<RequirePermission permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}><InvestmentDetailPage /></RequirePermission>} />
         <Route path="audit" element={<RequirePermission permission="admin.audits.manage"><AdminInvestmentsPage /></RequirePermission>} />
         <Route path="daily-yields" element={<RequirePermission permissions={["admin.audits.manage", "admin.investors.manage"]}><DailyYieldsPage /></RequirePermission>} />
