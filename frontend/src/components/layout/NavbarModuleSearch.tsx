@@ -30,7 +30,10 @@ import {
   ArrowRight,
   CornerDownLeft,
   Command,
-  Package
+  Package,
+  Truck,
+  ShoppingCart,
+  Laptop
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -350,6 +353,36 @@ const MODULES_CATALOG: ModuleItem[] = [
     icon: Package,
     permissions: ['inventory:view', 'inventory.view'],
     keywords: ['inventario', 'insumos', 'oficina', 'stock', 'kardex', 'papeleria', 'articulos', 'productos', 'gastos', 'consumo']
+  },
+  {
+    id: 'suppliers-admin',
+    title: 'Proveedores & Distribuidores',
+    description: 'Directorio de proveedores, cuentas de pago, NIT y acuerdos comerciales',
+    path: '/dashboard/suppliers',
+    category: 'Administración',
+    icon: Truck,
+    permissions: ['suppliers:view', 'suppliers.view', 'inventory:view'],
+    keywords: ['proveedor', 'proveedores', 'compras', 'facturacion', 'nit', 'suministros', 'distribuidor', 'contacto']
+  },
+  {
+    id: 'purchase-orders-admin',
+    title: 'Órdenes de Compra',
+    description: 'Gestión de compras, aprobaciones, control presupuestal y recepción directa a inventario',
+    path: '/dashboard/purchase-orders',
+    category: 'Administración',
+    icon: ShoppingCart,
+    permissions: ['purchase_orders:view', 'purchase_orders.view', 'inventory:view'],
+    keywords: ['orden', 'ordenes', 'compra', 'adquisiciones', 'recepcion', 'factura', 'cotizacion', 'compras']
+  },
+  {
+    id: 'assets-admin',
+    title: 'Control de Activos Fijos & Custodias',
+    description: 'Inventario de computadores, equipos, mobiliario y registro de asignación a colaboradores',
+    path: '/dashboard/assets',
+    category: 'Administración',
+    icon: Laptop,
+    permissions: ['assets:view', 'assets.view', 'inventory:view'],
+    keywords: ['activos', 'activo fijo', 'equipos', 'computadores', 'laptops', 'mobiliario', 'custodia', 'placas', 'asignacion']
   }
 ];
 

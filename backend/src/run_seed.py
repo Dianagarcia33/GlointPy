@@ -82,6 +82,23 @@ PERMISSIONS = [
     {"name": "inventory:dispatch", "description": "Registrar salidas y consumo interno de insumos de oficina", "module": "Inventario"},
     {"name": "inventory:adjust", "description": "Realizar ajustes de stock por auditoría o conteo físico", "module": "Inventario"},
     {"name": "inventory:kardex", "description": "Visualizar la bitácora completa de movimientos detallados (Kardex)", "module": "Inventario"},
+    # Módulo Proveedores
+    {"name": "suppliers:view", "description": "Acceso general y consulta del directorio de proveedores", "module": "Proveedores"},
+    {"name": "suppliers:create", "description": "Dar de alta nuevos proveedores y datos de facturación", "module": "Proveedores"},
+    {"name": "suppliers:edit", "description": "Editar información comercial, bancaria y de contacto del proveedor", "module": "Proveedores"},
+    {"name": "suppliers:delete", "description": "Desactivar proveedores del directorio", "module": "Proveedores"},
+    # Módulo Órdenes de Compra
+    {"name": "purchase_orders:view", "description": "Consultar listado, detalle y estados de órdenes de compra", "module": "Órdenes de Compra"},
+    {"name": "purchase_orders:create", "description": "Crear borradores y solicitudes de órdenes de compra", "module": "Órdenes de Compra"},
+    {"name": "purchase_orders:approve", "description": "Aprobar órdenes de compra para proceder con la adquisición", "module": "Órdenes de Compra"},
+    {"name": "purchase_orders:receive", "description": "Registrar recepción física de mercancía e incrementar inventario/Kardex", "module": "Órdenes de Compra"},
+    {"name": "purchase_orders:cancel", "description": "Anular órdenes de compra no completadas", "module": "Órdenes de Compra"},
+    # Módulo Control de Activos Fijos
+    {"name": "assets:view", "description": "Consultar inventario de activos fijos, equipos y mobiliario", "module": "Activos Fijos"},
+    {"name": "assets:create", "description": "Dar de alta nuevos activos corporativos con placa y serial", "module": "Activos Fijos"},
+    {"name": "assets:edit", "description": "Editar ficha técnica, ubicación o estado del activo", "module": "Activos Fijos"},
+    {"name": "assets:assign", "description": "Asignar, reasignar o recibir custodia de activos a colaboradores", "module": "Activos Fijos"},
+    {"name": "assets:delete", "description": "Dar de baja o desincorporar activos de la empresa", "module": "Activos Fijos"},
     # Módulo Créditos Fintech
     {"name": "credits:view", "description": "Acceso a la línea de crédito y consulta de cuotas propias", "module": "Créditos"},
     {"name": "credits:request", "description": "Solicitar nueva línea de crédito a la plataforma", "module": "Créditos"},

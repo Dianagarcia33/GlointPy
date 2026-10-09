@@ -35,5 +35,8 @@ from src.models.yoint_dispersion import YointDispersion
 from src.models.yoint_payin import YointPayin
 from src.models.company_tax_ledger import CompanyTaxLedger
 from src.models.inventory import InventoryCategory, InventoryItem, InventoryMovement
+from src.models.supplier import InventorySupplier
+from src.models.purchase_order import PurchaseOrder, PurchaseOrderItem
+from src.models.company_asset import CompanyAsset, AssetAssignment
 from src.models.credit import Credit, CreditInstallment, CreditConfig
 from src.models.auto_transfer_log import AutoTransferLog

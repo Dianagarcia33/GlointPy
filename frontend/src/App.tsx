@@ -52,6 +52,9 @@ import { TicketsPage } from "./features/tickets/pages/TicketsPage";
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
 import { RoomsPage } from "./features/rooms/pages/RoomsPage";
 import { InventoryPage } from "./features/inventory/pages/InventoryPage";
+import { SuppliersPage } from "./features/suppliers/pages/SuppliersPage";
+import { PurchaseOrdersPage } from "./features/purchase_orders/pages/PurchaseOrdersPage";
+import { AssetsPage } from "./features/assets/pages/AssetsPage";
 import { CreditsPage } from "./features/credits/pages/CreditsPage";
 import { AdminCreditsPage } from "./features/admin/credits/pages/AdminCreditsPage";
 import { DailyYieldsPage } from "./features/admin/daily_yields/pages/DailyYieldsPage";
@@ -181,6 +184,9 @@ function App() {
         <Route path="events" element={<RequirePermission permissions={["admin.events.manage", "admin.roles.manage"]}><AdminEventsPage /></RequirePermission>} />
         <Route path="rooms" element={<RequirePermission permissions={["rooms:view", "rooms:reserve", "admin.rooms.manage"]}><RoomsPage /></RequirePermission>} />
         <Route path="inventory" element={<RequirePermission permissions={["inventory:view", "inventory.view"]}><InventoryPage /></RequirePermission>} />
+        <Route path="suppliers" element={<RequirePermission permissions={["suppliers:view", "suppliers.view", "inventory:view"]}><SuppliersPage /></RequirePermission>} />
+        <Route path="purchase-orders" element={<RequirePermission permissions={["purchase_orders:view", "purchase_orders.view", "inventory:view"]}><PurchaseOrdersPage /></RequirePermission>} />
+        <Route path="assets" element={<RequirePermission permissions={["assets:view", "assets.view", "inventory:view"]}><AssetsPage /></RequirePermission>} />
         <Route path="credits" element={<RequirePermission permissions={["credits:view", "credits:request", "dashboard:view_investments", "wallets:view"]}><CreditsPage /></RequirePermission>} />
         <Route path="admin-credits" element={<RequirePermission permissions={["admin.credits.manage", "credits:manage"]}><AdminCreditsPage /></RequirePermission>} />
         {/* Alias de compatibilidad documentados en Módulos 12 y 13 */}
