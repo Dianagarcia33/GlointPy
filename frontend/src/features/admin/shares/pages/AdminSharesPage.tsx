@@ -337,59 +337,62 @@ export const AdminSharesPage: React.FC = () => {
     return (
         <div className="w-full max-w-7xl mx-auto min-w-0 pb-20 space-y-6 animate-in fade-in duration-300">
             
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* 🏛️ 1. Encabezado de Página (Estándar Soporte en Tickets) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-slate-900 text-white">
-                            Administración Central
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+                        <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
+                            <Layers className="w-6 h-6" />
                         </span>
-                        {pendingOrders.length > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 animate-pulse">
-                                <Clock className="w-3 h-3 text-amber-600" />
-                                {pendingOrders.length} {pendingOrders.length === 1 ? 'Compra pendiente' : 'Compras pendientes'}
-                            </span>
-                        )}
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-montserrat tracking-tight mt-1">
                         Gestión del Mercado de Acciones
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+                    <p className="text-xs text-slate-500 mt-1">
                         Supervisa emisiones, valoración oficial con bitácora obligatoria y aprueba pagos con excedente
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                {/* Acciones y Badges del Header */}
+                <div className="flex items-center gap-2.5 flex-wrap">
+                    {pendingOrders.length > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-2xl border border-amber-200 font-montserrat animate-pulse">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            {pendingOrders.length} {pendingOrders.length === 1 ? 'Compra pendiente' : 'Compras pendientes'}
+                        </span>
+                    )}
+
+                    <button
+                        onClick={handleOpenSyncModal}
+                        disabled={syncLoading}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-2xl text-xs font-bold transition-all shadow-2xs cursor-pointer font-montserrat disabled:opacity-50"
+                        title="Sincronizar retroactivamente las acciones otorgadas por paquetes de inversión existentes"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
+                        <span>Sincronizar Históricas</span>
+                    </button>
+
+                    <button
+                        onClick={handleOpenManualGrantModal}
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all shadow-sm cursor-pointer font-montserrat"
+                        title="Asignar o descontar acciones a un usuario manualmente"
+                    >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Asignar / Descontar</span>
+                    </button>
+
+                    <button
+                        onClick={handleOpenIssuanceModal}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 transition-all cursor-pointer font-montserrat"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Nueva Emisión</span>
+                    </button>
+
                     <button
                         onClick={fetchData}
                         className="p-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
                         title="Actualizar datos"
                     >
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
-                    <button
-                        onClick={handleOpenSyncModal}
-                        disabled={syncLoading}
-                        className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-2xl text-xs font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer font-montserrat disabled:opacity-50"
-                        title="Sincronizar retroactivamente las acciones otorgadas por paquetes de inversión existentes"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
-                        <span>Sincronizar Acciones Históricas</span>
-                    </button>
-                    <button
-                        onClick={handleOpenManualGrantModal}
-                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer font-montserrat"
-                        title="Asignar o descontar acciones a un usuario manualmente"
-                    >
-                        <UserPlus className="w-4 h-4" />
-                        <span>Asignar / Descontar Acciones</span>
-                    </button>
-                    <button
-                        onClick={handleOpenIssuanceModal}
-                        className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer font-montserrat"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Nueva Emisión de Acciones</span>
                     </button>
                 </div>
             </div>
