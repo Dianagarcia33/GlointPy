@@ -21,6 +21,7 @@ class Event(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     attendees = relationship("EventAttendee", back_populates="event", cascade="all, delete-orphan")
+    authorized_domains = relationship("EventAuthorizedDomain", back_populates="event", cascade="all, delete-orphan")
 
 
 class EventAttendee(Base):
@@ -46,3 +47,23 @@ class EventAttendee(Base):
 
     event = relationship("Event", back_populates="attendees")
     user = relationship("User", foreign_keys=[user_id])
+
+
+class EventAuthorizedDomain(Base):
+    __tablename__ = "event_authorized_domains"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    domain = Column(String(255), nullable=False, index=True)  # e.g. "glointech.com.co"
+    name = Column(String(255), nullable=False)  # e.g. "Gloint Tech Oficial"
+    allow_banner = Column(Boolean, nullable=False, default=True)
+    allow_registration = Column(Boolean, nullable=False, default=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    api_key = Column(String(100), unique=True, index=True, nullable=True)
+    last_accessed_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    event = relationship("Event", back_populates="authorized_domains")
+

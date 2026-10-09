@@ -94,3 +94,46 @@ class AdminEventSummaryResponse(BaseModel):
     in_person_attendees: int
     virtual_attendees: int
     attendees: List[AttendeeResponse]
+
+
+class EventAuthorizedDomainCreate(BaseModel):
+    domain: str
+    name: str
+    allow_banner: bool = True
+    allow_registration: bool = True
+    is_active: bool = True
+
+
+class EventAuthorizedDomainUpdate(BaseModel):
+    domain: Optional[str] = None
+    name: Optional[str] = None
+    allow_banner: Optional[bool] = None
+    allow_registration: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class EventAuthorizedDomainResponse(BaseModel):
+    id: int
+    event_id: int
+    domain: str
+    name: str
+    allow_banner: bool
+    allow_registration: bool
+    is_active: bool
+    api_key: Optional[str] = None
+    last_accessed_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class DomainCheckResponse(BaseModel):
+    authorized: bool
+    domain: str
+    banner_authorized: bool = False
+    registration_authorized: bool = False
+    event: Optional[EventPublicResponse] = None
+    reason: Optional[str] = None
+
