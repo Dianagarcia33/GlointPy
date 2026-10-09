@@ -18,7 +18,6 @@ import { CONTACT_INFO } from "../../../constants/contactInfo";
 interface QuickResponse {
   id: string;
   label: string;
-  asunto: string;
   mensaje: string;
 }
 
@@ -26,43 +25,37 @@ const QUICK_RESPONSES: QuickResponse[] = [
   {
     id: "invertir",
     label: "💼 Quiero invertir",
-    asunto: "investment",
     mensaje: "Hola, me gustaría recibir asesoría personalizada sobre los paquetes de inversión disponibles en Gloint, montos y rentabilidad.",
   },
   {
     id: "asesoria",
     label: "📞 Agendar llamada",
-    asunto: "investment",
     mensaje: "Hola, deseo coordinar una llamada o reunión con un directivo de inversión para evaluar opciones para mi portafolio.",
   },
   {
     id: "place",
     label: "🏢 Proyectos Gloint Place",
-    asunto: "place",
     mensaje: "Hola, estoy interesado en conocer los proyectos inmobiliarios vigentes y oportunidades de inversión en GLOINT Place.",
   },
   {
     id: "rentabilidad",
     label: "📈 Conocer rentabilidades",
-    asunto: "investment",
     mensaje: "Hola, quisiera consultar los plazos contractuales, estimación de rendimientos mensuales y políticas de liberación de capital.",
   },
   {
     id: "alianza",
     label: "🤝 Alianza corporativa",
-    asunto: "alianza",
     mensaje: "Hola, represento una empresa y me interesa conversar sobre alianzas estratégicas o inversión institucional con Gloint.",
   },
   {
     id: "tech",
     label: "⚡ Soluciones Tech",
-    asunto: "tech",
     mensaje: "Hola, me gustaría solicitar información sobre los desarrollos tecnológicos y herramientas digitales de GLOINT Tech.",
   },
 ];
 
 export function ContactoPage() {
-  const [form, setForm] = useState({ nombre: "", email: "", telefono: "", asunto: "", mensaje: "" });
+  const [form, setForm] = useState({ nombre: "", email: "", telefono: "", mensaje: "" });
   const [selectedQuickId, setSelectedQuickId] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -77,7 +70,6 @@ export function ContactoPage() {
       setSelectedQuickId(qr.id);
       setForm((prev) => ({
         ...prev,
-        asunto: qr.asunto,
         mensaje: qr.mensaje,
       }));
     }
@@ -100,7 +92,6 @@ export function ContactoPage() {
         nombre: form.nombre.trim(),
         email: form.email.trim() || undefined,
         telefono: form.telefono.trim() || undefined,
-        asunto: form.asunto || "Contacto General",
         mensaje: form.mensaje.trim(),
         proyecto: "Fondo Gloint Investment"
       });
@@ -289,7 +280,7 @@ export function ContactoPage() {
                     onClick={() => {
                       setSent(false);
                       setSelectedQuickId(null);
-                      setForm({ nombre: "", email: "", telefono: "", asunto: "", mensaje: "" });
+                      setForm({ nombre: "", email: "", telefono: "", mensaje: "" });
                     }}
                     className="px-6 py-2.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90 cursor-pointer"
                     style={{ background: ORANGE, color: "#fff" }}
@@ -359,52 +350,26 @@ export function ContactoPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="contacto-telefono" className="text-xs font-semibold" style={{ color: DARK }}>Teléfono</label>
-                        <input
-                          id="contacto-telefono"
-                          name="telefono"
-                          value={form.telefono}
-                          onChange={(e) => setForm({ ...form, telefono: e.target.value })}
-                          placeholder={whatsappDisplay}
-                          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
-                          style={{
-                            border: "1px solid #e2e8f0",
-                            background: "#f8fafc",
-                            color: DARK,
-                            fontFamily: "inherit",
-                          }}
-                          onFocus={(e) => (e.target.style.borderColor = ORANGE)}
-                          onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label htmlFor="contacto-asunto" className="text-xs font-semibold" style={{ color: DARK }}>Asunto</label>
-                        <select
-                          id="contacto-asunto"
-                          name="asunto"
-                          value={form.asunto}
-                          onChange={(e) => setForm({ ...form, asunto: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all appearance-none"
-                          style={{
-                            border: "1px solid #e2e8f0",
-                            background: "#f8fafc",
-                            color: form.asunto ? DARK : "#94a3b8",
-                            fontFamily: "inherit",
-                          }}
-                          onFocus={(e) => (e.target.style.borderColor = ORANGE)}
-                          onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-                        >
-                          <option value="" disabled>Selecciona un tema</option>
-                          <option value="investment">GLOINT Investment</option>
-                          <option value="place">GLOINT Place</option>
-                          <option value="tech">GLOINT Tech</option>
-                          <option value="consultoria">Consultoría</option>
-                          <option value="alianza">Alianza estratégica</option>
-                          <option value="otro">Otro</option>
-                        </select>
-                      </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="contacto-telefono" className="text-xs font-semibold" style={{ color: DARK }}>
+                        Teléfono / WhatsApp <span className="text-slate-400 font-normal text-[11px]">(móvil con indicativo)</span>
+                      </label>
+                      <input
+                        id="contacto-telefono"
+                        name="telefono"
+                        value={form.telefono}
+                        onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+                        placeholder={whatsappDisplay}
+                        className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+                        style={{
+                          border: "1px solid #e2e8f0",
+                          background: "#f8fafc",
+                          color: DARK,
+                          fontFamily: "inherit",
+                        }}
+                        onFocus={(e) => (e.target.style.borderColor = ORANGE)}
+                        onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
+                      />
                     </div>
 
                     {/* Respuestas Rápidas */}

@@ -500,16 +500,30 @@ class CRMService:
         project_override: Optional[str] = None
     ) -> dict:
         """
-        Registra un lead desde el formulario de contacto estándar (Gloint o landings externas).
-        Campos estándar: nombre, email, telefono, asunto, mensaje, proyecto/origen.
+        Registra un lead desde el formulario de contacto estándar (Gloint o sitios externos).
+        Los sitios externos NO envían ni necesitan asunto: envían únicamente el texto/mensaje.
         Distribuye equitativamente (Round-Robin) entre los Directivos de Inversión y envía notificación por correo.
         """
         name = (data.get("nombre") or data.get("name") or "").strip() or "Prospecto Web"
         raw_email = (data.get("email") or "").strip().lower()
         email = raw_email if raw_email else None
         phone = (data.get("telefono") or data.get("phone") or "").strip() or None
-        asunto = (data.get("asunto") or data.get("subject") or "Contacto General").strip()
-        mensaje = (data.get("mensaje") or data.get("message") or "").strip()
+        
+        # El formulario no espera asunto desde sitios externos.
+        # Se obtiene el texto de la consulta con máxima flexibilidad:
+        mensaje = (
+            data.get("texto") or 
+            data.get("mensaje") or 
+            data.get("message") or 
+            data.get("text") or 
+            data.get("body") or 
+            data.get("description") or 
+            ""
+        ).strip()
+        
+        # Si algún origen legacy llegara a enviar asunto se preserva; si no, queda en None
+        raw_asunto = (data.get("asunto") or data.get("subject") or "").strip()
+        asunto = raw_asunto if raw_asunto else None
         
         project_ref = (
             project_override or 
@@ -544,14 +558,15 @@ class CRMService:
             f"👤 Nombre: {name}",
             f"📧 Correo: {email or 'No especificado'}",
             f"📞 Teléfono: {phone or 'No especificado'}",
-            f"📌 Asunto: {asunto}",
         ]
+        if asunto:
+            detail_lines.append(f"📌 Asunto: {asunto}")
         if data.get("company"):
             detail_lines.append(f"🏢 Empresa: {data.get('company')}")
         if data.get("city"):
             detail_lines.append(f"📍 Ciudad: {data.get('city')}")
         if mensaje:
-            detail_lines.append(f"💬 Mensaje:\n{mensaje}")
+            detail_lines.append(f"💬 Mensaje / Texto:\n{mensaje}")
 
         extra_meta = data.get("metadata")
         if extra_meta and isinstance(extra_meta, dict):
@@ -559,11 +574,12 @@ class CRMService:
             for k, v in extra_meta.items():
                 detail_lines.append(f"  • {k}: {v}")
 
+        note_title = f"Contacto entrante: {asunto}" if asunto else f"Contacto entrante: {name}"
         note = CRMActivity(
             lead_id=lead.id,
             user_id=assigned_commercial.id if assigned_commercial else 1,
             type=CRMActivityType.NOTA,
-            title=f"Contacto entrante: {asunto}",
+            title=note_title,
             description="\n".join(detail_lines),
             created_at=datetime.utcnow()
         )
@@ -579,9 +595,9 @@ class CRMService:
                     "name": name,
                     "email": email,
                     "phone": phone,
-                    "company": data.get("company") or asunto,
+                    "company": data.get("company") or "No especificada",
                     "city": data.get("city") or "No especificada",
-                    "message": f"Asunto: {asunto}\n\nMensaje:\n{mensaje}" if mensaje else f"Asunto: {asunto}"
+                    "message": f"Asunto: {asunto}\n\n{mensaje}" if (asunto and mensaje) else (mensaje or asunto or "Sin mensaje adicional")
                 }
                 EmailService.send_external_form_director_notification(
                     to_email=assigned_commercial.email,
@@ -650,8 +666,17 @@ class CRMService:
             detail_lines.append(f"🏢 Empresa: {data.get('company')}")
         if data.get("city"):
             detail_lines.append(f"📍 Ciudad / Ubicación: {data.get('city')}")
-        if data.get("message"):
-            detail_lines.append(f"💬 Mensaje / Solicitud:\n{data.get('message')}")
+        
+        msg_text = (
+            data.get("texto") or 
+            data.get("mensaje") or 
+            data.get("message") or 
+            data.get("text") or 
+            data.get("body") or 
+            ""
+        ).strip()
+        if msg_text:
+            detail_lines.append(f"💬 Mensaje / Texto:\n{msg_text}")
         
         extra_meta = data.get("metadata")
         if extra_meta and isinstance(extra_meta, dict):
@@ -675,11 +700,19 @@ class CRMService:
         # Enviar notificación por correo al asesor asignado
         try:
             if assigned_commercial and assigned_commercial.email:
+                payload_for_email = {
+                    "name": name,
+                    "email": email,
+                    "phone": phone,
+                    "company": data.get("company") or "No especificada",
+                    "city": data.get("city") or "No especificada",
+                    "message": msg_text or "Sin mensaje adicional"
+                }
                 EmailService.send_external_form_director_notification(
                     to_email=assigned_commercial.email,
                     director_name=assigned_commercial.name or assigned_commercial.email,
                     platform_name=app_name,
-                    lead_data=data
+                    lead_data=payload_for_email
                 )
         except Exception as e:
             print(f"Error enviando notificación al asesor para lead externo ({app_name}): {e}")

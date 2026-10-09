@@ -209,6 +209,7 @@ export const crmService = {
     telefono?: string;
     asunto?: string;
     mensaje?: string;
+    texto?: string;
     proyecto?: string;
     metadata?: Record<string, any>;
   }): Promise<{

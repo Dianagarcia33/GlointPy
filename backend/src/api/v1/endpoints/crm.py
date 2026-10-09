@@ -75,11 +75,17 @@ class ChatbotLeadCreateSchema(BaseModel):
 
 class ExternalFormLeadSchema(BaseModel):
     name: Optional[str] = None
+    nombre: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    telefono: Optional[str] = None
     city: Optional[str] = None
     company: Optional[str] = None
+    texto: Optional[str] = None
+    text: Optional[str] = None
     message: Optional[str] = None
+    mensaje: Optional[str] = None
+    body: Optional[str] = None
     estimated_amount: Optional[float] = 0.0
     metadata: Optional[dict] = None
 
@@ -89,10 +95,15 @@ class ContactFormLeadSchema(BaseModel):
     email: Optional[str] = None
     telefono: Optional[str] = None
     phone: Optional[str] = None
-    asunto: Optional[str] = None
-    subject: Optional[str] = None
+    texto: Optional[str] = None
+    text: Optional[str] = None
     mensaje: Optional[str] = None
     message: Optional[str] = None
+    body: Optional[str] = None
+    description: Optional[str] = None
+    # Asunto es totalmente opcional y NO se espera desde sitios externos
+    asunto: Optional[str] = None
+    subject: Optional[str] = None
     proyecto: Optional[str] = None
     project_code: Optional[str] = None
     company: Optional[str] = None
@@ -112,13 +123,12 @@ async def register_public_contact_form(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint centralizado para recibir formularios de contacto de Gloint y de proyectos externos.
-    Campos idénticos al formulario de contacto oficial:
+    Endpoint centralizado para recibir formularios de contacto de Gloint y de sitios externos.
+    Los sitios externos NO necesitan ni deben enviar asunto; solo envían el texto o mensaje:
       - nombre (o name)
-      - email
+      - email (opcional)
       - telefono (o phone)
-      - asunto (o subject)
-      - mensaje (o message)
+      - texto (o mensaje / message / text)
       - proyecto (o project_code / X-API-Key)
     Asigna de forma equitativa (Round-Robin) estricta a los usuarios con rol Directivo de Inversión
     y dispara notificaciones por correo de inmediato.
