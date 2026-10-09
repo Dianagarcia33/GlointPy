@@ -1,6 +1,28 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Trophy, Plus, Zap, TrendingUp, DollarSign, Users, Award, ShieldAlert, CheckCircle2, AlertCircle, Download, Trash2, Filter, ShieldCheck, UserCheck, FileCheck, CreditCard, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+  Trophy, 
+  Plus, 
+  Zap, 
+  TrendingUp, 
+  DollarSign, 
+  Users, 
+  Award, 
+  ShieldAlert, 
+  CheckCircle2, 
+  AlertCircle, 
+  Download, 
+  Trash2, 
+  Filter, 
+  ShieldCheck, 
+  UserCheck, 
+  FileCheck, 
+  CreditCard, 
+  Calendar, 
+  ChevronLeft, 
+  ChevronRight,
+  RefreshCw
+} from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { commercialService, CommercialSummary, AdminCommercialSummary, LeaderboardResponse, CommercialSale, CommercialUserOption, CommissionSettlement } from '../../../services/commercial';
 import { RegisterCommercialSaleModal } from '../components/RegisterCommercialSaleModal';
@@ -102,6 +124,18 @@ export const CommercialDashboardPage: React.FC = () => {
     queryFn: () => commercialService.getMyAssignedInvestments()
   });
 
+  const handleRefresh = () => {
+    if (isCommercialAdmin) {
+      refetchAdminSummary();
+      refetchAllSales();
+      if (selectedCommercialId) refetchAdvisorSummary();
+    } else {
+      refetchSummary();
+    }
+    refetchLeaderboard();
+    refetchSettlements();
+  };
+
   const handleSuccess = () => {
     showToast('¡Venta registrada y adjudicada exitosamente!', 'success');
     if (isCommercialAdmin) {
@@ -184,50 +218,61 @@ export const CommercialDashboardPage: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       
-      {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
+      {/* 🏛️ 1. Encabezado de Página (Estándar Soporte en Tickets) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+            <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
+              <Trophy className="w-6 h-6" />
+            </span>
             {isCommercialAdmin ? 'Panel de Control Comercial' : 'Panel Comercial & Comisiones'}
           </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
+          <p className="text-xs text-slate-500 mt-1">
             {isCommercialAdmin 
               ? 'Supervisión global de facturación, auditoría de comisiones, liquidaciones y adjudicación' 
               : 'Gestión de ventas, partición marginal del 3.5% y comisiones en tiempo real'}
           </p>
         </div>
 
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+        {/* Acciones del Header */}
+        <div className="flex items-center gap-2.5 flex-wrap">
           {canSettle && (
             <button
               onClick={() => setIsSettleModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all text-xs font-bold shadow-lg shadow-emerald-600/20 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-emerald-600/20 transition-all cursor-pointer font-montserrat"
             >
               <DollarSign className="w-4 h-4" />
-              Liquidar Comisiones
+              <span>Liquidar Comisiones</span>
             </button>
           )}
 
           {isCommercialAdmin && (
             <button
               onClick={exportToCSV}
-              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white border border-slate-200 text-slate-700 hover:text-slate-900 rounded-2xl hover:bg-slate-50 transition-all text-xs font-bold cursor-pointer shadow-2xs font-montserrat"
             >
-              <Download className="w-4 h-4" />
-              Exportar CSV
+              <Download className="w-4 h-4 text-slate-500" />
+              <span>Exportar CSV</span>
             </button>
           )}
 
           {canCreateSaleOrAdjudicate && (
             <button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 transition-all cursor-pointer font-montserrat"
             >
               <Plus className="w-4 h-4" />
-              {isCommercialAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}
+              <span>{isCommercialAdmin ? 'Adjudicar Venta' : 'Registrar Venta'}</span>
             </button>
           )}
+
+          <button
+            onClick={handleRefresh}
+            className="p-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 rounded-2xl hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
+            title="Actualizar datos"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -367,36 +412,56 @@ export const CommercialDashboardPage: React.FC = () => {
 
           {/* Executive KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Ventas Empresa (Mes)</span>
-              <span className="text-2xl font-extrabold text-slate-900 block tracking-tight font-montserrat">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Ventas Empresa (Mes)</span>
+                <TrendingUp className="w-4 h-4 text-brand-600" />
+              </div>
+              <span className="text-2xl font-black text-slate-900 font-mono block">
                 ${(adminSummary?.global_sales || 0).toLocaleString('es-CO')}
               </span>
-              <span className="text-[11px] text-slate-500 font-medium">Facturación acumulada del equipo</span>
+              <span className="text-[11px] text-slate-500 font-medium block">
+                Facturación acumulada del equipo
+              </span>
             </div>
 
-            <div className="bg-emerald-50/80 border border-emerald-200 rounded-3xl p-6 shadow-xs space-y-2">
-              <span className="text-xs text-emerald-800 font-bold uppercase tracking-wider block font-montserrat">Comisiones Totales</span>
-              <span className="text-2xl font-extrabold text-emerald-700 block tracking-tight font-montserrat">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Comisiones Totales</span>
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+              </div>
+              <span className="text-2xl font-black text-emerald-600 font-mono block">
                 ${(adminSummary?.global_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
               </span>
-              <span className="text-[11px] text-emerald-700 font-medium">Consolidado a liquidar</span>
+              <span className="text-[11px] text-slate-500 font-medium block">
+                Consolidado global a liquidar
+              </span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Cierres Adjudicados</span>
-              <span className="text-2xl font-extrabold text-brand-700 block tracking-tight font-montserrat">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Cierres Adjudicados</span>
+                <Users className="w-4 h-4 text-brand-600" />
+              </div>
+              <span className="text-2xl font-black text-brand-700 font-mono block">
                 {adminSummary?.total_closures || 0}
               </span>
-              <span className="text-[11px] text-slate-500 font-medium">Transacciones comerciales</span>
+              <span className="text-[11px] text-slate-500 font-medium block">
+                Transacciones comerciales del mes
+              </span>
             </div>
 
-            <div className="bg-amber-50/70 border border-amber-200 rounded-3xl p-6 shadow-xs space-y-2">
-              <span className="text-xs text-amber-900 font-bold uppercase tracking-wider block font-montserrat">Líder del Mes</span>
-              <span className="text-xl font-extrabold text-amber-950 block truncate font-montserrat">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Líder del Mes</span>
+                <Trophy className="w-4 h-4 text-amber-500" />
+              </div>
+              <span className="text-2xl font-black text-slate-900 font-montserrat block truncate">
                 {adminSummary?.leader_name || 'Sin ventas'}
               </span>
-              <span className="text-[11px] text-amber-800 font-medium">Puesto #1 del Ranking</span>
+              <span className="text-[11px] text-amber-700 font-medium block">
+                Puesto #1 del Ranking
+              </span>
             </div>
           </div>
 
@@ -502,7 +567,7 @@ export const CommercialDashboardPage: React.FC = () => {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50/60 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                        <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-400 font-bold uppercase text-[10px] tracking-wider font-montserrat">
                           <th className="py-2.5 px-3">Asesor</th>
                           <th className="py-2.5 px-3">Cliente / Doc</th>
                           <th className="py-2.5 px-3">Tipo</th>
@@ -651,38 +716,40 @@ export const CommercialDashboardPage: React.FC = () => {
 
         /* VISTA ASESOR COMERCIAL (INDIVIDUAL) */
         <>
-          {/* Alerta Estratégica de Proximidad a los $36M */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 space-y-4 relative overflow-hidden">
-            <div className="flex items-center justify-between">
+          {/* Alerta Estratégica de Proximidad a los $36M (Luminosa, sin banner oscuro) */}
+          <div className="bg-gradient-to-br from-brand-50/80 via-white to-amber-50/50 border border-brand-200/80 rounded-3xl p-6 sm:p-7 shadow-xs space-y-4 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl">
-                  <Zap className="w-6 h-6" />
+                <div className="p-2.5 bg-brand-100 text-brand-700 rounded-2xl border border-brand-200 shadow-xs">
+                  <Zap className="w-5 h-5 text-brand-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-white font-montserrat">Progreso de Tramo Marginal ($36.000.000)</h3>
-                  <p className="text-xs text-slate-300">
+                  <h3 className="font-bold text-sm text-slate-900 font-montserrat">
+                    Progreso de Tramo Marginal ($36.000.000)
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-0.5">
                     {summary?.has_reached_36m ? (
-                      <span className="text-emerald-400 font-bold">¡Felicidades! Has superado los $36.000.000. Todas tus ventas directas cotizan al 3.5%.</span>
+                      <span className="text-emerald-700 font-bold">¡Felicidades! Has superado los $36.000.000. Todas tus ventas directas cotizan al 3.5%.</span>
                     ) : (
-                      <span>Te faltan <strong className="text-emerald-400 font-bold">${remaining.toLocaleString('es-CO')}</strong> en ventas directas para desbloquear la comisión al 3.5%.</span>
+                      <span>Te faltan <strong className="text-brand-700 font-bold font-mono">${remaining.toLocaleString('es-CO')}</strong> en ventas directas para desbloquear la comisión al 3.5%.</span>
                     )}
                   </p>
                 </div>
               </div>
 
-              <span className="px-3.5 py-1 bg-white/10 rounded-full text-xs font-bold text-emerald-400 border border-white/10 backdrop-blur-sm">
+              <span className="px-3.5 py-1.5 bg-white rounded-2xl text-xs font-bold text-brand-700 border border-brand-200 shadow-2xs font-mono self-start sm:self-auto">
                 Tasa Actual: {(summary?.current_rate ? summary.current_rate * 100 : 3.0).toFixed(1)}%
               </span>
             </div>
 
             <div className="space-y-1.5 pt-1">
-              <div className="flex justify-between text-xs text-slate-400 font-medium">
-                <span>Acumulado Directo: ${directAccum.toLocaleString('es-CO')}</span>
-                <span>Meta Piso 2: ${threshold.toLocaleString('es-CO')}</span>
+              <div className="flex justify-between text-xs text-slate-500 font-medium">
+                <span>Acumulado Directo: <strong className="text-slate-800 font-mono">${directAccum.toLocaleString('es-CO')}</strong></span>
+                <span>Meta Piso 2: <strong className="text-slate-800 font-mono">${threshold.toLocaleString('es-CO')}</strong></span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200/60 p-0.5">
                 <div
-                  className="bg-gradient-to-r from-brand-500 to-emerald-400 h-3 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-brand-500 to-amber-500 h-full rounded-full transition-all duration-500 shadow-xs"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -697,36 +764,56 @@ export const CommercialDashboardPage: React.FC = () => {
 
           {/* KPI Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Ventas Directas</span>
-              <span className="text-2xl font-extrabold text-slate-800 block tracking-tight font-montserrat">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Ventas Directas</span>
+                <TrendingUp className="w-4 h-4 text-brand-600" />
+              </div>
+              <span className="text-2xl font-black text-slate-900 font-mono block">
                 ${directAccum.toLocaleString('es-CO')}
               </span>
-              <span className="text-[11px] text-slate-500 font-medium">Contratos Nuevos + Reinversiones</span>
+              <span className="text-[11px] text-slate-500 font-medium block">
+                Contratos Nuevos + Reinversiones
+              </span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Ventas Referidos</span>
-              <span className="text-2xl font-extrabold text-amber-800 block tracking-tight font-montserrat">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Ventas Referidos</span>
+                <Users className="w-4 h-4 text-amber-600" />
+              </div>
+              <span className="text-2xl font-black text-amber-700 font-mono block">
                 ${(summary?.referral_accumulated || 0).toLocaleString('es-CO')}
               </span>
-              <span className="text-[11px] text-amber-700 font-medium">Tasa fija del 1.8%</span>
+              <span className="text-[11px] text-slate-500 font-medium block">
+                Tasa fija del 1.8%
+              </span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Ventas Totales Mes</span>
-              <span className="text-2xl font-extrabold text-brand-700 block tracking-tight font-montserrat">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Ventas Totales Mes</span>
+                <DollarSign className="w-4 h-4 text-brand-600" />
+              </div>
+              <span className="text-2xl font-black text-brand-700 font-mono block">
                 ${(summary?.total_accumulated || 0).toLocaleString('es-CO')}
               </span>
-              <span className="text-[11px] text-slate-500 font-medium">Consolidado general</span>
+              <span className="text-[11px] text-slate-500 font-medium block">
+                Consolidado general
+              </span>
             </div>
 
-            <div className="bg-emerald-50/70 border border-emerald-200 rounded-3xl p-6 shadow-xs space-y-2">
-              <span className="text-xs text-emerald-800 font-bold uppercase tracking-wider block font-montserrat">Comisiones Ganadas</span>
-              <span className="text-2xl font-extrabold text-emerald-700 block tracking-tight font-montserrat">
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Comisiones Ganadas</span>
+                <Award className="w-4 h-4 text-emerald-600" />
+              </div>
+              <span className="text-2xl font-black text-emerald-600 font-mono block">
                 +${(summary?.total_commissions || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
               </span>
-              <span className="text-[11px] text-emerald-700 font-medium">Acumulado a liquidar</span>
+              <span className="text-[11px] text-slate-500 font-medium block">
+                Acumulado a liquidar
+              </span>
             </div>
           </div>
 
@@ -859,7 +946,7 @@ export const CommercialDashboardPage: React.FC = () => {
             <div className="space-y-4">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs text-slate-600">
-                  <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
+                  <thead className="bg-slate-50/75 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100 font-montserrat">
                     <tr>
                       <th className="py-3 px-4">Inversionista</th>
                       <th className="py-3 px-4">Contacto / Documento</th>
@@ -982,7 +1069,7 @@ export const CommercialDashboardPage: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-600">
-              <thead className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
+              <thead className="bg-slate-50/75 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100 font-montserrat">
                 <tr>
                   <th className="py-3 px-4">Fecha Liquidación</th>
                   <th className="py-3 px-4">Asesor Beneficiario</th>
@@ -1065,13 +1152,21 @@ export const CommercialDashboardPage: React.FC = () => {
         isLoading={isCancellingSale}
       />
 
-      {/* Toast */}
+      {/* Toast Estandarizado */}
       {toast && (
-        <div className={`fixed bottom-4 right-4 z-[60] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border ${
-          toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-800'
-        }`}>
-          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <AlertCircle className="w-5 h-5 text-red-600" />}
-          <span className="text-sm font-medium">{toast.message}</span>
+        <div
+          className={`fixed bottom-6 right-6 z-[60] flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border ${
+            toast.type === 'success' 
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+              : 'bg-rose-50 border-rose-200 text-rose-900'
+          } animate-in slide-in-from-bottom-2 text-xs font-bold`}
+        >
+          {toast.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          )}
+          <span>{toast.message}</span>
         </div>
       )}
     </div>

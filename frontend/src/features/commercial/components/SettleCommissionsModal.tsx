@@ -101,23 +101,23 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
     : 'Todo lo pendiente (Histórico acumulado)';
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-950/60 backdrop-blur-xs" style={{ margin: 0 }}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl">
+            <div className="p-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-2xl inline-flex shadow-xs">
               <DollarSign className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800 font-montserrat">Liquidar Comisiones y Bonos</h3>
+              <h3 className="text-lg font-bold text-slate-900 font-montserrat">Liquidar Comisiones y Bonos</h3>
               <p className="text-xs text-slate-500">Liquidación Consolidada • Registro de comprobante bancario</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -247,14 +247,14 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-colors text-xs font-bold cursor-pointer"
+              className="px-5 py-2.5 border border-slate-200 text-slate-600 rounded-2xl hover:bg-slate-50 transition-all text-xs font-bold cursor-pointer font-montserrat"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting || totalAmount <= 0}
-              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20 font-montserrat"
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 transition-all text-xs font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-emerald-600/20 font-montserrat"
             >
               {isSubmitting ? (
                 <>

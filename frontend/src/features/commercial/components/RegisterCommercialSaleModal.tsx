@@ -344,23 +344,23 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-900/50 backdrop-blur-sm" style={{ margin: 0 }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pt-20 bg-slate-950/60 backdrop-blur-xs" style={{ margin: 0 }}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-brand-100 text-brand-700 rounded-xl">
+            <div className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
               <Calculator className="w-5 h-5 text-brand-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Registrar Venta Comercial</h3>
+              <h3 className="text-lg font-bold text-slate-900 font-montserrat">Registrar Venta Comercial</h3>
               <p className="text-xs text-slate-500">Clasificación Obligatoria • Comisiones Marginales</p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -816,14 +816,14 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
               type="button"
               onClick={handleClose}
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer font-montserrat"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting || numericAmount <= 0}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 rounded-2xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer font-montserrat"
             >
               {isSubmitting ? (
                 <>
