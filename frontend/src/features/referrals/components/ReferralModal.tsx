@@ -133,13 +133,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
     };
 
     return createPortal(
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200" style={{ margin: 0 }}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200" style={{ margin: 0 }}>
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
                 
                 {/* Header Estandarizado */}
                 <div className="flex items-center justify-between p-6 border-b border-slate-100 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-brand-100 text-brand-700 rounded-xl">
+                        <div className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
                             <UserPlus className="w-5 h-5 text-brand-600" />
                         </div>
                         <div>
@@ -151,7 +151,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                     </div>
                     <button 
                         onClick={onClose}
-                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                        className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -159,26 +159,26 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
 
                 <form id="referral-form" onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
                     {error && (
-                        <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-600">
+                        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-semibold text-rose-600">
                             {error}
                         </div>
                     )}
 
                     <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-slate-700">Nombre Completo del Referido <span className="text-red-500">*</span></label>
+                        <label className="text-xs font-bold text-slate-700">Nombre Completo del Referido <span className="text-rose-500">*</span></label>
                         <input
                             type="text"
                             value={nombre}
                             onChange={(e) => setNombre(e.target.value)}
                             placeholder="Ej. Carlos Andrés Mendoza"
-                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-bold text-slate-900"
+                            className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-bold text-slate-900"
                             required
                         />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-slate-700">Teléfono / WhatsApp <span className="text-red-500">*</span></label>
+                            <label className="text-xs font-bold text-slate-700">Teléfono / WhatsApp <span className="text-rose-500">*</span></label>
                             <div className="relative">
                                 <input
                                     type="tel"
@@ -188,7 +188,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                                     value={telefono}
                                     onChange={(e) => setTelefono(e.target.value)}
                                     placeholder="Ej. 3001234567 o +573001234567"
-                                    className="w-full pl-4 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-semibold text-slate-900"
+                                    className="w-full pl-4 pr-9 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-semibold text-slate-900"
                                     required
                                 />
                                 <Phone className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
@@ -203,7 +203,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="Ej. carlos@ejemplo.com"
-                                    className="w-full pl-4 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-semibold text-slate-900"
+                                    className="w-full pl-4 pr-9 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-semibold text-slate-900"
                                 />
                                 <Mail className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                             </div>
@@ -214,13 +214,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                     {!referral && (
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-700">
-                                Código de Inversión / Referido <span className="text-red-500">*</span>
+                                Código de Inversión / Referido <span className="text-rose-500">*</span>
                             </label>
                             <div className="relative">
                                 <select
                                     value={codigoReferido}
                                     onChange={(e) => setCodigoReferido(e.target.value)}
-                                    className="w-full pl-4 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-mono font-bold text-slate-900 cursor-pointer"
+                                    className="w-full pl-4 pr-9 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-mono font-bold text-slate-900 cursor-pointer"
                                     required
                                 >
                                     <option value="">-- Selecciona el código de tu inversión --</option>
@@ -237,7 +237,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-slate-700">Estado del Referido</label>
                             {referral?.estado === 'registrado' ? (
-                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-700 flex items-center gap-2 font-montserrat">
+                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-700 flex items-center gap-2 font-montserrat">
                                     <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                                     <span>Registrado como Usuario e Inversionista (Estado Final)</span>
                                 </div>
@@ -245,7 +245,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                                 <select
                                     value={estado}
                                     onChange={(e) => setEstado(e.target.value)}
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-bold text-slate-900"
+                                    className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs font-bold text-slate-900"
                                 >
                                     <option value="pendiente">Pendiente</option>
                                     <option value="contactado">Contactado</option>
@@ -263,17 +263,17 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                             onChange={(e) => setNotas(e.target.value)}
                             rows={3}
                             placeholder="Añade notas sobre el interés o perfil del referido..."
-                            className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs text-slate-900 resize-y"
+                            className="w-full p-3.5 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs text-slate-900 resize-y"
                         />
                     </div>
                 </form>
 
-                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 shrink-0">
+                <div className="p-4 border-t border-slate-100 bg-slate-50/75 flex justify-end gap-3 shrink-0">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={isSaving}
-                        className="px-5 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-200 transition-all text-sm cursor-pointer"
+                        className="px-5 py-2.5 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 transition-all text-xs cursor-pointer font-montserrat"
                     >
                         Cancelar
                     </button>
@@ -281,7 +281,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                         type="submit"
                         form="referral-form"
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 cursor-pointer font-montserrat"
+                        className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 rounded-2xl shadow-md shadow-brand-500/20 transition-all disabled:opacity-50 cursor-pointer font-montserrat"
                     >
                         {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                         Guardar Referido
