@@ -179,27 +179,25 @@ export const InventoryPage: React.FC = () => {
       )}
 
       {/* Header con Título y Acciones Globales */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
-        <div className="flex items-center gap-3">
-          <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
-            <Package className="w-6 h-6" />
-          </span>
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
-              <span>Control de Inventario e Insumos</span>
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Trazabilidad completa de productos comerciales, consumo interno de insumos y control de gastos.
-            </p>
-          </div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+            <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs shrink-0">
+              <Package className="w-6 h-6" />
+            </span>
+            <span className="whitespace-nowrap sm:whitespace-normal">Control de Inventario e Insumos</span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+            Trazabilidad completa de productos comerciales, consumo interno de insumos y control de gastos.
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
           <button
             type="button"
             onClick={fetchData}
             title="Actualizar datos"
-            className="p-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all shadow-xs cursor-pointer"
+            className="p-2 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all shadow-xs cursor-pointer shrink-0"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-600' : ''}`} />
           </button>
@@ -211,21 +209,10 @@ export const InventoryPage: React.FC = () => {
                 setKardexFilterItem(null);
                 setKardexDrawerOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-bold shadow-xs cursor-pointer font-montserrat"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0"
             >
-              <History className="w-4 h-4 text-slate-500 shrink-0" />
+              <History className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span>Bitácora Kardex</span>
-            </button>
-          </Can>
-
-          <Can permission="inventory:create">
-            <button
-              type="button"
-              onClick={() => setCategoryModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-bold shadow-xs cursor-pointer font-montserrat"
-            >
-              <FolderPlus className="w-4 h-4 text-brand-500 shrink-0" />
-              <span>Categorías</span>
             </button>
           </Can>
 
@@ -236,9 +223,9 @@ export const InventoryPage: React.FC = () => {
                 setPreselectedSupplyItem(null);
                 setDispatchModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-bold shadow-xs cursor-pointer font-montserrat"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-50/80 border border-amber-200/90 hover:bg-amber-100/70 text-amber-800 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0"
             >
-              <Send className="w-4 h-4 text-amber-500 shrink-0" />
+              <Send className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>Consumo Insumo</span>
             </button>
           </Can>
@@ -250,9 +237,9 @@ export const InventoryPage: React.FC = () => {
                 setPreselectedProductItem(null);
                 setProductDispatchModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-bold shadow-xs cursor-pointer font-montserrat"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-50/80 border border-blue-200/90 hover:bg-blue-100/70 text-blue-800 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0"
             >
-              <ArrowUpRight className="w-4 h-4 text-blue-500 shrink-0" />
+              <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 shrink-0" />
               <span>Venta / Salida</span>
             </button>
           </Can>
@@ -265,7 +252,7 @@ export const InventoryPage: React.FC = () => {
                 setDefaultItemType('PRODUCT');
                 setItemModalOpen(true);
               }}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 font-montserrat transition-all active:scale-95 cursor-pointer shrink-0"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 font-montserrat transition-all active:scale-95 cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4 shrink-0" />
               <span>Nuevo Artículo</span>
@@ -275,18 +262,18 @@ export const InventoryPage: React.FC = () => {
       </div>
 
       {/* Tarjetas KPI de Resumen */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4">
         {/* Total Productos */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
               Productos Venta
             </span>
-            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl">
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
               <Tag className="w-4 h-4" />
             </div>
           </div>
-          <span className="text-2xl font-black text-slate-900 block tracking-tight font-mono">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
             {stats?.total_products ?? 0}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block truncate">
@@ -295,45 +282,45 @@ export const InventoryPage: React.FC = () => {
         </div>
 
         {/* Total Insumos */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
               Insumos Oficina
             </span>
-            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
               <Layers className="w-4 h-4" />
             </div>
           </div>
-          <span className="text-2xl font-black text-slate-900 block tracking-tight font-mono">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
             {stats?.total_supplies ?? 0}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block truncate">
-            Papelería, aseo y cafetería
+            Papelería y cafetería
           </span>
         </div>
 
         {/* Stock Crítico (Alerta Interactiva) */}
         <div
           onClick={() => setActiveTab('LOW_STOCK')}
-          className={`border rounded-2xl p-5 shadow-xs space-y-2 cursor-pointer transition-all ${
+          className={`border rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 cursor-pointer transition-all ${
             (stats?.low_stock_count ?? 0) > 0
               ? 'bg-rose-50/60 border-rose-200 hover:border-rose-300'
-              : 'bg-white border-slate-200/90'
+              : 'bg-white border-slate-200/90 hover:border-slate-300'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className={`text-xs font-bold uppercase tracking-wider block font-montserrat truncate ${
+            <span className={`text-[11px] font-bold uppercase tracking-wider block font-montserrat ${
               (stats?.low_stock_count ?? 0) > 0 ? 'text-rose-700' : 'text-slate-400'
             }`}>
               Stock Crítico
             </span>
-            <div className={`p-2 rounded-xl ${
+            <div className={`p-2 rounded-xl shrink-0 ${
               (stats?.low_stock_count ?? 0) > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'
             }`}>
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
-          <span className={`text-2xl font-black block tracking-tight font-mono ${
+          <span className={`text-xl sm:text-2xl font-black block tracking-tight font-mono ${
             (stats?.low_stock_count ?? 0) > 0 ? 'text-rose-700' : 'text-slate-900'
           }`}>
             {stats?.low_stock_count ?? 0}
@@ -344,16 +331,16 @@ export const InventoryPage: React.FC = () => {
         </div>
 
         {/* Valuación Total del Inventario */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
               Valuación Stock
             </span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <span className="text-2xl font-black text-slate-900 block tracking-tight font-mono truncate">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono truncate" title={`$${Number(stats?.total_inventory_valuation ?? 0).toLocaleString('es-CO')}`}>
             ${Number(stats?.total_inventory_valuation ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block truncate">
@@ -362,20 +349,20 @@ export const InventoryPage: React.FC = () => {
         </div>
 
         {/* Gastos de Oficina del Mes */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-amber-700 font-bold uppercase tracking-wider block font-montserrat truncate">
-              Gastos Insumos Mes
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Gastos del Mes
             </span>
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
               <TrendingDown className="w-4 h-4" />
             </div>
           </div>
-          <span className="text-2xl font-black text-slate-900 block tracking-tight font-mono truncate">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono truncate" title={`$${Number(stats?.monthly_office_expenses ?? 0).toLocaleString('es-CO')}`}>
             ${Number(stats?.monthly_office_expenses ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block truncate">
-            Consumo interno imputado
+            Consumo interno insumos
           </span>
         </div>
       </div>
