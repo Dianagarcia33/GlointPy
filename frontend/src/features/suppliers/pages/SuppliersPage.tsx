@@ -3,18 +3,13 @@ import {
   Building, 
   Plus, 
   Search, 
-  Filter, 
   RefreshCw, 
   Phone, 
   Mail, 
   MapPin, 
-  CreditCard, 
-  FileText, 
   Edit3, 
   Trash2, 
   CheckCircle2, 
-  XCircle, 
-  AlertCircle,
   ShoppingBag,
   DollarSign
 } from 'lucide-react';
@@ -25,7 +20,6 @@ import {
   UpdateSupplierPayload 
 } from '../../../services/supplierService';
 import { SupplierModal } from '../components/SupplierModal';
-import { CorporateResourceNav } from '../../inventory/components/CorporateResourceNav';
 import { Can } from '../../../components/security/Can';
 
 export const SuppliersPage: React.FC = () => {
@@ -77,7 +71,7 @@ export const SuppliersPage: React.FC = () => {
   };
 
   const handleDeleteSupplier = async (supplier: Supplier) => {
-    if (!window.confirm(`¿Estás seguro de que deseas desactivar/eliminar al proveedor "${supplier.name}"?`)) {
+    if (!window.confirm(`¿Estás seguro de que deseas desactivar o eliminar al proveedor "${supplier.name}"?`)) {
       return;
     }
 
@@ -102,226 +96,246 @@ export const SuppliersPage: React.FC = () => {
   const totalOrdersAll = suppliers.reduce((acc, s) => acc + (s.total_purchase_orders || 0), 0);
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* 🧭 Navegación cruzada de recursos corporativos */}
-      <CorporateResourceNav activeTab="suppliers" />
-
+    <div className="space-y-6">
       {/* Header Principal */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white font-montserrat tracking-tight flex items-center gap-2.5">
-            <Building className="w-7 h-7 text-brand-500" />
-            Gestión de Proveedores
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black font-montserrat text-slate-900 tracking-tight flex items-center gap-2.5">
+              <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-2xs">
+                <Building className="w-5 h-5 sm:w-6 sm:h-6" />
+              </span>
+              Gestión de Proveedores
+            </h1>
+            <span className="px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold bg-brand-50 text-brand-600 border border-brand-200 rounded-full font-montserrat">
+              Directorio Corporativo
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
             Directorio corporativo, condiciones de facturación, cuentas de pago y órdenes vinculadas.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
+            type="button"
             onClick={fetchSuppliers}
             disabled={loading}
-            className="p-2.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs"
+            className="flex items-center justify-center gap-2 px-3 sm:px-3.5 py-2 sm:py-2.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl shadow-xs hover:border-slate-300 transition-all cursor-pointer font-montserrat"
             title="Recargar"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
           <Can permissions={['suppliers:create', 'suppliers.create']}>
             <button
+              type="button"
               onClick={() => {
                 setSelectedSupplier(null);
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl shadow-xs shadow-brand-500/20 transition-all cursor-pointer"
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-500 to-amber-600 hover:from-brand-600 hover:to-amber-700 rounded-xl sm:rounded-2xl shadow-md shadow-brand-500/20 hover:scale-[1.01] active:scale-95 transition-all cursor-pointer font-montserrat"
             >
-              <Plus className="w-4 h-4" />
-              Nuevo Proveedor
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>Nuevo Proveedor</span>
             </button>
           </Can>
         </div>
       </div>
 
-      {/* KPIs Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Proveedores</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-500 flex items-center justify-center">
-              <Building className="w-4 h-4" />
-            </div>
+      {/* Tarjetas KPI de Resumen */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider font-montserrat truncate">Total Proveedores</span>
+            <Building className="w-4 h-4 text-brand-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 font-montserrat">{total}</p>
-          <span className="text-[10px] text-slate-400 mt-1 block">Registrados en directorio</span>
+          <div>
+            <span className="text-xl sm:text-2xl font-bold font-mono text-slate-900 block truncate">
+              {total}
+            </span>
+            <span className="block text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Registrados en directorio</span>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Proveedores Activos</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider font-montserrat truncate">Proveedores Activos</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 font-montserrat">
-            {suppliers.filter((s) => s.is_active).length}
-          </p>
-          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 block">Habilitados para compras</span>
+          <div>
+            <span className="text-xl sm:text-2xl font-bold font-mono text-emerald-600 block truncate">
+              {suppliers.filter((s) => s.is_active).length}
+            </span>
+            <span className="block text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Habilitados para compras</span>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Órdenes Generadas</span>
-            <div className="w-8 h-8 rounded-xl bg-violet-50 dark:bg-violet-950/40 text-violet-500 flex items-center justify-center">
-              <ShoppingBag className="w-4 h-4" />
-            </div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider font-montserrat truncate">Órdenes Generadas</span>
+            <ShoppingBag className="w-4 h-4 text-violet-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 font-montserrat">{totalOrdersAll}</p>
-          <span className="text-[10px] text-slate-400 mt-1 block">Órdenes recibidas/aprobadas</span>
+          <div>
+            <span className="text-xl sm:text-2xl font-bold font-mono text-violet-600 block truncate">
+              {totalOrdersAll}
+            </span>
+            <span className="block text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Órdenes recibidas/aprobadas</span>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Volumen Compras</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-500 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
-            </div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider font-montserrat truncate">Volumen de Compras</span>
+            <DollarSign className="w-4 h-4 text-amber-500 shrink-0" />
           </div>
-          <p className="text-xl font-black text-slate-900 dark:text-white mt-2 font-montserrat truncate">
-            {formatCurrency(totalSpentAll)}
-          </p>
-          <span className="text-[10px] text-slate-400 mt-1 block">Facturado acumulado</span>
+          <div>
+            <span className="text-lg sm:text-xl font-bold font-mono text-slate-900 block truncate">
+              {formatCurrency(totalSpentAll)}
+            </span>
+            <span className="block text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Facturado acumulado</span>
+          </div>
         </div>
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por razón social, NIT, persona de contacto, teléfono o ciudad..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-brand-500 focus:outline-hidden dark:text-white"
-            />
-          </form>
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por razón social, NIT, persona de contacto, teléfono o ciudad..."
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+          />
+        </form>
 
-          <div className="flex items-center gap-2.5 w-full md:w-auto">
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-brand-500 focus:outline-hidden cursor-pointer"
-            >
-              <option value="ALL">Todas las Categorías</option>
-              <option value="TECNOLOGIA">Tecnología y Cómputo</option>
-              <option value="PAPELERIA_INSUMOS">Papelería e Insumos</option>
-              <option value="MOBILIARIO">Mobiliario</option>
-              <option value="SERVICIOS">Servicios</option>
-              <option value="CAFETERIA_ASEO">Cafetería y Aseo</option>
-              <option value="GENERAL">General</option>
-            </select>
+        <div className="flex items-center gap-2.5 w-full md:w-auto">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer"
+          >
+            <option value="ALL">Todas las Categorías</option>
+            <option value="TECNOLOGIA">Tecnología y Cómputo</option>
+            <option value="PAPELERIA_INSUMOS">Papelería e Insumos</option>
+            <option value="MOBILIARIO">Mobiliario</option>
+            <option value="SERVICIOS">Servicios</option>
+            <option value="CAFETERIA_ASEO">Cafetería y Aseo</option>
+            <option value="GENERAL">General</option>
+          </select>
 
-            <button
-              onClick={() => setActiveOnly(!activeOnly)}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer shrink-0 ${
-                activeOnly
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              {activeOnly ? 'Solo Activos' : 'Todos'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveOnly(!activeOnly)}
+            className={`px-3 sm:px-3.5 py-2 rounded-xl sm:rounded-2xl text-xs font-bold border transition-all cursor-pointer shrink-0 font-montserrat ${
+              activeOnly
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+            }`}
+          >
+            {activeOnly ? 'Solo Activos' : 'Todos'}
+          </button>
         </div>
       </div>
 
       {/* Tabla de Proveedores */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-2">
-            <RefreshCw className="w-6 h-6 animate-spin text-brand-500" />
-            <span className="text-xs">Cargando directorio de proveedores...</span>
+          <div className="flex flex-col items-center justify-center h-64 bg-white p-8">
+            <div className="w-8 h-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin mb-2" />
+            <span className="text-xs font-semibold text-slate-400">Cargando directorio de proveedores...</span>
           </div>
         ) : suppliers.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-3">
-            <Building className="w-10 h-10 text-slate-300 dark:text-slate-700" />
-            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              No se encontraron proveedores
-            </p>
-            <p className="text-xs text-slate-400 max-w-sm">
-              No hay proveedores que coincidan con los filtros o aún no se han registrado.
+          <div className="flex flex-col items-center justify-center h-64 bg-white p-8 text-center">
+            <Building className="w-12 h-12 text-slate-300 stroke-1 mb-2" />
+            <h4 className="text-sm font-bold text-slate-700 font-montserrat">No se encontraron proveedores</h4>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm">
+              No hay proveedores que coincidan con los filtros o aún no se han registrado en el sistema.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full min-w-[850px] text-left border-collapse text-xs">
+              <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200 select-none font-montserrat">
                 <tr>
-                  <th className="px-5 py-3.5">Proveedor / Razón Social</th>
-                  <th className="px-4 py-3.5">Categoría</th>
-                  <th className="px-4 py-3.5">Contacto</th>
-                  <th className="px-4 py-3.5">Términos Pago</th>
-                  <th className="px-4 py-3.5">Historial Compras</th>
-                  <th className="px-4 py-3.5 text-center">Estado</th>
-                  <th className="px-5 py-3.5 text-right">Acciones</th>
+                  <th className="py-3.5 px-4 sm:px-5">Proveedor / Razón Social</th>
+                  <th className="py-3.5 px-4">Categoría</th>
+                  <th className="py-3.5 px-4">Contacto</th>
+                  <th className="py-3.5 px-4">Términos Pago</th>
+                  <th className="py-3.5 px-4">Historial Compras</th>
+                  <th className="py-3.5 px-4 text-center">Estado</th>
+                  <th className="py-3.5 px-5 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-slate-100 font-inter">
                 {suppliers.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-900 dark:text-white text-xs">{s.name}</span>
-                        {s.nit_rut && (
-                          <span className="text-[11px] text-slate-400 font-mono mt-0.5">NIT: {s.nit_rut}</span>
-                        )}
-                        {s.city && (
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3" /> {s.city}
+                  <tr key={s.id} className="hover:bg-slate-50/70 transition-colors group">
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-2xl bg-brand-50 border border-brand-200 text-brand-600 flex items-center justify-center font-bold text-xs font-montserrat shrink-0">
+                          {s.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
+                            {s.name}
                           </span>
-                        )}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {s.nit_rut && (
+                              <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">
+                                NIT: {s.nit_rut}
+                              </span>
+                            )}
+                            {s.city && (
+                              <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
+                                <MapPin className="w-3 h-3 text-slate-400" /> {s.city}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </td>
 
-                    <td className="px-4 py-4">
-                      <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-[10.5px] font-medium">
+                    <td className="py-3.5 px-4">
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10.5px] font-medium font-mono">
                         {s.category}
                       </span>
                     </td>
 
-                    <td className="px-4 py-4">
-                      <div className="flex flex-col gap-1">
+                    <td className="py-3.5 px-4">
+                      <div className="flex flex-col gap-0.5">
                         {s.contact_name && (
-                          <span className="font-medium text-slate-800 dark:text-slate-200">{s.contact_name}</span>
+                          <span className="font-semibold text-slate-800 text-xs">{s.contact_name}</span>
                         )}
-                        {s.phone && (
-                          <a
-                            href={`tel:${s.phone}`}
-                            className="text-slate-500 hover:text-brand-500 flex items-center gap-1 text-[11px]"
-                          >
-                            <Phone className="w-3 h-3" /> {s.phone}
-                          </a>
-                        )}
-                        {s.email && (
-                          <a
-                            href={`mailto:${s.email}`}
-                            className="text-slate-500 hover:text-brand-500 flex items-center gap-1 text-[11px]"
-                          >
-                            <Mail className="w-3 h-3" /> {s.email}
-                          </a>
-                        )}
+                        <div className="flex items-center gap-2 text-[10.5px] text-slate-500">
+                          {s.phone && (
+                            <a
+                              href={`tel:${s.phone}`}
+                              className="hover:text-brand-600 flex items-center gap-1 transition-colors"
+                            >
+                              <Phone className="w-3 h-3 text-slate-400" /> {s.phone}
+                            </a>
+                          )}
+                          {s.email && (
+                            <a
+                              href={`mailto:${s.email}`}
+                              className="hover:text-brand-600 flex items-center gap-1 transition-colors"
+                            >
+                              <Mail className="w-3 h-3 text-slate-400" /> {s.email}
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </td>
 
-                    <td className="px-4 py-4">
-                      <span className="font-medium text-slate-700 dark:text-slate-300">
+                    <td className="py-3.5 px-4">
+                      <span className="font-medium text-slate-700">
                         {s.payment_terms.replace('_', ' ')}
                       </span>
                       {s.bank_info && (
                         <span
-                          className="text-[10px] text-brand-600 dark:text-brand-400 block truncate max-w-[150px] mt-0.5 cursor-help"
+                          className="text-[10px] text-brand-600 block truncate max-w-[150px] mt-0.5 cursor-help"
                           title={s.bank_info}
                         >
                           🏦 {s.bank_info}
@@ -329,9 +343,9 @@ export const SuppliersPage: React.FC = () => {
                       )}
                     </td>
 
-                    <td className="px-4 py-4">
+                    <td className="py-3.5 px-4">
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-900 dark:text-white">
+                        <span className="font-mono font-bold text-slate-900">
                           {formatCurrency(s.total_spent)}
                         </span>
                         <span className="text-[10px] text-slate-400">
@@ -340,27 +354,28 @@ export const SuppliersPage: React.FC = () => {
                       </div>
                     </td>
 
-                    <td className="px-4 py-4 text-center">
+                    <td className="py-3.5 px-4 text-center">
                       <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-montserrat ${
                           s.is_active
-                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}
                       >
                         {s.is_active ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
 
-                    <td className="px-5 py-4 text-right">
+                    <td className="py-3.5 px-5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <Can permissions={['suppliers:edit', 'suppliers.edit']}>
                           <button
+                            type="button"
                             onClick={() => {
                               setSelectedSupplier(s);
                               setIsModalOpen(true);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-colors cursor-pointer"
                             title="Editar proveedor"
                           >
                             <Edit3 className="w-4 h-4" />
@@ -369,8 +384,9 @@ export const SuppliersPage: React.FC = () => {
 
                         <Can permissions={['suppliers:delete', 'suppliers.delete']}>
                           <button
+                            type="button"
                             onClick={() => handleDeleteSupplier(s)}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                             title="Desactivar o eliminar"
                           >
                             <Trash2 className="w-4 h-4" />

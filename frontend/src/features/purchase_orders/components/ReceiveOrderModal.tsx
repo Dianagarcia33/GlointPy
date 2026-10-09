@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, PackageCheck, AlertCircle, FileCheck, Layers, Info } from 'lucide-react';
+import { X, PackageCheck, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { PurchaseOrder, ReceiveOrderPayload } from '../../../services/purchaseOrderService';
 
 interface ReceiveOrderModalProps {
@@ -28,7 +28,6 @@ export const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({
       setInvoiceNumber(order.invoice_number || '');
       setInvoiceUrl(order.invoice_url || '');
       setNotes('');
-      // Inicializar con la cantidad pedida
       const initialMap: { [key: number]: number } = {};
       order.items.forEach((it) => {
         initialMap[it.id] = it.quantity_ordered;
@@ -69,52 +68,56 @@ export const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+      <div 
+        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-emerald-50/40 dark:bg-emerald-950/20">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <PackageCheck className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0 bg-emerald-600">
+              <PackageCheck className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white font-montserrat">
-                Recepción Física de Mercancía: {order.order_number}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Proveedor: {order.supplier_name || 'N/A'} • Total: ${order.total_amount.toLocaleString()}
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 font-montserrat">
+                Recepción Física: {order.order_number}
+              </h2>
+              <p className="text-[11px] sm:text-xs text-slate-500">
+                Proveedor: {order.supplier_name || 'N/A'} • Total: ${Number(order.total_amount).toLocaleString('es-CO')}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+            disabled={loading}
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Banner Informativo Kardex */}
-        <div className="mx-6 mt-4 p-3.5 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/40 rounded-2xl flex items-start gap-3 text-xs text-blue-800 dark:text-blue-300">
-          <Info className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+        <div className="mx-4 sm:mx-6 mt-4 p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl flex items-start gap-3 text-xs text-blue-900">
+          <Info className="w-4 h-4 shrink-0 text-blue-600 mt-0.5" />
           <div>
-            <span className="font-bold block">Integración Automática con Inventario & Kardex</span>
-            Al confirmar la recepción, el stock físico en el Inventario aumentará inmediatamente según las cantidades recibidas y se generará una entrada oficial en la bitácora Kardex vinculada a la orden <strong>{order.order_number}</strong>.
+            <span className="font-bold font-montserrat block">Integración Automática con Kardex</span>
+            Al confirmar la recepción, el stock físico en el Inventario aumentará inmediatamente y se registrará la entrada formal en la bitácora Kardex vinculada a la orden <strong>{order.order_number}</strong>.
           </div>
         </div>
 
         {error && (
-          <div className="mx-6 mt-3 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl flex items-center gap-2.5 text-xs text-rose-600 dark:text-rose-400">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <div className="mx-4 sm:mx-6 mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-4">
           {/* Factura & URL */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
                 Número de Factura del Proveedor (Opcional)
               </label>
               <input
@@ -122,60 +125,60 @@ export const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
                 placeholder="Ej. FACT-98432"
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden dark:text-white"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Enlace a Comprobante / Factura Digital
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+                Enlace a Comprobante Digital (Opcional)
               </label>
               <input
                 type="text"
                 value={invoiceUrl}
                 onChange={(e) => setInvoiceUrl(e.target.value)}
-                placeholder="https://... o ruta del archivo"
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-hidden dark:text-white"
+                placeholder="https://... o enlace a documento"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
               />
             </div>
           </div>
 
           {/* Tabla de Artículos a Recibir */}
           <div className="space-y-2">
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider block">
-              Cantidades Físicas Recibidas
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block font-montserrat">
+              Cantidades Físicas Recibidas en Bodega
             </span>
-            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+            <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold text-[10.5px]">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px] font-montserrat">
                   <tr>
-                    <th className="px-4 py-2.5">Artículo / SKU</th>
-                    <th className="px-4 py-2.5 text-center">Cant. Solicitada</th>
-                    <th className="px-4 py-2.5 text-center w-36">Cant. Recibida</th>
-                    <th className="px-4 py-2.5 text-right">Costo Unitario</th>
+                    <th className="px-4 py-3">Artículo / SKU</th>
+                    <th className="px-4 py-3 text-center">Cant. Solicitada</th>
+                    <th className="px-4 py-3 text-center w-36">Cant. Recibida</th>
+                    <th className="px-4 py-3 text-right">Costo Unitario</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-100 font-inter">
                   {order.items.map((it) => (
-                    <tr key={it.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <tr key={it.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900 dark:text-white">{it.item_name}</span>
+                          <span className="font-bold text-slate-900">{it.item_name}</span>
                           {it.item_sku && (
-                            <span className="text-[10.5px] text-slate-400 font-mono">SKU: {it.item_sku}</span>
+                            <span className="text-[10px] text-slate-500 font-mono mt-0.5">SKU: {it.item_sku}</span>
                           )}
                           {it.item_id ? (
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            <span className="text-[10px] text-emerald-600 font-semibold mt-0.5">
                               ✓ Vinculado a Inventario Central
                             </span>
                           ) : (
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[10px] text-slate-400 mt-0.5">
                               Artículo no inventariable / Gasto directo
                             </span>
                           )}
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
+                      <td className="px-4 py-3 text-center font-bold text-slate-700 font-mono">
                         {it.quantity_ordered}
                       </td>
 
@@ -191,12 +194,12 @@ export const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({
                               [it.id]: Math.max(0, parseInt(e.target.value) || 0),
                             })
                           }
-                          className="w-24 px-2 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-center font-bold text-xs dark:text-white focus:ring-2 focus:ring-emerald-500"
+                          className="w-24 px-2 py-1.5 bg-white border border-slate-300 rounded-xl text-center font-bold text-xs text-slate-900 font-mono focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:outline-hidden"
                         />
                       </td>
 
-                      <td className="px-4 py-3 text-right font-mono text-slate-700 dark:text-slate-300">
-                        ${Number(it.unit_cost).toLocaleString()}
+                      <td className="px-4 py-3 text-right font-mono text-slate-700">
+                        ${Number(it.unit_cost).toLocaleString('es-CO')}
                       </td>
                     </tr>
                   ))}
@@ -207,7 +210,7 @@ export const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({
 
           {/* Notas de Recepción */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
               Observaciones de Entrega / Estado de Empaques
             </label>
             <textarea
@@ -215,26 +218,26 @@ export const ReceiveOrderModal: React.FC<ReceiveOrderModalProps> = ({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ej. Mercancía recibida en perfecto estado, sellos originales..."
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs dark:text-white resize-none"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl text-xs font-medium text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all resize-none"
             />
           </div>
 
           {/* Footer Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl sm:rounded-2xl transition-colors cursor-pointer font-montserrat"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs shadow-emerald-600/20 disabled:opacity-50 transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl sm:rounded-2xl shadow-md shadow-emerald-600/20 hover:scale-[1.01] active:scale-95 transition-all cursor-pointer font-montserrat disabled:opacity-50"
             >
-              <PackageCheck className="w-4 h-4" />
-              {loading ? 'Procesando Entrada...' : 'Confirmar Recepción y Cargar Inventario'}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackageCheck className="w-4 h-4" />}
+              <span>{loading ? 'Procesando Entrada...' : 'Confirmar Recepción y Cargar Inventario'}</span>
             </button>
           </div>
         </form>

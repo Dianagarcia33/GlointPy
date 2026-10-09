@@ -4,16 +4,13 @@ import {
   Plus, 
   Search, 
   RefreshCw, 
-  Filter, 
   CheckCircle2, 
-  Clock, 
   UserCheck, 
   CornerDownLeft, 
   History, 
   Edit3, 
   Trash2, 
   MapPin, 
-  ShieldCheck, 
   Wrench, 
   AlertTriangle,
   DollarSign,
@@ -32,7 +29,6 @@ import { AssetModal } from '../components/AssetModal';
 import { AssetAssignmentModal } from '../components/AssetAssignmentModal';
 import { AssetReturnModal } from '../components/AssetReturnModal';
 import { AssetHistoryModal } from '../components/AssetHistoryModal';
-import { CorporateResourceNav } from '../../inventory/components/CorporateResourceNav';
 import { Can } from '../../../components/security/Can';
 
 export const AssetsPage: React.FC = () => {
@@ -130,31 +126,31 @@ export const AssetsPage: React.FC = () => {
     switch (status) {
       case 'AVAILABLE':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-montserrat">
             <CheckCircle2 className="w-3 h-3" /> Disponible
           </span>
         );
       case 'ASSIGNED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 font-montserrat">
             <UserCheck className="w-3 h-3" /> Asignado
           </span>
         );
       case 'IN_MAINTENANCE':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 font-montserrat">
             <Wrench className="w-3 h-3" /> Mantenimiento
           </span>
         );
       case 'DAMAGED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 font-montserrat">
             <AlertTriangle className="w-3 h-3" /> Dañado
           </span>
         );
       case 'DECOMMISSIONED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 font-montserrat">
             Dado de Baja
           </span>
         );
@@ -166,206 +162,210 @@ export const AssetsPage: React.FC = () => {
   const getConditionBadge = (condition: string) => {
     switch (condition) {
       case 'EXCELLENT':
-        return <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10.5px]">Excelente</span>;
+        return <span className="text-emerald-700 font-semibold text-[11px]">Excelente</span>;
       case 'GOOD':
-        return <span className="text-blue-600 dark:text-blue-400 font-semibold text-[10.5px]">Bueno</span>;
+        return <span className="text-blue-700 font-semibold text-[11px]">Bueno</span>;
       case 'FAIR':
-        return <span className="text-amber-600 dark:text-amber-400 font-semibold text-[10.5px]">Aceptable</span>;
+        return <span className="text-amber-700 font-semibold text-[11px]">Aceptable</span>;
       case 'POOR':
-        return <span className="text-rose-600 dark:text-rose-400 font-semibold text-[10.5px]">Malo</span>;
+        return <span className="text-red-700 font-semibold text-[11px]">Malo</span>;
       default:
         return <span>{condition}</span>;
     }
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* 🧭 Navegación cruzada de recursos corporativos */}
-      <CorporateResourceNav activeTab="assets" />
-
-      {/* Header Principal */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* Header con Título y Acciones */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white font-montserrat tracking-tight flex items-center gap-2.5">
-            <Laptop className="w-7 h-7 text-brand-500" />
-            Control de Activos Fijos
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black font-montserrat text-slate-900 tracking-tight flex items-center gap-2.5">
+              <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-2xs">
+                <Laptop className="w-5 h-5 sm:w-6 sm:h-6" />
+              </span>
+              Control de Activos Fijos
+            </h1>
+            <span className="px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold bg-brand-50 text-brand-600 border border-brand-200 rounded-full font-montserrat">
+              Custodia y Equipos
+            </span>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
             Placas de inventario, equipos de cómputo, mobiliario y trazabilidad de custodia asignada a colaboradores.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
+            type="button"
             onClick={fetchAssets}
             disabled={loading}
-            className="p-2.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs"
+            className="flex items-center justify-center gap-2 px-3 sm:px-3.5 py-2 sm:py-2.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl shadow-xs hover:border-slate-300 transition-all cursor-pointer font-montserrat"
             title="Recargar"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
           <Can permissions={['assets:create', 'assets.create']}>
             <button
+              type="button"
               onClick={() => {
                 setSelectedAsset(null);
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl shadow-xs shadow-brand-500/20 transition-all cursor-pointer"
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-500 to-amber-600 hover:from-brand-600 hover:to-amber-700 rounded-xl sm:rounded-2xl shadow-md shadow-brand-500/20 hover:scale-[1.01] active:scale-95 transition-all cursor-pointer font-montserrat"
             >
-              <Plus className="w-4 h-4" />
-              Dar de Alta Activo
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>Dar de Alta Activo</span>
             </button>
           </Can>
         </div>
       </div>
 
-      {/* KPIs Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Activos Fijos</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-500 flex items-center justify-center">
-              <Laptop className="w-4 h-4" />
-            </div>
+      {/* Tarjetas KPI de Resumen */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider font-montserrat truncate">Total Activos</span>
+            <Tag className="w-4 h-4 text-brand-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-white mt-2 font-montserrat">{stats?.total_assets || 0}</p>
-          <span className="text-[10px] text-slate-400 mt-1 block">Inventariados en plataforma</span>
+          <div>
+            <span className="text-xl sm:text-2xl font-bold font-mono text-slate-900 block truncate">
+              {stats?.total_assets || 0}
+            </span>
+            <span className="block text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Inventariados en plataforma</span>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">En Custodia / Asignados</span>
-            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-500 flex items-center justify-center">
-              <UserCheck className="w-4 h-4" />
-            </div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider font-montserrat truncate">En Custodia</span>
+            <UserCheck className="w-4 h-4 text-blue-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-2 font-montserrat">
-            {stats?.assigned_assets || 0}
-          </p>
-          <span className="text-[10px] text-indigo-500 mt-1 block">En posesión de colaboradores</span>
+          <div>
+            <span className="text-xl sm:text-2xl font-bold font-mono text-blue-600 block truncate">
+              {stats?.assigned_assets || 0}
+            </span>
+            <span className="block text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">En posesión de colaboradores</span>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Disponibles en Bodega</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider font-montserrat truncate">Disponibles Bodega</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2 font-montserrat">
-            {stats?.available_assets || 0}
-          </p>
-          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 block">Listos para asignar</span>
+          <div>
+            <span className="text-xl sm:text-2xl font-bold font-mono text-emerald-600 block truncate">
+              {stats?.available_assets || 0}
+            </span>
+            <span className="block text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Listos para asignar</span>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Valorización de Activos</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-500 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
-            </div>
+        <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider font-montserrat truncate">Valorización Activos</span>
+            <DollarSign className="w-4 h-4 text-amber-500 shrink-0" />
           </div>
-          <p className="text-xl font-black text-slate-900 dark:text-white mt-2 font-montserrat truncate">
-            {formatCurrency(stats?.total_asset_value)}
-          </p>
-          <span className="text-[10px] text-slate-400 mt-1 block">Valor contable activo</span>
+          <div>
+            <span className="text-lg sm:text-xl font-bold font-mono text-slate-900 block truncate">
+              {formatCurrency(stats?.total_asset_value)}
+            </span>
+            <span className="block text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">Valor contable activo</span>
+          </div>
         </div>
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por placa (ej. TEC-0001), nombre, serial, marca o ubicación..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-brand-500 focus:outline-hidden dark:text-white"
-            />
-          </form>
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por placa (ej. TEC-0001), nombre, serial, marca o ubicación..."
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+          />
+        </form>
 
-          <div className="flex items-center gap-2.5 w-full md:w-auto">
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-brand-500 focus:outline-hidden cursor-pointer"
-            >
-              <option value="ALL">Todas las Categorías</option>
-              <option value="TECNOLOGIA">Tecnología y Cómputo</option>
-              <option value="MOBILIARIO">Mobiliario y Enseres</option>
-              <option value="EQUIPOS_OFICINA">Equipos de Oficina</option>
-              <option value="VEHICULOS">Vehículos</option>
-              <option value="HERRAMIENTAS">Herramientas</option>
-              <option value="OTROS">Otros</option>
-            </select>
+        <div className="flex items-center gap-2.5 w-full md:w-auto">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer"
+          >
+            <option value="ALL">Todas las Categorías</option>
+            <option value="TECNOLOGIA">Tecnología y Cómputo</option>
+            <option value="MOBILIARIO">Mobiliario y Enseres</option>
+            <option value="EQUIPOS_OFICINA">Equipos de Oficina</option>
+            <option value="VEHICULOS">Vehículos</option>
+            <option value="HERRAMIENTAS">Herramientas</option>
+            <option value="OTROS">Otros</option>
+          </select>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-brand-500 focus:outline-hidden cursor-pointer"
-            >
-              <option value="ALL">Todos los Estados</option>
-              <option value="AVAILABLE">Disponible en Bodega</option>
-              <option value="ASSIGNED">Asignado a Colaborador</option>
-              <option value="IN_MAINTENANCE">En Mantenimiento</option>
-              <option value="DAMAGED">Dañado</option>
-              <option value="DECOMMISSIONED">Dado de Baja</option>
-            </select>
-          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl sm:rounded-2xl text-xs font-medium text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer"
+          >
+            <option value="ALL">Todos los Estados</option>
+            <option value="AVAILABLE">Disponible en Bodega</option>
+            <option value="ASSIGNED">Asignado a Colaborador</option>
+            <option value="IN_MAINTENANCE">En Mantenimiento</option>
+            <option value="DAMAGED">Dañado</option>
+            <option value="DECOMMISSIONED">Dado de Baja</option>
+          </select>
         </div>
       </div>
 
       {/* Tabla de Activos */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-2">
-            <RefreshCw className="w-6 h-6 animate-spin text-brand-500" />
-            <span className="text-xs">Cargando inventario de activos fijos...</span>
+          <div className="flex flex-col items-center justify-center h-64 bg-white p-8">
+            <div className="w-8 h-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin mb-2" />
+            <span className="text-xs font-semibold text-slate-400">Cargando inventario de activos fijos...</span>
           </div>
         ) : assets.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-3">
-            <Laptop className="w-10 h-10 text-slate-300 dark:text-slate-700" />
-            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              No se encontraron activos fijos
-            </p>
-            <p className="text-xs text-slate-400 max-w-sm">
+          <div className="flex flex-col items-center justify-center h-64 bg-white p-8 text-center">
+            <Laptop className="w-12 h-12 text-slate-300 stroke-1 mb-2" />
+            <h4 className="text-sm font-bold text-slate-700 font-montserrat">No se encontraron activos fijos</h4>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm">
               Registra los equipos, computadores y mobiliario corporativo para controlar su entrega y ubicación.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full min-w-[850px] text-left border-collapse text-xs">
+              <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200 select-none font-montserrat">
                 <tr>
-                  <th className="px-5 py-3.5">Placa / Código</th>
-                  <th className="px-4 py-3.5">Activo / Especificaciones</th>
-                  <th className="px-4 py-3.5">Custodio Actual</th>
-                  <th className="px-4 py-3.5">Ubicación</th>
-                  <th className="px-4 py-3.5">Condición</th>
-                  <th className="px-4 py-3.5 text-center">Estado</th>
-                  <th className="px-5 py-3.5 text-right">Acciones</th>
+                  <th className="py-3.5 px-4 sm:px-5">Placa / Código</th>
+                  <th className="py-3.5 px-4">Activo / Especificaciones</th>
+                  <th className="py-3.5 px-4">Custodio Actual</th>
+                  <th className="py-3.5 px-4">Ubicación</th>
+                  <th className="py-3.5 px-4">Condición</th>
+                  <th className="py-3.5 px-4 text-center">Estado</th>
+                  <th className="py-3.5 px-5 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-slate-100 font-inter">
                 {assets.map((a) => (
-                  <tr key={a.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="px-5 py-4">
+                  <tr key={a.id} className="hover:bg-slate-50/70 transition-colors group">
+                    <td className="py-3.5 px-5">
                       <div className="flex flex-col">
-                        <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">
+                        <span className="font-mono font-bold text-slate-900 text-xs">
                           {a.asset_code}
                         </span>
-                        <span className="text-[10px] text-slate-400">{a.category}</span>
+                        <span className="text-[10px] text-slate-400 font-montserrat uppercase font-semibold">{a.category}</span>
                       </div>
                     </td>
 
-                    <td className="px-4 py-4">
+                    <td className="py-3.5 px-4">
                       <div className="flex flex-col">
-                        <span className="font-semibold text-slate-900 dark:text-white">{a.name}</span>
+                        <span className="font-bold text-slate-900 text-xs">{a.name}</span>
                         {(a.brand || a.model) && (
-                          <span className="text-[10.5px] text-slate-400">
+                          <span className="text-[11px] text-slate-500">
                             {a.brand} {a.model} {a.serial_number ? `• S/N: ${a.serial_number}` : ''}
                           </span>
                         )}
@@ -377,17 +377,17 @@ export const AssetsPage: React.FC = () => {
                       </div>
                     </td>
 
-                    <td className="px-4 py-4">
+                    <td className="py-3.5 px-4">
                       {a.current_holder_name ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-6 h-6 rounded-full bg-brand-500/10 text-brand-500 flex items-center justify-center font-bold text-[10px]">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-brand-50 border border-brand-200 text-brand-600 flex items-center justify-center font-bold text-[11px] font-montserrat">
                             {a.current_holder_name.charAt(0)}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            <span className="font-semibold text-slate-800 text-xs">
                               {a.current_holder_name}
                             </span>
-                            <span className="text-[10px] text-slate-400 truncate max-w-[130px]">
+                            <span className="text-[10.5px] text-slate-400 truncate max-w-[140px]">
                               {a.current_holder_email}
                             </span>
                           </div>
@@ -397,33 +397,34 @@ export const AssetsPage: React.FC = () => {
                       )}
                     </td>
 
-                    <td className="px-4 py-4">
+                    <td className="py-3.5 px-4">
                       {a.location ? (
-                        <span className="text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400" /> {a.location}
+                        <span className="text-slate-600 flex items-center gap-1 font-medium">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400" /> {a.location}
                         </span>
                       ) : (
                         <span className="text-slate-400">-</span>
                       )}
                     </td>
 
-                    <td className="px-4 py-4">
+                    <td className="py-3.5 px-4">
                       {getConditionBadge(a.current_condition)}
                     </td>
 
-                    <td className="px-4 py-4 text-center">
+                    <td className="py-3.5 px-4 text-center">
                       {getStatusBadge(a.status)}
                     </td>
 
-                    <td className="px-5 py-4 text-right">
+                    <td className="py-3.5 px-5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {/* Historial de Custodia */}
                         <button
+                          type="button"
                           onClick={() => {
                             setSelectedAsset(a);
                             setIsHistoryOpen(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/30 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-xl transition-colors cursor-pointer"
                           title="Ver bitácora de asignaciones"
                         >
                           <History className="w-4 h-4" />
@@ -433,11 +434,12 @@ export const AssetsPage: React.FC = () => {
                         {a.status !== 'DECOMMISSIONED' && (
                           <Can permissions={['assets:assign', 'assets.assign']}>
                             <button
+                              type="button"
                               onClick={() => {
                                 setSelectedAsset(a);
                                 setIsAssignOpen(true);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
                               title={a.current_holder_id ? 'Reasignar a otro usuario' : 'Asignar custodia a colaborador'}
                             >
                               <UserCheck className="w-4 h-4" />
@@ -449,11 +451,12 @@ export const AssetsPage: React.FC = () => {
                         {a.current_holder_id && (
                           <Can permissions={['assets:assign', 'assets.assign']}>
                             <button
+                              type="button"
                               onClick={() => {
                                 setSelectedAsset(a);
                                 setIsReturnOpen(true);
                               }}
-                              className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors cursor-pointer"
                               title="Registrar devolución a bodega"
                             >
                               <CornerDownLeft className="w-4 h-4" />
@@ -464,11 +467,12 @@ export const AssetsPage: React.FC = () => {
                         {/* Botón Editar */}
                         <Can permissions={['assets:edit', 'assets.edit']}>
                           <button
+                            type="button"
                             onClick={() => {
                               setSelectedAsset(a);
                               setIsModalOpen(true);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-colors cursor-pointer"
                             title="Editar ficha del activo"
                           >
                             <Edit3 className="w-4 h-4" />
@@ -479,8 +483,9 @@ export const AssetsPage: React.FC = () => {
                         {a.status !== 'DECOMMISSIONED' && (
                           <Can permissions={['assets:delete', 'assets.delete']}>
                             <button
+                              type="button"
                               onClick={() => handleDeleteAsset(a)}
-                              className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                               title="Dar de baja activo"
                             >
                               <Trash2 className="w-4 h-4" />

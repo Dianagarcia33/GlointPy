@@ -36,7 +36,6 @@ import { StockAdjustmentModal } from '../components/StockAdjustmentModal';
 import { QuickEntryModal } from '../components/QuickEntryModal';
 import { KardexDrawer } from '../components/KardexDrawer';
 import { CategoryManagementModal } from '../components/CategoryManagementModal';
-import { CorporateResourceNav } from '../components/CorporateResourceNav';
 import { Can } from '../../../components/security/Can';
 
 export const InventoryPage: React.FC = () => {
@@ -171,9 +170,6 @@ export const InventoryPage: React.FC = () => {
   return (
     <div className="space-y-6">
       
-      {/* 🧭 Navegación cruzada de recursos corporativos */}
-      <CorporateResourceNav activeTab="inventory" />
-
       {/* Toast Notification Flotante */}
       {toastMessage && (
         <div className="fixed top-20 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 text-white text-xs font-semibold rounded-2xl shadow-2xl border border-slate-700 animate-in slide-in-from-top-4 duration-200">
