@@ -190,7 +190,7 @@ async function enviarFormulario(datos) {
                 setShowCreateForm(!showCreateForm);
                 setFormError(null);
               }}
-              className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all font-montserrat cursor-pointer shrink-0"
+              className="px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-2 transition-all font-montserrat cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>{showCreateForm ? 'Cancelar' : 'Generar Nueva Clave'}</span>
@@ -223,7 +223,7 @@ async function enviarFormulario(datos) {
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="Ej. Landing Logy Pay Principal"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500 font-sans"
                   />
                 </div>
 
@@ -235,7 +235,7 @@ async function enviarFormulario(datos) {
                     required
                     value={selectedProjectId}
                     onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer font-sans"
                   >
                     <option value="">Selecciona un proyecto...</option>
                     {projects.map((p) => (
@@ -250,14 +250,14 @@ async function enviarFormulario(datos) {
                   <button
                     type="button"
                     onClick={() => setShowCreateForm(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer font-montserrat"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={createMutation.isPending}
-                    className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 font-montserrat shadow-xs"
                   >
                     {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
                     <span>Generar Clave API</span>

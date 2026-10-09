@@ -13,7 +13,8 @@ import {
   Filter,
   CheckCircle2,
   PieChart,
-  Key
+  Key,
+  RefreshCw
 } from 'lucide-react';
 
 import { crmService, CRMProject, CRMLead, CRMKPIs } from '../../../services/crmService';
@@ -107,30 +108,37 @@ export const CRMPage: React.FC = () => {
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in duration-300">
       
-      {/* Header Ejecutivo Principal */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-brand-500/20 text-brand-300 text-xs font-bold rounded-full border border-brand-500/30 uppercase tracking-wider font-montserrat">
-              CRM Comercial Multiproyecto
-            </span>
+      {/* Header Estándar Soporte en Tickets */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
+        <div className="flex items-center gap-3">
+          <span className="p-2 bg-brand-50 text-brand-600 border border-brand-200 rounded-2xl inline-flex shadow-xs">
+            <FolderKanban className="w-6 h-6" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5">
+              <span>Gestión de Prospectos & Proyectos</span>
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Monitoreo en tiempo real del embudo de ventas, metas de capital y recaudación por proyecto de inversión.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Prospectos & Proyectos
-          </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
-            Monitoreo en tiempo real del embudo de ventas, metas de capital y recaudación por proyecto de inversión.
-          </p>
         </div>
 
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            onClick={handleRefreshAll}
+            title="Actualizar datos"
+            className="p-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all shadow-xs cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+
           <Can permissions={['crm:form_keys:manage', 'crm:projects:manage', 'admin.crm.manage']}>
             <button
               onClick={() => setIsFormKeysModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-2xl transition-all text-xs font-bold border border-amber-500/30 backdrop-blur-sm cursor-pointer shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-bold shadow-xs cursor-pointer font-montserrat"
             >
-              <Key className="w-4 h-4" />
+              <Key className="w-4 h-4 text-amber-500" />
               <span>Claves de Formularios</span>
             </button>
           </Can>
@@ -138,9 +146,9 @@ export const CRMPage: React.FC = () => {
           <Can permissions={['crm:projects:create', 'crm:projects:manage', 'admin.crm.manage']}>
             <button
               onClick={handleOpenCreateProject}
-              className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-bold shadow-xs cursor-pointer font-montserrat"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 text-brand-600" />
               <span>Nuevo Proyecto</span>
             </button>
           </Can>
@@ -148,7 +156,7 @@ export const CRMPage: React.FC = () => {
           <Can permissions={['crm:leads:manage', 'admin.crm.manage']}>
             <button
               onClick={() => setIsLeadModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-brand-500 text-white rounded-2xl hover:bg-brand-600 transition-all shadow-lg shadow-brand-500/30 text-sm font-bold cursor-pointer shrink-0"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-2xl font-bold text-xs shadow-md shadow-brand-500/20 font-montserrat transition-all active:scale-95 cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>Nuevo Prospecto</span>
@@ -159,48 +167,84 @@ export const CRMPage: React.FC = () => {
 
       {/* Tarjetas de KPIs Consolidados */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
-          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Proyectos Activos</span>
-          <span className="text-2xl font-extrabold text-slate-900 block tracking-tight font-montserrat">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Proyectos Activos
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl">
+              <FolderKanban className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-slate-900 block tracking-tight font-mono">
             {kpis?.total_projects || 0}
           </span>
-          <span className="text-[11px] text-slate-500 font-medium">Desarrollos e inversiones activas</span>
+          <span className="text-[11px] text-slate-500 font-medium block">
+            Desarrollos e inversiones activas
+          </span>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-2">
-          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">Total Prospectos</span>
-          <span className="text-2xl font-extrabold text-slate-900 block tracking-tight font-montserrat">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Total Prospectos
+            </span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-slate-900 block tracking-tight font-mono">
             {kpis?.total_leads || 0}
           </span>
-          <span className="text-[11px] text-slate-500 font-medium">Oportunidades en seguimiento</span>
+          <span className="text-[11px] text-slate-500 font-medium block">
+            Oportunidades en seguimiento
+          </span>
         </div>
 
-        <div className="bg-emerald-50/80 border border-emerald-200 rounded-3xl p-6 shadow-xs space-y-2">
-          <span className="text-xs text-emerald-800 font-bold uppercase tracking-wider block font-montserrat">Recaudación Cerrada</span>
-          <span className="text-2xl font-extrabold text-emerald-700 block tracking-tight font-montserrat">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Recaudación Cerrada
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <DollarSign className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-emerald-600 block tracking-tight font-mono">
             ${(kpis?.won_amount || 0).toLocaleString('es-CO')}
           </span>
-          <span className="text-[11px] text-emerald-700 font-medium">Cierres ganados del equipo</span>
+          <span className="text-[11px] text-slate-500 font-medium block">
+            Cierres ganados del equipo
+          </span>
         </div>
 
-        <div className="bg-amber-50/70 border border-amber-200 rounded-3xl p-6 shadow-xs space-y-2">
-          <span className="text-xs text-amber-900 font-bold uppercase tracking-wider block font-montserrat">Tasa de Conversión</span>
-          <span className="text-2xl font-extrabold text-amber-950 block tracking-tight font-montserrat">
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Tasa de Conversión
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-amber-600 block tracking-tight font-mono">
             {kpis?.conversion_rate || 0}%
           </span>
-          <span className="text-[11px] text-amber-800 font-medium">Efectividad de cierre</span>
+          <span className="text-[11px] text-slate-500 font-medium block">
+            Efectividad de cierre comercial
+          </span>
         </div>
       </div>
 
       {/* Selector de Navegación entre Vistas */}
-      <div className="bg-white p-2.5 rounded-3xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl w-fit border border-slate-200/80">
           <button
             onClick={() => setActiveTab('grid')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 font-montserrat cursor-pointer ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 font-montserrat cursor-pointer ${
               activeTab === 'grid'
-                ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-white text-brand-600 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <LayoutGrid className="w-4 h-4" />
@@ -209,10 +253,10 @@ export const CRMPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('kanban')}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 font-montserrat cursor-pointer ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 font-montserrat cursor-pointer ${
               activeTab === 'kanban'
-                ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-white text-brand-600 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Kanban className="w-4 h-4" />
@@ -222,12 +266,12 @@ export const CRMPage: React.FC = () => {
 
         {/* Dropdown de Selección Rápida de Proyecto en el Header */}
         {activeTab === 'kanban' && projects.length > 0 && (
-          <div className="flex items-center gap-2 px-2">
-            <span className="text-xs font-bold text-slate-500 font-montserrat hidden sm:inline uppercase">Proyecto:</span>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200/90 rounded-2xl shadow-xs">
+            <span className="text-xs font-bold text-slate-400 font-montserrat uppercase">Proyecto:</span>
             <select
               value={activeProject?.id || ''}
               onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-              className="bg-slate-50 border border-slate-200 text-slate-900 text-xs font-bold py-2 px-3 rounded-2xl focus:outline-none focus:border-brand-500 font-montserrat cursor-pointer"
+              className="bg-transparent text-slate-900 text-xs font-bold py-1 px-2 rounded-xl focus:outline-none focus:border-brand-500 font-montserrat cursor-pointer"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>

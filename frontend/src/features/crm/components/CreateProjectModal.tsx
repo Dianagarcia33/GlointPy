@@ -224,7 +224,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-3 text-xs font-bold text-white bg-brand-500 hover:bg-brand-600 rounded-2xl transition-all shadow-md shadow-brand-500/20 flex items-center gap-2 disabled:opacity-50 font-montserrat cursor-pointer"
+              className="px-6 py-3 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 rounded-2xl transition-all shadow-md shadow-brand-500/20 flex items-center gap-2 disabled:opacity-50 font-montserrat cursor-pointer"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{isEditing ? 'Guardar Cambios' : 'Crear Proyecto'}</span>

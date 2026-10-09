@@ -29,7 +29,7 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
         <Can permissions={['crm:projects:create', 'crm:projects:manage', 'admin.crm.manage']}>
           <button
             onClick={onCreateProject}
-            className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-2 transition-all active:scale-95 font-montserrat cursor-pointer"
+            className="px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-2 transition-all active:scale-95 font-montserrat cursor-pointer"
           >
             <FolderKanban className="w-4 h-4" />
             <span>Nuevo Proyecto</span>
@@ -50,7 +50,7 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
           <Can permissions={['crm:projects:create', 'crm:projects:manage', 'admin.crm.manage']}>
             <button
               onClick={onCreateProject}
-              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl transition-all font-montserrat cursor-pointer"
+              className="px-4 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white font-bold text-xs rounded-2xl transition-all font-montserrat cursor-pointer shadow-xs"
             >
               Crear Primer Proyecto
             </button>

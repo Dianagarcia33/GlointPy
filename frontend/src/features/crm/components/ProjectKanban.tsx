@@ -148,7 +148,7 @@ export const ProjectKanban: React.FC<ProjectKanbanProps> = ({
           <Can permissions={['crm:leads:manage', 'admin.crm.manage']}>
             <button
               onClick={onCreateLead}
-              className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-1.5 transition-all flex-shrink-0 font-montserrat cursor-pointer"
+              className="px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white font-bold text-xs rounded-2xl shadow-sm shadow-brand-500/20 flex items-center gap-1.5 transition-all flex-shrink-0 font-montserrat cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Nuevo Lead</span>

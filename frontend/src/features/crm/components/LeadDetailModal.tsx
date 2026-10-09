@@ -210,21 +210,21 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
       <div className="bg-white rounded-3xl max-w-3xl w-full h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-200">
         
         {/* Header */}
-        <div className="p-6 bg-slate-900 text-white flex items-center justify-between shadow-md">
+        <div className="p-6 bg-white border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-500 to-amber-400 flex items-center justify-center font-extrabold text-white text-lg shadow-sm font-montserrat">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center font-extrabold text-white text-lg shadow-sm font-montserrat">
               {lead.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="text-xl font-bold font-montserrat">{lead.name}</h2>
-              <div className="flex items-center gap-2 text-xs text-slate-300 mt-0.5 font-sans">
-                <span>Monto Estimado: <strong className="font-mono text-emerald-400">${lead.estimated_amount.toLocaleString('es-CO')} COP</strong></span>
+              <h2 className="text-xl font-bold font-montserrat text-slate-900">{lead.name}</h2>
+              <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5 font-sans">
+                <span>Monto Estimado: <strong className="font-mono text-emerald-600">${lead.estimated_amount.toLocaleString('es-CO')} COP</strong></span>
                 <span>•</span>
                 <span>Origen: {lead.source || 'Directo'}</span>
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-2xl transition-all cursor-pointer">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-2xl transition-all cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -306,19 +306,19 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
           {/* Columna Derecha: Pestañas Actividades vs Correos (2 cols) */}
           <div className="p-6 md:col-span-2 space-y-4 flex flex-col h-full bg-slate-50/50">
             {/* Header de Pestañas Derechas */}
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 rounded-xl w-fit">
               <button
                 onClick={() => setActiveRightTab('activities')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all font-montserrat ${
-                  activeRightTab === 'activities' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-200/60'
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all font-montserrat cursor-pointer ${
+                  activeRightTab === 'activities' ? 'bg-white text-brand-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Actividades & Timeline
               </button>
               <button
                 onClick={() => setActiveRightTab('emails')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all font-montserrat flex items-center gap-1.5 ${
-                  activeRightTab === 'emails' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-200/60'
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all font-montserrat flex items-center gap-1.5 cursor-pointer ${
+                  activeRightTab === 'emails' ? 'bg-white text-brand-600 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Mail className="w-3.5 h-3.5" />
@@ -362,7 +362,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                     <button
                       type="submit"
                       disabled={addingAct || !actTitle.trim()}
-                      className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 disabled:opacity-40 font-montserrat cursor-pointer"
+                      className="px-4 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1 disabled:opacity-40 font-montserrat cursor-pointer shadow-xs"
                     >
                       {addingAct ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                       <span>Guardar</span>
@@ -428,7 +428,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                     <button
                       type="submit"
                       disabled={sendingEmail || !lead.email}
-                      className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-40 font-montserrat cursor-pointer shadow-sm shadow-brand-500/20"
+                      className="px-5 py-2 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-40 font-montserrat cursor-pointer shadow-sm shadow-brand-500/20"
                     >
                       {sendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                       <span>Enviar Correo</span>
