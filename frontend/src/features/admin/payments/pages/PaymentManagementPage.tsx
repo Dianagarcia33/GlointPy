@@ -333,38 +333,63 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* Header Banner (Estilo Panel Comercial) */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-xs font-bold text-brand-300 backdrop-blur-sm">
-            <DollarSign className="w-4 h-4 text-brand-400" /> Tesorería & Pagos
+      {/* Header Ejecutivo Estandarizado */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-montserrat flex items-center gap-2.5 whitespace-nowrap sm:whitespace-normal">
+              <div className="p-2.5 bg-brand-50 border border-brand-200/80 rounded-2xl text-brand-700 shadow-2xs">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <span>Gestión de Pagos & Tesorería</span>
+            </h1>
+            <button
+              onClick={() => {
+                fetchWithdrawals();
+                loadTaxSummary();
+              }}
+              disabled={loading}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-brand-600' : ''}`} />
+            </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight font-montserrat">
-            Gestión de Pagos & Tesorería
-          </h1>
-          <p className="text-slate-300 text-sm max-w-xl">
-            Supervisión integral de solicitudes de retiro, recargas de billetera de inversionistas, verificación bancaria y auditoría contable.
+          <p className="text-slate-500 text-sm mt-1 font-normal">
+            Supervisión integral de retiros de fondos, dispersión masiva ACH, recargas de billetera y conciliación fiscal contable.
           </p>
         </div>
 
-        <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
-          <button 
+        {/* Acciones principales */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+          <button
             type="button"
-            onClick={() => setIsTaxLedgerOpen(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-brand-500/20 hover:bg-brand-500/30 text-brand-300 hover:text-white rounded-2xl transition-all text-xs font-bold border border-brand-500/30 backdrop-blur-sm cursor-pointer shadow-xs"
-            title="Ver Reporte de Impuestos y Recaudos del 3.2%"
+            onClick={handleSyncWalletDebits}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-2xs cursor-pointer disabled:opacity-50 font-montserrat"
+            title="Sincronizar débitos de billetera pendientes"
           >
-            <Receipt className="w-4 h-4 text-brand-400" />
-            <span>Reporte de Impuestos</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-brand-600' : ''}`} />
+            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Débitos'}</span>
           </button>
 
           <button 
+            type="button"
+            onClick={() => setIsTaxLedgerOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-brand-800 hover:text-brand-900 bg-brand-50/90 hover:bg-brand-100 border border-brand-200/80 rounded-xl transition-all shadow-2xs cursor-pointer font-montserrat"
+            title="Ver Reporte de Impuestos y Recaudos del 3.2%"
+          >
+            <Receipt className="w-3.5 h-3.5 text-brand-600" />
+            <span>Reporte Fiscal (3.2%)</span>
+          </button>
+
+          <button 
+            type="button"
             onClick={() => setIsGlobalStatementOpen(true)}
-            className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl transition-all text-xs font-bold border border-white/10 backdrop-blur-sm cursor-pointer shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 rounded-xl transition-all shadow-md shadow-brand-500/20 cursor-pointer font-montserrat"
             title="Ver auditoría financiera y extracto general de la plataforma"
           >
-            <Landmark className="w-4 h-4 text-emerald-400" />
+            <Landmark className="w-3.5 h-3.5" />
             <span>Estado de Cuenta General</span>
           </button>
         </div>
@@ -375,9 +400,9 @@ export const PaymentManagementPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('withdrawals')}
-          className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 py-2 px-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer font-montserrat ${
             activeTab === 'withdrawals'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+              ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
               : 'text-slate-500 hover:text-slate-900'
           }`}
         >
@@ -393,9 +418,9 @@ export const PaymentManagementPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('recharges')}
-          className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 py-2 px-3.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer font-montserrat ${
             activeTab === 'recharges'
-              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+              ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
               : 'text-slate-500 hover:text-slate-900'
           }`}
         >
@@ -413,89 +438,107 @@ export const PaymentManagementPage: React.FC = () => {
         <AdminRechargesManager onPendingCountChange={setPendingRechargesCount} />
       ) : (
         <>
-      {/* KPI Cards Summary (Globales / Sin discriminar por paginación) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-5">
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+      {/* KPI Cards Summary (5 Métricas Clave Estandarizadas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Card 1: Total Solicitudes */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Solicitudes</span>
-            <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100">
-              <Wallet className="w-5 h-5" />
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Total Solicitudes
+            </span>
+            <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
+              <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-montserrat tracking-tight">{totalRequestsCount}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">Registros en plataforma</p>
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {totalRequestsCount}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Registros en plataforma
+          </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        {/* Card 2: Monto Pendiente */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Monto Pendiente</span>
-            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl border border-amber-100">
-              <Clock className="w-5 h-5" />
+            <span className="text-[11px] text-amber-700 font-bold uppercase tracking-wider block font-montserrat">
+              Monto Pendiente
+            </span>
+            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl shrink-0">
+              <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-xl sm:text-2xl font-extrabold text-amber-600 font-montserrat tracking-tight">{formatCurrency(pendingAmountTotal)}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              <strong className="font-bold text-amber-700">{pendingCount}</strong> pendientes
-            </p>
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
+            {formatCurrency(pendingAmountTotal)}
+          </span>
+          <span className="text-[11px] text-amber-700 font-medium block truncate">
+            <strong className="font-bold">{pendingCount}</strong> pendientes por dispersar
+          </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        {/* Card 3: Aprobados / Procesados */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Aprobados / Proc.</span>
-            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-100">
-              <CheckCircle2 className="w-5 h-5" />
+            <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider block font-montserrat">
+              Aprobados / Proc.
+            </span>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600 font-montserrat tracking-tight">{approvedCount}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">Desembolsos autorizados</p>
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
+            {approvedCount}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Desembolsos autorizados
+          </span>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden flex flex-col justify-between space-y-4">
+        {/* Card 4: Desembolsado */}
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Desembolsado</span>
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
-              <DollarSign className="w-5 h-5" />
+            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
+              Desembolsado
+            </span>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl shrink-0">
+              <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-xl sm:text-2xl font-extrabold text-slate-900 font-montserrat tracking-tight">{formatCurrency(totalAmountPaid)}</p>
-            <p className="text-xs text-slate-500 font-medium mt-1">Suma acumulada desembolsada</p>
-          </div>
+          <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
+            {formatCurrency(totalAmountPaid)}
+          </span>
+          <span className="text-[11px] text-slate-500 font-medium block truncate">
+            Suma acumulada pagada
+          </span>
         </div>
 
-        {/* Tarjeta Caja Fiscal 3.2% */}
+        {/* Card 5: Caja Fiscal (3.2%) */}
         <div 
           onClick={() => setIsTaxLedgerOpen(true)}
-          className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-950 text-white p-5 rounded-3xl border border-brand-500/30 shadow-md relative overflow-hidden flex flex-col justify-between space-y-4 cursor-pointer hover:border-brand-400 hover:shadow-brand-500/10 transition-all group"
+          className="bg-brand-50/30 hover:bg-brand-50/50 border border-brand-200/90 hover:border-brand-300 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2 cursor-pointer transition-all group"
           title="Abrir Libro Fiscal de Retenciones 3.2%"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-brand-300 uppercase tracking-wider">Caja Fiscal (3.2%)</span>
-            <div className="p-2.5 bg-brand-500/20 text-brand-300 rounded-2xl border border-brand-400/30 group-hover:scale-110 transition-transform">
-              <Receipt className="w-5 h-5" />
+            <span className="text-[11px] text-brand-800 font-bold uppercase tracking-wider block font-montserrat">
+              Caja Fiscal (3.2%)
+            </span>
+            <div className="p-2 bg-brand-100 text-brand-700 rounded-xl shrink-0 group-hover:scale-105 transition-transform">
+              <Receipt className="w-4 h-4" />
             </div>
           </div>
-          <div>
-            <p className="text-xl sm:text-2xl font-black text-emerald-400 font-montserrat tracking-tight">
-              {formatCurrency(taxSummary?.current_balance ?? 0)}
-            </p>
-            <div className="flex items-center justify-between text-xs text-slate-300 font-medium mt-1">
-              <span>{taxSummary?.total_transactions || 0} recaudos</span>
-              <span className="text-[11px] text-brand-300 underline font-bold group-hover:text-white">Ver Libro &rarr;</span>
-            </div>
+          <span className="text-xl sm:text-2xl font-black text-brand-900 block tracking-tight font-mono">
+            {formatCurrency(taxSummary?.current_balance ?? 0)}
+          </span>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+            <span>{taxSummary?.total_transactions || 0} recaudos</span>
+            <span className="text-brand-700 underline font-bold group-hover:text-brand-900">Ver libro &rarr;</span>
           </div>
         </div>
       </div>
 
-      {/* Control Bar: Filters & Search (Estilo Responsivo Estandarizado) */}
-      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between">
+      {/* Control Bar: Filters & Search */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
           
           {/* Búsqueda */}
           <form onSubmit={handleSearch} className="w-full lg:w-80 relative">
@@ -505,35 +548,35 @@ export const PaymentManagementPage: React.FC = () => {
               placeholder="Buscar por usuario, cédula o correo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs sm:text-sm font-medium"
+              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-xs sm:text-sm font-medium"
             />
           </form>
 
           {/* Rangos de Fecha Responsivos */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-2.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-semibold w-full lg:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50/80 p-1.5 sm:p-2 rounded-xl border border-slate-200/80 text-xs font-semibold w-full lg:w-auto">
             <div className="flex items-center gap-2 flex-1">
-              <span className="text-slate-500 font-bold px-1 uppercase tracking-wider text-[10px] shrink-0">Desde:</span>
+              <span className="text-slate-500 font-bold px-1 uppercase tracking-wider text-[10px] shrink-0 font-montserrat">Desde:</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
+                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
               />
             </div>
             <div className="flex items-center gap-2 flex-1">
-              <span className="text-slate-500 font-bold px-1 uppercase tracking-wider text-[10px] shrink-0">Hasta:</span>
+              <span className="text-slate-500 font-bold px-1 uppercase tracking-wider text-[10px] shrink-0 font-montserrat">Hasta:</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
+                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs cursor-pointer"
               />
             </div>
             {(startDate || endDate) && (
               <button
                 type="button"
                 onClick={() => { setStartDate(''); setEndDate(''); }}
-                className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 self-end sm:self-center"
+                className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg transition-colors cursor-pointer shrink-0 self-end sm:self-center font-montserrat"
                 title="Limpiar rango de fechas"
               >
                 Limpiar
@@ -545,8 +588,8 @@ export const PaymentManagementPage: React.FC = () => {
         {/* Filtros Combinados: Tipo de Retiro y Estado */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
           {/* Filtro por Tipo / Origen */}
-          <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
-            <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0"><Filter className="w-3.5 h-3.5" /> Tipo:</span>
+          <div className="flex items-center gap-1.5 bg-slate-50/80 p-1.5 rounded-xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
+            <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0 font-montserrat text-[11px]"><Filter className="w-3.5 h-3.5" /> Tipo:</span>
             {[
               { id: 'todos', label: 'Todos' },
               { id: 'rendimiento', label: 'Rendimientos' },
@@ -561,9 +604,9 @@ export const PaymentManagementPage: React.FC = () => {
                   setPage(1);
                   clearSelection();
                 }}
-                className={`py-1.5 px-3 rounded-xl transition-all shrink-0 cursor-pointer text-xs font-bold ${
+                className={`py-1 px-3 rounded-lg transition-all shrink-0 cursor-pointer text-xs font-bold font-montserrat ${
                   typeFilter === t.id 
-                    ? 'bg-brand-600 text-white shadow-xs' 
+                    ? 'bg-brand-600 text-white shadow-2xs' 
                     : 'text-slate-600 hover:bg-slate-200/60'
                 }`}
               >
@@ -573,9 +616,9 @@ export const PaymentManagementPage: React.FC = () => {
           </div>
 
           {/* Filtro por Estado */}
-          <div className="flex items-center justify-between gap-1.5 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
+          <div className="flex items-center justify-between gap-1.5 bg-slate-50/80 p-1.5 rounded-xl border border-slate-200/80 text-xs font-bold overflow-x-auto">
             <div className="flex items-center gap-1.5 overflow-x-auto">
-              <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0"><CheckCircle2 className="w-3.5 h-3.5" /> Estado:</span>
+              <span className="text-slate-400 px-2 flex items-center gap-1 shrink-0 font-montserrat text-[11px]"><CheckCircle2 className="w-3.5 h-3.5" /> Estado:</span>
               {['todos', 'pendiente', 'aprobado', 'procesado', 'rechazado'].map((st) => (
                 <button
                   key={st}
@@ -585,9 +628,9 @@ export const PaymentManagementPage: React.FC = () => {
                     setPage(1);
                     clearSelection();
                   }}
-                  className={`py-1.5 px-3 rounded-xl transition-all capitalize shrink-0 cursor-pointer text-xs font-bold ${
+                  className={`py-1 px-2.5 rounded-lg transition-all capitalize shrink-0 cursor-pointer text-xs font-bold font-montserrat ${
                     statusFilter === st 
-                      ? 'bg-slate-900 text-white shadow-xs' 
+                      ? 'bg-slate-900 text-white shadow-2xs' 
                       : 'text-slate-600 hover:bg-slate-200/60'
                   }`}
                 >
@@ -603,7 +646,7 @@ export const PaymentManagementPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsBulkModalOpen(true)}
-                    className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                    className="px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 font-montserrat"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5" />
                     Disp. ({selectedIds.size})
@@ -613,7 +656,7 @@ export const PaymentManagementPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsBulkApproveModalOpen(true)}
-                    className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                    className="px-3 py-1 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 font-montserrat"
                   >
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Aprobar ({selectedIds.size})
@@ -625,11 +668,11 @@ export const PaymentManagementPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Table Container (Estilo Panel Comercial) */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+      {/* Main Table Container */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-50 border-b border-slate-100 text-slate-400 font-bold uppercase text-[11px] tracking-widest">
+            <thead className="bg-slate-50/80 border-b border-slate-200/80 text-slate-400 font-bold uppercase text-[10px] tracking-wider font-montserrat">
               <tr>
                 <th className="px-4 py-4 w-12 text-center">
                   <button
@@ -750,14 +793,14 @@ export const PaymentManagementPage: React.FC = () => {
                           {withdrawal.estado === 'pendiente' ? (
                             <button 
                               onClick={(e) => { e.stopPropagation(); setSelectedWithdrawal(withdrawal); }}
-                              className="px-4 py-1.5 text-xs font-extrabold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                              className="px-3.5 py-1.5 text-xs font-semibold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80 rounded-xl transition-all shadow-2xs cursor-pointer font-montserrat"
                             >
                               Revisar
                             </button>
                           ) : withdrawal.estado === 'procesado' ? (
                             <button 
                               onClick={(e) => { e.stopPropagation(); setSelectedWithdrawal(withdrawal); }}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-blue-800 hover:text-blue-900 bg-blue-50 hover:bg-blue-100/80 border border-blue-200/80 rounded-xl transition-all shadow-2xs cursor-pointer font-montserrat"
                               title="Aprobar Solicitud Procesada"
                             >
                               <CheckCircle2 size={14} className="text-blue-600" />
@@ -777,7 +820,7 @@ export const PaymentManagementPage: React.FC = () => {
                                   window.open(`${baseUrl}/withdrawals/${withdrawal.id}/receipt`, '_blank');
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 rounded-xl transition-all shadow-2xs cursor-pointer font-montserrat"
                               title="Ver Comprobante de Transferencia"
                             >
                               <FileText size={14} />
