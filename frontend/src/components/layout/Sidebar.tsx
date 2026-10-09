@@ -49,11 +49,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
     const user = useAuthStore((state) => state.user);
     const isAdmin = user?.permissions?.includes('admin.users.manage') || user?.permissions?.includes('admin.roles.manage');
 
-    // Estado para controlar qué secciones están desplegadas/colapsadas
+    // Estado para controlar qué secciones están desplegadas/colapsadas (5 Secciones Claras)
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         principal: true,
         finanzas: true,
         comercial: true,
+        operaciones: true,
         admin: true
     });
 
@@ -84,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
             {/* Contenido scrolleable de navegación */}
             <div className="flex-1 overflow-y-auto py-4 px-3 space-y-3 scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300">
                 
-                {/* 📌 SECCIÓN PRINCIPAL */}
+                {/* 📌 SECCIÓN 1: PRINCIPAL */}
                 <div className="flex flex-col gap-1">
                     <button 
                         type="button"
@@ -189,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
 
                 <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-1 mx-2" />
 
-                {/* 💼 SECCIÓN FINANZAS Y CUENTA */}
+                {/* 💼 SECCIÓN 2: FINANZAS & INVERSIONES */}
                 <div className="flex flex-col gap-1">
                     <button 
                         type="button"
@@ -200,7 +201,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                             <div className="w-5 h-5 rounded-md bg-brand-500/10 flex items-center justify-center text-brand-500 group-hover:bg-brand-500/20 transition-colors">
                                 <CreditCard className="w-3 h-3" />
                             </div>
-                            <span>FINANZAS Y CUENTA</span>
+                            <span>FINANZAS & INVERSIONES</span>
                         </div>
                         <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${openSections.finanzas ? 'rotate-180 text-brand-500' : 'rotate-0 text-slate-400 group-hover:text-slate-600'}`} />
                     </button>
@@ -224,6 +225,38 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                     <Wallet className="w-4 h-4" />
                                                 </span>
                                                 <span className="flex-1 text-[13px] font-outfit truncate">Mi Billetera</span>
+                                                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                            </>
+                                        )}
+                                    </NavLink>
+                                </Can>
+
+                                <Can permissions={["dashboard:view_investments", "wallets:view", "admin.investors.manage", "director.dashboard.view"]}>
+                                    <NavLink to="/dashboard/investments" className={navLinkClass}>
+                                        {({ isActive }) => (
+                                            <>
+                                                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                    isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                }`}>
+                                                    <TrendingUp className="w-4 h-4" />
+                                                </span>
+                                                <span className="flex-1 text-[13px] font-outfit truncate">Mis Inversiones</span>
+                                                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                            </>
+                                        )}
+                                    </NavLink>
+                                </Can>
+
+                                <Can permissions={["credits:view", "credits:request", "wallets:view"]}>
+                                    <NavLink to="/dashboard/credits" className={navLinkClass}>
+                                        {({ isActive }) => (
+                                            <>
+                                                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                    isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                }`}>
+                                                    <CreditCard className="w-4 h-4" />
+                                                </span>
+                                                <span className="flex-1 text-[13px] font-outfit truncate">Línea de Crédito</span>
                                                 {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
                                             </>
                                         )}
@@ -256,22 +289,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                     <Landmark className="w-4 h-4" />
                                                 </span>
                                                 <span className="flex-1 text-[13px] font-outfit truncate">Bóveda Bancaria</span>
-                                                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
-                                            </>
-                                        )}
-                                    </NavLink>
-                                </Can>
-
-                                <Can permissions={["credits:view", "credits:request", "wallets:view"]}>
-                                    <NavLink to="/dashboard/credits" className={navLinkClass}>
-                                        {({ isActive }) => (
-                                            <>
-                                                <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                    isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
-                                                }`}>
-                                                    <CreditCard className="w-4 h-4" />
-                                                </span>
-                                                <span className="flex-1 text-[13px] font-outfit truncate">Línea de Crédito</span>
                                                 {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
                                             </>
                                         )}
@@ -320,7 +337,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
 
                 <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-1 mx-2" />
 
-                {/* 📈 SECCIÓN GESTIÓN COMERCIAL & CRM */}
+                {/* 📈 SECCIÓN 3: COMERCIAL & CRM */}
                 <Can permissions={['commercial:view', 'crm:view', 'crm:inbox:view', 'crm:calendar:view']}>
                     <div className="flex flex-col gap-1">
                         <button 
@@ -417,7 +434,113 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                     <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-1 mx-2" />
                 </Can>
 
-                {/* 🛡️ SECCIÓN ADMINISTRACIÓN DEL SISTEMA */}
+                {/* 📦 SECCIÓN 4: OPERACIONES & LOGÍSTICA */}
+                <Can permissions={[
+                    "inventory:view",
+                    "inventory.view",
+                    "suppliers:view",
+                    "suppliers.view",
+                    "purchase_orders:view",
+                    "purchase_orders.view",
+                    "assets:view",
+                    "assets.view"
+                ]}>
+                    <div className="flex flex-col gap-1">
+                        <button 
+                            type="button"
+                            onClick={() => toggleSection('operaciones')}
+                            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[10.5px] font-extrabold text-slate-400 hover:text-slate-700 hover:bg-slate-50 uppercase tracking-wider font-montserrat transition-all cursor-pointer select-none group"
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-md bg-brand-500/10 flex items-center justify-center text-brand-500 group-hover:bg-brand-500/20 transition-colors">
+                                    <Package className="w-3 h-3" />
+                                </div>
+                                <span>OPERACIONES & LOGÍSTICA</span>
+                            </div>
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${openSections.operaciones ? 'rotate-180 text-brand-500' : 'rotate-0 text-slate-400 group-hover:text-slate-600'}`} />
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                            {openSections.operaciones && (
+                                <motion.div 
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                                    className="flex flex-col gap-0.5 overflow-hidden pl-1"
+                                >
+                                    <Can permissions={["inventory:view", "inventory.view"]}>
+                                        <NavLink to="/dashboard/inventory" className={navLinkClass}>
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                    }`}>
+                                                        <Package className="w-4 h-4" />
+                                                    </span>
+                                                    <span className="flex-1 text-[13px] font-outfit truncate">Inventario e Insumos</span>
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["suppliers:view", "suppliers.view", "inventory:view"]}>
+                                        <NavLink to="/dashboard/suppliers" className={navLinkClass}>
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                    }`}>
+                                                        <Truck className="w-4 h-4" />
+                                                    </span>
+                                                    <span className="flex-1 text-[13px] font-outfit truncate">Proveedores</span>
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["purchase_orders:view", "purchase_orders.view", "inventory:view"]}>
+                                        <NavLink to="/dashboard/purchase-orders" className={navLinkClass}>
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                    }`}>
+                                                        <ShoppingCart className="w-4 h-4" />
+                                                    </span>
+                                                    <span className="flex-1 text-[13px] font-outfit truncate">Órdenes de Compra</span>
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["assets:view", "assets.view", "inventory:view"]}>
+                                        <NavLink to="/dashboard/assets" className={navLinkClass}>
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                    }`}>
+                                                        <Laptop className="w-4 h-4" />
+                                                    </span>
+                                                    <span className="flex-1 text-[13px] font-outfit truncate">Activos Fijos</span>
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    </Can>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <div className="h-px bg-gradient-to-r from-transparent via-slate-200/70 to-transparent my-1 mx-2" />
+                </Can>
+
+                {/* 🛡️ SECCIÓN 5: ADMINISTRACIÓN DEL SISTEMA */}
                 <Can permissions={[
                     "admin.users.manage",
                     "admin.roles.manage",
@@ -428,14 +551,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                     "admin.periods.manage",
                     "admin.audits.manage",
                     "manage_system_events",
-                    "inventory:view",
-                    "inventory.view",
-                    "suppliers:view",
-                    "suppliers.view",
-                    "purchase_orders:view",
-                    "purchase_orders.view",
-                    "assets:view",
-                    "assets.view"
+                    "admin.credits.manage",
+                    "credits:manage",
+                    "admin.external_apps.manage",
+                    "admin.shares.manage",
+                    "admin.referrals.manage",
+                    "admin.notifications.manage",
+                    "admin.events.manage"
                 ]}>
                     <div className="flex flex-col gap-1">
                         <button 
@@ -461,6 +583,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                     transition={{ duration: 0.2, ease: 'easeInOut' }}
                                     className="flex flex-col gap-0.5 overflow-hidden pl-1"
                                 >
+                                    {/* 🏷️ Subgrupo: Gestión de Inversión y Finanzas Admin */}
+                                    <div className="pt-2 pb-1 px-2.5 flex items-center gap-2">
+                                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">
+                                            Finanzas & Inversión
+                                        </span>
+                                        <div className="flex-1 h-px bg-slate-100" />
+                                    </div>
+
                                     <Can permission="admin.investors.manage">
                                         <NavLink to="/dashboard/investors" className={navLinkClass}>
                                             {({ isActive }) => (
@@ -525,22 +655,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permissions={["admin.external_apps.manage", "admin.roles.manage"]}>
-                                        <NavLink to="/dashboard/external-apps" className={navLinkClass}>
-                                            {({ isActive }) => (
-                                                <>
-                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
-                                                    }`}>
-                                                        <Globe className="w-4 h-4" />
-                                                    </span>
-                                                    <span className="flex-1 text-[13px] font-outfit truncate">Apps Externas (Gloint Pay)</span>
-                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
-                                                </>
-                                            )}
-                                        </NavLink>
-                                    </Can>
-
                                     <Can permissions={["admin.shares.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/admin-shares" className={navLinkClass}>
                                             {({ isActive }) => (
@@ -551,6 +665,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                         <Layers className="w-4 h-4" />
                                                     </span>
                                                     <span className="flex-1 text-[13px] font-outfit truncate">Mercado de Acciones (Admin)</span>
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["admin.audits.manage", "admin.investors.manage"]}>
+                                        <NavLink to="/dashboard/daily-yields" className={navLinkClass}>
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                    }`}>
+                                                        <Coins className="w-4 h-4" />
+                                                    </span>
+                                                    <span className="flex-1 text-[13px] font-outfit truncate">Rendimientos Diarios</span>
                                                     {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
                                                 </>
                                             )}
@@ -621,37 +751,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
-                                    <Can permissions={["admin.audits.manage", "admin.investors.manage"]}>
-                                        <NavLink to="/dashboard/daily-yields" className={navLinkClass}>
-                                            {({ isActive }) => (
-                                                <>
-                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
-                                                    }`}>
-                                                        <Coins className="w-4 h-4" />
-                                                    </span>
-                                                    <span className="flex-1 text-[13px] font-outfit truncate">Rendimientos Diarios</span>
-                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
-                                                </>
-                                            )}
-                                        </NavLink>
-                                    </Can>
-
-                                    <Can permissions={["admin.audits.manage", "admin.roles.manage"]}>
-                                        <NavLink to="/dashboard/security-logs" className={navLinkClass}>
-                                            {({ isActive }) => (
-                                                <>
-                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
-                                                    }`}>
-                                                        <ShieldAlert className="w-4 h-4" />
-                                                    </span>
-                                                    <span className="flex-1 text-[13px] font-outfit truncate">Logs de Seguridad</span>
-                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
-                                                </>
-                                            )}
-                                        </NavLink>
-                                    </Can>
+                                    {/* ⚙️ Subgrupo: Control, Seguridad & Plataforma */}
+                                    <div className="pt-3 pb-1 px-2.5 flex items-center gap-2">
+                                        <span className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 font-montserrat">
+                                            Control & Sistema
+                                        </span>
+                                        <div className="flex-1 h-px bg-slate-100" />
+                                    </div>
 
                                     <Can permission="admin.users.manage">
                                         <NavLink to="/dashboard/users" className={navLinkClass}>
@@ -679,6 +785,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                                         <Shield className="w-4 h-4" />
                                                     </span>
                                                     <span className="flex-1 text-[13px] font-outfit truncate">Roles y Permisos</span>
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    </Can>
+
+                                    <Can permissions={["admin.audits.manage", "admin.roles.manage"]}>
+                                        <NavLink to="/dashboard/security-logs" className={navLinkClass}>
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                    }`}>
+                                                        <ShieldAlert className="w-4 h-4" />
+                                                    </span>
+                                                    <span className="flex-1 text-[13px] font-outfit truncate">Logs de Seguridad</span>
                                                     {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
                                                 </>
                                             )}
@@ -733,80 +855,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ onItemClick }) => {
                                         </NavLink>
                                     </Can>
 
+                                    <Can permissions={["admin.external_apps.manage", "admin.roles.manage"]}>
+                                        <NavLink to="/dashboard/external-apps" className={navLinkClass}>
+                                            {({ isActive }) => (
+                                                <>
+                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
+                                                    }`}>
+                                                        <Globe className="w-4 h-4" />
+                                                    </span>
+                                                    <span className="flex-1 text-[13px] font-outfit truncate">Apps Externas (Gloint Pay)</span>
+                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
+                                                </>
+                                            )}
+                                        </NavLink>
+                                    </Can>
+
                                     <Can permissions={["admin.events.manage", "admin.roles.manage"]}>
                                         <NavLink to="/dashboard/events" className={navLinkClass}>
                                             {({ isActive }) => (
                                                 <>
                                                     <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-amber-500 group-hover:bg-amber-50/80'
+                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
                                                     }`}>
-                                                        <Sparkles className="w-4 h-4 text-amber-500" />
+                                                        <Sparkles className="w-4 h-4" />
                                                     </span>
                                                     <span className="flex-1 text-[13px] font-outfit truncate">Gloint Power Tech</span>
-                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
-                                                </>
-                                            )}
-                                        </NavLink>
-                                    </Can>
-
-                                    <Can permissions={["inventory:view", "inventory.view"]}>
-                                        <NavLink to="/dashboard/inventory" className={navLinkClass}>
-                                            {({ isActive }) => (
-                                                <>
-                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
-                                                    }`}>
-                                                        <Package className="w-4 h-4 text-brand-500" />
-                                                    </span>
-                                                    <span className="flex-1 text-[13px] font-outfit truncate">Inventario e Insumos</span>
-                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
-                                                </>
-                                            )}
-                                        </NavLink>
-                                    </Can>
-
-                                    <Can permissions={["suppliers:view", "suppliers.view", "inventory:view"]}>
-                                        <NavLink to="/dashboard/suppliers" className={navLinkClass}>
-                                            {({ isActive }) => (
-                                                <>
-                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
-                                                    }`}>
-                                                        <Truck className="w-4 h-4 text-brand-500" />
-                                                    </span>
-                                                    <span className="flex-1 text-[13px] font-outfit truncate">Proveedores</span>
-                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
-                                                </>
-                                            )}
-                                        </NavLink>
-                                    </Can>
-
-                                    <Can permissions={["purchase_orders:view", "purchase_orders.view", "inventory:view"]}>
-                                        <NavLink to="/dashboard/purchase-orders" className={navLinkClass}>
-                                            {({ isActive }) => (
-                                                <>
-                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
-                                                    }`}>
-                                                        <ShoppingCart className="w-4 h-4 text-brand-500" />
-                                                    </span>
-                                                    <span className="flex-1 text-[13px] font-outfit truncate">Órdenes de Compra</span>
-                                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
-                                                </>
-                                            )}
-                                        </NavLink>
-                                    </Can>
-
-                                    <Can permissions={["assets:view", "assets.view", "inventory:view"]}>
-                                        <NavLink to="/dashboard/assets" className={navLinkClass}>
-                                            {({ isActive }) => (
-                                                <>
-                                                    <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                                        isActive ? 'bg-white/15 text-white' : 'text-slate-400 group-hover:text-brand-500 group-hover:bg-brand-50/80'
-                                                    }`}>
-                                                        <Laptop className="w-4 h-4 text-brand-500" />
-                                                    </span>
-                                                    <span className="flex-1 text-[13px] font-outfit truncate">Activos Fijos</span>
                                                     {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white shadow-xs shrink-0" />}
                                                 </>
                                             )}
