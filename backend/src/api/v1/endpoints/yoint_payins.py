@@ -62,6 +62,7 @@ async def init_payin(
 
     wallet_recharge_id = None
     investment_request_id = payload.investment_request_id
+    recharge = None
 
     # 1. Validaciones para SOLICITUD DE INVERSIÓN
     if payload.payin_type == "INVESTMENT_REQUEST":
