@@ -34,22 +34,126 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
             case 'aprobado':
             case 'completed':
             case 'completado':
-                return { color: 'text-emerald-500', bg: 'bg-emerald-50', icon: CheckCircle2, text: 'Completado' };
             case 'procesado':
+            case 'success':
+                return { color: 'text-emerald-500', bg: 'bg-emerald-50', icon: CheckCircle2, text: 'Completado' };
             case 'en_proceso':
             case 'processing':
+            case 'in_progress':
                 return { color: 'text-blue-500', bg: 'bg-blue-50', icon: Clock, text: 'En Proceso' };
             case 'pendiente':
             case 'pending':
                 return { color: 'text-amber-500', bg: 'bg-amber-50', icon: Clock, text: 'Pendiente' };
             case 'rechazado':
-            case 'cancelado':
             case 'rejected':
-            case 'cancelled':
                 return { color: 'text-red-500', bg: 'bg-red-50', icon: XCircle, text: 'Rechazado' };
+            case 'cancelado':
+            case 'cancelled':
+            case 'canceled':
+                return { color: 'text-red-500', bg: 'bg-red-50', icon: XCircle, text: 'Cancelado' };
+            case 'fallido':
+            case 'failed':
+                return { color: 'text-red-500', bg: 'bg-red-50', icon: XCircle, text: 'Fallido' };
+            case 'reembolsado':
+            case 'refunded':
+                return { color: 'text-purple-500', bg: 'bg-purple-50', icon: CheckCircle2, text: 'Reembolsado' };
             default:
-                return { color: 'text-slate-500', bg: 'bg-slate-50', icon: AlertCircle, text: estado };
+                return { color: 'text-slate-500', bg: 'bg-slate-50', icon: AlertCircle, text: 'Completado' };
         }
+    };
+
+    const translatePaymentMethod = (raw: string | null | undefined): string => {
+        if (!raw) return 'Transferencia Bancaria';
+        const norm = raw.trim().toUpperCase().replace(/[-\s]/g, '_');
+        const map: Record<string, string> = {
+            'BOTON_BANCOLOMBIA': 'Botón Bancolombia',
+            'BANCOLOMBIA': 'Bancolombia',
+            'BANCOLOMBIA_QR': 'QR Bancolombia',
+            'NEQUI': 'Nequi',
+            'DAVIPLATA': 'Daviplata',
+            'PSE': 'PSE',
+            'CREDIT_CARD': 'Tarjeta de Crédito',
+            'DEBIT_CARD': 'Tarjeta de Débito',
+            'CARD': 'Tarjeta',
+            'TARJETA': 'Tarjeta',
+            'BANK_TRANSFER': 'Transferencia Bancaria',
+            'TRANSFER': 'Transferencia Bancaria',
+            'DIRECT_TRANSFER': 'Transferencia Bancaria',
+            'CASH': 'Efectivo',
+            'WALLET': 'Billetera Gloint',
+            'BILLETERA': 'Billetera Gloint',
+            'YOINT': 'Yoint en Línea',
+            'GATEWAY': 'Pasarela de Pago',
+            'MANUAL': 'Consignación Directa',
+            'CONSIGNACION': 'Consignación Bancaria',
+        };
+        if (map[norm]) return map[norm];
+        for (const [k, v] of Object.entries(map)) {
+            if (norm.includes(k)) return v;
+        }
+        return norm.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    };
+
+    const translateDescription = (text: string | null | undefined): string => {
+        if (!text) return '';
+        let cleaned = text
+            .replace(/\(Admin:.*?\)/gi, '')
+            .replace(/\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)/gi, '')
+            .trim();
+
+        if (!cleaned) return '';
+
+        // Reemplazos de métodos de pago
+        cleaned = cleaned
+            .replace(/\(?\bBOTON_BANCOLOMBIA\b\)?/gi, '(Botón Bancolombia)')
+            .replace(/\(?\bBANCOLOMBIA_QR\b\)?/gi, '(QR Bancolombia)')
+            .replace(/\(?\bCREDIT_CARD\b\)?/gi, '(Tarjeta de Crédito)')
+            .replace(/\(?\bDEBIT_CARD\b\)?/gi, '(Tarjeta de Débito)')
+            .replace(/\(?\bBANK_TRANSFER\b\)?/gi, '(Transferencia Bancaria)')
+            .replace(/\(?\bDIRECT_TRANSFER\b\)?/gi, '(Transferencia Bancaria)')
+            .replace(/\(?\bCASH\b\)?/gi, '(Efectivo)')
+            .replace(/\(?\bWALLET\b\)?/gi, '(Billetera)')
+            .replace(/\(?\bNEQUI\b\)?/gi, '(Nequi)')
+            .replace(/\(?\bPSE\b\)?/gi, '(PSE)');
+
+        // Reemplazos de frases comunes en inglés a español
+        const phraseReplacements: [RegExp, string][] = [
+            [/wallet recharge/gi, 'Recarga de billetera'],
+            [/wallet topup/gi, 'Recarga de billetera'],
+            [/recharge online/gi, 'Recarga en línea'],
+            [/recharge via/gi, 'Recarga vía'],
+            [/direct transfer to/gi, 'Transferencia enviada a'],
+            [/direct transfer from/gi, 'Transferencia recibida de'],
+            [/transfer to/gi, 'Transferencia a'],
+            [/transfer from/gi, 'Transferencia de'],
+            [/yield payout for/gi, 'Pago de rendimientos de'],
+            [/yield payout/gi, 'Pago de rendimientos'],
+            [/bonus payout for/gi, 'Pago de bono de'],
+            [/bonus payout/gi, 'Pago de bono'],
+            [/withdrawal request/gi, 'Solicitud de retiro'],
+            [/withdrawal refund/gi, 'Reembolso de retiro'],
+            [/withdrawal rejection/gi, 'Devolución por rechazo de retiro'],
+            [/investment reservation/gi, 'Reserva de inversión'],
+            [/capital liquidation/gi, 'Liquidación de capital'],
+            [/admin adjustment/gi, 'Ajuste administrativo de saldo'],
+            [/insufficient funds/gi, 'Fondos insuficientes'],
+            [/pending approval/gi, 'Pendiente de aprobación'],
+            [/approved by admin/gi, 'Aprobado por administración'],
+            [/rejected by admin/gi, 'Rechazado por administración'],
+            [/order cancelled by user/gi, 'Orden cancelada por el usuario'],
+            [/order canceled by user/gi, 'Orden cancelada por el usuario'],
+            [/transaction completed/gi, 'Transacción completada'],
+            [/\border\b/gi, 'Orden'],
+            [/\bref:\b/gi, 'Ref:'],
+            [/\breference:\b/gi, 'Referencia:'],
+            [/\bbatch\b/gi, 'Lote']
+        ];
+
+        for (const [pattern, replacement] of phraseReplacements) {
+            cleaned = cleaned.replace(pattern, replacement);
+        }
+
+        return cleaned;
     };
 
     const status = getStatusConfig(movement.estado);
@@ -83,53 +187,83 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
 
     const isIngreso = isIngresoMovement(movement);
 
-    const getOriginTranslation = (raw: string): string => {
-        if (!raw) return 'Transacción de Billetera';
+    const getOriginTranslation = (raw: string, isIngresoFallback = true): string => {
+        if (!raw) return isIngresoFallback ? 'Ingreso a Billetera' : 'Egreso de Billetera';
         const norm = raw.toLowerCase().trim().replace(/_/g, ' ');
         const dict: Record<string, string> = {
+            'wallet recharge': 'Recarga de Billetera',
+            'wallet topup': 'Recarga de Billetera',
+            'wallet deposit': 'Recarga de Billetera',
+            'recharge': 'Recarga de Billetera',
+            'recarga': 'Recarga de Billetera',
+            'recarga billetera': 'Recarga de Billetera',
+            'recarga en linea': 'Recarga en Línea',
             'transfer in': 'Transferencia Recibida',
             'transfer received': 'Transferencia Recibida',
             'transferencia recibida': 'Transferencia Recibida',
             'transfer out': 'Transferencia Enviada',
             'transfer sent': 'Transferencia Enviada',
             'transferencia enviada': 'Transferencia Enviada',
+            'transfer between wallets': 'Transferencia entre Billeteras',
+            'transfer': 'Transferencia de Billetera',
             'withdrawal rejection': 'Reembolso de Retiro',
             'withdrawal refund': 'Reembolso de Retiro',
             'reembolso de retiro': 'Reembolso de Retiro',
             'reembolso retiro': 'Reembolso de Retiro',
             'devolución por rechazo': 'Reembolso de Retiro',
             'withdrawal request': 'Solicitud de Retiro',
+            'withdrawal': 'Solicitud de Retiro',
+            'retiro': 'Solicitud de Retiro',
+            'solicitud retiro': 'Solicitud de Retiro',
+            'solicitud de retiro': 'Solicitud de Retiro',
             'yield payout reversal': 'Reversión de Rendimientos',
             'yield payout reversed': 'Rendimientos Revertidos',
             'yield payout': 'Pago de Rendimientos',
             'auto yield transfer': 'Pago de Rendimientos',
             'generacion rendimiento': 'Pago de Rendimientos',
             'rendimiento inversion': 'Pago de Rendimientos',
+            'rendimiento': 'Pago de Rendimientos',
+            'yield': 'Pago de Rendimientos',
             'bonus payout': 'Pago de Bono',
             'auto bonus transfer': 'Pago de Bono',
             'bono aceleracion': 'Bono de Aceleración',
             'bono': 'Pago de Bono',
+            'bonus': 'Pago de Bono',
             'investment reservation': 'Reserva de Inversión',
+            'investment payment': 'Pago de Inversión',
+            'reserva inversion': 'Reserva de Inversión',
             'capital liquidation': 'Liquidación de Capital',
             'liquidación de capital': 'Liquidación de Capital',
+            'credit installment': 'Abono a Crédito',
+            'credit payment': 'Abono a Crédito',
+            'cuota credito': 'Abono a Crédito',
+            'shares purchase': 'Compra de Acciones',
+            'shares buy': 'Compra de Acciones',
+            'shares sale': 'Venta de Acciones',
+            'shares sell': 'Venta de Acciones',
+            'shares retention': 'Custodia de Acciones',
+            'shares release': 'Liberación de Acciones',
             'admin adjustment': 'Ajuste de Saldo',
             'ajuste de saldo': 'Ajuste de Saldo',
             'ajuste administrativo': 'Ajuste de Saldo',
             'ingreso': 'Ingreso a Billetera',
             'egreso': 'Egreso de Billetera',
             'cash': 'Depósito de Saldo',
-            'deposit': 'Depósito de Saldo'
+            'deposit': 'Depósito de Saldo',
+            'deposito': 'Depósito de Saldo',
+            'credit': 'Abono a Billetera',
+            'debit': 'Débito de Billetera'
         };
 
         if (dict[norm]) return dict[norm];
         for (const [key, val] of Object.entries(dict)) {
             if (norm.includes(key)) return val;
         }
-        return norm.charAt(0).toUpperCase() + norm.slice(1);
+        return isIngresoFallback ? 'Ingreso a Billetera' : 'Egreso de Billetera';
     };
 
     const rawOrigin = movement.origen || movement.type || movement.reference_type || '';
-    const displayType = getOriginTranslation(rawOrigin);
+    const displayType = getOriginTranslation(rawOrigin, isIngreso);
 
     return createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -236,7 +370,7 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
                                 <p className="text-sm font-semibold text-slate-900">
                                     {movement.fecha_procesamiento || movement.fecha_aprobacion 
                                         ? formatDate(movement.fecha_procesamiento || movement.fecha_aprobacion) 
-                                        : (movement.estado === 'pendiente' ? 'Pendiente' : (movement.estado === 'procesado' ? 'En trámite bancario' : '-'))}
+                                        : (movement.estado === 'pendiente' || movement.estado === 'pending' ? 'Pendiente' : ((movement.estado === 'procesado' || movement.estado === 'processing') ? 'En trámite bancario' : 'Completado'))}
                                 </p>
                             </div>
                         </div>
@@ -252,7 +386,7 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between">
                                         <span className="text-blue-700 font-medium">Método</span>
-                                        <span className="font-semibold text-blue-900 capitalize">{movement.metodo_pago}</span>
+                                        <span className="font-semibold text-blue-900">{translatePaymentMethod(movement.metodo_pago)}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-blue-700 font-medium">Banco</span>
@@ -260,7 +394,7 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-blue-700 font-medium">Cuenta</span>
-                                        <span className="font-semibold text-blue-900">{movement.tipo_cuenta} • {movement.numero_cuenta}</span>
+                                        <span className="font-semibold text-blue-900">{movement.tipo_cuenta ? (movement.tipo_cuenta.toLowerCase().includes('ahorro') ? 'Ahorros' : (movement.tipo_cuenta.toLowerCase().includes('corrient') ? 'Corriente' : movement.tipo_cuenta)) : 'Cuenta'} • {movement.numero_cuenta}</span>
                                     </div>
                                 </div>
                             </div>
@@ -269,15 +403,16 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
 
                     {/* Observaciones */}
                     {(() => {
-                        const cleanObs = movement.observaciones ? movement.observaciones.replace(/\(Admin:.*?\)/gi, '').replace(/\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)/gi, '').trim() : '';
-                        if (!cleanObs && !movement.motivo_rechazo) return null;
+                        const cleanObs = translateDescription(movement.observaciones);
+                        const cleanRejection = translateDescription(movement.motivo_rechazo);
+                        if (!cleanObs && !cleanRejection) return null;
                         return (
                             <div>
                                 <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
                                     <FileText className="w-4 h-4 text-slate-400" /> Notas Administrativas
                                 </h3>
-                                <div className={`rounded-2xl p-4 border text-sm ${movement.motivo_rechazo ? 'bg-red-50 border-red-100 text-red-700' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
-                                    {movement.motivo_rechazo || cleanObs}
+                                <div className={`rounded-2xl p-4 border text-sm ${cleanRejection ? 'bg-red-50 border-red-100 text-red-700' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
+                                    {cleanRejection || cleanObs}
                                 </div>
                             </div>
                         );

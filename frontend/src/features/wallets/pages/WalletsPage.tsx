@@ -169,21 +169,125 @@ export const WalletsPage: React.FC = () => {
             case 'completed':
             case 'completado':
             case 'procesado':
+            case 'success':
                 return { color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', icon: CheckCircle2, text: 'Completado' };
             case 'en_proceso':
             case 'processing':
+            case 'in_progress':
                 return { color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', icon: Clock, text: 'En Proceso' };
             case 'pendiente':
             case 'pending':
                 return { color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', icon: Clock, text: 'Pendiente' };
             case 'rechazado':
-            case 'cancelado':
             case 'rejected':
-            case 'cancelled':
                 return { color: 'text-rose-700', bg: 'bg-rose-50 border-rose-200', icon: XCircle, text: 'Rechazado' };
+            case 'cancelado':
+            case 'cancelled':
+            case 'canceled':
+                return { color: 'text-rose-700', bg: 'bg-rose-50 border-rose-200', icon: XCircle, text: 'Cancelado' };
+            case 'fallido':
+            case 'failed':
+                return { color: 'text-rose-700', bg: 'bg-rose-50 border-rose-200', icon: XCircle, text: 'Fallido' };
+            case 'reembolsado':
+            case 'refunded':
+                return { color: 'text-purple-700', bg: 'bg-purple-50 border-purple-200', icon: CheckCircle2, text: 'Reembolsado' };
             default:
-                return { color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200', icon: AlertCircle, text: estado };
+                return { color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200', icon: AlertCircle, text: 'Completado' };
         }
+    };
+
+    const translatePaymentMethod = (raw: string | null | undefined): string => {
+        if (!raw) return 'Transferencia Bancaria';
+        const norm = raw.trim().toUpperCase().replace(/[-\s]/g, '_');
+        const map: Record<string, string> = {
+            'BOTON_BANCOLOMBIA': 'Botón Bancolombia',
+            'BANCOLOMBIA': 'Bancolombia',
+            'BANCOLOMBIA_QR': 'QR Bancolombia',
+            'NEQUI': 'Nequi',
+            'DAVIPLATA': 'Daviplata',
+            'PSE': 'PSE',
+            'CREDIT_CARD': 'Tarjeta de Crédito',
+            'DEBIT_CARD': 'Tarjeta de Débito',
+            'CARD': 'Tarjeta',
+            'TARJETA': 'Tarjeta',
+            'BANK_TRANSFER': 'Transferencia Bancaria',
+            'TRANSFER': 'Transferencia Bancaria',
+            'DIRECT_TRANSFER': 'Transferencia Bancaria',
+            'CASH': 'Efectivo',
+            'WALLET': 'Billetera Gloint',
+            'BILLETERA': 'Billetera Gloint',
+            'YOINT': 'Yoint en Línea',
+            'GATEWAY': 'Pasarela de Pago',
+            'MANUAL': 'Consignación Directa',
+            'CONSIGNACION': 'Consignación Bancaria',
+        };
+        if (map[norm]) return map[norm];
+        for (const [k, v] of Object.entries(map)) {
+            if (norm.includes(k)) return v;
+        }
+        return norm.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    };
+
+    const translateDescription = (text: string | null | undefined): string => {
+        if (!text) return '';
+        let cleaned = text
+            .replace(/\(Admin:.*?\)/gi, '')
+            .replace(/\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)/gi, '')
+            .trim();
+
+        if (!cleaned) return '';
+
+        // Reemplazos de métodos de pago
+        cleaned = cleaned
+            .replace(/\(?\bBOTON_BANCOLOMBIA\b\)?/gi, '(Botón Bancolombia)')
+            .replace(/\(?\bBANCOLOMBIA_QR\b\)?/gi, '(QR Bancolombia)')
+            .replace(/\(?\bCREDIT_CARD\b\)?/gi, '(Tarjeta de Crédito)')
+            .replace(/\(?\bDEBIT_CARD\b\)?/gi, '(Tarjeta de Débito)')
+            .replace(/\(?\bBANK_TRANSFER\b\)?/gi, '(Transferencia Bancaria)')
+            .replace(/\(?\bDIRECT_TRANSFER\b\)?/gi, '(Transferencia Bancaria)')
+            .replace(/\(?\bCASH\b\)?/gi, '(Efectivo)')
+            .replace(/\(?\bWALLET\b\)?/gi, '(Billetera)')
+            .replace(/\(?\bNEQUI\b\)?/gi, '(Nequi)')
+            .replace(/\(?\bPSE\b\)?/gi, '(PSE)');
+
+        // Reemplazos de frases comunes en inglés a español
+        const phraseReplacements: [RegExp, string][] = [
+            [/wallet recharge/gi, 'Recarga de billetera'],
+            [/wallet topup/gi, 'Recarga de billetera'],
+            [/recharge online/gi, 'Recarga en línea'],
+            [/recharge via/gi, 'Recarga vía'],
+            [/direct transfer to/gi, 'Transferencia enviada a'],
+            [/direct transfer from/gi, 'Transferencia recibida de'],
+            [/transfer to/gi, 'Transferencia a'],
+            [/transfer from/gi, 'Transferencia de'],
+            [/yield payout for/gi, 'Pago de rendimientos de'],
+            [/yield payout/gi, 'Pago de rendimientos'],
+            [/bonus payout for/gi, 'Pago de bono de'],
+            [/bonus payout/gi, 'Pago de bono'],
+            [/withdrawal request/gi, 'Solicitud de retiro'],
+            [/withdrawal refund/gi, 'Reembolso de retiro'],
+            [/withdrawal rejection/gi, 'Devolución por rechazo de retiro'],
+            [/investment reservation/gi, 'Reserva de inversión'],
+            [/capital liquidation/gi, 'Liquidación de capital'],
+            [/admin adjustment/gi, 'Ajuste administrativo de saldo'],
+            [/insufficient funds/gi, 'Fondos insuficientes'],
+            [/pending approval/gi, 'Pendiente de aprobación'],
+            [/approved by admin/gi, 'Aprobado por administración'],
+            [/rejected by admin/gi, 'Rechazado por administración'],
+            [/order cancelled by user/gi, 'Orden cancelada por el usuario'],
+            [/order canceled by user/gi, 'Orden cancelada por el usuario'],
+            [/transaction completed/gi, 'Transacción completada'],
+            [/\border\b/gi, 'Orden'],
+            [/\bref:\b/gi, 'Ref:'],
+            [/\breference:\b/gi, 'Referencia:'],
+            [/\bbatch\b/gi, 'Lote']
+        ];
+
+        for (const [pattern, replacement] of phraseReplacements) {
+            cleaned = cleaned.replace(pattern, replacement);
+        }
+
+        return cleaned;
     };
 
     const isIngresoMovement = (m: any): boolean => {
@@ -213,49 +317,79 @@ export const WalletsPage: React.FC = () => {
         return m.metodo_pago?.toLowerCase().trim() === 'wallet';
     };
 
-    const getOriginTranslation = (raw: string): string => {
-        if (!raw) return 'Movimiento de Billetera';
+    const getOriginTranslation = (raw: string, isIngresoFallback = true): string => {
+        if (!raw) return isIngresoFallback ? 'Ingreso a Billetera' : 'Egreso de Billetera';
         const norm = raw.toLowerCase().trim().replace(/_/g, ' ');
         const dict: Record<string, string> = {
+            'wallet recharge': 'Recarga de Billetera',
+            'wallet topup': 'Recarga de Billetera',
+            'wallet deposit': 'Recarga de Billetera',
+            'recharge': 'Recarga de Billetera',
+            'recarga': 'Recarga de Billetera',
+            'recarga billetera': 'Recarga de Billetera',
+            'recarga en linea': 'Recarga en Línea',
             'transfer in': 'Transferencia Recibida',
             'transfer received': 'Transferencia Recibida',
             'transferencia recibida': 'Transferencia Recibida',
             'transfer out': 'Transferencia Enviada',
             'transfer sent': 'Transferencia Enviada',
             'transferencia enviada': 'Transferencia Enviada',
+            'transfer between wallets': 'Transferencia entre Billeteras',
+            'transfer': 'Transferencia de Billetera',
             'withdrawal rejection': 'Reembolso de Retiro',
             'withdrawal refund': 'Reembolso de Retiro',
             'reembolso de retiro': 'Reembolso de Retiro',
             'reembolso retiro': 'Reembolso de Retiro',
             'devolución por rechazo': 'Reembolso de Retiro',
             'withdrawal request': 'Solicitud de Retiro',
+            'withdrawal': 'Solicitud de Retiro',
+            'retiro': 'Solicitud de Retiro',
+            'solicitud retiro': 'Solicitud de Retiro',
+            'solicitud de retiro': 'Solicitud de Retiro',
             'yield payout reversal': 'Reversión de Rendimientos',
             'yield payout reversed': 'Rendimientos Revertidos',
             'yield payout': 'Pago de Rendimientos',
             'auto yield transfer': 'Pago de Rendimientos',
             'generacion rendimiento': 'Pago de Rendimientos',
             'rendimiento inversion': 'Pago de Rendimientos',
+            'rendimiento': 'Pago de Rendimientos',
+            'yield': 'Pago de Rendimientos',
             'bonus payout': 'Pago de Bono',
             'auto bonus transfer': 'Pago de Bono',
             'bono aceleracion': 'Bono de Aceleración',
             'bono': 'Pago de Bono',
+            'bonus': 'Pago de Bono',
             'investment reservation': 'Reserva de Inversión',
+            'investment payment': 'Pago de Inversión',
+            'reserva inversion': 'Reserva de Inversión',
             'capital liquidation': 'Liquidación de Capital',
             'liquidación de capital': 'Liquidación de Capital',
+            'credit installment': 'Abono a Crédito',
+            'credit payment': 'Abono a Crédito',
+            'cuota credito': 'Abono a Crédito',
+            'shares purchase': 'Compra de Acciones',
+            'shares buy': 'Compra de Acciones',
+            'shares sale': 'Venta de Acciones',
+            'shares sell': 'Venta de Acciones',
+            'shares retention': 'Custodia de Acciones',
+            'shares release': 'Liberación de Acciones',
             'admin adjustment': 'Ajuste de Saldo',
             'ajuste de saldo': 'Ajuste de Saldo',
             'ajuste administrativo': 'Ajuste de Saldo',
             'ingreso': 'Ingreso a Billetera',
             'egreso': 'Egreso de Billetera',
             'cash': 'Depósito de Saldo',
-            'deposit': 'Depósito de Saldo'
+            'deposit': 'Depósito de Saldo',
+            'deposito': 'Depósito de Saldo',
+            'credit': 'Abono a Billetera',
+            'debit': 'Débito de Billetera'
         };
 
         if (dict[norm]) return dict[norm];
         for (const [key, val] of Object.entries(dict)) {
             if (norm.includes(key)) return val;
         }
-        return norm.charAt(0).toUpperCase() + norm.slice(1);
+        return isIngresoFallback ? 'Ingreso a Billetera' : 'Egreso de Billetera';
     };
 
     return (
@@ -528,8 +662,9 @@ export const WalletsPage: React.FC = () => {
                                                 const status = getStatusConfig(mov.estado);
                                                 const rawOrigin = mov.origen || mov.type || mov.reference_type || '';
                                                 const isIngreso = isIngresoMovement(mov);
-                                                const displayType = getOriginTranslation(rawOrigin);
-                                                const cleanObs = mov.observaciones ? mov.observaciones.replace(/\(Admin:.*?\)/gi, '').replace(/\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)/gi, '').trim() : '';
+                                                const displayType = getOriginTranslation(rawOrigin, isIngreso);
+                                                const cleanObs = translateDescription(mov.observaciones);
+                                                const cleanRejection = translateDescription(mov.motivo_rechazo);
 
                                                 return (
                                                     <div 
@@ -553,9 +688,9 @@ export const WalletsPage: React.FC = () => {
                                                                         {status.text}
                                                                     </span>
                                                                 </div>
-                                                                {(cleanObs || mov.motivo_rechazo) && (
+                                                                {(cleanObs || cleanRejection) && (
                                                                     <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
-                                                                        {mov.motivo_rechazo || cleanObs}
+                                                                        {cleanRejection || cleanObs}
                                                                     </p>
                                                                 )}
                                                             </div>
@@ -631,7 +766,7 @@ export const WalletsPage: React.FC = () => {
                                                         </div>
                                                         <div>
                                                             <p className="font-bold text-slate-900 font-montserrat">
-                                                                Recarga de Billetera ({r.payment_method})
+                                                                Recarga de Billetera ({translatePaymentMethod(r.payment_method)})
                                                             </p>
                                                             <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
                                                                 <span>{formatDate(r.created_at || null)}</span>
@@ -649,7 +784,7 @@ export const WalletsPage: React.FC = () => {
                                                             </div>
                                                             {(r.user_notes || r.admin_notes) && (
                                                                 <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg truncate">
-                                                                    {r.admin_notes ? `Nota de Administración: ${r.admin_notes}` : r.user_notes}
+                                                                    {r.admin_notes ? `Nota de Administración: ${translateDescription(r.admin_notes)}` : translateDescription(r.user_notes)}
                                                                 </p>
                                                             )}
                                                         </div>
@@ -762,7 +897,7 @@ export const WalletsPage: React.FC = () => {
                                                             </div>
                                                             {(mov.observaciones || mov.motivo_rechazo) && (
                                                                 <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
-                                                                    {mov.motivo_rechazo || mov.observaciones}
+                                                                    {translateDescription(mov.motivo_rechazo || mov.observaciones)}
                                                                 </p>
                                                             )}
                                                         </div>

@@ -332,6 +332,195 @@ async def request_withdrawal(
         "yoint": yoint_tracking
     }
 
+def _translate_wallet_text(text: str | None) -> str:
+    if not text:
+        return ""
+    import re
+    cleaned = str(text)
+    # Remove admin tags & emails
+    cleaned = re.sub(r'\(Admin:.*?\)', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)', '', cleaned)
+    cleaned = cleaned.strip()
+    if not cleaned:
+        return ""
+
+    # Payment methods in descriptions
+    cleaned = re.sub(r'\(?BOTON_BANCOLOMBIA\)?', '(Botón Bancolombia)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?BANCOLOMBIA_QR\)?', '(QR Bancolombia)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?CREDIT_CARD\)?', '(Tarjeta de Crédito)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?DEBIT_CARD\)?', '(Tarjeta de Débito)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?BANK_TRANSFER\)?', '(Transferencia Bancaria)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?DIRECT_TRANSFER\)?', '(Transferencia Bancaria)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?CASH\)?', '(Efectivo)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?WALLET\)?', '(Billetera)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?NEQUI\)?', '(Nequi)', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\(?PSE\)?', '(PSE)', cleaned, flags=re.IGNORECASE)
+
+    # Common English phrases
+    replacements = [
+        (r'\bwallet recharge\b', 'Recarga de billetera'),
+        (r'\bwallet topup\b', 'Recarga de billetera'),
+        (r'\brecharge online\b', 'Recarga en línea'),
+        (r'\brecharge via\b', 'Recarga vía'),
+        (r'\bdirect transfer to\b', 'Transferencia enviada a'),
+        (r'\bdirect transfer from\b', 'Transferencia recibida de'),
+        (r'\btransfer to\b', 'Transferencia a'),
+        (r'\btransfer from\b', 'Transferencia de'),
+        (r'\byield payout for\b', 'Pago de rendimientos de'),
+        (r'\byield payout\b', 'Pago de rendimientos'),
+        (r'\bbonus payout for\b', 'Pago de bono de'),
+        (r'\bbonus payout\b', 'Pago de bono'),
+        (r'\bwithdrawal request\b', 'Solicitud de retiro'),
+        (r'\bwithdrawal refund\b', 'Reembolso de retiro'),
+        (r'\bwithdrawal rejection\b', 'Devolución por rechazo de retiro'),
+        (r'\binvestment reservation\b', 'Reserva de inversión'),
+        (r'\bcapital liquidation\b', 'Liquidación de capital'),
+        (r'\badmin adjustment\b', 'Ajuste administrativo de saldo'),
+        (r'\binsufficient funds\b', 'Fondos insuficientes'),
+        (r'\bpending approval\b', 'Pendiente de aprobación'),
+        (r'\bapproved by admin\b', 'Aprobado por administración'),
+        (r'\brejected by admin\b', 'Rechazado por administración'),
+        (r'\border cancelled by user\b', 'Orden cancelada por el usuario'),
+        (r'\border canceled by user\b', 'Orden cancelada por el usuario'),
+        (r'\btransaction completed\b', 'Transacción completada'),
+        (r'\border\b', 'Orden'),
+        (r'\bref:\b', 'Ref:'),
+        (r'\breference:\b', 'Referencia:'),
+        (r'\bbatch\b', 'Lote'),
+    ]
+    for pattern, repl in replacements:
+        cleaned = re.sub(pattern, repl, cleaned, flags=re.IGNORECASE)
+
+    return cleaned
+
+
+def _translate_payment_method(method: str | None) -> str:
+    if not method:
+        return "Transferencia Bancaria"
+    norm = str(method).strip().upper().replace("-", "_").replace(" ", "_")
+    mapping = {
+        "BOTON_BANCOLOMBIA": "Botón Bancolombia",
+        "BANCOLOMBIA": "Bancolombia",
+        "BANCOLOMBIA_QR": "QR Bancolombia",
+        "NEQUI": "Nequi",
+        "DAVIPLATA": "Daviplata",
+        "PSE": "PSE",
+        "CREDIT_CARD": "Tarjeta de Crédito",
+        "DEBIT_CARD": "Tarjeta de Débito",
+        "CARD": "Tarjeta",
+        "TARJETA": "Tarjeta",
+        "BANK_TRANSFER": "Transferencia Bancaria",
+        "TRANSFER": "Transferencia Bancaria",
+        "DIRECT_TRANSFER": "Transferencia Bancaria",
+        "CASH": "Efectivo",
+        "WALLET": "Billetera Gloint",
+        "BILLETERA": "Billetera Gloint",
+        "YOINT": "Yoint en Línea",
+        "GATEWAY": "Pasarela de Pago",
+        "MANUAL": "Consignación Directa",
+    }
+    return mapping.get(norm, str(method).replace("_", " ").title())
+
+
+def _translate_status(status_val: str | None) -> str:
+    if not status_val:
+        return "completado"
+    norm = str(status_val).lower().strip()
+    mapping = {
+        "aprobado": "completado",
+        "completed": "completado",
+        "completado": "completado",
+        "procesado": "completado",
+        "success": "completado",
+        "pending": "pendiente",
+        "pendiente": "pendiente",
+        "processing": "en_proceso",
+        "en_proceso": "en_proceso",
+        "in_progress": "en_proceso",
+        "rejected": "rechazado",
+        "rechazado": "rechazado",
+        "cancelled": "cancelado",
+        "canceled": "cancelado",
+        "cancelado": "cancelado",
+        "failed": "fallido",
+        "fallido": "fallido",
+        "refunded": "reembolsado",
+        "reembolsado": "reembolsado",
+    }
+    return mapping.get(norm, "completado")
+
+
+def _get_movement_type_display(raw_type: str | None, is_ingreso: bool) -> str:
+    if not raw_type:
+        return "Ingreso a Billetera" if is_ingreso else "Egreso de Billetera"
+    norm = str(raw_type).lower().strip().replace("-", "_").replace(" ", "_")
+    mapping = {
+        "wallet_recharge": "Recarga de Billetera",
+        "wallet_topup": "Recarga de Billetera",
+        "wallet_deposit": "Recarga de Billetera",
+        "recharge": "Recarga de Billetera",
+        "recarga": "Recarga de Billetera",
+        "recarga_billetera": "Recarga de Billetera",
+        "recarga_en_linea": "Recarga en Línea",
+        "transfer_in": "Transferencia Recibida",
+        "transfer_received": "Transferencia Recibida",
+        "transferencia_recibida": "Transferencia Recibida",
+        "transfer_out": "Transferencia Enviada",
+        "transfer_sent": "Transferencia Enviada",
+        "transferencia_enviada": "Transferencia Enviada",
+        "transfer_between_wallets": "Transferencia entre Billeteras",
+        "transfer": "Transferencia de Billetera",
+        "withdrawal_rejection": "Reembolso de Retiro",
+        "withdrawal_refund": "Reembolso de Retiro",
+        "reembolso_de_retiro": "Reembolso de Retiro",
+        "reembolso_retiro": "Reembolso de Retiro",
+        "devolucion_por_rechazo": "Reembolso de Retiro",
+        "withdrawal_request": "Solicitud de Retiro",
+        "withdrawal": "Solicitud de Retiro",
+        "retiro": "Solicitud de Retiro",
+        "solicitud_retiro": "Solicitud de Retiro",
+        "solicitud_de_retiro": "Solicitud de Retiro",
+        "yield_payout_reversal": "Reversión de Rendimientos",
+        "yield_payout_reversed": "Rendimientos Revertidos",
+        "yield_payout": "Pago de Rendimientos",
+        "auto_yield_transfer": "Pago de Rendimientos",
+        "generacion_rendimiento": "Pago de Rendimientos",
+        "rendimiento_inversion": "Pago de Rendimientos",
+        "rendimiento": "Pago de Rendimientos",
+        "yield": "Pago de Rendimientos",
+        "bonus_payout": "Pago de Bono",
+        "auto_bonus_transfer": "Pago de Bono",
+        "bono_aceleracion": "Bono de Aceleración",
+        "bono": "Pago de Bono",
+        "bonus": "Pago de Bono",
+        "investment_reservation": "Reserva de Inversión",
+        "investment_payment": "Pago de Inversión",
+        "reserva_inversion": "Reserva de Inversión",
+        "capital_liquidation": "Liquidación de Capital",
+        "credit_installment": "Abono a Crédito",
+        "shares_purchase": "Compra de Acciones",
+        "shares_buy": "Compra de Acciones",
+        "shares_sale": "Venta de Acciones",
+        "shares_sell": "Venta de Acciones",
+        "shares_retention": "Custodia de Acciones",
+        "shares_release": "Liberación de Acciones",
+        "admin_adjustment": "Ajuste Administrativo de Saldo",
+        "cash": "Depósito de Saldo",
+        "deposit": "Depósito de Saldo",
+        "deposito": "Depósito de Saldo",
+        "credit": "Abono a Billetera",
+        "debit": "Débito de Billetera",
+        "ingreso": "Ingreso a Billetera",
+        "egreso": "Egreso de Billetera",
+    }
+    if norm in mapping:
+        return mapping[norm]
+    for k, v in mapping.items():
+        if k in norm:
+            return v
+    return "Ingreso a Billetera" if is_ingreso else "Egreso de Billetera"
+
+
 @router.get("/me/movements")
 async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
@@ -384,15 +573,12 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         direction = "out" if is_outflow else "in"
         tipo_str = "egreso" if is_outflow else "ingreso"
             
-        # Sanitizar descripción para proteger privacidad de administradores y contrapartes
-        desc = t.description or ""
+        # Sanitizar y traducir descripción al español
+        desc = _translate_wallet_text(t.description)
         is_admin = current_user.is_superuser or (current_user.permissions and "admin.wallets.manage" in current_user.permissions)
         if not is_admin:
-            import re
-            desc = re.sub(r'\(Admin:.*?\)', '', desc).strip()
             if not desc or t.type == "admin_adjustment":
                 desc = "Ajuste de saldo administrativo autorizado"
-            desc = re.sub(r'\s*\([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+\)', '', desc)
 
         # Valores por defecto para transacciones estándar
         monto_val = abs(amount)
@@ -424,30 +610,35 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             monto_val = float(linked_w.monto)
             impuesto_val = float(linked_w.impuesto)
             monto_neto_val = float(linked_w.monto_neto) # El valor neto real a recibir en el banco
-            # Reflejar el estado real del retiro (pendiente, procesado, aprobado, rechazado)
-            estado_val = linked_w.estado.value if hasattr(linked_w.estado, "value") else str(linked_w.estado)
+            raw_w_estado = linked_w.estado.value if hasattr(linked_w.estado, "value") else str(linked_w.estado)
+            estado_val = _translate_status(raw_w_estado)
             banco_val = linked_w.banco
             tipo_cuenta_val = linked_w.tipo_cuenta
             numero_cuenta_val = linked_w.numero_cuenta
-            metodo_pago_val = linked_w.metodo_pago or "Transferencia Bancaria"
+            metodo_pago_val = _translate_payment_method(linked_w.metodo_pago)
             fecha_solicitud_val = linked_w.fecha_solicitud.isoformat() if linked_w.fecha_solicitud else (t.created_at.isoformat() if t.created_at else None)
             fecha_aprobacion_val = linked_w.fecha_aprobacion.isoformat() if linked_w.fecha_aprobacion else None
             fecha_procesamiento_val = linked_w.fecha_procesamiento.isoformat() if linked_w.fecha_procesamiento else None
-            motivo_rechazo_val = linked_w.motivo_rechazo
+            motivo_rechazo_val = _translate_wallet_text(linked_w.motivo_rechazo) if linked_w.motivo_rechazo else None
 
             w_disps = dispersions_by_wid.get(linked_w.id, [])
             has_yoint_val = any(
                 d.status not in ["FAILED", "REJECTED"] or d.order_id for d in w_disps
             ) or bool(linked_w.comprobante_pago and "YOINT" in str(linked_w.comprobante_pago).upper())
             can_cancel_val = (linked_w.estado == WithdrawalStatus.PENDING or str(linked_w.estado).lower() in ["pending", "pendiente"]) and not has_yoint_val
+        elif t.reference_type == "yoint_payin" or "yoint" in (t.type or "").lower() or "recharge" in (t.type or "").lower():
+            metodo_pago_val = _translate_payment_method("BOTON_BANCOLOMBIA" if "bancolombia" in desc.lower() else "Yoint en Línea")
+
+        tipo_display = _get_movement_type_display(t.type, not is_outflow)
 
         response.append({
             "id": f"t_{t.id}",
             "real_id": linked_w.id if linked_w else None,
             "investor_id": None,
             "user_id": current_user.id,
-            "origen": t.type,
+            "origen": tipo_display,
             "tipo": tipo_str,
+            "tipo_display": tipo_display,
             "type": t.type,
             "direction": direction,
             "monto": monto_val,
@@ -518,25 +709,33 @@ async def get_my_withdrawals(current_user = Depends(get_current_user), db: Async
         ) or bool(w.comprobante_pago and "YOINT" in str(w.comprobante_pago).upper())
         can_cancel = (w.estado == WithdrawalStatus.PENDING) and not has_active_yoint
 
+        raw_w_estado = w.estado.value if hasattr(w.estado, 'value') else str(w.estado)
+        estado_val = _translate_status(raw_w_estado)
+        metodo_pago_val = _translate_payment_method(w.metodo_pago)
+        tipo_disp = _get_movement_type_display(w.tipo.value if hasattr(w.tipo, 'value') else w.tipo, False)
+        observaciones_val = _translate_wallet_text(w.observaciones) if w.observaciones else None
+        motivo_rechazo_val = _translate_wallet_text(w.motivo_rechazo) if w.motivo_rechazo else None
+
         response.append({
             "id": f"w_{w.id}",
             "real_id": w.id,
             "investor_id": w.investor_id,
             "user_id": w.user_id,
-            "origen": w.origen,
+            "origen": tipo_disp,
             "tipo": w.tipo.value if hasattr(w.tipo, 'value') else w.tipo,
+            "tipo_display": tipo_disp,
             "monto": float(w.monto),
             "impuesto": float(w.impuesto),
             "monto_neto": float(w.monto_neto),
             "fecha_solicitud": w.fecha_solicitud.isoformat() if w.fecha_solicitud else None,
             "fecha_retiro": w.fecha_retiro.isoformat() if w.fecha_retiro else None,
-            "estado": w.estado.value if hasattr(w.estado, 'value') else w.estado,
-            "metodo_pago": w.metodo_pago,
+            "estado": estado_val,
+            "metodo_pago": metodo_pago_val,
             "banco": w.banco,
             "tipo_cuenta": w.tipo_cuenta,
             "numero_cuenta": w.numero_cuenta,
-            "observaciones": w.observaciones,
-            "motivo_rechazo": w.motivo_rechazo,
+            "observaciones": observaciones_val,
+            "motivo_rechazo": motivo_rechazo_val,
             "fecha_aprobacion": w.fecha_aprobacion.isoformat() if w.fecha_aprobacion else None,
             "fecha_procesamiento": w.fecha_procesamiento.isoformat() if w.fecha_procesamiento else None,
             "created_at": w.created_at.isoformat() if w.created_at else None,
