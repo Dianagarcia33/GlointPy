@@ -221,23 +221,9 @@ export function InvestmentChatbot() {
         {
           id: 'welcome-1',
           sender: 'bot',
-          text: '¡Hola! Te doy la bienvenida al Concierge de Inversión con IA de GLOINT. 👋',
+          text: '¡Hola! Te doy la bienvenida a GLOINT. 👋\n\nSoy tu asesor patrimonial con Inteligencia Artificial. Puedo resolver todas tus dudas sobre nuestro modelo, rentabilidades, garantías, contratos e inversiones. ¿En qué te puedo asesorar hoy?',
           timestamp: getTimeString(),
           type: 'text'
-        },
-        {
-          id: 'welcome-2',
-          sender: 'bot',
-          text: 'Soy tu asesor patrimonial inteligente. Puedo responder todas tus dudas sobre nuestro modelo, paquetes de inversión, rentabilidades, respaldos legales y contratos, o ayudarte a agendar una cita privada con la Mesa Directiva.',
-          timestamp: getTimeString(),
-          type: 'text'
-        },
-        {
-          id: 'welcome-3',
-          sender: 'bot',
-          text: 'Puedes escribir cualquier duda en el chat o seleccionar a continuación un paquete para simular su rentabilidad:',
-          timestamp: getTimeString(),
-          type: 'options_packages'
         }
       ]);
     }, 400);
@@ -640,41 +626,6 @@ export function InvestmentChatbot() {
                   <X size={18} />
                 </button>
               </div>
-            </div>
-
-            {/* Chips de Preguntas Frecuentes Rápidas */}
-            <div className="bg-slate-900/90 border-b border-slate-800/80 px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 text-[11px]">
-              <button
-                onClick={() => processFreeTextInput('¿Cuáles son las rentabilidades y plazos?')}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-1 cursor-pointer"
-              >
-                <TrendingUp size={12} className="text-amber-400" />
-                <span>Rentabilidades</span>
-              </button>
-
-              <button
-                onClick={() => processFreeTextInput('¿Qué paquetes de inversión hay?')}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-1 cursor-pointer"
-              >
-                <Coins size={12} className="text-emerald-400" />
-                <span>Paquetes</span>
-              </button>
-
-              <button
-                onClick={() => processFreeTextInput('¿Cómo es el contrato de inversión?')}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700 flex items-center gap-1 cursor-pointer"
-              >
-                <ShieldCheck size={12} className="text-sky-400" />
-                <span>Contratos</span>
-              </button>
-
-              <button
-                onClick={() => handleProceedToLocation()}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 transition-colors border border-amber-500/40 flex items-center gap-1 cursor-pointer font-semibold"
-              >
-                <User size={12} />
-                <span>Hablar con Directivo</span>
-              </button>
             </div>
 
             {/* Cuerpo del Chat */}
