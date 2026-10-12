@@ -12,6 +12,7 @@ from src.services.wallet_service import bulk_create_or_update_wallets, bulk_crea
 from sqlalchemy.future import select
 from src.models.wallet import Wallet
 from src.models.user import User
+from src.models.withdrawal import Withdrawal, WithdrawalStatus
 
 router = APIRouter()
 
@@ -337,7 +338,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
     Get the wallet transactions of the current logged-in user.
     """
     from src.models.wallet import Wallet, WalletTransaction
-    from src.models.withdrawal import Withdrawal
+    from src.models.withdrawal import Withdrawal, WithdrawalStatus
     
     # Fetch WalletTransactions
     t_result = await db.execute(
@@ -438,7 +439,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             has_yoint_val = any(
                 d.status not in ["FAILED", "REJECTED"] or d.order_id for d in w_disps
             ) or bool(linked_w.comprobante_pago and "YOINT" in str(linked_w.comprobante_pago).upper())
-            can_cancel_val = (linked_w.estado == WithdrawalStatus.PENDING) and not has_yoint_val
+            can_cancel_val = (linked_w.estado == WithdrawalStatus.PENDING or str(linked_w.estado).lower() in ["pending", "pendiente"]) and not has_yoint_val
 
         response.append({
             "id": f"t_{t.id}",
