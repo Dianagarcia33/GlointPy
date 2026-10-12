@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form, BackgroundTasks
 from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -177,6 +177,7 @@ async def send_withdrawal_code(
 @router.post("/me/withdraw")
 async def request_withdrawal(
     req: WalletWithdrawRequest,
+    background_tasks: BackgroundTasks,
     current_user = Depends(get_current_user), 
     db: AsyncSession = Depends(get_db)
 ):
@@ -324,6 +325,25 @@ async def request_withdrawal(
             }
     except Exception as y_err:
         logger.error(f"Error al enviar dispersión a Yoint para retiro #{withdrawal.id}: {y_err}", exc_info=True)
+
+    # 9. Enviar correo corporativo notificando que la solicitud de retiro está pendiente
+    try:
+        if current_user and current_user.email:
+            from src.services.email_service import EmailService
+            background_tasks.add_task(
+                EmailService.send_withdrawal_request_pending_email,
+                to_email=current_user.email,
+                user_name=current_user.name or "Inversionista",
+                amount=float(withdrawal.monto),
+                tax=float(withdrawal.impuesto or 0),
+                net_amount=float(withdrawal.monto_neto or withdrawal.monto),
+                bank=withdrawal.banco or (bank_account.banco if bank_account else "Entidad Bancaria"),
+                account_type=withdrawal.tipo_cuenta or (bank_account.tipo_cuenta if bank_account else "Cuenta"),
+                account_number=withdrawal.numero_cuenta or (bank_account.numero_cuenta if bank_account else "N/A"),
+                withdrawal_id=withdrawal.id
+            )
+    except Exception as em_err:
+        logger.warning(f"Aviso al encolar correo de retiro pendiente #{withdrawal.id}: {em_err}")
 
     return {
         "message": "Retiro solicitado con éxito.", 

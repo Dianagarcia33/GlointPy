@@ -1,6 +1,9 @@
+import logging
 from typing import Optional, List
 import resend
 from src.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 class EmailService:
     @classmethod
@@ -24,8 +27,7 @@ class EmailService:
         bcc: Optional[List[str]] = None
     ) -> bool:
         if not settings.RESEND_API_KEY:
-            print("WARNING: RESEND_API_KEY is not set. Skipping CRM email dispatch.")
-            print(f"Mock Email to {to_email} | Subject: {subject} | Attachments: {len(attachments or [])}")
+            logger.warning(f"RESEND_API_KEY is not set. Skipping CRM email dispatch to {to_email}.")
             return True
 
         resend.api_key = settings.RESEND_API_KEY
@@ -69,9 +71,10 @@ class EmailService:
 
         try:
             resend.Emails.send(email_payload)
+            logger.info(f"CRM email successfully sent to {to_email}. Subject: {subject}")
             return True
         except Exception as e:
-            print(f"Error al enviar correo CRM vía Resend: {e}")
+            logger.error(f"Error al enviar correo CRM vía Resend a {to_email}: {e}")
             return False
 
     @classmethod
@@ -90,9 +93,9 @@ class EmailService:
         return cls.send_html_email(to_email, subject, html)
 
     @staticmethod
-    def send_html_email(to_email: str, subject: str, html_content: str):
+    def send_html_email(to_email: str, subject: str, html_content: str) -> bool:
         if not settings.RESEND_API_KEY:
-            print("WARNING: RESEND_API_KEY is not set. Skipping email send.")
+            logger.warning(f"[EmailService] RESEND_API_KEY no configurada. Omitiendo envío a {to_email}.")
             return False
 
         resend.api_key = settings.RESEND_API_KEY
@@ -103,13 +106,55 @@ class EmailService:
                 "subject": subject,
                 "html": html_content
             })
+            logger.info(f"[EmailService] Correo enviado exitosamente a {to_email} | Asunto: {subject}")
             return True
         except Exception as e:
-            print(f"Error sending email via Resend: {e}")
+            logger.error(f"[EmailService] Error enviando correo vía Resend a {to_email}: {e}")
             return False
 
     @classmethod
-    def send_withdrawal_approval_email(cls, to_email: str, user_name: str, amount: float, method: str, bank: str, account_number: str) -> bool:
+    def send_withdrawal_request_pending_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        amount: float,
+        tax: float,
+        net_amount: float,
+        bank: str,
+        account_type: str,
+        account_number: str,
+        withdrawal_id: Optional[int] = None
+    ) -> bool:
+        """
+        Envía notificación corporativa cuando el usuario solicita un retiro de fondos (en estado pendiente).
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_withdrawal_request_pending_template(
+            user_name=user_name,
+            amount=amount,
+            tax=tax,
+            net_amount=net_amount,
+            bank=bank,
+            account_type=account_type,
+            account_number=account_number,
+            withdrawal_id=withdrawal_id
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+    @classmethod
+    def send_withdrawal_approval_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        amount: float,
+        method: str,
+        bank: str,
+        account_number: str,
+        tax: Optional[float] = None,
+        gross_amount: Optional[float] = None,
+        account_type: Optional[str] = None,
+        withdrawal_id: Optional[int] = None
+    ) -> bool:
         """
         Envía notificación corporativa cuando un retiro de fondos ha sido aprobado y transferido.
         """
@@ -119,7 +164,11 @@ class EmailService:
             amount=amount,
             method=method,
             bank=bank,
-            account_number=account_number
+            account_number=account_number,
+            tax=tax,
+            gross_amount=gross_amount,
+            account_type=account_type,
+            withdrawal_id=withdrawal_id
         )
         return cls.send_html_email(to_email, subject, html)
 

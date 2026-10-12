@@ -2,7 +2,7 @@ import os
 import uuid
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -948,7 +948,13 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
 
 
 @router.post("/{investment_id}/withdraw-capital")
-async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalConfirmRequest, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def withdraw_investment_capital(
+    investment_id: int, 
+    req: WithdrawCapitalConfirmRequest, 
+    background_tasks: BackgroundTasks,
+    current_user = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+):
     """
     Verify code and withdraw available released capital for an investment to a registered bank account.
     """
@@ -1100,6 +1106,25 @@ async def withdraw_investment_capital(investment_id: int, req: WithdrawCapitalCo
     except Exception as y_err:
         logger.error(f"Error al enviar dispersión a Yoint para retiro de capital #{withdrawal.id}: {y_err}")
         
+    # 8. Enviar correo corporativo de solicitud de retiro de capital pendiente
+    try:
+        if current_user and current_user.email:
+            from src.services.email_service import EmailService
+            background_tasks.add_task(
+                EmailService.send_withdrawal_request_pending_email,
+                to_email=current_user.email,
+                user_name=current_user.name or "Inversionista",
+                amount=float(withdrawal.monto),
+                tax=float(withdrawal.impuesto or 0),
+                net_amount=float(withdrawal.monto_neto or withdrawal.monto),
+                bank=withdrawal.banco or (bank_account.banco if bank_account else "Entidad Bancaria"),
+                account_type=withdrawal.tipo_cuenta or (bank_account.tipo_cuenta if bank_account else "Cuenta"),
+                account_number=withdrawal.numero_cuenta or (bank_account.numero_cuenta if bank_account else "N/A"),
+                withdrawal_id=withdrawal.id
+            )
+    except Exception as em_err:
+        logger.warning(f"Aviso al encolar correo de retiro de capital pendiente #{withdrawal.id}: {em_err}")
+
     return {
         "message": "Retiro de capital solicitado exitosamente", 
         "monto": capital_disponible,

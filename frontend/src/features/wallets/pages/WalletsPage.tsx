@@ -8,7 +8,10 @@ import {
     XCircle, 
     AlertCircle, 
     ArrowUpToLine, 
+    ChevronLeft,
     ChevronRight, 
+    ChevronsLeft,
+    ChevronsRight,
     Send, 
     TrendingUp, 
     FileText, 
@@ -81,6 +84,10 @@ export const WalletsPage: React.FC = () => {
     const [recharges, setRecharges] = useState<WalletRecharge[]>([]);
     const [activeTab, setActiveTab] = useState<'movements' | 'recharges' | 'withdrawals'>('movements');
     const [loading, setLoading] = useState(true);
+
+    // Pagination state for movements
+    const [movementsPage, setMovementsPage] = useState<number>(1);
+    const [movementsPerPage, setMovementsPerPage] = useState<number>(10);
     
     // Modals state
     const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
@@ -392,6 +399,28 @@ export const WalletsPage: React.FC = () => {
         return isIngresoFallback ? 'Ingreso a Billetera' : 'Egreso de Billetera';
     };
 
+    // Paginación del historial de transacciones
+    const totalMovements = movements.length;
+    const totalMovementsPages = Math.max(1, Math.ceil(totalMovements / movementsPerPage));
+    const safeMovementsPage = Math.min(Math.max(1, movementsPage), totalMovementsPages);
+    const paginatedMovements = movements.slice(
+        (safeMovementsPage - 1) * movementsPerPage,
+        safeMovementsPage * movementsPerPage
+    );
+
+    const getPageNumbers = (current: number, total: number): (number | string)[] => {
+        if (total <= 5) {
+            return Array.from({ length: total }, (_, i) => i + 1);
+        }
+        if (current <= 3) {
+            return [1, 2, 3, '...', total];
+        }
+        if (current >= total - 2) {
+            return [1, '...', total - 2, total - 1, total];
+        }
+        return [1, '...', current, '...', total];
+    };
+
     return (
         <Can permission="wallets:view">
             {/* Modales de la Billetera */}
@@ -645,10 +674,15 @@ export const WalletsPage: React.FC = () => {
                         {activeTab === 'movements' && (
                             <Can permission="wallets:view_history">
                                 <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-xs space-y-6">
-                                    <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-2">
                                         <div>
-                                            <h3 className="text-base sm:text-lg font-black text-slate-900 font-montserrat">
-                                                Historial de Transacciones
+                                            <h3 className="text-base sm:text-lg font-black text-slate-900 font-montserrat flex items-center gap-2">
+                                                <span>Historial de Transacciones</span>
+                                                {totalMovements > 0 && (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 font-mono">
+                                                        {totalMovements}
+                                                    </span>
+                                                )}
                                             </h3>
                                             <p className="text-xs text-slate-500 font-medium mt-0.5">
                                                 Ingresos de rendimientos, comisiones, transferencias y movimientos de tu saldo
@@ -657,62 +691,156 @@ export const WalletsPage: React.FC = () => {
                                     </div>
 
                                     {movements.length > 0 ? (
-                                        <div className="space-y-3">
-                                            {movements.map((mov) => {
-                                                const status = getStatusConfig(mov.estado);
-                                                const rawOrigin = mov.origen || mov.type || mov.reference_type || '';
-                                                const isIngreso = isIngresoMovement(mov);
-                                                const displayType = getOriginTranslation(rawOrigin, isIngreso);
-                                                const cleanObs = translateDescription(mov.observaciones);
-                                                const cleanRejection = translateDescription(mov.motivo_rechazo);
+                                        <>
+                                            <div className="space-y-3">
+                                                {paginatedMovements.map((mov) => {
+                                                    const status = getStatusConfig(mov.estado);
+                                                    const rawOrigin = mov.origen || mov.type || mov.reference_type || '';
+                                                    const isIngreso = isIngresoMovement(mov);
+                                                    const displayType = getOriginTranslation(rawOrigin, isIngreso);
+                                                    const cleanObs = translateDescription(mov.observaciones);
+                                                    const cleanRejection = translateDescription(mov.motivo_rechazo);
 
-                                                return (
-                                                    <div 
-                                                        key={mov.id} 
-                                                        onClick={() => setSelectedMovement(mov)}
-                                                        className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/20 transition-all cursor-pointer group"
-                                                    >
-                                                        <div className="flex items-center gap-4">
-                                                            <div className={`p-3 rounded-2xl shrink-0 ${isIngreso ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-600 border border-slate-200/80'}`}>
-                                                                {isIngreso ? <ArrowDownToLine className="w-5 h-5" /> : <ArrowUpToLine className="w-5 h-5" />}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-bold text-slate-900 font-montserrat">
-                                                                    {displayType}
-                                                                </p>
-                                                                <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
-                                                                    <span>{formatDate(mov.fecha_solicitud || mov.created_at)}</span>
-                                                                    <span>•</span>
-                                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${status.bg} ${status.color}`}>
-                                                                        <status.icon className="w-3 h-3" />
-                                                                        {status.text}
-                                                                    </span>
+                                                    return (
+                                                        <div 
+                                                            key={mov.id} 
+                                                            onClick={() => setSelectedMovement(mov)}
+                                                            className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50/20 transition-all cursor-pointer group"
+                                                        >
+                                                            <div className="flex items-center gap-4">
+                                                                <div className={`p-3 rounded-2xl shrink-0 ${isIngreso ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-600 border border-slate-200/80'}`}>
+                                                                    {isIngreso ? <ArrowDownToLine className="w-5 h-5" /> : <ArrowUpToLine className="w-5 h-5" />}
                                                                 </div>
-                                                                {(cleanObs || cleanRejection) && (
-                                                                    <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
-                                                                        {cleanRejection || cleanObs}
+                                                                <div>
+                                                                    <p className="font-bold text-slate-900 font-montserrat">
+                                                                        {displayType}
                                                                     </p>
-                                                                )}
+                                                                    <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500 mt-0.5">
+                                                                        <span>{formatDate(mov.fecha_solicitud || mov.created_at)}</span>
+                                                                        <span>•</span>
+                                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${status.bg} ${status.color}`}>
+                                                                            <status.icon className="w-3 h-3" />
+                                                                            {status.text}
+                                                                        </span>
+                                                                    </div>
+                                                                    {(cleanObs || cleanRejection) && (
+                                                                        <p className="text-xs text-slate-500 mt-1 max-w-[200px] sm:max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl truncate">
+                                                                            {cleanRejection || cleanObs}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="text-right">
+                                                                    <p className={`font-bold font-mono text-sm sm:text-base ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
+                                                                        {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
+                                                                    </p>
+                                                                    {mov.impuesto > 0 && (
+                                                                        <p className="text-[10px] font-mono text-slate-400">
+                                                                            Bruto: {formatCurrency(mov.monto)}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
                                                             </div>
                                                         </div>
-                                                        
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="text-right">
-                                                                <p className={`font-bold font-mono text-sm sm:text-base ${isIngreso ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                                                    {isIngreso ? '+' : '-'}{formatCurrency(mov.monto_neto)}
-                                                                </p>
-                                                                {mov.impuesto > 0 && (
-                                                                    <p className="text-[10px] font-mono text-slate-400">
-                                                                        Bruto: {formatCurrency(mov.monto)}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-brand-500 transition-colors" />
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Paginador */}
+                                            {totalMovements > 0 && (
+                                                <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-medium text-slate-500">
+                                                    <div className="flex items-center gap-3">
+                                                        <span>
+                                                            Mostrando <strong className="font-bold text-slate-900 font-mono">{(safeMovementsPage - 1) * movementsPerPage + 1}</strong> a <strong className="font-bold text-slate-900 font-mono">{Math.min(safeMovementsPage * movementsPerPage, totalMovements)}</strong> de <strong className="font-bold text-slate-900 font-mono">{totalMovements}</strong> transacciones
+                                                        </span>
+                                                        <div className="hidden sm:flex items-center gap-1.5 ml-2">
+                                                            <span className="text-[11px] text-slate-400">Ver:</span>
+                                                            <select
+                                                                value={movementsPerPage}
+                                                                onChange={(e) => {
+                                                                    setMovementsPerPage(Number(e.target.value));
+                                                                    setMovementsPage(1);
+                                                                }}
+                                                                className="bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer"
+                                                            >
+                                                                <option value={5}>5</option>
+                                                                <option value={10}>10</option>
+                                                                <option value={20}>20</option>
+                                                                <option value={50}>50</option>
+                                                            </select>
                                                         </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+
+                                                    {totalMovementsPages > 1 && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <button
+                                                                onClick={() => setMovementsPage(1)}
+                                                                disabled={safeMovementsPage === 1}
+                                                                className="p-1.5 border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 transition-colors cursor-pointer"
+                                                                title="Primera página"
+                                                            >
+                                                                <ChevronsLeft className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setMovementsPage(p => Math.max(1, p - 1))}
+                                                                disabled={safeMovementsPage === 1}
+                                                                className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 font-bold transition-colors cursor-pointer font-montserrat"
+                                                            >
+                                                                <ChevronLeft className="w-3.5 h-3.5" />
+                                                                <span className="hidden sm:inline">Anterior</span>
+                                                            </button>
+
+                                                            {/* Page numbers */}
+                                                            <div className="flex items-center gap-1">
+                                                                {getPageNumbers(safeMovementsPage, totalMovementsPages).map((p, idx) => {
+                                                                    if (p === '...') {
+                                                                        return (
+                                                                            <span key={`ellipsis-${idx}`} className="px-1 text-slate-400 font-mono text-xs">
+                                                                                ...
+                                                                            </span>
+                                                                        );
+                                                                    }
+                                                                    const isCurrent = p === safeMovementsPage;
+                                                                    return (
+                                                                        <button
+                                                                            key={`page-${p}`}
+                                                                            onClick={() => setMovementsPage(Number(p))}
+                                                                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                                                                                isCurrent
+                                                                                    ? 'bg-slate-900 text-white shadow-xs'
+                                                                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                                                            }`}
+                                                                        >
+                                                                            {p}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            <button
+                                                                onClick={() => setMovementsPage(p => Math.min(totalMovementsPages, p + 1))}
+                                                                disabled={safeMovementsPage >= totalMovementsPages}
+                                                                className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 font-bold transition-colors cursor-pointer font-montserrat"
+                                                            >
+                                                                <span className="hidden sm:inline">Siguiente</span>
+                                                                <ChevronRight className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setMovementsPage(totalMovementsPages)}
+                                                                disabled={safeMovementsPage >= totalMovementsPages}
+                                                                className="p-1.5 border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 transition-colors cursor-pointer"
+                                                                title="Última página"
+                                                            >
+                                                                <ChevronsRight className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </>
                                     ) : (
                                         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
                                             <div className="w-14 h-14 rounded-3xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto">

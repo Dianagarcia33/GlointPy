@@ -528,21 +528,130 @@ class EmailTemplateService:
         return subject, html
 
     @classmethod
+    def get_withdrawal_request_pending_template(
+        cls,
+        user_name: str,
+        amount: float,
+        tax: float,
+        net_amount: float,
+        bank: str,
+        account_type: str,
+        account_number: str,
+        withdrawal_id: Optional[int] = None,
+        date_str: Optional[str] = None
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Solicitud de Retiro Recibida - En Proceso / Pendiente.
+        """
+        from datetime import datetime
+        cur_date = date_str or datetime.utcnow().strftime("%d/%m/%Y %H:%M UTC")
+        subject = f"⏳ Solicitud de Retiro #{withdrawal_id} en Trámite - GLOINT" if withdrawal_id else "⏳ Solicitud de Retiro en Trámite - GLOINT"
+        title = "Solicitud de Retiro Recibida"
+        preheader = f"Hola {user_name}, hemos recibido tu solicitud de retiro por ${net_amount:,.2f} COP. Tu trámite se encuentra pendiente de dispersión bancaria."
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+
+        id_row = f"<tr><td style=\"font-weight: 600; width: 160px; color: #64748b;\">ID de Solicitud:</td><td style=\"font-weight: 700; color: #0f172a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;\">#{withdrawal_id}</td></tr>" if withdrawal_id else ""
+        acct_label = f"{account_type} - {account_number}" if account_type else account_number
+
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Estimado/a <strong>{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            Hemos recibido exitosamente tu solicitud de retiro de fondos desde tu cuenta Gloint. La orden ha sido registrada en el sistema y se encuentra actualmente en estado <strong>Pendiente de Dispersión Bancaria</strong>.
+        </p>
+
+        <!-- Details Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 22px; margin: 22px 0;">
+            <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                Detalles de la Solicitud
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.85;">
+                {id_row}
+                <tr>
+                    <td style="font-weight: 600; width: 160px; color: #64748b;">Monto Solicitado:</td>
+                    <td style="font-weight: 700; color: #0f172a;">${amount:,.2f} COP</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Retención 3.2%:</td>
+                    <td style="font-weight: 600; color: #dc2626;">-${tax:,.2f} COP</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Monto Neto a Transferir:</td>
+                    <td style="font-size: 17px; font-weight: 800; color: #0f172a;">${net_amount:,.2f} COP</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Entidad Bancaria:</td>
+                    <td style="font-weight: 600; color: #0f172a;">{bank}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Cuenta Destino:</td>
+                    <td style="font-weight: 600; color: #0f172a;">{acct_label}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Fecha de Solicitud:</td>
+                    <td style="color: #0f172a;">{cur_date}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Estado Actual:</td>
+                    <td>
+                        <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 9999px; background-color: #fff7ed; color: #c2410c; border: 1px solid #fed7aa;">
+                            ⏳ Pendiente de Dispersión
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px 18px; margin: 20px 0;">
+            <p style="margin: 0 0 6px; font-size: 13px; font-weight: 700; color: #92400e;">
+                💡 ¿Qué sucede a continuación?
+            </p>
+            <p style="margin: 0; font-size: 12.5px; color: #78350f; line-height: 1.55;">
+                Tu orden entrará en el ciclo de dispersión bancaria automática. Tan pronto como la transferencia sea emitida y confirmada por la red interbancaria, recibirás un nuevo correo con la confirmación de pago y el comprobante de la transacción.
+            </p>
+        </div>
+        """
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text="SOLICITUD EN TRÁMITE • PENDIENTE DE DISPERSIÓN",
+            badge_variant="amber",
+            cta_text="Consultar Billetera en Gloint",
+            cta_url=f"{frontend_url}/dashboard/wallet"
+        )
+        return subject, html
+
+    @classmethod
     def get_withdrawal_approval_template(
         cls,
         user_name: str,
         amount: float,
         method: str,
         bank: str,
-        account_number: str
+        account_number: str,
+        tax: Optional[float] = None,
+        gross_amount: Optional[float] = None,
+        account_type: Optional[str] = None,
+        withdrawal_id: Optional[int] = None,
+        date_str: Optional[str] = None
     ) -> Tuple[str, str]:
         """
         Plantilla Corporativa: Confirmación de Retiro Aprobado y Dispersado.
         """
-        subject = "¡Tu retiro ha sido aprobado y transferido! - Gloint"
+        from datetime import datetime
+        cur_date = date_str or datetime.utcnow().strftime("%d/%m/%Y %H:%M UTC")
+        subject = f"✅ Retiro #{withdrawal_id} Aprobado y Transferido - GLOINT" if withdrawal_id else "✅ ¡Tu retiro ha sido aprobado y transferido! - GLOINT"
         title = "¡Retiro Aprobado y Procesado!"
         preheader = f"Hola {user_name}, tu retiro por ${amount:,.2f} COP ha sido aprobado y transferido exitosamente."
         frontend_url = settings.FRONTEND_URL.rstrip('/')
+
+        id_row = f"<tr><td style=\"font-weight: 600; width: 160px; color: #64748b;\">ID de Solicitud:</td><td style=\"font-weight: 700; color: #0f172a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;\">#{withdrawal_id}</td></tr>" if withdrawal_id else ""
+        gross_row = f"<tr><td style=\"font-weight: 600; color: #64748b;\">Monto Bruto Solicitado:</td><td style=\"font-weight: 600; color: #0f172a;\">${gross_amount:,.2f} COP</td></tr>" if gross_amount else ""
+        tax_row = f"<tr><td style=\"font-weight: 600; color: #64748b;\">Retención 3.2%:</td><td style=\"font-weight: 600; color: #dc2626;\">-${tax:,.2f} COP</td></tr>" if tax else ""
+        acct_label = f"{account_type} - {account_number}" if account_type else account_number
 
         content_html = f"""
         <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
@@ -558,8 +667,11 @@ class EmailTemplateService:
                 Resumen de la Transacción
             </div>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.8;">
+                {id_row}
+                {gross_row}
+                {tax_row}
                 <tr>
-                    <td style="font-weight: 600; width: 140px; color: #64748b;">Monto Transferido:</td>
+                    <td style="font-weight: 600; width: 160px; color: #64748b;">Monto Neto Transferido:</td>
                     <td style="font-size: 17px; font-weight: 800; color: #16a34a;">${amount:,.2f} COP</td>
                 </tr>
                 <tr>
@@ -572,14 +684,26 @@ class EmailTemplateService:
                 </tr>
                 <tr>
                     <td style="font-weight: 600; color: #64748b;">Cuenta Destino:</td>
-                    <td style="font-weight: 600; color: #0f172a;">{account_number}</td>
+                    <td style="font-weight: 600; color: #0f172a;">{acct_label}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Fecha de Procesamiento:</td>
+                    <td style="color: #0f172a;">{cur_date}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b;">Estado:</td>
+                    <td>
+                        <span style="display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; border-radius: 9999px; background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">
+                            ✓ Aprobado y Transferido
+                        </span>
+                    </td>
                 </tr>
             </table>
         </div>
 
         <div style="background-color: #f0fdf4; border-left: 3px solid #16a34a; border-radius: 8px; padding: 12px 16px; margin: 20px 0;">
             <p style="margin: 0; font-size: 12.5px; color: #15803d; line-height: 1.5;">
-                💡 <strong>Tiempo de acreditación:</strong> Dependiendo del ciclo interbancario de tu entidad financiera, los fondos se verán reflejados en tu extracto en un lapso de pocos minutos a pocas horas hábiles.
+                💡 <strong>Tiempo de acreditación:</strong> Dependiendo del ciclo interbancario de tu entidad financiera, los fondos se verán reflejados en tu extracto bancario en un lapso de pocos minutos a pocas horas hábiles.
             </p>
         </div>
         """
@@ -588,7 +712,7 @@ class EmailTemplateService:
             title=title,
             preheader=preheader,
             content_html=content_html,
-            badge_text="TRANSACCIÓN APROBADA",
+            badge_text="TRANSACCIÓN APROBADA • FONDOS TRANSFERIDOS",
             badge_variant="green",
             cta_text="Consultar Billetera en Gloint",
             cta_url=f"{frontend_url}/dashboard/wallet"

@@ -235,18 +235,33 @@ async def approve_withdrawal(
         request=request
     )
 
-    # Enviar email
-    if withdrawal.user and withdrawal.user.email:
-        from src.services.email_service import EmailService
-        background_tasks.add_task(
-            EmailService.send_withdrawal_approval_email,
-            to_email=withdrawal.user.email,
-            user_name=withdrawal.user.name,
-            amount=withdrawal.monto_neto if hasattr(withdrawal, 'monto_neto') else withdrawal.monto,
-            method=withdrawal.metodo_pago,
-            bank=withdrawal.banco,
-            account_number=withdrawal.numero_cuenta
-        )
+    # Enviar email corporativo de aprobación y transferencia
+    try:
+        user_to_email = withdrawal.user
+        if not user_to_email and withdrawal.user_id:
+            from sqlalchemy.future import select
+            u_res = await db.execute(select(User).where(User.id == withdrawal.user_id))
+            user_to_email = u_res.scalars().first()
+
+        if user_to_email and user_to_email.email:
+            from src.services.email_service import EmailService
+            monto_transferido = float(withdrawal.monto_neto or withdrawal.monto)
+            background_tasks.add_task(
+                EmailService.send_withdrawal_approval_email,
+                to_email=user_to_email.email,
+                user_name=user_to_email.name or "Inversionista",
+                amount=monto_transferido,
+                method=withdrawal.metodo_pago or "Transferencia Bancaria",
+                bank=withdrawal.banco or "Entidad Bancaria Registrada",
+                account_number=withdrawal.numero_cuenta or "N/A",
+                tax=float(withdrawal.impuesto or 0),
+                gross_amount=float(withdrawal.monto or 0),
+                account_type=withdrawal.tipo_cuenta,
+                withdrawal_id=withdrawal.id
+            )
+    except Exception as em_err:
+        import logging
+        logging.getLogger(__name__).warning(f"Error encolando correo de aprobación para retiro #{withdrawal.id}: {em_err}")
         
     return withdrawal
 

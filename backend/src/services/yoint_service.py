@@ -617,6 +617,30 @@ class YointService:
                 except Exception as e:
                     logger.warning(f"Error notificando aprobación Yoint retiro #{withdrawal.id}: {e}")
 
+                # Enviar correo corporativo de confirmación de retiro transferido y aprobado
+                try:
+                    user_to_email = withdrawal.user
+                    if not user_to_email and withdrawal.user_id:
+                        u_res = await db.execute(select(User).where(User.id == withdrawal.user_id))
+                        user_to_email = u_res.scalars().first()
+
+                    if user_to_email and user_to_email.email:
+                        from src.services.email_service import EmailService
+                        EmailService.send_withdrawal_approval_email(
+                            to_email=user_to_email.email,
+                            user_name=user_to_email.name or "Inversionista",
+                            amount=float(withdrawal.monto_neto or withdrawal.monto),
+                            method=withdrawal.metodo_pago or "Transferencia Bancaria (Yoint)",
+                            bank=withdrawal.banco or "Entidad Bancaria Registrada",
+                            account_number=withdrawal.numero_cuenta or "N/A",
+                            tax=float(withdrawal.impuesto or 0),
+                            gross_amount=float(withdrawal.monto or 0),
+                            account_type=withdrawal.tipo_cuenta,
+                            withdrawal_id=withdrawal.id
+                        )
+                except Exception as mail_err:
+                    logger.warning(f"Error enviando correo de confirmación de retiro #{withdrawal.id} vía Yoint: {mail_err}")
+
                 logger.info(f"Retiro #{withdrawal.id} (Yoint {clean_id}) completado y APROBADO.")
 
             elif is_failed:

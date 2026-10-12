@@ -464,6 +464,7 @@ class WithdrawalService:
         now = datetime.utcnow()
         updated_count = 0
         user_notifications = []
+        emails_to_send = []
 
         for w in withdrawals:
             if w.estado in [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSED]:
@@ -472,6 +473,19 @@ class WithdrawalService:
                 w.fecha_aprobacion = now
                 updated_count += 1
                 user_notifications.append((w.user_id, w.id, w.monto_neto or w.monto))
+                if w.user and w.user.email:
+                    emails_to_send.append({
+                        "to_email": w.user.email,
+                        "user_name": w.user.name or "Inversionista",
+                        "amount": float(w.monto_neto or w.monto),
+                        "method": w.metodo_pago or "Transferencia Bancaria",
+                        "bank": w.banco or "Entidad Bancaria Registrada",
+                        "account_number": w.numero_cuenta or "N/A",
+                        "tax": float(w.impuesto or 0),
+                        "gross_amount": float(w.monto or 0),
+                        "account_type": w.tipo_cuenta,
+                        "withdrawal_id": w.id
+                    })
 
         await db.commit()
 
@@ -489,6 +503,13 @@ class WithdrawalService:
                 )
         except Exception as err:
             logger.warning(f"Error generando notificaciones de retiros aprobados en lote: {err}")
+
+        try:
+            from src.services.email_service import EmailService
+            for item in emails_to_send:
+                EmailService.send_withdrawal_approval_email(**item)
+        except Exception as mail_err:
+            logger.warning(f"Error enviando correos de retiros aprobados en lote: {mail_err}")
 
         return {
             "message": f"Se aprobaron exitosamente {updated_count} retiros.",
