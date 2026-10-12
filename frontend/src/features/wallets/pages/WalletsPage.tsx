@@ -54,6 +54,8 @@ export interface Movement {
     updated_at: string | null;
     saldo_anterior: number | null;
     saldo_nuevo: number | null;
+    can_cancel?: boolean;
+    has_yoint_dispersion?: boolean;
 }
 
 export const WalletsPage: React.FC = () => {
@@ -773,7 +775,7 @@ export const WalletsPage: React.FC = () => {
                                                             </p>
                                                         </div>
                                                         
-                                                        {mov.estado === 'pendiente' && (
+                                                        {mov.estado === 'pendiente' && (mov.can_cancel ?? !mov.has_yoint_dispersion) ? (
                                                             <button 
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -784,7 +786,12 @@ export const WalletsPage: React.FC = () => {
                                                                 <XCircle className="w-3.5 h-3.5" />
                                                                 <span>Cancelar</span>
                                                             </button>
-                                                        )}
+                                                        ) : mov.estado === 'pendiente' && mov.has_yoint_dispersion ? (
+                                                            <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200/80 font-bold rounded-xl text-xs flex items-center gap-1.5 font-montserrat" title="Esta solicitud de retiro ya fue despachada hacia la pasarela de pagos Yoint y está en proceso de desembolso bancario.">
+                                                                <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                                                                <span>En dispersión Yoint</span>
+                                                            </span>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             );

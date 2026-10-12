@@ -229,6 +229,19 @@ class WithdrawalService:
         if withdrawal.estado not in [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSED]:
             raise HTTPException(status_code=400, detail="Solo se pueden rechazar retiros en estado pendiente o procesado")
 
+        # Validar si tiene una dispersión en vuelo o aprobada en Yoint
+        from src.models.yoint_dispersion import YointDispersion
+        d_res = await db.execute(
+            select(YointDispersion).where(YointDispersion.withdrawal_id == withdrawal.id)
+        )
+        dispersions = d_res.scalars().all()
+        active_disp = [d for d in dispersions if d.status in ["PROCESSING", "APPROVED"]]
+        if active_disp:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No se puede rechazar el retiro #{withdrawal.id} manualmente porque se encuentra en proceso con Yoint (Estado: {active_disp[0].status}, Order ID: {active_disp[0].order_id or 'N/A'}). Debes esperar la resolución del banco o la conciliación de Yoint para evitar duplicidad de desembolsos."
+            )
+
         withdrawal.estado = WithdrawalStatus.REJECTED
         withdrawal.motivo_rechazo = motivo_rechazo
         withdrawal.aprobado_por = admin_id

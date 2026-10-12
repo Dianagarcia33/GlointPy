@@ -354,6 +354,17 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
     user_withdrawals = w_res.scalars().all()
     user_withdrawals_by_id = {w.id: w for w in user_withdrawals}
     
+    # Pre-cargar dispersiones Yoint asociadas a los retiros del usuario
+    from src.models.yoint_dispersion import YointDispersion
+    w_ids = [w.id for w in user_withdrawals]
+    dispersions_by_wid = {}
+    if w_ids:
+        d_res = await db.execute(
+            select(YointDispersion).where(YointDispersion.withdrawal_id.in_(w_ids))
+        )
+        for d in d_res.scalars().all():
+            dispersions_by_wid.setdefault(d.withdrawal_id, []).append(d)
+
     response = []
     
     # Map Transactions
@@ -395,6 +406,8 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         fecha_aprobacion_val = t.created_at.isoformat() if t.created_at else None
         fecha_procesamiento_val = t.created_at.isoformat() if t.created_at else None
         motivo_rechazo_val = None
+        can_cancel_val = False
+        has_yoint_val = False
 
         # Vincular retiro si aplica para obtener el impuesto 3.2%, el neto real y el estado exacto
         linked_w = None
@@ -421,8 +434,15 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             fecha_procesamiento_val = linked_w.fecha_procesamiento.isoformat() if linked_w.fecha_procesamiento else None
             motivo_rechazo_val = linked_w.motivo_rechazo
 
+            w_disps = dispersions_by_wid.get(linked_w.id, [])
+            has_yoint_val = any(
+                d.status not in ["FAILED", "REJECTED"] or d.order_id for d in w_disps
+            ) or bool(linked_w.comprobante_pago and "YOINT" in str(linked_w.comprobante_pago).upper())
+            can_cancel_val = (linked_w.estado == WithdrawalStatus.PENDING) and not has_yoint_val
+
         response.append({
             "id": f"t_{t.id}",
+            "real_id": linked_w.id if linked_w else None,
             "investor_id": None,
             "user_id": current_user.id,
             "origen": t.type,
@@ -447,6 +467,8 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             "updated_at": t.updated_at.isoformat() if t.updated_at else None,
             "saldo_anterior": None,
             "saldo_nuevo": float(t.balance_after),
+            "can_cancel": can_cancel_val,
+            "has_yoint_dispersion": has_yoint_val,
             "_sort_date": t.created_at
         })
         
@@ -464,7 +486,8 @@ async def get_my_withdrawals(current_user = Depends(get_current_user), db: Async
     """
     Get the withdrawals of the current logged-in user.
     """
-    from src.models.withdrawal import Withdrawal
+    from src.models.withdrawal import Withdrawal, WithdrawalStatus
+    from src.models.yoint_dispersion import YointDispersion
     
     w_result = await db.execute(
         select(Withdrawal)
@@ -473,11 +496,27 @@ async def get_my_withdrawals(current_user = Depends(get_current_user), db: Async
     )
     withdrawals = w_result.scalars().all()
     
+    # Pre-cargar dispersiones de Yoint para saber si los retiros tienen dispersión activa
+    w_ids = [w.id for w in withdrawals]
+    dispersions_by_wid = {}
+    if w_ids:
+        d_res = await db.execute(
+            select(YointDispersion).where(YointDispersion.withdrawal_id.in_(w_ids))
+        )
+        for d in d_res.scalars().all():
+            dispersions_by_wid.setdefault(d.withdrawal_id, []).append(d)
+
     response = []
     for w in withdrawals:
         if w.metodo_pago and w.metodo_pago.lower() == 'wallet':
             continue
             
+        w_disps = dispersions_by_wid.get(w.id, [])
+        has_active_yoint = any(
+            d.status not in ["FAILED", "REJECTED"] or d.order_id for d in w_disps
+        ) or bool(w.comprobante_pago and "YOINT" in str(w.comprobante_pago).upper())
+        can_cancel = (w.estado == WithdrawalStatus.PENDING) and not has_active_yoint
+
         response.append({
             "id": f"w_{w.id}",
             "real_id": w.id,
@@ -501,6 +540,8 @@ async def get_my_withdrawals(current_user = Depends(get_current_user), db: Async
             "fecha_procesamiento": w.fecha_procesamiento.isoformat() if w.fecha_procesamiento else None,
             "created_at": w.created_at.isoformat() if w.created_at else None,
             "updated_at": w.updated_at.isoformat() if w.updated_at else None,
+            "can_cancel": can_cancel,
+            "has_yoint_dispersion": has_active_yoint,
         })
         
     return response
@@ -528,6 +569,22 @@ async def cancel_my_withdrawal(
         
     if withdrawal.estado != WithdrawalStatus.PENDING:
         raise HTTPException(status_code=400, detail="Solo se pueden cancelar retiros en estado pendiente.")
+
+    # 1.1 Protección financiera estricta: Bloquear cancelación si la dispersión ya fue enviada a Yoint
+    from src.models.yoint_dispersion import YointDispersion
+    d_res = await db.execute(
+        select(YointDispersion).where(YointDispersion.withdrawal_id == withdrawal.id)
+    )
+    dispersions = d_res.scalars().all()
+    has_active_dispersion = any(
+        d.status not in ["FAILED", "REJECTED"] or d.order_id for d in dispersions
+    ) or bool(withdrawal.comprobante_pago and "YOINT" in str(withdrawal.comprobante_pago).upper())
+
+    if has_active_dispersion:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta solicitud de retiro ya fue despachada y se encuentra en procesamiento con la pasarela bancaria Yoint. No puede ser cancelada para evitar duplicidad de desembolsos."
+        )
         
     # 2. Fetch Wallet
     wallet_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
