@@ -8,7 +8,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 from src.core.config import settings
 from src.models.user import User
@@ -935,13 +935,34 @@ class YointService:
 
                 payin_amount = Decimal(str(payin.amount))
 
-                # Protección contra duplicidad: verificar si ya existe una transacción para este payin
-                chk_tx = await db.execute(
-                    select(WalletTransaction).where(
-                        WalletTransaction.wallet_id == wallet.id,
+                # Protección robusta contra duplicidad:
+                # 1. Por ID exacto del payin
+                # 2. Por order_id de Yoint
+                # 3. O por una recarga previa del mismo monto en la misma billetera en los últimos 5 minutos
+                tx_conditions = [
+                    and_(
                         WalletTransaction.reference_type == "yoint_payin",
                         WalletTransaction.reference_id == payin.id
                     )
+                ]
+                if payin.order_id:
+                    tx_conditions.append(
+                        and_(
+                            WalletTransaction.wallet_id == wallet.id,
+                            WalletTransaction.description.like(f"%{payin.order_id}%")
+                        )
+                    )
+                tx_conditions.append(
+                    and_(
+                        WalletTransaction.wallet_id == wallet.id,
+                        WalletTransaction.amount == payin_amount,
+                        WalletTransaction.type.in_(["wallet_recharge", "recarga"]),
+                        WalletTransaction.created_at >= datetime.utcnow() - timedelta(minutes=5)
+                    )
+                )
+
+                chk_tx = await db.execute(
+                    select(WalletTransaction).where(or_(*tx_conditions))
                 )
                 existing_tx = chk_tx.scalars().first()
 
@@ -955,12 +976,12 @@ class YointService:
                         type="wallet_recharge",
                         reference_type="yoint_payin",
                         reference_id=payin.id,
-                        description=f"Recarga en línea Yoint ({payin.payment_method})",
+                        description=f"Recarga en línea Yoint ({payin.payment_method}) - Orden {payin.order_id or payin.payment_reference}",
                         balance_after=wallet.balance
                     )
                     db.add(tx)
                 else:
-                    logger.info(f"[YointService] Transacción previa detectada para payin #{payin.id}, no se duplica saldo.")
+                    logger.info(f"[YointService] Transacción previa detectada para payin #{payin.id} (orden {payin.order_id}), no se duplica saldo.")
 
                 # Actualizar WalletRecharge asociada a approved
                 wr = None

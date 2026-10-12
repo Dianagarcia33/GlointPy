@@ -139,6 +139,7 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
   }, [activePayin, pollingStatus, isPending]);
 
   const handleStartPayment = async () => {
+    if (isProcessing) return;
     try {
       setIsProcessing(true);
       setPollingError(null);

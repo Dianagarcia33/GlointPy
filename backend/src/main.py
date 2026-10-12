@@ -593,6 +593,35 @@ async def on_startup():
             except Exception as e:
                 print(f"Aviso auto-conciliando recargas por transacciones de saldo: {e}")
 
+            # 6. Corrección automática de transacciones duplicadas de recarga Yoint (saldo acreditado doble)
+            try:
+                dup_tx_rows = await conn.execute(text("""
+                    SELECT DISTINCT t2.id AS duplicate_id, t2.wallet_id, t2.amount
+                    FROM wallet_transactions t1
+                    JOIN wallet_transactions t2 ON t1.wallet_id = t2.wallet_id 
+                        AND t1.id < t2.id
+                        AND t1.amount = t2.amount
+                        AND t1.type = 'wallet_recharge'
+                        AND t2.type = 'wallet_recharge'
+                        AND t1.description LIKE 'Recarga en línea Yoint%'
+                        AND t2.description LIKE 'Recarga en línea Yoint%'
+                        AND ABS(TIMESTAMPDIFF(MINUTE, t1.created_at, t2.created_at)) <= 10
+                """))
+                duplicates = dup_tx_rows.fetchall()
+                for dup in duplicates:
+                    dup_id = dup[0]
+                    w_id = dup[1]
+                    dup_amount = dup[2]
+                    await conn.execute(text("DELETE FROM wallet_transactions WHERE id = :id"), {"id": dup_id})
+                    await conn.execute(text("""
+                        UPDATE wallets 
+                        SET balance = balance - :amount 
+                        WHERE id = :wallet_id
+                    """), {"amount": dup_amount, "wallet_id": w_id})
+                    print(f"🧹 Corregida transacción duplicada #{dup_id}: se descontaron ${dup_amount} COP de la wallet #{w_id}")
+            except Exception as dup_err:
+                print(f"Aviso al limpiar transacciones duplicadas: {dup_err}")
+
 
         async with async_session_maker() as db:
             await seed_permissions_db(db)
