@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Resend Email Settings
     RESEND_API_KEY: Optional[str] = None
     SENDER_EMAIL: str = "soporte@gloint.com.co"
+
+    # Gemini AI Settings (Chatbot de Inversión)
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-1.5-flash"
     
     # IMAP Settings (Recepción cPanel)
     IMAP_HOST: str = "host81.latinoamericahosting.com"

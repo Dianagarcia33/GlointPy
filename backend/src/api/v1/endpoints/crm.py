@@ -73,6 +73,14 @@ class ChatbotLeadCreateSchema(BaseModel):
     preferred_contact_time: Optional[str] = None
     notes: Optional[str] = None
 
+class ChatbotHistoryItem(BaseModel):
+    role: str
+    content: str
+
+class ChatbotAIMessageSchema(BaseModel):
+    message: str
+    history: Optional[List[ChatbotHistoryItem]] = []
+
 class ExternalFormLeadSchema(BaseModel):
     name: Optional[str] = None
     nombre: Optional[str] = None
@@ -165,6 +173,25 @@ async def register_public_chatbot_lead(
     Asigna equitativamente (Round-Robin) a los Directivos de Inversión y envía notificaciones por correo.
     """
     return await CRMService.register_chatbot_lead(db, data.dict())
+
+
+@router.post("/public/chatbot-message")
+async def process_public_chatbot_message(
+    data: ChatbotAIMessageSchema,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint público para procesar mensajes de texto libre con el Concierge de Inteligencia Artificial (Gemini),
+    utilizando el archivo Markdown de conocimiento y datos en tiempo real de paquetes y plazos.
+    """
+    from src.services.gemini_service import GeminiService
+    history_dicts = [{"role": h.role, "content": h.content} for h in (data.history or [])]
+    return await GeminiService.generate_response(
+        message=data.message,
+        history=history_dicts,
+        db=db
+    )
+
 
 
 @router.post("/public/external-form")

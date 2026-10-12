@@ -203,6 +203,20 @@ export const crmService = {
     });
   },
 
+  sendChatbotAIMessage: async (
+    message: string,
+    history: Array<{ role: 'user' | 'model'; content: string }> = []
+  ): Promise<{
+    success: boolean;
+    reply: string;
+    needs_key?: boolean;
+  }> => {
+    return fetchApi('/crm/public/chatbot-message', {
+      method: 'POST',
+      body: JSON.stringify({ message, history })
+    });
+  },
+
   registerContactForm: async (data: {
     nombre: string;
     email?: string;
