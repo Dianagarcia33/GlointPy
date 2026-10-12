@@ -4,6 +4,7 @@ import { Nav } from './Nav';
 import { Footer } from './Footer';
 import { WhatsAppButton } from './WhatsAppButton';
 import { InvestmentChatbot } from './InvestmentChatbot';
+import { EventCountdownModal } from './EventCountdownModal';
 import { AnimatePresence, motion } from 'motion/react';
 
 export function LandingLayout() {
@@ -31,6 +32,9 @@ export function LandingLayout() {
 
       {/* Global Concierge Investment Chatbot */}
       <InvestmentChatbot />
+
+      {/* Modal Popup con Contador Regresivo para el Evento */}
+      <EventCountdownModal />
     </div>
   );
 }
