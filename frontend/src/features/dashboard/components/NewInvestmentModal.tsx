@@ -7,6 +7,7 @@ import { sarlaftService } from '../../../services/sarlaft';
 import { compressImage } from '../../../utils/imageCompression';
 import { useAuthStore } from '../../../store/authStore';
 import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
+import { PaymentLogosRow } from '../../../components/payments/PaymentLogos';
 
 interface NewInvestmentModalProps {
     isOpen: boolean;
@@ -263,30 +264,43 @@ export const NewInvestmentModal = ({
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <div>
-                        <h2 className="text-xl font-bold text-slate-800">
-                            {isSarlaftPending
-                                ? 'Validación de Identidad'
-                                : isSarlaftRejected
-                                ? 'Verificación de Seguridad'
-                                : step === 1 
-                                ? (isUpgrade ? 'Aumento de Capital' : 'Nueva Inversión') 
-                                : step === 2 
-                                ? 'Detalles de Pago' 
-                                : (isUpgrade ? '¡Solicitud de Aumento Registrada!' : '¡Inversión Registrada!')}
-                        </h2>
-                        <p className="text-xs text-slate-500 mt-1">
-                            {isSarlaftPending
-                                ? 'Cumplimiento normativo y validación con Tusdatos.co'
-                                : isSarlaftRejected
-                                ? 'Estado de la cuenta para solicitudes de inversión'
-                                : step === 1 
-                                ? 'Configura tu plan y descubre tu rentabilidad' 
-                                : step === 2 
-                                ? 'Adjunta tus soportes y código de referido' 
-                                : 'Tu solicitud ha sido procesada con éxito'}
-                        </p>
+                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div className="flex items-center gap-3">
+                        {step === 2 && !createRequestMutation.isPending && (
+                            <button
+                                type="button"
+                                onClick={() => setStep(1)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer group shrink-0"
+                                title="Volver al paso anterior"
+                            >
+                                <ChevronLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+                                <span>Atrás</span>
+                            </button>
+                        )}
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-800">
+                                {isSarlaftPending
+                                    ? 'Validación de Identidad'
+                                    : isSarlaftRejected
+                                    ? 'Verificación de Seguridad'
+                                    : step === 1 
+                                    ? (isUpgrade ? 'Aumento de Capital' : 'Nueva Inversión') 
+                                    : step === 2 
+                                    ? 'Detalles de Pago' 
+                                    : (isUpgrade ? '¡Solicitud de Aumento Registrada!' : '¡Inversión Registrada!')}
+                            </h2>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                {isSarlaftPending
+                                    ? 'Cumplimiento normativo y validación con Tusdatos.co'
+                                    : isSarlaftRejected
+                                    ? 'Estado de la cuenta para solicitudes de inversión'
+                                    : step === 1 
+                                    ? 'Configura tu plan y descubre tu rentabilidad' 
+                                    : step === 2 
+                                    ? 'Selecciona tu método de pago y confirma tu inversión' 
+                                    : 'Tu solicitud ha sido procesada con éxito'}
+                            </p>
+                        </div>
                     </div>
                     <button onClick={step === 3 ? handleFinalClose : onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 rounded-full transition-colors">
                         <X className="w-5 h-5" />
@@ -597,9 +611,12 @@ export const NewInvestmentModal = ({
                                                     Inmediato
                                                 </span>
                                             </div>
-                                            <p className="text-[11px] text-slate-500 leading-tight">
-                                                Nequi, Botón Bancolombia o PSE. Tu inversión se <strong>aprueba automáticamente</strong> al pagar.
-                                            </p>
+                                            <div className="flex items-center justify-between gap-2 pt-1">
+                                                <p className="text-[11px] text-slate-500 leading-tight">
+                                                    Nequi, Botón Bancolombia o PSE. Aprobación inmediata.
+                                                </p>
+                                                <PaymentLogosRow size={18} />
+                                            </div>
                                         </button>
 
                                         <button

@@ -17,6 +17,7 @@ import { createWalletRecharge } from '../../../services/wallets';
 import { GLOINT_BANK_INFO } from '../../../constants/contactInfo';
 import { useAuthStore } from '../../../store/authStore';
 import { YointPaymentWidget } from '../../../components/payments/YointPaymentWidget';
+import { PaymentLogosRow } from '../../../components/payments/PaymentLogos';
 
 interface RechargeModalProps {
     isOpen: boolean;
@@ -120,11 +121,14 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                             <ArrowDownToLine className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-black text-slate-900 tracking-tight font-montserrat">
-                                Recargar Billetera
-                            </h3>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-lg font-black text-slate-900 tracking-tight font-montserrat">
+                                    Recargar Billetera
+                                </h3>
+                                <PaymentLogosRow size={16} />
+                            </div>
                             <p className="text-xs text-slate-500 font-medium">
-                                Transfiere a la cuenta oficial y adjunta tu comprobante
+                                Recarga automática en línea o mediante consignación bancaria
                             </p>
                         </div>
                     </div>

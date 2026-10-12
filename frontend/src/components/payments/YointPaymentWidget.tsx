@@ -9,10 +9,12 @@ import {
   RefreshCw,
   ShieldCheck,
   Building2,
-  Clock
+  Clock,
+  ChevronLeft
 } from 'lucide-react';
 import { yointService, YointBank, InitPayinResponse, PayinStatusResponse } from '../../services/yoint';
 import { formatCurrency } from '../../utils/format';
+import { NequiLogo, BancolombiaLogo, PseLogo } from './PaymentLogos';
 
 interface YointPaymentWidgetProps {
   amount: number;
@@ -182,11 +184,41 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
   if (activePayin) {
     return (
       <div className="p-6 bg-slate-50 border border-slate-200 rounded-3xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+        {/* Barra superior con botón Atrás */}
+        {isPending && (
+          <div className="flex items-center justify-between border-b border-slate-200/70 pb-3">
+            <button
+              type="button"
+              onClick={() => {
+                setActivePayin(null);
+                setPollingStatus('PENDING');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer group"
+              title="Volver a seleccionar método de pago"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Atrás</span>
+            </button>
+            <span className="text-[11px] font-mono font-medium text-slate-400">
+              Orden #{activePayin.order_id || activePayin.payin_id}
+            </span>
+          </div>
+        )}
+
         {isPending && (
           <div className="text-center space-y-4">
             <div className="relative inline-flex items-center justify-center">
-              <div className="w-16 h-16 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600 shadow-sm">
-                <Loader2 className="w-8 h-8 animate-spin" />
+              <div className="relative p-1">
+                {method === 'NEQUI' ? (
+                  <NequiLogo className="w-16 h-16 rounded-2xl shadow-md" size={64} />
+                ) : method === 'BOTON_BANCOLOMBIA' ? (
+                  <BancolombiaLogo className="w-16 h-16 rounded-2xl shadow-md" size={64} />
+                ) : (
+                  <PseLogo className="w-16 h-16 rounded-2xl shadow-md" size={64} />
+                )}
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center border border-slate-200">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
+                </div>
               </div>
             </div>
 
@@ -261,9 +293,10 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
                 setActivePayin(null);
                 setPollingStatus('PENDING');
               }}
-              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5"
             >
-              Intentar Nuevamente
+              <ChevronLeft className="w-4 h-4" />
+              <span>Intentar Nuevamente</span>
             </button>
           </div>
         )}
@@ -285,24 +318,22 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
           <button
             type="button"
             onClick={() => setMethod('NEQUI')}
-            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
               method === 'NEQUI'
-                ? 'border-purple-600 bg-purple-50/50 shadow-xs'
+                ? 'border-purple-600 bg-purple-50/50 ring-2 ring-purple-600/15 shadow-xs'
                 : 'border-slate-200 hover:border-slate-300 bg-white'
             }`}
           >
             <div className="flex items-center justify-between w-full">
-              <span className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-xs">
-                🟣
-              </span>
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+              <NequiLogo className="w-8 h-8 rounded-xl shadow-xs" size={32} />
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                 method === 'NEQUI' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500'
               }`}>
                 Push App
               </span>
             </div>
             <div>
-              <div className="font-extrabold text-xs text-slate-800">Nequi</div>
+              <div className="font-extrabold text-sm text-slate-800">Nequi</div>
               <div className="text-[10px] text-slate-400">Débito directo al celular</div>
             </div>
           </button>
@@ -311,24 +342,22 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
           <button
             type="button"
             onClick={() => setMethod('BOTON_BANCOLOMBIA')}
-            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
               method === 'BOTON_BANCOLOMBIA'
-                ? 'border-amber-500 bg-amber-50/50 shadow-xs'
+                ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/15 shadow-xs'
                 : 'border-slate-200 hover:border-slate-300 bg-white'
             }`}
           >
             <div className="flex items-center justify-between w-full">
-              <span className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-800 font-bold text-xs">
-                🟡
-              </span>
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+              <BancolombiaLogo className="w-8 h-8 rounded-xl shadow-xs" size={32} />
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                 method === 'BOTON_BANCOLOMBIA' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-500'
               }`}>
                 Bancolombia
               </span>
             </div>
             <div>
-              <div className="font-extrabold text-xs text-slate-800">Botón Bancolombia</div>
+              <div className="font-extrabold text-sm text-slate-800">Botón Bancolombia</div>
               <div className="text-[10px] text-slate-400">Transferencia oficial rápida</div>
             </div>
           </button>
@@ -337,24 +366,22 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
           <button
             type="button"
             onClick={() => setMethod('PSE')}
-            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+            className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
               method === 'PSE'
-                ? 'border-blue-600 bg-blue-50/50 shadow-xs'
+                ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/15 shadow-xs'
                 : 'border-slate-200 hover:border-slate-300 bg-white'
             }`}
           >
             <div className="flex items-center justify-between w-full">
-              <span className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
-                🔵
-              </span>
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${
+              <PseLogo className="w-8 h-8 rounded-xl shadow-xs" size={32} />
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
                 method === 'PSE' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
               }`}>
                 Cualquier Banco
               </span>
             </div>
             <div>
-              <div className="font-extrabold text-xs text-slate-800">PSE</div>
+              <div className="font-extrabold text-sm text-slate-800">PSE</div>
               <div className="text-[10px] text-slate-400">Débito ACH bancario</div>
             </div>
           </button>
@@ -365,8 +392,8 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
       <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 space-y-3">
         {method === 'NEQUI' && (
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-              <Smartphone className="w-3.5 h-3.5 text-purple-600" />
+            <label className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <NequiLogo className="w-4 h-4 rounded-md" size={18} />
               <span>Número de Teléfono Nequi</span>
             </label>
             <div className="relative">
@@ -389,12 +416,12 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
         )}
 
         {method === 'BOTON_BANCOLOMBIA' && (
-          <div className="flex items-start gap-2.5 text-xs text-slate-600">
-            <Landmark className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 text-xs text-slate-600">
+            <BancolombiaLogo className="w-7 h-7 rounded-xl shrink-0 mt-0.5" size={28} />
             <div>
-              <span className="font-bold text-slate-800 block">Redirección a Botón Bancolombia</span>
-              <span className="text-[11px] text-slate-500">
-                Se abrirá la pasarela segura oficial de Bancolombia para validar tu clave dinámica y completar la transacción por <strong>{formatCurrency(amount)}</strong>.
+              <span className="font-bold text-slate-800 block text-sm">Redirección a Botón Bancolombia</span>
+              <span className="text-[11px] text-slate-500 leading-relaxed block mt-0.5">
+                Se abrirá la pasarela segura oficial de Bancolombia para validar tu clave dinámica y completar la transacción por <strong className="text-slate-800 font-mono">{formatCurrency(amount)}</strong>.
               </span>
             </div>
           </div>
@@ -402,8 +429,8 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
 
         {method === 'PSE' && (
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-blue-600" />
+            <label className="text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <PseLogo className="w-4 h-4 rounded-md" size={18} />
               <span>Selecciona tu Banco</span>
             </label>
             {loadingBanks ? (
@@ -438,12 +465,12 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
         </div>
       )}
 
-      {/* Botón de Pago Principal con diseño estándar de Gloint */}
+      {/* Botón de Pago Principal con diseño estándar de Gloint y logo */}
       <button
         type="button"
         disabled={isProcessing || isSubmittingParent || (method === 'NEQUI' && phone.length < 10)}
         onClick={handleStartPayment}
-        className="w-full py-3 px-6 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+        className="w-full py-3.5 px-6 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2.5 cursor-pointer font-montserrat"
       >
         {isProcessing ? (
           <>
@@ -451,7 +478,12 @@ export const YointPaymentWidget: React.FC<YointPaymentWidgetProps> = ({
             <span>Conectando con la pasarela segura...</span>
           </>
         ) : (
-          <span>{submitButtonText} ({formatCurrency(amount)})</span>
+          <>
+            {method === 'NEQUI' && <NequiLogo className="w-5 h-5 rounded-md shrink-0" size={20} />}
+            {method === 'BOTON_BANCOLOMBIA' && <BancolombiaLogo className="w-5 h-5 rounded-md shrink-0" size={20} />}
+            {method === 'PSE' && <PseLogo className="w-5 h-5 rounded-md shrink-0" size={20} />}
+            <span>{submitButtonText} ({formatCurrency(amount)})</span>
+          </>
         )}
       </button>
     </div>
