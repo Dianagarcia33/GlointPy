@@ -2,6 +2,7 @@ import os
 import logging
 from typing import List, Dict, Optional, Any
 import httpx
+from dotenv import dotenv_values
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -169,7 +170,11 @@ class GeminiService:
         Si la clave es 'test', 'demo' o si la API de Google reporta problemas de cuota o saldo, 
         conmuta automáticamente al simulador inteligente para garantizar pruebas continuas.
         """
-        api_key = (settings.GEMINI_API_KEY or "").strip()
+        # Cargar credenciales dinámicamente de .env para aplicar cambios al instante sin reiniciar
+        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+        env_dict = dotenv_values(env_path) if os.path.exists(env_path) else {}
+        api_key = (env_dict.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or settings.GEMINI_API_KEY or "").strip()
+        model = (env_dict.get("GEMINI_MODEL") or os.getenv("GEMINI_MODEL") or settings.GEMINI_MODEL or "gemini-1.5-flash").strip()
 
         # Si el usuario configuró 'test' o 'demo' para probar sin gastar créditos
         if api_key.lower() in ["test", "demo", "simulacion", "mock", "sandbox"]:
@@ -181,7 +186,6 @@ class GeminiService:
 
         # Si no hay key configurada
         if not api_key:
-            # En lugar de bloquear la prueba, damos una respuesta contextual simulada
             simulated_reply = await cls._simulate_response(message, db)
             return {
                 "success": True,
@@ -189,7 +193,6 @@ class GeminiService:
                 "is_simulated": True
             }
 
-        model = (settings.GEMINI_MODEL or "gemini-1.5-flash").strip()
         system_instruction = await cls._build_system_instruction(db)
 
         # Preparar historial en el formato de Gemini (alternando user y model)
