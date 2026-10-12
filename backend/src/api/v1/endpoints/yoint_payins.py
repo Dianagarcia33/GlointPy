@@ -127,6 +127,12 @@ async def init_payin(
     if not result.get("success"):
         raise HTTPException(status_code=502, detail=result.get("error", "Error iniciando pago con la pasarela Yoint"))
 
+    # Actualizar la recarga preliminar con el order_id asignado por Yoint
+    if recharge and result.get("order_id"):
+        recharge.reference_number = str(result["order_id"])
+        db.add(recharge)
+        await db.commit()
+
     return result
 
 @router.get("/{payin_id}/status")

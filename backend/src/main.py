@@ -517,6 +517,83 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Auto-conciliación retroactiva de recargas en 'pending' procesadas por Yoint o con saldo acreditado
+            try:
+                # 1. Por relación directa wallet_recharge_id en yoint_payins con estado SUCCESS
+                await conn.execute(text("""
+                    UPDATE wallet_recharges wr
+                    JOIN yoint_payins yp ON wr.id = yp.wallet_recharge_id
+                    SET wr.status = 'approved',
+                        wr.reviewed_at = COALESCE(yp.updated_at, CURRENT_TIMESTAMP),
+                        wr.reference_number = COALESCE(yp.order_id, yp.payment_reference, wr.reference_number),
+                        wr.admin_notes = CONCAT('Aprobada automáticamente por pasarela Yoint (', COALESCE(yp.order_id, yp.payment_reference, ''), ')')
+                    WHERE wr.status = 'pending' AND yp.status = 'SUCCESS'
+                """))
+            except Exception as e:
+                print(f"Aviso auto-conciliando recargas por ID: {e}")
+
+            try:
+                # 2. Por coincidencia de order_id o payment_reference
+                await conn.execute(text("""
+                    UPDATE wallet_recharges wr
+                    JOIN yoint_payins yp ON (wr.reference_number = yp.order_id OR wr.reference_number = yp.payment_reference)
+                    SET wr.status = 'approved',
+                        wr.reviewed_at = COALESCE(yp.updated_at, CURRENT_TIMESTAMP),
+                        wr.admin_notes = CONCAT('Aprobada automáticamente por pasarela Yoint (', COALESCE(yp.order_id, yp.payment_reference, ''), ')')
+                    WHERE wr.status = 'pending' AND yp.status = 'SUCCESS'
+                """))
+            except Exception as e:
+                print(f"Aviso auto-conciliando recargas por referencia: {e}")
+
+            try:
+                # 3. Por vinculación de usuario, monto y cercanía temporal con un payin exitoso
+                await conn.execute(text("""
+                    UPDATE wallet_recharges wr
+                    JOIN yoint_payins yp ON wr.user_id = yp.user_id 
+                        AND wr.amount = yp.amount 
+                        AND yp.payin_type = 'WALLET_TOPUP'
+                        AND yp.status = 'SUCCESS'
+                        AND ABS(TIMESTAMPDIFF(MINUTE, wr.created_at, yp.created_at)) <= 180
+                    SET wr.status = 'approved',
+                        wr.reviewed_at = COALESCE(yp.updated_at, CURRENT_TIMESTAMP),
+                        wr.reference_number = COALESCE(yp.order_id, yp.payment_reference, wr.reference_number),
+                        wr.admin_notes = CONCAT('Aprobada automáticamente por pasarela Yoint (', COALESCE(yp.order_id, yp.payment_reference, ''), ')')
+                    WHERE wr.status = 'pending'
+                """))
+            except Exception as e:
+                print(f"Aviso auto-conciliando recargas por monto y usuario: {e}")
+
+            try:
+                # 4. Vincular wallet_recharge_id en yoint_payins si quedó NULL
+                await conn.execute(text("""
+                    UPDATE yoint_payins yp
+                    JOIN wallet_recharges wr ON wr.user_id = yp.user_id 
+                        AND wr.amount = yp.amount 
+                        AND yp.payin_type = 'WALLET_TOPUP'
+                        AND ABS(TIMESTAMPDIFF(MINUTE, wr.created_at, yp.created_at)) <= 180
+                    SET yp.wallet_recharge_id = wr.id
+                    WHERE yp.wallet_recharge_id IS NULL
+                """))
+            except Exception as e:
+                print(f"Aviso vinculando wallet_recharge_id en yoint_payins: {e}")
+
+            try:
+                # 5. Por transacción de saldo existente (tipo wallet_recharge o recarga con mismo monto y wallet dentro de 120 mins)
+                await conn.execute(text("""
+                    UPDATE wallet_recharges wr
+                    JOIN wallet_transactions wt ON wt.wallet_id = wr.wallet_id 
+                        AND wt.amount = wr.amount 
+                        AND wt.type IN ('wallet_recharge', 'recarga', 'recharge')
+                        AND ABS(TIMESTAMPDIFF(MINUTE, wr.created_at, wt.created_at)) <= 120
+                    SET wr.status = 'approved',
+                        wr.reviewed_at = wt.created_at,
+                        wr.admin_notes = 'Aprobada automáticamente (Saldo acreditado en billetera)'
+                    WHERE wr.status = 'pending'
+                """))
+            except Exception as e:
+                print(f"Aviso auto-conciliando recargas por transacciones de saldo: {e}")
+
+
         async with async_session_maker() as db:
             await seed_permissions_db(db)
             try:

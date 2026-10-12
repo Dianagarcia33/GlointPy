@@ -434,14 +434,81 @@ async def get_accounting_analytics_dashboard(
         for r in pending_investments
     ]
 
-    # 2. Recargas de Billetera Pendientes
+    # 2. Recargas de Billetera Pendientes (auto-sanando aquellas que ya fueron procesadas por Yoint o ya acreditaron saldo)
+    from src.models.yoint_payin import YointPayin
+    from src.models.wallet import WalletTransaction
+    from sqlalchemy import or_, and_
+
     recharges_res = await db.execute(
         select(WalletRecharge)
         .options(selectinload(WalletRecharge.user))
         .where(WalletRecharge.status == "pending")
         .order_by(WalletRecharge.created_at.desc())
     )
-    pending_recharges = recharges_res.scalars().all()
+    raw_pending_recharges = recharges_res.scalars().all()
+    pending_recharges = []
+    has_analytics_healed = False
+
+    for r in raw_pending_recharges:
+        # Verificar si tiene payin SUCCESS
+        p_res = await db.execute(
+            select(YointPayin).where(
+                or_(
+                    YointPayin.wallet_recharge_id == r.id,
+                    and_(
+                        YointPayin.user_id == r.user_id,
+                        YointPayin.status == "SUCCESS",
+                        or_(
+                            YointPayin.order_id == r.reference_number,
+                            YointPayin.payment_reference == r.reference_number,
+                            and_(
+                                YointPayin.amount == r.amount,
+                                YointPayin.payin_type == "WALLET_TOPUP"
+                            )
+                        )
+                    )
+                )
+            ).order_by(YointPayin.id.desc())
+        )
+        matched_p = p_res.scalars().first()
+        if matched_p and matched_p.status == "SUCCESS":
+            r.status = "approved"
+            r.reviewed_at = matched_p.updated_at or datetime.utcnow()
+            r.reference_number = matched_p.order_id or matched_p.payment_reference or r.reference_number
+            r.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({matched_p.order_id or matched_p.payment_reference})"
+            if not matched_p.wallet_recharge_id:
+                matched_p.wallet_recharge_id = r.id
+                db.add(matched_p)
+            db.add(r)
+            has_analytics_healed = True
+            continue
+
+        # Verificar si ya existe transacción de saldo
+        tx_res = await db.execute(
+            select(WalletTransaction).where(
+                WalletTransaction.wallet_id == r.wallet_id,
+                WalletTransaction.amount == r.amount,
+                WalletTransaction.type.in_(["wallet_recharge", "recarga", "recharge"]),
+                WalletTransaction.created_at >= r.created_at
+            )
+        )
+        matched_tx = tx_res.scalars().first()
+        if matched_tx:
+            r.status = "approved"
+            r.reviewed_at = matched_tx.created_at or datetime.utcnow()
+            r.admin_notes = "Aprobada automáticamente (Saldo acreditado en billetera)"
+            db.add(r)
+            has_analytics_healed = True
+            continue
+
+        pending_recharges.append(r)
+
+    if has_analytics_healed:
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+
     pending_recharges_count = len(pending_recharges)
     pending_recharges_amount = sum(float(r.amount or 0) for r in pending_recharges)
 

@@ -873,12 +873,14 @@ class YointService:
                     )
                     if chk_res.scalar_one_or_none() == InvestmentRequestStatus.approved:
                         return True
-                elif payin.payin_type == "WALLET_TOPUP" and payin.wallet_recharge_id:
-                    chk_wr = await db.execute(
-                        select(WalletRecharge.status).where(WalletRecharge.id == payin.wallet_recharge_id)
-                    )
-                    if chk_wr.scalar_one_or_none() == "approved":
-                        return True
+                elif payin.payin_type == "WALLET_TOPUP":
+                    if payin.wallet_recharge_id:
+                        chk_wr = await db.execute(
+                            select(WalletRecharge.status).where(WalletRecharge.id == payin.wallet_recharge_id)
+                        )
+                        if chk_wr.scalar_one_or_none() == "approved":
+                            return True
+                    # Si no tiene wallet_recharge_id o aún no está aprobada, continuar el flujo para conciliarla
                 else:
                     return True
 
@@ -932,29 +934,82 @@ class YointService:
                     await db.flush()
 
                 payin_amount = Decimal(str(payin.amount))
-                wallet.balance = Decimal(str(wallet.balance)) + payin_amount
 
-                # Transacción en wallet
-                tx = WalletTransaction(
-                    wallet_id=wallet.id,
-                    amount=payin_amount,
-                    type="wallet_recharge",
-                    reference_type="yoint_payin",
-                    reference_id=payin.id,
-                    description=f"Recarga en línea Yoint ({payin.payment_method})",
-                    balance_after=wallet.balance
+                # Protección contra duplicidad: verificar si ya existe una transacción para este payin
+                chk_tx = await db.execute(
+                    select(WalletTransaction).where(
+                        WalletTransaction.wallet_id == wallet.id,
+                        WalletTransaction.reference_type == "yoint_payin",
+                        WalletTransaction.reference_id == payin.id
+                    )
                 )
-                db.add(tx)
+                existing_tx = chk_tx.scalars().first()
 
-                # Si existía WalletRecharge asociada, actualizarla a approved
+                if not existing_tx:
+                    wallet.balance = Decimal(str(wallet.balance)) + payin_amount
+
+                    # Transacción en wallet
+                    tx = WalletTransaction(
+                        wallet_id=wallet.id,
+                        amount=payin_amount,
+                        type="wallet_recharge",
+                        reference_type="yoint_payin",
+                        reference_id=payin.id,
+                        description=f"Recarga en línea Yoint ({payin.payment_method})",
+                        balance_after=wallet.balance
+                    )
+                    db.add(tx)
+                else:
+                    logger.info(f"[YointService] Transacción previa detectada para payin #{payin.id}, no se duplica saldo.")
+
+                # Actualizar WalletRecharge asociada a approved
+                wr = None
                 if payin.wallet_recharge_id:
                     wr_res = await db.execute(select(WalletRecharge).where(WalletRecharge.id == payin.wallet_recharge_id))
                     wr = wr_res.scalars().first()
-                    if wr and wr.status == "pending":
-                        wr.status = "approved"
-                        wr.reviewed_at = datetime.utcnow()
-                        wr.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({payin.order_id})"
-                        db.add(wr)
+
+                # Fallback: buscar recarga pendiente del usuario por monto idéntico
+                if not wr:
+                    wr_res2 = await db.execute(
+                        select(WalletRecharge)
+                        .where(
+                            WalletRecharge.user_id == payin.user_id,
+                            WalletRecharge.status == "pending",
+                            WalletRecharge.amount == payin_amount
+                        )
+                        .order_by(WalletRecharge.id.desc())
+                    )
+                    wr = wr_res2.scalars().first()
+                    if wr:
+                        payin.wallet_recharge_id = wr.id
+
+                # Fallback por orden o referencia
+                if not wr and payin.order_id:
+                    wr_res3 = await db.execute(
+                        select(WalletRecharge)
+                        .where(
+                            WalletRecharge.user_id == payin.user_id,
+                            WalletRecharge.status == "pending",
+                            or_(
+                                WalletRecharge.reference_number == payin.order_id,
+                                WalletRecharge.reference_number == payin.payment_reference,
+                                WalletRecharge.reference_number == "EN_PROCESO_YOINT"
+                            )
+                        )
+                        .order_by(WalletRecharge.id.desc())
+                    )
+                    wr = wr_res3.scalars().first()
+                    if wr:
+                        payin.wallet_recharge_id = wr.id
+
+                if wr and wr.status == "pending":
+                    wr.status = "approved"
+                    wr.reviewed_at = datetime.utcnow()
+                    wr.reference_number = payin.order_id or payin.payment_reference or wr.reference_number
+                    wr.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({payin.order_id or payin.payment_reference})"
+                    db.add(wr)
+                    db.add(payin)
+                    logger.info(f"✅ [YointService] WalletRecharge #{wr.id} actualizada a APPROVED para usuario #{payin.user_id}")
 
                 # Notificación al usuario
                 try:

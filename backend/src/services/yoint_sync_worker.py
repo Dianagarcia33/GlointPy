@@ -1,7 +1,8 @@
 import asyncio
 import logging
+from datetime import datetime
 from sqlalchemy.future import select
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 from src.core.database import async_session_maker
 from src.core.config import settings
@@ -157,6 +158,70 @@ async def background_yoint_sync_worker():
                                     await asyncio.sleep(1)
                                 except Exception as rec_err:
                                     logger.error(f"[YointSyncWorker] Error auto-acreditando recarga #{p.wallet_recharge_id}: {rec_err}")
+
+                        # E. Auto-sanar recargas pendientes huérfanas que ya fueron procesadas por Yoint o ya acreditaron saldo
+                        q_orphan_recharges = (
+                            select(WalletRecharge)
+                            .where(WalletRecharge.status == "pending")
+                            .order_by(WalletRecharge.id.asc())
+                            .limit(20)
+                        )
+                        res_orphan = await db.execute(q_orphan_recharges)
+                        orphan_recharges = res_orphan.scalars().all()
+                        for wr in orphan_recharges:
+                            try:
+                                # 1. Coincidencia con payin SUCCESS
+                                payin_match_q = select(YointPayin).where(
+                                    or_(
+                                        YointPayin.wallet_recharge_id == wr.id,
+                                        and_(
+                                            YointPayin.user_id == wr.user_id,
+                                            YointPayin.status == "SUCCESS",
+                                            or_(
+                                                YointPayin.order_id == wr.reference_number,
+                                                YointPayin.payment_reference == wr.reference_number,
+                                                and_(
+                                                    YointPayin.amount == wr.amount,
+                                                    YointPayin.payin_type == "WALLET_TOPUP"
+                                                )
+                                            )
+                                        )
+                                    )
+                                ).order_by(YointPayin.id.desc())
+                                res_pm = await db.execute(payin_match_q)
+                                pm = res_pm.scalars().first()
+                                if pm and pm.status == "SUCCESS":
+                                    wr.status = "approved"
+                                    wr.reviewed_at = pm.updated_at or datetime.utcnow()
+                                    wr.reference_number = pm.order_id or pm.payment_reference or wr.reference_number
+                                    wr.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({pm.order_id or pm.payment_reference})"
+                                    if not pm.wallet_recharge_id:
+                                        pm.wallet_recharge_id = wr.id
+                                        db.add(pm)
+                                    db.add(wr)
+                                    await db.commit()
+                                    logger.info(f"[YointSyncWorker] Recarga #{wr.id} auto-aprobada por payin exitoso #{pm.id}.")
+                                    continue
+
+                                # 2. Coincidencia con transacción de billetera ya acreditada
+                                from src.models.wallet import WalletTransaction
+                                tx_match_q = select(WalletTransaction).where(
+                                    WalletTransaction.wallet_id == wr.wallet_id,
+                                    WalletTransaction.amount == wr.amount,
+                                    WalletTransaction.type.in_(["wallet_recharge", "recarga", "recharge"]),
+                                    WalletTransaction.created_at >= wr.created_at
+                                ).order_by(WalletTransaction.id.desc())
+                                res_tx = await db.execute(tx_match_q)
+                                tx_m = res_tx.scalars().first()
+                                if tx_m:
+                                    wr.status = "approved"
+                                    wr.reviewed_at = tx_m.created_at or datetime.utcnow()
+                                    wr.admin_notes = "Aprobada automáticamente (Saldo acreditado en billetera)"
+                                    db.add(wr)
+                                    await db.commit()
+                                    logger.info(f"[YointSyncWorker] Recarga #{wr.id} auto-aprobada por transacción #{tx_m.id} existente.")
+                            except Exception as wr_heal_err:
+                                logger.warning(f"[YointSyncWorker] Error auto-sanando recarga #{wr.id}: {wr_heal_err}")
 
         except asyncio.CancelledError:
             logger.info("[YointSyncWorker] Deteniendo worker de conciliación Yoint.")

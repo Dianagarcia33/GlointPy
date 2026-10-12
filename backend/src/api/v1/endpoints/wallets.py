@@ -1068,6 +1068,10 @@ async def get_my_recharges(
     Obtiene el historial de solicitudes de recarga del inversionista autenticado.
     """
     from src.models.wallet_recharge import WalletRecharge
+    from src.models.yoint_payin import YointPayin
+    from src.models.wallet import Wallet, WalletTransaction
+    from datetime import datetime
+    from sqlalchemy import or_
 
     stmt = (
         select(WalletRecharge)
@@ -1076,6 +1080,64 @@ async def get_my_recharges(
     )
     res = await db.execute(stmt)
     recharges = res.scalars().all()
+
+    # Auto-conciliación en tiempo real: Si una recarga está pendiente pero ya se acreditó o procesó en Yoint, marcarla como approved
+    has_healed = False
+    for r in recharges:
+        if r.status == "pending":
+            # 1. Buscar si tiene YointPayin exitoso asociado
+            p_res = await db.execute(
+                select(YointPayin).where(
+                    YointPayin.wallet_recharge_id == r.id,
+                    YointPayin.status == "SUCCESS"
+                )
+            )
+            payin = p_res.scalars().first()
+
+            # 2. Buscar por coincidencia de reference_number
+            if not payin and r.reference_number and r.reference_number != "EN_PROCESO_YOINT":
+                p_res2 = await db.execute(
+                    select(YointPayin).where(
+                        YointPayin.user_id == current_user.id,
+                        YointPayin.status == "SUCCESS",
+                        or_(
+                            YointPayin.order_id == r.reference_number,
+                            YointPayin.payment_reference == r.reference_number
+                        )
+                    )
+                )
+                payin = p_res2.scalars().first()
+
+            # 3. Buscar si ya existe una transacción de ingreso de recarga para ese monto en la billetera
+            linked_tx = None
+            if not payin:
+                tx_res = await db.execute(
+                    select(WalletTransaction)
+                    .join(Wallet, WalletTransaction.wallet_id == Wallet.id)
+                    .where(
+                        Wallet.user_id == current_user.id,
+                        WalletTransaction.amount == r.amount,
+                        WalletTransaction.type.in_(["wallet_recharge", "recharge", "recarga"]),
+                        WalletTransaction.created_at >= r.created_at
+                    )
+                )
+                linked_tx = tx_res.scalars().first()
+
+            if payin or linked_tx:
+                r.status = "approved"
+                r.reviewed_at = (payin.updated_at if payin else (linked_tx.created_at if linked_tx else None)) or datetime.utcnow()
+                r.admin_notes = f"Aprobada y sincronizada automáticamente con la pasarela Yoint ({payin.order_id if payin else 'Saldo acreditado'})"
+                if payin and payin.order_id:
+                    r.reference_number = payin.order_id
+                db.add(r)
+                has_healed = True
+
+    if has_healed:
+        try:
+            await db.commit()
+        except Exception as heal_err:
+            await db.rollback()
+            logger.warning(f"Aviso al auto-conciliar recargas en get_my_recharges: {heal_err}")
 
     return [
         {
@@ -1141,6 +1203,74 @@ async def get_all_recharges_admin(
     """
     from sqlalchemy.orm import selectinload
     from src.models.wallet_recharge import WalletRecharge
+    from src.models.yoint_payin import YointPayin
+    from src.models.wallet import WalletTransaction
+    from datetime import datetime
+    from sqlalchemy import or_, and_
+
+    # Auto-conciliación de recargas en pending antes de listar
+    try:
+        pending_recharges_q = select(WalletRecharge).where(WalletRecharge.status == "pending")
+        res_pending = await db.execute(pending_recharges_q)
+        pending_to_heal = res_pending.scalars().all()
+        has_admin_healed = False
+
+        for pr in pending_to_heal:
+            # 1. Buscar payin SUCCESS coincidente
+            p_res = await db.execute(
+                select(YointPayin).where(
+                    or_(
+                        YointPayin.wallet_recharge_id == pr.id,
+                        and_(
+                            YointPayin.user_id == pr.user_id,
+                            YointPayin.status == "SUCCESS",
+                            or_(
+                                YointPayin.order_id == pr.reference_number,
+                                YointPayin.payment_reference == pr.reference_number,
+                                and_(
+                                    YointPayin.amount == pr.amount,
+                                    YointPayin.payin_type == "WALLET_TOPUP"
+                                )
+                            )
+                        )
+                    )
+                ).order_by(YointPayin.id.desc())
+            )
+            matched_payin = p_res.scalars().first()
+            if matched_payin and matched_payin.status == "SUCCESS":
+                pr.status = "approved"
+                pr.reviewed_at = matched_payin.updated_at or datetime.utcnow()
+                pr.reference_number = matched_payin.order_id or matched_payin.payment_reference or pr.reference_number
+                pr.admin_notes = f"Aprobada automáticamente por pasarela Yoint ({matched_payin.order_id or matched_payin.payment_reference})"
+                if not matched_payin.wallet_recharge_id:
+                    matched_payin.wallet_recharge_id = pr.id
+                    db.add(matched_payin)
+                db.add(pr)
+                has_admin_healed = True
+                continue
+
+            # 2. Buscar si ya existe transacción de saldo
+            tx_res = await db.execute(
+                select(WalletTransaction).where(
+                    WalletTransaction.wallet_id == pr.wallet_id,
+                    WalletTransaction.amount == pr.amount,
+                    WalletTransaction.type.in_(["wallet_recharge", "recarga", "recharge"]),
+                    WalletTransaction.created_at >= pr.created_at
+                )
+            )
+            matched_tx = tx_res.scalars().first()
+            if matched_tx:
+                pr.status = "approved"
+                pr.reviewed_at = matched_tx.created_at or datetime.utcnow()
+                pr.admin_notes = "Aprobada automáticamente (Saldo acreditado en billetera)"
+                db.add(pr)
+                has_admin_healed = True
+
+        if has_admin_healed:
+            await db.commit()
+    except Exception as heal_err:
+        await db.rollback()
+        logger.warning(f"Aviso al auto-conciliar en get_admin_recharges: {heal_err}")
 
     stmt = (
         select(WalletRecharge)
@@ -1242,22 +1372,44 @@ async def approve_wallet_recharge_admin(
         db.add(wallet)
         await db.flush()
 
-    # Acreditar saldo en la billetera
+    # Acreditar saldo en la billetera protegiendo contra duplicidad si Yoint ya la acreditó
     recharge_amount = Decimal(str(recharge.amount))
-    wallet.balance = Decimal(str(wallet.balance)) + recharge_amount
-
-    # Crear la transacción de ingreso en wallet_transactions
-    notes_detail = f" - {payload.admin_notes.strip()}" if payload and payload.admin_notes else ""
-    tx = WalletTransaction(
-        wallet_id=wallet.id,
-        amount=recharge_amount,
-        type="wallet_recharge",
-        reference_type="wallet_recharge",
-        reference_id=recharge.id,
-        description=f"Recarga de saldo aprobada ({recharge.payment_method}){notes_detail}",
-        balance_after=wallet.balance
+    
+    chk_existing_tx = await db.execute(
+        select(WalletTransaction).where(
+            WalletTransaction.wallet_id == wallet.id,
+            WalletTransaction.amount == recharge_amount,
+            or_(
+                and_(
+                    WalletTransaction.reference_type == "wallet_recharge",
+                    WalletTransaction.reference_id == recharge.id
+                ),
+                and_(
+                    WalletTransaction.type.in_(["wallet_recharge", "recarga", "recharge"]),
+                    WalletTransaction.created_at >= recharge.created_at
+                )
+            )
+        )
     )
-    db.add(tx)
+    existing_tx = chk_existing_tx.scalars().first()
+
+    if not existing_tx:
+        wallet.balance = Decimal(str(wallet.balance)) + recharge_amount
+
+        # Crear la transacción de ingreso en wallet_transactions
+        notes_detail = f" - {payload.admin_notes.strip()}" if payload and payload.admin_notes else ""
+        tx = WalletTransaction(
+            wallet_id=wallet.id,
+            amount=recharge_amount,
+            type="wallet_recharge",
+            reference_type="wallet_recharge",
+            reference_id=recharge.id,
+            description=f"Recarga de saldo aprobada ({recharge.payment_method}){notes_detail}",
+            balance_after=wallet.balance
+        )
+        db.add(tx)
+    else:
+        logger.info(f"Saldo ya acreditado previamente en transacción #{existing_tx.id} para recarga #{recharge.id}, no se duplica saldo.")
 
     # Actualizar estado de la recarga
     recharge.status = "approved"
