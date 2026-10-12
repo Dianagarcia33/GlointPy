@@ -23,6 +23,7 @@ import {
   AttendeeData 
 } from '../../../services/events';
 import { useColombiaCities } from '../../../hooks/useColombiaCities';
+import { GoogleAutofillButton, GoogleUserData } from '../../../components/common/GoogleAutofillButton';
 
 interface PublicEventRsvpModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
   onSuccess
 }) => {
   const [eventData, setEventData] = useState<EventData | null>(null);
+  const [googleUser, setGoogleUser] = useState<GoogleUserData | null>(null);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -245,16 +247,39 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
               </div>
             )}
 
+            {/* Autocompletar con Google */}
+            <div className="pb-1">
+              <GoogleAutofillButton
+                onAutofill={(user) => {
+                  setGoogleUser(user);
+                  if (user.name) setFullName(user.name);
+                  if (user.email) setEmail(user.email);
+                }}
+                autofilledUser={googleUser}
+                onClear={() => setGoogleUser(null)}
+              />
+            </div>
+
+            <div className="relative flex items-center justify-center my-1">
+              <div className="w-full border-t border-slate-200" />
+              <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider absolute">
+                O diligencia tus datos
+              </span>
+            </div>
+
             {/* Datos Personales */}
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
+                <label htmlFor="modal_fullname" className="text-xs font-bold text-slate-700 block mb-1">
                   Nombre Completo <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
+                    id="modal_fullname"
+                    name="name"
+                    autoComplete="name"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -266,13 +291,16 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <label htmlFor="modal_email" className="text-xs font-bold text-slate-700 block mb-1">
                     Correo Electrónico <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="email"
+                      id="modal_email"
+                      name="email"
+                      autoComplete="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -283,13 +311,16 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <label htmlFor="modal_phone" className="text-xs font-bold text-slate-700 block mb-1">
                     Teléfono / WhatsApp
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="tel"
+                      id="modal_phone"
+                      name="tel"
+                      autoComplete="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="Ej. 3001234567"
@@ -311,6 +342,9 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       <MapPin className="h-4 w-4 text-slate-400" />
                     </div>
                     <select
+                      id="modal_department"
+                      name="address-level1"
+                      autoComplete="address-level1"
                       value={selectedDepartmentId}
                       onChange={(e) => handleDepartmentChange(e.target.value)}
                       disabled={loadingDepartments}
@@ -337,6 +371,9 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       <MapPin className="h-4 w-4 text-slate-400" />
                     </div>
                     <select
+                      id="modal_city"
+                      name="address-level2"
+                      autoComplete="address-level2"
                       value={selectedCity}
                       onChange={(e) => setSelectedCity(e.target.value)}
                       disabled={!selectedDepartmentId || loadingCities}

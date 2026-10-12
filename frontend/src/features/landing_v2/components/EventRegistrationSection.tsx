@@ -18,11 +18,13 @@ import {
 } from "lucide-react";
 import { getActiveEvent, registerPublicAttendee, EventData } from "../../../services/events";
 import { useColombiaCities } from "../../../hooks/useColombiaCities";
+import { GoogleAutofillButton, GoogleUserData } from "../../../components/common/GoogleAutofillButton";
 import { DARK, DARK2, GOLD, ORANGE } from "../utils/constants";
 import { Badge } from "./Badge";
 
 export function EventRegistrationSection() {
   const [eventData, setEventData] = useState<EventData | null>(null);
+  const [googleUser, setGoogleUser] = useState<GoogleUserData | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -274,6 +276,7 @@ export function EventRegistrationSection() {
                       setEmail("");
                       setPhone("");
                       setDocumentId("");
+                      setGoogleUser(null);
                       resetCities();
                     }}
                     className="mt-4 px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer"
@@ -282,8 +285,28 @@ export function EventRegistrationSection() {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form id="event-registration-form" onSubmit={handleSubmit} className="space-y-4">
                   
+                  {/* Botón de Autocompletar con Google */}
+                  <div className="pb-1">
+                    <GoogleAutofillButton
+                      onAutofill={(user) => {
+                        setGoogleUser(user);
+                        if (user.name) setFullName(user.name);
+                        if (user.email) setEmail(user.email);
+                      }}
+                      autofilledUser={googleUser}
+                      onClear={() => setGoogleUser(null)}
+                    />
+                  </div>
+
+                  <div className="relative flex items-center justify-center my-2">
+                    <div className="w-full border-t border-slate-200" />
+                    <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider absolute">
+                      O diligencia tus datos
+                    </span>
+                  </div>
+
                   {error && (
                     <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2 animate-in fade-in">
                       <AlertCircle size={16} className="shrink-0 mt-0.5 text-rose-500" />
@@ -293,13 +316,16 @@ export function EventRegistrationSection() {
 
                   {/* Nombre */}
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                    <label htmlFor="event_fullname" className="text-xs font-bold text-slate-700 block mb-1">
                       Nombre Completo <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative">
                       <User size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                       <input
                         type="text"
+                        id="event_fullname"
+                        name="name"
+                        autoComplete="name"
                         required
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
@@ -312,13 +338,16 @@ export function EventRegistrationSection() {
                   {/* Correo y Teléfono */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                      <label htmlFor="event_email" className="text-xs font-bold text-slate-700 block mb-1">
                         Correo Electrónico <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
                         <Mail size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         <input
                           type="email"
+                          id="event_email"
+                          name="email"
+                          autoComplete="email"
                           required
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -329,13 +358,16 @@ export function EventRegistrationSection() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1">
+                      <label htmlFor="event_phone" className="text-xs font-bold text-slate-700 block mb-1">
                         WhatsApp / Teléfono
                       </label>
                       <div className="relative">
                         <Phone size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                         <input
                           type="tel"
+                          id="event_phone"
+                          name="tel"
+                          autoComplete="tel"
                           inputMode="tel"
                           maxLength={15}
                           pattern="^(\+?57)?3[0-9]{9}$"
@@ -360,6 +392,9 @@ export function EventRegistrationSection() {
                           <MapPin className="h-4 w-4 text-slate-400" />
                         </div>
                         <select
+                          id="event_department"
+                          name="address-level1"
+                          autoComplete="address-level1"
                           value={selectedDepartmentId}
                           onChange={(e) => handleDepartmentChange(e.target.value)}
                           disabled={loadingDepartments}
@@ -387,6 +422,9 @@ export function EventRegistrationSection() {
                           <MapPin className="h-4 w-4 text-slate-400" />
                         </div>
                         <select
+                          id="event_city"
+                          name="address-level2"
+                          autoComplete="address-level2"
                           value={selectedCity}
                           onChange={(e) => setSelectedCity(e.target.value)}
                           disabled={!selectedDepartmentId || loadingCities}
