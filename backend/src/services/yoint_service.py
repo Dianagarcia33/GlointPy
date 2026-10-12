@@ -226,7 +226,8 @@ class YointService:
                 "type": account_type,
                 "number": str(withdrawal.numero_cuenta or "").strip(),
                 "financialEntity": {
-                    "id": str(bank_code)
+                    "id": str(bank_code),
+                    "name": str(bank_name)
                 }
             },
             "name": str(user.name or "Inversionista Gloint")[:100],

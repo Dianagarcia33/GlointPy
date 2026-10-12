@@ -1,6 +1,10 @@
+import logging
+
 from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form
 from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from src.core.database import get_db
 from src.api.deps import RequirePermission, get_current_user
@@ -311,18 +315,19 @@ async def request_withdrawal(
     try:
         from src.services.yoint_service import YointService
         dispersion = await YointService.send_dispersion(db=db, withdrawal=withdrawal, user=current_user)
-        yoint_tracking = {
-            "dispersion_id": dispersion.id,
-            "order_id": dispersion.order_id,
-            "status": dispersion.status
-        }
+        if dispersion:
+            yoint_tracking = {
+                "dispersion_id": dispersion.id,
+                "order_id": dispersion.order_id,
+                "status": dispersion.status
+            }
     except Exception as y_err:
-        logger.error(f"Error al enviar dispersión a Yoint para retiro #{withdrawal.id}: {y_err}")
+        logger.error(f"Error al enviar dispersión a Yoint para retiro #{withdrawal.id}: {y_err}", exc_info=True)
 
     return {
         "message": "Retiro solicitado con éxito.", 
         "withdrawal_id": withdrawal.id, 
-        "new_balance": wallet.balance,
+        "new_balance": float(wallet.balance),
         "yoint": yoint_tracking
     }
 

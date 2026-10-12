@@ -489,6 +489,34 @@ async def on_startup():
             except Exception as re:
                 print(f"Aviso al blindar roles del sistema en arranque: {re}")
 
+            # Migración para dispersiones Yoint (soporte de desembolsos de créditos y retiros)
+            try:
+                await conn.execute(text("ALTER TABLE yoint_dispersions ADD COLUMN credit_id BIGINT NULL AFTER withdrawal_id"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE yoint_dispersions ADD CONSTRAINT fk_yoint_dispersions_credit_id FOREIGN KEY (credit_id) REFERENCES credits(id) ON DELETE CASCADE"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE yoint_dispersions ADD INDEX ix_yoint_dispersions_credit_id (credit_id)"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE yoint_dispersions MODIFY COLUMN withdrawal_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            # Corrección de tamaño para emails extensos en CRM
+            try:
+                await conn.execute(text("ALTER TABLE crm_emails MODIFY COLUMN body_html LONGTEXT NULL"))
+                await conn.execute(text("ALTER TABLE crm_emails MODIFY COLUMN body_text LONGTEXT NULL"))
+            except Exception:
+                pass
+
         async with async_session_maker() as db:
             await seed_permissions_db(db)
             try:
