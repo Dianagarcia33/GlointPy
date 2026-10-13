@@ -18,6 +18,9 @@ export interface InventoryItem {
   item_type: 'PRODUCT' | 'OFFICE_SUPPLY';
   category_id?: number | null;
   category_name?: string | null;
+  supplier_id?: number | null;
+  supplier_name?: string | null;
+  supplier_nit?: string | null;
   unit_measure: string;
   current_stock: number;
   min_stock: number;
@@ -70,6 +73,7 @@ export interface CreateItemPayload {
   description?: string;
   item_type: 'PRODUCT' | 'OFFICE_SUPPLY';
   category_id?: number | null;
+  supplier_id?: number | null;
   unit_measure: string;
   current_stock: number;
   min_stock: number;
@@ -82,6 +86,7 @@ export interface UpdateItemPayload {
   name?: string;
   description?: string;
   category_id?: number | null;
+  supplier_id?: number | null;
   unit_measure?: string;
   min_stock?: number;
   unit_cost?: number;
@@ -124,6 +129,7 @@ export const inventoryService = {
   getItems: async (params?: {
     item_type?: string;
     category_id?: number;
+    supplier_id?: number;
     search?: string;
     only_low_stock?: boolean;
     active_only?: boolean;
@@ -131,6 +137,7 @@ export const inventoryService = {
     const searchParams = new URLSearchParams();
     if (params?.item_type && params.item_type !== 'ALL') searchParams.append('item_type', params.item_type);
     if (params?.category_id) searchParams.append('category_id', String(params.category_id));
+    if (params?.supplier_id) searchParams.append('supplier_id', String(params.supplier_id));
     if (params?.search) searchParams.append('search', params.search);
     if (params?.only_low_stock) searchParams.append('only_low_stock', 'true');
     if (params?.active_only !== undefined) searchParams.append('active_only', String(params.active_only));

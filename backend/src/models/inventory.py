@@ -26,6 +26,7 @@ class InventoryItem(Base):
     description = Column(Text, nullable=True)
     item_type = Column(String(50), default="PRODUCT", nullable=False, index=True)  # 'PRODUCT' (comercial) | 'OFFICE_SUPPLY' (insumo de oficina)
     category_id = Column(BigInteger, ForeignKey("inventory_categories.id", ondelete="SET NULL"), nullable=True, index=True)
+    supplier_id = Column(BigInteger, ForeignKey("inventory_suppliers.id", ondelete="SET NULL"), nullable=True, index=True)
     
     unit_measure = Column(String(30), default="UNIDAD", nullable=False)  # 'UNIDAD', 'PAQUETE', 'CAJA', 'RESMA', 'LITRO'
     current_stock = Column(Integer, default=0, nullable=False)
@@ -38,6 +39,7 @@ class InventoryItem(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     category = relationship("InventoryCategory", back_populates="items")
+    supplier = relationship("InventorySupplier", foreign_keys=[supplier_id])
     movements = relationship("InventoryMovement", back_populates="item", cascade="all, delete-orphan", order_by="desc(InventoryMovement.created_at)")
 
 

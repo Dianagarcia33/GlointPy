@@ -61,11 +61,15 @@ class InventoryService:
         db: AsyncSession,
         item_type: Optional[str] = None,
         category_id: Optional[int] = None,
+        supplier_id: Optional[int] = None,
         search: Optional[str] = None,
         only_low_stock: bool = False,
         active_only: bool = True
     ) -> List[Dict[str, Any]]:
-        query = select(InventoryItem).options(selectinload(InventoryItem.category))
+        query = select(InventoryItem).options(
+            selectinload(InventoryItem.category),
+            selectinload(InventoryItem.supplier)
+        )
         
         if active_only:
             query = query.where(InventoryItem.is_active == True)
@@ -75,6 +79,9 @@ class InventoryService:
             
         if category_id:
             query = query.where(InventoryItem.category_id == category_id)
+
+        if supplier_id:
+            query = query.where(InventoryItem.supplier_id == supplier_id)
 
         if search:
             s = f"%{search.strip()}%"
@@ -103,6 +110,9 @@ class InventoryService:
                 "item_type": it.item_type,
                 "category_id": it.category_id,
                 "category_name": it.category.name if it.category else None,
+                "supplier_id": it.supplier_id,
+                "supplier_name": it.supplier.name if it.supplier else None,
+                "supplier_nit": it.supplier.nit_rut if it.supplier else None,
                 "unit_measure": it.unit_measure,
                 "current_stock": it.current_stock,
                 "min_stock": it.min_stock,
@@ -117,7 +127,10 @@ class InventoryService:
 
     @staticmethod
     async def get_item_by_id(db: AsyncSession, item_id: int) -> InventoryItem:
-        query = select(InventoryItem).options(selectinload(InventoryItem.category)).where(InventoryItem.id == item_id)
+        query = select(InventoryItem).options(
+            selectinload(InventoryItem.category),
+            selectinload(InventoryItem.supplier)
+        ).where(InventoryItem.id == item_id)
         result = await db.execute(query)
         item = result.scalars().first()
         if not item:
@@ -137,6 +150,7 @@ class InventoryService:
             description=data.description.strip() if data.description else None,
             item_type=data.item_type,
             category_id=data.category_id,
+            supplier_id=data.supplier_id,
             unit_measure=data.unit_measure.strip().upper(),
             current_stock=data.current_stock,
             min_stock=data.min_stock,

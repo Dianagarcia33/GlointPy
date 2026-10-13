@@ -25,3 +25,4 @@ class InventorySupplier(Base):
 
     purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
     assets = relationship("CompanyAsset", back_populates="supplier")
+    inventory_items = relationship("InventoryItem", foreign_keys="InventoryItem.supplier_id")

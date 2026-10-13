@@ -99,6 +99,16 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE inventory_items ADD COLUMN supplier_id BIGINT NULL"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("CREATE INDEX idx_inventory_items_supplier_id ON inventory_items(supplier_id)"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN commercial_id BIGINT NULL"))
             except Exception:
                 pass

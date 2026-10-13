@@ -69,6 +69,7 @@ async def create_category(
 async def list_items(
     item_type: Optional[str] = Query(None, description="'PRODUCT' o 'OFFICE_SUPPLY'"),
     category_id: Optional[int] = Query(None, description="Filtrar por categoría"),
+    supplier_id: Optional[int] = Query(None, description="Filtrar por proveedor"),
     search: Optional[str] = Query(None, description="Buscar por nombre o SKU"),
     only_low_stock: bool = Query(False, description="Filtrar únicamente stock crítico"),
     active_only: bool = Query(True, description="Mostrar solo ítems activos"),
@@ -76,12 +77,13 @@ async def list_items(
     current_user: User = Depends(RequirePermission(["inventory:view", "inventory.view"]))
 ):
     """
-    Listar artículos del inventario con soporte de filtros por tipo, categoría, búsqueda y stock bajo.
+    Listar artículos del inventario con soporte de filtros por tipo, categoría, proveedor, búsqueda y stock bajo.
     """
     return await InventoryService.get_items(
         db=db,
         item_type=item_type,
         category_id=category_id,
+        supplier_id=supplier_id,
         search=search,
         only_low_stock=only_low_stock,
         active_only=active_only
@@ -106,6 +108,9 @@ async def get_item(
         "item_type": item.item_type,
         "category_id": item.category_id,
         "category_name": item.category.name if item.category else None,
+        "supplier_id": item.supplier_id,
+        "supplier_name": item.supplier.name if item.supplier else None,
+        "supplier_nit": item.supplier.nit_rut if item.supplier else None,
         "unit_measure": item.unit_measure,
         "current_stock": item.current_stock,
         "min_stock": item.min_stock,
@@ -136,6 +141,9 @@ async def create_item(
         "item_type": item.item_type,
         "category_id": item.category_id,
         "category_name": item.category.name if item.category else None,
+        "supplier_id": item.supplier_id,
+        "supplier_name": item.supplier.name if item.supplier else None,
+        "supplier_nit": item.supplier.nit_rut if item.supplier else None,
         "unit_measure": item.unit_measure,
         "current_stock": item.current_stock,
         "min_stock": item.min_stock,
@@ -167,6 +175,9 @@ async def update_item(
         "item_type": item.item_type,
         "category_id": item.category_id,
         "category_name": item.category.name if item.category else None,
+        "supplier_id": item.supplier_id,
+        "supplier_name": item.supplier.name if item.supplier else None,
+        "supplier_nit": item.supplier.nit_rut if item.supplier else None,
         "unit_measure": item.unit_measure,
         "current_stock": item.current_stock,
         "min_stock": item.min_stock,

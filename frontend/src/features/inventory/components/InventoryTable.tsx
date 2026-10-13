@@ -10,7 +10,9 @@ import {
   Trash2, 
   History, 
   ArrowDownRight,
-  ArrowUpRight
+  ArrowUpRight,
+  ShoppingCart,
+  Truck
 } from 'lucide-react';
 import { InventoryItem } from '../../../services/inventoryService';
 import { Can } from '../../../components/security/Can';
@@ -25,6 +27,7 @@ interface InventoryTableProps {
   onQuickEntry: (item: InventoryItem) => void;
   onAdjust: (item: InventoryItem) => void;
   onViewKardex: (item: InventoryItem) => void;
+  onCreatePurchaseOrder: (item: InventoryItem) => void;
 }
 
 export const InventoryTable: React.FC<InventoryTableProps> = ({
@@ -37,6 +40,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   onQuickEntry,
   onAdjust,
   onViewKardex,
+  onCreatePurchaseOrder,
 }) => {
   if (loading) {
     return (
@@ -109,13 +113,19 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                         <span className="font-bold text-slate-900 group-hover:text-brand-600 transition-colors">
                           {item.name}
                         </span>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                           <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">
                             {item.sku}
                           </span>
                           <span className="text-[10px] text-slate-400">
                             {item.unit_measure}
                           </span>
+                          {item.supplier_name && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.5 rounded font-medium max-w-[170px] truncate" title={`Proveedor: ${item.supplier_name}`}>
+                              <Truck className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                              <span className="truncate">{item.supplier_name}</span>
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -210,6 +220,18 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                           </button>
                         </Can>
                       )}
+
+                      {/* Botón Crear Orden de Compra */}
+                      <Can permission="purchase_orders:create">
+                        <button
+                          type="button"
+                          onClick={() => onCreatePurchaseOrder(item)}
+                          className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                          title="Generar Orden de Compra para este artículo"
+                        >
+                          <ShoppingCart className="w-4 h-4" />
+                        </button>
+                      </Can>
 
                       {/* Botón rápido Entrada / Abastecimiento */}
                       <Can permission="inventory:create">

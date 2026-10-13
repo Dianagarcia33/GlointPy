@@ -8,12 +8,16 @@ interface PurchaseOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: CreatePurchaseOrderPayload) => Promise<void>;
+  initialSupplierId?: number | null;
+  initialItems?: CreateOrderItemPayload[];
 }
 
 export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  initialSupplierId,
+  initialItems,
 }) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [catalogItems, setCatalogItems] = useState<InventoryItem[]>([]);
@@ -41,15 +45,19 @@ export const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({
         .then((res) => setCatalogItems(res))
         .catch(console.error);
 
-      setSupplierId('');
+      setSupplierId(initialSupplierId || '');
       setPaymentMethod('TRANSFERENCIA');
       setExpectedDate('');
       setTaxAmount(0);
       setNotes('');
-      setItems([{ item_id: null, item_name: '', item_sku: '', quantity_ordered: 1, unit_cost: 0 }]);
+      if (initialItems && initialItems.length > 0) {
+        setItems(initialItems);
+      } else {
+        setItems([{ item_id: null, item_name: '', item_sku: '', quantity_ordered: 1, unit_cost: 0 }]);
+      }
       setError(null);
     }
-  }, [isOpen]);
+  }, [isOpen, initialSupplierId, initialItems]);
 
   if (!isOpen) return null;
 

@@ -31,6 +31,7 @@ class InventoryItemBase(BaseModel):
     description: Optional[str] = None
     item_type: str = Field("PRODUCT", max_length=50)  # 'PRODUCT' | 'OFFICE_SUPPLY'
     category_id: Optional[int] = None
+    supplier_id: Optional[int] = None
     unit_measure: str = Field("UNIDAD", max_length=30)
     current_stock: int = Field(0, ge=0)
     min_stock: int = Field(5, ge=0)
@@ -45,6 +46,7 @@ class InventoryItemUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=150)
     description: Optional[str] = None
     category_id: Optional[int] = None
+    supplier_id: Optional[int] = None
     unit_measure: Optional[str] = None
     min_stock: Optional[int] = Field(None, ge=0)
     unit_cost: Optional[Decimal] = Field(None, ge=Decimal("0.00"))
@@ -54,6 +56,9 @@ class InventoryItemUpdate(BaseModel):
 class InventoryItemResponse(InventoryItemBase):
     id: int
     category_name: Optional[str] = None
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+    supplier_nit: Optional[str] = None
     is_low_stock: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

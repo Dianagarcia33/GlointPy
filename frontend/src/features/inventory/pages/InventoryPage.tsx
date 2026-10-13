@@ -15,7 +15,9 @@ import {
   CheckCircle2,
   Filter,
   FolderPlus,
-  ArrowUpRight
+  ArrowUpRight,
+  ShoppingCart,
+  Truck
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { 
@@ -28,6 +30,12 @@ import {
   CreateMovementPayload,
   AdjustStockPayload
 } from '../../../services/inventoryService';
+import { Supplier, supplierService } from '../../../services/supplierService';
+import { 
+  purchaseOrderService, 
+  CreatePurchaseOrderPayload, 
+  CreateOrderItemPayload 
+} from '../../../services/purchaseOrderService';
 import { InventoryTable } from '../components/InventoryTable';
 import { ItemModal } from '../components/ItemModal';
 import { SupplyDispatchModal } from '../components/SupplyDispatchModal';
@@ -36,6 +44,7 @@ import { StockAdjustmentModal } from '../components/StockAdjustmentModal';
 import { QuickEntryModal } from '../components/QuickEntryModal';
 import { KardexDrawer } from '../components/KardexDrawer';
 import { CategoryManagementModal } from '../components/CategoryManagementModal';
+import { PurchaseOrderModal } from '../../purchase_orders/components/PurchaseOrderModal';
 import { Can } from '../../../components/security/Can';
 
 export const InventoryPage: React.FC = () => {
@@ -73,6 +82,13 @@ export const InventoryPage: React.FC = () => {
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
+  // Proveedores y Órdenes de Compra
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [selectedSupplier, setSelectedSupplier] = useState<number | ''>('');
+  const [poModalOpen, setPoModalOpen] = useState(false);
+  const [poInitialSupplierId, setPoInitialSupplierId] = useState<number | null>(null);
+  const [poInitialItems, setPoInitialItems] = useState<CreateOrderItemPayload[]>([]);
+
   // Alerta de acción exitosa (Toast)
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -85,20 +101,23 @@ export const InventoryPage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [itemsData, categoriesData, statsData] = await Promise.all([
+      const [itemsData, categoriesData, statsData, suppliersData] = await Promise.all([
         inventoryService.getItems({
           item_type: activeTab === 'PRODUCT' || activeTab === 'OFFICE_SUPPLY' ? activeTab : undefined,
           category_id: selectedCategory ? Number(selectedCategory) : undefined,
+          supplier_id: selectedSupplier ? Number(selectedSupplier) : undefined,
           search: search.trim() || undefined,
           only_low_stock: activeTab === 'LOW_STOCK',
         }),
         inventoryService.getCategories(),
         inventoryService.getStats(),
+        supplierService.getSuppliers({ active_only: true, limit: 100 }),
       ]);
 
       setItems(itemsData);
       setCategories(categoriesData);
       setStats(statsData);
+      setSuppliers(suppliersData.items || []);
     } catch (err) {
       console.error('Error cargando inventario:', err);
     } finally {
@@ -108,7 +127,7 @@ export const InventoryPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab, selectedCategory]);
+  }, [activeTab, selectedCategory, selectedSupplier]);
 
   // Manejar búsqueda con debounce simple
   useEffect(() => {
@@ -165,6 +184,37 @@ export const InventoryPage: React.FC = () => {
     await inventoryService.adjustStock(itemId, payload);
     showToast('Ajuste físico de stock aplicado en Kardex.');
     await fetchData();
+  };
+
+  const handleCreatePurchaseOrderFromItem = (item: InventoryItem) => {
+    setPoInitialSupplierId(item.supplier_id || null);
+
+    // Cantidad sugerida: si está por debajo del mínimo, cubrir el déficit o pedir el doble del stock mínimo
+    const suggestedQty = item.current_stock < item.min_stock
+      ? Math.max(1, (item.min_stock * 2) - item.current_stock)
+      : 10;
+
+    setPoInitialItems([
+      {
+        item_id: item.id,
+        item_name: item.name,
+        item_sku: item.sku,
+        quantity_ordered: suggestedQty,
+        unit_cost: Number(item.unit_cost || 0),
+      },
+    ]);
+    setPoModalOpen(true);
+  };
+
+  const handleSavePurchaseOrder = async (payload: CreatePurchaseOrderPayload) => {
+    try {
+      await purchaseOrderService.createPurchaseOrder(payload);
+      showToast('Orden de compra generada exitosamente.');
+      setPoModalOpen(false);
+      await fetchData();
+    } catch (err: any) {
+      alert(err?.message || 'Error al generar la orden de compra');
+    }
   };
 
   return (
@@ -241,6 +291,22 @@ export const InventoryPage: React.FC = () => {
             >
               <ArrowUpRight className="w-3.5 h-3.5 text-blue-600 shrink-0" />
               <span>Venta / Salida</span>
+            </button>
+          </Can>
+
+          <Can permission="purchase_orders:create">
+            <button
+              type="button"
+              onClick={() => {
+                setPoInitialSupplierId(null);
+                setPoInitialItems([]);
+                setPoModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50/80 border border-indigo-200/90 hover:bg-indigo-100/70 text-indigo-800 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0"
+              title="Generar nueva orden de compra para abastecimiento"
+            >
+              <ShoppingCart className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span>Orden de Compra</span>
             </button>
           </Can>
 
@@ -480,6 +546,19 @@ export const InventoryPage: React.FC = () => {
               ))}
             </select>
 
+            <select
+              value={selectedSupplier}
+              onChange={(e) => setSelectedSupplier(e.target.value ? Number(e.target.value) : '')}
+              className="w-full sm:w-auto px-3.5 py-2 text-xs font-bold font-montserrat text-slate-700 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:border-brand-500 cursor-pointer"
+            >
+              <option value="">Todos los proveedores</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+
             <Can permission="inventory:create">
               <button
                 type="button"
@@ -524,6 +603,7 @@ export const InventoryPage: React.FC = () => {
           setKardexFilterItem(item);
           setKardexDrawerOpen(true);
         }}
+        onCreatePurchaseOrder={handleCreatePurchaseOrderFromItem}
       />
 
       {/* Modales */}
@@ -583,6 +663,14 @@ export const InventoryPage: React.FC = () => {
           setSelectedCategory(newCat.id);
           showToast(`Categoría "${newCat.name}" agregada.`);
         }}
+      />
+
+      <PurchaseOrderModal
+        isOpen={poModalOpen}
+        onClose={() => setPoModalOpen(false)}
+        onSave={handleSavePurchaseOrder}
+        initialSupplierId={poInitialSupplierId}
+        initialItems={poInitialItems}
       />
 
     </div>

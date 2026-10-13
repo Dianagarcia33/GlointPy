@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, Loader2, Package, Tag, Layers, DollarSign, AlertCircle, Plus } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CreateItemPayload, UpdateItemPayload } from '../../../services/inventoryService';
+import { Supplier, supplierService } from '../../../services/supplierService';
 
 interface ItemModalProps {
   isOpen: boolean;
@@ -40,6 +41,8 @@ export const ItemModal: React.FC<ItemModalProps> = ({
   const [description, setDescription] = useState('');
   const [itemType, setItemType] = useState<'PRODUCT' | 'OFFICE_SUPPLY'>(defaultType);
   const [categoryId, setCategoryId] = useState<number | ''>('');
+  const [supplierId, setSupplierId] = useState<number | ''>('');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [unitMeasure, setUnitMeasure] = useState('UNIDAD');
   const [currentStock, setCurrentStock] = useState(0);
   const [minStock, setMinStock] = useState(5);
@@ -50,12 +53,17 @@ export const ItemModal: React.FC<ItemModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      supplierService.getSuppliers({ active_only: true, limit: 100 })
+        .then((res) => setSuppliers(res.items))
+        .catch(console.error);
+
       if (itemToEdit) {
         setSku(itemToEdit.sku);
         setName(itemToEdit.name);
         setDescription(itemToEdit.description || '');
         setItemType(itemToEdit.item_type);
         setCategoryId(itemToEdit.category_id || '');
+        setSupplierId(itemToEdit.supplier_id || '');
         setUnitMeasure(itemToEdit.unit_measure);
         setCurrentStock(itemToEdit.current_stock);
         setMinStock(itemToEdit.min_stock);
@@ -67,6 +75,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
         setDescription('');
         setItemType(defaultType);
         setCategoryId('');
+        setSupplierId('');
         setUnitMeasure('UNIDAD');
         setCurrentStock(0);
         setMinStock(5);
@@ -101,6 +110,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
           name: name.trim(),
           description: description.trim() || undefined,
           category_id: categoryId ? Number(categoryId) : null,
+          supplier_id: supplierId ? Number(supplierId) : null,
           unit_measure: unitMeasure,
           min_stock: Number(minStock),
           unit_cost: Number(unitCost),
@@ -114,6 +124,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
           description: description.trim() || undefined,
           item_type: itemType,
           category_id: categoryId ? Number(categoryId) : null,
+          supplier_id: supplierId ? Number(supplierId) : null,
           unit_measure: unitMeasure,
           current_stock: Number(currentStock),
           min_stock: Number(minStock),
@@ -285,6 +296,28 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Proveedor Habitual / Recomendado */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 font-montserrat">
+              Proveedor Habitual / Recomendado
+            </label>
+            <select
+              value={supplierId}
+              onChange={(e) => setSupplierId(e.target.value ? Number(e.target.value) : '')}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all cursor-pointer"
+            >
+              <option value="">(Sin proveedor asignado)</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} {s.nit_rut ? `• NIT/RUT: ${s.nit_rut}` : ''}
+                </option>
+              ))}
+            </select>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              Al reordenar o crear órdenes de compra desde este producto, este proveedor se preseleccionará automáticamente.
+            </span>
           </div>
 
           {/* Stock Inicial y Stock Mínimo */}
