@@ -352,7 +352,7 @@ export function EventRegistrationSection() {
                         Nombre Completo <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <User size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <User size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
                           id="event_fullname"
@@ -362,7 +362,7 @@ export function EventRegistrationSection() {
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           placeholder="Ej. Juan Gómez"
-                          className="w-full pl-8.5 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
                     </div>
@@ -372,7 +372,7 @@ export function EventRegistrationSection() {
                         Correo Electrónico <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <Mail size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Mail size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="email"
                           id="event_email"
@@ -382,7 +382,7 @@ export function EventRegistrationSection() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="nombre@correo.com"
-                          className="w-full pl-8.5 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
                     </div>
@@ -395,7 +395,7 @@ export function EventRegistrationSection() {
                         WhatsApp / Teléfono <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <Phone size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Phone size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="tel"
                           id="event_phone"
@@ -408,7 +408,7 @@ export function EventRegistrationSection() {
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="Ej. 3101234567"
-                          className="w-full pl-8.5 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
                     </div>
@@ -551,7 +551,7 @@ export function EventRegistrationSection() {
                             Razón Social / Empresa <span className="text-rose-500">*</span>
                           </label>
                           <div className="relative">
-                            <Building2 size={12} className="text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                            <Building2 size={12} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                             <input
                               type="text"
                               id="company_name"
@@ -559,7 +559,7 @@ export function EventRegistrationSection() {
                               value={companyName}
                               onChange={(e) => setCompanyName(e.target.value)}
                               placeholder="Ej. Gloint S.A.S."
-                              className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
                             />
                           </div>
                         </div>
@@ -569,7 +569,7 @@ export function EventRegistrationSection() {
                             NIT / RUT <span className="text-rose-500">*</span>
                           </label>
                           <div className="relative">
-                            <FileText size={12} className="text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                            <FileText size={12} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                             <input
                               type="text"
                               id="company_nit"
@@ -577,7 +577,7 @@ export function EventRegistrationSection() {
                               value={companyNit}
                               onChange={(e) => setCompanyNit(e.target.value)}
                               placeholder="Ej. 901.234.567-8"
-                              className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
                             />
                           </div>
                         </div>
@@ -587,7 +587,7 @@ export function EventRegistrationSection() {
                             Cargo <span className="text-rose-500">*</span>
                           </label>
                           <div className="relative">
-                            <Briefcase size={12} className="text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                            <Briefcase size={12} className="text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                             <input
                               type="text"
                               id="job_title"
@@ -595,7 +595,7 @@ export function EventRegistrationSection() {
                               value={jobTitle}
                               onChange={(e) => setJobTitle(e.target.value)}
                               placeholder="Ej. Gerente"
-                              className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
                             />
                           </div>
                         </div>

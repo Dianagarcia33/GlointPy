@@ -314,7 +314,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                     Nombre Completo <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       id="modal_fullname"
@@ -324,7 +324,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="Ej. Carlos Mendoza"
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                     />
                   </div>
                 </div>
@@ -334,7 +334,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                     Correo Electrónico <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="email"
                       id="modal_email"
@@ -344,7 +344,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="nombre@correo.com"
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                     />
                   </div>
                 </div>
@@ -357,7 +357,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                     Teléfono / WhatsApp <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="tel"
                       id="modal_phone"
@@ -368,7 +368,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="Ej. 3001234567"
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                     />
                   </div>
                 </div>
@@ -507,7 +507,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                         Empresa / Razón Social <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <Building2 className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                        <Building2 className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
                           id="modal_company_name"
@@ -515,7 +515,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                           value={companyName}
                           onChange={(e) => setCompanyName(e.target.value)}
                           placeholder="Ej. Gloint S.A.S."
-                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                       </div>
                     </div>
@@ -525,7 +525,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                         NIT / RUT <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <FileText className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                        <FileText className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
                           id="modal_company_nit"
@@ -533,7 +533,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                           value={companyNit}
                           onChange={(e) => setCompanyNit(e.target.value)}
                           placeholder="Ej. 901.234.567-8"
-                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                       </div>
                     </div>
@@ -543,7 +543,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                         Cargo <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <Briefcase className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                        <Briefcase className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                           type="text"
                           id="modal_job_title"
@@ -551,7 +551,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                           value={jobTitle}
                           onChange={(e) => setJobTitle(e.target.value)}
                           placeholder="Ej. Gerente"
-                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                          className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                       </div>
                     </div>
