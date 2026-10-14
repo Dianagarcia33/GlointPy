@@ -8,9 +8,14 @@ from typing import Optional, List
 import re
 import secrets
 import json
+import logging
+import asyncio
 from src.models.event import Event, EventAttendee, EventAuthorizedDomain
 from src.models.user import User
 from src.models.investor import Investor
+from src.services.email_service import EmailService
+
+logger = logging.getLogger(__name__)
 from src.schemas.event import (
     EventPublicResponse,
     EventConfigUpdate,
@@ -187,6 +192,7 @@ class EventService:
 
         await db.commit()
         await db.refresh(attendee)
+        cls._dispatch_confirmation_email(event, attendee)
         return AttendeeResponse.from_orm(attendee)
 
     @classmethod
@@ -265,7 +271,59 @@ class EventService:
 
         await db.commit()
         await db.refresh(attendee)
+        cls._dispatch_confirmation_email(event, attendee)
         return AttendeeResponse.from_orm(attendee)
+
+    @classmethod
+    def _dispatch_confirmation_email(cls, event: Event, attendee: EventAttendee):
+        """
+        Envía en segundo plano el correo corporativo de confirmación de inscripción al evento.
+        Nunca bloquea ni interrumpe la respuesta HTTP si el servicio de correo falla o tarda.
+        """
+        try:
+            # Parsear áreas de interés si están guardadas en JSON o texto
+            interests_list: List[str] = []
+            if attendee.interests:
+                if isinstance(attendee.interests, list):
+                    interests_list = [str(x) for x in attendee.interests]
+                elif isinstance(attendee.interests, str):
+                    try:
+                        parsed = json.loads(attendee.interests)
+                        if isinstance(parsed, list):
+                            interests_list = [str(x) for x in parsed]
+                        else:
+                            interests_list = [str(parsed)]
+                    except Exception:
+                        interests_list = [i.strip() for i in attendee.interests.split(",") if i.strip()]
+
+            # Disparar tarea en segundo plano sin bloquear el loop de FastAPI
+            asyncio.create_task(
+                asyncio.to_thread(
+                    EmailService.send_event_registration_confirmation_email,
+                    to_email=attendee.email,
+                    user_name=attendee.full_name or "Estimado/a Participante",
+                    event_title=event.title or "Gloint Power Tech",
+                    event_date=event.event_date,
+                    attendance_mode=attendee.attendance_mode or "in_person",
+                    location=event.location,
+                    virtual_url=event.virtual_url,
+                    seats_reserved=attendee.seats_reserved or 1,
+                    has_companion=bool(attendee.has_companion),
+                    companion_name=attendee.companion_name,
+                    is_company=bool(attendee.is_company),
+                    company_name=attendee.company_name,
+                    company_nit=attendee.company_nit,
+                    job_title=attendee.job_title,
+                    document_id=attendee.document_id,
+                    phone=attendee.phone,
+                    city=attendee.city,
+                    interests=interests_list,
+                    attendee_type=attendee.attendee_type or "external"
+                )
+            )
+            logger.info(f"[EventService] Programado envío de correo de confirmación a {attendee.email}")
+        except Exception as e:
+            logger.error(f"[EventService] Error al programar correo de confirmación para {attendee.email}: {e}")
 
     @classmethod
     async def get_my_registration(cls, db: AsyncSession, user_id: int) -> Optional[AttendeeResponse]:

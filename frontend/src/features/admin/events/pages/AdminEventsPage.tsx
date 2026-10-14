@@ -21,7 +21,10 @@ import {
   Eye,
   EyeOff,
   Building2,
-  Briefcase
+  Briefcase,
+  Mail,
+  Phone,
+  X
 } from 'lucide-react';
 import { 
   getAdminEventSummary, 
@@ -42,6 +45,22 @@ const formatInterests = (interests?: string[] | string | null): string[] => {
   return [interests];
 };
 
+const formatDateTime = (dateStr?: string) => {
+  if (!dateStr) return '-';
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('es-CO', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
 export const AdminEventsPage: React.FC = () => {
   const [summary, setSummary] = useState<AdminEventSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +69,8 @@ export const AdminEventsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'investor' | 'external'>('all');
   const [modeFilter, setModeFilter] = useState<'all' | 'in_person' | 'virtual'>('all');
+  const [profileFilter, setProfileFilter] = useState<'all' | 'company' | 'individual'>('all');
+  const [selectedAttendee, setSelectedAttendee] = useState<AttendeeData | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Formulario de Configuración
@@ -207,6 +228,9 @@ export const AdminEventsPage: React.FC = () => {
   const filteredAttendees = (summary?.attendees || []).filter(a => {
     if (typeFilter !== 'all' && a.attendee_type !== typeFilter) return false;
     if (modeFilter !== 'all' && a.attendance_mode !== modeFilter) return false;
+    if (profileFilter === 'company' && !a.is_company) return false;
+    if (profileFilter === 'individual' && a.is_company) return false;
+
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       const matchName = a.full_name.toLowerCase().includes(q);
@@ -216,7 +240,9 @@ export const AdminEventsPage: React.FC = () => {
       const matchCompany = a.company_name ? a.company_name.toLowerCase().includes(q) : false;
       const matchNit = a.company_nit ? a.company_nit.toLowerCase().includes(q) : false;
       const matchJob = a.job_title ? a.job_title.toLowerCase().includes(q) : false;
-      return matchName || matchEmail || matchPhone || matchDoc || matchCompany || matchNit || matchJob;
+      const matchCity = a.city ? a.city.toLowerCase().includes(q) : false;
+      const matchInterests = formatInterests(a.interests).some(i => i.toLowerCase().includes(q));
+      return matchName || matchEmail || matchPhone || matchDoc || matchCompany || matchNit || matchJob || matchCity || matchInterests;
     }
     return true;
   });
@@ -532,6 +558,17 @@ export const AdminEventsPage: React.FC = () => {
 
             {/* Filtros */}
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {/* Filtro Perfil */}
+              <select
+                value={profileFilter}
+                onChange={(e) => setProfileFilter(e.target.value as any)}
+                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+              >
+                <option value="all">Empresas & Personas</option>
+                <option value="company">Solo Empresas</option>
+                <option value="individual">Solo Personas Naturales</option>
+              </select>
+
               {/* Filtro Tipo */}
               <select
                 value={typeFilter}
@@ -563,28 +600,29 @@ export const AdminEventsPage: React.FC = () => {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por nombre, correo, teléfono o cédula..."
+              placeholder="Buscar por nombre, correo, teléfono, cédula, empresa, NIT o intereses..."
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
             />
           </div>
 
-          {/* Tabla */}
+          {/* Tabla con todas las columnas */}
           <div className="overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50/70 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 font-montserrat">
+            <table className="w-full text-left text-xs text-slate-700 min-w-[950px]">
+              <thead className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 font-montserrat">
                 <tr>
-                  <th className="px-4 py-3.5">Asistente</th>
-                  <th className="px-4 py-3.5">Contacto</th>
-                  <th className="px-4 py-3.5">Modalidad</th>
-                  <th className="px-4 py-3.5">Acompañante</th>
-                  <th className="px-4 py-3.5">Cupos</th>
-                  <th className="px-4 py-3.5 text-right">Acción</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Asistente & ID</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Perfil / Empresa</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Contacto & Ciudad</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Áreas de Interés</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Modalidad & Aforo</th>
+                  <th className="px-4 py-3.5 whitespace-nowrap">Fecha Registro</th>
+                  <th className="px-4 py-3.5 text-right whitespace-nowrap">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredAttendees.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-slate-400 font-montserrat">
+                    <td colSpan={7} className="text-center py-12 text-slate-400 font-montserrat">
                       No se encontraron asistentes con los filtros seleccionados.
                     </td>
                   </tr>
@@ -592,58 +630,113 @@ export const AdminEventsPage: React.FC = () => {
                   filteredAttendees.map((att) => (
                     <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
                       
-                      {/* Asistente */}
-                      <td className="px-4 py-3.5">
-                        <div className="font-bold text-slate-900 font-montserrat">{att.full_name}</div>
-                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                      {/* Asistente & ID */}
+                      <td className="px-4 py-3.5 min-w-[190px]">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAttendee(att)}
+                          className="font-bold text-slate-900 font-montserrat hover:text-brand-600 transition-colors text-left block text-xs"
+                        >
+                          {att.full_name}
+                        </button>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
                           <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             att.attendee_type === 'investor'
                               ? 'bg-brand-50 text-brand-700 border border-brand-200/60'
-                              : 'bg-slate-100 text-slate-600'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200/60'
                           }`}>
                             {att.attendee_type === 'investor' ? 'Inversionista' : 'Invitado Externo'}
                           </span>
-                          {att.is_company ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60">
+                          {att.document_id ? (
+                            <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
+                              CC: {att.document_id}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic">
+                              Sin documento
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Perfil / Empresa */}
+                      <td className="px-4 py-3.5 min-w-[210px]">
+                        {att.is_company ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 font-montserrat">
                               <Building2 className="w-3 h-3 text-amber-600" />
                               <span>Empresa</span>
                             </span>
-                          ) : null}
-                        </div>
-                        {att.is_company && (att.company_name || att.company_nit || att.job_title) && (
-                          <div className="mt-1 text-[11px] bg-slate-50 border border-slate-200/70 rounded-lg p-1.5 space-y-0.5">
-                            {att.company_name && (
-                              <div className="font-semibold text-slate-800 flex items-center gap-1">
-                                <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                                <span className="truncate">{att.company_name}</span>
-                              </div>
-                            )}
-                            <div className="flex flex-wrap gap-x-2 text-[10px] text-slate-500 font-mono">
-                              {att.company_nit && <span>NIT: {att.company_nit}</span>}
-                              {att.job_title && <span className="font-sans font-medium text-slate-600">Cargo: {att.job_title}</span>}
+                            <div className="font-bold text-slate-900 text-xs truncate max-w-[200px]" title={att.company_name || ''}>
+                              {att.company_name || 'Nombre no especificado'}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">
+                              {att.company_nit && (
+                                <span className="font-mono bg-slate-50 border border-slate-200/60 px-1 rounded">
+                                  NIT: {att.company_nit}
+                                </span>
+                              )}
+                              {att.job_title && (
+                                <span className="text-slate-600 font-medium truncate max-w-[130px]" title={att.job_title}>
+                                  Cargo: {att.job_title}
+                                </span>
+                              )}
                             </div>
                           </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/60">
+                            Persona Natural
+                          </span>
                         )}
-                        {formatInterests(att.interests).length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
+                      </td>
+
+                      {/* Contacto & Ciudad */}
+                      <td className="px-4 py-3.5 min-w-[190px] space-y-1">
+                        <div className="text-slate-900 font-medium text-xs truncate max-w-[190px]" title={att.email}>
+                          {att.email}
+                        </div>
+                        {att.phone && (
+                          <div className="flex items-center gap-1.5 text-[11px]">
+                            <span className="text-slate-700 font-mono font-medium">{att.phone}</span>
+                            <a
+                              href={`https://wa.me/${att.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-emerald-700 hover:text-emerald-800 font-bold text-[10px] px-1.5 py-0.2 rounded bg-emerald-50 border border-emerald-200 transition-colors"
+                              title="Chatear por WhatsApp"
+                            >
+                              WhatsApp
+                            </a>
+                          </div>
+                        )}
+                        {att.city && (
+                          <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>{att.city}</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Áreas de Interés */}
+                      <td className="px-4 py-3.5 min-w-[210px]">
+                        {formatInterests(att.interests).length > 0 ? (
+                          <div className="flex flex-wrap gap-1 max-w-[220px]">
                             {formatInterests(att.interests).map((inter: string) => (
-                              <span key={inter} className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200/50 px-1.5 py-0.5 rounded font-medium">
+                              <span 
+                                key={inter} 
+                                className="text-[9px] bg-amber-50 text-amber-900 border border-amber-200/70 px-1.5 py-0.5 rounded font-semibold leading-tight"
+                              >
                                 {inter}
                               </span>
                             ))}
                           </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">Sin selección</span>
                         )}
                       </td>
 
-                      {/* Contacto */}
-                      <td className="px-4 py-3.5 space-y-0.5">
-                        <div className="text-slate-900 font-medium">{att.email}</div>
-                        {att.phone && <div className="text-[11px] text-slate-400 font-mono">{att.phone}</div>}
-                        {att.city && <div className="text-[10px] text-slate-400">{att.city}</div>}
-                      </td>
-
-                      {/* Modalidad */}
-                      <td className="px-4 py-3.5">
+                      {/* Modalidad & Aforo */}
+                      <td className="px-4 py-3.5 min-w-[140px] space-y-1">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                           att.attendance_mode === 'in_person'
                             ? 'bg-amber-50 text-amber-800 border border-amber-200/60'
@@ -661,52 +754,53 @@ export const AdminEventsPage: React.FC = () => {
                             </>
                           )}
                         </span>
+                        <div className="text-[10px] text-slate-500 font-medium">
+                          {att.has_companion ? (
+                            <span className="text-amber-800 font-semibold" title={att.companion_name || ''}>
+                              2 cupos (+1 {att.companion_name ? `: ${att.companion_name}` : 'Acompañante'})
+                            </span>
+                          ) : (
+                            <span>1 cupo reservado</span>
+                          )}
+                        </div>
                       </td>
 
-                      {/* Acompañante */}
-                      <td className="px-4 py-3.5">
-                        {att.has_companion ? (
-                          <div>
-                            <span className="font-bold text-slate-900 text-xs">Sí</span>
-                            {att.companion_name && (
-                              <div className="text-[10px] text-slate-500 truncate max-w-[120px]">
-                                {att.companion_name}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">No</span>
-                        )}
-                      </td>
-
-                      {/* Cupos Reservados */}
-                      <td className="px-4 py-3.5">
-                        <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-lg text-xs">
-                          {att.seats_reserved}
-                        </span>
+                      {/* Fecha Registro */}
+                      <td className="px-4 py-3.5 text-[11px] text-slate-500 min-w-[120px] whitespace-nowrap">
+                        {formatDateTime(att.created_at)}
                       </td>
 
                       {/* Acciones */}
-                      <td className="px-4 py-3.5 text-right">
-                        {att.status === 'confirmed' ? (
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            disabled={cancellingId === att.id}
-                            onClick={() => handleCancelAttendee(att.id, att.full_name)}
-                            className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-2xs cursor-pointer"
-                            title="Cancelar asistencia y liberar cupos"
+                            onClick={() => setSelectedAttendee(att)}
+                            className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-xl transition-all cursor-pointer shadow-2xs"
+                            title="Ver ficha completa"
                           >
-                            {cancellingId === att.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
+                            <Eye className="w-4 h-4" />
                           </button>
-                        ) : (
-                          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
-                            Cancelado
-                          </span>
-                        )}
+                          {att.status === 'confirmed' ? (
+                            <button
+                              type="button"
+                              disabled={cancellingId === att.id}
+                              onClick={() => handleCancelAttendee(att.id, att.full_name)}
+                              className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-2xs cursor-pointer"
+                              title="Cancelar asistencia y liberar cupo"
+                            >
+                              {cancellingId === att.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          ) : (
+                            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                              Cancelado
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                     </tr>
@@ -719,6 +813,198 @@ export const AdminEventsPage: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Modal Ficha Completa del Asistente */}
+      {selectedAttendee && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200 font-inter">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative max-h-[90vh] overflow-y-auto space-y-6">
+            
+            {/* Header del Modal */}
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                    selectedAttendee.attendee_type === 'investor'
+                      ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {selectedAttendee.attendee_type === 'investor' ? 'Inversionista Gloint' : 'Invitado Externo'}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                    selectedAttendee.status === 'confirmed'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  }`}>
+                    {selectedAttendee.status === 'confirmed' ? 'Confirmado' : 'Cancelado'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-slate-900 font-montserrat">
+                  {selectedAttendee.full_name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedAttendee(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Sección: Datos de Contacto e Identificación */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-montserrat flex items-center gap-1.5">
+                <UserCheck className="w-3.5 h-3.5 text-brand-600" />
+                <span>Identificación & Contacto</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200/70">
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Cédula / Documento:</span>
+                  <span className="font-bold text-slate-900 font-mono">{selectedAttendee.document_id || 'No registrado'}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Ciudad:</span>
+                  <span className="font-semibold text-slate-800">{selectedAttendee.city || 'No registrada'}</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Correo Electrónico:</span>
+                  <a href={`mailto:${selectedAttendee.email}`} className="font-semibold text-brand-600 hover:underline">
+                    {selectedAttendee.email}
+                  </a>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Teléfono / WhatsApp:</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="font-bold font-mono text-slate-900">{selectedAttendee.phone || 'No registrado'}</span>
+                    {selectedAttendee.phone && (
+                      <a
+                        href={`https://wa.me/${selectedAttendee.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full font-bold transition-colors"
+                      >
+                        Abrir WA
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sección: Perfil Corporativo */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-montserrat flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-amber-600" />
+                <span>Perfil Corporativo / Comercial</span>
+              </h4>
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 text-xs space-y-2">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                  <span className="text-slate-500">Tipo de Registro:</span>
+                  <span className={`font-bold px-2 py-0.5 rounded-full text-[10px] ${
+                    selectedAttendee.is_company 
+                      ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                      : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {selectedAttendee.is_company ? 'Empresa Registrada' : 'Persona Natural'}
+                  </span>
+                </div>
+                {selectedAttendee.is_company && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Empresa:</span>
+                      <span className="font-bold text-slate-900">{selectedAttendee.company_name || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">NIT / RUT:</span>
+                      <span className="font-bold font-mono text-slate-900">{selectedAttendee.company_nit || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-slate-400 block">Cargo:</span>
+                      <span className="font-bold text-slate-900">{selectedAttendee.job_title || '-'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Sección: Modalidad & Aforo */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-montserrat flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Detalles de Asistencia</span>
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200/70">
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Modalidad:</span>
+                  <span className="font-bold text-slate-900 capitalize">
+                    {selectedAttendee.attendance_mode === 'in_person' ? 'Presencial (Auditorio Bogotá)' : 'Virtual (Streaming)'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Cupos Reservados:</span>
+                  <span className="font-bold text-slate-900 font-mono">{selectedAttendee.seats_reserved} cupo(s)</span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Acompañante:</span>
+                  <span className="font-semibold text-slate-800">
+                    {selectedAttendee.has_companion ? `Sí (${selectedAttendee.companion_name || 'Sin especificar'})` : 'No'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-slate-400 block">Fecha de Registro:</span>
+                  <span className="font-semibold text-slate-800">{formatDateTime(selectedAttendee.created_at)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Sección: Áreas de Interés */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-montserrat flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Áreas de Interés Declaradas</span>
+              </h4>
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/70">
+                {formatInterests(selectedAttendee.interests).length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {formatInterests(selectedAttendee.interests).map((int: string) => (
+                      <span key={int} className="bg-white border border-amber-300 text-amber-900 text-xs px-2.5 py-1 rounded-xl font-semibold shadow-2xs">
+                        {int}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-slate-400 italic">No declaró áreas de interés en el formulario.</span>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Modal */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+              {selectedAttendee.status === 'confirmed' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCancelAttendee(selectedAttendee.id, selectedAttendee.full_name);
+                    setSelectedAttendee(null);
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Cancelar Asistencia</span>
+                </button>
+              ) : <div />}
+
+              <button
+                type="button"
+                onClick={() => setSelectedAttendee(null)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-montserrat transition-colors cursor-pointer"
+              >
+                Cerrar Ficha
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

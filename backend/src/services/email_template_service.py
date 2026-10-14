@@ -7,7 +7,8 @@ Diseño minimalista, ultra-limpio, en modo claro con contrastes ejecutivos de al
 Compatible con todos los clientes de correo (Gmail, Outlook, Apple Mail, Yahoo, iOS/Android).
 """
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
+from datetime import datetime
 from src.core.config import settings
 
 class EmailTemplateService:
@@ -1150,5 +1151,238 @@ class EmailTemplateService:
             cta_url=f"{frontend_url}/dashboard/wallet"
         )
         return subject, html
+
+    @classmethod
+    def get_event_registration_confirmation_template(
+        cls,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[datetime],
+        attendance_mode: str,
+        location: Optional[str] = None,
+        virtual_url: Optional[str] = None,
+        seats_reserved: int = 1,
+        has_companion: bool = False,
+        companion_name: Optional[str] = None,
+        is_company: bool = False,
+        company_name: Optional[str] = None,
+        company_nit: Optional[str] = None,
+        job_title: Optional[str] = None,
+        document_id: Optional[str] = None,
+        phone: Optional[str] = None,
+        city: Optional[str] = None,
+        interests: Optional[List[str]] = None,
+        attendee_type: str = "investor"
+    ) -> Tuple[str, str]:
+        """
+        Plantilla Corporativa: Confirmación de Inscripción al Evento Gloint Power Tech.
+        Soporta modalidad Presencial y Virtual, con desglose detallado de perfil corporativo,
+        acompañante y áreas de interés.
+        """
+        is_in_person = (attendance_mode or "").lower() == "in_person"
+        clean_event_title = event_title or "Gloint Power Tech"
+        
+        # Formateo de fecha y hora amigable en español
+        formatted_date = "Próximamente"
+        if event_date:
+            meses = [
+                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            ]
+            dias = [
+                "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"
+            ]
+            try:
+                dia_semana = dias[event_date.weekday()]
+                dia_num = event_date.day
+                mes_nombre = meses[event_date.month - 1]
+                anio = event_date.year
+                hour_12 = event_date.hour % 12
+                if hour_12 == 0:
+                    hour_12 = 12
+                ampm = "AM" if event_date.hour < 12 else "PM"
+                formatted_date = f"{dia_semana}, {dia_num} de {mes_nombre} de {anio} • {hour_12}:{event_date.minute:02d} {ampm} (COT)"
+            except Exception:
+                formatted_date = str(event_date)
+
+        # Configuración de asunto y títulos según modalidad
+        if is_in_person:
+            subject = f"🎟️ Pase de Entrada Confirmado: {clean_event_title} - GLOINT"
+            title = f"¡Tu cupo presencial está confirmado!"
+            preheader = f"Hola {user_name}, tu asistencia presencial para {clean_event_title} ha sido confirmada con éxito. Revisa aquí tu pase e instrucciones."
+            badge_text = "PASE CONFIRMADO • ASISTENCIA PRESENCIAL"
+            badge_variant = "orange"
+        else:
+            subject = f"🌐 Acceso Virtual Confirmado: {clean_event_title} - GLOINT"
+            title = f"¡Tu acceso virtual en vivo está confirmado!"
+            preheader = f"Hola {user_name}, tu registro virtual para la transmisión en directo de {clean_event_title} está confirmado. Revisa tu enlace de acceso."
+            badge_text = "ACCESO CONFIRMADO • TRANSMISIÓN VIRTUAL"
+            badge_variant = "blue"
+
+        # Mensaje de bienvenida adaptado al tipo de asistente
+        if attendee_type == "investor":
+            intro_greeting = (
+                f"Nos complace confirmar tu participación exclusiva como <strong>Inversionista de Gloint</strong> en "
+                f"<strong>{clean_event_title}</strong>. Para nosotros es un privilegio compartir contigo los avances "
+                f"tecnológicos, lanzamientos estratégicos y las nuevas oportunidades de rentabilidad del ecosistema."
+            )
+            tipo_label = '<span style="display: inline-block; padding: 2px 10px; font-size: 11px; font-weight: 700; border-radius: 6px; background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">★ Inversionista Gloint</span>'
+        else:
+            intro_greeting = (
+                f"Hemos confirmado tu registro oficial como invitado a <strong>{clean_event_title}</strong>. "
+                f"Prepárate para conocer de primera mano los nuevos modelos de negocio, soluciones de infraestructura e "
+                f"innovaciones tecnológicas de alto impacto desarrolladas por Gloint."
+            )
+            tipo_label = '<span style="display: inline-block; padding: 2px 10px; font-size: 11px; font-weight: 700; border-radius: 6px; background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">Invitado Corporativo / Externo</span>'
+
+        # Fila de Empresa o Persona Natural
+        if is_company and (company_name or company_nit):
+            corp_details = []
+            if company_nit:
+                corp_details.append(f"NIT: {company_nit}")
+            if job_title:
+                corp_details.append(f"Cargo: {job_title}")
+            corp_extra = f" <span style='font-size: 12px; color: #64748b;'>({', '.join(corp_details)})</span>" if corp_details else ""
+            perfil_html = f"""
+            <tr>
+                <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Perfil Corporativo:</td>
+                <td style="color: #0f172a; font-weight: 700; padding: 4px 0;">{company_name or 'Empresa'}{corp_extra}</td>
+            </tr>
+            """
+        else:
+            perfil_html = """
+            <tr>
+                <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Perfil:</td>
+                <td style="color: #475569; padding: 4px 0;">Persona Natural</td>
+            </tr>
+            """
+
+        # Fila de Áreas de Interés
+        interests_html = ""
+        if interests and len(interests) > 0:
+            badges = "".join([
+                f'<span style="display: inline-block; background-color: #f8fafc; color: #334155; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 6px; margin: 2px 4px 2px 0; border: 1px solid #e2e8f0;">{i}</span>'
+                for i in interests
+            ])
+            interests_html = f"""
+            <tr>
+                <td style="font-weight: 600; color: #64748b; padding: 4px 0; vertical-align: top;">Áreas de Interés:</td>
+                <td style="padding: 4px 0;">{badges}</td>
+            </tr>
+            """
+
+        # Filas específicas según Presencial o Virtual
+        if is_in_person:
+            cupos_str = f"{seats_reserved} cupo" if seats_reserved == 1 else f"{seats_reserved} cupos"
+            if has_companion and companion_name:
+                cupos_str += f" <span style='color: #64748b; font-size: 12px;'>(Titular + Acompañante: <strong>{companion_name}</strong>)</span>"
+
+            mode_rows = f"""
+            <tr>
+                <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Modalidad:</td>
+                <td style="color: #c2410c; font-weight: 700; padding: 4px 0;">Presencial en Auditorio</td>
+            </tr>
+            <tr>
+                <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Ubicación:</td>
+                <td style="color: #0f172a; font-weight: 600; padding: 4px 0;">{location or 'Auditorio Principal Gloint • Bogotá, Colombia'}</td>
+            </tr>
+            <tr>
+                <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Aforo / Reserva:</td>
+                <td style="color: #0f172a; padding: 4px 0;">{cupos_str}</td>
+            </tr>
+            """
+
+            instructions_box = f"""
+            <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 16px 20px; margin: 20px 0; font-size: 13px; color: #9a3412; line-height: 1.65;">
+                <strong style="color: #7c2d12; font-size: 13.5px;">📍 Recomendaciones para el día del evento:</strong><br>
+                • <strong>Horario de Acreditación:</strong> Las puertas se abrirán <strong>30 minutos antes</strong> de la hora de inicio para el registro en recepción y networking inicial.<br>
+                • <strong>Documento de Identidad:</strong> Es necesario presentar tu cédula de ciudadanía o documento registrado para el ingreso.{f"<br>• <strong>Acompañante:</strong> Tu registro incluye el pase para <strong>{companion_name}</strong>." if (has_companion and companion_name) else ""}<br>
+                • <strong>Código de Vestimenta:</strong> Business Casual / Formal Ejecutivo.
+            </div>
+            """
+        else:
+            virt_link_html = f'<a href="{virtual_url}" target="_blank" style="color: #0284c7; font-weight: 700; text-decoration: underline;">{virtual_url}</a>' if virtual_url else 'Enlace exclusivo habilitado previo al inicio'
+            mode_rows = f"""
+            <tr>
+                <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Modalidad:</td>
+                <td style="color: #0369a1; font-weight: 700; padding: 4px 0;">Virtual en Vivo (Streaming HD)</td>
+            </tr>
+            <tr>
+                <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Sala de Transmisión:</td>
+                <td style="padding: 4px 0;">{virt_link_html}</td>
+            </tr>
+            """
+
+            instructions_box = f"""
+            <div style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; padding: 16px 20px; margin: 20px 0; font-size: 13px; color: #075985; line-height: 1.65;">
+                <strong style="color: #0c4a6e; font-size: 13.5px;">💻 Instrucciones para tu conexión virtual:</strong><br>
+                • <strong>Apertura de la Transmisión:</strong> La sala de streaming estará disponible <strong>15 minutos antes</strong> para verificar audio y calidad de video.<br>
+                • <strong>Enlace Directo:</strong> Puedes acceder directamente desde el botón ubicado al final de este correo o mediante el enlace: <a href="{virtual_url}" style="color: #0284c7; text-decoration: underline;">{virtual_url}</a>.<br>
+                • <strong>Participación en Vivo:</strong> Tendrás a disposición el chat en tiempo real para formular preguntas a los directivos de Gloint.
+            </div>
+            """
+
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        content_html = f"""
+        <p style="margin: 0 0 14px; font-size: 15px; color: #0f172a;">
+            Estimado/a <strong style="color: #0f172a;">{user_name}</strong>,
+        </p>
+        <p style="margin: 0 0 18px; line-height: 1.65; color: #334155;">
+            {intro_greeting}
+        </p>
+
+        <!-- Ticket Card -->
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 24px; margin: 22px 0;">
+            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
+                Ficha Oficial de Entrada • {clean_event_title}
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 13.5px; color: #334155; line-height: 1.85;">
+                <tr>
+                    <td style="font-weight: 600; width: 145px; color: #64748b; padding: 4px 0;">Evento:</td>
+                    <td style="font-weight: 800; color: #0f172a; font-size: 15px; padding: 4px 0;">{clean_event_title}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Fecha & Hora:</td>
+                    <td style="color: #0f172a; font-weight: 700; padding: 4px 0;">{formatted_date}</td>
+                </tr>
+                {mode_rows}
+                <tr>
+                    <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Tipo de Registro:</td>
+                    <td style="padding: 4px 0;">{tipo_label}</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600; color: #64748b; padding: 4px 0;">Titular:</td>
+                    <td style="color: #0f172a; font-weight: 600; padding: 4px 0;">{user_name}</td>
+                </tr>
+                {f"<tr><td style='font-weight: 600; color: #64748b; padding: 4px 0;'>Documento ID:</td><td style='color: #0f172a; padding: 4px 0;'>{document_id}</td></tr>" if document_id else ""}
+                {f"<tr><td style='font-weight: 600; color: #64748b; padding: 4px 0;'>Teléfono / WhatsApp:</td><td style='color: #0f172a; padding: 4px 0;'>{phone}</td></tr>" if phone else ""}
+                {f"<tr><td style='font-weight: 600; color: #64748b; padding: 4px 0;'>Ciudad:</td><td style='color: #0f172a; padding: 4px 0;'>{city}</td></tr>" if city else ""}
+                {perfil_html}
+                {interests_html}
+            </table>
+        </div>
+
+        {instructions_box}
+        """
+
+        cta_text = "Acceder a la Sala Virtual" if not is_in_person else "Ver en Portal Gloint"
+        cta_url = virtual_url if (not is_in_person and virtual_url) else (f"{frontend_url}/dashboard" if attendee_type == "investor" else f"{frontend_url}/#power-tech")
+        
+        secondary_cta_text = "Ir a Mi Portal" if attendee_type == "investor" else None
+        secondary_cta_url = f"{frontend_url}/dashboard" if attendee_type == "investor" else None
+
+        html = cls.build_corporate_email_layout(
+            title=title,
+            preheader=preheader,
+            content_html=content_html,
+            badge_text=badge_text,
+            badge_variant=badge_variant,
+            cta_text=cta_text,
+            cta_url=cta_url,
+            secondary_cta_text=secondary_cta_text,
+            secondary_cta_url=secondary_cta_url
+        )
+        return subject, html
+
 
 

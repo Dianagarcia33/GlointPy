@@ -534,10 +534,54 @@ async def send_test_email(
             payment_method="Yoint (PSE Bancolombia)",
             reference_id="ORD-YOINT-994821"
         )
+    elif email_type == "event_registration_in_person":
+        template_label = "Inscripción Evento Presencial"
+        from datetime import datetime, timezone, timedelta
+        event_dt = datetime.now(timezone.utc) + timedelta(days=20)
+        sent = EmailService.send_event_registration_confirmation_email(
+            to_email=recipient,
+            user_name=user_name,
+            event_title="Gloint Power Tech",
+            event_date=event_dt,
+            attendance_mode="in_person",
+            location="Auditorio Principal Gloint • Bogotá, Colombia",
+            seats_reserved=2,
+            has_companion=True,
+            companion_name="María Fernanda Restrepo",
+            is_company=True,
+            company_name="Soluciones Energéticas SAS",
+            company_nit="901.458.912-3",
+            job_title="Directora de Operaciones",
+            document_id="1020304050",
+            phone="+57 310 123 4567",
+            city="Bogotá",
+            interests=["Inversión de Capital", "Tecnología & IA", "Logística y Comercio"],
+            attendee_type="investor"
+        )
+    elif email_type == "event_registration_virtual":
+        template_label = "Inscripción Evento Virtual"
+        from datetime import datetime, timezone, timedelta
+        event_dt = datetime.now(timezone.utc) + timedelta(days=20)
+        sent = EmailService.send_event_registration_confirmation_email(
+            to_email=recipient,
+            user_name=user_name,
+            event_title="Gloint Power Tech",
+            event_date=event_dt,
+            attendance_mode="virtual",
+            virtual_url="https://meet.gloint.com.co/power-tech",
+            seats_reserved=1,
+            has_companion=False,
+            is_company=False,
+            document_id="1098765432",
+            phone="+57 320 987 6543",
+            city="Medellín",
+            interests=["Tecnología & IA", "Fintech & Crowdfunding"],
+            attendee_type="external"
+        )
     else:
         raise HTTPException(
             status_code=400,
-            detail=f"Tipo de correo no válido ('{payload.email_type}'). Opciones: 'welcome', 'sarlaft_approved', 'sarlaft_findings', 'password_reset', 'otp', 'withdrawal_approved', 'chatbot_investor', 'chatbot_director', 'investment_request_created', 'investment_activated', 'capital_upgrade_activated', 'wallet_recharge_confirmed'"
+            detail=f"Tipo de correo no válido ('{payload.email_type}'). Opciones: 'welcome', 'sarlaft_approved', 'sarlaft_findings', 'password_reset', 'otp', 'withdrawal_approved', 'chatbot_investor', 'chatbot_director', 'investment_request_created', 'investment_activated', 'capital_upgrade_activated', 'wallet_recharge_confirmed', 'event_registration_in_person', 'event_registration_virtual'"
         )
 
     if not sent:

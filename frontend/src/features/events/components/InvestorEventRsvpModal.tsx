@@ -174,6 +174,9 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
                 ? `¡Te esperamos presencialmente${hasCompanion ? ' junto a tu acompañante' : ''}! Tu cupo ha sido reservado con éxito.`
                 : '¡Registrado en modalidad Virtual! Te compartiremos el enlace oficial de transmisión.'}
             </p>
+            <p className="text-xs text-slate-500 max-w-xs mx-auto mt-2 leading-relaxed">
+              📧 Hemos enviado la confirmación y los detalles de tu entrada a <strong className="text-slate-700">{user?.email}</strong>.
+            </p>
             <div className="pt-2 text-xs font-bold text-amber-700 font-montserrat bg-amber-50 border border-amber-200/80 rounded-xl py-2 px-4 inline-block">
               Gloint Power Tech 2026 • Presentación Oficial
             </div>
