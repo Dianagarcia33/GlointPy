@@ -35,7 +35,21 @@ export const AVAILABLE_INTEREST_OPTIONS = [
 ];
 
 export function EventRegistrationSection() {
-  const [eventData, setEventData] = useState<EventData | null>(null);
+  const [eventData, setEventData] = useState<EventData>({
+    id: 1,
+    title: "Gloint Power Tech",
+    slug: "gloint-power-tech",
+    description: "Descubre de primera mano los nuevos productos, ecosistemas digitales y tecnologías de alto impacto que transformarán el modelo de inversión y comercio en Gloint.",
+    event_date: "2026-10-14T18:00:00Z",
+    location: "Auditorio Principal Gloint • Bogotá, Colombia",
+    virtual_url: "",
+    capacity_in_person: 100,
+    occupied_in_person: 0,
+    available_in_person: 100,
+    is_full_in_person: false,
+    is_active: true,
+    banner_active: true,
+  });
   const [googleUser, setGoogleUser] = useState<GoogleUserData | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -76,15 +90,17 @@ export function EventRegistrationSection() {
   useEffect(() => {
     getActiveEvent()
       .then((data) => {
-        setEventData(data);
-        if (data?.is_full_in_person) {
-          setAttendanceMode("virtual");
+        if (data) {
+          setEventData(data);
+          if (data.is_full_in_person) {
+            setAttendanceMode("virtual");
+          }
         }
       })
       .catch((err) => console.warn("Error cargando evento en landing:", err));
   }, []);
 
-  if (!eventData || !eventData.is_active) {
+  if (!eventData.is_active) {
     return null;
   }
 
@@ -103,8 +119,8 @@ export function EventRegistrationSection() {
     }
 
     const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, "");
-    if (!/^(\+?57)?3\d{9}$/.test(cleanPhone)) {
-      setError("El teléfono debe ser un número celular colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567).");
+    if (!/^\+?[0-9]{7,15}$/.test(cleanPhone)) {
+      setError("Por favor ingresa un número de teléfono o celular válido (mínimo 7 dígitos).");
       return;
     }
 
@@ -123,12 +139,10 @@ export function EventRegistrationSection() {
       }
     }
 
-    if (documentId.trim()) {
-      const cleanDoc = documentId.trim();
-      if (!/^[a-zA-Z0-9]{5,20}$/.test(cleanDoc)) {
-        setError("El número de documento debe contener entre 5 y 20 caracteres alfanuméricos.");
-        return;
-      }
+    const cleanDoc = documentId ? documentId.replace(/[\.\s\-]/g, "").trim() : "";
+    if (cleanDoc && cleanDoc.length < 4) {
+      setError("El número de documento debe contener al menos 4 caracteres.");
+      return;
     }
 
     if (attendanceMode === "in_person") {
@@ -146,7 +160,7 @@ export function EventRegistrationSection() {
         email: email.trim(),
         phone: cleanPhone,
         city: finalCity.trim() || undefined,
-        document_id: documentId.trim() || undefined,
+        document_id: cleanDoc || undefined,
         is_company: isCompany,
         company_name: isCompany ? companyName.trim() : undefined,
         company_nit: isCompany ? companyNit.trim() : undefined,
@@ -161,7 +175,7 @@ export function EventRegistrationSection() {
       setSuccess(true);
       // Refrescar datos de cupos
       const updated = await getActiveEvent();
-      setEventData(updated);
+      if (updated) setEventData(updated);
     } catch (err: any) {
       console.error("Error al registrar asistente:", err);
       setError(err.message || "Ocurrió un error al procesar tu registro.");
@@ -187,7 +201,7 @@ export function EventRegistrationSection() {
     : "18:00 COT";
 
   return (
-    <section id="gloint-power-tech" className="py-24 relative overflow-hidden font-inter bg-gradient-to-b from-slate-50 via-white to-slate-50 border-y border-slate-200/80">
+    <section id="gloint-power-tech" className="py-12 sm:py-24 relative overflow-hidden font-inter bg-gradient-to-b from-slate-50 via-white to-slate-50 border-y border-slate-200/80">
       
       {/* Glow ambiental sutil */}
       <div 
@@ -199,9 +213,9 @@ export function EventRegistrationSection() {
         style={{ background: "radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)" }}
       />
 
-      <div className="max-w-6xl mx-auto px-6 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
         
-        <div className="grid lg:grid-cols-12 gap-12 items-center">
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
           {/* Columna Izquierda: Información del Evento */}
           <div className="lg:col-span-6 space-y-6">
@@ -362,7 +376,7 @@ export function EventRegistrationSection() {
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           placeholder="Ej. Juan Gómez"
-                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
                     </div>
@@ -382,7 +396,7 @@ export function EventRegistrationSection() {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           placeholder="nombre@correo.com"
-                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
                     </div>
@@ -403,12 +417,10 @@ export function EventRegistrationSection() {
                           autoComplete="tel"
                           inputMode="tel"
                           required
-                          maxLength={15}
-                          pattern="^(\+?57)?3[0-9]{9}$"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="Ej. 3101234567"
-                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                         />
                       </div>
                     </div>
@@ -420,12 +432,10 @@ export function EventRegistrationSection() {
                       <input
                         type="text"
                         id="event_doc"
-                        maxLength={20}
-                        pattern="^[a-zA-Z0-9]{5,20}$"
                         value={documentId}
                         onChange={(e) => setDocumentId(e.target.value)}
                         placeholder="Cédula o ID"
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                       />
                     </div>
                   </div>
@@ -448,7 +458,7 @@ export function EventRegistrationSection() {
                           value={selectedDepartmentId}
                           onChange={(e) => handleDepartmentChange(e.target.value)}
                           disabled={loadingDepartments}
-                          className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium cursor-pointer disabled:opacity-60"
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium cursor-pointer disabled:opacity-60"
                         >
                           <option value="">
                             {loadingDepartments ? "Cargando..." : "Selecciona departamento..."}
@@ -478,7 +488,7 @@ export function EventRegistrationSection() {
                           value={selectedCity}
                           onChange={(e) => setSelectedCity(e.target.value)}
                           disabled={!selectedDepartmentId || loadingCities}
-                          className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium cursor-pointer disabled:opacity-60"
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium cursor-pointer disabled:opacity-60"
                         >
                           <option value="">
                             {loadingCities 
@@ -503,7 +513,7 @@ export function EventRegistrationSection() {
                         value={customCity}
                         onChange={(e) => setCustomCity(e.target.value)}
                         placeholder="Escribe el nombre de tu ciudad *"
-                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                        className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                       />
                     </div>
                   )}
@@ -559,7 +569,7 @@ export function EventRegistrationSection() {
                               value={companyName}
                               onChange={(e) => setCompanyName(e.target.value)}
                               placeholder="Ej. Gloint S.A.S."
-                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
                             />
                           </div>
                         </div>
@@ -577,7 +587,7 @@ export function EventRegistrationSection() {
                               value={companyNit}
                               onChange={(e) => setCompanyNit(e.target.value)}
                               placeholder="Ej. 901.234.567-8"
-                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
                             />
                           </div>
                         </div>
@@ -595,7 +605,7 @@ export function EventRegistrationSection() {
                               value={jobTitle}
                               onChange={(e) => setJobTitle(e.target.value)}
                               placeholder="Ej. Gerente"
-                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
+                              className="w-full pl-8 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
                             />
                           </div>
                         </div>
@@ -714,7 +724,7 @@ export function EventRegistrationSection() {
                           value={companionName}
                           onChange={(e) => setCompanionName(e.target.value)}
                           placeholder="Nombre del acompañante (Opcional)"
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 font-medium"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-base sm:text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 font-medium"
                         />
                       )}
                     </div>
