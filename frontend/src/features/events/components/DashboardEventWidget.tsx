@@ -173,44 +173,44 @@ export const DashboardEventWidget: React.FC = () => {
     <>
       {/* Banner Principal en el Dashboard (Si banner_active está habilitado) */}
       {eventData.banner_active && (
-        <div className="relative w-full mb-8 group rounded-3xl p-[2px] bg-gradient-to-r from-amber-400 via-cyan-400 via-amber-300 to-indigo-500 shadow-[0_0_40px_rgba(245,158,11,0.25),0_0_25px_rgba(6,182,212,0.18)] hover:shadow-[0_0_55px_rgba(245,158,11,0.38),0_0_35px_rgba(6,182,212,0.28)] transition-all duration-500 overflow-hidden font-inter">
+        <div className="relative w-full mb-8 group rounded-3xl p-[2px] bg-gradient-to-r from-cyan-400 via-indigo-400 to-blue-500 shadow-[0_10px_40px_rgba(37,99,235,0.32),0_0_20px_rgba(99,102,241,0.2)] hover:shadow-[0_14px_50px_rgba(37,99,235,0.42),0_0_30px_rgba(99,102,241,0.3)] transition-all duration-500 overflow-hidden font-inter">
           
-          {/* Contenedor Interior Cósmico / Cyber-Tech */}
-          <div className="relative bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(14,165,233,0.15),rgba(0,0,0,0))] bg-gradient-to-br from-[#060a17] via-[#0b1227] to-[#04060f] rounded-[22px] p-5 sm:p-7 lg:p-8 text-white overflow-hidden backdrop-blur-2xl">
+          {/* Contenedor Interior: Azul Cobalto Eléctrico & Índigo Tech */}
+          <div className="relative bg-gradient-to-r from-blue-700 via-indigo-600 to-violet-700 rounded-[22px] p-5 sm:p-7 lg:p-8 text-white overflow-hidden backdrop-blur-2xl">
             
-            {/* Patrón Grid Futurista */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#38bdf80e_1px,transparent_1px),linear-gradient(to_bottom,#38bdf80e_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none opacity-70" />
+            {/* Patrón Grid Futurista Traslúcido */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff18_1px,transparent_1px),linear-gradient(to_bottom,#ffffff18_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none opacity-30" />
 
             {/* Luces Ambientales Neón */}
-            <div className="absolute -top-24 -right-24 w-96 h-96 bg-amber-500/25 rounded-full blur-[100px] pointer-events-none animate-pulse" />
-            <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-500/20 rounded-full blur-[100px] pointer-events-none" />
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 via-amber-400 to-transparent opacity-90" />
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-cyan-400/25 rounded-full blur-[90px] pointer-events-none animate-pulse" />
+            <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-amber-400/20 rounded-full blur-[90px] pointer-events-none" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-300 via-white to-transparent opacity-80" />
 
             {/* Fila 1: Badges de Estado y HUD Countdown Digital */}
-            <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-white/10">
+            <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-white/15">
               
               {/* Badges de Estado */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/80 border border-cyan-400/40 text-cyan-300 text-[11px] font-black uppercase tracking-wider shadow-[0_0_15px_rgba(6,182,212,0.25)] font-mono">
+                <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 border border-white/30 text-white text-[11px] font-black uppercase tracking-wider shadow-sm font-mono backdrop-blur-md">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-80" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-300 opacity-90" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-300" />
                   </span>
                   Gloint Power Tech 2026
                 </span>
 
                 {myRegistration ? (
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[11px] font-bold shadow-[0_0_15px_rgba(16,185,129,0.25)] font-montserrat">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-400/25 border border-emerald-300/50 text-white text-[11px] font-bold shadow-sm font-montserrat backdrop-blur-md">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
                     <span>Asistencia VIP Confirmada ({myRegistration.attendance_mode === 'in_person' ? 'Presencial' : 'Virtual'})</span>
                   </span>
                 ) : (
-                  <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-black border shadow-sm font-montserrat ${
+                  <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-black border shadow-sm font-montserrat backdrop-blur-md ${
                     eventData.is_full_in_person 
-                      ? 'bg-rose-500/20 border-rose-400/40 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.2)]' 
-                      : 'bg-amber-500/25 border-amber-400/50 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                      ? 'bg-rose-500/25 border-rose-300/50 text-white shadow-sm' 
+                      : 'bg-amber-400/25 border-amber-300/50 text-amber-100 shadow-sm'
                   }`}>
-                    <Flame className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+                    <Flame className="w-3.5 h-3.5 text-amber-300 animate-bounce" />
                     <span>
                       {eventData.is_full_in_person 
                         ? 'Aforo Presencial Lleno (Virtual Disponible)' 
@@ -219,56 +219,56 @@ export const DashboardEventWidget: React.FC = () => {
                   </span>
                 )}
 
-                <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-cyan-200/90 font-medium px-2.5 py-1 rounded-full bg-slate-900/60 border border-cyan-500/30">
-                  <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
+                <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] text-blue-100 font-medium px-2.5 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md">
+                  <Radio className="w-3 h-3 text-cyan-300 animate-pulse" />
                   Bogotá VIP & Streaming HQ 4K
                 </span>
               </div>
 
               {/* Temporizador Regresivo HUD Ticking */}
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-[10px] font-black text-cyan-300/90 uppercase tracking-widest hidden xl:inline-block mr-1 font-mono">
+                <span className="text-[10px] font-black text-cyan-200 uppercase tracking-widest hidden xl:inline-block mr-1 font-mono">
                   COUNTDOWN:
                 </span>
                 
-                <div className="bg-slate-900/90 border border-cyan-500/35 rounded-xl px-2.5 py-1 text-center min-w-[44px] sm:min-w-[48px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_0_15px_rgba(6,182,212,0.12)]">
+                <div className="bg-blue-950/60 border border-cyan-400/40 backdrop-blur-md rounded-xl px-2.5 py-1 text-center min-w-[44px] sm:min-w-[48px] shadow-sm">
                   <span className="block text-sm sm:text-base font-black font-mono text-white leading-tight">
                     {padZero(timeLeft.days)}
                   </span>
-                  <span className="text-[9px] font-extrabold text-cyan-400 uppercase tracking-wider block">
+                  <span className="text-[9px] font-extrabold text-cyan-200 uppercase tracking-wider block">
                     Días
                   </span>
                 </div>
 
-                <span className="text-cyan-400/60 font-bold text-xs">:</span>
+                <span className="text-cyan-200/80 font-bold text-xs">:</span>
 
-                <div className="bg-slate-900/90 border border-amber-500/40 rounded-xl px-2.5 py-1 text-center min-w-[44px] sm:min-w-[48px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_0_15px_rgba(245,158,11,0.15)]">
+                <div className="bg-blue-950/60 border border-amber-400/50 backdrop-blur-md rounded-xl px-2.5 py-1 text-center min-w-[44px] sm:min-w-[48px] shadow-sm">
                   <span className="block text-sm sm:text-base font-black font-mono text-amber-300 leading-tight">
                     {padZero(timeLeft.hours)}
                   </span>
-                  <span className="text-[9px] font-extrabold text-amber-400 uppercase tracking-wider block">
+                  <span className="text-[9px] font-extrabold text-amber-300 uppercase tracking-wider block">
                     Horas
                   </span>
                 </div>
 
-                <span className="text-cyan-400/60 font-bold text-xs">:</span>
+                <span className="text-cyan-200/80 font-bold text-xs">:</span>
 
-                <div className="bg-slate-900/90 border border-cyan-500/35 rounded-xl px-2.5 py-1 text-center min-w-[44px] sm:min-w-[48px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_0_15px_rgba(6,182,212,0.12)]">
+                <div className="bg-blue-950/60 border border-cyan-400/40 backdrop-blur-md rounded-xl px-2.5 py-1 text-center min-w-[44px] sm:min-w-[48px] shadow-sm">
                   <span className="block text-sm sm:text-base font-black font-mono text-white leading-tight">
                     {padZero(timeLeft.minutes)}
                   </span>
-                  <span className="text-[9px] font-extrabold text-cyan-400 uppercase tracking-wider block">
+                  <span className="text-[9px] font-extrabold text-cyan-200 uppercase tracking-wider block">
                     Min
                   </span>
                 </div>
 
-                <span className="text-cyan-400/60 font-bold text-xs">:</span>
+                <span className="text-cyan-200/80 font-bold text-xs">:</span>
 
-                <div className="bg-slate-900/90 border border-amber-500/40 rounded-xl px-2.5 py-1 text-center min-w-[44px] sm:min-w-[48px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_0_15px_rgba(245,158,11,0.15)]">
-                  <span className="block text-sm sm:text-base font-black font-mono text-amber-400 leading-tight">
+                <div className="bg-blue-950/60 border border-amber-400/50 backdrop-blur-md rounded-xl px-2.5 py-1 text-center min-w-[44px] sm:min-w-[48px] shadow-sm">
+                  <span className="block text-sm sm:text-base font-black font-mono text-amber-300 leading-tight">
                     {padZero(timeLeft.seconds)}
                   </span>
-                  <span className="text-[9px] font-extrabold text-amber-400 uppercase tracking-wider block">
+                  <span className="text-[9px] font-extrabold text-amber-300 uppercase tracking-wider block">
                     Seg
                   </span>
                 </div>
@@ -281,39 +281,39 @@ export const DashboardEventWidget: React.FC = () => {
               
               <div className="space-y-3 flex-1">
                 <div>
-                  <p className="text-[11px] font-extrabold tracking-widest text-cyan-400 uppercase font-mono flex items-center gap-1.5 mb-1">
-                    <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                  <p className="text-[11px] font-extrabold tracking-widest text-cyan-200 uppercase font-mono flex items-center gap-1.5 mb-1">
+                    <Zap className="w-3.5 h-3.5 text-cyan-300" />
                     CONVENCIÓN ANUAL DE INVERSIÓN Y TECNOLOGÍA
                   </p>
-                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black font-montserrat tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-amber-100 to-amber-400 drop-shadow-sm">
+                  <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black font-montserrat tracking-tight text-white drop-shadow-md">
                     {eventData.title || "Gloint Power Tech 2026"}
                   </h2>
                 </div>
 
-                <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                <p className="text-xs sm:text-sm text-blue-100/90 max-w-2xl leading-relaxed">
                   {eventData.description || "Lanzamiento oficial de nuevos productos del ecosistema, modelos de rentabilidad y oportunidades exclusivas para inversionistas."}
                 </p>
 
                 {/* Ficha de Detalles */}
-                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs text-slate-300 pt-1">
-                  <span className="inline-flex items-center gap-1.5 bg-slate-900/70 border border-white/10 px-3 py-1.5 rounded-xl shadow-xs">
-                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="capitalize font-semibold text-slate-200">{formattedDate}</span>
+                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs text-blue-100 pt-1">
+                  <span className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-xl shadow-xs backdrop-blur-md">
+                    <Calendar className="w-3.5 h-3.5 text-amber-300" />
+                    <span className="capitalize font-semibold text-white">{formattedDate}</span>
                   </span>
                   
-                  <span className="inline-flex items-center gap-1.5 bg-slate-900/70 border border-white/10 px-3 py-1.5 rounded-xl shadow-xs">
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="font-semibold text-slate-200">{formattedTime} COT</span>
+                  <span className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-xl shadow-xs backdrop-blur-md">
+                    <Clock className="w-3.5 h-3.5 text-amber-300" />
+                    <span className="font-semibold text-white">{formattedTime} COT</span>
                   </span>
 
-                  <span className="inline-flex items-center gap-1.5 bg-slate-900/70 border border-white/10 px-3 py-1.5 rounded-xl shadow-xs">
-                    <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="font-semibold text-slate-200">{eventData.location?.split('•')[0] || 'Auditorio Principal • Bogotá'}</span>
+                  <span className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-xl shadow-xs backdrop-blur-md">
+                    <MapPin className="w-3.5 h-3.5 text-cyan-300" />
+                    <span className="font-semibold text-white">{eventData.location?.split('•')[0] || 'Auditorio Principal • Bogotá'}</span>
                   </span>
 
-                  <span className="inline-flex items-center gap-1.5 bg-slate-900/70 border border-white/10 px-3 py-1.5 rounded-xl shadow-xs">
-                    <Tv className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="font-semibold text-slate-200">Streaming 4K</span>
+                  <span className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-xl shadow-xs backdrop-blur-md">
+                    <Tv className="w-3.5 h-3.5 text-cyan-300" />
+                    <span className="font-semibold text-white">Streaming 4K</span>
                   </span>
                 </div>
               </div>
