@@ -6,11 +6,13 @@ export function EventRegistrationPage() {
     // Al entrar a la ruta directa, situar la pantalla en la cabecera del formulario
     window.scrollTo({ top: 0, behavior: 'instant' });
     
-    // Enfocar el primer campo del formulario para agilizar el diligenciamiento
+    // Enfocar el primer campo del formulario solo en desktop para no disparar el teclado en móvil
     const timer = setTimeout(() => {
-      const input = document.getElementById('event_fullname');
-      if (input) {
-        input.focus();
+      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+        const input = document.getElementById('event_fullname');
+        if (input) {
+          input.focus();
+        }
       }
     }, 400);
 
