@@ -321,35 +321,36 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
               </span>
             </div>
 
-            {/* Datos Personales */}
-            <div className="space-y-3">
-              <div>
-                <label htmlFor="modal_fullname" className="text-xs font-bold text-slate-700 block mb-1">
-                  Nombre Completo <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    id="modal_fullname"
-                    name="name"
-                    autoComplete="name"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Ej. Carlos Mendoza"
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Datos Personales Compactos */}
+            <div className="space-y-2.5">
+              {/* Fila 1: Nombre y Correo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label htmlFor="modal_email" className="text-xs font-bold text-slate-700 block mb-1">
+                  <label htmlFor="modal_fullname" className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Nombre Completo <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      id="modal_fullname"
+                      name="name"
+                      autoComplete="name"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ej. Carlos Mendoza"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="modal_email" className="text-[11px] font-bold text-slate-700 block mb-1">
                     Correo Electrónico <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="email"
                       id="modal_email"
@@ -359,17 +360,20 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="nombre@correo.com"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                     />
                   </div>
                 </div>
+              </div>
 
+              {/* Fila 2: WhatsApp y Documento */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label htmlFor="modal_phone" className="text-xs font-bold text-slate-700 block mb-1">
+                  <label htmlFor="modal_phone" className="text-[11px] font-bold text-slate-700 block mb-1">
                     Teléfono / WhatsApp <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="tel"
                       id="modal_phone"
@@ -380,22 +384,36 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="Ej. 3001234567"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label htmlFor="modal_doc" className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Documento <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="modal_doc"
+                    value={documentId}
+                    onChange={(e) => setDocumentId(e.target.value)}
+                    placeholder="Cédula o Pasaporte"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Departamento Select */}
+              {/* Fila 3: Departamento y Ciudad */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
                     <span>Departamento</span>
-                    {loadingDepartments && <span className="text-[10px] text-brand-600 font-normal">Cargando...</span>}
+                    {loadingDepartments && <span className="text-[9px] text-brand-600 font-normal">Cargando...</span>}
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MapPin className="h-4 w-4 text-slate-400" />
+                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400" />
                     </div>
                     <select
                       id="modal_department"
@@ -404,7 +422,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       value={selectedDepartmentId}
                       onChange={(e) => handleDepartmentChange(e.target.value)}
                       disabled={loadingDepartments}
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all cursor-pointer disabled:opacity-60"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all cursor-pointer disabled:opacity-60"
                     >
                       <option value="">{loadingDepartments ? 'Cargando...' : 'Selecciona...'}</option>
                       {departments.map((d) => (
@@ -416,15 +434,14 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                   </div>
                 </div>
 
-                {/* Ciudad Select */}
                 <div>
-                  <label className="text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
                     <span>Ciudad</span>
-                    {loadingCities && <span className="text-[10px] text-brand-600 font-normal">Cargando...</span>}
+                    {loadingCities && <span className="text-[9px] text-brand-600 font-normal">Cargando...</span>}
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MapPin className="h-4 w-4 text-slate-400" />
+                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400" />
                     </div>
                     <select
                       id="modal_city"
@@ -433,7 +450,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                       value={selectedCity}
                       onChange={(e) => setSelectedCity(e.target.value)}
                       disabled={!selectedDepartmentId || loadingCities}
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all cursor-pointer disabled:opacity-60"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all cursor-pointer disabled:opacity-60"
                     >
                       <option value="">
                         {loadingCities 
@@ -452,110 +469,79 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
 
               {selectedCity === 'Otra' && (
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    ¿Qué ciudad? *
-                  </label>
                   <input
                     type="text"
                     required
                     value={customCity}
                     onChange={(e) => setCustomCity(e.target.value)}
-                    placeholder="Escribe el nombre de tu ciudad"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                    placeholder="Escribe el nombre de tu ciudad *"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                   />
                 </div>
               )}
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Documento de Identidad (Opcional)
-                </label>
-                <input
-                  type="text"
-                  value={documentId}
-                  onChange={(e) => setDocumentId(e.target.value)}
-                  placeholder="Cédula o Pasaporte"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
-                />
-              </div>
-
-              {/* Selector: Persona Natural o Empresa */}
-              <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+              {/* Fila 4: Tipo de Registro - Segmented Pill Control */}
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                <label className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
                   Tipo de Registro <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                   <button
                     type="button"
                     onClick={() => setIsCompany(false)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                       !isCompany
-                        ? "bg-brand-50/80 border-2 border-brand-500 text-slate-900 font-bold shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        ? "bg-white text-slate-900 shadow-2xs font-montserrat"
+                        : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${!isCompany ? "bg-brand-500 text-white font-bold" : "bg-slate-200 text-slate-600"}`}>
-                      <User className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold font-montserrat">Persona Natural</p>
-                      <p className="text-[10px] text-slate-500 font-normal">Particular</p>
-                    </div>
+                    <User className={`w-3.5 h-3.5 ${!isCompany ? "text-brand-600" : ""}`} />
+                    <span>Persona Natural</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setIsCompany(true)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                       isCompany
-                        ? "bg-brand-50/80 border-2 border-brand-500 text-slate-900 font-bold shadow-xs"
-                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        ? "bg-white text-slate-900 shadow-2xs font-montserrat"
+                        : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isCompany ? "bg-brand-500 text-white font-bold" : "bg-slate-200 text-slate-600"}`}>
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold font-montserrat">Empresa</p>
-                      <p className="text-[10px] text-slate-500 font-normal">Persona Jurídica</p>
-                    </div>
+                    <Building2 className={`w-3.5 h-3.5 ${isCompany ? "text-brand-600" : ""}`} />
+                    <span>Empresa</span>
                   </button>
                 </div>
               </div>
 
-              {/* Campos obligatorios de Empresa */}
+              {/* Campos de Empresa compactos (3 columnas) */}
               {isCompany && (
-                <div className="p-3.5 bg-brand-50/40 border border-brand-200/80 rounded-xl space-y-3 animate-in fade-in zoom-in-95">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-brand-900">
-                    <Building2 className="w-4 h-4 text-brand-600" />
-                    <span>Datos Corporativos de la Empresa</span>
-                  </div>
-
-                  <div>
-                    <label htmlFor="modal_company_name" className="text-xs font-bold text-slate-700 block mb-1">
-                      Nombre de la Empresa / Razón Social <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        id="modal_company_name"
-                        required={isCompany}
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="Ej. Gloint Technologies S.A.S."
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-2.5 bg-brand-50/40 border border-brand-200/80 rounded-xl space-y-1.5 animate-in fade-in zoom-in-95">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
-                      <label htmlFor="modal_company_nit" className="text-xs font-bold text-slate-700 block mb-1">
+                      <label htmlFor="modal_company_name" className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                        Empresa / Razón Social <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Building2 className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          id="modal_company_name"
+                          required={isCompany}
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          placeholder="Ej. Gloint S.A.S."
+                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="modal_company_nit" className="text-[10px] font-bold text-slate-700 block mb-0.5">
                         NIT / RUT <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <FileText className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <FileText className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
                         <input
                           type="text"
                           id="modal_company_nit"
@@ -563,25 +549,25 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                           value={companyNit}
                           onChange={(e) => setCompanyNit(e.target.value)}
                           placeholder="Ej. 901.234.567-8"
-                          className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label htmlFor="modal_job_title" className="text-xs font-bold text-slate-700 block mb-1">
-                        Cargo / Posición <span className="text-rose-500">*</span>
+                      <label htmlFor="modal_job_title" className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                        Cargo <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
-                        <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Briefcase className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
                         <input
                           type="text"
                           id="modal_job_title"
                           required={isCompany}
                           value={jobTitle}
                           onChange={(e) => setJobTitle(e.target.value)}
-                          placeholder="Ej. Gerente, Director..."
-                          className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                          placeholder="Ej. Gerente"
+                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                         />
                       </div>
                     </div>
@@ -589,12 +575,12 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                 </div>
               )}
 
-              {/* Opciones de Interés */}
-              <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
-                  Áreas de Interés <span className="text-slate-400 text-[10px] font-normal lowercase">(Opcional)</span>
+              {/* Fila 5: Áreas de Interés (Chips compactos) */}
+              <div className="space-y-1 pt-1 border-t border-slate-100">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                  Áreas de Interés <span className="text-slate-400 text-[10px] font-normal lowercase">(opcional)</span>
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {AVAILABLE_INTEREST_OPTIONS.map((interest) => {
                     const isSelected = selectedInterests.includes(interest);
                     return (
@@ -608,9 +594,9 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                             setSelectedInterests([...selectedInterests, interest]);
                           }
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer flex items-center gap-1 ${
                           isSelected
-                            ? "bg-brand-500 border-brand-500 text-white font-bold shadow-xs"
+                            ? "bg-brand-500 border-brand-500 text-white font-bold shadow-2xs"
                             : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                         }`}
                       >
@@ -623,34 +609,38 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
               </div>
             </div>
 
-            {/* Selector de Modalidad */}
-            <div className="space-y-2 pt-1">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+            {/* Selector de Modalidad Compacto */}
+            <div className="space-y-1 pt-1 border-t border-slate-100">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
                 Modalidad de Asistencia <span className="text-rose-500">*</span>
               </label>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   disabled={eventData?.is_full_in_person}
                   onClick={() => setAttendanceMode('in_person')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                     attendanceMode === 'in_person'
-                      ? 'bg-brand-50/50 border-brand-500 ring-2 ring-brand-500/20'
+                      ? 'bg-brand-50/50 border-brand-500 ring-1 ring-brand-500/20 text-slate-900 shadow-2xs'
                       : eventData?.is_full_in_person
                         ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <MapPin className="w-4 h-4 text-brand-600" />
-                    {eventData?.is_full_in_person && (
-                      <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
-                        Agotado
-                      </span>
-                    )}
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-brand-600" />
+                    <span className="font-montserrat">Presencial</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-900 font-montserrat">Presencial</span>
+                  {eventData?.is_full_in_person ? (
+                    <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
+                      Agotado
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full font-mono">
+                      Libre
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -659,19 +649,19 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                     setAttendanceMode('virtual');
                     setHasCompanion(false);
                   }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                     attendanceMode === 'virtual'
-                      ? 'bg-brand-50/50 border-brand-500 ring-2 ring-brand-500/20'
-                      : 'bg-white border-slate-200 hover:bg-slate-50'
+                      ? 'bg-brand-50/50 border-brand-500 ring-1 ring-brand-500/20 text-slate-900 shadow-2xs'
+                      : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <Video className="w-4 h-4 text-slate-700" />
-                    <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                      Online
-                    </span>
+                  <div className="flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="font-montserrat">Virtual</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-900 font-montserrat">Virtual</span>
+                  <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                    Online
+                  </span>
                 </button>
               </div>
             </div>
