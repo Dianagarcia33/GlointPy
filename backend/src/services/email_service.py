@@ -421,3 +421,53 @@ class EmailService:
         return cls.send_html_email(to_email, subject, html)
 
 
+    @classmethod
+    def send_event_registration_confirmation_email(
+        cls,
+        to_email: str,
+        user_name: str,
+        event_title: str,
+        event_date: Optional[object] = None,
+        attendance_mode: str = "in_person",
+        location: Optional[str] = None,
+        virtual_url: Optional[str] = None,
+        seats_reserved: int = 1,
+        has_companion: bool = False,
+        companion_name: Optional[str] = None,
+        is_company: bool = False,
+        company_name: Optional[str] = None,
+        company_nit: Optional[str] = None,
+        job_title: Optional[str] = None,
+        document_id: Optional[str] = None,
+        phone: Optional[str] = None,
+        city: Optional[str] = None,
+        interests: Optional[List[str]] = None,
+        attendee_type: str = "investor"
+    ) -> bool:
+        """
+        Envía el correo corporativo de confirmación de inscripción al evento Gloint Power Tech.
+        """
+        from src.services.email_template_service import EmailTemplateService
+        subject, html = EmailTemplateService.get_event_registration_confirmation_template(
+            user_name=user_name,
+            event_title=event_title,
+            event_date=event_date,
+            attendance_mode=attendance_mode,
+            location=location,
+            virtual_url=virtual_url,
+            seats_reserved=seats_reserved,
+            has_companion=has_companion,
+            companion_name=companion_name,
+            is_company=is_company,
+            company_name=company_name,
+            company_nit=company_nit,
+            job_title=job_title,
+            document_id=document_id,
+            phone=phone,
+            city=city,
+            interests=interests,
+            attendee_type=attendee_type
+        )
+        return cls.send_html_email(to_email, subject, html)
+
+
