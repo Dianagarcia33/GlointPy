@@ -21,6 +21,7 @@ class Event(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     attendees = relationship("EventAttendee", back_populates="event", cascade="all, delete-orphan")
+    authorized_domains = relationship("EventAuthorizedDomain", back_populates="event", cascade="all, delete-orphan")
 
 
 class EventAttendee(Base):
@@ -35,6 +36,11 @@ class EventAttendee(Base):
     phone = Column(String(50), nullable=True)
     document_id = Column(String(50), nullable=True)
     city = Column(String(100), nullable=True)
+    is_company = Column(Boolean, nullable=False, default=False)
+    company_name = Column(String(255), nullable=True)
+    company_nit = Column(String(50), nullable=True)
+    job_title = Column(String(100), nullable=True)
+    interests = Column(Text, nullable=True)
     attendance_mode = Column(String(20), nullable=False, default="in_person")  # 'in_person' | 'virtual'
     has_companion = Column(Boolean, nullable=False, default=False)
     companion_name = Column(String(255), nullable=True)
@@ -46,3 +52,23 @@ class EventAttendee(Base):
 
     event = relationship("Event", back_populates="attendees")
     user = relationship("User", foreign_keys=[user_id])
+
+
+class EventAuthorizedDomain(Base):
+    __tablename__ = "event_authorized_domains"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True, index=True)
+    event_id = Column(BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
+    domain = Column(String(255), nullable=False, index=True)  # e.g. "glointech.com.co"
+    name = Column(String(255), nullable=False)  # e.g. "Gloint Tech Oficial"
+    allow_banner = Column(Boolean, nullable=False, default=True)
+    allow_registration = Column(Boolean, nullable=False, default=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    api_key = Column(String(100), unique=True, index=True, nullable=True)
+    last_accessed_at = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    event = relationship("Event", back_populates="authorized_domains")
+

@@ -1,20 +1,32 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func, text, desc
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
-from src.models.event import Event, EventAttendee
+import re
+import secrets
+import json
+import logging
+import asyncio
+from src.models.event import Event, EventAttendee, EventAuthorizedDomain
 from src.models.user import User
 from src.models.investor import Investor
+from src.services.email_service import EmailService
+
+logger = logging.getLogger(__name__)
 from src.schemas.event import (
     EventPublicResponse,
     EventConfigUpdate,
     InvestorRsvpRequest,
     PublicRsvpRequest,
     AttendeeResponse,
-    AdminEventSummaryResponse
+    AdminEventSummaryResponse,
+    EventAuthorizedDomainCreate,
+    EventAuthorizedDomainUpdate,
+    EventAuthorizedDomainResponse,
+    DomainCheckResponse
 )
 
 class EventService:
@@ -136,6 +148,8 @@ class EventService:
             document_id = getattr(investor, "document_id", None) or document_id
             city = getattr(investor, "city", None) or city
 
+        interests_str = json.dumps(rsvp_data.interests, ensure_ascii=False) if rsvp_data.interests else None
+
         if attendee:
             # Actualizar registro existente
             attendee.attendance_mode = mode
@@ -144,9 +158,15 @@ class EventService:
             attendee.seats_reserved = seats_needed
             attendee.status = "confirmed"
             attendee.full_name = full_name
-            attendee.phone = phone
+            attendee.phone = rsvp_data.phone.strip() if rsvp_data.phone else phone
             attendee.document_id = document_id
             attendee.city = city
+            attendee.is_company = rsvp_data.is_company
+            attendee.company_name = rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None
+            attendee.company_nit = rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None
+            attendee.job_title = rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None
+            if interests_str:
+                attendee.interests = interests_str
         else:
             attendee = EventAttendee(
                 event_id=event.id,
@@ -154,9 +174,14 @@ class EventService:
                 attendee_type="investor",
                 full_name=full_name,
                 email=current_user.email,
-                phone=phone,
+                phone=rsvp_data.phone.strip() if rsvp_data.phone else phone,
                 document_id=document_id,
                 city=city,
+                is_company=rsvp_data.is_company,
+                company_name=rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None,
+                company_nit=rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None,
+                job_title=rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None,
+                interests=interests_str,
                 attendance_mode=mode,
                 has_companion=rsvp_data.has_companion if mode == "in_person" else False,
                 companion_name=rsvp_data.companion_name if (mode == "in_person" and rsvp_data.has_companion) else None,
@@ -167,6 +192,7 @@ class EventService:
 
         await db.commit()
         await db.refresh(attendee)
+        cls._dispatch_confirmation_email(event, attendee)
         return AttendeeResponse.from_orm(attendee)
 
     @classmethod
@@ -202,11 +228,19 @@ class EventService:
                     detail=f"Cupos presenciales agotados (solicitados: {seats_needed}, disponibles: {max(0, available)}). Por favor selecciona asistencia Virtual."
                 )
 
+        interests_str = json.dumps(rsvp_data.interests, ensure_ascii=False) if rsvp_data.interests else None
+
         if attendee:
             attendee.full_name = rsvp_data.full_name.strip()
-            attendee.phone = rsvp_data.phone.strip() if rsvp_data.phone else attendee.phone
+            attendee.phone = rsvp_data.phone.strip()
             attendee.document_id = rsvp_data.document_id.strip() if rsvp_data.document_id else attendee.document_id
             attendee.city = rsvp_data.city.strip() if rsvp_data.city else attendee.city
+            attendee.is_company = rsvp_data.is_company
+            attendee.company_name = rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None
+            attendee.company_nit = rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None
+            attendee.job_title = rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None
+            if interests_str:
+                attendee.interests = interests_str
             attendee.attendance_mode = mode
             attendee.has_companion = rsvp_data.has_companion if mode == "in_person" else False
             attendee.companion_name = rsvp_data.companion_name if (mode == "in_person" and rsvp_data.has_companion) else None
@@ -219,9 +253,14 @@ class EventService:
                 attendee_type="external",
                 full_name=rsvp_data.full_name.strip(),
                 email=clean_email,
-                phone=rsvp_data.phone.strip() if rsvp_data.phone else None,
+                phone=rsvp_data.phone.strip(),
                 document_id=rsvp_data.document_id.strip() if rsvp_data.document_id else None,
                 city=rsvp_data.city.strip() if rsvp_data.city else None,
+                is_company=rsvp_data.is_company,
+                company_name=rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None,
+                company_nit=rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None,
+                job_title=rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None,
+                interests=interests_str,
                 attendance_mode=mode,
                 has_companion=rsvp_data.has_companion if mode == "in_person" else False,
                 companion_name=rsvp_data.companion_name if (mode == "in_person" and rsvp_data.has_companion) else None,
@@ -232,7 +271,59 @@ class EventService:
 
         await db.commit()
         await db.refresh(attendee)
+        cls._dispatch_confirmation_email(event, attendee)
         return AttendeeResponse.from_orm(attendee)
+
+    @classmethod
+    def _dispatch_confirmation_email(cls, event: Event, attendee: EventAttendee):
+        """
+        Envía en segundo plano el correo corporativo de confirmación de inscripción al evento.
+        Nunca bloquea ni interrumpe la respuesta HTTP si el servicio de correo falla o tarda.
+        """
+        try:
+            # Parsear áreas de interés si están guardadas en JSON o texto
+            interests_list: List[str] = []
+            if attendee.interests:
+                if isinstance(attendee.interests, list):
+                    interests_list = [str(x) for x in attendee.interests]
+                elif isinstance(attendee.interests, str):
+                    try:
+                        parsed = json.loads(attendee.interests)
+                        if isinstance(parsed, list):
+                            interests_list = [str(x) for x in parsed]
+                        else:
+                            interests_list = [str(parsed)]
+                    except Exception:
+                        interests_list = [i.strip() for i in attendee.interests.split(",") if i.strip()]
+
+            # Disparar tarea en segundo plano sin bloquear el loop de FastAPI
+            asyncio.create_task(
+                asyncio.to_thread(
+                    EmailService.send_event_registration_confirmation_email,
+                    to_email=attendee.email,
+                    user_name=attendee.full_name or "Estimado/a Participante",
+                    event_title=event.title or "Gloint Power Tech",
+                    event_date=event.event_date,
+                    attendance_mode=attendee.attendance_mode or "in_person",
+                    location=event.location,
+                    virtual_url=event.virtual_url,
+                    seats_reserved=attendee.seats_reserved or 1,
+                    has_companion=bool(attendee.has_companion),
+                    companion_name=attendee.companion_name,
+                    is_company=bool(attendee.is_company),
+                    company_name=attendee.company_name,
+                    company_nit=attendee.company_nit,
+                    job_title=attendee.job_title,
+                    document_id=attendee.document_id,
+                    phone=attendee.phone,
+                    city=attendee.city,
+                    interests=interests_list,
+                    attendee_type=attendee.attendee_type or "external"
+                )
+            )
+            logger.info(f"[EventService] Programado envío de correo de confirmación a {attendee.email}")
+        except Exception as e:
+            logger.error(f"[EventService] Error al programar correo de confirmación para {attendee.email}: {e}")
 
     @classmethod
     async def get_my_registration(cls, db: AsyncSession, user_id: int) -> Optional[AttendeeResponse]:
@@ -292,7 +383,14 @@ class EventService:
         if config.virtual_url is not None:
             event.virtual_url = config.virtual_url.strip()
         if config.capacity_in_person is not None:
-            event.capacity_in_person = max(1, config.capacity_in_person)
+            new_capacity = max(1, config.capacity_in_person)
+            occupied = await cls.get_occupied_seats(db, event.id)
+            if new_capacity < occupied:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El aforo presencial ({new_capacity}) no puede ser menor a los cupos ya confirmados ({occupied} cupos). Cancela o reubica asistentes antes de reducir el aforo."
+                )
+            event.capacity_in_person = new_capacity
         if config.is_active is not None:
             event.is_active = config.is_active
         if config.banner_active is not None:
@@ -314,3 +412,206 @@ class EventService:
         attendee.seats_reserved = 0
         await db.commit()
         return True
+
+    @staticmethod
+    def normalize_domain(domain_str: Optional[str]) -> str:
+        if not domain_str:
+            return ""
+        clean = domain_str.strip().lower()
+        # Remove protocol
+        clean = re.sub(r"^https?:\/\/", "", clean)
+        # Remove path and query string
+        clean = clean.split("/")[0].split("?")[0].strip()
+        # Remove trailing port unless localhost
+        if "localhost" not in clean and ":" in clean:
+            clean = clean.split(":")[0]
+        return clean
+
+    @classmethod
+    async def ensure_default_domains(cls, db: AsyncSession, event_id: int):
+        q = select(func.count(EventAuthorizedDomain.id)).where(EventAuthorizedDomain.event_id == event_id)
+        res = await db.execute(q)
+        count = res.scalar() or 0
+        if count == 0:
+            defaults = [
+                ("glointech.com.co", "Gloint Tech Oficial"),
+                ("glointplace.com.co", "Gloint Place"),
+                ("gloint.com.co", "Gloint Principal"),
+                ("localhost:5173", "Desarrollo Local Frontend (Vite)"),
+                ("localhost:3000", "Desarrollo Local Apps (Next/React)")
+            ]
+            for dom, name in defaults:
+                db_dom = EventAuthorizedDomain(
+                    event_id=event_id,
+                    domain=dom,
+                    name=name,
+                    allow_banner=True,
+                    allow_registration=True,
+                    is_active=True,
+                    api_key=f"glt_dom_{secrets.token_hex(16)}"
+                )
+                db.add(db_dom)
+            await db.commit()
+
+    @classmethod
+    async def get_authorized_domains(cls, db: AsyncSession) -> List[EventAuthorizedDomainResponse]:
+        event = await cls.get_or_create_default_event(db)
+        await cls.ensure_default_domains(db, event.id)
+
+        query = select(EventAuthorizedDomain).where(
+            EventAuthorizedDomain.event_id == event.id
+        ).order_by(desc(EventAuthorizedDomain.id))
+        result = await db.execute(query)
+        domains = result.scalars().all()
+        return [EventAuthorizedDomainResponse.model_validate(d) for d in domains]
+
+    @classmethod
+    async def create_authorized_domain(cls, db: AsyncSession, data: EventAuthorizedDomainCreate) -> EventAuthorizedDomainResponse:
+        event = await cls.get_or_create_default_event(db)
+        clean_domain = cls.normalize_domain(data.domain)
+        if not clean_domain:
+            raise HTTPException(status_code=400, detail="El dominio ingresado no es válido.")
+
+        # Check existing
+        existing_q = select(EventAuthorizedDomain).where(
+            EventAuthorizedDomain.event_id == event.id,
+            EventAuthorizedDomain.domain == clean_domain
+        )
+        existing_res = await db.execute(existing_q)
+        if existing_res.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"El dominio '{clean_domain}' ya está registrado.")
+
+        new_domain = EventAuthorizedDomain(
+            event_id=event.id,
+            domain=clean_domain,
+            name=data.name.strip(),
+            allow_banner=data.allow_banner,
+            allow_registration=data.allow_registration,
+            is_active=data.is_active,
+            api_key=f"glt_dom_{secrets.token_hex(16)}"
+        )
+        db.add(new_domain)
+        await db.commit()
+        await db.refresh(new_domain)
+        return EventAuthorizedDomainResponse.model_validate(new_domain)
+
+    @classmethod
+    async def update_authorized_domain(
+        cls, db: AsyncSession, domain_id: int, data: EventAuthorizedDomainUpdate
+    ) -> EventAuthorizedDomainResponse:
+        query = select(EventAuthorizedDomain).where(EventAuthorizedDomain.id == domain_id)
+        result = await db.execute(query)
+        domain_record = result.scalar_one_or_none()
+        if not domain_record:
+            raise HTTPException(status_code=404, detail="Dominio no encontrado.")
+
+        if data.domain is not None:
+            clean = cls.normalize_domain(data.domain)
+            if not clean:
+                raise HTTPException(status_code=400, detail="Dominio inválido.")
+            domain_record.domain = clean
+        if data.name is not None:
+            domain_record.name = data.name.strip()
+        if data.allow_banner is not None:
+            domain_record.allow_banner = data.allow_banner
+        if data.allow_registration is not None:
+            domain_record.allow_registration = data.allow_registration
+        if data.is_active is not None:
+            domain_record.is_active = data.is_active
+
+        await db.commit()
+        await db.refresh(domain_record)
+        return EventAuthorizedDomainResponse.model_validate(domain_record)
+
+    @classmethod
+    async def delete_authorized_domain(cls, db: AsyncSession, domain_id: int) -> bool:
+        query = select(EventAuthorizedDomain).where(EventAuthorizedDomain.id == domain_id)
+        result = await db.execute(query)
+        domain_record = result.scalar_one_or_none()
+        if not domain_record:
+            raise HTTPException(status_code=404, detail="Dominio no encontrado.")
+
+        await db.delete(domain_record)
+        await db.commit()
+        return True
+
+    @classmethod
+    async def check_domain_authorization(
+        cls,
+        db: AsyncSession,
+        domain_or_origin: Optional[str] = None,
+        api_key: Optional[str] = None
+    ) -> DomainCheckResponse:
+        event = await cls.get_or_create_default_event(db)
+        await cls.ensure_default_domains(db, event.id)
+        event_pub = await cls.get_event_public_details(db)
+
+        if not event.is_active:
+            return DomainCheckResponse(
+                authorized=False,
+                domain=domain_or_origin or "desconocido",
+                banner_authorized=False,
+                registration_authorized=False,
+                event=event_pub,
+                reason="El evento está actualmente desactivado."
+            )
+
+        domain_record = None
+
+        if api_key:
+            key_q = select(EventAuthorizedDomain).where(
+                EventAuthorizedDomain.event_id == event.id,
+                EventAuthorizedDomain.api_key == api_key,
+                EventAuthorizedDomain.is_active == True
+            )
+            key_res = await db.execute(key_q)
+            domain_record = key_res.scalar_one_or_none()
+
+        if not domain_record and domain_or_origin:
+            clean_dom = cls.normalize_domain(domain_or_origin)
+            dom_q = select(EventAuthorizedDomain).where(
+                EventAuthorizedDomain.event_id == event.id,
+                EventAuthorizedDomain.is_active == True
+            )
+            dom_res = await db.execute(dom_q)
+            all_active = dom_res.scalars().all()
+
+            for cand in all_active:
+                reg_clean = cls.normalize_domain(cand.domain)
+                # Check exact or subdomain or www variations
+                if (
+                    clean_dom == reg_clean or
+                    clean_dom == f"www.{reg_clean}" or
+                    reg_clean == f"www.{clean_dom}" or
+                    clean_dom.endswith(f".{reg_clean}") or
+                    clean_dom.startswith("localhost") and reg_clean.startswith("localhost")
+                ):
+                    domain_record = cand
+                    break
+
+        if not domain_record:
+            return DomainCheckResponse(
+                authorized=False,
+                domain=domain_or_origin or "desconocido",
+                banner_authorized=False,
+                registration_authorized=False,
+                event=event_pub,
+                reason="Dominio o API Key no autorizados para el ecosistema Gloint Power Tech."
+            )
+
+        # Update last accessed timestamp
+        domain_record.last_accessed_at = datetime.now(timezone.utc)
+        await db.commit()
+
+        banner_auth = domain_record.allow_banner and event.banner_active and event.is_active
+        reg_auth = domain_record.allow_registration and event.is_active
+
+        return DomainCheckResponse(
+            authorized=True,
+            domain=domain_record.domain,
+            banner_authorized=banner_auth,
+            registration_authorized=reg_auth,
+            event=event_pub,
+            reason=None
+        )
+

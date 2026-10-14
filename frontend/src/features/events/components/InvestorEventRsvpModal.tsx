@@ -21,17 +21,20 @@ import {
   AttendeeData 
 } from '../../../services/events';
 import { useAuthStore } from '../../../store/authStore';
+import { triggerRsvpConfetti } from '../../../utils/confetti';
 
 interface InvestorEventRsvpModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (attendee: AttendeeData) => void;
+  isReminder?: boolean;
 }
 
 export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  isReminder = false
 }) => {
   const user = useAuthStore((state) => state.user);
   const [eventData, setEventData] = useState<EventData | null>(null);
@@ -103,6 +106,7 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
         companion_name: (attendanceMode === 'in_person' && hasCompanion) ? companionName.trim() : undefined,
       });
 
+      triggerRsvpConfetti();
       setSuccess(true);
       setExistingAttendee(res);
       if (onSuccess) onSuccess(res);
@@ -110,7 +114,7 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
       setTimeout(() => {
         setSuccess(false);
         onClose();
-      }, 2500);
+      }, 4000);
     } catch (err: any) {
       console.error('Error al confirmar asistencia:', err);
       setError(err.message || 'Ocurrió un error al registrar tu asistencia.');
@@ -138,9 +142,12 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
   if (!isOpen || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative max-h-[92vh] overflow-y-auto font-inter">
         
+        {/* Top Accent Gradient Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-400 via-cyan-400 to-amber-500 rounded-t-3xl" />
+
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -155,33 +162,62 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
             <p className="text-xs font-semibold text-slate-500">Cargando detalles de Gloint Power Tech...</p>
           </div>
         ) : success ? (
-          <div className="py-10 text-center space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="py-8 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20 ring-4 ring-emerald-50">
+              <CheckCircle2 className="w-9 h-9" />
             </div>
-            <h3 className="text-2xl font-black text-slate-900 font-montserrat">
-              ¡Asistencia Confirmada!
+            <h3 className="text-2xl font-black text-slate-900 font-montserrat tracking-tight">
+              ¡Asistencia VIP Confirmada! 🎉
             </h3>
-            <p className="text-sm text-slate-600 max-w-sm mx-auto">
+            <p className="text-sm text-slate-600 max-w-sm mx-auto leading-relaxed">
               {attendanceMode === 'in_person' 
                 ? `¡Te esperamos presencialmente${hasCompanion ? ' junto a tu acompañante' : ''}! Tu cupo ha sido reservado con éxito.`
-                : '¡Registrado en modalidad Virtual! Te compartiremos el enlace de transmisión oficial.'}
+                : '¡Registrado en modalidad Virtual! Te compartiremos el enlace oficial de transmisión.'}
             </p>
-            <div className="pt-2 text-xs font-bold text-brand-600 font-montserrat">
-              Gloint Power Tech • Presentación de Nuevos Productos
+            <p className="text-xs text-slate-500 max-w-xs mx-auto mt-2 leading-relaxed">
+              📧 Hemos enviado la confirmación y los detalles de tu entrada a <strong className="text-slate-700">{user?.email}</strong>.
+            </p>
+            <div className="pt-2 text-xs font-bold text-amber-700 font-montserrat bg-amber-50 border border-amber-200/80 rounded-xl py-2 px-4 inline-block">
+              Gloint Power Tech 2026 • Presentación Oficial
+            </div>
+            <div className="pt-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer shadow-md active:scale-95"
+              >
+                Continuar al Dashboard
+              </button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             
+            {/* Banner de Recordatorio si se activa automáticamente */}
+            {isReminder && (
+              <div className="p-3.5 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border border-amber-400/40 rounded-2xl flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
+                <div className="space-y-0.5">
+                  <p className="text-xs font-extrabold text-amber-950 font-montserrat uppercase tracking-wide">
+                    Recordatorio de Asistencia VIP
+                  </p>
+                  <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                    {existingAttendee 
+                      ? 'Tu cupo ya se encuentra registrado. Te recordamos verificar tus datos o actualizar tu modalidad de asistencia antes de la fecha límite.'
+                      : '¡Hola! No olvides confirmar tu asistencia para apartar tu cupo en el auditorio de Bogotá o recibir el acceso preferencial a la transmisión en directo.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Header del Evento */}
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200/60 text-brand-700 text-xs font-bold mb-3 font-montserrat">
-                <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-800 text-xs font-bold mb-3 font-montserrat">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
                 <span>Evento Exclusivo para Inversionistas</span>
               </div>
               <h2 className="text-2xl font-black text-slate-900 font-montserrat tracking-tight">
-                {eventData?.title || 'Gloint Power Tech'}
+                {eventData?.title || 'Gloint Power Tech 2026'}
               </h2>
               <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                 Hola <strong>{user?.name}</strong>, como inversionista de Gloint tienes acceso prioritario a la presentación oficial de los nuevos productos del ecosistema.
@@ -351,22 +387,22 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
                 disabled={submitting}
                 className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
               >
-                Cerrar
+                {isReminder && !existingAttendee ? 'Recordarme más tarde' : 'Cerrar'}
               </button>
               <button
                 type="submit"
                 disabled={submitting || (attendanceMode === 'in_person' && Boolean(eventData?.is_full_in_person) && existingAttendee?.attendance_mode !== 'in_person')}
-                className="px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 font-montserrat"
+                className="px-6 py-2.5 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 font-montserrat"
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
                     <span>Confirmando...</span>
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>{existingAttendee ? 'Actualizar mi Asistencia' : 'Confirmar mi Asistencia'}</span>
+                    <CheckCircle2 className="w-4 h-4 text-amber-200" />
+                    <span>{existingAttendee ? 'Actualizar mi Asistencia' : 'Confirmar mi Asistencia en 1 Clic'}</span>
                   </>
                 )}
               </button>

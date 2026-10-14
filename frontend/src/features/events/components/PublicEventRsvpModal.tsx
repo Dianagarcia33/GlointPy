@@ -14,7 +14,11 @@ import {
   Mail, 
   User, 
   Phone, 
-  ShieldCheck 
+  ShieldCheck,
+  Building2,
+  Briefcase,
+  FileText,
+  Check
 } from 'lucide-react';
 import { 
   getActiveEvent, 
@@ -23,6 +27,9 @@ import {
   AttendeeData 
 } from '../../../services/events';
 import { useColombiaCities } from '../../../hooks/useColombiaCities';
+import { GoogleAutofillButton, GoogleUserData } from '../../../components/common/GoogleAutofillButton';
+import { AVAILABLE_INTEREST_OPTIONS } from '../../landing_v2/components/EventRegistrationSection';
+import { triggerRsvpConfetti } from '../../../utils/confetti';
 
 interface PublicEventRsvpModalProps {
   isOpen: boolean;
@@ -36,10 +43,21 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
   onSuccess
 }) => {
   const [eventData, setEventData] = useState<EventData | null>(null);
+  const [googleUser, setGoogleUser] = useState<GoogleUserData | null>(null);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [documentId, setDocumentId] = useState('');
+
+  // Datos de Empresa
+  const [isCompany, setIsCompany] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [companyNit, setCompanyNit] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+
+  // Opciones de Interés
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+
   const [attendanceMode, setAttendanceMode] = useState<'in_person' | 'virtual'>('in_person');
   const [hasCompanion, setHasCompanion] = useState(false);
   const [companionName, setCompanionName] = useState('');
@@ -96,6 +114,40 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
       return;
     }
 
+    if (!phone.trim()) {
+      setError('El número de WhatsApp / Teléfono es obligatorio.');
+      return;
+    }
+
+    const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, '');
+    if (!/^(\+?57)?3\d{9}$/.test(cleanPhone)) {
+      setError('El teléfono debe ser un número celular colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567).');
+      return;
+    }
+
+    if (isCompany) {
+      if (!companyName.trim()) {
+        setError('Por favor ingresa el nombre o razón social de la empresa.');
+        return;
+      }
+      if (!companyNit.trim()) {
+        setError('Por favor ingresa el NIT o RUT de la empresa.');
+        return;
+      }
+      if (!jobTitle.trim()) {
+        setError('Por favor ingresa tu cargo en la empresa.');
+        return;
+      }
+    }
+
+    if (documentId.trim()) {
+      const cleanDoc = documentId.trim();
+      if (!/^[a-zA-Z0-9]{5,20}$/.test(cleanDoc)) {
+        setError('El número de documento debe contener entre 5 y 20 caracteres alfanuméricos.');
+        return;
+      }
+    }
+
     if (attendanceMode === 'in_person' && eventData) {
       const seatsNeeded = hasCompanion ? 2 : 1;
       if (eventData.available_in_person < seatsNeeded) {
@@ -109,21 +161,27 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
       const res = await registerPublicAttendee({
         full_name: fullName.trim(),
         email: email.trim(),
-        phone: phone.trim() || undefined,
+        phone: cleanPhone,
         city: finalCity.trim() || undefined,
         document_id: documentId.trim() || undefined,
+        is_company: isCompany,
+        company_name: isCompany ? companyName.trim() : undefined,
+        company_nit: isCompany ? companyNit.trim() : undefined,
+        job_title: isCompany ? jobTitle.trim() : undefined,
+        interests: selectedInterests.length > 0 ? selectedInterests : undefined,
         attendance_mode: attendanceMode,
         has_companion: attendanceMode === 'in_person' ? hasCompanion : false,
         companion_name: (attendanceMode === 'in_person' && hasCompanion) ? companionName.trim() : undefined,
       });
 
+      triggerRsvpConfetti();
       setSuccess(true);
       if (onSuccess) onSuccess(res);
 
       setTimeout(() => {
         setSuccess(false);
         onClose();
-      }, 2500);
+      }, 3500);
     } catch (err: any) {
       console.error('Error al registrar asistente:', err);
       setError(err.message || 'Ocurrió un error al procesar tu inscripción.');
@@ -245,76 +303,128 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
               </div>
             )}
 
-            {/* Datos Personales */}
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Nombre Completo <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Ej. Carlos Mendoza"
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
-                  />
-                </div>
-              </div>
+            {/* Autocompletar con Google */}
+            <div className="pb-1">
+              <GoogleAutofillButton
+                onAutofill={(user) => {
+                  setGoogleUser(user);
+                  if (user.name) setFullName(user.name);
+                  if (user.email) setEmail(user.email);
+                }}
+                autofilledUser={googleUser}
+                onClear={() => setGoogleUser(null)}
+              />
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="relative flex items-center justify-center my-1">
+              <div className="w-full border-t border-slate-200" />
+              <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider absolute">
+                O diligencia tus datos
+              </span>
+            </div>
+
+            {/* Datos Personales Compactos */}
+            <div className="space-y-2.5">
+              {/* Fila 1: Nombre y Correo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                  <label htmlFor="modal_fullname" className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Nombre Completo <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      id="modal_fullname"
+                      name="name"
+                      autoComplete="name"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ej. Carlos Mendoza"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="modal_email" className="text-[11px] font-bold text-slate-700 block mb-1">
                     Correo Electrónico <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                       type="email"
+                      id="modal_email"
+                      name="email"
+                      autoComplete="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="nombre@correo.com"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    Teléfono / WhatsApp
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Ej. 3001234567"
-                      className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Departamento Select */}
+              {/* Fila 2: WhatsApp y Documento */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
-                    <span>Departamento</span>
-                    {loadingDepartments && <span className="text-[10px] text-brand-600 font-normal">Cargando...</span>}
+                  <label htmlFor="modal_phone" className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Teléfono / WhatsApp <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MapPin className="h-4 w-4 text-slate-400" />
+                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      id="modal_phone"
+                      name="tel"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Ej. 3001234567"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="modal_doc" className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Documento <span className="text-slate-400 font-normal lowercase">(opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="modal_doc"
+                    value={documentId}
+                    onChange={(e) => setDocumentId(e.target.value)}
+                    placeholder="Cédula o Pasaporte"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Fila 3: Departamento y Ciudad */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Departamento</span>
+                    {loadingDepartments && <span className="text-[9px] text-brand-600 font-normal">Cargando...</span>}
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400" />
                     </div>
                     <select
+                      id="modal_department"
+                      name="address-level1"
+                      autoComplete="address-level1"
                       value={selectedDepartmentId}
                       onChange={(e) => handleDepartmentChange(e.target.value)}
                       disabled={loadingDepartments}
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all cursor-pointer disabled:opacity-60"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all cursor-pointer disabled:opacity-60"
                     >
                       <option value="">{loadingDepartments ? 'Cargando...' : 'Selecciona...'}</option>
                       {departments.map((d) => (
@@ -326,21 +436,23 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                   </div>
                 </div>
 
-                {/* Ciudad Select */}
                 <div>
-                  <label className="text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 mb-1 flex items-center justify-between">
                     <span>Ciudad</span>
-                    {loadingCities && <span className="text-[10px] text-brand-600 font-normal">Cargando...</span>}
+                    {loadingCities && <span className="text-[9px] text-brand-600 font-normal">Cargando...</span>}
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MapPin className="h-4 w-4 text-slate-400" />
+                    <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400" />
                     </div>
                     <select
+                      id="modal_city"
+                      name="address-level2"
+                      autoComplete="address-level2"
                       value={selectedCity}
                       onChange={(e) => setSelectedCity(e.target.value)}
                       disabled={!selectedDepartmentId || loadingCities}
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all cursor-pointer disabled:opacity-60"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all cursor-pointer disabled:opacity-60"
                     >
                       <option value="">
                         {loadingCities 
@@ -359,62 +471,178 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
 
               {selectedCity === 'Otra' && (
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">
-                    ¿Qué ciudad? *
-                  </label>
                   <input
                     type="text"
                     required
                     value={customCity}
                     onChange={(e) => setCustomCity(e.target.value)}
-                    placeholder="Escribe el nombre de tu ciudad"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
+                    placeholder="Escribe el nombre de tu ciudad *"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
                   />
                 </div>
               )}
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Documento de Identidad (Opcional)
+              {/* Fila 4: Tipo de Registro - Segmented Pill Control */}
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                <label className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+                  Tipo de Registro <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={documentId}
-                  onChange={(e) => setDocumentId(e.target.value)}
-                  placeholder="Cédula o Pasaporte"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all"
-                />
+                <div className="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsCompany(false)}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      !isCompany
+                        ? "bg-white text-slate-900 shadow-2xs font-montserrat"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <User className={`w-3.5 h-3.5 ${!isCompany ? "text-brand-600" : ""}`} />
+                    <span>Persona Natural</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsCompany(true)}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isCompany
+                        ? "bg-white text-slate-900 shadow-2xs font-montserrat"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Building2 className={`w-3.5 h-3.5 ${isCompany ? "text-brand-600" : ""}`} />
+                    <span>Empresa</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Campos de Empresa compactos (3 columnas) */}
+              {isCompany && (
+                <div className="p-2.5 bg-brand-50/40 border border-brand-200/80 rounded-xl space-y-1.5 animate-in fade-in zoom-in-95">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label htmlFor="modal_company_name" className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                        Empresa / Razón Social <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Building2 className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          id="modal_company_name"
+                          required={isCompany}
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          placeholder="Ej. Gloint S.A.S."
+                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="modal_company_nit" className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                        NIT / RUT <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <FileText className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          id="modal_company_nit"
+                          required={isCompany}
+                          value={companyNit}
+                          onChange={(e) => setCompanyNit(e.target.value)}
+                          placeholder="Ej. 901.234.567-8"
+                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="modal_job_title" className="text-[10px] font-bold text-slate-700 block mb-0.5">
+                        Cargo <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Briefcase className="w-3 h-3 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          id="modal_job_title"
+                          required={isCompany}
+                          value={jobTitle}
+                          onChange={(e) => setJobTitle(e.target.value)}
+                          placeholder="Ej. Gerente"
+                          className="w-full pl-6.5 pr-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fila 5: Áreas de Interés (Chips compactos) */}
+              <div className="space-y-1 pt-1 border-t border-slate-100">
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                  Áreas de Interés <span className="text-slate-400 text-[10px] font-normal lowercase">(opcional)</span>
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {AVAILABLE_INTEREST_OPTIONS.map((interest) => {
+                    const isSelected = selectedInterests.includes(interest);
+                    return (
+                      <button
+                        key={interest}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedInterests(selectedInterests.filter((i) => i !== interest));
+                          } else {
+                            setSelectedInterests([...selectedInterests, interest]);
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer flex items-center gap-1 ${
+                          isSelected
+                            ? "bg-brand-500 border-brand-500 text-white font-bold shadow-2xs"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        <span>{interest}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            {/* Selector de Modalidad */}
-            <div className="space-y-2 pt-1">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+            {/* Selector de Modalidad Compacto */}
+            <div className="space-y-1 pt-1 border-t border-slate-100">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
                 Modalidad de Asistencia <span className="text-rose-500">*</span>
               </label>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   disabled={eventData?.is_full_in_person}
                   onClick={() => setAttendanceMode('in_person')}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                     attendanceMode === 'in_person'
-                      ? 'bg-brand-50/50 border-brand-500 ring-2 ring-brand-500/20'
+                      ? 'bg-brand-50/50 border-brand-500 ring-1 ring-brand-500/20 text-slate-900 shadow-2xs'
                       : eventData?.is_full_in_person
                         ? 'bg-slate-100 border-slate-200 opacity-60 cursor-not-allowed'
-                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <MapPin className="w-4 h-4 text-brand-600" />
-                    {eventData?.is_full_in_person && (
-                      <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
-                        Agotado
-                      </span>
-                    )}
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-brand-600" />
+                    <span className="font-montserrat">Presencial</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-900 font-montserrat">Presencial</span>
+                  {eventData?.is_full_in_person ? (
+                    <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
+                      Agotado
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full font-mono">
+                      Libre
+                    </span>
+                  )}
                 </button>
 
                 <button
@@ -423,19 +651,19 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
                     setAttendanceMode('virtual');
                     setHasCompanion(false);
                   }}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
                     attendanceMode === 'virtual'
-                      ? 'bg-brand-50/50 border-brand-500 ring-2 ring-brand-500/20'
-                      : 'bg-white border-slate-200 hover:bg-slate-50'
+                      ? 'bg-brand-50/50 border-brand-500 ring-1 ring-brand-500/20 text-slate-900 shadow-2xs'
+                      : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <Video className="w-4 h-4 text-slate-700" />
-                    <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                      Online
-                    </span>
+                  <div className="flex items-center gap-1.5">
+                    <Video className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="font-montserrat">Virtual</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-900 font-montserrat">Virtual</span>
+                  <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                    Online
+                  </span>
                 </button>
               </div>
             </div>
