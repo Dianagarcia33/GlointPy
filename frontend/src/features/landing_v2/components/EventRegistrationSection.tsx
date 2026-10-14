@@ -337,26 +337,6 @@ export function EventRegistrationSection() {
                 </div>
               ) : (
                 <form id="event-registration-form" onSubmit={handleSubmit} className="space-y-3">
-                  
-                  {/* Botón de Autocompletar con Google */}
-                  <div>
-                    <GoogleAutofillButton
-                      onAutofill={(user) => {
-                        setGoogleUser(user);
-                        if (user.name) setFullName(user.name);
-                        if (user.email) setEmail(user.email);
-                      }}
-                      autofilledUser={googleUser}
-                      onClear={() => setGoogleUser(null)}
-                    />
-                  </div>
-
-                  <div className="relative flex items-center justify-center my-1">
-                    <div className="w-full border-t border-slate-200" />
-                    <span className="bg-white px-2 text-[9px] font-bold text-slate-400 uppercase tracking-wider absolute">
-                      O diligencia tus datos
-                    </span>
-                  </div>
 
                   {error && (
                     <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2 animate-in fade-in">
