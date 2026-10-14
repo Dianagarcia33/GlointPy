@@ -7,6 +7,7 @@ import { InvestmentPage } from "./features/landing_v2/pages/InvestmentPage";
 import { PlacePage } from "./features/landing_v2/pages/PlacePage";
 import { TechPage } from "./features/landing_v2/pages/TechPage";
 import { ContactoPage } from "./features/landing_v2/pages/ContactoPage";
+import { EventRegistrationPage } from "./features/landing_v2/pages/EventRegistrationPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { LoginPage } from "./features/auth/pages/LoginPage";
 import { RegisterPage } from "./features/auth/pages/RegisterPage";
@@ -121,6 +122,14 @@ function App() {
         <Route path="/place" element={<PlacePage />} />
         <Route path="/tech" element={<TechPage />} />
         <Route path="/contact" element={<ContactoPage />} />
+      </Route>
+
+      {/* Rutas Directas al Evento Gloint Power Tech */}
+      <Route element={<LandingLayout />}>
+        <Route path="/gloint-power-tech" element={<EventRegistrationPage />} />
+        <Route path="/power-tech" element={<EventRegistrationPage />} />
+        <Route path="/evento" element={<EventRegistrationPage />} />
+        <Route path="/registro-evento" element={<EventRegistrationPage />} />
       </Route>
       <Route path="/terminos" element={<TermsAndConditionsPage />} />
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />

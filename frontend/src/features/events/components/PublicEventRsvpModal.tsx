@@ -303,25 +303,7 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
               </div>
             )}
 
-            {/* Autocompletar con Google */}
-            <div className="pb-1">
-              <GoogleAutofillButton
-                onAutofill={(user) => {
-                  setGoogleUser(user);
-                  if (user.name) setFullName(user.name);
-                  if (user.email) setEmail(user.email);
-                }}
-                autofilledUser={googleUser}
-                onClear={() => setGoogleUser(null)}
-              />
-            </div>
 
-            <div className="relative flex items-center justify-center my-1">
-              <div className="w-full border-t border-slate-200" />
-              <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider absolute">
-                O diligencia tus datos
-              </span>
-            </div>
 
             {/* Datos Personales Compactos */}
             <div className="space-y-2.5">
