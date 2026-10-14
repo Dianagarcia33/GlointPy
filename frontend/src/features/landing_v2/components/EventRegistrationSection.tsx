@@ -25,6 +25,7 @@ import { useColombiaCities } from "../../../hooks/useColombiaCities";
 import { GoogleAutofillButton, GoogleUserData } from "../../../components/common/GoogleAutofillButton";
 import { DARK, DARK2, GOLD, ORANGE } from "../utils/constants";
 import { Badge } from "./Badge";
+import { triggerRsvpConfetti } from "../../../utils/confetti";
 
 export const AVAILABLE_INTEREST_OPTIONS = [
   "Inversión y Capital (Perfil Inversionista)",
@@ -156,6 +157,7 @@ export function EventRegistrationSection() {
         companion_name: (attendanceMode === "in_person" && hasCompanion) ? companionName.trim() : undefined,
       });
 
+      triggerRsvpConfetti();
       setSuccess(true);
       // Refrescar datos de cupos
       const updated = await getActiveEvent();

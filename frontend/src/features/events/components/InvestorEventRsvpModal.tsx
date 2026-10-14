@@ -21,6 +21,7 @@ import {
   AttendeeData 
 } from '../../../services/events';
 import { useAuthStore } from '../../../store/authStore';
+import { triggerRsvpConfetti } from '../../../utils/confetti';
 
 interface InvestorEventRsvpModalProps {
   isOpen: boolean;
@@ -105,6 +106,7 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
         companion_name: (attendanceMode === 'in_person' && hasCompanion) ? companionName.trim() : undefined,
       });
 
+      triggerRsvpConfetti();
       setSuccess(true);
       setExistingAttendee(res);
       if (onSuccess) onSuccess(res);
@@ -112,7 +114,7 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
       setTimeout(() => {
         setSuccess(false);
         onClose();
-      }, 2500);
+      }, 4000);
     } catch (err: any) {
       console.error('Error al confirmar asistencia:', err);
       setError(err.message || 'Ocurrió un error al registrar tu asistencia.');
@@ -160,20 +162,29 @@ export const InvestorEventRsvpModal: React.FC<InvestorEventRsvpModalProps> = ({
             <p className="text-xs font-semibold text-slate-500">Cargando detalles de Gloint Power Tech...</p>
           </div>
         ) : success ? (
-          <div className="py-10 text-center space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="py-8 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20 ring-4 ring-emerald-50">
+              <CheckCircle2 className="w-9 h-9" />
             </div>
-            <h3 className="text-2xl font-black text-slate-900 font-montserrat">
-              ¡Asistencia Confirmada!
+            <h3 className="text-2xl font-black text-slate-900 font-montserrat tracking-tight">
+              ¡Asistencia VIP Confirmada! 🎉
             </h3>
-            <p className="text-sm text-slate-600 max-w-sm mx-auto">
+            <p className="text-sm text-slate-600 max-w-sm mx-auto leading-relaxed">
               {attendanceMode === 'in_person' 
                 ? `¡Te esperamos presencialmente${hasCompanion ? ' junto a tu acompañante' : ''}! Tu cupo ha sido reservado con éxito.`
-                : '¡Registrado en modalidad Virtual! Te compartiremos el enlace de transmisión oficial.'}
+                : '¡Registrado en modalidad Virtual! Te compartiremos el enlace oficial de transmisión.'}
             </p>
-            <div className="pt-2 text-xs font-bold text-brand-600 font-montserrat">
-              Gloint Power Tech • Presentación de Nuevos Productos
+            <div className="pt-2 text-xs font-bold text-amber-700 font-montserrat bg-amber-50 border border-amber-200/80 rounded-xl py-2 px-4 inline-block">
+              Gloint Power Tech 2026 • Presentación Oficial
+            </div>
+            <div className="pt-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold font-montserrat transition-all cursor-pointer shadow-md active:scale-95"
+              >
+                Continuar al Dashboard
+              </button>
             </div>
           </div>
         ) : (

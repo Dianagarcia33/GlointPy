@@ -29,6 +29,7 @@ import {
 import { useColombiaCities } from '../../../hooks/useColombiaCities';
 import { GoogleAutofillButton, GoogleUserData } from '../../../components/common/GoogleAutofillButton';
 import { AVAILABLE_INTEREST_OPTIONS } from '../../landing_v2/components/EventRegistrationSection';
+import { triggerRsvpConfetti } from '../../../utils/confetti';
 
 interface PublicEventRsvpModalProps {
   isOpen: boolean;
@@ -173,13 +174,14 @@ export const PublicEventRsvpModal: React.FC<PublicEventRsvpModalProps> = ({
         companion_name: (attendanceMode === 'in_person' && hasCompanion) ? companionName.trim() : undefined,
       });
 
+      triggerRsvpConfetti();
       setSuccess(true);
       if (onSuccess) onSuccess(res);
 
       setTimeout(() => {
         setSuccess(false);
         onClose();
-      }, 2500);
+      }, 3500);
     } catch (err: any) {
       console.error('Error al registrar asistente:', err);
       setError(err.message || 'Ocurrió un error al procesar tu inscripción.');
