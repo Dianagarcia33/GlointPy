@@ -412,6 +412,11 @@ async def on_startup():
                         phone VARCHAR(50) NULL,
                         document_id VARCHAR(50) NULL,
                         city VARCHAR(100) NULL,
+                        is_company TINYINT(1) NOT NULL DEFAULT 0,
+                        company_name VARCHAR(255) NULL,
+                        company_nit VARCHAR(50) NULL,
+                        job_title VARCHAR(100) NULL,
+                        interests TEXT NULL,
                         attendance_mode VARCHAR(20) NOT NULL DEFAULT 'in_person',
                         has_companion TINYINT(1) NOT NULL DEFAULT 0,
                         companion_name VARCHAR(255) NULL,
@@ -426,8 +431,49 @@ async def on_startup():
                         INDEX idx_ea_status (status)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 """))
+
+                # Migración de columnas de event_attendees si la tabla ya existía previamente
+                for col_query in [
+                    "ALTER TABLE event_attendees ADD COLUMN document_id VARCHAR(50) NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN city VARCHAR(100) NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN is_company TINYINT(1) NOT NULL DEFAULT 0",
+                    "ALTER TABLE event_attendees ADD COLUMN company_name VARCHAR(255) NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN company_nit VARCHAR(50) NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN job_title VARCHAR(100) NULL",
+                    "ALTER TABLE event_attendees ADD COLUMN interests TEXT NULL"
+                ]:
+                    try:
+                        await conn.execute(text(col_query))
+                    except Exception:
+                        pass
+
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS event_authorized_domains (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        event_id BIGINT NOT NULL,
+                        domain VARCHAR(255) NOT NULL,
+                        name VARCHAR(255) NOT NULL,
+                        allow_banner TINYINT(1) NOT NULL DEFAULT 1,
+                        allow_registration TINYINT(1) NOT NULL DEFAULT 1,
+                        is_active TINYINT(1) NOT NULL DEFAULT 1,
+                        api_key VARCHAR(100) NULL,
+                        last_accessed_at DATETIME NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
+                        INDEX idx_ead_event (event_id),
+                        INDEX idx_ead_domain (domain),
+                        INDEX idx_ead_apikey (api_key)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
             except Exception as e:
                 print(f"Error creating events tables: {e}")
+
+            # Asegurar soporte para correos largos en crm_emails
+            try:
+                await conn.execute(text("ALTER TABLE crm_emails MODIFY COLUMN body_html LONGTEXT NOT NULL"))
+                await conn.execute(text("ALTER TABLE crm_emails MODIFY COLUMN body_text LONGTEXT NULL"))
+            except Exception:
+                pass
 
             # Limpieza de valores nulos / escapados en referred_by
             try:
