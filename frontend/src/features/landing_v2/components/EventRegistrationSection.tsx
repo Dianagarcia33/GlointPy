@@ -14,13 +14,24 @@ import {
   Mail, 
   Phone, 
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  Building2,
+  Briefcase,
+  FileText,
+  Check
 } from "lucide-react";
 import { getActiveEvent, registerPublicAttendee, EventData } from "../../../services/events";
 import { useColombiaCities } from "../../../hooks/useColombiaCities";
 import { GoogleAutofillButton, GoogleUserData } from "../../../components/common/GoogleAutofillButton";
 import { DARK, DARK2, GOLD, ORANGE } from "../utils/constants";
 import { Badge } from "./Badge";
+
+export const AVAILABLE_INTEREST_OPTIONS = [
+  "Inversión y Capital (Perfil Inversionista)",
+  "Logística, Transporte y Última Milla",
+  "Tecnología y Fábrica de Software",
+  "Soluciones Fintech y Billeteras Digitales",
+];
 
 export function EventRegistrationSection() {
   const [eventData, setEventData] = useState<EventData | null>(null);
@@ -29,6 +40,16 @@ export function EventRegistrationSection() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [documentId, setDocumentId] = useState("");
+  
+  // Datos de Empresa
+  const [isCompany, setIsCompany] = useState(false);
+  const [companyName, setCompanyName] = useState("");
+  const [companyNit, setCompanyNit] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  
+  // Opciones de Interés
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+
   const [attendanceMode, setAttendanceMode] = useState<"in_person" | "virtual">("in_person");
   const [hasCompanion, setHasCompanion] = useState(false);
   const [companionName, setCompanionName] = useState("");
@@ -75,10 +96,28 @@ export function EventRegistrationSection() {
       return;
     }
 
-    if (phone.trim()) {
-      const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, "");
-      if (!/^(\+?57)?3\d{9}$/.test(cleanPhone)) {
-        setError("El teléfono debe ser un número celular colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567).");
+    if (!phone.trim()) {
+      setError("El número de WhatsApp / Teléfono es obligatorio.");
+      return;
+    }
+
+    const cleanPhone = phone.replace(/[\s\-\(\)\.]/g, "");
+    if (!/^(\+?57)?3\d{9}$/.test(cleanPhone)) {
+      setError("El teléfono debe ser un número celular colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567).");
+      return;
+    }
+
+    if (isCompany) {
+      if (!companyName.trim()) {
+        setError("Por favor ingresa el nombre o razón social de la empresa.");
+        return;
+      }
+      if (!companyNit.trim()) {
+        setError("Por favor ingresa el NIT o RUT de la empresa.");
+        return;
+      }
+      if (!jobTitle.trim()) {
+        setError("Por favor ingresa tu cargo en la empresa.");
         return;
       }
     }
@@ -104,9 +143,14 @@ export function EventRegistrationSection() {
       await registerPublicAttendee({
         full_name: fullName.trim(),
         email: email.trim(),
-        phone: phone.trim() || undefined,
+        phone: cleanPhone,
         city: finalCity.trim() || undefined,
         document_id: documentId.trim() || undefined,
+        is_company: isCompany,
+        company_name: isCompany ? companyName.trim() : undefined,
+        company_nit: isCompany ? companyNit.trim() : undefined,
+        job_title: isCompany ? jobTitle.trim() : undefined,
+        interests: selectedInterests.length > 0 ? selectedInterests : undefined,
         attendance_mode: attendanceMode,
         has_companion: attendanceMode === "in_person" ? hasCompanion : false,
         companion_name: (attendanceMode === "in_person" && hasCompanion) ? companionName.trim() : undefined,
@@ -276,6 +320,11 @@ export function EventRegistrationSection() {
                       setEmail("");
                       setPhone("");
                       setDocumentId("");
+                      setIsCompany(false);
+                      setCompanyName("");
+                      setCompanyNit("");
+                      setJobTitle("");
+                      setSelectedInterests([]);
                       setGoogleUser(null);
                       resetCities();
                     }}
@@ -359,7 +408,7 @@ export function EventRegistrationSection() {
 
                     <div>
                       <label htmlFor="event_phone" className="text-xs font-bold text-slate-700 block mb-1">
-                        WhatsApp / Teléfono
+                        WhatsApp / Teléfono <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
                         <Phone size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -369,6 +418,7 @@ export function EventRegistrationSection() {
                           name="tel"
                           autoComplete="tel"
                           inputMode="tel"
+                          required
                           maxLength={15}
                           pattern="^(\+?57)?3[0-9]{9}$"
                           value={phone}
@@ -474,6 +524,149 @@ export function EventRegistrationSection() {
                       placeholder="Cédula o ID (ej. 1020304050)"
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
                     />
+                  </div>
+
+                  {/* Selector: Persona Natural o Empresa */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                      Tipo de Registro <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsCompany(false)}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                          !isCompany
+                            ? "bg-amber-50/80 border-2 border-amber-500 text-slate-900 font-bold shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${!isCompany ? "bg-amber-500 text-slate-950 font-bold" : "bg-slate-200 text-slate-600"}`}>
+                          <User size={15} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold font-montserrat">Persona Natural</p>
+                          <p className="text-[10px] text-slate-500 font-normal">Particular o Inversionista</p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsCompany(true)}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                          isCompany
+                            ? "bg-amber-50/80 border-2 border-amber-500 text-slate-900 font-bold shadow-xs"
+                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isCompany ? "bg-amber-500 text-slate-950 font-bold" : "bg-slate-200 text-slate-600"}`}>
+                          <Building2 size={15} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold font-montserrat">Empresa</p>
+                          <p className="text-[10px] text-slate-500 font-normal">Persona Jurídica</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Campos obligatorios de Empresa si isCompany es true */}
+                  {isCompany && (
+                    <div className="p-3.5 bg-amber-50/50 border border-amber-200/80 rounded-xl space-y-3 animate-in fade-in zoom-in-95">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                        <Building2 size={15} className="text-amber-600" />
+                        <span>Datos Corporativos de la Empresa</span>
+                      </div>
+
+                      <div>
+                        <label htmlFor="company_name" className="text-xs font-bold text-slate-700 block mb-1">
+                          Nombre de la Empresa / Razón Social <span className="text-rose-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <Building2 size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            id="company_name"
+                            required={isCompany}
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            placeholder="Ej. Gloint Technologies S.A.S."
+                            className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="company_nit" className="text-xs font-bold text-slate-700 block mb-1">
+                            NIT / RUT <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <FileText size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              id="company_nit"
+                              required={isCompany}
+                              value={companyNit}
+                              onChange={(e) => setCompanyNit(e.target.value)}
+                              placeholder="Ej. 901.234.567-8"
+                              className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="job_title" className="text-xs font-bold text-slate-700 block mb-1">
+                            Cargo / Posición <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <Briefcase size={15} className="text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              id="job_title"
+                              required={isCompany}
+                              value={jobTitle}
+                              onChange={(e) => setJobTitle(e.target.value)}
+                              placeholder="Ej. Gerente General, Director..."
+                              className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all font-medium"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Opciones de Interés */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                      Áreas de Interés <span className="text-slate-400 text-[10px] font-normal lowercase">(Opcional)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {AVAILABLE_INTEREST_OPTIONS.map((interest) => {
+                        const isSelected = selectedInterests.includes(interest);
+                        return (
+                          <button
+                            key={interest}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedInterests(selectedInterests.filter((i) => i !== interest));
+                              } else {
+                                setSelectedInterests([...selectedInterests, interest]);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              isSelected
+                                ? "bg-amber-500 border-amber-500 text-slate-950 font-bold shadow-xs"
+                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            {isSelected && <Check size={12} className="stroke-[3]" />}
+                            <span>{interest}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* Selector de Modalidad */}

@@ -36,6 +36,11 @@ class EventAttendee(Base):
     phone = Column(String(50), nullable=True)
     document_id = Column(String(50), nullable=True)
     city = Column(String(100), nullable=True)
+    is_company = Column(Boolean, nullable=False, default=False)
+    company_name = Column(String(255), nullable=True)
+    company_nit = Column(String(50), nullable=True)
+    job_title = Column(String(100), nullable=True)
+    interests = Column(Text, nullable=True)
     attendance_mode = Column(String(20), nullable=False, default="in_person")  # 'in_person' | 'virtual'
     has_companion = Column(Boolean, nullable=False, default=False)
     companion_name = Column(String(255), nullable=True)

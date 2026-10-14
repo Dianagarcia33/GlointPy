@@ -26,6 +26,11 @@ export interface AttendeeData {
   phone?: string | null;
   document_id?: string | null;
   city?: string | null;
+  is_company: boolean;
+  company_name?: string | null;
+  company_nit?: string | null;
+  job_title?: string | null;
+  interests?: string[] | string | null;
   attendance_mode: 'in_person' | 'virtual';
   has_companion: boolean;
   companion_name?: string | null;
@@ -48,14 +53,25 @@ export interface InvestorRsvpPayload {
   attendance_mode: 'in_person' | 'virtual';
   has_companion: boolean;
   companion_name?: string;
+  phone?: string;
+  is_company?: boolean;
+  company_name?: string;
+  company_nit?: string;
+  job_title?: string;
+  interests?: string[];
 }
 
 export interface PublicRsvpPayload {
   full_name: string;
   email: string;
-  phone?: string;
+  phone: string;
   document_id?: string;
   city?: string;
+  is_company?: boolean;
+  company_name?: string;
+  company_nit?: string;
+  job_title?: string;
+  interests?: string[];
   attendance_mode: 'in_person' | 'virtual';
   has_companion: boolean;
   companion_name?: string;

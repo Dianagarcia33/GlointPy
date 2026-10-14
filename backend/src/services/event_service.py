@@ -7,6 +7,7 @@ from typing import Optional, List
 
 import re
 import secrets
+import json
 from src.models.event import Event, EventAttendee, EventAuthorizedDomain
 from src.models.user import User
 from src.models.investor import Investor
@@ -142,6 +143,8 @@ class EventService:
             document_id = getattr(investor, "document_id", None) or document_id
             city = getattr(investor, "city", None) or city
 
+        interests_str = json.dumps(rsvp_data.interests, ensure_ascii=False) if rsvp_data.interests else None
+
         if attendee:
             # Actualizar registro existente
             attendee.attendance_mode = mode
@@ -150,9 +153,15 @@ class EventService:
             attendee.seats_reserved = seats_needed
             attendee.status = "confirmed"
             attendee.full_name = full_name
-            attendee.phone = phone
+            attendee.phone = rsvp_data.phone.strip() if rsvp_data.phone else phone
             attendee.document_id = document_id
             attendee.city = city
+            attendee.is_company = rsvp_data.is_company
+            attendee.company_name = rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None
+            attendee.company_nit = rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None
+            attendee.job_title = rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None
+            if interests_str:
+                attendee.interests = interests_str
         else:
             attendee = EventAttendee(
                 event_id=event.id,
@@ -160,9 +169,14 @@ class EventService:
                 attendee_type="investor",
                 full_name=full_name,
                 email=current_user.email,
-                phone=phone,
+                phone=rsvp_data.phone.strip() if rsvp_data.phone else phone,
                 document_id=document_id,
                 city=city,
+                is_company=rsvp_data.is_company,
+                company_name=rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None,
+                company_nit=rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None,
+                job_title=rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None,
+                interests=interests_str,
                 attendance_mode=mode,
                 has_companion=rsvp_data.has_companion if mode == "in_person" else False,
                 companion_name=rsvp_data.companion_name if (mode == "in_person" and rsvp_data.has_companion) else None,
@@ -208,11 +222,19 @@ class EventService:
                     detail=f"Cupos presenciales agotados (solicitados: {seats_needed}, disponibles: {max(0, available)}). Por favor selecciona asistencia Virtual."
                 )
 
+        interests_str = json.dumps(rsvp_data.interests, ensure_ascii=False) if rsvp_data.interests else None
+
         if attendee:
             attendee.full_name = rsvp_data.full_name.strip()
-            attendee.phone = rsvp_data.phone.strip() if rsvp_data.phone else attendee.phone
+            attendee.phone = rsvp_data.phone.strip()
             attendee.document_id = rsvp_data.document_id.strip() if rsvp_data.document_id else attendee.document_id
             attendee.city = rsvp_data.city.strip() if rsvp_data.city else attendee.city
+            attendee.is_company = rsvp_data.is_company
+            attendee.company_name = rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None
+            attendee.company_nit = rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None
+            attendee.job_title = rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None
+            if interests_str:
+                attendee.interests = interests_str
             attendee.attendance_mode = mode
             attendee.has_companion = rsvp_data.has_companion if mode == "in_person" else False
             attendee.companion_name = rsvp_data.companion_name if (mode == "in_person" and rsvp_data.has_companion) else None
@@ -225,9 +247,14 @@ class EventService:
                 attendee_type="external",
                 full_name=rsvp_data.full_name.strip(),
                 email=clean_email,
-                phone=rsvp_data.phone.strip() if rsvp_data.phone else None,
+                phone=rsvp_data.phone.strip(),
                 document_id=rsvp_data.document_id.strip() if rsvp_data.document_id else None,
                 city=rsvp_data.city.strip() if rsvp_data.city else None,
+                is_company=rsvp_data.is_company,
+                company_name=rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None,
+                company_nit=rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None,
+                job_title=rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None,
+                interests=interests_str,
                 attendance_mode=mode,
                 has_companion=rsvp_data.has_companion if mode == "in_person" else False,
                 companion_name=rsvp_data.companion_name if (mode == "in_person" and rsvp_data.has_companion) else None,

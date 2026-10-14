@@ -1,6 +1,7 @@
 import re
-from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, List
+import json
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
+from typing import Optional, List, Any
 from datetime import datetime
 
 class EventPublicResponse(BaseModel):
@@ -35,25 +36,36 @@ class InvestorRsvpRequest(BaseModel):
     attendance_mode: str = "in_person"  # "in_person" | "virtual"
     has_companion: bool = False
     companion_name: Optional[str] = None
+    phone: Optional[str] = None
+    is_company: bool = False
+    company_name: Optional[str] = None
+    company_nit: Optional[str] = None
+    job_title: Optional[str] = None
+    interests: Optional[List[str]] = None
 
 class PublicRsvpRequest(BaseModel):
     full_name: str
     email: EmailStr
-    phone: Optional[str] = None
+    phone: str
     document_id: Optional[str] = None
     city: Optional[str] = None
+    is_company: bool = False
+    company_name: Optional[str] = None
+    company_nit: Optional[str] = None
+    job_title: Optional[str] = None
+    interests: Optional[List[str]] = None
     attendance_mode: str = "in_person"  # "in_person" | "virtual"
     has_companion: bool = False
     companion_name: Optional[str] = None
 
     @field_validator("phone")
     @classmethod
-    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+    def validate_phone(cls, v: str) -> str:
         if not v or not v.strip():
-            return None
+            raise ValueError("El número de teléfono / WhatsApp es obligatorio.")
         clean = re.sub(r"[\s\-\(\)\.]", "", v.strip())
         if not re.match(r"^(\+?57)?3\d{9}$", clean):
-            raise ValueError("El teléfono debe ser un número móvil colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567).")
+            raise ValueError("El teléfono debe ser un número celular colombiano válido de 10 dígitos (ej. 3001234567 o +573001234567).")
         return clean
 
     @field_validator("document_id")
@@ -66,6 +78,17 @@ class PublicRsvpRequest(BaseModel):
             raise ValueError("El documento debe contener entre 5 y 20 caracteres alfanuméricos.")
         return clean
 
+    @model_validator(mode="after")
+    def validate_company_fields(self):
+        if self.is_company:
+            if not self.company_name or not self.company_name.strip():
+                raise ValueError("El nombre de la empresa es obligatorio para registros de empresa.")
+            if not self.company_nit or not self.company_nit.strip():
+                raise ValueError("El NIT / RUT de la empresa es obligatorio para registros de empresa.")
+            if not self.job_title or not self.job_title.strip():
+                raise ValueError("El cargo en la empresa es obligatorio para registros de empresa.")
+        return self
+
 class AttendeeResponse(BaseModel):
     id: int
     event_id: int
@@ -76,6 +99,11 @@ class AttendeeResponse(BaseModel):
     phone: Optional[str] = None
     document_id: Optional[str] = None
     city: Optional[str] = None
+    is_company: bool = False
+    company_name: Optional[str] = None
+    company_nit: Optional[str] = None
+    job_title: Optional[str] = None
+    interests: Optional[Any] = None
     attendance_mode: str
     has_companion: bool
     companion_name: Optional[str] = None
@@ -85,6 +113,21 @@ class AttendeeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_validator("interests", mode="before")
+    @classmethod
+    def parse_interests(cls, v: Any) -> Optional[List[str]]:
+        if v is None:
+            return None
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else [v]
+            except Exception:
+                return [v] if v.strip() else []
+        return None
 
 class AdminEventSummaryResponse(BaseModel):
     event: EventPublicResponse

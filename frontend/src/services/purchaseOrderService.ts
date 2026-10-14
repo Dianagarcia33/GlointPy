@@ -119,6 +119,10 @@ export const purchaseOrderService = {
     });
   },
 
+  createPurchaseOrder: async (data: CreatePurchaseOrderPayload): Promise<PurchaseOrder> => {
+    return await purchaseOrderService.createOrder(data);
+  },
+
   approveOrder: async (id: number): Promise<PurchaseOrder> => {
     return await fetchApi(`/purchase-orders/${id}/approve`, {
       method: 'POST',

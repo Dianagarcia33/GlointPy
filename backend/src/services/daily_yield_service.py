@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import traceback
 from datetime import datetime, date, timedelta, time
 from decimal import Decimal
@@ -65,14 +66,27 @@ class DailyYieldService:
         skipped_transfers: List[Dict[str, Any]] = []
 
         # Pre-cargar transacciones existentes para blindaje de idempotencia en una sola consulta O(1)
+        # y mapear la fecha más reciente pagada a cada inversión para catch-up automático de días pendientes.
         existing_tx_res = await db.execute(
             select(WalletTransaction.wallet_id, WalletTransaction.reference_id, WalletTransaction.description).where(
                 WalletTransaction.reference_type.in_(["rendimiento_inversion", "bono_aceleracion"])
             )
         )
-        existing_tx_set = {
-            (r[0], r[1], r[2]) for r in existing_tx_res.fetchall()
-        }
+        existing_tx_set = set()
+        last_paid_dates: Dict[int, date] = {}
+
+        for r in existing_tx_res.fetchall():
+            w_id, inv_id, desc = r[0], r[1], r[2]
+            existing_tx_set.add((w_id, inv_id, desc))
+            if inv_id and desc:
+                m = re.search(r'al\s+(\d{4}-\d{2}-\d{2})', desc)
+                if m:
+                    try:
+                        p_date = datetime.strptime(m.group(1), "%Y-%m-%d").date()
+                        if inv_id not in last_paid_dates or p_date > last_paid_dates[inv_id]:
+                            last_paid_dates[inv_id] = p_date
+                    except ValueError:
+                        pass
 
         try:
             for user in users:
@@ -91,7 +105,30 @@ class DailyYieldService:
                     await db.flush()
 
                 for investment in user.investments:
-                    calc_res = calculate_investment_yield(investment, start_date, end_date)
+                    # Determinar fecha inicial efectiva para este contrato específico
+                    inv_start_d = investment.start_date.date() if isinstance(investment.start_date, (datetime, date)) else None
+                    if not inv_start_d:
+                        continue
+
+                    # Catch-up automático de días rezagados:
+                    # Si el worker corre en modo automático y la inversión tiene días previos no pagados,
+                    # ajustar la fecha inicial efectiva para liquidar desde su último pago (o desde su start_date).
+                    eff_target_start = start_date
+                    if is_automatic:
+                        if investment.id in last_paid_dates:
+                            last_paid = last_paid_dates[investment.id]
+                            # Si ya fue liquidado hasta o después de end_date, no tiene pagos pendientes en este ciclo
+                            if last_paid >= end_date:
+                                continue
+                            # Si su último pago fue anterior a start_date, arrancar desde last_paid
+                            if last_paid < start_date and last_paid >= inv_start_d:
+                                eff_target_start = last_paid
+                        else:
+                            # Nunca ha recibido pagos: arrancar desde su fecha de inicio contractual
+                            if inv_start_d < end_date:
+                                eff_target_start = inv_start_d
+
+                    calc_res = calculate_investment_yield(investment, eff_target_start, end_date)
 
                     # Rendimiento ordinario
                     if include_yields and calc_res.total_yield > 0:

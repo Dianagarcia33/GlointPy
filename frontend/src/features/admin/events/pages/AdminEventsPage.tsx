@@ -19,7 +19,9 @@ import {
   UserCheck, 
   ExternalLink,
   Eye,
-  EyeOff
+  EyeOff,
+  Building2,
+  Briefcase
 } from 'lucide-react';
 import { 
   getAdminEventSummary, 
@@ -29,6 +31,16 @@ import {
   AttendeeData, 
   EventConfigPayload 
 } from '../../../../services/events';
+
+const formatInterests = (interests?: string[] | string | null): string[] => {
+  if (!interests) return [];
+  if (Array.isArray(interests)) return interests;
+  try {
+    const parsed = JSON.parse(interests);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  return [interests];
+};
 
 export const AdminEventsPage: React.FC = () => {
   const [summary, setSummary] = useState<AdminEventSummary | null>(null);
@@ -141,14 +153,38 @@ export const AdminEventsPage: React.FC = () => {
   const handleExportCSV = () => {
     if (!summary || !summary.attendees.length) return;
 
-    const headers = ['ID', 'Tipo', 'Nombre Completo', 'Email', 'Telefono', 'Documento', 'Ciudad', 'Modalidad', 'Acompanante', 'Nombre Acompanante', 'Cupos Reservados', 'Estado', 'Fecha Registro'];
+    const headers = [
+      'ID', 
+      'Tipo Asistente', 
+      'Tipo Registro',
+      'Nombre Completo', 
+      'Email', 
+      'Telefono', 
+      'Documento', 
+      'Empresa',
+      'NIT/RUT',
+      'Cargo',
+      'Intereses',
+      'Ciudad', 
+      'Modalidad', 
+      'Acompanante', 
+      'Nombre Acompanante', 
+      'Cupos Reservados', 
+      'Estado', 
+      'Fecha Registro'
+    ];
     const rows = summary.attendees.map(a => [
       a.id,
       a.attendee_type === 'investor' ? 'Inversionista' : 'Invitado Externo',
+      a.is_company ? 'Empresa' : 'Persona Natural',
       `"${a.full_name}"`,
       a.email,
       a.phone || '',
       a.document_id || '',
+      `"${a.company_name || ''}"`,
+      `"${a.company_nit || ''}"`,
+      `"${a.job_title || ''}"`,
+      `"${formatInterests(a.interests).join('; ')}"`,
       `"${a.city || ''}"`,
       a.attendance_mode === 'in_person' ? 'Presencial' : 'Virtual',
       a.has_companion ? 'SI' : 'NO',
@@ -177,7 +213,10 @@ export const AdminEventsPage: React.FC = () => {
       const matchEmail = a.email.toLowerCase().includes(q);
       const matchPhone = a.phone ? a.phone.toLowerCase().includes(q) : false;
       const matchDoc = a.document_id ? a.document_id.toLowerCase().includes(q) : false;
-      return matchName || matchEmail || matchPhone || matchDoc;
+      const matchCompany = a.company_name ? a.company_name.toLowerCase().includes(q) : false;
+      const matchNit = a.company_nit ? a.company_nit.toLowerCase().includes(q) : false;
+      const matchJob = a.job_title ? a.job_title.toLowerCase().includes(q) : false;
+      return matchName || matchEmail || matchPhone || matchDoc || matchCompany || matchNit || matchJob;
     }
     return true;
   });
@@ -556,13 +595,44 @@ export const AdminEventsPage: React.FC = () => {
                       {/* Asistente */}
                       <td className="px-4 py-3.5">
                         <div className="font-bold text-slate-900 font-montserrat">{att.full_name}</div>
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${
-                          att.attendee_type === 'investor'
-                            ? 'bg-brand-50 text-brand-700 border border-brand-200/60'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {att.attendee_type === 'investor' ? 'Inversionista' : 'Invitado Externo'}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            att.attendee_type === 'investor'
+                              ? 'bg-brand-50 text-brand-700 border border-brand-200/60'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {att.attendee_type === 'investor' ? 'Inversionista' : 'Invitado Externo'}
+                          </span>
+                          {att.is_company ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60">
+                              <Building2 className="w-3 h-3 text-amber-600" />
+                              <span>Empresa</span>
+                            </span>
+                          ) : null}
+                        </div>
+                        {att.is_company && (att.company_name || att.company_nit || att.job_title) && (
+                          <div className="mt-1 text-[11px] bg-slate-50 border border-slate-200/70 rounded-lg p-1.5 space-y-0.5">
+                            {att.company_name && (
+                              <div className="font-semibold text-slate-800 flex items-center gap-1">
+                                <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{att.company_name}</span>
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-x-2 text-[10px] text-slate-500 font-mono">
+                              {att.company_nit && <span>NIT: {att.company_nit}</span>}
+                              {att.job_title && <span className="font-sans font-medium text-slate-600">Cargo: {att.job_title}</span>}
+                            </div>
+                          </div>
+                        )}
+                        {formatInterests(att.interests).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {formatInterests(att.interests).map((inter: string) => (
+                              <span key={inter} className="text-[9px] bg-amber-50 text-amber-800 border border-amber-200/50 px-1.5 py-0.5 rounded font-medium">
+                                {inter}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
 
                       {/* Contacto */}

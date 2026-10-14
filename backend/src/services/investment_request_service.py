@@ -516,6 +516,74 @@ class InvestmentRequestService:
                     created_at=investor.start_date or investor.created_at or req.created_at or datetime.utcnow()
                 )
 
+            # --- LIQUIDACIÓN RETROACTIVA AUTOMÁTICA DE DÍAS ACUMULADOS ---
+            # Si el contrato inició en una fecha anterior a hoy (por tiempo transcurrido entre radicación y aprobación),
+            # liquidar de inmediato los rendimientos acumulados entre start_date y hoy para no deberle días al inversionista.
+            from src.core.timezone import get_colombia_today
+            from src.services.yield_calculator import calculate_investment_yield
+
+            start_d = contract_start_date.date() if isinstance(contract_start_date, datetime) else contract_start_date
+            today_cot = get_colombia_today()
+
+            if start_d and start_d < today_cot:
+                if not investor.package:
+                    investor.package = pkg
+                if not investor.period:
+                    p_res = await db.execute(select(Period).where(Period.id == period_id))
+                    investor.period = p_res.scalar_one_or_none()
+                if not hasattr(investor, 'withdrawals') or investor.withdrawals is None:
+                    investor.withdrawals = []
+                if not hasattr(investor, 'accelerations') or investor.accelerations is None:
+                    investor.accelerations = []
+
+                yield_calc = calculate_investment_yield(investor, start_d, today_cot)
+                initial_yield = yield_calc.total_yield
+
+                if initial_yield and initial_yield > Decimal("0.00"):
+                    prev_bal = wallet.balance or Decimal("0.00")
+                    wallet.balance = prev_bal + initial_yield
+
+                    tx_desc = f"Rendimiento del {start_d} al {today_cot} (Inv. {code})"
+                    tx = WalletTransaction(
+                        wallet_id=wallet.id,
+                        amount=initial_yield,
+                        type="ingreso",
+                        reference_type="rendimiento_inversion",
+                        reference_id=investor.id,
+                        description=tx_desc,
+                        balance_after=wallet.balance
+                    )
+                    db.add(tx)
+                    await db.flush()
+
+                    try:
+                        batch_code = f"INIT_ACCRUED_{code}_{start_d.strftime('%Y%m%d')}_{today_cot.strftime('%Y%m%d')}"
+                        await db.execute(text("""
+                            INSERT INTO auto_transfer_logs (batch_id, investor_id, user_id, type, amount, status, message, metadata, created_at)
+                            VALUES (:batch_id, :investor_id, :user_id, :type, :amount, :status, :message, :metadata, NOW())
+                        """), {
+                            "batch_id": batch_code,
+                            "investor_id": investor.id,
+                            "user_id": req.user_id,
+                            "type": "rendimiento_inversion",
+                            "amount": float(initial_yield),
+                            "status": "COMPLETED",
+                            "message": tx_desc[:255],
+                            "metadata": json.dumps({
+                                "transaction_id": tx.id,
+                                "wallet_id": wallet.id,
+                                "balance_before": float(prev_bal),
+                                "balance_after": float(wallet.balance),
+                                "assigned_code": code,
+                                "retroactive_days": (today_cot - start_d).days
+                            })
+                        })
+                    except Exception as e:
+                        logger.warning(f"Error registrando auto_transfer_log retroactivo para #{code}: {e}")
+
+                    logger.info(f"✅ Liquidación retroactiva automática aplicada a #{code}: ${initial_yield:,.2f} COP por {(today_cot - start_d).days} días ({start_d} al {today_cot}).")
+
+
         # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)
         if referred_code:
             # Buscar el contrato del referente por su assigned_code
