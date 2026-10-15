@@ -116,19 +116,26 @@ export const DashboardEventWidget: React.FC = () => {
     return () => clearInterval(interval);
   }, [eventData?.event_date]);
 
-  // Modal Recordatorio automático al iniciar sesión o acceder al dashboard cuando el evento esté activo
+  // Modal Recordatorio automático al iniciar sesión o acceder al dashboard cuando el evento y el banner estén activos
   useEffect(() => {
+    // Si el banner está desactivado, no abrir el modal para inversionistas
+    if (!eventData?.banner_active || !eventData?.is_active) {
+      return;
+    }
+
     // Si venía con intención explícita desde el login banner
     const shouldOpen = sessionStorage.getItem('gloint_open_rsvp');
     if (shouldOpen === 'true') {
       sessionStorage.removeItem('gloint_open_rsvp');
-      setIsReminderOpen(false);
-      setIsModalOpen(true);
+      if (isInvestor) {
+        setIsReminderOpen(false);
+        setIsModalOpen(true);
+      }
       return;
     }
 
-    // Recordatorio de asistencia al iniciar sesión
-    if (isInvestor && eventData?.is_active) {
+    // Recordatorio de asistencia al iniciar sesión (solo si el banner está activo)
+    if (isInvestor) {
       const sessionKey = `gloint_event_reminder_session_${eventData.id}_${user?.id}`;
       const alreadyShown = sessionStorage.getItem(sessionKey);
 
@@ -145,9 +152,9 @@ export const DashboardEventWidget: React.FC = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [isInvestor, eventData?.id, eventData?.is_active, user?.id]);
+  }, [isInvestor, eventData?.id, eventData?.is_active, eventData?.banner_active, user?.id]);
 
-  if (!isInvestor || !eventData || !eventData.is_active) {
+  if (!isInvestor || !eventData || !eventData.is_active || !eventData.banner_active) {
     return null;
   }
 
