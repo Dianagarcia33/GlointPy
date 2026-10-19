@@ -96,7 +96,7 @@ async def get_my_children(
 @router.get("", response_model=UserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def list_users(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=50000),
     search: Optional[str] = None,
     role_id: Optional[int] = None,
     is_active: Optional[bool] = None,

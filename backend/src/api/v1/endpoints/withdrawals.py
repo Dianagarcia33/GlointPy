@@ -20,7 +20,7 @@ router = APIRouter()
 async def get_withdrawals(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=50000),
     search: str = Query(None),
     status: str = Query(None),
     tipo: str = Query(None),

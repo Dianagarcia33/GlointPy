@@ -7,7 +7,8 @@ import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency } from '../../../../utils/format';
 
@@ -77,6 +78,83 @@ export const AdminUsersPage = () => {
   }, [searchInput]);
 
   const [success, setSuccess] = useState<string | null>(null);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      // Obtener todos los usuarios aplicando los filtros activos si existen
+      const res = await usersService.getUsers({
+        page: 1,
+        limit: 10000,
+        search: search || undefined,
+        role_id: roleFilter ? Number(roleFilter) : undefined,
+        is_active: activeFilter !== '' ? activeFilter === 'true' : undefined,
+        has_wallet: walletFilter !== '' ? walletFilter === 'true' : undefined
+      });
+
+      const usersList = res.data || [];
+      if (usersList.length === 0) {
+        alert('No hay usuarios para exportar con los filtros seleccionados.');
+        return;
+      }
+
+      const rows = usersList.map((u, idx) => ({
+        '#': idx + 1,
+        'ID': u.id,
+        'NOMBRE COMPLETO': u.name || '',
+        'CORREO ELECTRÓNICO': u.email || '',
+        'DOCUMENTO': u.document_id || 'N/A',
+        'TELÉFONO': u.phone_number || 'N/A',
+        'FECHA NACIMIENTO': u.date_of_birth ? new Date(u.date_of_birth).toLocaleDateString('es-CO') : 'N/A',
+        'ROLES': (u.roles || []).map(r => r.name).join(', ') || 'Sin Rol',
+        'ESTADO': u.is_active ? 'ACTIVO' : 'INACTIVO',
+        'SUPERADMIN': u.is_superuser ? 'SÍ' : 'NO',
+        'TIENE BILLETERA': u.wallet ? 'SÍ' : 'NO',
+        'SALDO BILLETERA (COP)': u.wallet ? Number(u.wallet.balance || 0) : 0,
+        'ESTADO BILLETERA': u.wallet ? (u.wallet.status === 'active' ? 'ACTIVA' : 'CONGELADA') : 'N/A',
+        'CUENTAS BANCARIAS': (u.bank_accounts || []).map(b => `${b.banco} - ${b.tipo_cuenta} (${b.numero_cuenta})`).join(' | ') || 'Ninguna',
+        'MENOR DE EDAD': (u.parent_user_id || u.parent) ? 'SÍ' : 'NO',
+        'TUTOR / REPRESENTANTE': u.parent?.name ? `${u.parent.name} (Doc: ${u.parent.document_id || 'N/A'})` : (u.parent_user_id ? `Tutor #${u.parent_user_id}` : 'N/A'),
+        'ACTUALIZACIÓN PERFIL': u.must_update_profile ? 'PENDIENTE' : 'AL DÍA',
+        'FECHA REGISTRO': u.created_at ? new Date(u.created_at).toLocaleString('es-CO') : 'N/A'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 6 },  // #
+        { wch: 8 },  // ID
+        { wch: 28 }, // NOMBRE COMPLETO
+        { wch: 30 }, // CORREO ELECTRÓNICO
+        { wch: 16 }, // DOCUMENTO
+        { wch: 15 }, // TELÉFONO
+        { wch: 18 }, // FECHA NACIMIENTO
+        { wch: 20 }, // ROLES
+        { wch: 12 }, // ESTADO
+        { wch: 14 }, // SUPERADMIN
+        { wch: 16 }, // TIENE BILLETERA
+        { wch: 22 }, // SALDO BILLETERA
+        { wch: 18 }, // ESTADO BILLETERA
+        { wch: 35 }, // CUENTAS BANCARIAS
+        { wch: 15 }, // MENOR DE EDAD
+        { wch: 30 }, // TUTOR / REPRESENTANTE
+        { wch: 22 }, // ACTUALIZACIÓN PERFIL
+        { wch: 22 }  // FECHA REGISTRO
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `gloint_usuarios_${dateStr}.xlsx`);
+    } catch (err: any) {
+      console.error('Error exportando usuarios a Excel:', err);
+      alert('Error al descargar el archivo Excel de usuarios: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   const [tempPasswordModal, setTempPasswordModal] = useState<{
     userName: string;
     email: string;
@@ -349,6 +427,21 @@ export const AdminUsersPage = () => {
           >
             <Landmark className="w-4 h-4 text-emerald-600" />
             <span className="whitespace-nowrap">Estado General</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl transition-all text-xs font-bold border border-slate-200/90 shadow-2xs cursor-pointer font-montserrat disabled:opacity-60"
+            title="Descargar todos los usuarios en archivo Excel (.xlsx)"
+          >
+            {isExportingExcel ? (
+              <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            )}
+            <span className="whitespace-nowrap">{isExportingExcel ? 'Descargando...' : 'Descargar Excel'}</span>
           </button>
 
           <Can permission="admin.users.manage">

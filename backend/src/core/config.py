@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     YOINT_CLIENT_ID: Optional[str] = None
     YOINT_CLIENT_SECRET: Optional[str] = None
     YOINT_WEBHOOK_SECRET: Optional[str] = None
+    YOINT_SERVICE_CODE: str = "1001"
 
     # Tusdatos.co SARLAFT API (Sandbox / Ambiente de pruebas oficial por defecto)
     TUSDATOS_BASE_URL: str = "https://docs.tusdatos.co"

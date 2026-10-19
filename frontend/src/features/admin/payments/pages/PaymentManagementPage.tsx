@@ -11,6 +11,7 @@ import { bankAccountsService, DataBank } from '../../../../services/bankAccounts
 import { Can } from '../../../../components/security/Can';
 import { AdminRechargesManager } from '../components/AdminRechargesManager';
 import { getAllRechargesAdmin } from '../../../../services/wallets';
+import * as XLSX from 'xlsx';
 
 export const PaymentManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'withdrawals' | 'recharges'>('withdrawals');
@@ -258,6 +259,118 @@ export const PaymentManagementPage: React.FC = () => {
     }
   };
 
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const wb = XLSX.utils.book_new();
+
+      if (activeTab === 'withdrawals') {
+        const res = await paymentService.getWithdrawals(1, 10000, search, statusFilter, startDate, endDate, typeFilter);
+        const withdrawalsList = res.data || [];
+        if (withdrawalsList.length === 0) {
+          alert('No hay retiros o pagos para exportar con los filtros actuales.');
+          return;
+        }
+
+        const rows = withdrawalsList.map((w, idx) => ({
+          '#': idx + 1,
+          'ID': w.id,
+          'FECHA SOLICITUD': w.fecha_solicitud ? new Date(w.fecha_solicitud).toLocaleString('es-CO') : 'N/A',
+          'FECHA PAGO': w.fecha_retiro ? new Date(w.fecha_retiro).toLocaleString('es-CO') : 'N/A',
+          'INVERSIONISTA': w.user?.name || 'N/A',
+          'DOCUMENTO': w.user?.document_id || 'N/A',
+          'CORREO': w.user?.email || 'N/A',
+          'BANCO': w.banco || 'N/A',
+          'TIPO CUENTA': w.tipo_cuenta || 'N/A',
+          'NÚMERO CUENTA': w.numero_cuenta || 'N/A',
+          'TIPO RETIRO': w.tipo ? w.tipo.toUpperCase() : 'N/A',
+          'MONTO BRUTO (COP)': Number(w.monto || 0),
+          'RETENCIÓN 3.2% (COP)': Number(w.impuesto || 0),
+          'MONTO NETO (COP)': Number(w.monto_neto || 0),
+          'ESTADO': w.estado ? w.estado.toUpperCase() : 'N/A',
+          'MÉTODO PAGO': w.metodo_pago || 'TRANSFERENCIA',
+          'NOTAS / RECHAZO': w.observaciones || w.motivo_rechazo || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+          { wch: 6 },  // #
+          { wch: 8 },  // ID
+          { wch: 22 }, // FECHA SOLICITUD
+          { wch: 22 }, // FECHA PAGO
+          { wch: 28 }, // INVERSIONISTA
+          { wch: 16 }, // DOCUMENTO
+          { wch: 28 }, // CORREO
+          { wch: 20 }, // BANCO
+          { wch: 16 }, // TIPO CUENTA
+          { wch: 20 }, // NÚMERO CUENTA
+          { wch: 16 }, // TIPO RETIRO
+          { wch: 20 }, // MONTO BRUTO (COP)
+          { wch: 22 }, // RETENCIÓN 3.2% (COP)
+          { wch: 20 }, // MONTO NETO (COP)
+          { wch: 16 }, // ESTADO
+          { wch: 18 }, // MÉTODO PAGO
+          { wch: 30 }  // NOTAS / RECHAZO
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Retiros y Pagos');
+        XLSX.writeFile(wb, `gloint_gestion_pagos_retiros_${dateStr}.xlsx`);
+      } else {
+        const allRecharges = await getAllRechargesAdmin();
+        const rechargesList = allRecharges || [];
+        if (rechargesList.length === 0) {
+          alert('No hay recargas para exportar.');
+          return;
+        }
+
+        const rows = rechargesList.map((r, idx) => ({
+          '#': idx + 1,
+          'ID': r.id,
+          'FECHA SOLICITUD': r.created_at ? new Date(r.created_at).toLocaleString('es-CO') : 'N/A',
+          'FECHA REVISIÓN': r.reviewed_at ? new Date(r.reviewed_at).toLocaleString('es-CO') : 'N/A',
+          'INVERSIONISTA': r.user_name || 'N/A',
+          'DOCUMENTO': r.user_document || 'N/A',
+          'CORREO': r.user_email || 'N/A',
+          'MONTO (COP)': Number(r.amount || 0),
+          'MÉTODO DE PAGO': r.payment_method || 'N/A',
+          'REFERENCIA': r.reference_number || 'N/A',
+          'ESTADO': r.status ? r.status.toUpperCase() : 'N/A',
+          'NOTAS USUARIO': r.user_notes || '',
+          'NOTAS ADMINISTRADOR': r.admin_notes || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+          { wch: 6 },  // #
+          { wch: 8 },  // ID
+          { wch: 22 }, // FECHA SOLICITUD
+          { wch: 22 }, // FECHA REVISIÓN
+          { wch: 28 }, // INVERSIONISTA
+          { wch: 16 }, // DOCUMENTO
+          { wch: 28 }, // CORREO
+          { wch: 16 }, // TELÉFONO
+          { wch: 18 }, // MONTO (COP)
+          { wch: 20 }, // MÉTODO DE PAGO
+          { wch: 22 }, // REFERENCIA
+          { wch: 16 }, // ESTADO
+          { wch: 30 }, // NOTAS USUARIO
+          { wch: 30 }  // NOTAS ADMINISTRADOR
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Recargas Billetera');
+        XLSX.writeFile(wb, `gloint_gestion_pagos_recargas_${dateStr}.xlsx`);
+      }
+    } catch (err: any) {
+      console.error('Error exportando pagos a Excel:', err);
+      alert('Error al descargar el archivo Excel de pagos: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   // Calculate quick stats (Globales no discriminados por página)
   const totalRequestsCount = data?.summary?.total_count ?? (data?.total || 0);
   const pendingCount = data?.summary?.pending_count ?? (data?.data || []).filter(i => i.estado === 'pendiente').length;
@@ -371,6 +484,21 @@ export const PaymentManagementPage: React.FC = () => {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-brand-600' : ''}`} />
             <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Débitos'}</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl transition-all shadow-2xs cursor-pointer disabled:opacity-60 font-montserrat"
+            title="Descargar pagos y solicitudes en archivo Excel (.xlsx)"
+          >
+            {isExportingExcel ? (
+              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            <span>{isExportingExcel ? 'Descargando...' : 'Descargar Excel'}</span>
           </button>
 
           <button 

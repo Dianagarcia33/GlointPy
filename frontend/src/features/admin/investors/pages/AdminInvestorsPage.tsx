@@ -16,7 +16,8 @@ import { InvestorDocumentsModal } from '../components/InvestorDocumentsModal';
 import { BulkDocumentModal } from '../components/BulkDocumentModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber, maskAccountNumber } from '../../../../utils/format';
-import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock, ShieldAlert, RefreshCw, Search, DollarSign, TrendingUp } from 'lucide-react';
+import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock, ShieldAlert, RefreshCw, Search, DollarSign, TrendingUp, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { analyticsService, AdminAnalyticsDashboardData } from '../../../../services/analytics';
 import { Can } from '../../../../components/security/Can';
 import { usePermissions } from '../../../../hooks/usePermissions';
@@ -267,6 +268,91 @@ export const AdminInvestorsPage = () => {
     setEditingInvestor(null);
   };
 
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExportingExcel(true);
+      // Obtener todas las inversiones aplicando los filtros activos si existen
+      const response = await getInvestors({
+        page: 1,
+        limit: 10000,
+        search: search || undefined,
+        has_history: hasHistoryFilter
+      });
+
+      const list = response.data || [];
+      if (list.length === 0) {
+        alert('No hay inversiones para exportar con los filtros seleccionados.');
+        return;
+      }
+
+      const rows = list.map((inv, idx) => ({
+        '#': idx + 1,
+        'ID': inv.id,
+        'CÓDIGO CONTRATO': inv.assigned_code || `#${inv.id}`,
+        'INVERSIONISTA': inv.user?.name || 'N/A',
+        'DOCUMENTO': inv.user?.document_id || 'N/A',
+        'CORREO': inv.user?.email || 'N/A',
+        'TELÉFONO': inv.user?.phone_number || 'N/A',
+        'PAQUETE': inv.package ? `$${Number(inv.package.value).toLocaleString('es-CO')} COP` : 'N/A',
+        'CAPITAL INVERTIDO (COP)': Number(inv.package?.value || 0),
+        'ACCIONES ADQUIRIDAS': Number(inv.package?.granted_shares || 0),
+        'PLAZO (MESES)': inv.period?.months ?? 'N/A',
+        '% RENTABILIDAD MENSUAL': inv.period?.percentage ? `${inv.period.percentage}%` : 'N/A',
+        'FECHA INICIO': inv.start_date ? new Date(inv.start_date).toLocaleDateString('es-CO') : 'N/A',
+        'FECHA VENCIMIENTO': inv.end_date ? new Date(inv.end_date).toLocaleDateString('es-CO') : 'N/A',
+        'ESTADO': inv.is_finalized ? 'FINALIZADO' : 'ACTIVO',
+        'REFERIDO POR': inv.referred_by || 'N/A',
+        'TIENE HISTORIAL': (inv.contract_histories && inv.contract_histories.length > 0) ? 'SÍ' : 'NO',
+        'CONTRATO ACELERADO': inv.is_accelerated ? 'SÍ' : 'NO',
+        'BONO ACELERACIÓN (COP)': Number(inv.total_acceleration_bonus || 0),
+        'DÍAS REDUCIDOS': inv.total_days_reduced || 0,
+        'CAPITAL RETIRADO (COP)': Number(inv.total_capital_withdrawn || 0),
+        'OBSERVACIONES': inv.observations || '',
+        'FECHA CREACIÓN': inv.created_at ? new Date(inv.created_at).toLocaleString('es-CO') : 'N/A'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 6 },  // #
+        { wch: 8 },  // ID
+        { wch: 20 }, // CÓDIGO CONTRATO
+        { wch: 28 }, // INVERSIONISTA
+        { wch: 16 }, // DOCUMENTO
+        { wch: 28 }, // CORREO
+        { wch: 16 }, // TELÉFONO
+        { wch: 22 }, // PAQUETE
+        { wch: 24 }, // CAPITAL INVERTIDO (COP)
+        { wch: 20 }, // ACCIONES ADQUIRIDAS
+        { wch: 16 }, // PLAZO (MESES)
+        { wch: 22 }, // % RENTABILIDAD MENSUAL
+        { wch: 16 }, // FECHA INICIO
+        { wch: 18 }, // FECHA VENCIMIENTO
+        { wch: 14 }, // ESTADO
+        { wch: 20 }, // REFERIDO POR
+        { wch: 16 }, // TIENE HISTORIAL
+        { wch: 18 }, // CONTRATO ACELERADO
+        { wch: 22 }, // BONO ACELERACIÓN (COP)
+        { wch: 16 }, // DÍAS REDUCIDOS
+        { wch: 22 }, // CAPITAL RETIRADO (COP)
+        { wch: 30 }, // OBSERVACIONES
+        { wch: 22 }  // FECHA CREACIÓN
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Inversiones');
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `gloint_inversiones_${dateStr}.xlsx`);
+    } catch (err: any) {
+      console.error('Error exportando inversiones a Excel:', err);
+      alert('Error al descargar el archivo Excel de inversiones: ' + (err.message || 'Error desconocido'));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
   const handleSaved = () => {
     fetchData();
   };
@@ -334,6 +420,21 @@ export const AdminInvestorsPage = () => {
             className="p-2 bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all shadow-xs cursor-pointer shrink-0"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-600' : ''}`} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            title="Descargar todas las inversiones en archivo Excel (.xlsx)"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl transition-all text-xs font-semibold shadow-xs cursor-pointer font-montserrat shrink-0 disabled:opacity-60"
+          >
+            {isExportingExcel ? (
+              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin shrink-0" />
+            ) : (
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            )}
+            <span>{isExportingExcel ? 'Descargando...' : 'Descargar Excel'}</span>
           </button>
 
           {isAdmin() && (

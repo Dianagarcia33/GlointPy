@@ -13,7 +13,7 @@ router = APIRouter()
 @router.get("/", response_model=InvestorPaginatedResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investors(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=50000),
     search: Optional[str] = None,
     has_history: Optional[bool] = Query(None, description="Filtrar por inversiones que tienen historial de contratos"),
     current_user: User = Depends(get_current_user),

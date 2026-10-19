@@ -1234,6 +1234,7 @@ class YointService:
                         "url": final_redirect_url,
                         "address": "Colombia",
                         "ip": ip_address or "127.0.0.1",
+                        "serviceCode": str(getattr(settings, "YOINT_SERVICE_CODE", "1001") or "1001")[:35],
                         "financialEntity": {
                             "id": str(bank_id or "1007")
                         },
