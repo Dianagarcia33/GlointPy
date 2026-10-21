@@ -1,31 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import {
-  Code2,
-  Play,
-  Send,
-  Timer,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  RotateCcw,
-  Sparkles,
-  User,
-  Mail,
-  Phone,
-  ShieldCheck,
-  ShieldAlert,
-  ChevronRight,
-  Terminal,
-  FileCode2,
-  HelpCircle,
-  Clock,
-  Layers,
-  KeyRound,
-  Zap,
-  Lightbulb
-} from 'lucide-react';
-import {
   technicalTestService,
   TestCaseResult,
   RunCodeResponse,
@@ -776,154 +751,120 @@ export const TechnicalAssessmentPage: React.FC = () => {
   if (stage === 'welcome') {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
-        {/* Glow decorativo de fondo */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-emerald-500/10 blur-[140px] pointer-events-none rounded-full" />
-        
-        <div className="w-full max-w-xl bg-slate-900/90 border border-slate-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative z-10">
+        <div className="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl relative z-10">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-4">
-              <Sparkles className="w-3.5 h-3.5" />
+            <div className="inline-block px-3 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-3">
               Gloint Tech Recruitment
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
               Evaluación Técnica: Desarrollador Jr
             </h1>
             <p className="text-sm text-slate-400 mt-2">
-              Un reto de lógica práctica y estructuras de datos para evaluar tu forma de programar.
+              Prueba práctica de lógica de programación y estructuras de datos.
             </p>
           </div>
 
           {/* Tarjeta de instrucciones rápidas */}
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 mb-8 space-y-3">
-            <div className="flex items-center gap-3 text-sm text-slate-300">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
-                <Clock className="w-4 h-4" />
-              </div>
-              <span><strong>Duración recomendada:</strong> 25 a 30 minutos.</span>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-slate-300">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
-                <Code2 className="w-4 h-4" />
-              </div>
-              <span><strong>Lenguaje:</strong> Elige libremente entre Python o JavaScript.</span>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-slate-300">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <span><strong>Entorno en vivo:</strong> Podrás ejecutar y probar tu solución en tiempo real.</span>
-            </div>
+          <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-4 mb-7 space-y-2 text-xs text-slate-300">
+            <div>• <strong>Duración estimada:</strong> 25 a 30 minutos.</div>
+            <div>• <strong>Lenguajes permitidos:</strong> Python 3 o JavaScript.</div>
+            <div>• <strong>Entorno:</strong> Editor con ejecución y validación de pruebas en tiempo real.</div>
           </div>
 
           {/* Formulario */}
-          <form onSubmit={handleStartTest} className="space-y-5">
+          <form onSubmit={handleStartTest} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Nombre y Apellidos *
               </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: Laura Morales"
-                  value={candidateName}
-                  onChange={(e) => setCandidateName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                />
-              </div>
+              <input
+                type="text"
+                required
+                placeholder="Nombre completo"
+                value={candidateName}
+                onChange={(e) => setCandidateName(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 transition-colors"
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Correo Electrónico *
               </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  placeholder="tu.correo@ejemplo.com"
-                  value={candidateEmail}
-                  onChange={(e) => setCandidateEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                />
-              </div>
+              <input
+                type="email"
+                required
+                placeholder="correo@ejemplo.com"
+                value={candidateEmail}
+                onChange={(e) => setCandidateEmail(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 transition-colors"
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Teléfono de Contacto (opcional)
               </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="tel"
-                  placeholder="+57 300 123 4567"
-                  value={candidatePhone}
-                  onChange={(e) => setCandidatePhone(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                />
-              </div>
+              <input
+                type="tel"
+                placeholder="+57 300 000 0000"
+                value={candidatePhone}
+                onChange={(e) => setCandidatePhone(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 transition-colors"
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                Código PIN de Acceso a la Prueba *
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                Código PIN de Acceso *
               </label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: GLOINT-JR-2026"
-                  value={accessPin}
-                  onChange={(e) => {
-                    setAccessPin(e.target.value.toUpperCase());
-                    setPinError(null);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm text-emerald-400 font-mono font-bold tracking-wider placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors uppercase"
-                />
-              </div>
+              <input
+                type="text"
+                required
+                placeholder="GLOINT-JR-2026"
+                value={accessPin}
+                onChange={(e) => {
+                  setAccessPin(e.target.value.toUpperCase());
+                  setPinError(null);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-emerald-400 font-mono font-bold tracking-wider placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 transition-colors uppercase"
+              />
               {pinError && (
-                <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1 font-medium">
-                  <XCircle className="w-3.5 h-3.5" />
+                <p className="text-xs text-red-400 mt-1 font-medium">
                   {pinError}
                 </p>
               )}
               <p className="text-2xs text-slate-500 mt-1">
-                Ingresa el código PIN proporcionado por el equipo de reclutamiento de Gloint.
+                Ingresa el código PIN proporcionado para iniciar la prueba.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                 Lenguaje de programación
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => handleLanguageChange('python')}
-                  className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-sm font-semibold transition-all ${
+                  className={`py-2.5 px-4 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                     language === 'python'
-                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-xs'
+                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400'
                       : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <FileCode2 className="w-4 h-4" />
                   Python 3
                 </button>
                 <button
                   type="button"
                   onClick={() => handleLanguageChange('javascript')}
-                  className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-sm font-semibold transition-all ${
+                  className={`py-2.5 px-4 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
                     language === 'javascript'
-                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-xs'
+                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400'
                       : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Code2 className="w-4 h-4" />
                   JavaScript
                 </button>
               </div>
@@ -931,10 +872,9 @@ export const TechnicalAssessmentPage: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm tracking-wide transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
+              className="w-full mt-4 py-3 px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
             >
               Comenzar Evaluación
-              <ChevronRight className="w-4 h-4" />
             </button>
           </form>
         </div>
@@ -948,19 +888,19 @@ export const TechnicalAssessmentPage: React.FC = () => {
   if (stage === 'submitted') {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
-        <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center relative z-10">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/10">
-            <CheckCircle2 className="w-9 h-9" />
+        <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl text-center relative z-10">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 font-bold text-xl flex items-center justify-center mx-auto mb-5">
+            ✓
           </div>
 
           <h2 className="text-2xl font-bold text-white mb-2">
             ¡Prueba Entregada Exitosamente!
           </h2>
           <p className="text-sm text-slate-400 mb-6">
-            Muchas gracias por tu tiempo, <strong>{candidateName}</strong>. Tu solución ha sido guardada y certificada en nuestros servidores.
+            Muchas gracias por tu tiempo, <strong>{candidateName}</strong>. Tu solución ha sido guardada en nuestros servidores.
           </p>
 
-          <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 mb-8 text-left space-y-2.5">
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 mb-8 text-left space-y-2.5">
             <div className="flex justify-between text-xs text-slate-400">
               <span>Candidato:</span>
               <span className="font-semibold text-slate-200">{candidateName}</span>
@@ -1009,9 +949,9 @@ export const TechnicalAssessmentPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Barra superior / Header */}
-      <header className="h-16 border-b border-slate-800 bg-slate-900/90 px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-20 backdrop-blur-md">
+      <header className="h-14 border-b border-slate-800 bg-slate-900 px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-sm">
+          <div className="w-7 h-7 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
             G
           </div>
           <div>
@@ -1025,14 +965,13 @@ export const TechnicalAssessmentPage: React.FC = () => {
         <div className="flex items-center gap-3">
           {/* Cronómetro */}
           <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono font-bold tracking-wider ${
+            className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold tracking-wider ${
               secondsRemaining < 300
                 ? 'bg-amber-500/10 border-amber-500 text-amber-400 animate-pulse'
-                : 'bg-slate-800/80 border-slate-700 text-slate-200'
+                : 'bg-slate-800 border-slate-700 text-slate-200'
             }`}
             title="Tiempo restante"
           >
-            <Timer className="w-3.5 h-3.5" />
             <span>{formatTime(secondsRemaining)}</span>
           </div>
 
@@ -1040,10 +979,9 @@ export const TechnicalAssessmentPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowConfirmModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
           >
-            <Send className="w-3.5 h-3.5" />
-            <span>Entregar Solución</span>
+            Entregar Solución
           </button>
         </div>
       </header>
@@ -1051,13 +989,12 @@ export const TechnicalAssessmentPage: React.FC = () => {
       {/* Contenedor Principal (Grid Split: Enunciado vs Editor) */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
         {/* Panel Izquierdo: Enunciado y Reglas (Col 5) */}
-        <div className="lg:col-span-5 border-r border-slate-800 bg-slate-900/50 p-6 overflow-y-auto max-h-[calc(100vh-4rem)] space-y-6">
+        <div className="lg:col-span-5 border-r border-slate-800 bg-slate-900/50 p-6 overflow-y-auto max-h-[calc(100vh-3.5rem)] space-y-6">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 text-xs font-semibold mb-2">
-              <FileCode2 className="w-3.5 h-3.5" />
+            <div className="inline-block px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-2xs font-semibold mb-2 uppercase tracking-wide">
               Problema a Resolver
             </div>
-            <h3 className="text-xl font-bold text-white">Consolidación de Balance</h3>
+            <h3 className="text-lg font-bold text-white">Consolidación de Balance</h3>
             <p className="text-xs text-slate-400 mt-1 leading-relaxed">
               Recibes un listado de movimientos de una cuenta bancaria. Tu objetivo es procesar cada movimiento, acumular los totales y filtrar los registros inválidos.
             </p>
@@ -1158,18 +1095,16 @@ export const TechnicalAssessmentPage: React.FC = () => {
                     setActiveSuggestions([]);
                   }
                 }}
-                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                className="text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
                 title="Restablecer código base"
               >
-                <RotateCcw className="w-3 h-3" />
-                <span>Restablecer</span>
+                Restablecer
               </button>
             </div>
 
             {/* Atajos Rápidos de Variables (Para evitar errores tipográficos) */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-2xs scrollbar-none">
-              <span className="text-slate-500 shrink-0 flex items-center gap-1">
-                <Zap className="w-3 h-3 text-emerald-400" />
+              <span className="text-slate-500 shrink-0 font-medium text-3xs uppercase tracking-wider">
                 Atajos:
               </span>
               {[
@@ -1195,9 +1130,8 @@ export const TechnicalAssessmentPage: React.FC = () => {
             {/* Barra de Autocompletado Activo cuando el usuario tipea */}
             {activeSuggestions.length > 0 && (
               <div className="flex items-center gap-2 bg-emerald-950/30 border border-emerald-800/40 rounded-lg px-2.5 py-1 text-2xs animate-in fade-in">
-                <div className="flex items-center gap-1 text-emerald-400 font-semibold shrink-0">
-                  <Lightbulb className="w-3 h-3" />
-                  <span>Sugerencias (Tab):</span>
+                <div className="text-emerald-400 font-semibold shrink-0 text-3xs uppercase tracking-wide">
+                  Sugerencias (Tab):
                 </div>
                 <div className="flex items-center gap-1.5 overflow-x-auto">
                   {activeSuggestions.map((sug, idx) => (
@@ -1250,7 +1184,6 @@ export const TechnicalAssessmentPage: React.FC = () => {
           <div className="border-t border-slate-800 bg-slate-900/80 p-4 shrink-0 max-h-64 overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-emerald-400" />
                 <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
                   Consola de Pruebas Unitarias
                 </span>
@@ -1271,19 +1204,17 @@ export const TechnicalAssessmentPage: React.FC = () => {
                 type="button"
                 onClick={handleRunTests}
                 disabled={isRunningTests}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
               >
-                <Play className={`w-3.5 h-3.5 fill-current ${isRunningTests ? 'animate-spin' : ''}`} />
-                <span>{isRunningTests ? 'Ejecutando...' : 'Ejecutar Pruebas'}</span>
+                {isRunningTests ? 'Ejecutando...' : 'Ejecutar Pruebas'}
               </button>
             </div>
 
             {/* Error de sintaxis */}
             {syntaxError && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs font-mono mb-3">
-                <div className="flex items-center gap-2 font-bold mb-1">
-                  <XCircle className="w-4 h-4" />
-                  <span>Error al compilar / ejecutar:</span>
+                <div className="font-bold mb-1">
+                  Error de ejecución:
                 </div>
                 <p className="whitespace-pre-wrap">{syntaxError}</p>
               </div>
@@ -1310,11 +1241,9 @@ export const TechnicalAssessmentPage: React.FC = () => {
                   >
                     <div className="flex items-center justify-between font-semibold">
                       <div className="flex items-center gap-2">
-                        {t.passed ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-red-400 shrink-0" />
-                        )}
+                        <span className={`font-mono font-bold text-xs shrink-0 ${t.passed ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {t.passed ? '✓' : '✗'}
+                        </span>
                         <span>{t.name}</span>
                       </div>
                       <span className={`text-2xs font-bold uppercase ${t.passed ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -1348,15 +1277,10 @@ export const TechnicalAssessmentPage: React.FC = () => {
       {/* Modal de Confirmación de Entrega */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                <Send className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">¿Entregar solución definitiva?</h3>
-                <p className="text-xs text-slate-400">Una vez entregada no podrás realizar más modificaciones.</p>
-              </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-white">¿Entregar solución definitiva?</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Una vez entregada no podrás realizar más modificaciones.</p>
             </div>
 
             <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-1.5 text-xs text-slate-300">
