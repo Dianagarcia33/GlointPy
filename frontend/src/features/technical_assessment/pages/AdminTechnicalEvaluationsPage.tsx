@@ -20,10 +20,7 @@ import {
   KeyRound,
   ShieldCheck,
   ShieldAlert,
-  Lock,
-  Unlock,
-  Edit3,
-  ArrowRight
+  Edit3
 } from 'lucide-react';
 import {
   technicalTestService,
@@ -40,24 +37,16 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<TechnicalSubmission | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Desbloqueo por PIN (cero login de cuentas requerido)
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [unlockPin, setUnlockPin] = useState(localStorage.getItem('gloint_eval_pin') || 'GLOINT-JR-2026');
-  const [unlockError, setUnlockError] = useState<string | null>(null);
-
   // Edición de PIN
   const [isEditingPin, setIsEditingPin] = useState(false);
   const [newPinInput, setNewPinInput] = useState('');
 
-  const loadData = async (pinToUse?: string) => {
+  const loadData = async () => {
     setIsLoading(true);
-    setUnlockError(null);
-    const activePin = pinToUse || unlockPin;
-
     try {
       const [submissionsData, configData] = await Promise.all([
-        technicalTestService.getSubmissions(activePin),
-        technicalTestService.getConfig(activePin).catch(() => null)
+        technicalTestService.getSubmissions(),
+        technicalTestService.getConfig().catch(() => null)
       ]);
 
       setSubmissions(submissionsData || []);
@@ -65,33 +54,16 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
         setConfig(configData);
         setNewPinInput(configData.access_pin);
       }
-      setIsUnlocked(true);
-      localStorage.setItem('gloint_eval_pin', activePin);
     } catch (err: any) {
       console.error('Error cargando evaluaciones técnicas:', err);
-      setUnlockError('PIN inválido o no autorizado. Verifica el código e intenta de nuevo.');
-      setIsUnlocked(false);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    // Si ya tiene un PIN guardado en el navegador, intentar cargarlo automáticamente
-    const savedPin = localStorage.getItem('gloint_eval_pin');
-    if (savedPin) {
-      loadData(savedPin);
-    }
+    loadData();
   }, []);
-
-  const handleUnlockSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!unlockPin.trim()) {
-      setUnlockError('Por favor ingresa el PIN de acceso.');
-      return;
-    }
-    loadData(unlockPin.trim().toUpperCase());
-  };
 
   const handleToggleActive = async () => {
     if (!config) return;
@@ -104,7 +76,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
 
     setIsUpdatingConfig(true);
     try {
-      const res = await technicalTestService.updateConfig({ is_active: nextState }, unlockPin);
+      const res = await technicalTestService.updateConfig({ is_active: nextState });
       if (res && res.config) {
         setConfig(res.config);
       } else {
@@ -124,14 +96,12 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
     setIsUpdatingConfig(true);
     try {
       const cleanPin = newPinInput.trim().toUpperCase();
-      const res = await technicalTestService.updateConfig({ access_pin: cleanPin }, unlockPin);
+      const res = await technicalTestService.updateConfig({ access_pin: cleanPin });
       if (res && res.config) {
         setConfig(res.config);
       } else {
         setConfig((prev) => (prev ? { ...prev, access_pin: cleanPin } : null));
       }
-      setUnlockPin(cleanPin);
-      localStorage.setItem('gloint_eval_pin', cleanPin);
       setIsEditingPin(false);
       alert(`¡PIN actualizado con éxito a: ${cleanPin}!`);
     } catch (err: any) {
@@ -156,68 +126,6 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
     );
   });
 
-  // -------------------------------------------------------------
-  // VISTA DE BLOQUEO POR PIN (CERO LOGIN DE CUENTAS REQUERIDO)
-  // -------------------------------------------------------------
-  if (!isUnlocked) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center relative z-10">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-5 border border-emerald-500/20">
-            <Lock className="w-7 h-7" />
-          </div>
-
-          <h2 className="text-xl font-bold text-white mb-1.5">
-            Panel de Evaluaciones Técnicas
-          </h2>
-          <p className="text-xs text-slate-400 mb-6">
-            Acceso seguro protegido por PIN. No necesitas usuario ni contraseña de Gloint.
-          </p>
-
-          <form onSubmit={handleUnlockSubmit} className="space-y-4 text-left">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                PIN de Acceso
-              </label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: GLOINT-JR-2026"
-                  value={unlockPin}
-                  onChange={(e) => {
-                    setUnlockPin(e.target.value.toUpperCase());
-                    setUnlockError(null);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm text-emerald-400 font-mono font-bold tracking-wider placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 uppercase"
-                />
-              </div>
-              {unlockError && (
-                <p className="text-xs text-red-400 mt-2 flex items-center gap-1 font-medium">
-                  <XCircle className="w-3.5 h-3.5" />
-                  {unlockError}
-                </p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-            >
-              <span>{isLoading ? 'Verificando...' : 'Desbloquear Panel'}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------
-  // VISTA PRINCIPAL DEL PANEL (DESBLOQUEADO)
-  // -------------------------------------------------------------
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 font-sans">
       {/* Encabezado Principal */}
@@ -231,7 +139,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
             Evaluaciones Técnicas Jr
           </h1>
           <p className="text-sm text-slate-500">
-            Control de acceso a la prueba, parámetros de seguridad y revisión de entregas.
+            Panel administrativo exclusivo de Gloint para controlar la prueba y evaluar candidatos.
           </p>
         </div>
 
@@ -248,7 +156,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => loadData()}
+            onClick={loadData}
             disabled={isLoading}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
           >
@@ -290,7 +198,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
               {!isEditingPin ? (
                 <div className="flex items-center gap-2 bg-slate-950/70 border border-slate-700 px-3.5 py-2 rounded-xl text-xs">
                   <KeyRound className="w-4 h-4 text-emerald-400" />
-                  <span className="text-slate-400">PIN:</span>
+                  <span className="text-slate-400">PIN Candidatos:</span>
                   <span className="font-mono font-bold text-emerald-300 tracking-wider">
                     {config.access_pin}
                   </span>
@@ -378,6 +286,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
                 <th className="py-3 px-4">Contacto</th>
                 <th className="py-3 px-4 text-center">Lenguaje</th>
                 <th className="py-3 px-4 text-center">Puntaje Pruebas</th>
+                <th className="py-3 px-4 text-center">Integridad / IA</th>
                 <th className="py-3 px-4 text-center">Tiempo</th>
                 <th className="py-3 px-4">Fecha de Entrega</th>
                 <th className="py-3 px-4 text-right">Acción</th>
@@ -386,15 +295,16 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     {isLoading
                       ? 'Cargando entregas...'
-                      : 'No hay entregas registradas aún. Comparte el enlace y el PIN con tus 5 candidatos.'}
+                      : 'No hay entregas registradas aún. Comparte el enlace /evaluacion-tecnica con el PIN con tus candidatos.'}
                   </td>
                 </tr>
               ) : (
                 filtered.map((s) => {
                   const allPassed = s.passed_tests === s.total_tests;
+                  const integrity = s.integrity_data;
                   return (
                     <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-3.5 px-4">
@@ -435,6 +345,39 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
                             {s.passed_tests} / {s.total_tests} superadas
                           </span>
                         </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        {integrity ? (
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-2xs font-bold ${
+                              integrity.ai_risk_level === 'high'
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : integrity.ai_risk_level === 'medium'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            }`}
+                            title={integrity.ai_risk_reasons?.join(' • ') || ''}
+                          >
+                            {integrity.ai_risk_level === 'high' ? (
+                              <>
+                                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Alta Sospecha IA</span>
+                              </>
+                            ) : integrity.ai_risk_level === 'medium' ? (
+                              <>
+                                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Riesgo Medio</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Bajo Riesgo</span>
+                              </>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-2xs">Sin telemetría</span>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-center text-slate-600 font-mono text-2xs">
                         {Math.floor((s.time_spent_seconds || 0) / 60)}m {(s.time_spent_seconds || 0) % 60}s
@@ -515,6 +458,101 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              {/* 🛡️ Auditoría de Integridad y Detección de IA */}
+              {selectedSubmission.integrity_data ? (
+                <div
+                  className={`p-4 rounded-2xl border ${
+                    selectedSubmission.integrity_data.ai_risk_level === 'high'
+                      ? 'bg-rose-50/70 border-rose-200'
+                      : selectedSubmission.integrity_data.ai_risk_level === 'medium'
+                      ? 'bg-amber-50/70 border-amber-200'
+                      : 'bg-emerald-50/60 border-emerald-200'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      {selectedSubmission.integrity_data.ai_risk_level === 'high' ? (
+                        <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                      ) : selectedSubmission.integrity_data.ai_risk_level === 'medium' ? (
+                        <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                      ) : (
+                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      )}
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        Auditoría de Integridad y Detección de IA
+                      </h4>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-extrabold uppercase tracking-wide self-start sm:self-auto ${
+                        selectedSubmission.integrity_data.ai_risk_level === 'high'
+                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                          : selectedSubmission.integrity_data.ai_risk_level === 'medium'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      }`}
+                    >
+                      {selectedSubmission.integrity_data.ai_risk_level === 'high'
+                        ? 'Alta Sospecha de Copiado IA'
+                        : selectedSubmission.integrity_data.ai_risk_level === 'medium'
+                        ? 'Riesgo Moderado'
+                        : 'Bajo Riesgo (Tipeo Humano)'}
+                    </span>
+                  </div>
+
+                  {/* 4 KPIs de Telemetría */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-2xs mb-3">
+                    <div className="p-2.5 rounded-xl bg-white/90 border border-slate-200 shadow-2xs">
+                      <span className="text-slate-400 block text-3xs font-medium">⌨️ Teclas manuales</span>
+                      <span className="font-extrabold text-slate-900 text-xs">
+                        {selectedSubmission.integrity_data.keystrokes_count}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/90 border border-slate-200 shadow-2xs">
+                      <span className="text-slate-400 block text-3xs font-medium">📋 Pegados (Paste)</span>
+                      <span className="font-extrabold text-slate-900 text-xs">
+                        {selectedSubmission.integrity_data.paste_events} veces
+                      </span>
+                      <span className="text-slate-400 block text-4xs">
+                        Máx: {selectedSubmission.integrity_data.max_pasted_length} chars
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/90 border border-slate-200 shadow-2xs">
+                      <span className="text-slate-400 block text-3xs font-medium">🔄 Cambios de pestaña</span>
+                      <span className="font-extrabold text-slate-900 text-xs">
+                        {selectedSubmission.integrity_data.tab_switches} veces
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/90 border border-slate-200 shadow-2xs">
+                      <span className="text-slate-400 block text-3xs font-medium">⏱️ Fuera de pantalla</span>
+                      <span className="font-extrabold text-slate-900 text-xs">
+                        {selectedSubmission.integrity_data.away_seconds}s
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Razones y Diagnóstico */}
+                  {selectedSubmission.integrity_data.ai_risk_reasons && selectedSubmission.integrity_data.ai_risk_reasons.length > 0 && (
+                    <div className="space-y-1 pt-2 border-t border-slate-200/80">
+                      <span className="text-3xs font-bold text-slate-600 uppercase tracking-wider block">
+                        Diagnóstico Detallado:
+                      </span>
+                      <ul className="text-2xs text-slate-700 space-y-1">
+                        {selectedSubmission.integrity_data.ai_risk_reasons.map((r, i) => (
+                          <li key={i} className="flex items-start gap-1.5">
+                            <span className="text-slate-400 shrink-0">•</span>
+                            <span>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-2xs text-slate-500 italic">
+                  Esta entrega no cuenta con telemetría de integridad registrada (realizada antes de activar el módulo).
+                </div>
+              )}
 
               {/* Bloque de código */}
               <div>

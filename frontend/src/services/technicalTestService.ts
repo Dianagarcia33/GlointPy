@@ -18,6 +18,17 @@ export interface RunCodeResponse {
   details: TestCaseResult[];
 }
 
+export interface IntegrityData {
+  tab_switches: number;
+  away_seconds: number;
+  paste_events: number;
+  max_pasted_length: number;
+  keystrokes_count: number;
+  code_length: number;
+  ai_risk_level: 'low' | 'medium' | 'high';
+  ai_risk_reasons: string[];
+}
+
 export interface TechnicalSubmission {
   id: number;
   candidate_name: string;
@@ -28,6 +39,7 @@ export interface TechnicalSubmission {
   passed_tests: number;
   total_tests: number;
   test_results: TestCaseResult[];
+  integrity_data?: IntegrityData;
   time_spent_seconds: number;
   status: string;
   created_at: string;
@@ -59,6 +71,7 @@ export const technicalTestService = {
     access_pin: string;
     time_spent_seconds: number;
     test_results?: TestCaseResult[];
+    integrity_data?: IntegrityData;
   }) {
     return fetchApi('/technical-test/submit', {
       method: 'POST',

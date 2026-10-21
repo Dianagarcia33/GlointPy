@@ -89,6 +89,7 @@ class TestSubmissionRequest(BaseModel):
     access_pin: str
     time_spent_seconds: int = 0
     test_results: Optional[List[Dict[str, Any]]] = None
+    integrity_data: Optional[Dict[str, Any]] = None
 
 class ToggleConfigRequest(BaseModel):
     is_active: Optional[bool] = None
@@ -294,6 +295,7 @@ async def submit_technical_test(
                 passed_tests INT DEFAULT 0,
                 total_tests INT DEFAULT 3,
                 test_results JSON NULL,
+                integrity_data JSON NULL,
                 time_spent_seconds INT DEFAULT 0,
                 status VARCHAR(50) DEFAULT 'submitted',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -301,6 +303,11 @@ async def submit_technical_test(
                 INDEX idx_tech_eval_email (candidate_email)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """))
+    except Exception:
+        pass
+
+    try:
+        await db.execute(text("ALTER TABLE technical_evaluations ADD COLUMN integrity_data JSON NULL"))
     except Exception:
         pass
 
@@ -344,6 +351,7 @@ async def submit_technical_test(
         passed_tests=passed_tests,
         total_tests=total_tests,
         test_results=test_results,
+        integrity_data=req.integrity_data,
         time_spent_seconds=req.time_spent_seconds,
         status="passed" if passed_tests == total_tests else "submitted"
     )
@@ -366,28 +374,29 @@ async def verify_admin_or_pin(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Permite acceso EITHER mediante PIN de acceso OR mediante sesión de Admin PBAC.
-    Evita cualquier redirección a /login para Diana y evaluadores.
+    Permite acceso mediante sesión de Administrador (Diana en el Dashboard)
+    o mediante PIN de acceso.
     """
-    provided_pin = pin or request.headers.get("x-access-pin") or request.query_params.get("pin")
-    expected_pin = str(TEST_CONFIG.get("access_pin", "GLOINT-JR-2026")).strip().upper()
-    if provided_pin and str(provided_pin).strip().upper() == expected_pin:
-        return True
-
-    # Fallback si ya está logueado en la plataforma como admin
+    # 1. Sesión de Administrador logueado en Gloint
     try:
         from src.api.deps import oauth2_scheme
         token = await oauth2_scheme(request)
-        if token or request.cookies.get("access_token"):
+        if token or request.cookies.get("access_token") or request.query_params.get("token"):
             user = await get_current_user(request=request, db=db, token=token)
             if user:
                 return True
     except Exception:
         pass
 
+    # 2. Fallback de PIN si se envía
+    provided_pin = pin or request.headers.get("x-access-pin") or request.query_params.get("pin")
+    expected_pin = str(TEST_CONFIG.get("access_pin", "GLOINT-JR-2026")).strip().upper()
+    if provided_pin and str(provided_pin).strip().upper() == expected_pin:
+        return True
+
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
-        detail="Acceso restringido. Requiere PIN de acceso válido."
+        detail="Acceso restringido a Administradores de Gloint."
     )
 
 @router.get("/submissions", dependencies=[Depends(verify_admin_or_pin)])
@@ -413,6 +422,7 @@ async def list_technical_submissions(
                 "passed_tests": e.passed_tests,
                 "total_tests": e.total_tests,
                 "test_results": e.test_results,
+                "integrity_data": e.integrity_data,
                 "time_spent_seconds": e.time_spent_seconds,
                 "status": e.status,
                 "created_at": e.created_at.isoformat() if e.created_at else None

@@ -150,13 +150,11 @@ function App() {
       {/* Pasarela Pública Gloint Pay Checkout */}
       <Route path="/pay/checkout" element={<GlointPayCheckoutPage />} />
       
-      {/* Rutas Públicas de Evaluación Técnica (Cero Login / Protegidas por PIN) */}
+      {/* Rutas Públicas de Evaluación Técnica para Candidatos (Cero Login / Protegidas por PIN) */}
       <Route path="/evaluacion-tecnica" element={<TechnicalAssessmentPage />} />
       <Route path="/evaluaciones-tecnicas" element={<TechnicalAssessmentPage />} />
       <Route path="/prueba-tecnica" element={<TechnicalAssessmentPage />} />
       <Route path="/pruebas-tecnicas" element={<TechnicalAssessmentPage />} />
-      <Route path="/evaluacion-tecnica/admin" element={<AdminTechnicalEvaluationsPage />} />
-      <Route path="/prueba-tecnica/admin" element={<AdminTechnicalEvaluationsPage />} />
       
       {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
       <Route 

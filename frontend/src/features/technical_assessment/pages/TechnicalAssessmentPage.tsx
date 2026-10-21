@@ -14,15 +14,23 @@ import {
   Mail,
   Phone,
   ShieldCheck,
+  ShieldAlert,
   ChevronRight,
   Terminal,
   FileCode2,
   HelpCircle,
   Clock,
   Layers,
-  KeyRound
+  KeyRound,
+  Zap,
+  Lightbulb
 } from 'lucide-react';
-import { technicalTestService, TestCaseResult, RunCodeResponse } from '../../../services/technicalTestService';
+import {
+  technicalTestService,
+  TestCaseResult,
+  RunCodeResponse,
+  IntegrityData
+} from '../../../services/technicalTestService';
 
 const PYTHON_STARTER_CODE = `def calcular_balance(movimientos):
     """
@@ -109,6 +117,51 @@ const JS_TEST_CASES = [
   }
 ];
 
+// Palabras clave para autocompletar según el lenguaje
+const AUTOCOMPLETE_KEYWORDS = {
+  python: [
+    'total_ingresos',
+    'total_egresos',
+    'balance_neto',
+    'movimientos_invalidos',
+    'movimientos',
+    'movimiento',
+    'ingreso',
+    'egreso',
+    'monto',
+    'tipo',
+    'isinstance',
+    'return',
+    'elif',
+    'else',
+    'dict',
+    'float',
+    'None',
+    'True',
+    'False'
+  ],
+  javascript: [
+    'total_ingresos',
+    'total_egresos',
+    'balance_neto',
+    'movimientos_invalidos',
+    'movimientos',
+    'movimiento',
+    'ingreso',
+    'egreso',
+    'monto',
+    'tipo',
+    'Array.isArray',
+    'forEach',
+    'return',
+    'const',
+    'let',
+    'else if',
+    'else',
+    'null'
+  ]
+};
+
 export const TechnicalAssessmentPage: React.FC = () => {
   // Estado del flujo: 'welcome' | 'testing' | 'submitted'
   const [stage, setStage] = useState<'welcome' | 'testing' | 'submitted'>('welcome');
@@ -126,6 +179,19 @@ export const TechnicalAssessmentPage: React.FC = () => {
   const [lineCount, setLineCount] = useState(1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
+
+  // Autocompletado inteligente
+  const [activeSuggestions, setActiveSuggestions] = useState<string[]>([]);
+  const [currentWord, setCurrentWord] = useState<string>('');
+
+  // 🛡️ Telemetría Anti-IA y Análisis de Comportamiento
+  const tabSwitchesRef = useRef<number>(0);
+  const awaySecondsRef = useRef<number>(0);
+  const awayStartTimestampRef = useRef<number | null>(null);
+  const pasteEventsRef = useRef<number>(0);
+  const maxPastedLengthRef = useRef<number>(0);
+  const totalPastedLengthRef = useRef<number>(0);
+  const keystrokesCountRef = useRef<number>(0);
 
   // Timer: 30 minutos (1800 segundos)
   const [secondsRemaining, setSecondsRemaining] = useState(30 * 60);
@@ -155,7 +221,57 @@ export const TechnicalAssessmentPage: React.FC = () => {
     setTestResults([]);
     setSyntaxError(null);
     setAllPassed(false);
+    setActiveSuggestions([]);
   };
+
+  // 🛡️ Listener de Telemetría: Registro de cambios de pestaña y tiempo ausente
+  useEffect(() => {
+    if (stage !== 'testing') return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // El candidato salió o cambió de pestaña
+        awayStartTimestampRef.current = Date.now();
+        tabSwitchesRef.current += 1;
+      } else {
+        // El candidato regresó a la pestaña
+        if (awayStartTimestampRef.current) {
+          const elapsed = (Date.now() - awayStartTimestampRef.current) / 1000;
+          awaySecondsRef.current += elapsed;
+          awayStartTimestampRef.current = null;
+        }
+      }
+    };
+
+    const handleBlur = () => {
+      if (!awayStartTimestampRef.current) {
+        awayStartTimestampRef.current = Date.now();
+        tabSwitchesRef.current += 1;
+      }
+    };
+
+    const handleFocus = () => {
+      if (awayStartTimestampRef.current) {
+        const elapsed = (Date.now() - awayStartTimestampRef.current) / 1000;
+        awaySecondsRef.current += elapsed;
+        awayStartTimestampRef.current = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      if (awayStartTimestampRef.current) {
+        awaySecondsRef.current += (Date.now() - awayStartTimestampRef.current) / 1000;
+        awayStartTimestampRef.current = null;
+      }
+    };
+  }, [stage]);
 
   // Contador regresivo
   useEffect(() => {
@@ -194,23 +310,236 @@ export const TechnicalAssessmentPage: React.FC = () => {
     setTimerActive(true);
   };
 
-  // Permitir indentar con tecla TAB en el textarea
+  // Extraer palabra actual que el candidato está escribiendo
+  const updateCurrentWord = (text: string, cursorPos: number) => {
+    const textBefore = text.substring(0, cursorPos);
+    const match = textBefore.match(/([a-zA-Z0-9_]+)$/);
+    if (match && match[1].length >= 2) {
+      const word = match[1];
+      setCurrentWord(word);
+      const keywords = AUTOCOMPLETE_KEYWORDS[language] || [];
+      const filtered = keywords.filter(
+        (kw) => kw.toLowerCase().startsWith(word.toLowerCase()) && kw.toLowerCase() !== word.toLowerCase()
+      );
+      setActiveSuggestions(filtered.slice(0, 4));
+    } else {
+      setCurrentWord('');
+      setActiveSuggestions([]);
+    }
+  };
+
+  // Insertar sugerencia autocompletada
+  const applySuggestion = (suggestion: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const textBefore = code.substring(0, start);
+    const textAfter = code.substring(start);
+    const match = textBefore.match(/([a-zA-Z0-9_]+)$/);
+
+    if (match) {
+      const wordStart = start - match[1].length;
+      const newCode = code.substring(0, wordStart) + suggestion + textAfter;
+      setCode(newCode);
+      setActiveSuggestions([]);
+      setCurrentWord('');
+      setTimeout(() => {
+        const nextPos = wordStart + suggestion.length;
+        textarea.selectionStart = textarea.selectionEnd = nextPos;
+        textarea.focus();
+      }, 0);
+    }
+  };
+
+  // Insertar atajo rápido (pildora de sintaxis)
+  const insertSnippet = (snippet: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newCode = code.substring(0, start) + snippet + code.substring(end);
+    setCode(newCode);
+
+    setTimeout(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + snippet.length;
+      textarea.focus();
+      updateCurrentWord(newCode, start + snippet.length);
+    }, 0);
+  };
+
+  // 🛡️ Detección de Pegado (Paste) para auditoría de integridad
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData('text') || '';
+    const pLen = pastedText.length;
+    pasteEventsRef.current += 1;
+    totalPastedLengthRef.current += pLen;
+    if (pLen > maxPastedLengthRef.current) {
+      maxPastedLengthRef.current = pLen;
+    }
+  };
+
+  // Manejador inteligente de teclado: Indentación, Autocompletado, Cierre de llaves/comillas
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    // Registrar pulsaciones manuales (excluyendo modificadores puros)
+    if (!['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      keystrokesCountRef.current += 1;
+    }
+
+    // 1. Tecla TAB -> Autocompletar sugerencia o Indentar 4 espacios
     if (e.key === 'Tab') {
       e.preventDefault();
-      const textarea = textareaRef.current;
-      if (!textarea) return;
 
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const indent = '    '; // 4 espacios
+      // Si hay una sugerencia activa, TAB la aplica de inmediato
+      if (activeSuggestions.length > 0) {
+        applySuggestion(activeSuggestions[0]);
+        return;
+      }
 
-      const newCode = code.substring(0, start) + indent + code.substring(end);
+      // Si no hay sugerencia, realiza indentación
+      const indent = '    ';
+      if (start !== end) {
+        // Bloque seleccionado
+        const selected = code.substring(start, end);
+        const replacement = e.shiftKey
+          ? selected.replace(/^ {1,4}/gm, '')
+          : selected.replace(/^/gm, indent);
+        const newCode = code.substring(0, start) + replacement + code.substring(end);
+        setCode(newCode);
+        setTimeout(() => {
+          textarea.selectionStart = start;
+          textarea.selectionEnd = start + replacement.length;
+        }, 0);
+      } else {
+        // Cursor simple
+        const newCode = code.substring(0, start) + indent + code.substring(end);
+        setCode(newCode);
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + indent.length;
+        }, 0);
+      }
+      return;
+    }
+
+    // 2. Tecla ENTER -> Indentación inteligente automática (+4 espacios tras ':' o '{')
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const textBefore = code.substring(0, start);
+      const textAfter = code.substring(end);
+      const currentLine = textBefore.split('\n').pop() || '';
+      const indentMatch = currentLine.match(/^(\s*)/);
+      let indent = indentMatch ? indentMatch[1] : '';
+
+      const trimmedLine = currentLine.trim();
+      const shouldIncreaseIndent = trimmedLine.endsWith(':') || trimmedLine.endsWith('{');
+      if (shouldIncreaseIndent) {
+        indent += '    ';
+      }
+
+      // Caso especial: Enter entre { y } o [ y ]
+      const nextChar = textAfter.charAt(0);
+      if (
+        (trimmedLine.endsWith('{') && nextChar === '}') ||
+        (trimmedLine.endsWith('[') && nextChar === ']')
+      ) {
+        const baseIndent = indentMatch ? indentMatch[1] : '';
+        const insertText = '\n' + indent + '\n' + baseIndent;
+        const newCode = textBefore + insertText + textAfter;
+        setCode(newCode);
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + 1 + indent.length;
+        }, 0);
+        return;
+      }
+
+      const insertText = '\n' + indent;
+      const newCode = textBefore + insertText + textAfter;
       setCode(newCode);
-
+      setActiveSuggestions([]);
+      setCurrentWord('');
       setTimeout(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + indent.length;
+        textarea.selectionStart = textarea.selectionEnd = start + insertText.length;
       }, 0);
+      return;
+    }
+
+    // 3. Auto-cierre de paréntesis, llaves, corchetes y comillas
+    const PAIRS: Record<string, string> = {
+      '(': ')',
+      '[': ']',
+      '{': '}',
+      '"': '"',
+      "'": "'"
+    };
+
+    if (PAIRS[e.key]) {
+      const openChar = e.key;
+      const closeChar = PAIRS[e.key];
+
+      // Si el cursor está justo antes del carácter de cierre y el usuario lo tipea, saltarlo
+      if (start === end && code.charAt(start) === openChar && (openChar === '"' || openChar === "'")) {
+        e.preventDefault();
+        textarea.selectionStart = textarea.selectionEnd = start + 1;
+        return;
+      }
+
+      e.preventDefault();
+      if (start !== end) {
+        // Envolver selección
+        const selected = code.substring(start, end);
+        const wrapped = openChar + selected + closeChar;
+        const newCode = code.substring(0, start) + wrapped + code.substring(end);
+        setCode(newCode);
+        setTimeout(() => {
+          textarea.selectionStart = start + 1;
+          textarea.selectionEnd = end + 1;
+        }, 0);
+      } else {
+        // Insertar par y posicionar cursor en medio
+        const newCode = code.substring(0, start) + openChar + closeChar + code.substring(end);
+        setCode(newCode);
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + 1;
+        }, 0);
+      }
+      return;
+    }
+
+    // Saltar carácter de cierre si ya existe
+    if ([']', ')', '}'].includes(e.key)) {
+      if (start === end && code.charAt(start) === e.key) {
+        e.preventDefault();
+        textarea.selectionStart = textarea.selectionEnd = start + 1;
+        return;
+      }
+    }
+
+    // 4. Backspace: eliminar pares vacíos juntos
+    if (e.key === 'Backspace' && start === end && start > 0) {
+      const prevChar = code.charAt(start - 1);
+      const nextChar = code.charAt(start);
+      if (
+        (prevChar === '(' && nextChar === ')') ||
+        (prevChar === '[' && nextChar === ']') ||
+        (prevChar === '{' && nextChar === '}') ||
+        (prevChar === '"' && nextChar === '"') ||
+        (prevChar === "'" && nextChar === "'")
+      ) {
+        e.preventDefault();
+        const newCode = code.substring(0, start - 1) + code.substring(start + 1);
+        setCode(newCode);
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start - 1;
+        }, 0);
+        return;
+      }
     }
   };
 
@@ -219,6 +548,85 @@ export const TechnicalAssessmentPage: React.FC = () => {
     if (textareaRef.current && lineNumbersRef.current) {
       lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
     }
+  };
+
+  // Manejar cambio en el textarea y calcular autocompletado en vivo
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setCode(newText);
+    updateCurrentWord(newText, e.target.selectionStart || 0);
+  };
+
+  // 🛡️ Algoritmo de Evaluación de Integridad y Detección de IA
+  const computeIntegrityReport = (): IntegrityData => {
+    // Si la pestaña estaba ausente al momento de entregar, consolidar
+    if (awayStartTimestampRef.current) {
+      awaySecondsRef.current += (Date.now() - awayStartTimestampRef.current) / 1000;
+      awayStartTimestampRef.current = null;
+    }
+
+    const codeLen = code.length;
+    const pasteEvents = pasteEventsRef.current;
+    const maxPasted = maxPastedLengthRef.current;
+    const totalPasted = totalPastedLengthRef.current;
+    const keystrokes = keystrokesCountRef.current;
+    const tabSwitches = tabSwitchesRef.current;
+    const awaySecs = Math.round(awaySecondsRef.current);
+
+    const reasons: string[] = [];
+    let riskLevel: 'low' | 'medium' | 'high' = 'low';
+
+    // 1. Pegado masivo (bloque grande directo desde ChatGPT/Claude)
+    if (maxPasted >= 150) {
+      riskLevel = 'high';
+      reasons.push(`Pegado masivo detectado: bloque de ${maxPasted} caracteres insertado de golpe.`);
+    } else if (maxPasted >= 55) {
+      riskLevel = 'medium';
+      reasons.push(`Pegado de bloque mediano de código (${maxPasted} caracteres).`);
+    }
+
+    // 2. Proporción de texto pegado vs longitud final del código
+    if (totalPasted > 0 && totalPasted >= codeLen * 0.7 && codeLen > 150) {
+      riskLevel = 'high';
+      reasons.push(`Más del 70% del código entregado provino directamente del portapapeles.`);
+    }
+
+    // 3. Discrepancia entre longitud de código y pulsaciones de teclas
+    if (codeLen > 250 && keystrokes < 40) {
+      riskLevel = 'high';
+      reasons.push(`Código de ${codeLen} caracteres con solo ${keystrokes} pulsaciones manuales de teclado.`);
+    }
+
+    // 4. Tiempo prolongado fuera de la pestaña
+    if (awaySecs >= 180) {
+      riskLevel = 'high';
+      reasons.push(`Tiempo prolongado fuera de la prueba: ${Math.floor(awaySecs / 60)}m ${awaySecs % 60}s de inactividad/otra ventana.`);
+    } else if (awaySecs >= 60) {
+      if ((riskLevel as string) === 'low') riskLevel = 'medium';
+      reasons.push(`Permaneció fuera de la pestaña de la prueba durante ${awaySecs} segundos.`);
+    }
+
+    // 5. Cambio reiterado de ventanas
+    if (tabSwitches >= 6) {
+      if ((riskLevel as string) === 'low') riskLevel = 'medium';
+      reasons.push(`Cambió de ventana o pestaña ${tabSwitches} veces durante la realización del reto.`);
+    }
+
+    // Si no hubo indicios sospechosos
+    if (reasons.length === 0) {
+      reasons.push(`Patrón de programación manual certificado: ${keystrokes} pulsaciones y sin pegados sospechosos.`);
+    }
+
+    return {
+      tab_switches: tabSwitches,
+      away_seconds: awaySecs,
+      paste_events: pasteEvents,
+      max_pasted_length: maxPasted,
+      keystrokes_count: keystrokes,
+      code_length: codeLen,
+      ai_risk_level: riskLevel,
+      ai_risk_reasons: reasons
+    };
   };
 
   // Ejecutar pruebas
@@ -323,6 +731,8 @@ export const TechnicalAssessmentPage: React.FC = () => {
 
     try {
       const timeSpent = (30 * 60) - secondsRemaining;
+      const integrityData = computeIntegrityReport();
+
       const res = await technicalTestService.submitTest({
         candidate_name: candidateName,
         candidate_email: candidateEmail,
@@ -331,13 +741,15 @@ export const TechnicalAssessmentPage: React.FC = () => {
         code,
         access_pin: accessPin,
         time_spent_seconds: Math.max(timeSpent, 10),
-        test_results: testResults
+        test_results: testResults,
+        integrity_data: integrityData
       });
 
       setSubmissionSummary({
         timeSpent,
         passed_tests: res.passed_tests,
-        total_tests: res.total_tests
+        total_tests: res.total_tests,
+        integrity_data: integrityData
       });
 
       setTimerActive(false);
@@ -708,48 +1120,104 @@ export const TechnicalAssessmentPage: React.FC = () => {
         {/* Panel Derecho: Editor de Código + Consola de Pruebas (Col 7) */}
         <div className="lg:col-span-7 flex flex-col bg-slate-950 max-h-[calc(100vh-4rem)] overflow-hidden">
           {/* Barra del editor (Selector de Lenguaje + Reset) */}
-          <div className="h-11 border-b border-slate-800 bg-slate-900/60 px-4 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-400">Lenguaje:</span>
+          <div className="border-b border-slate-800 bg-slate-900/60 px-4 py-2 flex flex-col gap-2 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400">Lenguaje:</span>
+                <button
+                  type="button"
+                  onClick={() => handleLanguageChange('python')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors cursor-pointer ${
+                    language === 'python'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Python 3
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLanguageChange('javascript')}
+                  className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors cursor-pointer ${
+                    language === 'javascript'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  JavaScript
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={() => handleLanguageChange('python')}
-                className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors ${
-                  language === 'python'
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
+                onClick={() => {
+                  if (confirm('¿Deseas reiniciar el código a su estado inicial? Se borrarán tus cambios actuales.')) {
+                    setCode(language === 'python' ? PYTHON_STARTER_CODE : JS_STARTER_CODE);
+                    setTestResults([]);
+                    setSyntaxError(null);
+                    setActiveSuggestions([]);
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                title="Restablecer código base"
               >
-                Python 3
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLanguageChange('javascript')}
-                className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors ${
-                  language === 'javascript'
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                JavaScript
+                <RotateCcw className="w-3 h-3" />
+                <span>Restablecer</span>
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm('¿Deseas reiniciar el código a su estado inicial? Se borrarán tus cambios actuales.')) {
-                  setCode(language === 'python' ? PYTHON_STARTER_CODE : JS_STARTER_CODE);
-                  setTestResults([]);
-                  setSyntaxError(null);
-                }
-              }}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
-              title="Restablecer código base"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Restablecer</span>
-            </button>
+            {/* Atajos Rápidos de Variables (Para evitar errores tipográficos) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-2xs scrollbar-none">
+              <span className="text-slate-500 shrink-0 flex items-center gap-1">
+                <Zap className="w-3 h-3 text-emerald-400" />
+                Atajos:
+              </span>
+              {[
+                'total_ingresos',
+                'total_egresos',
+                'balance_neto',
+                'movimientos_invalidos',
+                language === 'python' ? '"ingreso"' : "'ingreso'",
+                language === 'python' ? '"egreso"' : "'egreso'"
+              ].map((token) => (
+                <button
+                  key={token}
+                  type="button"
+                  onClick={() => insertSnippet(token)}
+                  className="px-2 py-0.5 rounded-md bg-slate-950/80 hover:bg-slate-800 text-slate-300 border border-slate-800/80 font-mono text-3xs transition-colors shrink-0 cursor-pointer"
+                  title={`Insertar ${token}`}
+                >
+                  +{token}
+                </button>
+              ))}
+            </div>
+
+            {/* Barra de Autocompletado Activo cuando el usuario tipea */}
+            {activeSuggestions.length > 0 && (
+              <div className="flex items-center gap-2 bg-emerald-950/30 border border-emerald-800/40 rounded-lg px-2.5 py-1 text-2xs animate-in fade-in">
+                <div className="flex items-center gap-1 text-emerald-400 font-semibold shrink-0">
+                  <Lightbulb className="w-3 h-3" />
+                  <span>Sugerencias (Tab):</span>
+                </div>
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  {activeSuggestions.map((sug, idx) => (
+                    <button
+                      key={sug}
+                      type="button"
+                      onClick={() => applySuggestion(sug)}
+                      className={`px-2 py-0.5 rounded-md font-mono text-3xs border transition-colors cursor-pointer ${
+                        idx === 0
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                          : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      {sug}
+                      {idx === 0 && <span className="ml-1 text-emerald-500 text-4xs">↵</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Área del Editor de Código */}
@@ -768,8 +1236,9 @@ export const TechnicalAssessmentPage: React.FC = () => {
             <textarea
               ref={textareaRef}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={handleTextChange}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               onScroll={handleScroll}
               spellCheck={false}
               className="flex-1 bg-transparent text-slate-100 font-mono text-xs sm:text-sm p-4 leading-6 resize-none focus:outline-hidden overflow-auto whitespace-pre selection:bg-emerald-500/30"
