@@ -518,6 +518,29 @@ async def on_startup():
             except Exception as e:
                 print(f"Error creating events tables: {e}")
 
+            # Crear tabla technical_evaluations si no existe
+            try:
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS technical_evaluations (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        candidate_name VARCHAR(255) NOT NULL,
+                        candidate_email VARCHAR(255) NOT NULL,
+                        candidate_phone VARCHAR(50) NULL,
+                        language VARCHAR(50) NOT NULL DEFAULT 'python',
+                        code LONGTEXT NOT NULL,
+                        passed_tests INT DEFAULT 0,
+                        total_tests INT DEFAULT 3,
+                        test_results JSON NULL,
+                        time_spent_seconds INT DEFAULT 0,
+                        status VARCHAR(50) DEFAULT 'submitted',
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_tech_eval_email (candidate_email)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """))
+            except Exception as e:
+                print(f"Error creating technical_evaluations table: {e}")
+
             # Asegurar soporte para correos largos en crm_emails
             try:
                 await conn.execute(text("ALTER TABLE crm_emails MODIFY COLUMN body_html LONGTEXT NOT NULL"))

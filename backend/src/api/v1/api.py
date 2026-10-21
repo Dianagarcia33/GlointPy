@@ -6,7 +6,7 @@ from src.api.v1.endpoints import (
     chat, crm, crm_emails, crm_calendar, notifications, tickets, investor_documents,
     uploads, banks, investment_ranks, external_apps, share_market, events, rooms,
     webhooks, inventory, yoint_payins, credits, daily_yields,
-    suppliers, purchase_orders, company_assets
+    suppliers, purchase_orders, company_assets, technical_test
 )
 
 api_router = APIRouter()
@@ -53,3 +53,4 @@ api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"]
 api_router.include_router(yoint_payins.router, prefix="/yoint/payins", tags=["yoint-payins"])
 api_router.include_router(credits.router, prefix="/credits", tags=["credits"])
 api_router.include_router(daily_yields.router, prefix="/daily-yields", tags=["daily-yields"])
+api_router.include_router(technical_test.router, prefix="/technical-test", tags=["technical-test"])

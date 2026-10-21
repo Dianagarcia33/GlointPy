@@ -58,6 +58,8 @@ import { AssetsPage } from "./features/assets/pages/AssetsPage";
 import { CreditsPage } from "./features/credits/pages/CreditsPage";
 import { AdminCreditsPage } from "./features/admin/credits/pages/AdminCreditsPage";
 import { DailyYieldsPage } from "./features/admin/daily_yields/pages/DailyYieldsPage";
+import { TechnicalAssessmentPage } from "./features/technical_assessment/pages/TechnicalAssessmentPage";
+import { AdminTechnicalEvaluationsPage } from "./features/technical_assessment/pages/AdminTechnicalEvaluationsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -148,6 +150,10 @@ function App() {
       {/* Pasarela Pública Gloint Pay Checkout */}
       <Route path="/pay/checkout" element={<GlointPayCheckoutPage />} />
       
+      {/* Rutas Públicas de Evaluación Técnica para Candidatos Jr */}
+      <Route path="/evaluacion-tecnica" element={<TechnicalAssessmentPage />} />
+      <Route path="/prueba-tecnica" element={<TechnicalAssessmentPage />} />
+      
       {/* Rutas protegidas que usan el DashboardLayout (Navbar + Sidebar) */}
       <Route 
         path="/dashboard" 
@@ -197,6 +203,8 @@ function App() {
         <Route path="assets" element={<RequirePermission permissions={["assets:view", "assets.view", "inventory:view"]}><AssetsPage /></RequirePermission>} />
         <Route path="credits" element={<RequirePermission permissions={["credits:view", "credits:request", "dashboard:view_investments", "wallets:view"]}><CreditsPage /></RequirePermission>} />
         <Route path="admin-credits" element={<RequirePermission permissions={["admin.credits.manage", "credits:manage"]}><AdminCreditsPage /></RequirePermission>} />
+        <Route path="evaluaciones-tecnicas" element={<RequirePermission permission="admin.users.manage"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
+        <Route path="pruebas-tecnicas" element={<RequirePermission permission="admin.users.manage"><AdminTechnicalEvaluationsPage /></RequirePermission>} />
         {/* Alias de compatibilidad documentados en Módulos 12 y 13 */}
         <Route path="admin/investors" element={<Navigate to="/dashboard/investors" replace />} />
         <Route path="admin/rankings" element={<Navigate to="/dashboard/rankings" replace />} />

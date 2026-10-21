@@ -40,3 +40,4 @@ from src.models.purchase_order import PurchaseOrder, PurchaseOrderItem
 from src.models.company_asset import CompanyAsset, AssetAssignment
 from src.models.credit import Credit, CreditInstallment, CreditConfig
 from src.models.auto_transfer_log import AutoTransferLog
+from src.models.technical_evaluation import TechnicalEvaluation
