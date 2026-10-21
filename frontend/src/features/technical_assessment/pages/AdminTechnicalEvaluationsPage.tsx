@@ -22,7 +22,8 @@ import {
   ShieldAlert,
   Lock,
   Unlock,
-  Edit3
+  Edit3,
+  ArrowRight
 } from 'lucide-react';
 import {
   technicalTestService,
@@ -39,32 +40,58 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<TechnicalSubmission | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Desbloqueo por PIN (cero login de cuentas requerido)
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [unlockPin, setUnlockPin] = useState(localStorage.getItem('gloint_eval_pin') || 'GLOINT-JR-2026');
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+
   // Edición de PIN
   const [isEditingPin, setIsEditingPin] = useState(false);
   const [newPinInput, setNewPinInput] = useState('');
 
-  const loadData = async () => {
+  const loadData = async (pinToUse?: string) => {
     setIsLoading(true);
+    setUnlockError(null);
+    const activePin = pinToUse || unlockPin;
+
     try {
       const [submissionsData, configData] = await Promise.all([
-        technicalTestService.getSubmissions(),
-        technicalTestService.getConfig().catch(() => null)
+        technicalTestService.getSubmissions(activePin),
+        technicalTestService.getConfig(activePin).catch(() => null)
       ]);
+
       setSubmissions(submissionsData || []);
       if (configData) {
         setConfig(configData);
         setNewPinInput(configData.access_pin);
       }
+      setIsUnlocked(true);
+      localStorage.setItem('gloint_eval_pin', activePin);
     } catch (err: any) {
       console.error('Error cargando evaluaciones técnicas:', err);
+      setUnlockError('PIN inválido o no autorizado. Verifica el código e intenta de nuevo.');
+      setIsUnlocked(false);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    // Si ya tiene un PIN guardado en el navegador, intentar cargarlo automáticamente
+    const savedPin = localStorage.getItem('gloint_eval_pin');
+    if (savedPin) {
+      loadData(savedPin);
+    }
   }, []);
+
+  const handleUnlockSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!unlockPin.trim()) {
+      setUnlockError('Por favor ingresa el PIN de acceso.');
+      return;
+    }
+    loadData(unlockPin.trim().toUpperCase());
+  };
 
   const handleToggleActive = async () => {
     if (!config) return;
@@ -77,7 +104,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
 
     setIsUpdatingConfig(true);
     try {
-      const res = await technicalTestService.updateConfig({ is_active: nextState });
+      const res = await technicalTestService.updateConfig({ is_active: nextState }, unlockPin);
       if (res && res.config) {
         setConfig(res.config);
       } else {
@@ -97,12 +124,14 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
     setIsUpdatingConfig(true);
     try {
       const cleanPin = newPinInput.trim().toUpperCase();
-      const res = await technicalTestService.updateConfig({ access_pin: cleanPin });
+      const res = await technicalTestService.updateConfig({ access_pin: cleanPin }, unlockPin);
       if (res && res.config) {
         setConfig(res.config);
       } else {
         setConfig((prev) => (prev ? { ...prev, access_pin: cleanPin } : null));
       }
+      setUnlockPin(cleanPin);
+      localStorage.setItem('gloint_eval_pin', cleanPin);
       setIsEditingPin(false);
       alert(`¡PIN actualizado con éxito a: ${cleanPin}!`);
     } catch (err: any) {
@@ -127,6 +156,68 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
     );
   });
 
+  // -------------------------------------------------------------
+  // VISTA DE BLOQUEO POR PIN (CERO LOGIN DE CUENTAS REQUERIDO)
+  // -------------------------------------------------------------
+  if (!isUnlocked) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center relative z-10">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto mb-5 border border-emerald-500/20">
+            <Lock className="w-7 h-7" />
+          </div>
+
+          <h2 className="text-xl font-bold text-white mb-1.5">
+            Panel de Evaluaciones Técnicas
+          </h2>
+          <p className="text-xs text-slate-400 mb-6">
+            Acceso seguro protegido por PIN. No necesitas usuario ni contraseña de Gloint.
+          </p>
+
+          <form onSubmit={handleUnlockSubmit} className="space-y-4 text-left">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                PIN de Acceso
+              </label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: GLOINT-JR-2026"
+                  value={unlockPin}
+                  onChange={(e) => {
+                    setUnlockPin(e.target.value.toUpperCase());
+                    setUnlockError(null);
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-3 text-sm text-emerald-400 font-mono font-bold tracking-wider placeholder:text-slate-600 focus:outline-hidden focus:border-emerald-500 uppercase"
+                />
+              </div>
+              {unlockError && (
+                <p className="text-xs text-red-400 mt-2 flex items-center gap-1 font-medium">
+                  <XCircle className="w-3.5 h-3.5" />
+                  {unlockError}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3.5 px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>{isLoading ? 'Verificando...' : 'Desbloquear Panel'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // VISTA PRINCIPAL DEL PANEL (DESBLOQUEADO)
+  // -------------------------------------------------------------
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 font-sans">
       {/* Encabezado Principal */}
@@ -157,7 +248,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
 
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => loadData()}
             disabled={isLoading}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
           >
@@ -206,7 +297,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsEditingPin(true)}
-                    className="p-1 hover:text-emerald-400 text-slate-500 transition-colors ml-1"
+                    className="p-1 hover:text-emerald-400 text-slate-500 transition-colors ml-1 cursor-pointer"
                     title="Editar PIN"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
@@ -224,7 +315,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isUpdatingConfig}
-                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-colors"
+                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                   >
                     Guardar
                   </button>
@@ -234,7 +325,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
                       setIsEditingPin(false);
                       setNewPinInput(config.access_pin);
                     }}
-                    className="px-2 py-1.5 text-xs text-slate-400 hover:text-white"
+                    className="px-2 py-1.5 text-xs text-slate-400 hover:text-white cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -388,7 +479,7 @@ export const AdminTechnicalEvaluationsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedSubmission(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>

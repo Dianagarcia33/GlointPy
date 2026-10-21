@@ -42,9 +42,11 @@ export interface TestConfig {
 
 export const technicalTestService = {
   async runCode(code: string, language: string, access_pin?: string): Promise<RunCodeResponse> {
+    const pin = access_pin || localStorage.getItem('gloint_eval_pin') || 'GLOINT-JR-2026';
     return fetchApi('/technical-test/run', {
       method: 'POST',
-      body: JSON.stringify({ code, language, access_pin })
+      headers: { 'X-Access-Pin': pin },
+      body: JSON.stringify({ code, language, access_pin: pin })
     });
   },
 
@@ -60,21 +62,30 @@ export const technicalTestService = {
   }) {
     return fetchApi('/technical-test/submit', {
       method: 'POST',
+      headers: { 'X-Access-Pin': data.access_pin },
       body: JSON.stringify(data)
     });
   },
 
-  async getSubmissions(): Promise<TechnicalSubmission[]> {
-    return fetchApi('/technical-test/submissions');
+  async getSubmissions(access_pin?: string): Promise<TechnicalSubmission[]> {
+    const pin = access_pin || localStorage.getItem('gloint_eval_pin') || 'GLOINT-JR-2026';
+    return fetchApi(`/technical-test/submissions?pin=${encodeURIComponent(pin)}`, {
+      headers: { 'X-Access-Pin': pin }
+    });
   },
 
-  async getConfig(): Promise<TestConfig> {
-    return fetchApi('/technical-test/config');
+  async getConfig(access_pin?: string): Promise<TestConfig> {
+    const pin = access_pin || localStorage.getItem('gloint_eval_pin') || 'GLOINT-JR-2026';
+    return fetchApi(`/technical-test/config?pin=${encodeURIComponent(pin)}`, {
+      headers: { 'X-Access-Pin': pin }
+    });
   },
 
-  async updateConfig(data: { is_active?: boolean; access_pin?: string }) {
-    return fetchApi('/technical-test/toggle-config', {
+  async updateConfig(data: { is_active?: boolean; access_pin?: string }, current_pin?: string) {
+    const pin = current_pin || localStorage.getItem('gloint_eval_pin') || 'GLOINT-JR-2026';
+    return fetchApi(`/technical-test/toggle-config?pin=${encodeURIComponent(pin)}`, {
       method: 'POST',
+      headers: { 'X-Access-Pin': pin },
       body: JSON.stringify(data)
     });
   }
