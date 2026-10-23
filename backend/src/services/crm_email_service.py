@@ -3,6 +3,7 @@ import os
 import uuid
 import re
 import mimetypes
+import hashlib
 from datetime import datetime
 from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -431,11 +432,45 @@ class CRMEmailService:
                             except Exception:
                                 msg_date = None
 
-                        # Extraer cuerpo del mensaje, imágenes inline y archivos adjuntos
+                        # 1. Deduplicación temprana (Fase 1: por metadatos, sin tocar disco ni parsear adjuntos)
+                        existing_records = (await db.execute(
+                            select(CRMEmail).where(
+                                and_(
+                                    CRMEmail.user_id == user.id,
+                                    CRMEmail.sender_email == sender_email,
+                                    CRMEmail.subject == subject,
+                                    CRMEmail.direction == CRMEmailDirection.INBOUND
+                                )
+                            )
+                        )).scalars().all()
+
+                        matched_record = None
+                        if msg_date and existing_records:
+                            for ex in existing_records:
+                                if ex.created_at and abs((ex.created_at - msg_date).total_seconds()) < 120:
+                                    matched_record = ex
+                                    break
+
+                        if matched_record:
+                            needs_update = False
+                            if is_seen_in_cpanel and not matched_record.is_read:
+                                matched_record.is_read = True
+                                needs_update = True
+                            if msg_date and matched_record.created_at != msg_date:
+                                matched_record.created_at = msg_date
+                                needs_update = True
+                            if needs_update:
+                                db.add(matched_record)
+                                await db.commit()
+                            continue
+
+                        # 2. Extraer cuerpo y almacenar adjuntos en MEMORIA temporalmente (nunca en disco antes de verificar)
                         body_html = ""
                         body_text = ""
-                        attachments = []
-                        cid_map = {}
+                        pending_attachments = []
+                        MAX_ATTACHMENT_SIZE = 15 * 1024 * 1024  # 15 MB límite por archivo
+                        MAX_TOTAL_ATTACHMENTS = 35 * 1024 * 1024  # 35 MB límite total por correo
+                        current_total_payload = 0
 
                         if msg.is_multipart():
                             for part in msg.walk():
@@ -472,34 +507,26 @@ class CRMEmailService:
                                 if not payload:
                                     continue
 
+                                if len(payload) > MAX_ATTACHMENT_SIZE:
+                                    print(f"Adjunto {filename} excede el límite de 15MB, ignorado para proteger disco.")
+                                    continue
+
+                                if current_total_payload + len(payload) > MAX_TOTAL_ATTACHMENTS:
+                                    print(f"Total de adjuntos excede 35MB en '{subject}', ignorando adjuntos adicionales.")
+                                    continue
+
+                                current_total_payload += len(payload)
+
                                 if not filename:
                                     ext = mimetypes.guess_extension(c_type) or ".bin"
                                     filename = f"adjunto_{uuid.uuid4().hex[:6]}{ext}"
 
-                                safe_fname = re.sub(r'[^a-zA-Z0-9_.-]', '_', filename)
-                                unique_name = f"{uuid.uuid4().hex[:10]}_{safe_fname}"
-                                target_dir = os.path.join("uploads", "email_attachments")
-                                os.makedirs(target_dir, exist_ok=True)
-                                target_path = os.path.join(target_dir, unique_name)
-
-                                try:
-                                    with open(target_path, "wb") as f:
-                                        f.write(payload)
-
-                                    file_rel_url = f"/uploads/email_attachments/{unique_name}"
-
-                                    if cid:
-                                        clean_cid = cid.strip("<>").strip()
-                                        cid_map[clean_cid] = f"/api/v1{file_rel_url}"
-
-                                    attachments.append({
-                                        "filename": filename,
-                                        "file_url": file_rel_url,
-                                        "content_type": c_type,
-                                        "size": len(payload)
-                                    })
-                                except Exception as save_err:
-                                    print(f"Error guardando adjunto {filename}: {save_err}")
+                                pending_attachments.append({
+                                    "payload": payload,
+                                    "filename": filename,
+                                    "c_type": c_type,
+                                    "cid": cid
+                                })
 
                             if not body_html and body_text:
                                 body_html = f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{body_text}</pre>"
@@ -519,32 +546,9 @@ class CRMEmailService:
                                         body_text = raw_payload.decode(errors="ignore")
                                     body_html = f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{body_text}</pre>"
 
-                        # Reemplazar URLs de imágenes inline cid:... con la ruta servible del backend
-                        if body_html and cid_map:
-                            for cid_val, local_url in cid_map.items():
-                                body_html = re.sub(rf'cid:{re.escape(cid_val)}', local_url, body_html, flags=re.IGNORECASE)
-
-                        # Deduplicación inteligente:
-                        # Buscar correos existentes de este usuario con el mismo remitente y asunto
-                        existing_records = (await db.execute(
-                            select(CRMEmail).where(
-                                and_(
-                                    CRMEmail.user_id == user.id,
-                                    CRMEmail.sender_email == sender_email,
-                                    CRMEmail.subject == subject,
-                                    CRMEmail.direction == CRMEmailDirection.INBOUND
-                                )
-                            )
-                        )).scalars().all()
-
-                        matched_record = None
+                        # 3. Deduplicación por contenido (Fase 2: verificación de cuerpo si no coincidió por fecha)
                         clean_body_snippet = (body_text or re.sub(r'<[^>]+>', ' ', body_html)).strip()[:140]
                         for ex in existing_records:
-                            # 1. Si la fecha del correo coincide dentro de un margen razonable (120s)
-                            if msg_date and ex.created_at and abs((ex.created_at - msg_date).total_seconds()) < 120:
-                                matched_record = ex
-                                break
-                            # 2. Si el cuerpo de texto o contenido es idéntico
                             ex_snippet = (ex.body_text or re.sub(r'<[^>]+>', ' ', ex.body_html or '')).strip()[:140]
                             if clean_body_snippet and ex_snippet and clean_body_snippet == ex_snippet:
                                 matched_record = ex
@@ -552,11 +556,9 @@ class CRMEmailService:
 
                         if matched_record:
                             needs_update = False
-                            # Si fue leído desde el gestor de correos de cPanel, actualizarlo en el CRM
                             if is_seen_in_cpanel and not matched_record.is_read:
                                 matched_record.is_read = True
                                 needs_update = True
-                            # Si tenía la fecha del servidor en vez de la fecha real del correo, corregirla
                             if msg_date and matched_record.created_at != msg_date:
                                 matched_record.created_at = msg_date
                                 needs_update = True
@@ -564,6 +566,51 @@ class CRMEmailService:
                                 db.add(matched_record)
                                 await db.commit()
                             continue
+
+                        # 4. Correo verificado como 100% NUEVO: Guardar adjuntos en disco con deduplicación SHA-256
+                        attachments = []
+                        cid_map = {}
+                        target_dir = os.path.join("uploads", "email_attachments")
+                        os.makedirs(target_dir, exist_ok=True)
+
+                        for item in pending_attachments:
+                            att_payload = item["payload"]
+                            att_filename = item["filename"]
+                            att_ctype = item["c_type"]
+                            att_cid = item["cid"]
+
+                            safe_fname = re.sub(r'[^a-zA-Z0-9_.-]', '_', att_filename)
+                            # Clave de deduplicación basada en contenido (SHA-256 de los datos binarios)
+                            content_hash = hashlib.sha256(att_payload).hexdigest()[:16]
+                            unique_name = f"{content_hash}_{safe_fname}"
+                            target_path = os.path.join(target_dir, unique_name)
+
+                            # Si el archivo exacto ya existe en disco (logos de firma repetidos, PDFs compartidos), no se vuelve a escribir
+                            if not os.path.exists(target_path):
+                                try:
+                                    with open(target_path, "wb") as f:
+                                        f.write(att_payload)
+                                except Exception as save_err:
+                                    print(f"Error guardando adjunto {safe_fname}: {save_err}")
+                                    continue
+
+                            file_rel_url = f"/uploads/email_attachments/{unique_name}"
+
+                            if att_cid:
+                                clean_cid = att_cid.strip("<>").strip()
+                                cid_map[clean_cid] = f"/api/v1{file_rel_url}"
+
+                            attachments.append({
+                                "filename": att_filename,
+                                "file_url": file_rel_url,
+                                "content_type": att_ctype,
+                                "size": len(att_payload)
+                            })
+
+                        # Reemplazar URLs de imágenes inline cid:... con la ruta servible del backend
+                        if body_html and cid_map:
+                            for cid_val, local_url in cid_map.items():
+                                body_html = re.sub(rf'cid:{re.escape(cid_val)}', local_url, body_html, flags=re.IGNORECASE)
 
                         # Vincular con Prospecto CRM si existe
                         lead_res = await db.execute(select(CRMLead).where(CRMLead.email == sender_email.lower()))
@@ -622,4 +669,79 @@ class CRMEmailService:
             "has_saved_password": bool(user.imap_password or settings.IMAP_PASSWORD),
             "needs_password": False,
             "message": f"Sincronización exitosa con cPanel ({host}). {synced_count} nuevos correos importados." if synced_count > 0 else "Bandeja actualizada. No hay correos nuevos."
+        }
+
+    @staticmethod
+    async def cleanup_orphan_attachments(db: AsyncSession) -> dict:
+        """
+        Escanea uploads/email_attachments y elimina archivos huérfanos
+        que no pertenezcan a ningún correo registrado en la base de datos.
+        """
+        target_dir = os.path.join("uploads", "email_attachments")
+        if not os.path.exists(target_dir):
+            return {
+                "status": "ok",
+                "message": "Directorio uploads/email_attachments no existe",
+                "total_files": 0,
+                "deleted_files": 0,
+                "freed_bytes": 0,
+                "freed_mb": 0.0
+            }
+
+        stmt = select(CRMEmail.attachments, CRMEmail.body_html)
+        res = await db.execute(stmt)
+        rows = res.all()
+
+        referenced_files = set()
+        for att_json, body_html in rows:
+            if att_json:
+                try:
+                    att_list = json.loads(att_json)
+                    if isinstance(att_list, list):
+                        for item in att_list:
+                            if isinstance(item, dict) and "file_url" in item:
+                                fname = os.path.basename(item["file_url"])
+                                if fname:
+                                    referenced_files.add(fname)
+                except Exception:
+                    pass
+            if body_html:
+                matches = re.findall(r'/uploads/email_attachments/([a-zA-Z0-9_.-]+)', body_html)
+                for m in matches:
+                    referenced_files.add(m)
+
+        total_files = 0
+        deleted_count = 0
+        freed_bytes = 0
+
+        try:
+            with os.scandir(target_dir) as entries:
+                for entry in entries:
+                    if entry.is_file():
+                        total_files += 1
+                        fname = entry.name
+                        if fname not in referenced_files:
+                            try:
+                                fsize = entry.stat().st_size
+                                os.remove(entry.path)
+                                deleted_count += 1
+                                freed_bytes += fsize
+                            except Exception as err:
+                                print(f"Error borrando archivo huérfano {fname}: {err}")
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e),
+                "total_files": total_files,
+                "deleted_files": deleted_count,
+                "freed_bytes": freed_bytes,
+                "freed_mb": round(freed_bytes / (1024 * 1024), 2)
+            }
+
+        return {
+            "status": "ok",
+            "total_files": total_files,
+            "deleted_files": deleted_count,
+            "freed_bytes": freed_bytes,
+            "freed_mb": round(freed_bytes / (1024 * 1024), 2)
         }
