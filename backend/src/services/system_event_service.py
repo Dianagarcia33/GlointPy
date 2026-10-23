@@ -50,6 +50,48 @@ class SystemEventService:
         await db.commit()
 
     @staticmethod
+    def is_event_instance_active(event: SystemEvent, now_local: datetime = None) -> bool:
+        """
+        Evalúa si una instancia de SystemEvent ya cargada en memoria está activa en el instante dado,
+        sin realizar consultas adicionales a la base de datos.
+        """
+        if not event or not getattr(event, 'is_active', True):
+            return False
+
+        if now_local is None:
+            now_local = datetime.now(LOCAL_TZ)
+        current_day = now_local.day
+
+        # 1. Evaluate Recurrence
+        if event.is_recurring:
+            if event.recurrence_start_day and event.recurrence_end_day:
+                if event.recurrence_start_day <= event.recurrence_end_day:
+                    if event.recurrence_start_day <= current_day <= event.recurrence_end_day:
+                        return True
+                else:
+                    if current_day >= event.recurrence_start_day or current_day <= event.recurrence_end_day:
+                        return True
+
+        # 2. Evaluate Specific Date Range
+        if event.start_date and event.end_date:
+            start = event.start_date
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=LOCAL_TZ)
+            else:
+                start = start.astimezone(LOCAL_TZ)
+                
+            end = event.end_date
+            if end.tzinfo is None:
+                end = end.replace(tzinfo=LOCAL_TZ)
+            else:
+                end = end.astimezone(LOCAL_TZ)
+
+            if start <= now_local <= end:
+                return True
+
+        return False
+
+    @staticmethod
     async def is_event_active(db: AsyncSession, event_type: str) -> bool:
         """
         Check if a specific system event type is currently active, 
@@ -65,38 +107,9 @@ class SystemEventService:
         if not events:
             return False
 
-        # Get current time in America/Bogota
         now_local = datetime.now(LOCAL_TZ)
-        current_day = now_local.day
-
         for event in events:
-            # 1. Evaluate Recurrence
-            if event.is_recurring:
-                if event.recurrence_start_day and event.recurrence_end_day:
-                    # e.g., active between 15th and 18th of every month
-                    if event.recurrence_start_day <= event.recurrence_end_day:
-                        if event.recurrence_start_day <= current_day <= event.recurrence_end_day:
-                            return True
-                    else:
-                        # cross-month recurrence (e.g. 28th to 5th)
-                        if current_day >= event.recurrence_start_day or current_day <= event.recurrence_end_day:
-                            return True
-
-            # 2. Evaluate Specific Date Range
-            if event.start_date and event.end_date:
-                start = event.start_date
-                if start.tzinfo is None:
-                    start = start.replace(tzinfo=LOCAL_TZ)
-                else:
-                    start = start.astimezone(LOCAL_TZ)
-                    
-                end = event.end_date
-                if end.tzinfo is None:
-                    end = end.replace(tzinfo=LOCAL_TZ)
-                else:
-                    end = end.astimezone(LOCAL_TZ)
-
-                if start <= now_local <= end:
-                    return True
+            if SystemEventService.is_event_instance_active(event, now_local):
+                return True
 
         return False

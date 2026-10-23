@@ -2,7 +2,6 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingLayout } from "./features/landing_v2/components/LandingLayout";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
-import { PageLoader } from "./components/common/PageLoader";
 
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
@@ -112,7 +111,7 @@ function App() {
   }, [isAuthenticated]);
 
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense fallback={null}>
       <Routes>
         <Route element={<GuestRoute><LandingLayout /></GuestRoute>}>
           <Route path="/" element={<LandingHome />} />

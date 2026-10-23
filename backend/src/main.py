@@ -1,6 +1,8 @@
 import asyncio
-from fastapi import FastAPI, Depends
+import time
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from sqlalchemy.future import select
@@ -527,6 +529,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Compresión automática de respuestas HTTP (>1KB) para máxima velocidad de transferencia
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = f"{process_time:.4f}s"
+    if process_time > 0.4:
+        print(f"⚠️ [SLOW REQUEST] {request.method} {request.url.path} took {process_time:.3f}s")
+    return response
 
 @app.get("/")
 def read_root():

@@ -17,18 +17,24 @@ from typing import Optional, Tuple
 
 async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optional[str]]:
     from sqlalchemy import func
+    from datetime import datetime
+    from src.services.system_event_service import LOCAL_TZ
     withdrawal_types = ["withdrawal", "withdrawals", "retiro", "retiros", "fechas_retiro"]
     
     events_res = await db.execute(
-        select(SystemEvent).where(func.lower(SystemEvent.type).in_(withdrawal_types))
+        select(SystemEvent).where(
+            func.lower(SystemEvent.type).in_(withdrawal_types),
+            SystemEvent.is_active == True
+        )
     )
     all_withdrawal_events = events_res.scalars().all()
     
     if not all_withdrawal_events:
         return True, None
 
-    for evt_type in withdrawal_types:
-        if await SystemEventService.is_event_active(db, evt_type):
+    now_local = datetime.now(LOCAL_TZ)
+    for evt in all_withdrawal_events:
+        if SystemEventService.is_event_instance_active(evt, now_local):
             return True, None
             
     return False, "Actualmente no se encuentra habilitada la ventana de retiros. Por favor consulta las fechas de retiro autorizadas en el sistema."
