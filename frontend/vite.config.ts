@@ -29,4 +29,19 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(buildTimestamp),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'zustand'],
+          'vendor-charts': ['recharts'],
+          'vendor-excel': ['xlsx'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-motion': ['motion'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 800,
+  },
 });
+

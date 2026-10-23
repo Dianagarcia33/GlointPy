@@ -22,11 +22,10 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     env_file:
       - ./backend/.env
-    environment:
-      - DATABASE_URL=sqlite:///./gloint.db
     volumes:
       - uploads_data:/app/uploads
     restart: unless-stopped
+
     networks:
       - gloint_network
 
