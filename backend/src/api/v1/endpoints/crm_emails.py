@@ -368,3 +368,12 @@ async def sync_imap_emails(
         imap_pass=data.imap_pass if data else None,
         save_password=data.save_password if data and data.save_password is not None else True
     )
+
+@router.post("/cleanup-orphans", dependencies=[Depends(RequirePermission(["crm:inbox:send", "crm:leads:manage"]))])
+async def cleanup_orphan_email_attachments(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Limpia archivos adjuntos huérfanos en uploads/email_attachments que no pertenezcan a ningún correo registrado."""
+    return await CRMEmailService.cleanup_orphan_attachments(db)
+
