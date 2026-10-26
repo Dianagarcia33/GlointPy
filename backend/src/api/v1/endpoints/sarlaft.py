@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from sqlalchemy import select, distinct
 from pydantic import BaseModel
 from typing import Optional, List, Any
 import os
@@ -144,7 +144,7 @@ async def validate_existing_investors(
     from src.models.investor import Investor
 
     # 1. Obtener los IDs únicos de usuarios con inversiones reales registradas
-    investor_ids_res = await db.execute(select(distinct(Investor.user_id)))
+    investor_ids_res = await db.execute(select(Investor.user_id).distinct())
     investor_user_ids = set(investor_ids_res.scalars().all())
 
     # 2. Revertir / eliminar chequeos creados por lote previo para usuarios que NO tienen inversiones
