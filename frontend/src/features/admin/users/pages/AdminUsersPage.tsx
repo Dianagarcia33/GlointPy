@@ -7,7 +7,7 @@ import { UserModal } from '../components/UserModal';
 import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency } from '../../../../utils/format';
@@ -49,6 +49,13 @@ export const AdminUsersPage = () => {
   const [isBatchSarlaftModalOpen, setIsBatchSarlaftModalOpen] = useState(false);
   const [isBatchSarlaftLoading, setIsBatchSarlaftLoading] = useState(false);
   const [batchSarlaftResult, setBatchSarlaftResult] = useState<{ message: string; processed_users: number; updated_count: number; reverted_count?: number } | null>(null);
+
+  // Gestión individual SARLAFT
+  const [sarlaftTargetUser, setSarlaftTargetUser] = useState<User | null>(null);
+  const [sarlaftNewStatus, setSarlaftNewStatus] = useState<'pending' | 'rejected' | 'approved'>('pending');
+  const [sarlaftJustification, setSarlaftJustification] = useState('');
+  const [isSavingSarlaft, setIsSavingSarlaft] = useState(false);
+  const [validatingUserId, setValidatingUserId] = useState<number | null>(null);
 
   // Menú de acciones por fila
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
@@ -257,6 +264,66 @@ export const AdminUsersPage = () => {
       setError(err.message || 'Error al validar SARLAFT masivo.');
     } finally {
       setIsBatchSarlaftLoading(false);
+    }
+  };
+
+  const handleQuickApproveSarlaft = async (targetUser: User) => {
+    try {
+      setValidatingUserId(targetUser.id);
+      setError(null);
+      const res = await sarlaftService.setUserStatus({
+        user_id: targetUser.id,
+        status: 'approved',
+        justification: 'Aprobación individual directa desde el panel de administración.'
+      });
+      setSuccess(res.message || `SARLAFT validado y aprobado exitosamente para ${targetUser.name}.`);
+      setTimeout(() => setSuccess(null), 5000);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Error al validar SARLAFT.');
+    } finally {
+      setValidatingUserId(null);
+    }
+  };
+
+  const handleOpenSarlaftModal = async (targetUser: User) => {
+    setSarlaftTargetUser(targetUser);
+    setSarlaftJustification('');
+    setSarlaftNewStatus('pending');
+    try {
+      const res = await sarlaftService.getCheckByUser(targetUser.id);
+      if (res && res.check) {
+        if (res.check.risk_level === 'HIGH' || res.status === 'failed') {
+          setSarlaftNewStatus('rejected');
+        } else if (res.check.tusdatos_status === 'finalizado' && res.check.risk_level === 'CLEAN') {
+          setSarlaftNewStatus('approved');
+        } else {
+          setSarlaftNewStatus('pending');
+        }
+      }
+    } catch {
+      // Si no existe chequeo previo o hay error de red, mantiene 'pending'
+    }
+  };
+
+  const handleSaveSarlaftStatus = async () => {
+    if (!sarlaftTargetUser) return;
+    try {
+      setIsSavingSarlaft(true);
+      setError(null);
+      const res = await sarlaftService.setUserStatus({
+        user_id: sarlaftTargetUser.id,
+        status: sarlaftNewStatus,
+        justification: sarlaftJustification.trim() || undefined
+      });
+      setSuccess(res.message || `Estado SARLAFT actualizado para ${sarlaftTargetUser.name}.`);
+      setTimeout(() => setSuccess(null), 5000);
+      setSarlaftTargetUser(null);
+      fetchData();
+    } catch (err: any) {
+      setError(err.message || 'Error al actualizar estado SARLAFT.');
+    } finally {
+      setIsSavingSarlaft(false);
     }
   };
 
@@ -870,6 +937,41 @@ export const AdminUsersPage = () => {
                                 </div>
                               </button>
 
+                              {/* Validar SARLAFT (Aprobar) */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  handleQuickApproveSarlaft(user);
+                                }}
+                                disabled={validatingUserId === user.id}
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
+                              >
+                                {validatingUserId === user.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
+                                ) : (
+                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-emerald-800">Validar SARLAFT</span>
+                                  <span className="text-[10px] text-emerald-600 font-normal">Aprobar y habilitar</span>
+                                </div>
+                              </button>
+
+                              {/* Cambiar Estado SARLAFT (Pendiente / Rechazado) */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  handleOpenSarlaftModal(user);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2 transition-colors cursor-pointer border-t border-slate-100"
+                              >
+                                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-amber-800">Cambiar Estado SARLAFT</span>
+                                  <span className="text-[10px] text-amber-600 font-normal">Pasar a Pendiente o Rechazado</span>
+                                </div>
+                              </button>
+
                               {/* Crear Billetera si no tiene */}
                               {!user.wallet && (
                                 <button
@@ -1210,6 +1312,183 @@ export const AdminUsersPage = () => {
                   )}
                 </button>
               )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal para Gestión Individual de Estado SARLAFT */}
+      {sarlaftTargetUser && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" style={{ margin: 0 }}>
+          <div className="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 border border-slate-100">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-amber-100/80 rounded-2xl text-amber-700 shrink-0">
+                  <ShieldAlert className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 font-montserrat">
+                    Cambiar Estado SARLAFT
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Usuario: <strong className="text-slate-800">{sarlaftTargetUser.name}</strong> ({sarlaftTargetUser.email})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSarlaftTargetUser(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Selector de Estado */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block uppercase tracking-wider">
+                Seleccione el nuevo estado:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {/* Opción Pendiente */}
+                <button
+                  type="button"
+                  onClick={() => setSarlaftNewStatus('pending')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    sarlaftNewStatus === 'pending'
+                      ? 'border-amber-500 bg-amber-50/70 shadow-sm ring-2 ring-amber-500/20'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="p-1.5 rounded-lg bg-amber-100 text-amber-700">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                      sarlaftNewStatus === 'pending' ? 'border-amber-500 bg-amber-500' : 'border-slate-300'
+                    }`}>
+                      {sarlaftNewStatus === 'pending' && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Pendiente</span>
+                    <span className="text-[10px] text-slate-500 leading-tight block mt-0.5">
+                      En verificación preventiva
+                    </span>
+                  </div>
+                </button>
+
+                {/* Opción Rechazado */}
+                <button
+                  type="button"
+                  onClick={() => setSarlaftNewStatus('rejected')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    sarlaftNewStatus === 'rejected'
+                      ? 'border-rose-500 bg-rose-50/70 shadow-sm ring-2 ring-rose-500/20'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="p-1.5 rounded-lg bg-rose-100 text-rose-700">
+                      <ShieldAlert className="w-4 h-4" />
+                    </div>
+                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                      sarlaftNewStatus === 'rejected' ? 'border-rose-500 bg-rose-500' : 'border-slate-300'
+                    }`}>
+                      {sarlaftNewStatus === 'rejected' && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Rechazado</span>
+                    <span className="text-[10px] text-slate-500 leading-tight block mt-0.5">
+                      Riesgo alto / Bloqueado
+                    </span>
+                  </div>
+                </button>
+
+                {/* Opción Aprobado */}
+                <button
+                  type="button"
+                  onClick={() => setSarlaftNewStatus('approved')}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    sarlaftNewStatus === 'approved'
+                      ? 'border-emerald-500 bg-emerald-50/70 shadow-sm ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                      sarlaftNewStatus === 'approved' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'
+                    }`}>
+                      {sarlaftNewStatus === 'approved' && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">Aprobado</span>
+                    <span className="text-[10px] text-slate-500 leading-tight block mt-0.5">
+                      Habilita inversiones
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Justificación opcional */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">
+                Motivo / Justificación de la decisión (Opcional):
+              </label>
+              <textarea
+                value={sarlaftJustification}
+                onChange={(e) => setSarlaftJustification(e.target.value)}
+                placeholder="Ej: Aclaración de origen de fondos recibida / Inconsistencia documental / Aprobación por cumplimiento..."
+                rows={3}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-slate-50/50 focus:bg-white transition-all resize-none"
+              />
+              <p className="text-[10px] text-slate-400">
+                Esta nota quedará guardada en el historial de cumplimiento y auditoría interna.
+              </p>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSarlaftTargetUser(null)}
+                disabled={isSavingSarlaft}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSarlaftStatus}
+                disabled={isSavingSarlaft}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs text-white transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50 ${
+                  sarlaftNewStatus === 'approved'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+                    : sarlaftNewStatus === 'rejected'
+                    ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20'
+                    : 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                }`}
+              >
+                {isSavingSarlaft ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Confirmar Estado</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>,

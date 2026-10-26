@@ -59,5 +59,16 @@ export const sarlaftService = {
     return await fetchApi('/sarlaft/admin/validate-existing-investors', {
       method: 'POST'
     });
+  },
+
+  async setUserStatus(data: {
+    user_id: number;
+    status: 'approved' | 'pending' | 'rejected';
+    justification?: string;
+  }): Promise<{ success: boolean; message: string; status: string; check_id: number }> {
+    return await fetchApi('/sarlaft/admin/set-status', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };

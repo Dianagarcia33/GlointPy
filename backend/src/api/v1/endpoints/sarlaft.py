@@ -226,3 +226,99 @@ async def validate_existing_investors(
     }
 
 
+class SetUserSarlaftStatusRequest(BaseModel):
+    user_id: int
+    status: str  # "approved" | "pending" | "rejected"
+    justification: Optional[str] = None
+
+
+@router.post("/admin/set-status", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def set_user_sarlaft_status(
+    req: SetUserSarlaftStatusRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Permite a un administrador cambiar individualmente el estado SARLAFT de un usuario:
+    - 'approved': Aprueba el SARLAFT, elimina hallazgos y habilita inversiones.
+    - 'pending': Restablece el estado a pendiente / en verificación.
+    - 'rejected': Marca con alerta de riesgo alto y bloquea inversiones.
+    """
+    from datetime import datetime
+
+    target_status = req.status.lower().strip()
+    if target_status not in ["approved", "pending", "rejected"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Estado inválido. Opciones permitidas: 'approved', 'pending', 'rejected'."
+        )
+
+    # Validar que el usuario exista
+    user_res = await db.execute(select(User).where(User.id == req.user_id))
+    user = user_res.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Buscar último chequeo
+    c_res = await db.execute(
+        select(SarlaftCheck).where(SarlaftCheck.user_id == req.user_id).order_by(SarlaftCheck.id.desc())
+    )
+    check = c_res.scalars().first()
+    now = datetime.utcnow()
+
+    if not check:
+        check = SarlaftCheck(
+            user_id=user.id,
+            document_number=user.document_id or f"USER_{user.id}",
+            document_type="CC",
+            created_at=now
+        )
+        db.add(check)
+
+    check.updated_at = now
+
+    if target_status == "approved":
+        check.tusdatos_status = "finalizado"
+        check.risk_level = "CLEAN"
+        check.has_findings = False
+        check.tusdatos_hallazgos_corregidos = True
+        check.tusdatos_fecha_correccion = now
+        check.tusdatos_corregido_por = current_user.id
+        check.tusdatos_justificacion = req.justification or "Aprobado administrativamente por oficial de cumplimiento."
+        check.tusdatos_msg = "Aprobado por administración"
+        action_msg = "aprobado"
+
+    elif target_status == "pending":
+        check.tusdatos_status = "pending"
+        check.risk_level = "CLEAN"
+        check.has_findings = False
+        check.tusdatos_hallazgos_corregidos = False
+        check.tusdatos_fecha_correccion = None
+        check.tusdatos_corregido_por = current_user.id
+        check.tusdatos_justificacion = req.justification or "Estado restablecido a pendiente para nueva validación."
+        check.tusdatos_msg = "En verificación"
+        action_msg = "cambiado a pendiente"
+
+    elif target_status == "rejected":
+        check.tusdatos_status = "finalizado"
+        check.risk_level = "HIGH"
+        check.has_findings = True
+        check.tusdatos_hallazgos_corregidos = False
+        check.tusdatos_fecha_correccion = None
+        check.tusdatos_corregido_por = current_user.id
+        check.tusdatos_justificacion = req.justification or "Rechazado administrativamente por alerta de cumplimiento."
+        check.tusdatos_msg = "Rechazado por administración / Alerta de riesgo"
+        action_msg = "marcado como rechazado"
+
+    await db.commit()
+    await db.refresh(check)
+
+    return {
+        "success": True,
+        "message": f"El estado SARLAFT del usuario {user.name} fue {action_msg} exitosamente.",
+        "status": target_status,
+        "check_id": check.id
+    }
+
+
+
