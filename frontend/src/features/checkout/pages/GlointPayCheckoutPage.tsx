@@ -68,6 +68,13 @@ export const GlointPayCheckoutPage: React.FC = () => {
       try {
         setLoading(true);
         const orderData = await externalAppsService.getCheckoutOrderInfo(token);
+        // H-171: solo una orden pendiente muestra el botón de pago
+        if (orderData.status !== 'pending') {
+          setError(orderData.status === 'completed'
+            ? 'Esta orden de pago ya fue pagada.'
+            : 'La orden de pago no existe o ha expirado.');
+          return;
+        }
         setOrder(orderData);
       } catch (err: any) {
         console.error('Error fetching checkout order:', err);

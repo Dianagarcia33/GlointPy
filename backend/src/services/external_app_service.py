@@ -212,12 +212,15 @@ class ExternalAppService:
         }
 
     @staticmethod
-    async def get_order_by_token(db: AsyncSession, token: str) -> ExternalPaymentOrder:
-        res = await db.execute(
+    async def get_order_by_token(db: AsyncSession, token: str, for_update: bool = False) -> ExternalPaymentOrder:
+        query = (
             select(ExternalPaymentOrder)
             .options(selectinload(ExternalPaymentOrder.app), selectinload(ExternalPaymentOrder.user))
             .where(ExternalPaymentOrder.payment_token == token)
         )
+        if for_update:
+            query = query.with_for_update()  # dos confirmaciones simultáneas no pueden cobrar dos veces
+        res = await db.execute(query)
         order = res.scalars().first()
         if not order:
             raise HTTPException(status_code=404, detail="Orden de pago no encontrada o token inválido")
@@ -230,18 +233,32 @@ class ExternalAppService:
         return order
 
     @staticmethod
+    def ensure_order_payable(order: ExternalPaymentOrder) -> None:
+        """
+        H-171: una orden solo se puede mostrar para pago o cobrar si sigue pendiente, no ha vencido
+        y la app del comercio existe y está activa.
+        """
+        if order.status == ExternalPaymentStatus.EXPIRED:
+            raise HTTPException(status_code=410, detail="La orden de pago no existe o ha expirado")
+        if not order.app or not order.app.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="Este comercio está desactivado en Gloint Pay y no puede recibir pagos en este momento"
+            )
+        if order.status != ExternalPaymentStatus.PENDING:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Esta orden de pago ya no está pendiente (Estado: {order.status.value})"
+            )
+
+    @staticmethod
     async def confirm_payment_with_wallet(
         db: AsyncSession, 
         token: str, 
         user_id: int
     ) -> dict:
-        order = await ExternalAppService.get_order_by_token(db, token)
-        
-        if order.status != ExternalPaymentStatus.PENDING:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Esta orden de pago ya no está pendiente (Estado: {order.status.value})"
-            )
+        order = await ExternalAppService.get_order_by_token(db, token, for_update=True)
+        ExternalAppService.ensure_order_payable(order)
             
         # 1. Fetch User and Wallet
         user_res = await db.execute(

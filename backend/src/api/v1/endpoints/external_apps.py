@@ -5,6 +5,7 @@ from typing import Optional, List
 from src.core.database import get_db
 from src.api.deps import RequirePermission, get_current_user
 from src.models.user import User
+from src.models.external_app import ExternalPaymentStatus
 from src.schemas.external_app import (
     ExternalAppCreate,
     ExternalAppUpdate,
@@ -197,6 +198,8 @@ async def get_checkout_order_info(
     Devuelve la información pública de la orden de cobro para mostrar en la interfaz de Checkout.
     """
     order = await ExternalAppService.get_order_by_token(db, token)
+    if order.status != ExternalPaymentStatus.COMPLETED:
+        ExternalAppService.ensure_order_payable(order)  # H-171: vencida o de app inactiva no se muestra
     return {
         "payment_token": order.payment_token,
         "app_name": order.app.name if order.app else "Comercio Aliado",

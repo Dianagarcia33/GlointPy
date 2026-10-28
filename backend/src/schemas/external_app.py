@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 from src.core.webhook_security import validate_webhook_url_security
@@ -52,7 +52,8 @@ class CreatePaymentIntentRequest(BaseModel):
     description: Optional[str] = None
     redirect_url: Optional[str] = None
     metadata: Optional[dict] = None
-    expires_in_minutes: Optional[int] = 60
+    # H-171: entre 1 minuto y 7 días; un valor negativo creaba órdenes nacidas vencidas
+    expires_in_minutes: Optional[int] = Field(60, ge=1, le=10080)
 
 class CreatePaymentIntentResponse(BaseModel):
     payment_token: str
