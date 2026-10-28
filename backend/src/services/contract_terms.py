@@ -75,3 +75,8 @@ def is_contract_finished(investor, today: Optional[date] = None) -> bool:
     if not end:
         return False
     return (today or get_colombia_today()) >= end
+
+
+def is_contract_active(investor, today: Optional[date] = None) -> bool:
+    """Vigente = no finalizado. Única definición para Dashboard, Estado de Cuenta e Inversionistas (H-180)."""
+    return not is_contract_finished(investor, today)

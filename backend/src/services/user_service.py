@@ -1,4 +1,4 @@
-from src.services.contract_terms import contract_days
+from src.services.contract_terms import is_contract_active
 from src.core.timezone import get_colombia_today
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -667,13 +667,7 @@ class UserService:
             pct = float(inv.period.percentage) if inv.period else 0.0
             months = int(inv.period.months) if inv.period else 12
 
-            inv_start = inv.start_date or inv.created_at
-            is_active = True
-            if inv_start:
-                start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
-                end_d = start_d + timedelta(days=contract_days(inv))  # regla única de vigencia (H-140)
-                if end_d <= today_date:
-                    is_active = False
+            is_active = is_contract_active(inv, today_date)  # regla única (H-140, H-180)
 
             estado = "Activo" if is_active else "Finalizado"
             if is_active:
@@ -994,13 +988,7 @@ class UserService:
             pct = float(inv.period.percentage) if inv.period else 0.0
             months = int(inv.period.months) if inv.period else 12
 
-            inv_start = inv.start_date or inv.created_at
-            is_active = True
-            if inv_start:
-                start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
-                end_d = start_d + timedelta(days=contract_days(inv))  # regla única de vigencia (H-140)
-                if end_d <= today_date:
-                    is_active = False
+            is_active = is_contract_active(inv, today_date)  # regla única (H-140, H-180)
 
             if is_active:
                 total_capital_active += pkg_val

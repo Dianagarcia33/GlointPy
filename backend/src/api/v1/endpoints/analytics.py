@@ -1,4 +1,7 @@
-from src.services.contract_terms import contract_end
+from types import SimpleNamespace
+from src.services.contract_terms import contract_end, is_contract_active
+from src.core.timezone import get_colombia_today
+from src.models.acceleration import Acceleration
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from datetime import date, datetime, timedelta
@@ -35,7 +38,7 @@ async def get_admin_analytics_dashboard(
     - Balance de liquidez (Inversiones vs Billeteras vs Retiros)
     - Proporción por Tipo de Venta (Contrato Nuevo, Reinversión, Referidos)
     """
-    today = date.today()
+    today = get_colombia_today()  # H-180: misma fecha (Colombia) que el resto del sistema
     start_cutoff = today.replace(day=1) - relativedelta(months=5)
 
     # 1. Crecimiento mensual de captación (Últimos 6 meses) optimizado en solo 2 queries agrupadas
@@ -91,6 +94,16 @@ async def get_admin_analytics_dashboard(
     )
     rows = (await db.execute(stmt_invs)).all()
 
+    # Aceleraciones aplicadas por contrato: acortan la vigencia (H-180), igual que en Inversionistas
+    acc_res = await db.execute(
+        select(Acceleration.investor_id, Acceleration.days_to_reduce).where(Acceleration.applied == True)  # noqa: E712
+    )
+    accelerations_by_investor: Dict[int, list] = {}
+    for inv_id, days_to_reduce in acc_res.all():
+        accelerations_by_investor.setdefault(inv_id, []).append(
+            SimpleNamespace(applied=True, days_to_reduce=days_to_reduce)
+        )
+
     active_count = 0
     finished_count = 0
     total_invertido = 0.0
@@ -99,13 +112,13 @@ async def get_admin_analytics_dashboard(
 
     for r in rows:
         pkg_val = float(r.package_value or 0)
-        is_active = True
-        if r.start_date and (r.period_days or r.period_months):
-            inv_start = r.start_date.date() if isinstance(r.start_date, datetime) else r.start_date
-            dias_base = r.period_days or ((r.period_months or 0) * 30)
-            fecha_fin = inv_start + timedelta(days=dias_base)
-            if fecha_fin <= today:
-                is_active = False
+        # Misma regla única que el resto del sistema (contract_terms), sin cargar objetos ORM completos
+        contract = SimpleNamespace(
+            start_date=r.start_date,
+            period=SimpleNamespace(days=r.period_days or ((r.period_months or 0) * 30)),
+            accelerations=accelerations_by_investor.get(r.id, []),
+        )
+        is_active = is_contract_active(contract, today)
 
         if is_active:
             active_count += 1
@@ -185,7 +198,7 @@ async def get_director_analytics_dashboard(
     - Desglose por tipo de venta (Contratos nuevos, reinversiones, referidos)
     - Evolución mensual de captación del equipo
     """
-    today = date.today()
+    today = get_colombia_today()  # H-180: misma fecha (Colombia) que el resto del sistema
     year = today.year
     month = today.month
 
