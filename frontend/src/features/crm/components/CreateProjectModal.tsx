@@ -56,6 +56,15 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
       setError('Por favor completa el código, nombre y meta de recaudación.');
       return;
     }
+    // Mismas reglas que el backend (H-137)
+    if (!(Number(targetAmount) > 0)) {
+      setError('La meta de recaudación debe ser mayor a $0.');
+      return;
+    }
+    if (startDate && endDate && endDate <= startDate) {
+      setError('La fecha de cierre debe ser posterior a la fecha de inicio.');
+      return;
+    }
 
     try {
       setLoading(true);
@@ -142,6 +151,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
                 <DollarSign className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input
                   type="number"
+                  min="1"
                   placeholder="500000000"
                   value={targetAmount}
                   onChange={(e) => setTargetAmount(e.target.value)}
@@ -162,24 +172,23 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
             />
           </div>
 
-          {isEditing && (
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Estado del Proyecto</label>
-              <div className="relative">
-                <Activity className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500 font-montserrat font-bold cursor-pointer"
-                >
-                  <option value="activo">Activo</option>
-                  <option value="en_pausa">En Pausa</option>
-                  <option value="meta_alcanzada">Meta Alcanzada 🏆</option>
-                  <option value="archivado">Archivado</option>
-                </select>
-              </div>
+          {/* Al crear se elige el estado inicial (Activo o En Pausa); al editar, cualquier estado (H-137) */}
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">{isEditing ? 'Estado del Proyecto' : 'Estado Inicial'}</label>
+            <div className="relative">
+              <Activity className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as any)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-9 pr-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-brand-500 font-montserrat font-bold cursor-pointer"
+              >
+                <option value="activo">Activo</option>
+                <option value="en_pausa">En Pausa</option>
+                {isEditing && <option value="meta_alcanzada">Meta Alcanzada 🏆</option>}
+                {isEditing && <option value="archivado">Archivado</option>}
+              </select>
             </div>
-          )}
+          </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Descripción</label>
@@ -206,6 +215,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 font-montserrat">Fecha Cierre Estimada</label>
               <input
                 type="date"
+                min={startDate || undefined}
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-brand-500 font-montserrat"

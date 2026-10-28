@@ -3,6 +3,14 @@ import { FolderKanban, TrendingUp, Users, CheckCircle2, ArrowRight, DollarSign, 
 import { CRMProject } from '../../../services/crmService';
 import { Can } from '../../../components/security/Can';
 
+// Etiquetas legibles para los estados del proyecto (H-137)
+const PROJECT_STATUS_LABELS: Record<string, string> = {
+  activo: 'Activo',
+  en_pausa: 'En Pausa',
+  meta_alcanzada: 'Meta Alcanzada',
+  archivado: 'Archivado',
+};
+
 interface ProjectGridProps {
   projects: CRMProject[];
   onSelectProject: (projectId: number) => void;
@@ -83,7 +91,7 @@ export const ProjectGrid: React.FC<ProjectGridProps> = ({
                             : 'bg-brand-50 text-brand-700 border border-brand-200'
                         }`}
                       >
-                        {isCompleted ? 'Meta Cumplida 🏆' : project.status}
+                        {isCompleted ? 'Meta Cumplida 🏆' : (PROJECT_STATUS_LABELS[project.status] || project.status)}
                       </span>
                     </div>
 

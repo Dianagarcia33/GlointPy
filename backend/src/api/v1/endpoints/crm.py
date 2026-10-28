@@ -8,7 +8,7 @@ from src.core.database import get_db
 from src.models.user import User
 from src.core.pbac import PBACEngine
 from src.api.dependencies.auth_deps import get_current_user, RequirePermission
-from src.services.crm_service import CRMService
+from src.services.crm_service import CRMService, validate_project_dates
 from src.schemas.commercial_sale import CommercialSaleCreate
 from src.services.commercial_sale_service import register_commercial_sale
 
@@ -21,15 +21,16 @@ PROJECT_STATUSES = ("activo", "en_pausa", "meta_alcanzada", "archivado")
 MAX_PROJECT_TARGET = 9_999_999_999_999.99  # Numeric(15, 2)
 
 
-def _validate_project_fields(code, name, target_amount, status):
+def _validate_project_fields(code, name, target_amount, status, start_date=None, end_date=None):
     if code is not None and not (1 <= len(code.strip()) <= 50):
         raise ValueError("El código del proyecto debe tener entre 1 y 50 caracteres.")
     if name is not None and not (1 <= len(name.strip()) <= 255):
         raise ValueError("El nombre del proyecto debe tener entre 1 y 255 caracteres.")
-    if target_amount is not None and not (0 <= target_amount <= MAX_PROJECT_TARGET):
-        raise ValueError("La meta de recaudo debe estar entre $0 y $9.999.999.999.999,99.")
+    if target_amount is not None and not (0 < target_amount <= MAX_PROJECT_TARGET):
+        raise ValueError("La meta de recaudación debe ser mayor a $0 y como máximo $9.999.999.999.999,99.")
     if status is not None and status not in PROJECT_STATUSES:
         raise ValueError("Estado de proyecto no válido. Usa activo, en_pausa, meta_alcanzada o archivado.")
+    validate_project_dates(start_date, end_date)
 
 
 class ProjectCreateSchema(BaseModel):
@@ -43,7 +44,7 @@ class ProjectCreateSchema(BaseModel):
 
     @model_validator(mode="after")
     def validate_limits(self):
-        _validate_project_fields(self.code, self.name, self.target_amount, self.status)
+        _validate_project_fields(self.code, self.name, self.target_amount, self.status, self.start_date, self.end_date)
         return self
 
 class ProjectUpdateSchema(BaseModel):
@@ -57,7 +58,7 @@ class ProjectUpdateSchema(BaseModel):
 
     @model_validator(mode="after")
     def validate_limits(self):
-        _validate_project_fields(self.code, self.name, self.target_amount, self.status)
+        _validate_project_fields(self.code, self.name, self.target_amount, self.status, self.start_date, self.end_date)
         return self
 
 class LeadCreateSchema(BaseModel):

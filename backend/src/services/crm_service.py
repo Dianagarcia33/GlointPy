@@ -17,6 +17,27 @@ from sqlalchemy.exc import IntegrityError
 
 PROJECT_CODE_TAKEN = "El código de proyecto ya se encuentra registrado"
 
+
+def _parse_project_date(value):
+    """Las fechas llegan como 'AAAA-MM-DD' (o ISO con hora); se compara solo el día."""
+    from datetime import date, datetime
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        raise ValueError("Fecha no válida. Usa el formato AAAA-MM-DD.")
+
+
+def validate_project_dates(start_date, end_date):
+    start, end = _parse_project_date(start_date), _parse_project_date(end_date)
+    if start and end and end <= start:
+        raise ValueError("La fecha de cierre debe ser posterior a la fecha de inicio.")
+
 class CRMService:
     @staticmethod
     async def get_projects(
@@ -131,6 +152,13 @@ class CRMService:
             project.start_date = data["start_date"]
         if "end_date" in data:
             project.end_date = data["end_date"]
+
+        # Si solo cambia una de las fechas, se compara con la que ya tenía el proyecto (H-137)
+        try:
+            validate_project_dates(project.start_date, project.end_date)
+        except ValueError as e:
+            await db.rollback()
+            raise HTTPException(status_code=422, detail=str(e))
             
         await CRMService._commit_project(db)
         await db.refresh(project)
