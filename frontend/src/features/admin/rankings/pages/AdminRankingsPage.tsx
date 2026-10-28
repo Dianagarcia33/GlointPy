@@ -279,21 +279,21 @@ export const AdminRankingsPage: React.FC = () => {
 
       {/* Tarjetas KPI de Resumen */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Rangos */}
+        {/* Rangos activos: la doc habla de "niveles activos"; los inactivos se muestran aparte (H-163) */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
-              Total Rangos
+              Rangos Activos
             </span>
             <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
               <Layers className="w-4 h-4" />
             </div>
           </div>
           <span className="text-xl sm:text-2xl font-black text-slate-900 block tracking-tight font-mono">
-            {ranks.length}
+            {activeRanks.length}
           </span>
           <span className="text-[11px] text-slate-500 font-medium block truncate">
-            {activeRanks.length} rangos activos
+            {ranks.length} en total{ranks.length - activeRanks.length > 0 ? ` · ${ranks.length - activeRanks.length} inactivos` : ''}
           </span>
         </div>
 
