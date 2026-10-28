@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { chatService, ChatMessage } from '../../../services/chatService';
+import { markUtcTimestamps } from '../../../utils/utcTimestamps';
 
 export function useChatWebSocket(roomId: number | null, currentUser?: { id: number; name: string } | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -70,7 +71,7 @@ export function useChatWebSocket(roomId: number | null, currentUser?: { id: numb
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const data = markUtcTimestamps(JSON.parse(event.data));
           if (data.type === 'new_message') {
             if (data.sender_name) {
               setTypingUsers((prev) => prev.filter((name) => name !== data.sender_name));

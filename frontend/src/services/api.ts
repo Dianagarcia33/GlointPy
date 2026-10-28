@@ -1,4 +1,5 @@
 import { useAuthStore } from '../store/authStore';
+import { markUtcTimestamps } from '../utils/utcTimestamps';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -146,5 +147,5 @@ async function executeFetchApi<T = any>(endpoint: string, options: RequestInit =
     return null as unknown as T;
   }
 
-  return response.json();
+  return markUtcTimestamps(await response.json());
 }
