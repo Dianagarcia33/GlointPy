@@ -23,6 +23,8 @@ export const AdminPackagesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // H-177: error de una acción (p. ej. eliminar); no reemplaza la pantalla como el error de carga
+  const [actionError, setActionError] = useState<string | null>(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<Package | null>(null);
@@ -64,14 +66,15 @@ export const AdminPackagesPage = () => {
     if (!deletingPackage) return;
     try {
       setIsDeleting(true);
-      setError(null);
+      setActionError(null);
       await packagesService.deletePackage(deletingPackage.id);
       setSuccess(`Paquete de $${Number(deletingPackage.value).toLocaleString('es-CO')} COP eliminado correctamente.`);
       setTimeout(() => setSuccess(null), 5000);
       setDeletingPackage(null);
       fetchData();
     } catch (err: any) {
-      setError(err.message || 'Error al eliminar el paquete');
+      setDeletingPackage(null);
+      setActionError(err.message || 'Error al eliminar el paquete');
     } finally {
       setIsDeleting(false);
     }
@@ -161,6 +164,18 @@ export const AdminPackagesPage = () => {
           </div>
           <button onClick={() => setSuccess(null)} className="p-1 hover:bg-emerald-100 rounded-lg transition-colors cursor-pointer">
             <X className="w-4 h-4 text-emerald-700" />
+          </button>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start justify-between gap-3 text-rose-800 shadow-xs font-medium text-sm animate-in fade-in duration-200">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+            <span>Error al eliminar el paquete: {actionError}</span>
+          </div>
+          <button onClick={() => setActionError(null)} aria-label="Cerrar aviso" className="p-1 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer">
+            <X className="w-4 h-4 text-rose-700" />
           </button>
         </div>
       )}

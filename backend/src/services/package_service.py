@@ -71,6 +71,31 @@ class PackageService:
     @staticmethod
     async def delete_package(db: AsyncSession, package_id: int) -> None:
         package = await PackageService.get_package_by_id(db, package_id)
+
+        # H-177: explicar por qué no se puede eliminar en vez del error genérico de integridad
+        from sqlalchemy import func
+        from src.models.investor import Investor
+        from src.models.investment_request import InvestmentRequest
+        contracts = (await db.execute(
+            select(func.count(Investor.id)).where(Investor.package_id == package_id)
+        )).scalar_one()
+        requests = (await db.execute(
+            select(func.count(InvestmentRequest.id)).where(InvestmentRequest.paquete_inversion_id == package_id)
+        )).scalar_one()
+        if contracts or requests:
+            uses = []
+            if contracts:
+                uses.append(f"{contracts} contrato(s)")
+            if requests:
+                uses.append(f"{requests} solicitud(es) de inversión")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Este paquete tiene {' y '.join(uses)} asociados y no puede eliminarse. "
+                    "Puedes desactivarlo para que no se ofrezca en nuevas inversiones."
+                )
+            )
+
         try:
             await db.delete(package)
             await db.commit()
@@ -78,5 +103,5 @@ class PackageService:
             await db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot delete package, it might be in use"
+                detail="No se puede eliminar el paquete porque tiene registros asociados. Puedes desactivarlo."
             )
