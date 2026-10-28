@@ -1,3 +1,4 @@
+import re
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, Any
 
@@ -44,6 +45,30 @@ class InvestorRegisterRequest(BaseModel):
     requires_manual_review: Optional[bool] = False
     referred_by: Optional[str] = None
     commercial_id: Optional[int] = None
+
+    @field_validator("numero_celular")
+    @classmethod
+    def validate_numero_celular(cls, v: str) -> str:
+        # Celular colombiano de 10 dígitos que empieza por 3 (H-148)
+        clean = re.sub(r"[\s\-\(\)\.]", "", (v or "").strip())
+        if clean.startswith("+57"):
+            clean = clean[3:]
+        elif clean.startswith("57") and len(clean) == 12:
+            clean = clean[2:]
+        if not re.fullmatch(r"3\d{9}", clean):
+            raise ValueError("El celular debe ser un número colombiano de 10 dígitos que empiece por 3 (ej. 3001234567).")
+        return clean
+
+    @field_validator("numero_cuenta")
+    @classmethod
+    def validate_numero_cuenta(cls, v: Optional[str]) -> Optional[str]:
+        # Solo dígitos (se permiten espacios y guiones al escribir), entre 6 y 20 (H-148)
+        if v is None or not v.strip():
+            return None
+        clean = re.sub(r"[\s\-]", "", v.strip())
+        if not re.fullmatch(r"\d{6,20}", clean):
+            raise ValueError("El número de cuenta debe tener solo dígitos (entre 6 y 20).")
+        return clean
 
     @field_validator("fecha_nacimiento")
     @classmethod

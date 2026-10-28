@@ -8,6 +8,11 @@ import { commercialService } from '../../../services/commercial';
 import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 import { compressImage } from '../../../utils/imageCompression';
 
+// Validaciones del registro (H-148)
+const CELULAR_REGEX = /^3\d{9}$/;
+const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
 export const InvestorRegistrationFlow = () => {
     const [step, setStep] = useState(1);
     
@@ -79,9 +84,8 @@ export const InvestorRegistrationFlow = () => {
         const fetchDepartments = async () => {
             try {
                 setLoadingDepartments(true);
-                const response = await fetch('https://api-colombia.com/api/v1/Department');
-                if (!response.ok) throw new Error("API error");
-                const data = await response.json();
+                // Catálogo servido por el backend (con caché): el navegador ya no llama a api-colombia.com (H-148)
+                const data: any[] = await fetchApi('/locations/departments');
                 const sorted = data.sort((a: any, b: any) => a.name.localeCompare(b.name));
                 setDepartments(sorted);
             } catch (err) {
@@ -122,9 +126,7 @@ export const InvestorRegistrationFlow = () => {
 
         try {
             setLoadingCities(true);
-            const response = await fetch(`https://api-colombia.com/api/v1/Department/${deptId}/cities`);
-            if (!response.ok) throw new Error("API error");
-            const data = await response.json();
+            const data: any[] = await fetchApi(`/locations/departments/${deptId}/cities`);
             const sorted = data.sort((a: any, b: any) => a.name.localeCompare(b.name));
             setCities([...sorted, { id: 9999, name: "Otra" }]);
         } catch (err) {
@@ -276,7 +278,9 @@ export const InvestorRegistrationFlow = () => {
             setShowCustomCity(value === 'Otra');
         }
 
-        setFormData(prev => ({ ...prev, [name]: value }));
+        // El celular solo admite dígitos (máx. 10) (H-148)
+        const cleanValue = name === 'numero_celular' ? value.replace(/\D/g, '').slice(0, 10) : value;
+        setFormData(prev => ({ ...prev, [name]: cleanValue }));
     };
 
     const handleFinalSubmit = (e: React.FormEvent) => {
@@ -356,7 +360,7 @@ export const InvestorRegistrationFlow = () => {
             isExpedicionValid &&
             !!formData.fecha_nacimiento &&
             isAdult &&
-            !!formData.numero_celular.trim() &&
+            CELULAR_REGEX.test(formData.numero_celular) &&
             !!selectedDepartmentId &&
             cityValid
         );
@@ -373,6 +377,7 @@ export const InvestorRegistrationFlow = () => {
 
     const FileUploadZone = ({ label, file, onChange }: { label: string, file: File | null, onChange: (f: File) => void }) => {
         const [preview, setPreview] = useState<string | null>(null);
+        const [fileError, setFileError] = useState<string | null>(null);
 
         React.useEffect(() => {
             if (file && file.type.startsWith('image/')) {
@@ -422,11 +427,28 @@ export const InvestorRegistrationFlow = () => {
                     className="hidden" 
                     accept="image/jpeg,image/png,image/webp" 
                     onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                            onChange(e.target.files[0]);
+                        const selected = e.target.files && e.target.files[0];
+                        e.target.value = '';
+                        if (!selected) return;
+                        // Antes un archivo no permitido (p. ej. CSV) se ignoraba sin avisar (H-148)
+                        if (!ALLOWED_PHOTO_TYPES.includes(selected.type)) {
+                            setFileError(`"${selected.name}" no es una foto válida. Usa JPG, PNG o WEBP.`);
+                            return;
                         }
+                        if (selected.size > MAX_PHOTO_BYTES) {
+                            setFileError(`"${selected.name}" pesa más de 10 MB. Usa una foto más liviana.`);
+                            return;
+                        }
+                        setFileError(null);
+                        onChange(selected);
                     }} 
                 />
+                {fileError && (
+                    <div className="absolute inset-x-2 bottom-2 bg-red-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{fileError}</span>
+                    </div>
+                )}
             </label>
         );
     };
@@ -690,7 +712,7 @@ export const InvestorRegistrationFlow = () => {
                                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                             <Phone className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input required type="text" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 3001234567" />
+                                        <input required type="tel" inputMode="numeric" maxLength={10} pattern="3[0-9]{9}" name="numero_celular" value={formData.numero_celular} onChange={handleChange} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 text-slate-900" placeholder="Ej: 3001234567" />
                                     </div>
                                 </div>
                                 
