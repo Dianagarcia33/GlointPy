@@ -12,6 +12,8 @@ from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
 from src.core.database import get_db
+from src.core.timezone import get_colombia_today
+from src.services.contract_terms import contract_days, contract_end, exact_contract_days, is_contract_finished
 from src.api.deps import get_current_user, RequirePermission
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
 from sqlalchemy import or_, and_, func, desc
@@ -116,23 +118,13 @@ async def get_my_investments(current_user = Depends(get_current_user), db: Async
                     dias_reducidos_totales += float(acc.days_to_reduce or 0)
 
         if fecha_ingreso and inv_record.period:
-            inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
-            if inv_record.period.months:
-                fecha_fin_orig = inv_start + relativedelta(months=inv_record.period.months)
-                dias_base = (fecha_fin_orig - inv_start).days
-            else:
-                dias_base = getattr(inv_record.period, 'days', 0) or (inv_record.period.months * 30 if inv_record.period.months else 0)
-            
-            dias_contrato = max(1, int(dias_base - dias_reducidos_totales))
-            fecha_fin_date = inv_start + timedelta(days=dias_contrato)
+            # Regla única de vigencia (H-140): días del periodo - días acelerados
+            dias_contrato = max(1, contract_days(inv_record))
+            fecha_fin_date = contract_end(inv_record)
             fecha_fin = datetime.combine(fecha_fin_date, datetime.min.time()) if isinstance(fecha_ingreso, datetime) else fecha_fin_date
 
-        # Contrato en curso (fecha_fin > hoy) es ACTIVO, vencido (fecha_fin <= hoy) es FINALIZADO
-        is_active = True
-        current_today = date.today()
-        check_date = fecha_fin.date() if isinstance(fecha_fin, datetime) else fecha_fin
-        if check_date and check_date <= current_today:
-            is_active = False
+        # Contrato en curso (fecha_fin > hoy) es ACTIVO, vencido (fecha_fin <= hoy) es FINALIZADO (fecha de Colombia, H-156)
+        is_active = not is_contract_finished(inv_record)
 
         monto_original = float(inv_record.package.value) if inv_record.package else 0.0
 
@@ -506,7 +498,7 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
     from sqlalchemy import desc
     from src.models.investment_request import InvestmentRequest
 
-    today = date.today()
+    today = get_colombia_today()
     user_perms = {p.name for r in getattr(current_user, 'roles', []) for p in getattr(r, 'permissions', [])}
     is_admin = (
         current_user.is_superuser
@@ -595,20 +587,14 @@ async def get_investment_details(investment_id: str, current_user = Depends(get_
                 })
     
     if fecha_ingreso and inv_record.period:
-        fecha_fin_original = fecha_ingreso + relativedelta(months=inv_record.period.months)
-        dias_contrato_original = (fecha_fin_original.date() - fecha_ingreso.date()).days
-        
-        # Descontar los días reducidos por bonos/aceleraciones
-        dias_contrato = max(1, int(dias_contrato_original - dias_reducidos_totales))
-        from datetime import timedelta
-        fecha_fin = fecha_ingreso + timedelta(days=dias_contrato)
+        # Regla única de vigencia (H-140): días del periodo - días acelerados
+        dias_contrato = max(1, contract_days(inv_record))
+        fecha_fin = datetime.combine(contract_end(inv_record), datetime.min.time())
         
         diffTime = (today - fecha_ingreso.date()).days
         dias_transcurridos = diffTime if diffTime > 0 else 0
 
-    is_active = True
-    if fecha_fin and fecha_fin.date() < today:
-        is_active = False
+    is_active = not is_contract_finished(inv_record, today)
 
     monto = float(inv_record.package.value) if inv_record.package else 0
     
@@ -860,7 +846,7 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
     # 1. Fetch Investor
     inv_res = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period))
+        .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
         .where(Investor.id == investment_id, Investor.user_id == current_user.id)
     )
     inv_record = inv_res.scalars().first()
@@ -875,18 +861,18 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
         raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa configurada. Por favor, añádela en tu perfil.")
         
     # 3. Calculate Available Capital
-    today = date.today()
+    today = get_colombia_today()
     fecha_ingreso = inv_record.start_date
     dias_contrato = 0
     dias_transcurridos = 0
     if fecha_ingreso and inv_record.period:
-        fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
-        dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+        # Regla única de vigencia (H-140): el capital se libera a lo largo de la vigencia real
+        dias_contrato = float(exact_contract_days(inv_record))
         diffTime = (today - fecha_ingreso.date()).days
         dias_transcurridos = diffTime if diffTime > 0 else 0
 
     monto = float(inv_record.package.value) if inv_record.package else 0
-    capital_diario = monto / dias_contrato if dias_contrato > 0 else 0
+    capital_diario = monto / dias_contrato if dias_contrato > 0 else monto
     bloques_cumplidos = dias_transcurridos // 60
     capital_liberado = (capital_diario * 60) * bloques_cumplidos
     
@@ -997,7 +983,7 @@ async def withdraw_investment_capital(
     # 2. Fetch Investor
     inv_res = await db.execute(
         select(Investor)
-        .options(selectinload(Investor.package), selectinload(Investor.period))
+        .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
         .where(Investor.id == investment_id, Investor.user_id == current_user.id)
     )
     inv_record = inv_res.scalars().first()
@@ -1027,18 +1013,18 @@ async def withdraw_investment_capital(
         raise HTTPException(status_code=400, detail="No tienes una cuenta bancaria activa configurada. Por favor, añádela en tu perfil.")
         
     # 4. Calculate Available Capital
-    today = date.today()
+    today = get_colombia_today()
     fecha_ingreso = inv_record.start_date
     dias_contrato = 0
     dias_transcurridos = 0
     if fecha_ingreso and inv_record.period:
-        fecha_fin = fecha_ingreso + relativedelta(months=inv_record.period.months)
-        dias_contrato = (fecha_fin.date() - fecha_ingreso.date()).days
+        # Regla única de vigencia (H-140): el capital se libera a lo largo de la vigencia real
+        dias_contrato = float(exact_contract_days(inv_record))
         diffTime = (today - fecha_ingreso.date()).days
         dias_transcurridos = diffTime if diffTime > 0 else 0
 
     monto = float(inv_record.package.value) if inv_record.package else 0
-    capital_diario = monto / dias_contrato if dias_contrato > 0 else 0
+    capital_diario = monto / dias_contrato if dias_contrato > 0 else monto
     bloques_cumplidos = dias_transcurridos // 60
     capital_liberado = (capital_diario * 60) * bloques_cumplidos
     

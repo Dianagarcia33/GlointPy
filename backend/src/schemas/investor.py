@@ -2,7 +2,6 @@ from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 from datetime import datetime, timedelta
 from typing import Optional
 import re
-from dateutil.relativedelta import relativedelta
 from src.schemas.user import UserResponse, UserWithBankAccountsResponse
 from src.schemas.package import PackageResponse
 from src.schemas.period import PeriodResponse
@@ -112,10 +111,13 @@ class InvestorResponse(InvestorBase):
     @computed_field
     @property
     def daily_capital_amount(self) -> float:
+        # El capital se libera a lo largo de la vigencia real (con bonos antiguos es más corta)
+        from src.services.contract_terms import exact_contract_days
         if not self.package or not self.period or not self.period.days:
             return 0.0
         monto = float(self.package.value or 0)
-        return float(monto / self.period.days) if self.period.days > 0 else 0.0
+        dias = float(exact_contract_days(self))
+        return float(monto / dias) if dias > 0 else monto
 
     @computed_field
     @property
@@ -157,15 +159,9 @@ class InvestorResponse(InvestorBase):
     @computed_field
     @property
     def effective_days(self) -> int:
-        if not self.period:
-            return 0
-        base_date = self.start_date or datetime.utcnow()
-        if self.period.months:
-            fecha_fin_orig = base_date + relativedelta(months=self.period.months)
-            dias_orig = (fecha_fin_orig.date() - base_date.date()).days
-        else:
-            dias_orig = int(self.period.days or 0)
-        return max(1, int(round(dias_orig - self.total_days_reduced)))
+        # Regla única de vigencia (H-140): días del periodo - días acelerados, no meses de calendario
+        from src.services.contract_terms import contract_days
+        return contract_days(self)
 
     @computed_field
     @property
@@ -173,15 +169,14 @@ class InvestorResponse(InvestorBase):
         base_date = self.start_date or datetime.utcnow()
         if not self.period:
             return base_date
-        return base_date + timedelta(days=self.effective_days)
+        return datetime.combine(base_date.date(), datetime.min.time()) + timedelta(days=self.effective_days)
 
     @computed_field
     @property
     def is_finalized(self) -> bool:
-        from datetime import date
-        today = date.today()
-        end_d = self.end_date.date() if isinstance(self.end_date, datetime) else self.end_date
-        return end_d <= today
+        # Fecha de Colombia, no del servidor en UTC: antes finalizaba 5 horas antes (H-156)
+        from src.services.contract_terms import is_contract_finished
+        return is_contract_finished(self)
 
     model_config = ConfigDict(from_attributes=True)
 

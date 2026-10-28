@@ -35,7 +35,7 @@ from src.models.wallet import Wallet, WalletTransaction
 from src.models.withdrawal import Withdrawal
 from pydantic import computed_field
 from dateutil.relativedelta import relativedelta
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from src.schemas.acceleration import AccelerationResponse
 
@@ -66,15 +66,11 @@ class SimpleInvestorAuditResponse(InvestorBase):
     @computed_field
     @property
     def dias_totales(self) -> int:
+        # Regla única de vigencia (H-140): días del periodo - días acelerados, no meses de calendario
+        from src.services.contract_terms import contract_days
         if not self.period:
             return 1
-        base_date = self.start_date or datetime.utcnow()
-        if self.period.months:
-            fecha_fin_orig = base_date + relativedelta(months=self.period.months)
-            dias_orig = (fecha_fin_orig.date() - base_date.date()).days
-        else:
-            dias_orig = int(self.period.days or 0)
-        return max(1, int(round(dias_orig - self.total_days_reduced)))
+        return max(1, contract_days(self))
 
     @computed_field
     @property
@@ -82,15 +78,15 @@ class SimpleInvestorAuditResponse(InvestorBase):
         base_date = self.start_date or datetime.utcnow()
         if not self.period:
             return base_date
-        return base_date + relativedelta(days=self.dias_totales)
+        return datetime.combine(base_date.date(), datetime.min.time()) + timedelta(days=self.dias_totales)
 
     @computed_field
     @property
     def dias_transcurridos(self) -> int:
         if not self.start_date:
             return 0
-        from datetime import date
-        today = date.today()
+        from src.core.timezone import get_colombia_today
+        today = get_colombia_today()
         start = self.start_date.date() if isinstance(self.start_date, datetime) else self.start_date
         diff = (today - start).days
         return max(0, diff)
@@ -98,9 +94,10 @@ class SimpleInvestorAuditResponse(InvestorBase):
     @computed_field
     @property
     def capital_diario(self) -> float:
+        from src.services.contract_terms import exact_contract_days
         total = self.capital_total
-        dias = self.dias_totales
-        return (total / dias) if dias > 0 else 0.0
+        dias = float(exact_contract_days(self))
+        return (total / dias) if dias > 0 else total
 
     @computed_field
     @property

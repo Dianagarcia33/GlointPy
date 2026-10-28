@@ -1,3 +1,5 @@
+from src.services.contract_terms import contract_days
+from src.core.timezone import get_colombia_today
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -9,7 +11,7 @@ from src.core.security import aget_password_hash, averify_password
 from fastapi import HTTPException
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class UserService:
     @staticmethod
@@ -631,7 +633,7 @@ class UserService:
 
         inv_res = await db.execute(
             select(Investor)
-            .options(selectinload(Investor.package), selectinload(Investor.period))
+            .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
             .where(Investor.user_id == user_id)
             .order_by(desc(Investor.created_at))
         )
@@ -639,7 +641,7 @@ class UserService:
 
         investments_list = []
         total_capital_invested = 0.0
-        today_date = date.today()
+        today_date = get_colombia_today()  # H-156
 
         for inv in investors:
             pkg_val = float(inv.package.value) if inv.package else 0.0
@@ -650,7 +652,7 @@ class UserService:
             is_active = True
             if inv_start:
                 start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
-                end_d = start_d + relativedelta(months=months)
+                end_d = start_d + timedelta(days=contract_days(inv))  # regla única de vigencia (H-140)
                 if end_d <= today_date:
                     is_active = False
 
@@ -957,7 +959,7 @@ class UserService:
         inv_query = (
             select(Investor, User)
             .join(User, Investor.user_id == User.id)
-            .options(selectinload(Investor.package), selectinload(Investor.period))
+            .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
         )
         if user_id:
             inv_query = inv_query.where(User.id == user_id)
@@ -968,7 +970,7 @@ class UserService:
         investments_list = []
         total_capital_active = 0.0
         total_capital_finished = 0.0
-        today_date = date.today()
+        today_date = get_colombia_today()  # H-156
         active_users_set = set()
 
         for inv, u in all_inv_records:
@@ -980,7 +982,7 @@ class UserService:
             is_active = True
             if inv_start:
                 start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
-                end_d = start_d + relativedelta(months=months)
+                end_d = start_d + timedelta(days=contract_days(inv))  # regla única de vigencia (H-140)
                 if end_d <= today_date:
                     is_active = False
 

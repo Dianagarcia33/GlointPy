@@ -1,10 +1,12 @@
+from src.services.contract_terms import contract_days
+from src.core.timezone import get_colombia_today
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import desc, asc, func
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 import re
 
@@ -363,14 +365,14 @@ class InvestmentRankService:
         # 2. Calculate active invested capital from user's active contracts
         inv_res = await db.execute(
             select(Investor)
-            .options(selectinload(Investor.package), selectinload(Investor.period))
+            .options(selectinload(Investor.package), selectinload(Investor.period), selectinload(Investor.accelerations))
             .where(Investor.user_id == user_id)
         )
         investments = inv_res.scalars().all()
 
         total_active_capital = 0.0
         active_contracts_count = 0
-        today_date = date.today()
+        today_date = get_colombia_today()  # H-156
 
         for inv in investments:
             pkg_val = float(inv.package.value) if inv.package else 0.0
@@ -379,7 +381,7 @@ class InvestmentRankService:
             is_active = True
             if inv_start:
                 start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
-                end_d = start_d + relativedelta(months=months)
+                end_d = start_d + timedelta(days=contract_days(inv))  # regla única de vigencia (H-140)
                 if end_d <= today_date:
                     is_active = False
             
@@ -468,12 +470,13 @@ class InvestmentRankService:
         users_res = await db.execute(
             select(User).options(
                 selectinload(User.investments).selectinload(Investor.package),
-                selectinload(User.investments).selectinload(Investor.period)
+                selectinload(User.investments).selectinload(Investor.period),
+                selectinload(User.investments).selectinload(Investor.accelerations)
             )
         )
         users = users_res.scalars().all()
 
-        today_date = date.today()
+        today_date = get_colombia_today()  # H-156
         synced_count = 0
         distribution = {}
 
@@ -488,7 +491,7 @@ class InvestmentRankService:
                     is_active = True
                     if inv_start:
                         start_d = inv_start.date() if isinstance(inv_start, datetime) else inv_start
-                        end_d = start_d + relativedelta(months=months)
+                        end_d = start_d + timedelta(days=contract_days(inv))  # regla única de vigencia (H-140)
                         if end_d <= today_date:
                             is_active = False
                     

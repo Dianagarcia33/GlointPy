@@ -1,3 +1,4 @@
+from src.services.contract_terms import contract_end
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from datetime import date, datetime, timedelta
@@ -322,7 +323,8 @@ async def get_director_analytics_dashboard(
             .options(
                 selectinload(Investor.user),
                 selectinload(Investor.package),
-                selectinload(Investor.period)
+                selectinload(Investor.period),
+                selectinload(Investor.accelerations)
             )
         )
         all_invs = invs_res.scalars().all()
@@ -331,9 +333,8 @@ async def get_director_analytics_dashboard(
             doc = inv.user.document_id.strip() if inv.user and inv.user.document_id else ""
             # SOLO INCLUIR SI EL CONTRATO FUE ADJUDICADO Y ESTÁ EN EL MAPA DE VENTAS DE ESTE ASESOR
             if doc in my_sales_map:
-                if inv.start_date and inv.period and inv.period.months:
-                    start_d = inv.start_date.date() if isinstance(inv.start_date, datetime) else inv.start_date
-                    end_d = start_d + relativedelta(months=inv.period.months)
+                if inv.start_date and inv.period and inv.period.days:
+                    end_d = contract_end(inv)  # regla única de vigencia (H-140)
                     days_left = (end_d - today).days
 
                     if -30 <= days_left <= 90:
