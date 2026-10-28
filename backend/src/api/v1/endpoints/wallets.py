@@ -658,6 +658,13 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
 
         tipo_display = _get_movement_type_display(t.type, not is_outflow)
 
+        # H-185: saldo antes del movimiento = saldo después - efecto firmado del movimiento
+        # (la tabla guarda balance_after; el efecto se toma de la dirección, no del signo del monto)
+        saldo_anterior_val = None
+        if t.balance_after is not None:
+            signed_effect = -abs(amount) if is_outflow else abs(amount)
+            saldo_anterior_val = round(float(t.balance_after) - signed_effect, 2)
+
         response.append({
             "id": f"t_{t.id}",
             "real_id": linked_w.id if linked_w else None,
@@ -684,8 +691,8 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             "fecha_procesamiento": fecha_procesamiento_val,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-            "saldo_anterior": None,
-            "saldo_nuevo": float(t.balance_after),
+            "saldo_anterior": saldo_anterior_val,
+            "saldo_nuevo": float(t.balance_after) if t.balance_after is not None else None,
             "can_cancel": can_cancel_val,
             "has_yoint_dispersion": has_yoint_val,
             "_sort_date": t.created_at
