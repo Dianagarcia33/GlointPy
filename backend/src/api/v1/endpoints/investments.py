@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 from src.core.search import like_contains, LIKE_ESCAPE
 import os
 import uuid
@@ -407,7 +408,7 @@ async def create_investment_request(
         await db.refresh(new_request)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
 
     # Notificar al inversionista por correo electrónico corporativo
     try:
@@ -928,7 +929,7 @@ async def send_investment_withdrawal_code(investment_id: int, current_user = Dep
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al generar el código: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al generar el código", e))
     
     from src.services.email_template_service import EmailTemplateService
     subject, html_content = EmailTemplateService.get_otp_verification_template(
@@ -1092,7 +1093,7 @@ async def withdraw_investment_capital(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
 
     # 7. Disparar dispersión automática a la API v2 de Yoint (idéntico a retiros de wallet)
     yoint_tracking = None

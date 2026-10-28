@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 from src.core.search import like_contains, LIKE_ESCAPE
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, case
@@ -118,7 +119,7 @@ class WithdrawalService:
                 data_res.append(WithdrawalResponse.model_validate(w))
             except Exception as e:
                 logger.error(f"Validation error on withdrawal {w.id}: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Error validando retiro {w.id}: {str(e)}")
+                raise HTTPException(status_code=500, detail=public_error_detail(f"Error validando el retiro #{w.id}", e))
         
         return {
             "data": data_res,

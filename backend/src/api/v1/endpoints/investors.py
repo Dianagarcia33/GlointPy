@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
@@ -269,7 +270,7 @@ async def admin_withdraw_capital(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al procesar el retiro de capital: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al procesar el retiro de capital", e))
 
     return {
         "message": "Retiro de capital procesado y acreditado a la Billetera con éxito" if credit_wallet else "Liquidación de capital procesada exitosamente (sin abono a billetera)",

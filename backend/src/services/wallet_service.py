@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 import csv
 import io
 from decimal import Decimal
@@ -124,7 +125,7 @@ async def bulk_create_or_update_wallets(db: AsyncSession, csv_file: bytes) -> tu
             await db.commit()
         except Exception as e:
             await db.rollback()
-            raise HTTPException(status_code=400, detail=f"Error al guardar las billeteras en la base de datos: {str(e)}")
+            raise HTTPException(status_code=400, detail=public_error_detail("Error al guardar las billeteras en la base de datos", e))
             
     return success_count, errors
 
@@ -279,6 +280,6 @@ async def bulk_create_or_update_wallet_transactions(db: AsyncSession, csv_file: 
             await db.commit()
         except Exception as e:
             await db.rollback()
-            raise HTTPException(status_code=400, detail=f"Error al guardar las transacciones en la base de datos: {str(e)}")
+            raise HTTPException(status_code=400, detail=public_error_detail("Error al guardar las transacciones en la base de datos", e))
             
     return success_count, errors

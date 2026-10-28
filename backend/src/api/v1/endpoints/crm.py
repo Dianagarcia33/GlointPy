@@ -1,7 +1,8 @@
+from src.core.errors import public_error_detail
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 
 from src.core.database import get_db
 from src.models.user import User
@@ -14,6 +15,23 @@ from src.services.commercial_sale_service import register_commercial_sale
 router = APIRouter(prefix="/crm", tags=["CRM"])
 
 # Pydantic Schemas
+# Límites de las columnas de crm_projects: así un dato fuera de rango se rechaza con un mensaje
+# claro antes de llegar a la base de datos (H-136)
+PROJECT_STATUSES = ("activo", "en_pausa", "meta_alcanzada", "archivado")
+MAX_PROJECT_TARGET = 9_999_999_999_999.99  # Numeric(15, 2)
+
+
+def _validate_project_fields(code, name, target_amount, status):
+    if code is not None and not (1 <= len(code.strip()) <= 50):
+        raise ValueError("El código del proyecto debe tener entre 1 y 50 caracteres.")
+    if name is not None and not (1 <= len(name.strip()) <= 255):
+        raise ValueError("El nombre del proyecto debe tener entre 1 y 255 caracteres.")
+    if target_amount is not None and not (0 <= target_amount <= MAX_PROJECT_TARGET):
+        raise ValueError("La meta de recaudo debe estar entre $0 y $9.999.999.999.999,99.")
+    if status is not None and status not in PROJECT_STATUSES:
+        raise ValueError("Estado de proyecto no válido. Usa activo, en_pausa, meta_alcanzada o archivado.")
+
+
 class ProjectCreateSchema(BaseModel):
     code: str
     name: str
@@ -23,6 +41,11 @@ class ProjectCreateSchema(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
 
+    @model_validator(mode="after")
+    def validate_limits(self):
+        _validate_project_fields(self.code, self.name, self.target_amount, self.status)
+        return self
+
 class ProjectUpdateSchema(BaseModel):
     code: Optional[str] = None
     name: Optional[str] = None
@@ -31,6 +54,11 @@ class ProjectUpdateSchema(BaseModel):
     status: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_limits(self):
+        _validate_project_fields(self.code, self.name, self.target_amount, self.status)
+        return self
 
 class LeadCreateSchema(BaseModel):
     project_id: int
@@ -261,8 +289,10 @@ async def create_crm_project(
     try:
         project = await CRMService.create_project(db, data.dict())
         return {"message": "Proyecto creado exitosamente", "id": project.id, "code": project.code}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al crear el proyecto: {str(e)}")
+        raise HTTPException(status_code=400, detail=public_error_detail("Error al crear el proyecto", e))
 
 
 @router.put("/projects/{project_id}", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
@@ -279,7 +309,7 @@ async def update_crm_project(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al actualizar el proyecto: {str(e)}")
+        raise HTTPException(status_code=400, detail=public_error_detail("Error al actualizar el proyecto", e))
 
 
 @router.delete("/projects/{project_id}", dependencies=[Depends(RequirePermission("crm:projects:manage"))])
@@ -295,7 +325,7 @@ async def delete_crm_project(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al eliminar el proyecto: {str(e)}")
+        raise HTTPException(status_code=400, detail=public_error_detail("Error al eliminar el proyecto", e))
 
 
 @router.get("/projects/{project_id}/leads", dependencies=[Depends(RequirePermission("crm:view"))])
@@ -410,7 +440,7 @@ async def convert_lead_to_sale(
             "lead_id": lead.id
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al registrar la venta comercial: {str(e)}")
+        raise HTTPException(status_code=400, detail=public_error_detail("Error al registrar la venta comercial", e))
 
 
 # ==========================================

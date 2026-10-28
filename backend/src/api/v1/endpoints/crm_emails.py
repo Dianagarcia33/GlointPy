@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 from typing import List, Optional
 import os
 import uuid
@@ -147,7 +148,7 @@ async def accept_crm_meeting(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al agendar reunión en cPanel: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al agendar reunión en cPanel", e))
 
 
 @router.post("/{email_id}/decline-meeting", dependencies=[Depends(RequirePermission(["crm:inbox:view", "crm:view"]))])

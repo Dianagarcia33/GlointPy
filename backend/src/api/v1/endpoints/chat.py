@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 import os
 import uuid
 import shutil
@@ -262,7 +263,7 @@ async def forward_message_endpoint(
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al reenviar mensaje: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al reenviar mensaje", e))
 
 @router.post("/upload", dependencies=[Depends(RequirePermission("chat:send"))])
 async def upload_chat_file(

@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 from src.core.search import like_contains, LIKE_ESCAPE
 import io
 import csv
@@ -384,7 +385,7 @@ async def get_daily_yield_summary(
         traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail=f"Error al obtener el resumen diario de rendimientos: {str(e)}"
+            detail=public_error_detail("Error al obtener el resumen diario de rendimientos", e)
         )
 
 
@@ -505,7 +506,7 @@ async def list_daily_yield_batches(
         traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail=f"Error al listar lotes de rendimientos: {str(e)}"
+            detail=public_error_detail("Error al listar lotes de rendimientos", e)
         )
 
 
@@ -699,7 +700,7 @@ async def list_daily_yield_movements(
         traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail=f"Error al listar movimientos de rendimientos: {str(e)}"
+            detail=public_error_detail("Error al listar movimientos de rendimientos", e)
         )
 
 
@@ -737,7 +738,7 @@ async def trigger_daily_yield_manually(
         traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail=f"Error al ejecutar la dispersión de rendimientos: {str(e)}"
+            detail=public_error_detail("Error al ejecutar la dispersión de rendimientos", e)
         )
 
 
@@ -904,5 +905,5 @@ async def export_daily_yields_csv(
         traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail=f"Error al exportar reporte de rendimientos: {str(e)}"
+            detail=public_error_detail("Error al exportar reporte de rendimientos", e)
         )

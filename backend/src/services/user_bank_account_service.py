@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 import csv
 import io
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,6 +102,6 @@ async def bulk_create_bank_accounts(db: AsyncSession, csv_file: bytes) -> tuple[
             await db.commit()
         except Exception as e:
             await db.rollback()
-            raise HTTPException(status_code=400, detail=f"Error al guardar las cuentas en la base de datos: {str(e)}")
+            raise HTTPException(status_code=400, detail=public_error_detail("Error al guardar las cuentas en la base de datos", e))
             
     return success_count, errors

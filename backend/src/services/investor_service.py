@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 from src.core.search import like_contains, LIKE_ESCAPE
 import csv
 import io
@@ -590,7 +591,7 @@ class InvestorService:
                 await db.commit()
             except Exception as e:
                 await db.rollback()
-                raise HTTPException(status_code=400, detail=f"Error al guardar en base de datos: {str(e)}")
+                raise HTTPException(status_code=400, detail=public_error_detail("Error al guardar en base de datos", e))
 
         return {
             "success": success_count,

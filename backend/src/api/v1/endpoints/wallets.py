@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 import logging
 
 from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Form, BackgroundTasks
@@ -169,7 +170,7 @@ async def send_withdrawal_code(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al generar el código: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al generar el código", e))
 
     # 5. Send Email
     email_sent = EmailService.send_withdrawal_verification_code(current_user.email, code)
@@ -316,7 +317,7 @@ async def request_withdrawal(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
 
     # 8. Disparar dispersión automática a la API v2 de Yoint
     yoint_tracking = None
@@ -850,7 +851,7 @@ async def cancel_my_withdrawal(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
         
     return {"message": "Retiro cancelado exitosamente.", "new_balance": wallet.balance}
 
@@ -979,7 +980,7 @@ async def admin_adjust_wallet(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al ajustar billetera: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al ajustar billetera", e))
         
     return {"message": "Saldo ajustado correctamente.", "new_balance": wallet.balance}
 

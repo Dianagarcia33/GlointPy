@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any, Optional
@@ -277,7 +278,7 @@ async def upload_file(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al procesar y guardar el archivo: {str(e)}")
+        raise HTTPException(status_code=500, detail=public_error_detail("Error al procesar y guardar el archivo", e))
 
 
 from sqlalchemy import select

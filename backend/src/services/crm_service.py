@@ -12,6 +12,10 @@ from src.models.user import User
 from src.models.commercial_sale import CommercialSale
 from datetime import datetime
 from src.services.email_service import EmailService
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+
+PROJECT_CODE_TAKEN = "El código de proyecto ya se encuentra registrado"
 
 class CRMService:
     @staticmethod
@@ -62,10 +66,30 @@ class CRMService:
         return result
 
     @staticmethod
+    async def _ensure_project_code_available(db: AsyncSession, code: str, exclude_id: Optional[int] = None):
+        query = select(CRMProject.id).where(CRMProject.code == code)
+        if exclude_id is not None:
+            query = query.where(CRMProject.id != exclude_id)
+        if (await db.execute(query)).first():
+            raise HTTPException(status_code=409, detail=PROJECT_CODE_TAKEN)
+
+    @staticmethod
+    async def _commit_project(db: AsyncSession):
+        # Si otra petición registró el mismo código entre la comprobación y el commit,
+        # el índice único lo rechaza: se responde el mismo mensaje en lugar del error de MySQL
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(status_code=409, detail=PROJECT_CODE_TAKEN)
+
+    @staticmethod
     async def create_project(db: AsyncSession, data: dict) -> CRMProject:
         """Crea un nuevo Proyecto de Inversión en el CRM."""
+        code = data["code"].upper().strip()
+        await CRMService._ensure_project_code_available(db, code)
         project = CRMProject(
-            code=data["code"].upper().strip(),
+            code=code,
             name=data["name"].strip(),
             description=data.get("description"),
             target_amount=Decimal(str(data.get("target_amount", 0))),
@@ -74,7 +98,7 @@ class CRMService:
             end_date=data.get("end_date")
         )
         db.add(project)
-        await db.commit()
+        await CRMService._commit_project(db)
         await db.refresh(project)
         return project
 
@@ -91,7 +115,10 @@ class CRMService:
             raise HTTPException(status_code=404, detail="Proyecto no encontrado")
         
         if "code" in data and data["code"]:
-            project.code = data["code"].upper().strip()
+            new_code = data["code"].upper().strip()
+            if new_code != project.code:
+                await CRMService._ensure_project_code_available(db, new_code, exclude_id=project_id)
+            project.code = new_code
         if "name" in data and data["name"]:
             project.name = data["name"].strip()
         if "description" in data:
@@ -105,7 +132,7 @@ class CRMService:
         if "end_date" in data:
             project.end_date = data["end_date"]
             
-        await db.commit()
+        await CRMService._commit_project(db)
         await db.refresh(project)
         return project
 

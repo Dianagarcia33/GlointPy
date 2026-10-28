@@ -1,3 +1,4 @@
+from src.core.errors import public_error_detail
 import os
 import random
 from datetime import datetime, timedelta
@@ -85,7 +86,7 @@ async def send_bank_account_otp(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
     from src.services.email_template_service import EmailTemplateService
     subject, html_content = EmailTemplateService.get_otp_verification_template(
         user_name=current_user.name or "Inversionista",
@@ -148,7 +149,7 @@ async def create_my_bank_account(
         await db.refresh(new_acc)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
         
     return {"message": "Cuenta bancaria agregada exitosamente", "id": new_acc.id}
 
@@ -187,7 +188,7 @@ async def update_my_bank_account(
         await db.refresh(acc)
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
         
     return {"message": "Cuenta bancaria actualizada exitosamente."}
 
@@ -220,7 +221,7 @@ async def delete_my_bank_account(
         await db.commit()
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
         
     return {"message": "Cuenta bancaria eliminada de la bóveda exitosamente."}
 

@@ -124,7 +124,13 @@ async function executeFetchApi<T = any>(endpoint: string, options: RequestInit =
       if (typeof errorData.detail === 'string') {
         errMsg = errorData.detail;
       } else if (Array.isArray(errorData.detail)) {
-        errMsg = errorData.detail.map((e: any) => `${e.loc?.join('.') || 'Campo'}: ${e.msg}`).join(', ');
+        errMsg = errorData.detail.map((e: any) => {
+          // Los validadores propios del backend ya redactan el mensaje completo en español
+          if (typeof e.msg === 'string' && e.msg.startsWith('Value error, ')) {
+            return e.msg.slice('Value error, '.length);
+          }
+          return `${e.loc?.join('.') || 'Campo'}: ${e.msg}`;
+        }).join(', ');
       } else {
         errMsg = JSON.stringify(errorData.detail);
       }
