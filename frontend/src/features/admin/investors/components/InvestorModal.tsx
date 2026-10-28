@@ -101,12 +101,24 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     return () => clearTimeout(handler);
   }, [userSearch, isOpen]);
 
+  // Al corregir el formulario desaparece el aviso del intento anterior (H-142)
+  useEffect(() => {
+    setError(null);
+  }, [userId, packageId, periodId, assignedCode, startDate]);
+
+  // Hoy en Colombia (AAAA-MM-DD): la fecha de ingreso no puede ser futura (H-142)
+  const todayColombia = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((investor && !assignedCode) || !userId || !packageId || !periodId) {
       setError('Por favor completa los campos requeridos');
+      return;
+    }
+    if (startDate && startDate > todayColombia) {
+      setError('La fecha de ingreso no puede ser posterior a hoy.');
       return;
     }
 
@@ -132,7 +144,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       onSaved();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Error al guardar el inversionista');
+      setError(err.message || 'Error al guardar la inversión');
     } finally {
       setIsLoading(false);
     }
@@ -143,7 +155,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h3 className="text-lg font-semibold text-slate-800">
-            {investor ? 'Editar Inversionista' : 'Nuevo Inversionista'}
+            {investor ? 'Editar Inversión' : 'Nueva Inversión'}
           </h3>
           <button
             onClick={onClose}
@@ -311,6 +323,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
               <input
                 type="date"
                 value={startDate}
+                max={todayColombia}
                 onChange={(e) => setStartDate(e.target.value)}
                 disabled={investor ? !isAdmin : false}
                 readOnly={investor ? !isAdmin : false}
@@ -362,7 +375,7 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
               className="px-4 py-2 text-sm font-medium text-white bg-brand-600 rounded-lg hover:bg-brand-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
             >
               {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {investor ? 'Guardar Cambios' : 'Crear Inversionista'}
+              {investor ? 'Guardar Cambios' : 'Crear Inversión'}
             </button>
           </div>
         </form>

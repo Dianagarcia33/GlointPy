@@ -355,6 +355,7 @@ export const AdminInvestorsPage = () => {
   };
 
   const handleSaved = () => {
+    setToast({ message: editingInvestor ? 'Inversión actualizada exitosamente' : 'Inversión creada exitosamente', type: 'success' });
     fetchData();
   };
 

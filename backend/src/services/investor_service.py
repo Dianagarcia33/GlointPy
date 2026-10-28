@@ -155,6 +155,14 @@ class InvestorService:
         return candidate_code
 
     @staticmethod
+    def _ensure_start_date_not_future(start_date: Optional[datetime]) -> None:
+        """La fecha de ingreso no puede ser futura: movería la fecha de fin y los rendimientos (H-142)."""
+        from src.core.timezone import get_colombia_today
+        # El formulario envía la fecha elegida a medianoche UTC: se compara el día tal cual, sin convertir
+        if start_date and start_date.date() > get_colombia_today():
+            raise HTTPException(status_code=422, detail="La fecha de ingreso no puede ser posterior a hoy.")
+
+    @staticmethod
     async def create_investor(db: AsyncSession, investor: InvestorCreate) -> Investor:
         # Validate foreign keys
         user_result = await db.execute(select(User).where(User.id == investor.user_id))
@@ -169,6 +177,7 @@ class InvestorService:
         if not period_result.scalars().first():
             raise HTTPException(status_code=404, detail="Periodo no encontrado")
             
+        InvestorService._ensure_start_date_not_future(investor.start_date)
         start_date = investor.start_date or datetime.utcnow()
 
         if investor.assigned_code:
@@ -255,6 +264,8 @@ class InvestorService:
 
         old_referred_by = (db_investor.referred_by or "").strip()
         update_data = investor.model_dump(exclude_unset=True)
+        if update_data.get("start_date"):
+            InvestorService._ensure_start_date_not_future(update_data["start_date"])
 
         # Los bonos por referido (aceleraciones) ya no se aplican: el código de referido queda solo para
         # consultar los bonos antiguos. Cambiarlo crearía o borraría aceleraciones, así que se rechaza (H-140).
