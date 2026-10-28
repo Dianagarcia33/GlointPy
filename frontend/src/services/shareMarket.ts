@@ -81,7 +81,7 @@ export interface ShareIssuance {
 export interface ShareMovement {
     id: number;
     user_id: number;
-    movement_type: 'package_grant' | 'market_buy' | 'market_sell' | 'listing_lock' | 'listing_unlock' | 'admin_adjustment';
+    movement_type: 'package_grant' | 'package_grant_reverted' | 'package_revoke' | 'market_buy' | 'market_sell' | 'listing_lock' | 'listing_unlock' | 'admin_adjustment';
     shares_quantity: number;
     balance_before: number;
     balance_after: number;

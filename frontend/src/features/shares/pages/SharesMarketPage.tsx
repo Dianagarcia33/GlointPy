@@ -557,6 +557,16 @@ export const SharesMarketPage: React.FC = () => {
                                                                 Ajuste de Auditoría
                                                             </span>
                                                         )}
+                                                        {m.movement_type === 'package_grant_reverted' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                                                Paquete (revertido)
+                                                            </span>
+                                                        )}
+                                                        {m.movement_type === 'package_revoke' && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                                                                Contrato Eliminado
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td className="p-4 font-semibold text-slate-800">
                                                         {m.description}

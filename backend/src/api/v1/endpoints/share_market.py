@@ -267,6 +267,8 @@ async def get_user_share_account_admin(
     current_user: User = Depends(get_current_user)
 ):
     """Obtiene el balance y estado de cuenta de acciones de un usuario para administración."""
+    # H-176: mismo saldo conciliado con el libro que ve el inversionista en su portafolio
+    await ShareMarketService.sync_legacy_shares_for_user(db, user_id)
     return await ShareMarketService.get_or_create_user_shares(db, user_id)
 
 @router.post("/admin/manual-grant", response_model=ShareMovementOut, dependencies=[Depends(RequirePermission("admin.shares.manage"))])

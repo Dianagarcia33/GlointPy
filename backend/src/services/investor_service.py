@@ -351,6 +351,44 @@ class InvestorService:
                 status_code=409,
                 detail="No se puede eliminar el contrato: su venta comercial ya fue liquidada y la comisión pagada. Revisa la liquidación en el Panel Comercial."
             )
+        # Acciones otorgadas por el paquete (H-176): se revierten con un asiento en el libro de acciones.
+        # Si ya no están disponibles (vendidas o publicadas en el mercado) no se puede eliminar el contrato.
+        from src.models.share_market import ShareMovement
+        from src.services.share_market_service import ShareMarketService
+        await ShareMarketService.sync_legacy_shares_for_user(db, db_investor.user_id)
+        grants_res = await db.execute(
+            select(ShareMovement).where(
+                ShareMovement.investor_id == investor_id,
+                ShareMovement.movement_type == "package_grant",
+            )
+        )
+        grants = grants_res.scalars().all()
+        granted_shares = sum(g.shares_quantity for g in grants)
+        if granted_shares > 0:
+            account = await ShareMarketService.get_or_create_user_shares(db, db_investor.user_id)
+            if account.available_shares < granted_shares:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"No se puede eliminar el contrato: otorgó {granted_shares} acciones y el inversionista solo tiene "
+                        f"{account.available_shares} disponibles (el resto está vendido o publicado en el mercado). "
+                        "Cancela sus ofertas o ajusta las acciones antes de eliminarlo."
+                    )
+                )
+            contract_code = db_investor.assigned_code or f"#{investor_id}"
+            for grant in grants:
+                # El asiento original se conserva desligado del contrato para que la sincronización no lo borre
+                grant.movement_type = "package_grant_reverted"
+                grant.investor_id = None
+            await ShareMarketService.record_share_movement(
+                db=db,
+                user_id=db_investor.user_id,
+                movement_type="package_revoke",
+                quantity=-granted_shares,
+                description=f"Reversión de {granted_shares} acciones por eliminación del Contrato {contract_code}",
+                package_id=db_investor.package_id,
+            )
+
         affected_commercials = {s.commercial_id for s in linked_sales}
         for sale in linked_sales:
             await db.delete(sale)

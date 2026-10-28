@@ -715,6 +715,8 @@ class UserService:
 
         share_type_labels = {
             "package_grant": "Acreditación por Paquete",
+            "package_grant_reverted": "Acreditación por Paquete (revertida)",
+            "package_revoke": "Reversión por Contrato Eliminado",
             "market_buy": "Compra en Mercado",
             "market_sell": "Venta en Mercado",
             "listing_lock": "Bloqueo para Venta",

@@ -202,6 +202,10 @@ class ShareMarketService:
         elif movement_type == "admin_adjustment":
             account.total_shares = max(0, account.total_shares + quantity)
             account.available_shares = max(0, account.available_shares + quantity)
+        elif movement_type == "package_revoke":
+            # H-176: reversión de las acciones de un contrato eliminado (se valida antes que estén disponibles)
+            account.total_shares = max(0, account.total_shares - qty)
+            account.available_shares = max(0, account.available_shares - qty)
 
         balance_after = account.total_shares
 
@@ -393,9 +397,9 @@ class ShareMarketService:
         running_balance = 0
         for m in all_movs:
             m.balance_before = running_balance
-            if m.movement_type in ["package_grant", "market_buy", "admin_adjustment"]:
+            if m.movement_type in ["package_grant", "package_grant_reverted", "market_buy", "admin_adjustment"]:
                 running_balance += m.shares_quantity
-            elif m.movement_type == "market_sell":
+            elif m.movement_type in ["market_sell", "package_revoke"]:
                 running_balance = max(0, running_balance - abs(m.shares_quantity))
             m.balance_after = running_balance
             db.add(m)

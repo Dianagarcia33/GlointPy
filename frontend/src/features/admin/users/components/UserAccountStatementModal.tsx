@@ -795,6 +795,8 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                                           ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                           : sm.movement_type === 'market_sell'
                                             ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                            : sm.movement_type === 'package_revoke' || sm.movement_type === 'package_grant_reverted'
+                                              ? 'bg-slate-100 text-slate-500 border border-slate-300'
                                             : sm.movement_type === 'admin_adjustment'
                                               ? 'bg-purple-50 text-purple-700 border border-purple-200'
                                               : 'bg-slate-50 text-slate-700 border border-slate-200'
