@@ -144,6 +144,13 @@ export const crmService = {
     });
   },
 
+  archiveLead: async (leadId: number, reason?: string): Promise<any> => {
+    return fetchApi(`/crm/leads/${leadId}/archive`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason || null })
+    });
+  },
+
   updateLeadStage: async (leadId: number, data: {
     stage: string;
     loss_reason?: string;

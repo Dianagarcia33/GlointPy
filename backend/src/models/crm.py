@@ -70,6 +70,9 @@ class CRMLead(Base):
     source = Column(String(100), nullable=True, default="Directo")  # 'Web', 'Referido', 'Evento', 'Directo'
     commercial_id = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     loss_reason = Column(String(255), nullable=True)
+    # Borrado lógico (H-139): un lead archivado (prueba, duplicado o spam) deja de verse en el CRM
+    archived_at = Column(DateTime, nullable=True, index=True)
+    archived_by = Column(BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

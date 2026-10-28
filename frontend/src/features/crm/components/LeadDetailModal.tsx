@@ -15,9 +15,11 @@ import {
   Send,
   Loader2,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  Archive
 } from 'lucide-react';
 import { crmService, CRMLead, CRMActivity, CRMLeadStage } from '../../../services/crmService';
+import { Can } from '../../../components/security/Can';
 import { crmEmailService, CRMEmail } from '../../../services/crmEmailService';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 import { sanitizeEmailHtml } from '../../../utils/sanitizeHtml';
@@ -60,6 +62,9 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'info' | 'activities' | 'emails'>('info');
   const [isConfirmConvertOpen, setIsConfirmConvertOpen] = useState(false);
   const [converting, setConverting] = useState(false);
+  // Archivar lead de prueba, duplicado o spam (H-139)
+  const [isConfirmArchiveOpen, setIsConfirmArchiveOpen] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -181,6 +186,22 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     setIsConfirmConvertOpen(true);
   };
 
+  const handleConfirmArchive = async () => {
+    if (!lead) return;
+    try {
+      setArchiving(true);
+      await crmService.archiveLead(lead.id);
+      setIsConfirmArchiveOpen(false);
+      onUpdate();
+      onClose();
+    } catch (err: any) {
+      setIsConfirmArchiveOpen(false);
+      showToast(err.message || 'Error al archivar el prospecto', 'error');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const handleConfirmConvertToSale = async () => {
     if (!lead) return;
     setIsConfirmConvertOpen(false);
@@ -258,6 +279,17 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                 <span>¡Cierre Ganado y Convertido!</span>
               </div>
             )}
+
+            <Can permission="crm:leads:manage">
+              <button
+                type="button"
+                onClick={() => setIsConfirmArchiveOpen(true)}
+                className="w-full py-2 text-slate-500 hover:text-rose-700 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition-all font-montserrat cursor-pointer"
+              >
+                <Archive className="w-4 h-4" />
+                <span>Archivar Prospecto</span>
+              </button>
+            </Can>
 
             {/* Selector de Etapa */}
             <div>
@@ -481,6 +513,19 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
         cancelText="Cancelar"
         variant="primary"
         isLoading={converting}
+      />
+
+      {/* Modal de Confirmación para Archivar el Prospecto (H-139) */}
+      <ConfirmationModal
+        isOpen={isConfirmArchiveOpen}
+        onClose={() => setIsConfirmArchiveOpen(false)}
+        onConfirm={handleConfirmArchive}
+        title={`¿Archivar el prospecto "${lead?.name || ''}"?`}
+        description="Dejará de aparecer en el Kanban, en los indicadores del CRM y en el reparto de leads. Úsalo para prospectos de prueba, duplicados o spam. Su historial se conserva."
+        confirmText="Sí, Archivar"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={archiving}
       />
     </div>
   );

@@ -193,6 +193,10 @@ async def on_startup():
             for col_sql in [
                 "ALTER TABLE crm_form_keys ADD COLUMN usage_count INT NOT NULL DEFAULT 0",
                 "ALTER TABLE crm_form_keys ADD COLUMN last_used_at DATETIME NULL",
+                # Archivado (borrado lógico) de leads del CRM (H-139)
+                "ALTER TABLE crm_leads ADD COLUMN archived_at DATETIME NULL",
+                "ALTER TABLE crm_leads ADD COLUMN archived_by BIGINT NULL",
+                "CREATE INDEX ix_crm_leads_archived_at ON crm_leads (archived_at)",
             ]:
                 try:
                     await conn.execute(text(col_sql))

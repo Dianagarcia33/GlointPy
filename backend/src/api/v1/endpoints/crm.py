@@ -389,6 +389,22 @@ async def update_lead_stage(
     return {"message": "Etapa actualizada correctamente", "data": updated}
 
 
+class LeadArchiveSchema(BaseModel):
+    reason: Optional[str] = None
+
+
+@router.post("/leads/{lead_id}/archive", dependencies=[Depends(RequirePermission("crm:leads:manage"))])
+async def archive_lead(
+    lead_id: int,
+    data: LeadArchiveSchema,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Archiva un prospecto de prueba, duplicado o spam (borrado lógico, H-139)."""
+    result = await CRMService.archive_lead(db, lead_id, current_user, data.reason)
+    return {"message": "Prospecto archivado correctamente", "data": result}
+
+
 @router.get("/leads/{lead_id}/activities", dependencies=[Depends(RequirePermission("crm:view"))])
 async def get_lead_activities(
     lead_id: int,

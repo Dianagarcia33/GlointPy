@@ -63,7 +63,8 @@ class CRMService:
         result = []
         for p in projects:
             # Calcular recaudación real de leads en 'cierre_ganado'
-            won_sum = sum(l.estimated_amount or 0 for l in p.leads if l.stage == CRMLeadStage.CIERRE_GANADO)
+            leads = [l for l in p.leads if l.archived_at is None]  # sin leads archivados (H-139)
+            won_sum = sum(l.estimated_amount or 0 for l in leads if l.stage == CRMLeadStage.CIERRE_GANADO)
             target = p.target_amount or Decimal("1")
             progress_pct = min(100.0, float((won_sum / target) * 100)) if target > 0 else 0.0
             
@@ -76,9 +77,9 @@ class CRMService:
                 "raised_amount": float(won_sum),
                 "progress_percentage": round(progress_pct, 1),
                 "status": p.status,
-                "total_leads": len(p.leads),
-                "active_leads": len([l for l in p.leads if l.stage not in [CRMLeadStage.CIERRE_GANADO, CRMLeadStage.PERDIDO]]),
-                "won_leads": len([l for l in p.leads if l.stage == CRMLeadStage.CIERRE_GANADO]),
+                "total_leads": len(leads),
+                "active_leads": len([l for l in leads if l.stage not in [CRMLeadStage.CIERRE_GANADO, CRMLeadStage.PERDIDO]]),
+                "won_leads": len([l for l in leads if l.stage == CRMLeadStage.CIERRE_GANADO]),
                 "start_date": p.start_date.isoformat() if p.start_date else None,
                 "end_date": p.end_date.isoformat() if p.end_date else None,
                 "created_at": p.created_at.isoformat() if p.created_at else None
@@ -186,7 +187,7 @@ class CRMService:
         stmt = (
             select(CRMLead)
             .options(selectinload(CRMLead.commercial), selectinload(CRMLead.activities))
-            .where(CRMLead.project_id == project_id)
+            .where(CRMLead.project_id == project_id, CRMLead.archived_at.is_(None))
         )
         
         if commercial_id:
@@ -252,7 +253,7 @@ class CRMService:
     ) -> Optional[dict]:
         """Actualiza la etapa de un lead (movimiento en Kanban)."""
         lead = await db.get(CRMLead, lead_id)
-        if not lead:
+        if not lead or lead.archived_at is not None:
             return None
 
         lead.stage = new_stage
@@ -318,6 +319,24 @@ class CRMService:
         ]
 
     @staticmethod
+    async def archive_lead(db: AsyncSession, lead_id: int, user: User, reason: Optional[str] = None) -> dict:
+        """Archiva un lead (borrado lógico): deja de aparecer en el Kanban, los KPIs y el reparto Round-Robin."""
+        lead = await db.get(CRMLead, lead_id)
+        if not lead or lead.archived_at is not None:
+            raise HTTPException(status_code=404, detail="Prospecto no encontrado")
+        lead.archived_at = datetime.utcnow()
+        lead.archived_by = user.id
+        db.add(CRMActivity(
+            lead_id=lead.id,
+            user_id=user.id,
+            type=CRMActivityType.NOTA,
+            title="Lead archivado",
+            description=f"Archivado por {user.name or user.email}" + (f": {reason}" if reason else "")
+        ))
+        await db.commit()
+        return {"id": lead.id, "archived_at": lead.archived_at.isoformat()}
+
+    @staticmethod
     async def get_global_kpis(db: AsyncSession, commercial_id: Optional[int] = None) -> dict:
         """Obtiene los KPIs consolidados del CRM."""
         # Total de proyectos activos
@@ -326,7 +345,7 @@ class CRMService:
         total_projects = p_res.scalar() or 0
 
         # Leads por etapa
-        l_stmt = select(CRMLead)
+        l_stmt = select(CRMLead).where(CRMLead.archived_at.is_(None))
         if commercial_id:
             l_stmt = l_stmt.where(CRMLead.commercial_id == commercial_id)
         l_res = await db.execute(l_stmt)
@@ -459,7 +478,8 @@ class CRMService:
         count_stmt = (
             select(CRMLead.commercial_id, func.count(CRMLead.id))
             .where(
-                CRMLead.commercial_id.in_(directivo_ids)
+                CRMLead.commercial_id.in_(directivo_ids),
+                CRMLead.archived_at.is_(None)
             )
             .group_by(CRMLead.commercial_id)
         )

@@ -18,6 +18,7 @@ import {
   Power
 } from 'lucide-react';
 import { crmService, CRMFormKey, CRMProject } from '../../../services/crmService';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
 
 interface CRMFormKeysModalProps {
   isOpen: boolean;
@@ -39,6 +40,8 @@ export const CRMFormKeysModal: React.FC<CRMFormKeysModalProps> = ({
   const [formName, setFormName] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
   const [formError, setFormError] = useState<string | null>(null);
+  // Clave pendiente de confirmar su eliminación (H-139: antes usaba window.confirm, que bloquea la página)
+  const [keyToDelete, setKeyToDelete] = useState<CRMFormKey | null>(null);
 
   // Fetch Form Keys
   const { data: formKeys = [], isLoading } = useQuery<CRMFormKey[]>({
@@ -76,6 +79,7 @@ export const CRMFormKeysModal: React.FC<CRMFormKeysModalProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crm_form_keys'] });
       if (selectedKeyForSnippet) setSelectedKeyForSnippet(null);
+      setKeyToDelete(null);
     }
   });
 
@@ -222,7 +226,7 @@ async function enviarFormulario(datos) {
                     required
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder="Ej. Landing Logy Pay Principal"
+                    placeholder="Ej. Landing Fondo Gloint Investment"
                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-brand-500 font-sans"
                   />
                 </div>
@@ -380,11 +384,7 @@ async function enviarFormulario(datos) {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          if (window.confirm(`¿Seguro que deseas eliminar la clave para "${keyItem.name}"? Los formularios que la usen ya no podrán registrar leads.`)) {
-                            deleteMutation.mutate(keyItem.id);
-                          }
-                        }}
+                        onClick={() => setKeyToDelete(keyItem)}
                         disabled={deleteMutation.isPending}
                         className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
                         title="Eliminar clave"
@@ -449,6 +449,18 @@ async function enviarFormulario(datos) {
         </div>
 
       </div>
+
+      <ConfirmationModal
+        isOpen={!!keyToDelete}
+        onClose={() => setKeyToDelete(null)}
+        onConfirm={() => keyToDelete && deleteMutation.mutate(keyToDelete.id)}
+        title={`¿Eliminar la clave "${keyToDelete?.name || ''}"?`}
+        description={`Proyecto: ${keyToDelete?.project_name || ''} (${keyToDelete?.project_code || ''}). Los formularios que usen esta clave dejarán de registrar leads. Esta acción no se puede deshacer.`}
+        confirmText="Sí, Eliminar Clave"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+      />
     </div>
   );
 };
