@@ -38,10 +38,15 @@ async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncS
     # 2. Public / semi-public templates and avatars assets (letterhead images, general assets, avatars, email attachments)
     if category in ["templates", "public", "avatars", "email_attachments"]:
         mime_type, _ = mimetypes.guess_type(target_path)
+        headers = {"X-Content-Type-Options": "nosniff"}
+        if mime_type == "image/svg+xml":
+            # Un SVG abierto directamente puede ejecutar scripts en el dominio de la API (H-132):
+            # se sirve en sandbox y sin permitir scripts; dentro de <img> se sigue viendo igual.
+            headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
         return FileResponse(
             target_path,
             media_type=mime_type or "application/octet-stream",
-            headers={"X-Content-Type-Options": "nosniff"}
+            headers=headers
         )
 
     # 3. Sensitive files (comprobantes, kyc, sarlaft_reports, settlements, receipts, chat): Require authentication

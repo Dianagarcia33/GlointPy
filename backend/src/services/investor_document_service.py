@@ -458,6 +458,24 @@ class InvestorDocumentService:
         return rendered
 
     @staticmethod
+    def find_unknown_variables(template_html: str) -> List[str]:
+        """
+        Variables {xxx} del HTML que render_html no sabe reemplazar (H-132). Se renderiza con un
+        inversionista vacío: lo que siga entre llaves después de reemplazar es desconocido.
+        """
+        import re
+
+        class _EmptyInvestor:
+            def __getattr__(self, _name):
+                return None
+
+        if not template_html:
+            return []
+        rendered = InvestorDocumentService.render_html(template_html, _EmptyInvestor())
+        unknown = re.findall(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", rendered)
+        return sorted(set(unknown), key=unknown.index)
+
+    @staticmethod
     async def get_investor_with_relations(db: AsyncSession, investor_id: int) -> Investor:
         from src.models.package import Package
         from src.models.period import Period
