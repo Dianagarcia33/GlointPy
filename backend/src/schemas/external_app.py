@@ -33,7 +33,6 @@ class ExternalAppUpdate(BaseModel):
 class ExternalAppResponse(ExternalAppBase):
     id: int
     client_id: str
-    webhook_secret: Optional[str] = None
     created_by: Optional[int] = None
     created_at: datetime
     updated_at: datetime
@@ -44,7 +43,9 @@ class ExternalAppResponse(ExternalAppBase):
     model_config = ConfigDict(from_attributes=True)
 
 class ExternalAppCreatedResponse(ExternalAppResponse):
-    api_key: str  # Only returned once on creation/regeneration
+    # H-173: las credenciales solo se devuelven al crear o regenerar, nunca en el listado
+    api_key: str
+    webhook_secret: Optional[str] = None
 
 class CreatePaymentIntentRequest(BaseModel):
     order_reference: str

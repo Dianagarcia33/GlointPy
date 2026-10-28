@@ -92,7 +92,6 @@ class ExternalAppService:
                 "description": app.description,
                 "client_id": app.client_id,
                 "webhook_url": app.webhook_url,
-                "webhook_secret": app.webhook_secret,
                 "redirect_urls": app.redirect_urls,
                 "is_active": app.is_active,
                 "created_by": app.created_by,

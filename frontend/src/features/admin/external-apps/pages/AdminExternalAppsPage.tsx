@@ -685,13 +685,13 @@ export const AdminExternalAppsPage: React.FC = () => {
                 <Key className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-lg font-bold font-montserrat text-slate-900">Nueva API Key Generada</h3>
+                <h3 className="text-lg font-bold font-montserrat text-slate-900">Nuevas Credenciales Generadas</h3>
                 <p className="text-xs text-slate-500 font-medium">{regeneratedKeyData.name}</p>
               </div>
             </div>
 
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-xs">
-              Guarda esta llave en un lugar seguro. La API Key anterior fue revocada y esta no volverá a mostrarse.
+              Guarda estas credenciales en un lugar seguro. La API Key y el Webhook Secret anteriores fueron revocados y estos no volverán a mostrarse. Actualiza también el secreto con el que el comercio verifica la firma de los webhooks.
             </div>
 
             <div className="space-y-1.5">
@@ -708,12 +708,37 @@ export const AdminExternalAppsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleCopy(regeneratedKeyData.api_key, 'regen_key')}
+                  aria-label="Copiar API Key"
                   className="p-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-colors cursor-pointer shadow-xs"
                 >
                   {copiedKey === 'regen_key' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
             </div>
+
+            {regeneratedKeyData.webhook_secret && (
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-brand-700">
+                  Webhook Secret (firma HMAC-SHA256)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={regeneratedKeyData.webhook_secret}
+                    className="flex-1 px-3.5 py-2.5 bg-brand-50/50 border border-brand-200 rounded-xl font-mono text-xs text-brand-900 font-bold select-all focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(regeneratedKeyData.webhook_secret, 'regen_secret')}
+                    aria-label="Copiar Webhook Secret"
+                    className="p-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-colors cursor-pointer shadow-xs"
+                  >
+                    {copiedKey === 'regen_secret' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end pt-2">
               <button
@@ -756,7 +781,7 @@ export const AdminExternalAppsPage: React.FC = () => {
         description={
           regeneratingApp ? (
             <span>
-              ¿Estás seguro de que deseas regenerar la API Key de <strong className="text-slate-800">"{regeneratingApp.name}"</strong>? La llave anterior dejará de funcionar de inmediato y deberás actualizar tus servidores.
+              ¿Estás seguro de que deseas regenerar la API Key de <strong className="text-slate-800">"{regeneratingApp.name}"</strong>? La llave anterior y el Webhook Secret dejarán de funcionar de inmediato y deberás actualizar tus servidores.
             </span>
           ) : undefined
         }
