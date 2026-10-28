@@ -46,10 +46,14 @@ export const AdminSharesPage: React.FC = () => {
     // Modal de Sincronización y Resumen de Acciones
     const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
     const [syncStage, setSyncStage] = useState<'confirm' | 'result'>('confirm');
+    // H-192: restar acciones ya otorgadas exige marcarlo de forma explícita
+    const [syncAllowReductions, setSyncAllowReductions] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
     const [syncResult, setSyncResult] = useState<{
         users_synced: number;
         total_shares_credited: number;
+        total_shares_removed?: number;
+        discrepancies_count?: number;
         updated_users: Array<{
             user_id: number;
             user_name: string;
@@ -311,6 +315,7 @@ export const AdminSharesPage: React.FC = () => {
     const handleOpenSyncModal = () => {
         setSyncStage('confirm');
         setSyncError(null);
+        setSyncAllowReductions(false);
         setIsSyncModalOpen(true);
     };
 
@@ -318,11 +323,13 @@ export const AdminSharesPage: React.FC = () => {
         try {
             setSyncLoading(true);
             setSyncError(null);
-            const res = await shareMarketService.syncLegacyShares();
+            const res = await shareMarketService.syncLegacyShares(syncAllowReductions);
             const details = res.details || {};
             setSyncResult({
                 users_synced: details.users_synced ?? details.synced_users_count ?? 0,
                 total_shares_credited: details.total_shares_credited ?? 0,
+                total_shares_removed: details.total_shares_removed ?? 0,
+                discrepancies_count: details.discrepancies_count ?? 0,
                 updated_users: details.updated_users || []
             });
             setSyncStage('result');
@@ -943,11 +950,25 @@ export const AdminSharesPage: React.FC = () => {
                                         <div className="text-xs text-indigo-950 font-medium space-y-1.5">
                                             <p className="font-bold text-indigo-900">¿Cómo funciona la sincronización?</p>
                                             <p className="text-indigo-800 leading-relaxed">
-                                                El sistema escaneará los contratos de inversión históricos y verificará el paquete adquirido por cada usuario. Se calculará e insertará en la nueva tabla contable (<code className="font-mono bg-white/70 px-1 py-0.5 rounded text-[11px]">user_shares</code> y <code className="font-mono bg-white/70 px-1 py-0.5 rounded text-[11px]">share_movements</code>) la cantidad exacta de acciones estipulada en su paquete.
+                                                El sistema escaneará los contratos de inversión históricos y <strong>acreditará las acciones que falten</strong> según el paquete adquirido por cada usuario. Las acciones ya otorgadas <strong>no se modifican</strong>: si difieren de la definición actual del paquete, solo se informan.
                                             </p>
                                         </div>
                                     </div>
                                 </div>
+
+                                <label className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={syncAllowReductions}
+                                        onChange={(e) => setSyncAllowReductions(e.target.checked)}
+                                        disabled={syncLoading}
+                                        className="mt-0.5 w-4 h-4 accent-amber-600 cursor-pointer"
+                                    />
+                                    <span className="text-xs text-amber-950 font-medium leading-relaxed">
+                                        <strong className="text-amber-900">Permitir RESTAR acciones ya otorgadas.</strong>{' '}
+                                        Si se marca, los saldos se recalculan con la definición ACTUAL de cada paquete y a los usuarios que compraron antes de un cambio se les pueden quitar acciones. Úsalo solo con autorización de negocio.
+                                    </span>
+                                </label>
 
                                 {syncError && (
                                     <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium">
@@ -997,6 +1018,19 @@ export const AdminSharesPage: React.FC = () => {
                                             +{(syncResult?.total_shares_credited || 0).toLocaleString('es-CO')}
                                         </span>
                                     </div>
+                                    {(syncResult?.total_shares_removed || 0) > 0 && (
+                                        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl col-span-2 sm:col-span-3">
+                                            <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider block">Acciones Restadas</span>
+                                            <span className="text-xl font-black text-rose-600 font-mono mt-0.5 block">
+                                                -{(syncResult?.total_shares_removed || 0).toLocaleString('es-CO')}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {(syncResult?.discrepancies_count || 0) > 0 && (
+                                        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl col-span-2 sm:col-span-3 text-xs text-amber-900 font-medium">
+                                            <strong>{syncResult?.discrepancies_count}</strong> contrato(s) tienen acciones ya otorgadas distintas a la definición actual de su paquete. No se modificaron; revísalos con negocio.
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Lista de detalle de usuarios actualizados */}

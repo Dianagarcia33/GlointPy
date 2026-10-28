@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
@@ -253,11 +253,12 @@ async def get_user_share_movements_admin(
 
 @router.post("/admin/sync-legacy-shares", dependencies=[Depends(RequirePermission("admin.shares.manage"))])
 async def sync_legacy_shares_endpoint(
+    allow_reductions: bool = Query(False, description="Permite restar o eliminar acciones ya otorgadas si difieren de la definición actual del paquete"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Sincroniza y consolida de forma retroactiva las acciones otorgadas por paquetes de inversión históricos."""
-    result = await ShareMarketService.sync_all_users_legacy_shares(db)
+    """Sincroniza las acciones otorgadas por paquetes históricos. Por defecto solo acredita las que faltan (H-192)."""
+    result = await ShareMarketService.sync_all_users_legacy_shares(db, allow_reductions=allow_reductions)
     return {"message": "Sincronización retroactiva completada exitosamente.", "details": result}
 
 @router.get("/admin/users/{user_id}/account", response_model=UserShareAccountOut, dependencies=[Depends(RequirePermission("admin.shares.manage"))])

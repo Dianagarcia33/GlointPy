@@ -228,8 +228,19 @@ class ShareMarketService:
         return movement
 
     @staticmethod
-    async def sync_legacy_shares_for_user(db: AsyncSession, user_id: int) -> int:
-        """Sincroniza retroactivamente contratos de inversión y órdenes previas en el libro mayor y reemplaza el saldo exacto en user_shares."""
+    async def sync_legacy_shares_for_user(
+        db: AsyncSession,
+        user_id: int,
+        allow_reductions: bool = False,
+        discrepancies: Optional[list] = None,
+    ) -> int:
+        """Sincroniza retroactivamente contratos de inversión y órdenes previas en el libro mayor y reemplaza el saldo exacto en user_shares.
+
+        H-192: las acciones de un contrato se congelan al comprarlo. Por defecto la sincronización solo
+        ACREDITA las que faltan; si lo que ya se otorgó difiere de la definición ACTUAL del paquete, no se
+        toca y se informa en `discrepancies`. Solo con allow_reductions=True (confirmación explícita del
+        administrador) se reemplaza o elimina lo ya otorgado, como hacía antes.
+        """
         credited_shares = 0
 
         # 1. Contratos de inversión con paquetes que otorgan acciones
@@ -259,14 +270,28 @@ class ShareMarketService:
             total_current_pkg_shares = sum(m.shares_quantity for m in existing_movements)
 
             if shares_to_grant <= 0:
-                # Si el contrato/paquete ya no otorga acciones (ej. paquete de 50mil corregido a 0 acciones),
-                # eliminar inmediatamente cualquier movimiento previo de package_grant asociado
-                for old_m in existing_movements:
-                    await db.delete(old_m)
                 if existing_movements:
-                    await db.flush()
+                    if allow_reductions:
+                        # El paquete ya no otorga acciones (ej. 50mil corregido a 0): se eliminan los asientos previos
+                        for old_m in existing_movements:
+                            await db.delete(old_m)
+                        await db.flush()
+                    elif discrepancies is not None:
+                        discrepancies.append({
+                            "user_id": user_id, "investor_id": inv.id, "contract": inv.assigned_code or inv.id,
+                            "granted_in_ledger": total_current_pkg_shares, "package_grants_now": 0,
+                        })
             else:
-                if total_current_pkg_shares != shares_to_grant or not existing_movements:
+                needs_change = total_current_pkg_shares != shares_to_grant or not existing_movements
+                if existing_movements and needs_change and not allow_reductions:
+                    # Ya se otorgaron acciones con los términos vigentes al comprar: se conservan
+                    needs_change = False
+                    if discrepancies is not None:
+                        discrepancies.append({
+                            "user_id": user_id, "investor_id": inv.id, "contract": inv.assigned_code or inv.id,
+                            "granted_in_ledger": total_current_pkg_shares, "package_grants_now": shares_to_grant,
+                        })
+                if needs_change:
                     # Reemplazar movimientos incorrectos o desactualizados por el valor exacto del paquete
                     for old_m in existing_movements:
                         await db.delete(old_m)
@@ -408,6 +433,15 @@ class ShareMarketService:
         # 5. REEMPLAZO ESTRICTO EN LA TABLA user_shares
         exact_total = max(0, running_balance)
         account = await ShareMarketService.get_or_create_user_shares(db, user_id)
+        if not allow_reductions and account.total_shares > exact_total:
+            # H-192: nunca se baja el saldo guardado solo porque el libro no lo respalde; se informa
+            if discrepancies is not None:
+                discrepancies.append({
+                    "user_id": user_id, "investor_id": None, "contract": None,
+                    "granted_in_ledger": exact_total, "package_grants_now": None,
+                    "stored_balance": account.total_shares,
+                })
+            exact_total = account.total_shares
         account.total_shares = exact_total
 
         # Comprobar ofertas de venta activas y órdenes en custodia
@@ -1025,8 +1059,12 @@ class ShareMarketService:
         ]
 
     @staticmethod
-    async def sync_all_users_legacy_shares(db: AsyncSession) -> dict:
-        """Sincroniza retroactivamente a todos los usuarios del sistema que tengan contratos de inversión, órdenes o cuentas de acciones."""
+    async def sync_all_users_legacy_shares(db: AsyncSession, allow_reductions: bool = False) -> dict:
+        """Sincroniza retroactivamente a todos los usuarios del sistema que tengan contratos de inversión, órdenes o cuentas de acciones.
+
+        H-192: por defecto solo acredita lo que falta y lista en `discrepancies` lo que difiere de la
+        definición actual de los paquetes; con allow_reductions=True además reemplaza/elimina lo ya otorgado."""
+        discrepancies: list = []
         # 0. Asegurar en base de datos que los paquetes de 50.000 COP tengan 0 acciones otorgadas
         await db.execute(text("UPDATE packages SET granted_shares = 0 WHERE (value = 50000 OR value = 50000.00)"))
         await db.flush()
@@ -1071,7 +1109,9 @@ class ShareMarketService:
             acc_before = await db.execute(select(UserShare.total_shares).where(UserShare.user_id == uid))
             prev_shares = acc_before.scalar() or 0
 
-            credited = await ShareMarketService.sync_legacy_shares_for_user(db, uid)
+            credited = await ShareMarketService.sync_legacy_shares_for_user(
+                db, uid, allow_reductions=allow_reductions, discrepancies=discrepancies
+            )
 
             # Obtener saldo final reemplazado después de la sincronización
             acc_after = await db.execute(select(UserShare.total_shares, UserShare.available_shares, UserShare.locked_shares).where(UserShare.user_id == uid))
@@ -1105,6 +1145,12 @@ class ShareMarketService:
             "users_synced": synced_count,
             "synced_users_count": synced_count,
             "total_shares_credited": total_shares_credited,
+            "allow_reductions": allow_reductions,
+            "total_shares_removed": sum(
+                max(0, u["previous_shares"] - u["new_total_shares"]) for u in updated_users
+            ),
+            "discrepancies_count": len(discrepancies),
+            "discrepancies": discrepancies[:200],
             "updated_users": updated_users
         }
 
