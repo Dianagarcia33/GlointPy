@@ -79,6 +79,41 @@ export const normalizeDocumentHtml = (rawHtml: string): string => {
     return container.innerHTML;
 };
 
+// Una página sin texto, imágenes ni tablas (p. ej. solo <br> o párrafos vacíos) no se imprime (H-143)
+const hasVisibleContent = (html: string): boolean => {
+    const body = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html').body;
+    const text = (body.textContent || '').replace(/\u00a0/g, ' ').trim();
+    return text.length > 0 || body.querySelector('img, table, hr, svg') !== null;
+};
+
+// Elementos que forman parte del bloque de firmas: líneas de firma, firma digital, nombres y cargos
+const isSignatureElement = (el: Element): boolean => {
+    if (el.classList.contains('doc-sig-line') || el.classList.contains('doc-signature-img')) return true;
+    if (el.querySelector('.doc-sig-line, .doc-signature-img, img')) return true;
+    const text = (el.textContent || '').toUpperCase();
+    if (/_{4,}/.test(text)) return true;
+    // Solo textos cortos (nombre/cargo bajo la firma): "LA EMPRESA" también aparece en las cláusulas
+    return text.trim().length <= 80 && (text.includes('FIRMA') || text.includes('REPRESENTANTE LEGAL') || text.includes('LA EMPRESA'));
+};
+
+const estimateElementHeight = (child: Element): number => {
+    const textLen = (child.textContent || '').length;
+    const tagName = child.tagName.toLowerCase();
+    const hasImg = child.querySelector('img') !== null || tagName === 'img' || child.classList.contains('doc-signature-img');
+    const isTitle = child.classList.contains('doc-title') || tagName === 'h1' || tagName === 'h2';
+    const isHeader = child.classList.contains('doc-section-header') || tagName === 'h3' || tagName === 'h4';
+
+    // Realistic height based on font-size 10px and line-height ~14.5px
+    if (isTitle) return 32;
+    if (isHeader) return 22;
+    if (tagName === 'p') return Math.max(1, Math.ceil(textLen / 95)) * 15 + 6 + (hasImg ? 75 : 0);
+    if (tagName === 'table') return (child.querySelectorAll('tr').length || 3) * 22 + 10;
+    if (tagName === 'div') return Math.max(1, Math.ceil(textLen / 95)) * 15 + 8 + (hasImg ? 75 : 0);
+    if (tagName === 'br') return 4;
+    if (hasImg) return 75;
+    return 6;
+};
+
 export const splitHtmlIntoPages = (fullHtml: string): string[] => {
     if (!fullHtml) return [''];
 
@@ -87,7 +122,8 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
     // If template has explicit page breaks
     if (normalizedHtml.includes('class="page-break"') || normalizedHtml.includes('page-break-after')) {
         const parts = normalizedHtml.split(/<div[^>]*class=["'][^"']*page-break[^"']*["'][^>]*>.*?<\/div>/gi);
-        if (parts.length > 1) return parts.filter(p => p.trim().length > 0);
+        const visibleParts = parts.filter(hasVisibleContent);
+        if (visibleParts.length > 1) return visibleParts;
     }
 
     // Temporary container to parse DOM elements
@@ -99,42 +135,29 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
     const childNodes = Array.from(container.children);
     if (childNodes.length === 0) return [normalizedHtml];
 
+    const heights = childNodes.map(estimateElementHeight);
+
+    // Bloque de firmas: desde el primer elemento de firma de la segunda mitad del documento hasta el
+    // final. Si no cabe en lo que queda de la página, pasa entero a la siguiente para no partir las
+    // firmas entre dos hojas (H-143)
+    const half = Math.floor(childNodes.length / 2);
+    let signatureStart = childNodes.findIndex((el, i) => i >= half && isSignatureElement(el));
+    const signatureHeight = signatureStart >= 0 ? heights.slice(signatureStart).reduce((a, b) => a + b, 0) : 0;
+    if (signatureHeight > USABLE_HEIGHT_PX) signatureStart = -1; // no cabe en una hoja: se pagina normal
+
     const pages: string[] = [];
     let currentPageHtml = '';
     let currentEstimatedHeight = 0;
 
-    for (const child of childNodes) {
-        const textLen = (child.textContent || '').length;
-        const tagName = child.tagName.toLowerCase();
-        const hasImg = child.querySelector('img') !== null || tagName === 'img' || child.classList.contains('doc-signature-img');
-        const isTitle = child.classList.contains('doc-title') || tagName === 'h1' || tagName === 'h2';
-        const isHeader = child.classList.contains('doc-section-header') || tagName === 'h3' || tagName === 'h4';
-
-        // Realistic height based on font-size 10px and line-height ~14.5px
-        let elementHeight = 6;
-        if (isTitle) {
-            elementHeight = 32;
-        } else if (isHeader) {
-            elementHeight = 22;
-        } else if (tagName === 'p') {
-            const lines = Math.max(1, Math.ceil(textLen / 95));
-            elementHeight = lines * 15 + 6 + (hasImg ? 75 : 0);
-        } else if (tagName === 'table') {
-            const rows = child.querySelectorAll('tr').length || 3;
-            elementHeight = rows * 22 + 10;
-        } else if (tagName === 'div') {
-            const lines = Math.max(1, Math.ceil(textLen / 95));
-            elementHeight = lines * 15 + 8 + (hasImg ? 75 : 0);
-        } else if (tagName === 'br') {
-            elementHeight = 4;
-        } else if (hasImg) {
-            elementHeight = 75;
-        }
+    childNodes.forEach((child, index) => {
+        const elementHeight = heights[index];
 
         // Check if element has page break class
         const isPageBreak = child.classList.contains('page-break') || (child.getAttribute('style') || '').includes('page-break');
+        const signatureBlockOverflows = index === signatureStart && currentPageHtml.trim().length > 0
+            && currentEstimatedHeight + signatureHeight > USABLE_HEIGHT_PX;
 
-        if (isPageBreak || (currentEstimatedHeight + elementHeight > USABLE_HEIGHT_PX && currentPageHtml.trim().length > 0)) {
+        if (isPageBreak || signatureBlockOverflows || (currentEstimatedHeight + elementHeight > USABLE_HEIGHT_PX && currentPageHtml.trim().length > 0)) {
             pages.push(currentPageHtml);
             currentPageHtml = isPageBreak ? '' : child.outerHTML;
             currentEstimatedHeight = isPageBreak ? 0 : elementHeight;
@@ -142,13 +165,14 @@ export const splitHtmlIntoPages = (fullHtml: string): string[] => {
             currentPageHtml += child.outerHTML;
             currentEstimatedHeight += elementHeight;
         }
-    }
+    });
 
     if (currentPageHtml.trim().length > 0) {
         pages.push(currentPageHtml);
     }
 
-    return pages.length > 0 ? pages : [normalizedHtml];
+    const visiblePages = pages.filter(hasVisibleContent);
+    return visiblePages.length > 0 ? visiblePages : [normalizedHtml];
 };
 
 export const printPaginatedDocument = (
