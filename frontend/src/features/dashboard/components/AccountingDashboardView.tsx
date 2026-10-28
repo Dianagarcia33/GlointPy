@@ -37,7 +37,7 @@ export const AccountingDashboardView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'investments' | 'recharges' | 'withdrawals'>('investments');
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
 
-  const { data, isLoading, refetch, isRefetching } = useQuery<AccountingAnalyticsDashboardData>({
+  const { data, isLoading, isError, error, refetch, isRefetching } = useQuery<AccountingAnalyticsDashboardData>({
     queryKey: ['accounting_analytics_dashboard'],
     queryFn: () => analyticsService.getAccountingAnalyticsDashboard(),
     refetchInterval: 30000, // Refresca cada 30 segundos automáticamente
@@ -57,6 +57,28 @@ export const AccountingDashboardView: React.FC = () => {
           ))}
         </div>
         <div className="bg-white rounded-3xl p-8 border border-slate-200 h-96"></div>
+      </div>
+    );
+  }
+
+  // H-181: si la consulta falla no se muestran ceros falsos; se avisa y se permite reintentar
+  if (isError && !data) {
+    return (
+      <div className="w-full p-6 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-4 text-rose-700 shadow-xs" role="alert">
+        <AlertCircle className="w-6 h-6 shrink-0 mt-0.5 text-rose-600" />
+        <div>
+          <h3 className="font-bold font-montserrat text-base text-rose-900">No se pudo cargar Contabilidad &amp; Tesorería</h3>
+          <p className="text-sm mt-1 text-rose-700">
+            {(error as Error)?.message || 'Error al consultar los pendientes.'} Los valores en cero no son reales: vuelve a intentarlo.
+          </p>
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="mt-3 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer font-montserrat shadow-xs disabled:opacity-60"
+          >
+            {isRefetching ? 'Reintentando...' : 'Reintentar'}
+          </button>
+        </div>
       </div>
     );
   }

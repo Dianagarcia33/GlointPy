@@ -412,7 +412,7 @@ async def get_accounting_analytics_dashboard(
             "user_name": r.user.name if r.user else "Usuario",
             "user_email": r.user.email if r.user else "",
             "user_document": getattr(r.user, "document_id", None) if r.user else None,
-            "package_name": r.package.name if r.package else "Paquete Inversión",
+            "package_name": f"Paquete ${float(r.package.value or 0):,.0f}" if r.package else "Paquete Inversión",  # H-181: Package no tiene 'name'; el 500 venía de aquí
             "monto": float(r.monto or 0),
             "comprobante_path": r.comprobante_path,
             "created_at": r.created_at.isoformat() if r.created_at else None
