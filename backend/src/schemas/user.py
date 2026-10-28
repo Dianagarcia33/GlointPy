@@ -34,6 +34,8 @@ def _validate_date_of_birth(v):
     today = date.today()
     if d > today:
         raise ValueError("La fecha de nacimiento no puede ser una fecha futura.")
+    if d == today:
+        raise ValueError("La fecha de nacimiento debe ser anterior a hoy.")  # H-198
     return d
 
 class UserCreateAdmin(UserBase):

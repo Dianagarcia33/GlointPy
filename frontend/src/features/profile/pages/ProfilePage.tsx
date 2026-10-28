@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { validateDocumentId, validatePhoneNumber, validateBirthDate } from '../../../utils/identityValidation';
+import { getColombiaToday } from '../../../utils/format';
 import { 
   User as UserIcon, 
   Mail, 
@@ -107,6 +109,15 @@ export const ProfilePage: React.FC = () => {
     // Sin validación nativa del navegador (noValidate), el formato del correo se valida aquí
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setProfileError('Ingresa un correo electrónico válido.');
+      return;
+    }
+
+    // H-198: formato de documento, teléfono y fecha de nacimiento (solo de lo que cambia)
+    const docError = documentId.trim() && documentId.trim() !== (user?.document_id || '') ? validateDocumentId(documentId) : null;
+    const phoneError = phoneNumber.trim() && phoneNumber.trim() !== (user?.phone_number || '') ? validatePhoneNumber(phoneNumber) : null;
+    const dobError = dateOfBirth && dateOfBirth !== (user?.date_of_birth || '').slice(0, 10) ? validateBirthDate(dateOfBirth, getColombiaToday()) : null;
+    if (docError || phoneError || dobError) {
+      setProfileError((docError || phoneError || dobError) as string);
       return;
     }
 

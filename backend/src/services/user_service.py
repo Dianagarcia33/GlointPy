@@ -268,6 +268,34 @@ class UserService:
     async def update_profile(db: AsyncSession, user_id: int, profile_data: dict) -> User:
         user = await UserService.get_user_by_id(db, user_id)
 
+        # H-198: formato de documento, teléfono y fecha de nacimiento. Solo se valida lo que cambia, para no
+        # bloquear a usuarios antiguos cuyos datos históricos no cumplen el formato y solo editan otro campo.
+        from src.core.identity import normalize_document_id, normalize_phone_number, validate_birth_date
+        try:
+            if profile_data.get("document_id") and profile_data["document_id"].strip() != (user.document_id or ""):
+                profile_data["document_id"] = normalize_document_id(profile_data["document_id"])
+            if profile_data.get("phone_number") and profile_data["phone_number"].strip() != (user.phone_number or ""):
+                profile_data["phone_number"] = normalize_phone_number(profile_data["phone_number"])
+            new_dob = profile_data.get("date_of_birth")
+            if new_dob:
+                dob_date = new_dob.date() if hasattr(new_dob, "date") else new_dob
+                current_dob = user.date_of_birth.date() if hasattr(user.date_of_birth, "date") else user.date_of_birth
+                if dob_date != current_dob:
+                    validate_birth_date(dob_date)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+
+        # La actualización obligatoria solo se da por cumplida con los tres datos presentes
+        if user.must_update_profile:
+            final_doc = profile_data.get("document_id") if "document_id" in profile_data else user.document_id
+            final_phone = profile_data.get("phone_number") if "phone_number" in profile_data else user.phone_number
+            final_dob = profile_data.get("date_of_birth") if "date_of_birth" in profile_data else user.date_of_birth
+            if not (final_doc and final_phone and final_dob):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Para completar la actualización obligatoria indica tu documento de identidad, teléfono y fecha de nacimiento."
+                )
+
         # Validate unique email if changing
         if "email" in profile_data and profile_data["email"] and profile_data["email"].lower() != user.email.lower():
             res = await db.execute(select(User).where(User.email == profile_data["email"].lower(), User.id != user_id))
