@@ -90,6 +90,15 @@ export const AdminPeriodsPage = () => {
 
   const totalPeriods = periods.length;
   const activePeriods = periods.filter(p => p.is_active).length;
+  // Formato único para la rentabilidad: coma decimal y máximo 2 decimales (H-131)
+  const formatPct = (value: number | string) =>
+    (Number(value) || 0).toLocaleString('es-CO', { maximumFractionDigits: 2 });
+
+  const deletingPeriod = periods.find(p => p.id === deletingId);
+  const deletingPeriodLabel = deletingPeriod
+    ? `${deletingPeriod.months > 0 ? `${deletingPeriod.months} ${deletingPeriod.months === 1 ? 'Mes' : 'Meses'} (${deletingPeriod.days} días)` : `${deletingPeriod.days} Días`} - ${formatPct(deletingPeriod.percentage)}% mensual`
+    : '';
+
   const maxYield = periods.length > 0 ? Math.max(...periods.map(p => Number(p.percentage) || 0)) : 0;
   const minYield = periods.length > 0 ? Math.min(...periods.map(p => Number(p.percentage) || 0)) : 0;
 
@@ -231,7 +240,7 @@ export const AdminPeriodsPage = () => {
             </div>
           </div>
           <span className="text-xl sm:text-2xl font-black text-emerald-600 block tracking-tight font-mono">
-            {maxYield}% <span className="text-xs font-normal text-slate-400 font-sans">M.V.</span>
+            {formatPct(maxYield)}% <span className="text-xs font-normal text-slate-400 font-sans">M.V.</span>
           </span>
           <span className="text-[11px] text-emerald-600 font-medium block truncate">
             Rentabilidad mensual superior
@@ -249,7 +258,7 @@ export const AdminPeriodsPage = () => {
             </div>
           </div>
           <span className="text-xl sm:text-2xl font-black text-amber-600 block tracking-tight font-mono">
-            {minYield}% <span className="text-xs font-normal text-slate-400 font-sans">M.V.</span>
+            {formatPct(minYield)}% <span className="text-xs font-normal text-slate-400 font-sans">M.V.</span>
           </span>
           <span className="text-[11px] text-amber-600 font-medium block truncate">
             Rentabilidad mensual de entrada
@@ -322,7 +331,7 @@ export const AdminPeriodsPage = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-montserrat">
-                        {period.percentage}% mensual
+                        {formatPct(period.percentage)}% mensual
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -368,8 +377,8 @@ export const AdminPeriodsPage = () => {
         isOpen={!!deletingId}
         onClose={() => setDeletingId(null)}
         onConfirm={confirmDelete}
-        title="¿Eliminar Periodo?"
-        description="Esta acción deshabilitará el plazo configurado para futuras solicitudes de inversión."
+        title={deletingPeriodLabel ? `¿Eliminar el periodo "${deletingPeriodLabel}"?` : '¿Eliminar Periodo?'}
+        description="El periodo se eliminará de forma definitiva y dejará de estar disponible para nuevas solicitudes de inversión. Esta acción no se puede deshacer."
         confirmText="Sí, Eliminar"
         cancelText="Cancelar"
         variant="danger"

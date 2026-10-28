@@ -30,7 +30,10 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
         days: period.days,
         is_active: period.is_active,
       });
-      setPercentageStr(period.percentage !== null && period.percentage !== undefined ? String(period.percentage) : '0');
+      // Coma decimal y máximo 2 decimales, el mismo formato que la tabla (H-131)
+      setPercentageStr(period.percentage !== null && period.percentage !== undefined
+        ? Number(period.percentage).toLocaleString('es-CO', { maximumFractionDigits: 2, useGrouping: false })
+        : '0');
     } else {
       setFormData({
         percentage: 0,
@@ -153,14 +156,14 @@ export const PeriodModal: React.FC<PeriodModalProps> = ({ isOpen, onClose, onSav
               value={percentageStr}
               onChange={(e) => {
                 const val = e.target.value;
-                if (val === '' || /^[0-9]*[.,]?[0-9]*$/.test(val)) {
+                if (val === '' || /^[0-9]*[.,]?[0-9]{0,2}$/.test(val)) {
                   setPercentageStr(val);
                   const parsed = parseFloat(val.replace(',', '.')) || 0;
                   setFormData(prev => ({ ...prev, percentage: parsed }));
                 }
               }}
               className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none text-sm font-bold text-slate-900 font-montserrat"
-              placeholder="Ej. 3.7"
+              placeholder="Ej. 3,7"
             />
           </div>
 
