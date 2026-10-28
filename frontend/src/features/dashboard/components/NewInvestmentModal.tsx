@@ -42,6 +42,7 @@ export const NewInvestmentModal = ({
     // Step 2 State
     const [useWallet, setUseWallet] = useState(false);
     const [walletAmount, setWalletAmount] = useState<number>(0);
+    const [walletNotice, setWalletNotice] = useState<string | null>(null);
     const [paymentChoice, setPaymentChoice] = useState<'YOINT_ONLINE' | 'MANUAL_VOUCHER'>('YOINT_ONLINE');
     const [autoApproved, setAutoApproved] = useState(false);
     const [createdRequestId, setCreatedRequestId] = useState<number | null>(null);
@@ -510,7 +511,7 @@ export const NewInvestmentModal = ({
                                             checked={useWallet}
                                             onChange={(e) => {
                                                 setUseWallet(e.target.checked);
-                                                if (!e.target.checked) setWalletAmount(0);
+                                                if (!e.target.checked) { setWalletAmount(0); setWalletNotice(null); }
                                             }}
                                         />
                                         <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
@@ -519,8 +520,12 @@ export const NewInvestmentModal = ({
                                 
                                 {useWallet && (
                                     <div className="space-y-3 animate-fadeIn">
+                                        {/* H-202: saldo real de la billetera y, aparte, lo máximo aplicable a esta compra */}
                                         <p className="text-sm text-slate-500">
-                                            Saldo disponible: <span className="font-bold text-slate-700">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(maxWalletAllowed)}</span>
+                                            Saldo disponible: <span className="font-bold text-slate-700">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(wallet?.balance ?? 0)}</span>
+                                        </p>
+                                        <p className="text-xs text-slate-400 -mt-1.5">
+                                            Máximo aplicable a esta inversión: <span className="font-semibold text-slate-500">{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(maxWalletAllowed)}</span>
                                         </p>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">$</span>
@@ -531,12 +536,25 @@ export const NewInvestmentModal = ({
                                                 value={walletAmount}
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value) || 0;
+                                                    if (val > maxWalletAllowed) {
+                                                        const walletBalance = wallet?.balance ?? 0;
+                                                        setWalletNotice(
+                                                            val > walletBalance
+                                                                ? `Saldo insuficiente: tu billetera tiene ${new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(walletBalance)}. Se ajustó el monto al máximo aplicable.`
+                                                                : 'El monto supera lo que se debe pagar en esta inversión; se ajustó al máximo aplicable.'
+                                                        );
+                                                    } else {
+                                                        setWalletNotice(null);
+                                                    }
                                                     setWalletAmount(Math.min(val, maxWalletAllowed));
                                                 }}
                                                 className="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-2 pl-8 pr-4 text-slate-700 font-semibold focus:outline-none focus:border-brand-500"
                                                 placeholder="Monto a usar"
                                             />
                                         </div>
+                                        {walletNotice && (
+                                            <p className="text-xs font-semibold text-amber-700" role="status">{walletNotice}</p>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -708,8 +726,14 @@ export const NewInvestmentModal = ({
                                             <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800 text-xs font-semibold mb-3">
                                                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                                                 <div>
-                                                    <p className="font-bold text-sm text-emerald-900">¡Diferencia 100% cubierta con tu Billetera!</p>
-                                                    <p className="font-normal text-emerald-700 mt-0.5">El valor del aumento se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.</p>
+                                                    <p className="font-bold text-sm text-emerald-900">
+                                                        {isUpgrade ? '¡Diferencia 100% cubierta con tu Billetera!' : '¡Inversión 100% cubierta con tu Billetera!'}
+                                                    </p>
+                                                    <p className="font-normal text-emerald-700 mt-0.5">
+                                                        {isUpgrade
+                                                            ? 'El valor del aumento se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.'
+                                                            : 'El valor del paquete se debitará directamente de tu saldo. No es necesario adjuntar comprobantes bancarios.'}
+                                                    </p>
                                                 </div>
                                             </div>
                                         ) : null}
