@@ -513,7 +513,7 @@ export const AdminSolicitudInversionModal = ({ isOpen, onClose, onSuccess }: Adm
                                     <label htmlFor="new-investment-admin-files" className="cursor-pointer flex flex-col items-center justify-center gap-2">
                                         <Upload className="w-6 h-6 text-slate-400" />
                                         <span className="text-xs font-bold text-slate-700">
-                                            {files && files.length > 0 ? `${files.length} archivo(s) seleccionado(s)` : 'Haz clic para adjuntar comprobante'}
+                                            {files && files.length > 0 ? Array.from(files).map(f => f.name).join(', ') : 'Haz clic para adjuntar comprobante'}
                                         </span>
                                         <span className="text-[10px] text-slate-400">Imágenes (PNG, JPG) o PDF</span>
                                     </label>

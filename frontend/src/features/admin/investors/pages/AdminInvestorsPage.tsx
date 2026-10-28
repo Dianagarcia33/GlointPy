@@ -362,6 +362,8 @@ export const AdminInvestorsPage = () => {
 
 
   const [activeTab, setActiveTab] = useState<'investments' | 'requests'>('investments');
+  // Se incrementa al registrar una solicitud para que la pestaña de solicitudes se recargue (H-146)
+  const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
 
   const pageCapital = investors.reduce((sum, inv) => sum + (inv.package ? Number(inv.package.value || 0) : 0), 0);
   const acceleratedCount = investors.filter(inv => (inv.accelerations && inv.accelerations.length > 0) || (inv.total_days_reduced && inv.total_days_reduced > 0)).length;
@@ -624,7 +626,7 @@ export const AdminInvestorsPage = () => {
       </div>
 
       {activeTab === 'requests' ? (
-        <InvestmentRequestsTable />
+        <InvestmentRequestsTable onDataChanged={fetchData} refreshKey={requestsRefreshKey} />
       ) : (
         <>
           <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden">
@@ -1533,6 +1535,7 @@ export const AdminInvestorsPage = () => {
         onClose={() => {
           setIsNewRequestModalOpen(false);
           fetchData();
+          setRequestsRefreshKey(k => k + 1);
         }}
       />
 

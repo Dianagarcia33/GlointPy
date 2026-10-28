@@ -46,7 +46,14 @@ const InvestmentRequestsTableSkeleton = () => {
   );
 };
 
-export const InvestmentRequestsTable = () => {
+interface InvestmentRequestsTableProps {
+  // Avisa a la página para refrescar los contratos tras aprobar o rechazar (H-146)
+  onDataChanged?: () => void;
+  // Cambia cuando la página registra una solicitud nueva: la tabla vuelve a cargar (H-146)
+  refreshKey?: number;
+}
+
+export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: InvestmentRequestsTableProps) => {
   const [requests, setRequests] = useState<InvestmentRequest[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -107,6 +114,7 @@ export const InvestmentRequestsTable = () => {
       await approveInvestmentRequest(selectedRequestToReview.id, cId);
       setSelectedRequestToReview(null);
       await fetchData();
+      onDataChanged?.();
     } catch (err: any) {
       alert(err.message || 'Error al aprobar');
     } finally {
@@ -123,6 +131,7 @@ export const InvestmentRequestsTable = () => {
       setRejectingId(null);
       setRejectionReason('');
       await fetchData();
+      onDataChanged?.();
     } catch (err: any) {
       alert(err.message || 'Error al rechazar');
     } finally {
@@ -217,7 +226,7 @@ export const InvestmentRequestsTable = () => {
 
   useEffect(() => {
     fetchData();
-  }, [page, search]);
+  }, [page, search, refreshKey]);
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -1077,7 +1086,11 @@ export const InvestmentRequestsTable = () => {
                 </label>
                 {selectedRequestToReview.extra_data?.commercial_id && (
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    ✨ Seleccionado por el cliente en su solicitud
+                    {/* Si la radicó otra persona (p. ej. un administrador), el directivo no lo eligió el cliente (H-146) */}
+                    {selectedRequestToReview.extra_data?.created_by_user_id &&
+                    String(selectedRequestToReview.extra_data.created_by_user_id) !== String(selectedRequestToReview.user_id)
+                      ? '✨ Asignado al radicar la solicitud'
+                      : '✨ Seleccionado por el cliente en su solicitud'}
                   </span>
                 )}
               </div>
