@@ -789,6 +789,21 @@ async def add_process_time_header(request: Request, call_next):
         print(f"⚠️ [SLOW REQUEST] {request.method} {request.url.path} took {process_time:.3f}s")
     return response
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Cabeceras de seguridad en todas las respuestas del API (H-147)."""
+    response = await call_next(request)
+    headers = response.headers
+    headers.setdefault("Strict-Transport-Security", "max-age=15552000; includeSubDomains")
+    headers.setdefault("X-Content-Type-Options", "nosniff")
+    headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # Los archivos de /uploads (PDF e imágenes de comprobantes) se muestran dentro de la SPA en
+    # iframes/imágenes, así que no se les prohíbe incrustarse; al resto (JSON) sí
+    if "/uploads/" not in request.url.path:
+        headers.setdefault("X-Frame-Options", "DENY")
+        headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+    return response
+
 @app.get("/")
 def read_root():
     return {"message": "¡Bienvenido a la API de Gloint (Clean Architecture)!"}
