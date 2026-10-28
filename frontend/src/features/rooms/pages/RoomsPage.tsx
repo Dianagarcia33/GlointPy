@@ -804,9 +804,16 @@ export const RoomsPage: React.FC = () => {
                               Confirmada
                             </span>
                           ) : res.status === 'cancelled' ? (
-                            <span className="px-2.5 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded-full text-[10px] font-bold uppercase">
-                              Cancelada
-                            </span>
+                            <div>
+                              <span className="px-2.5 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded-full text-[10px] font-bold uppercase">
+                                Cancelada
+                              </span>
+                              {res.cancelled_reason && (
+                                <div className="text-[11px] text-slate-500 italic mt-1 max-w-[14rem] line-clamp-2" title={res.cancelled_reason}>
+                                  Motivo: {res.cancelled_reason}
+                                </div>
+                              )}
+                            </div>
                           ) : (
                             <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-full text-[10px] font-bold uppercase">
                               {res.status}
