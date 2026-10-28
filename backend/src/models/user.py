@@ -62,10 +62,7 @@ class User(Base):
 
     @property
     def permissions(self):
-        perms = set()
-        if self.roles:
-            for r in self.roles:
-                if hasattr(r, 'permissions') and r.permissions:
-                    for p in r.permissions:
-                        perms.add(p.name)
-        return list(perms)
+        # H-189: misma lista que usa el backend para autorizar (roles + sobrescrituras individuales);
+        # antes ignoraba las sobrescrituras y la pantalla mostraba opciones que el servidor rechazaba con 403
+        from src.core.pbac import PBACEngine
+        return PBACEngine.get_user_permissions(self)

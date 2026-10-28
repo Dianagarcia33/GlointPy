@@ -184,6 +184,7 @@ class SecurityService:
             # Módulo Inversionistas
             {"name": "admin:investors:manage", "description": "Acceso y consulta de la tabla general de inversionistas", "module": "Inversionistas"},
             {"name": "admin:investors:view_all", "description": "Ver todos los inversionistas y contratos de la plataforma (sin este permiso, un asesor solo ve sus clientes asignados)", "module": "Inversiones"},
+            {"name": "admin:investors:generate_documents", "description": "Generar certificados, contratos y pagarés de inversionistas (individual y masivo)", "module": "Inversionistas"},
             {"name": "admin:investors:create", "description": "Crear nuevos contratos e inversionistas (Crear Inversión)", "module": "Inversionistas"},
             {"name": "admin:investors:wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Herramienta Lápiz)", "module": "Inversionistas"},
             {"name": "admin:investors:capital_increase", "description": "Gestionar aumentos de capital a contratos (+ Capital)", "module": "Inversionistas"},
@@ -358,7 +359,7 @@ class SecurityService:
                 "chat:view", "chat:send"
             ],
             "operaciones": [
-                "admin:investors:manage", "admin:investors:create", "admin:investors:capital_increase", "admin:investors:wallet_adjust",
+                "admin:investors:manage", "admin:investors:create", "admin:investors:capital_increase", "admin:investors:wallet_adjust", "admin:investors:generate_documents",
                 "admin:investments:manage", "admin:investments:solicitud_inversion", "admin:investments:approve", "admin:investments:reject",
                 "admin:packages:manage", "admin:periods:manage", "sarlaft:check",
                 "chat:view", "chat:send"

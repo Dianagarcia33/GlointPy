@@ -442,7 +442,7 @@ export const AdminInvestorsPage = () => {
           </button>
 
           {isAdmin() && (
-            <Can permission="admin.investors.manage">
+            <Can permissions={['admin.investors.generate_documents', 'admin.roles.manage']}>
               <button 
                 type="button"
                 onClick={() => setIsBulkDocModalOpen(true)}

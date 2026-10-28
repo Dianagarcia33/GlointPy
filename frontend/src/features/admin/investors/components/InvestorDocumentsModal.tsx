@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { templatesService, DocumentTemplate } from '../../../../services/templates';
 import { getMediaUrl } from '../../../../services/api';
+import { usePermissions } from '../../../../hooks/usePermissions';
 import { 
     investorDocumentsService, 
     InvestorDocument, 
@@ -36,6 +37,9 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
     onClose,
     investor
 }) => {
+    // H-189: generar documentos requiere su propio permiso; con solo consulta se ven los emitidos
+    const { hasPermission } = usePermissions();
+    const canGenerate = hasPermission('admin.investors.generate_documents') || hasPermission('admin.roles.manage');
     const [activeTab, setActiveTab] = useState<'list' | 'generate'>('list');
     const [documents, setDocuments] = useState<InvestorDocument[]>([]);
     const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
@@ -249,7 +253,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                         Documentos Emitidos ({documents.length})
                     </button>
 
-                    <button
+                    {canGenerate && <button
                         onClick={() => setActiveTab('generate')}
                         className={`pb-3 text-xs font-bold font-montserrat transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
                             activeTab === 'generate' 
@@ -259,7 +263,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                     >
                         <Sparkles className="w-4 h-4" />
                         Generar Nuevo Documento
-                    </button>
+                    </button>}
                 </div>
 
                 {/* Toast Notification */}
@@ -290,13 +294,13 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                                     <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1 mb-4">
                                         Aún no se ha generado ningún contrato o documento para esta inversión.
                                     </p>
-                                    <button
+                                    {canGenerate && <button
                                         onClick={() => setActiveTab('generate')}
                                         className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 transition-all cursor-pointer"
                                     >
                                         <Plus className="w-4 h-4" />
                                         Generar Primer Documento
-                                    </button>
+                                    </button>}
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -353,7 +357,7 @@ export const InvestorDocumentsModal: React.FC<InvestorDocumentsModalProps> = ({
                     )}
 
                     {/* TAB 2: GENERATE */}
-                    {activeTab === 'generate' && (
+                    {activeTab === 'generate' && canGenerate && (
                         <div className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* Template Selector */}
