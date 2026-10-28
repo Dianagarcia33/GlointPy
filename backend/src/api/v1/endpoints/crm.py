@@ -1,6 +1,7 @@
 from src.core.errors import public_error_detail
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Request
+from src.core.rate_limiter import contact_form_rate_limiter
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr, model_validator
 
@@ -155,6 +156,7 @@ class CreateFormKeySchema(BaseModel):
 @router.post("/public/contact-form")
 async def register_public_contact_form(
     data: ContactFormLeadSchema,
+    request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     authorization: Optional[str] = Header(None, alias="Authorization"),
     db: AsyncSession = Depends(get_db)
@@ -170,20 +172,25 @@ async def register_public_contact_form(
     Asigna de forma equitativa (Round-Robin) estricta a los usuarios con rol Directivo de Inversión
     y dispara notificaciones por correo de inmediato.
     """
+    # Límite por IP para que la API pública no se pueda usar para inundar el CRM (H-138)
+    contact_form_rate_limiter.check_rate_limit(request)
+    contact_form_rate_limiter.record_failed_attempt(request)
+
     app_name_override = None
     raw_key = x_api_key or authorization
     if raw_key:
+        # Si se envía una clave, tiene que ser válida y estar activa. Antes cualquier error se
+        # ignoraba y el lead se registraba igual, así que desactivar una clave no cortaba el acceso.
         raw_clean = raw_key.replace("Bearer ", "").strip()
-        try:
-            form_key = await CRMService.authenticate_form_key(db, raw_clean)
+        form_key = await CRMService.find_form_key(db, raw_clean)
+        if form_key:
+            form_key = await CRMService.authenticate_form_key(db, raw_clean)  # 403 si está desactivada
+            await CRMService.record_form_key_usage(db, form_key)
             app_name_override = form_key.project.name if form_key.project else form_key.name
-        except Exception:
-            try:
-                from src.services.external_app_service import ExternalAppService
-                app = await ExternalAppService.authenticate_api_key(db, raw_clean)
-                app_name_override = app.name
-            except Exception:
-                pass
+        else:
+            from src.services.external_app_service import ExternalAppService
+            app = await ExternalAppService.authenticate_api_key(db, raw_clean)  # 401 si es inválida o inactiva
+            app_name_override = app.name
 
     return await CRMService.register_contact_form_lead(
         db=db,

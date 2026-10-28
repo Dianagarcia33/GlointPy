@@ -4,8 +4,9 @@ from fastapi import Request, HTTPException, status
 
 class IPRateLimiter:
     """Rate limiter en memoria por dirección IP para endpoints sensibles como Login."""
-    def __init__(self, max_attempts: int = 5, window_seconds: int = 60, block_seconds: int = 300):
+    def __init__(self, max_attempts: int = 5, window_seconds: int = 60, block_seconds: int = 300, action_label: str = "inicio de sesión"):
         self.max_attempts = max_attempts
+        self.action_label = action_label
         self.window_seconds = window_seconds
         self.block_seconds = block_seconds
         self.attempts = defaultdict(list)
@@ -22,7 +23,7 @@ class IPRateLimiter:
                 remaining_seconds = int(blocked_until - now)
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"Demasiadas solicitudes de inicio de sesión desde esta IP. Bloqueado por {remaining_seconds} segundos.",
+                    detail=f"Demasiadas solicitudes de {self.action_label} desde esta IP. Bloqueado por {remaining_seconds} segundos.",
                     headers={"Retry-After": str(remaining_seconds)}
                 )
             else:
@@ -64,3 +65,6 @@ class IPRateLimiter:
 
 # Instancia singleton del limitador de tasa para login
 login_rate_limiter = IPRateLimiter(max_attempts=5, window_seconds=60, block_seconds=300)
+
+# Formulario público de contacto (H-138): máx. 10 envíos por IP cada 10 minutos; luego 15 minutos de bloqueo
+contact_form_rate_limiter = IPRateLimiter(max_attempts=10, window_seconds=600, block_seconds=900, action_label="envío de formularios")

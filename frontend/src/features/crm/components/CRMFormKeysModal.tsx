@@ -322,6 +322,13 @@ async function enviarFormulario(datos) {
                         </span>
                       </div>
 
+                      {/* Uso de la clave en el formulario público (H-138) */}
+                      <div className="text-[11px] text-slate-500">
+                        {keyItem.usage_count
+                          ? `${keyItem.usage_count} envío${keyItem.usage_count === 1 ? '' : 's'} · Último uso: ${keyItem.last_used_at ? new Date(keyItem.last_used_at + (keyItem.last_used_at.endsWith('Z') ? '' : 'Z')).toLocaleString('es-CO') : 'N/A'}`
+                          : 'Sin envíos registrados'}
+                      </div>
+
                       {/* API Key Box */}
                       <div className="flex items-center gap-2 pt-0.5">
                         <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-xs text-slate-700 font-bold max-w-sm truncate select-all">

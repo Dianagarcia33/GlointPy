@@ -844,6 +844,8 @@ class CRMService:
                 "project_code": k.project.code if k.project else "N/A",
                 "api_key": k.api_key,
                 "is_active": k.is_active,
+                "usage_count": k.usage_count or 0,
+                "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
                 "created_at": k.created_at.isoformat() if k.created_at else None,
                 "updated_at": k.updated_at.isoformat() if k.updated_at else None
             })
@@ -877,22 +879,35 @@ class CRMService:
         return {"success": True, "message": "Clave de formulario eliminada exitosamente"}
 
     @staticmethod
-    async def authenticate_form_key(db: AsyncSession, raw_key: str) -> CRMFormKey:
-        """Autentica una API Key de formulario y valida que esté activa."""
+    async def find_form_key(db: AsyncSession, raw_key: str) -> Optional[CRMFormKey]:
+        """Busca una API Key de formulario (activa o no)."""
         stmt = (
             select(CRMFormKey)
             .options(selectinload(CRMFormKey.project))
-            .where(
-                CRMFormKey.api_key == raw_key.strip(),
-                CRMFormKey.is_active == True
-            )
+            .where(CRMFormKey.api_key == raw_key.strip())
         )
         res = await db.execute(stmt)
-        form_key = res.scalars().first()
+        return res.scalars().first()
+
+    @staticmethod
+    async def authenticate_form_key(db: AsyncSession, raw_key: str) -> CRMFormKey:
+        """Autentica una API Key de formulario: 401 si no existe, 403 si está desactivada."""
+        form_key = await CRMService.find_form_key(db, raw_key)
         if not form_key:
             raise HTTPException(
                 status_code=401,
-                detail="API Key de formulario ('X-API-Key') inválida o inactiva."
+                detail="API Key de formulario ('X-API-Key') inválida."
+            )
+        if not form_key.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="Esta API Key de formulario está desactivada. Contacta al administrador del CRM."
             )
         return form_key
+
+    @staticmethod
+    async def record_form_key_usage(db: AsyncSession, form_key: CRMFormKey) -> None:
+        form_key.usage_count = (form_key.usage_count or 0) + 1
+        form_key.last_used_at = datetime.utcnow()
+        await db.commit()
 

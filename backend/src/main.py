@@ -189,6 +189,16 @@ async def on_startup():
             except Exception:
                 pass
 
+            # Registro de uso de las claves de formularios externos (H-138)
+            for col_sql in [
+                "ALTER TABLE crm_form_keys ADD COLUMN usage_count INT NOT NULL DEFAULT 0",
+                "ALTER TABLE crm_form_keys ADD COLUMN last_used_at DATETIME NULL",
+            ]:
+                try:
+                    await conn.execute(text(col_sql))
+                except Exception:
+                    pass
+
             try:
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS investment_ranks (
