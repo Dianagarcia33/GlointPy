@@ -11,35 +11,41 @@ interface SystemEventModalProps {
 export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClose }) => {
   const queryClient = useQueryClient();
   const isEditing = !!event;
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<SystemEventCreate>({
-    type: 'retiro',
-    is_recurring: 0,
-    recurrence_start_day: null,
-    recurrence_end_day: null,
-    start_date: null,
-    end_date: null,
-    description: '',
-    is_active: 1
+  // H-195: el formulario nace con los valores REALES del evento (nunca con el default 'Activo' de un evento nuevo)
+  const toFormData = (ev: SystemEvent): SystemEventCreate => ({
+    type: ev.type,
+    // La API devuelve booleanos y los selects trabajan con 1/0 (H-134)
+    is_recurring: ev.is_recurring ? 1 : 0,
+    recurrence_start_day: ev.recurrence_start_day,
+    recurrence_end_day: ev.recurrence_end_day,
+    start_date: ev.start_date ? ev.start_date.slice(0, 16) : null, // format for input type="datetime-local"
+    end_date: ev.end_date ? ev.end_date.slice(0, 16) : null,
+    description: ev.description || '',
+    is_active: ev.is_active ? 1 : 0
   });
+
+  const [formData, setFormData] = useState<SystemEventCreate>(() =>
+    event
+      ? toFormData(event)
+      : {
+          type: 'retiro',
+          is_recurring: 0,
+          recurrence_start_day: null,
+          recurrence_end_day: null,
+          start_date: null,
+          end_date: null,
+          description: '',
+          is_active: 1
+        }
+  );
 
   useEffect(() => {
     if (event) {
-      setFormData({
-        type: event.type,
-        // La API devuelve booleanos y los selects trabajan con 1/0 (H-134)
-        is_recurring: event.is_recurring ? 1 : 0,
-        recurrence_start_day: event.recurrence_start_day,
-        recurrence_end_day: event.recurrence_end_day,
-        start_date: event.start_date ? event.start_date.slice(0, 16) : null, // format for input type="datetime-local"
-        end_date: event.end_date ? event.end_date.slice(0, 16) : null,
-        description: event.description || '',
-        is_active: event.is_active ? 1 : 0
-      });
+      setFormData(toFormData(event));
     }
   }, [event]);
-
-  const [formError, setFormError] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: systemEventsService.createEvent,
@@ -51,8 +57,13 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
 
   const updateMutation = useMutation({
     mutationFn: (data: SystemEventCreate) => systemEventsService.updateEvent(event!.id, data),
-    onSuccess: () => {
+    onSuccess: (saved, sent) => {
       queryClient.invalidateQueries({ queryKey: ['systemEvents'] });
+      // H-195: nunca confirmar un guardado cuyo estado no coincide con el que se eligió en pantalla
+      if (saved && typeof saved.is_active !== 'undefined' && Boolean(saved.is_active) !== Boolean(sent.is_active)) {
+        setFormError('El estado del evento no se aplicó. Recarga la lista y vuelve a intentarlo.');
+        return;
+      }
       onClose();
     }
   });
