@@ -93,7 +93,29 @@ export interface BulkPayYieldResult {
   global_grand_total: number;
 }
 
+export interface LedgerContinuityReport {
+    transactions: number;
+    pairs_checked: number;
+    breaks: Array<{
+        transaction_id: number;
+        wallet_id: number;
+        user_id: number;
+        user_name: string;
+        created_at: string | null;
+        type: string;
+        previous_balance: number;
+        amount: number;
+        balance_after: number;
+        expected_balance: number;
+        difference: number;
+    }>;
+}
+
 export const auditService = {
+    getLedgerContinuity: async (): Promise<LedgerContinuityReport> => {
+        return await fetchApi('/audit/ledger-continuity');
+    },
+
     getUsers: async (params?: { page?: number; limit?: number; search?: string }) => {
         const queryParams = new URLSearchParams();
         if (params?.page) queryParams.append('page', params.page.toString());

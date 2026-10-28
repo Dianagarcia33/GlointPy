@@ -28,6 +28,7 @@ import { UserYieldAuditBox } from '../components/UserYieldAuditBox';
 import { UserWalletHistoryBox } from '../components/UserWalletHistoryBox';
 import { BulkTransferModal } from '../components/BulkTransferModal';
 import { YieldBatchesModal } from '../components/YieldBatchesModal';
+import { LedgerContinuityModal } from '../components/LedgerContinuityModal';
 
 export const AdminInvestmentsPage: React.FC = () => {
   const [users, setUsers] = useState<AuditUser[]>([]);
@@ -38,6 +39,7 @@ export const AdminInvestmentsPage: React.FC = () => {
   // Bulk Transfer & Batches Modal State
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isBatchesModalOpen, setIsBatchesModalOpen] = useState(false);
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
 
   // Expanded rows state
   const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
@@ -165,6 +167,8 @@ export const AdminInvestmentsPage: React.FC = () => {
         onBatchUpdated={() => fetchData()}
       />
 
+      <LedgerContinuityModal isOpen={isLedgerModalOpen} onClose={() => setIsLedgerModalOpen(false)} />
+
       {success && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-emerald-800 shadow-xs font-medium text-sm animate-in fade-in duration-200">
           <div className="flex items-center gap-3">
@@ -231,6 +235,15 @@ export const AdminInvestmentsPage: React.FC = () => {
           >
             <History className="w-4 h-4 text-slate-600 shrink-0" />
             <span className="whitespace-nowrap">Historial de Lotes</span>
+          </button>
+
+          <button
+            onClick={() => setIsLedgerModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 rounded-xl transition-all border border-slate-200/90 shadow-2xs cursor-pointer font-montserrat"
+            title="Verificar que el saldo de cada movimiento sea el saldo anterior ± su monto"
+          >
+            <CheckCircle className="w-4 h-4 text-slate-600 shrink-0" />
+            <span className="whitespace-nowrap">Verificar Libro Mayor</span>
           </button>
 
           <button

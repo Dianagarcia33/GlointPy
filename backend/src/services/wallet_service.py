@@ -100,7 +100,18 @@ async def bulk_create_or_update_wallets(db: AsyncSession, csv_file: bytes) -> tu
                 if id_val and wallet.id != id_val:
                     errors.append(f"Fila {row_num}: El usuario con ID '{user.id}' ya tiene la wallet ID '{wallet.id}', no se puede cambiar a ID '{id_val}'.")
                     continue
-                # Update existing wallet balance
+                # Update existing wallet balance. Si cambia, se deja el ajuste en el libro mayor: sobrescribir
+                # el saldo sin asiento rompía la continuidad saldo anterior ± monto = saldo nuevo (H-169)
+                previous_balance = Decimal(str(wallet.balance or 0))
+                if Decimal(str(balance_val)) != previous_balance:
+                    db.add(WalletTransaction(
+                        wallet_id=wallet.id,
+                        amount=Decimal(str(balance_val)) - previous_balance,
+                        type="admin_adjustment",
+                        reference_type="wallet_bulk_upload",
+                        description="Ajuste de saldo por carga masiva de billeteras",
+                        balance_after=Decimal(str(balance_val)),
+                    ))
                 wallet.balance = balance_val
                 wallet.currency = str(currency_str).strip().upper()[:3]
                 wallet.status = status_enum

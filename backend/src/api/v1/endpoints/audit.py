@@ -288,6 +288,53 @@ async def get_audit_logs(
         "modules": sorted(list(set(modules)))
     }
 
+@router.get("/ledger-continuity", dependencies=[Depends(RequirePermission("admin.audits.manage"))])
+async def check_ledger_continuity(
+    tolerance: float = Query(1.0, ge=0, description="Diferencia máxima aceptada por redondeo (COP)"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Revisa la continuidad del libro mayor de billeteras (H-169): en cada billetera, ordenada por fecha
+    e id, el saldo resultante de un movimiento debe ser el saldo anterior ± su monto. Devuelve los
+    movimientos donde no se cumple (faltan asientos intermedios o se cambió el saldo sin asiento).
+    """
+    from src.models.wallet import Wallet, WalletTransaction
+    rows = (await db.execute(
+        select(WalletTransaction.id, WalletTransaction.wallet_id, WalletTransaction.created_at,
+               WalletTransaction.type, WalletTransaction.amount, WalletTransaction.balance_after,
+               Wallet.user_id, User.name)
+        .join(Wallet, Wallet.id == WalletTransaction.wallet_id)
+        .join(User, User.id == Wallet.user_id)
+        .order_by(WalletTransaction.wallet_id, WalletTransaction.created_at, WalletTransaction.id)
+    )).all()
+
+    breaks = []
+    prev = None
+    pairs = 0
+    for r in rows:
+        if prev is not None and prev.wallet_id == r.wallet_id:
+            pairs += 1
+            expected = float(prev.balance_after or 0) + float(r.amount or 0)
+            diff = float(r.balance_after or 0) - expected
+            if abs(diff) > tolerance:
+                breaks.append({
+                    "transaction_id": r.id,
+                    "wallet_id": r.wallet_id,
+                    "user_id": r.user_id,
+                    "user_name": r.name,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "type": r.type,
+                    "previous_balance": float(prev.balance_after or 0),
+                    "amount": float(r.amount or 0),
+                    "balance_after": float(r.balance_after or 0),
+                    "expected_balance": expected,
+                    "difference": diff,
+                })
+        prev = r
+
+    return {"transactions": len(rows), "pairs_checked": pairs, "breaks": breaks}
+
+
 @router.get("/users", response_model=AuditUserPaginatedResponse, dependencies=[Depends(RequirePermission("admin.audits.manage"))])
 async def get_audit_users(
     page: int = Query(1, ge=1),
