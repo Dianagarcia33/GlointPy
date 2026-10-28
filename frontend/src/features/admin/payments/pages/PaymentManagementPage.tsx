@@ -281,7 +281,7 @@ export const PaymentManagementPage: React.FC = () => {
           'ID': w.id,
           'FECHA SOLICITUD': w.fecha_solicitud ? new Date(w.fecha_solicitud).toLocaleString('es-CO') : 'N/A',
           'FECHA PAGO': w.fecha_retiro ? new Date(w.fecha_retiro).toLocaleString('es-CO') : 'N/A',
-          'INVERSIONISTA': w.user?.name || 'N/A',
+          'INVERSIONISTA': w.user?.name || `Usuario inexistente (#${w.user_id})`,
           'DOCUMENTO': w.user?.document_id || 'N/A',
           'CORREO': w.user?.email || 'N/A',
           'BANCO': w.banco || 'N/A',
@@ -891,7 +891,7 @@ export const PaymentManagementPage: React.FC = () => {
                         <div className="text-slate-500 text-xs font-medium mt-0.5">{withdrawal.fecha_solicitud}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-900">{withdrawal.user?.name || 'N/A'}</div>
+                        <div className="font-bold text-slate-900">{withdrawal.user?.name || `Usuario inexistente (#${withdrawal.user_id})`}</div>
                         {withdrawal.user?.document_id && (
                           <div className="text-slate-500 text-xs font-mono">Doc: {withdrawal.user.document_id}</div>
                         )}

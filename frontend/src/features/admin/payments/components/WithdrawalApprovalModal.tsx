@@ -153,7 +153,7 @@ export const WithdrawalApprovalModal: React.FC<WithdrawalApprovalModalProps> = (
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
                 <span className="text-slate-400 font-medium block text-[11px]">Nombre Completo:</span>
-                <span className="font-bold text-slate-800">{withdrawal.user?.name || 'N/A'}</span>
+                <span className="font-bold text-slate-800">{withdrawal.user?.name || `Usuario inexistente (#${withdrawal.user_id})`}</span>
               </div>
               <div>
                 <span className="text-slate-400 font-medium block text-[11px]">Documento Identidad:</span>

@@ -923,9 +923,10 @@ class UserService:
             })
 
         # 4. Fetch Withdrawals with User and Bank info
-        w_query = select(Withdrawal, User).join(User, Withdrawal.user_id == User.id)
+        # LEFT JOIN (H-170): un retiro cuyo usuario ya no existe sigue contando, igual que en Gestión de Pagos
+        w_query = select(Withdrawal, User).outerjoin(User, Withdrawal.user_id == User.id)
         if user_id:
-            w_query = w_query.where(User.id == user_id)
+            w_query = w_query.where(Withdrawal.user_id == user_id)
         if start_dt:
             w_query = w_query.where(Withdrawal.created_at >= start_dt)
         if end_dt:
@@ -954,9 +955,10 @@ class UserService:
             withdrawals_list.append({
                 "id": w.id,
                 "created_at": w.created_at.isoformat() if w.created_at else None,
-                "user_id": u.id,
-                "user_name": u.name,
-                "user_document": u.document_id or "N/A",
+                "user_id": w.user_id,
+                "user_name": u.name if u else f"Usuario inexistente (#{w.user_id})",
+                "user_document": (u.document_id if u else None) or "N/A",
+                "orphan": u is None,
                 "bank_name": w.banco or "N/A",
                 "account_number": w.numero_cuenta or "N/A",
                 "account_type": w.tipo_cuenta or "Ahorros",
