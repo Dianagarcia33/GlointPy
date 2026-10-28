@@ -104,6 +104,11 @@ export const ProfilePage: React.FC = () => {
       setProfileError('El correo electrónico es requerido.');
       return;
     }
+    // Sin validación nativa del navegador (noValidate), el formato del correo se valida aquí
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setProfileError('Ingresa un correo electrónico válido.');
+      return;
+    }
 
     try {
       setIsSavingProfile(true);
@@ -324,7 +329,7 @@ export const ProfilePage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleProfileSubmit} className="space-y-4 max-w-3xl">
+          <form onSubmit={handleProfileSubmit} noValidate className="space-y-4 max-w-3xl">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1.5">
@@ -449,7 +454,7 @@ export const ProfilePage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-2xl">
+          <form onSubmit={handlePasswordSubmit} noValidate className="space-y-4 max-w-2xl">
             <div>
               <label className="text-xs font-bold text-slate-700 block mb-1.5">
                 Contraseña Actual <span className="text-rose-500">*</span>
