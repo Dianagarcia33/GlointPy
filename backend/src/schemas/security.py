@@ -27,9 +27,10 @@ class RoleBase(BaseModel):
     description: Optional[str] = None
 
 class RoleCreate(RoleBase):
+    # Sin pattern= en Field: la validación la hace validate_role_name, que primero recorta
+    # espacios y devuelve el mensaje en español (con pattern= Pydantic respondía en inglés).
     name: str = Field(
         ...,
-        pattern=ROLE_NAME_REGEX,
         description="Identificador del rol en formato snake_case (ej. operador_crm)"
     )
     # Opcionalmente, se pueden enviar los IDs de los permisos a asignar al crear el rol
@@ -48,7 +49,6 @@ class RoleCreate(RoleBase):
 class RoleUpdate(BaseModel):
     name: Optional[str] = Field(
         None,
-        pattern=ROLE_NAME_REGEX,
         description="Identificador del rol en formato snake_case (ej. operador_crm)"
     )
     description: Optional[str] = None

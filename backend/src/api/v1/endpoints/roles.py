@@ -59,7 +59,7 @@ async def delete_role(role_id: int, db: AsyncSession = Depends(get_db)):
     Elimina un rol. Los roles del sistema (is_system_role='1') no se pueden borrar.
     """
     await SecurityService.delete_role(db, role_id)
-    return {"msg": "Role deleted successfully"}
+    return {"msg": "Rol eliminado exitosamente"}
 
 @router.get("/permissions", response_model=List[PermissionResponse], dependencies=[Depends(RequirePermission("admin.roles.manage"))])
 async def read_permissions(db: AsyncSession = Depends(get_db)):

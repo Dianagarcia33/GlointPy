@@ -32,7 +32,7 @@ class SecurityService:
         )
         role = result.scalars().first()
         if not role:
-            raise HTTPException(status_code=404, detail="Role not found")
+            raise HTTPException(status_code=404, detail="Rol no encontrado")
         return role
 
     @staticmethod
