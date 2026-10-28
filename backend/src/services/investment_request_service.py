@@ -696,7 +696,9 @@ class InvestmentRequestService:
                     await register_commercial_sale(
                         db,
                         commercial_id=int(c_id),
-                        sale_data=c_sale_create
+                        sale_data=c_sale_create,
+                        investor_id=req.investor_id,
+                        investment_request_id=req.id
                     )
                     logger.info(f"Venta comercial de ${sale_amount} (Aumento neto / Venta) adjudicada automáticamente al Directivo #{c_id}")
             except Exception as e:

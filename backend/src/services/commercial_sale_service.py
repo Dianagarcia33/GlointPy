@@ -303,7 +303,9 @@ async def register_commercial_sale(
     db: AsyncSession,
     commercial_id: int,
     sale_data: CommercialSaleCreate,
-    is_admin: bool = False
+    is_admin: bool = False,
+    investor_id: Optional[int] = None,
+    investment_request_id: Optional[int] = None
 ) -> CommercialSale:
     """
     Registra la venta comercial, valida la clasificación forzada si el cliente existe,
@@ -404,7 +406,9 @@ async def register_commercial_sale(
         tramo_a_amount=tramo_a,
         tramo_b_amount=tramo_b,
         status=sale_status,
-        sale_date=target_date
+        sale_date=target_date,
+        investor_id=investor_id,
+        investment_request_id=investment_request_id
     )
     db.add(sale)
     await db.commit()

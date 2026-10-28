@@ -338,6 +338,22 @@ class InvestorService:
     @staticmethod
     async def delete_investor(db: AsyncSession, investor_id: int):
         db_investor = await InvestorService.get_investor(db, investor_id)
+        if not db_investor:
+            raise HTTPException(status_code=404, detail="Inversionista no encontrado")
+
+        # Ventas comerciales originadas por este contrato (H-145): se anulan con él para que no queden
+        # comisiones ni bonos sin respaldo. Si alguna ya se liquidó (comisión pagada) no se elimina.
+        from src.models.commercial_sale import CommercialSale, CommercialSaleStatus
+        sales_res = await db.execute(select(CommercialSale).where(CommercialSale.investor_id == investor_id))
+        linked_sales = sales_res.scalars().all()
+        if any(s.status == CommercialSaleStatus.liquidado for s in linked_sales):
+            raise HTTPException(
+                status_code=409,
+                detail="No se puede eliminar el contrato: su venta comercial ya fue liquidada y la comisión pagada. Revisa la liquidación en el Panel Comercial."
+            )
+        affected_commercials = {s.commercial_id for s in linked_sales}
+        for sale in linked_sales:
+            await db.delete(sale)
         
         # Sincronizar y actualizar las solicitudes asociadas para evitar estados huérfanos 'Aprobado'
         from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
@@ -351,6 +367,12 @@ class InvestorService:
             
         await db.delete(db_investor)
         await db.commit()
+
+        # Revertir bonos de piso y metas diarias que dependían de las ventas anuladas
+        if affected_commercials:
+            from src.services.commercial_sale_service import purge_ghost_bonuses
+            for commercial_id in affected_commercials:
+                await purge_ghost_bonuses(db, commercial_id)
 
     @staticmethod
     async def bulk_create_investors(db: AsyncSession, csv_text: str) -> dict:

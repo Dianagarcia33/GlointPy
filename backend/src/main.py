@@ -193,6 +193,11 @@ async def on_startup():
             for col_sql in [
                 "ALTER TABLE crm_form_keys ADD COLUMN usage_count INT NOT NULL DEFAULT 0",
                 "ALTER TABLE crm_form_keys ADD COLUMN last_used_at DATETIME NULL",
+                # Enlace de la venta comercial con su contrato y solicitud (H-145)
+                "ALTER TABLE commercial_sales ADD COLUMN investor_id BIGINT NULL",
+                "ALTER TABLE commercial_sales ADD COLUMN investment_request_id BIGINT NULL",
+                "CREATE INDEX ix_commercial_sales_investor_id ON commercial_sales (investor_id)",
+                "CREATE INDEX ix_commercial_sales_investment_request_id ON commercial_sales (investment_request_id)",
                 # Archivado (borrado lógico) de leads del CRM (H-139)
                 "ALTER TABLE crm_leads ADD COLUMN archived_at DATETIME NULL",
                 "ALTER TABLE crm_leads ADD COLUMN archived_by BIGINT NULL",
