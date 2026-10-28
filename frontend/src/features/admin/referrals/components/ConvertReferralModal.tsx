@@ -56,6 +56,9 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
     const [uploadingFile, setUploadingFile] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Contraseña temporal generada por el backend: se muestra una sola vez al terminar (H-165)
+    const [tempPassword, setTempPassword] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -188,6 +191,12 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
             return;
         }
 
+        // Sin comprobante no se puede aprobar la solicitud: se detiene el envío (H-165)
+        if (!formData.comprobante_path) {
+            setError('Adjunta el comprobante de pago para convertir el referido en solicitud de inversión.');
+            return;
+        }
+
         setIsSubmitting(true);
         setError(null);
 
@@ -196,7 +205,6 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
             const payload = {
                 name: formData.name.trim(),
                 email: formData.email.trim(),
-                password: formData.documento.trim(),
                 tipo_documento: formData.tipo_documento,
                 documento: formData.documento.trim(),
                 numero_celular: formData.numero_celular.trim(),
@@ -212,15 +220,64 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                 kyc_docs: kycDocs
             };
 
-            await potentialReferralsService.convertReferralToRequest(referral.id, payload);
-            onConverted();
-            onClose();
+            const res = await potentialReferralsService.convertReferralToRequest(referral.id, payload);
+            if (res?.temp_password) {
+                setTempPassword(res.temp_password);
+            } else {
+                onConverted();
+                onClose();
+            }
         } catch (err: any) {
             setError(err.response?.data?.detail || err.message || 'Error al convertir referido');
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    const finishConversion = () => {
+        setTempPassword(null);
+        setCopied(false);
+        onConverted();
+        onClose();
+    };
+
+    if (tempPassword) {
+        return createPortal(
+            <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50" style={{ margin: 0 }}>
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-4 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500 shrink-0" />
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-900">Referido convertido</h3>
+                            <p className="text-xs text-slate-500">Se creó el usuario y su solicitud de inversión.</p>
+                        </div>
+                    </div>
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                        <p className="text-xs text-slate-600">Contraseña temporal de <strong>{formData.email}</strong>:</p>
+                        <div className="flex items-center gap-2">
+                            <code className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl font-mono text-sm font-bold text-slate-900 select-all">{tempPassword}</code>
+                            <button
+                                type="button"
+                                onClick={() => { navigator.clipboard.writeText(tempPassword); setCopied(true); }}
+                                className="px-3 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+                            >
+                                {copied ? 'Copiada' : 'Copiar'}
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-amber-700">Solo se muestra esta vez. Entrégala al cliente por un canal seguro; el sistema le pedirá cambiarla al ingresar.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={finishConversion}
+                        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold cursor-pointer"
+                    >
+                        Listo
+                    </button>
+                </div>
+            </div>,
+            document.body
+        );
+    }
 
     return createPortal(
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 animate-in fade-in duration-200" style={{ margin: 0 }}>
@@ -302,7 +359,7 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Número de Documento (Contraseña Inicial) *</label>
+                                    <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Número de Documento *</label>
                                     <input 
                                         type="text" 
                                         required 

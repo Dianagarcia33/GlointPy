@@ -241,8 +241,12 @@ class PotentialReferralService:
         role_res = await db.execute(select(Role).where(Role.name.in_(["Investor", "Inversionista", "Usuario"])))
         role = role_res.scalars().first()
 
-        # 3. Crear Usuario (Usando el documento como contraseña inicial por defecto)
-        raw_password = (data.password or data.documento).strip()
+        # 3. Crear Usuario con contraseña temporal aleatoria (H-165/H-76): antes era el número de documento,
+        #    un dato predecible. Se pide cambiarla en el primer ingreso.
+        if not data.comprobante_path:
+            raise HTTPException(status_code=422, detail="Adjunta el comprobante de pago para convertir el referido en solicitud de inversión.")
+        from src.core.security import generate_secure_temp_password
+        raw_password = generate_secure_temp_password(12)
         hashed_pwd = await aget_password_hash(raw_password)
 
         # Parse date of birth if provided
@@ -257,6 +261,7 @@ class PotentialReferralService:
             name=data.name,
             email=data.email,
             password_hash=hashed_pwd,
+            must_change_password=True,
             is_active=True,
             document_id=data.documento,
             phone_number=data.numero_celular,
@@ -325,5 +330,6 @@ class PotentialReferralService:
         return {
             "message": "Referido convertido exitosamente en solicitud de inversión",
             "request_id": req.id,
-            "user_id": new_user.id
+            "user_id": new_user.id,
+            "temp_password": raw_password  # se muestra una sola vez al administrador
         }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import HTTPException, APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional, Dict, Any
 from src.core.database import get_db
@@ -8,6 +8,26 @@ from src.schemas.potential_referral import PotentialReferralCreate, PotentialRef
 from src.services.potential_referral_service import PotentialReferralService
 
 router = APIRouter(prefix="/potential-referrals", tags=["potential-referrals"])
+
+REFERRAL_ADMIN_PERMISSIONS = ["admin.referrals.manage", "admin.users.manage", "admin.roles.manage"]
+
+
+async def _ensure_can_manage_referral(db: AsyncSession, referral_id: int, user: User) -> None:
+    """Un inversionista solo edita o borra sus propios referidos; la administración, cualquiera (H-165)."""
+    from src.core.pbac import PBACEngine
+    from sqlalchemy import select
+    from src.models.potential_referral import PotentialReferral
+    from src.models.investor import Investor
+    if PBACEngine.has_permission(user, REFERRAL_ADMIN_PERMISSIONS):
+        return
+    res = await db.execute(
+        select(Investor.user_id)
+        .join(PotentialReferral, PotentialReferral.investor_id == Investor.id)
+        .where(PotentialReferral.id == referral_id)
+    )
+    owner_id = res.scalar_one_or_none()
+    if owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Referido potencial no encontrado")
 
 @router.get("/me", response_model=List[PotentialReferralResponse], dependencies=[Depends(RequirePermission("referrals:view"))])
 async def get_my_potential_referrals(
@@ -31,8 +51,9 @@ async def create_my_potential_referral(
 ):
     return await PotentialReferralService.create_by_user(db, current_user.id, data)
 
-@router.get("/admin", dependencies=[Depends(RequirePermission(["admin.referrals.manage", "referrals:view", "admin.users.manage", "admin.roles.manage"]))])
-@router.get("/admin/all", dependencies=[Depends(RequirePermission(["admin.referrals.manage", "referrals:view", "admin.users.manage", "admin.roles.manage"]))])
+# Listado global y conversión: solo administración. "referrals:view" lo tienen todos los inversionistas (H-165)
+@router.get("/admin", dependencies=[Depends(RequirePermission(REFERRAL_ADMIN_PERMISSIONS))])
+@router.get("/admin/all", dependencies=[Depends(RequirePermission(REFERRAL_ADMIN_PERMISSIONS))])
 async def get_all_potential_referrals_admin(
     search: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
@@ -50,6 +71,7 @@ async def update_potential_referral(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    await _ensure_can_manage_referral(db, referral_id, current_user)
     return await PotentialReferralService.update(db, referral_id, data)
 
 @router.delete("/{referral_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission(["admin.referrals.manage", "referrals:view", "admin.users.manage"]))])
@@ -58,10 +80,11 @@ async def delete_potential_referral(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    await _ensure_can_manage_referral(db, referral_id, current_user)
     await PotentialReferralService.delete(db, referral_id)
     return None
 
-@router.post("/{referral_id}/convert", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission(["admin.referrals.manage", "referrals:view", "admin.users.manage", "admin.roles.manage"]))])
+@router.post("/{referral_id}/convert", status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission(REFERRAL_ADMIN_PERMISSIONS))])
 async def convert_potential_referral(
     referral_id: int,
     data: PotentialReferralConvertRequest,
