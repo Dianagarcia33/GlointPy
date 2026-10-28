@@ -19,6 +19,8 @@ import {
   Users
 } from 'lucide-react';
 
+const PAGE_SIZE = 20;
+
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, referralName, isDeleting }: any) => {
   if (!isOpen) return null;
   return (
@@ -106,7 +108,7 @@ export const AdminReferralsPage = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const res = await potentialReferralsService.getAllAdmin({ search, estado: estadoFilter, page, limit: 20 });
+      const res = await potentialReferralsService.getAllAdmin({ search, estado: estadoFilter, page, limit: PAGE_SIZE });
       setReferrals(res.data || []);
       setTotalItems(res.total || 0);
       setError(null);
@@ -374,6 +376,38 @@ export const AdminReferralsPage = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Paginación: el API devuelve 20 por página y antes no había forma de ver el resto (H-164) */}
+        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-slate-500">
+            {totalItems > 0 ? (
+              <span>
+                Mostrando <strong className="font-bold text-slate-800">{(page - 1) * PAGE_SIZE + 1}</strong> a <strong className="font-bold text-slate-800">{Math.min(page * PAGE_SIZE, totalItems)}</strong> de <strong className="font-bold text-slate-800">{totalItems}</strong> referidos <span className="text-slate-400 font-normal ml-1">(Página {page} de {Math.max(1, Math.ceil(totalItems / PAGE_SIZE))})</span>
+              </span>
+            ) : (
+              <span>0 referidos</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={page === 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
+            >
+              Anterior
+            </button>
+            <span className="px-2 font-mono text-slate-400 text-[11px]">
+              {page} / {Math.max(1, Math.ceil(totalItems / PAGE_SIZE))}
+            </span>
+            <button
+              disabled={page * PAGE_SIZE >= totalItems}
+              onClick={() => setPage(p => p + 1)}
+              className="px-3.5 py-1.5 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold transition-colors cursor-pointer"
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
       </div>
 
