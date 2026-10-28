@@ -108,16 +108,8 @@ const MODULES_CATALOG: ModuleItem[] = [
     isAdminOnly: true,
     keywords: ['acciones', 'comprar acciones', 'vender acciones', 'mercado', 'portafolio', 'titulos', 'valor de accion', 'rendimiento']
   },
-  {
-    id: 'investments',
-    title: 'Mis Inversiones',
-    description: 'Seguimiento a paquetes contratados, rendimientos generados y fechas de pago',
-    path: '/dashboard/investments',
-    category: 'Finanzas y Cuenta',
-    icon: Briefcase,
-    permissions: ['dashboard:view_investments', 'wallets:view', 'admin.investors.manage', 'director.dashboard.view'],
-    keywords: ['inversiones', 'paquetes', 'contratos', 'rendimientos', 'capital', 'fondos invertidos', 'ganancias']
-  },
+  // 'Mis Inversiones' (/dashboard/investments) no se lista: esa ruta aún no tiene pantalla propia
+  // y redirige al Dashboard, donde ya se ven las inversiones (H-144)
   {
     id: 'bank-accounts',
     title: 'Bóveda Bancaria',
@@ -406,6 +398,7 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
   const navigate = useNavigate();
+  const triggerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
   const searchCardRef = useRef<HTMLDivElement>(null);
@@ -436,20 +429,29 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
   const filteredModules = useMemo(() => {
     const cleanQuery = normalize(query);
     
-    return allowedModules.filter(mod => {
-      if (selectedCategory !== 'all' && mod.category !== selectedCategory) {
-        return false;
-      }
+    const inCategory = allowedModules.filter(mod => selectedCategory === 'all' || mod.category === selectedCategory);
+    if (!cleanQuery) return inCategory;
 
-      if (!cleanQuery) return true;
+    // Relevancia (H-144): primero el título (exacto > empieza por > contiene), luego palabras
+    // clave, categoría y descripción. Así 'roles' abre "Roles y Permisos" y no "Gestión de Usuarios".
+    const score = (mod: ModuleItem) => {
+      const title = normalize(mod.title);
+      const titleWords = title.split(/\s+/);
+      if (title === cleanQuery) return 100;
+      if (title.startsWith(cleanQuery) || titleWords.some(w => w.startsWith(cleanQuery))) return 80;
+      if (title.includes(cleanQuery)) return 60;
+      if (mod.keywords.some(k => normalize(k) === cleanQuery)) return 50;
+      if (mod.keywords.some(k => normalize(k).includes(cleanQuery))) return 40;
+      if (normalize(mod.category).includes(cleanQuery)) return 20;
+      if (normalize(mod.description).includes(cleanQuery)) return 10;
+      return 0;
+    };
 
-      const matchTitle = normalize(mod.title).includes(cleanQuery);
-      const matchDesc = normalize(mod.description).includes(cleanQuery);
-      const matchCategory = normalize(mod.category).includes(cleanQuery);
-      const matchKeywords = mod.keywords.some(k => normalize(k).includes(cleanQuery));
-
-      return matchTitle || matchDesc || matchCategory || matchKeywords;
-    });
+    return inCategory
+      .map((mod, index) => ({ mod, index, score: score(mod) }))
+      .filter(r => r.score > 0)
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .map(r => r.mod);
   }, [allowedModules, query, selectedCategory]);
 
   useEffect(() => {
@@ -459,6 +461,9 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
   // Atajo de teclado global: Cmd+K o Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // La Navbar monta el buscador dos veces (escritorio y móvil, una oculta por CSS). Solo responde
+      // la instancia visible; si no, Ctrl+K abría dos paletas y Enter solo cerraba una (H-144)
+      if (!triggerRef.current || triggerRef.current.offsetParent === null) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsOpen(prev => !prev);
@@ -541,7 +546,7 @@ export const NavbarModuleSearch: React.FC<NavbarModuleSearchProps> = ({ isDark =
   return (
     <>
       {/* 1. Botón Buscador en la Navbar (Estilo Inputs Premium Gloint) */}
-      <div className="w-full flex items-center justify-center">
+      <div ref={triggerRef} className="w-full flex items-center justify-center">
         {/* Desktop Search Trigger */}
         <button
           type="button"
