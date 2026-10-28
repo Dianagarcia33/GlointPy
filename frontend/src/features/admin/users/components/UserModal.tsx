@@ -510,8 +510,10 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSaved, 
                         className="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500 cursor-pointer"
                       />
                       <div>
-                        <div className="font-bold text-slate-800">{role.display_name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{role.name}</div>
+                        <div className="font-bold text-slate-800">{role.display_name || role.name}</div>
+                        {role.display_name && (
+                          <div className="text-[10px] text-slate-400 font-mono">{role.name}</div>
+                        )}
                       </div>
                     </label>
                   ))}
