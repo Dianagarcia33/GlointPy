@@ -7,6 +7,10 @@ import { X, Loader2, User, Landmark, UploadCloud, CheckCircle2, DollarSign, Arro
 
 import { bankAccountsService, DataBank } from '../../../../services/bankAccounts';
 
+// Valor numérico del paquete (el catálogo puede traerlo en value o como texto en otros campos)
+const packageValue = (p: any): number =>
+    Number(p?.value ?? String(p?.paquete_accion_adquirido || p?.nombre || '').replace(/[^0-9]/g, '')) || 0;
+
 interface ConvertReferralModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -501,9 +505,12 @@ export const ConvertReferralModal: React.FC<ConvertReferralModalProps> = ({
                                         className="w-full px-3.5 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 focus:border-brand-500 rounded-xl text-xs font-bold text-slate-900 outline-none transition-all cursor-pointer"
                                     >
                                         <option value="">Selecciona un paquete...</option>
-                                        {paquetes.map((p: any) => (
-                                            <option key={p.id} value={p.id}>{p.paquete_accion_adquirido || p.nombre || `$${p.value}`} COP</option>
-                                        ))}
+                                        {/* Ordenados por valor y con el formato de moneda de la plataforma: "$50.000 COP" (H-166) */}
+                                        {[...paquetes]
+                                            .sort((a: any, b: any) => packageValue(a) - packageValue(b))
+                                            .map((p: any) => (
+                                                <option key={p.id} value={p.id}>${packageValue(p).toLocaleString('es-CO')} COP</option>
+                                            ))}
                                     </select>
                                 </div>
                                 <div className="space-y-1">
