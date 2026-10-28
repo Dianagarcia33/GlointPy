@@ -65,6 +65,12 @@ async def get_user_sarlaft_check(user_id: int, current_user = Depends(get_curren
     """
     Obtiene el último resultado de verificación SARLAFT para un usuario.
     """
+    # H-183: el propio usuario o la administración; nadie más puede consultar el SARLAFT de otra persona
+    from src.core.pbac import PBACEngine
+    if user_id != current_user.id and not PBACEngine.has_permission(
+        current_user, ["admin.investors.manage", "admin.users.manage", "admin.audits.manage", "admin.roles.manage"]
+    ):
+        raise HTTPException(status_code=403, detail="No tienes permisos suficientes para realizar esta acción")
     try:
         res = await db.execute(
             select(SarlaftCheck)
@@ -108,7 +114,7 @@ async def get_user_sarlaft_check(user_id: int, current_user = Depends(get_curren
         }
     }
 
-@router.get("/pdf/{check_id}")
+@router.get("/pdf/{check_id}", dependencies=[Depends(RequirePermission(["admin.investors.manage", "admin.users.manage", "admin.audits.manage"]))])  # H-183: antes era público
 async def download_sarlaft_pdf(check_id: int, db: AsyncSession = Depends(get_db)):
     """
     Descarga el reporte en PDF oficial de la consulta SARLAFT.

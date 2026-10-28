@@ -9,7 +9,7 @@ from src.core.security import create_access_token
 from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, SendForcePasswordOtpRequest
 from src.schemas.user import UserResponse
 from src.services.auth_service import AuthService
-from src.api.deps import get_current_user, get_auth_payload
+from src.api.deps import get_current_user, get_auth_payload, RequirePermission
 from src.models.user import User
 
 router = APIRouter()
@@ -403,7 +403,7 @@ class TestEmailRequest(BaseModel):
     target_email: Optional[str] = None
 
 
-@router.post("/test-email")
+@router.post("/test-email", dependencies=[Depends(RequirePermission("admin.roles.manage"))])  # H-183: antes lo podía usar cualquier usuario
 async def send_test_email(
     payload: TestEmailRequest,
     current_user: User = Depends(get_current_user)

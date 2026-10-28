@@ -16,7 +16,10 @@ from src.models.user import User
 
 router = APIRouter()
 
-@router.get("/", response_model=WithdrawalPaginatedResponse)
+# H-183: lectura global y carga masiva de retiros solo para la administración de pagos
+WITHDRAWAL_ADMIN_PERMISSIONS = ["admin.withdrawals.manage", "admin.payments.manage", "admin.audits.manage", "admin.users.manage", "admin.investors.manage", "admin.roles.manage"]
+
+@router.get("/", response_model=WithdrawalPaginatedResponse, dependencies=[Depends(RequirePermission(WITHDRAWAL_ADMIN_PERMISSIONS))])
 async def get_withdrawals(
     db: AsyncSession = Depends(get_db),
     page: int = Query(1, ge=1),
@@ -59,8 +62,13 @@ async def get_withdrawal(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    from src.core.pbac import PBACEngine
     withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
-    if not withdrawal:
+    # H-183: solo el titular o la administración; igual respuesta si no existe o es ajeno
+    if not withdrawal or (
+        withdrawal.user_id != current_user.id
+        and not PBACEngine.has_permission(current_user, WITHDRAWAL_ADMIN_PERMISSIONS)
+    ):
         raise HTTPException(status_code=404, detail="Withdrawal not found")
     return withdrawal
 
@@ -176,13 +184,21 @@ async def check_withdrawal_yoint_status(
 @router.get("/{withdrawal_id}/receipt")
 async def get_withdrawal_receipt(
     withdrawal_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Generate and stream a PDF receipt for the approved withdrawal on the fly.
     """
+    # H-183: antes era público y los ids son consecutivos; solo el titular o la administración de pagos
+    from src.core.pbac import PBACEngine
     withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
-    if not withdrawal:
+    can_view_all = PBACEngine.has_permission(
+        current_user,
+        WITHDRAWAL_ADMIN_PERMISSIONS
+    )
+    if not withdrawal or (withdrawal.user_id != current_user.id and not can_view_all):
+        # Misma respuesta si no existe o es ajeno: no revela qué ids existen
         raise HTTPException(status_code=404, detail="Retiro no encontrado")
     
     if withdrawal.estado not in ["aprobado", "procesado"]:
@@ -293,7 +309,7 @@ async def reject_withdrawal(
 
     return rejected
 
-@router.post("/bulk-upload", response_model=Dict[str, Any])
+@router.post("/bulk-upload", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission(["admin.withdrawals.manage", "admin.payments.manage", "admin.investors.manage", "admin.roles.manage"]))])
 async def bulk_upload_withdrawals(
     withdrawals: List[WithdrawalCreate],
     db: AsyncSession = Depends(get_db),

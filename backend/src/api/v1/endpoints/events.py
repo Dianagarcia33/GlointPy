@@ -22,6 +22,10 @@ from fastapi import Request, Response
 
 router = APIRouter()
 
+# H-183: las rutas administrativas de eventos exigen el permiso ANTES de tocar la base de datos
+EVENT_ADMIN_PERMISSIONS = ["admin.events.manage", "admin.roles.manage"]
+event_admin = [Depends(RequirePermission(EVENT_ADMIN_PERMISSIONS))]
+
 @router.get("/active", response_model=EventPublicResponse)
 async def get_active_event(db: AsyncSession = Depends(get_db)):
     """
@@ -61,7 +65,7 @@ async def get_my_event_registration(
     """
     return await EventService.get_my_registration(db, current_user)
 
-@router.get("/admin/summary", response_model=AdminEventSummaryResponse)
+@router.get("/admin/summary", response_model=AdminEventSummaryResponse, dependencies=event_admin)
 async def get_admin_event_summary(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -71,7 +75,7 @@ async def get_admin_event_summary(
     """
     return await EventService.get_admin_summary(db)
 
-@router.put("/admin/config", response_model=EventPublicResponse)
+@router.put("/admin/config", response_model=EventPublicResponse, dependencies=event_admin)
 async def update_event_configuration(
     config: EventConfigUpdate,
     db: AsyncSession = Depends(get_db),
@@ -82,7 +86,7 @@ async def update_event_configuration(
     """
     return await EventService.update_event_config(db, config)
 
-@router.delete("/admin/attendees/{attendee_id}")
+@router.delete("/admin/attendees/{attendee_id}", dependencies=event_admin)
 async def cancel_attendee_registration(
     attendee_id: int,
     db: AsyncSession = Depends(get_db),
@@ -98,7 +102,7 @@ async def cancel_attendee_registration(
 # GESTIÓN DE DOMINIOS AUTORIZADOS (ECOSISTEMA GLOINT)
 # ==========================================
 
-@router.get("/domains", response_model=List[EventAuthorizedDomainResponse])
+@router.get("/domains", response_model=List[EventAuthorizedDomainResponse], dependencies=event_admin)
 async def get_authorized_domains(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -108,7 +112,7 @@ async def get_authorized_domains(
     """
     return await EventService.get_authorized_domains(db)
 
-@router.post("/domains", response_model=EventAuthorizedDomainResponse)
+@router.post("/domains", response_model=EventAuthorizedDomainResponse, dependencies=event_admin)
 async def create_authorized_domain(
     data: EventAuthorizedDomainCreate,
     db: AsyncSession = Depends(get_db),
@@ -119,7 +123,7 @@ async def create_authorized_domain(
     """
     return await EventService.create_authorized_domain(db, data)
 
-@router.put("/domains/{domain_id}", response_model=EventAuthorizedDomainResponse)
+@router.put("/domains/{domain_id}", response_model=EventAuthorizedDomainResponse, dependencies=event_admin)
 async def update_authorized_domain(
     domain_id: int,
     data: EventAuthorizedDomainUpdate,
@@ -131,7 +135,7 @@ async def update_authorized_domain(
     """
     return await EventService.update_authorized_domain(db, domain_id, data)
 
-@router.delete("/domains/{domain_id}")
+@router.delete("/domains/{domain_id}", dependencies=event_admin)
 async def delete_authorized_domain(
     domain_id: int,
     db: AsyncSession = Depends(get_db),
