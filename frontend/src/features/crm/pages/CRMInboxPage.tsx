@@ -219,6 +219,8 @@ export const CRMInboxPage: React.FC = () => {
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [subject, setSubject] = useState('');
   const [bodyHtml, setBodyHtml] = useState('');
+  // H-188: el cuerpo es HTML; se puede alternar entre el código y una vista previa renderizada
+  const [isBodyPreview, setIsBodyPreview] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [sending, setSending] = useState(false);
   const [composerAttachments, setComposerAttachments] = useState<EmailAttachment[]>([]);
@@ -377,6 +379,10 @@ export const CRMInboxPage: React.FC = () => {
     };
   }, [hasSavedPassword]);
 
+  // Texto sin etiquetas: los saltos de línea se conservan como <br/> (igual que en la respuesta rápida)
+  const composerBodyToHtml = (value: string) =>
+    /<[a-z][\s\S]*>/i.test(value) ? value : value.replace(/\n/g, '<br/>');
+
   // Aplicar plantilla en redactor o respuesta rápida
   const handleApplyTemplate = (templateId: string, target: 'composer' | 'quickReply' = 'composer') => {
     const tmpl = templates.find((t) => t.id === templateId);
@@ -386,6 +392,7 @@ export const CRMInboxPage: React.FC = () => {
       setSelectedTemplateId(templateId);
       setSubject(tmpl.subject);
       setBodyHtml(tmpl.body_html.trim());
+      setIsBodyPreview(true); // la plantilla es HTML: se muestra ya formateada y se puede pasar a "Editar"
     } else {
       setQuickReplyText(tmpl.body_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
       setIsQuickReplyExpanded(true);
@@ -436,7 +443,7 @@ export const CRMInboxPage: React.FC = () => {
       await crmEmailService.sendEmail({
         recipient_email: recipient.trim(),
         subject: subject.trim(),
-        body_html: bodyHtml,
+        body_html: composerBodyToHtml(bodyHtml),
         attachments: composerAttachments.length > 0 ? composerAttachments : undefined,
         cc_emails: ccEmails.trim() || undefined,
         bcc_emails: bccEmails.trim() || undefined
@@ -449,6 +456,7 @@ export const CRMInboxPage: React.FC = () => {
       setShowCcBcc(false);
       setSubject('');
       setBodyHtml('');
+      setIsBodyPreview(false);
       setComposerAttachments([]);
       refetchEmails();
       refetchFolderCounts();
@@ -2279,8 +2287,30 @@ export const CRMInboxPage: React.FC = () => {
                   />
                 </div>
 
+                {/* Código / Vista previa del cuerpo (H-188) */}
+                <div className="flex items-center gap-1 text-[11px] font-bold" role="tablist" aria-label="Modo del cuerpo del mensaje">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={!isBodyPreview}
+                    onClick={() => setIsBodyPreview(false)}
+                    className={`px-3 py-1 rounded-lg border transition-colors ${!isBodyPreview ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isBodyPreview}
+                    onClick={() => setIsBodyPreview(true)}
+                    className={`px-3 py-1 rounded-lg border transition-colors ${isBodyPreview ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    Vista previa
+                  </button>
+                </div>
+
                 {/* Barra de Herramientas de Formato de Texto */}
-                <div className="flex items-center gap-1 p-1 bg-slate-50 border border-slate-200 rounded-xl text-slate-600">
+                <div className={`flex items-center gap-1 p-1 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 ${isBodyPreview ? 'opacity-40 pointer-events-none' : ''}`}>
                   <button
                     type="button"
                     onClick={() => insertFormatting('b')}
@@ -2334,6 +2364,13 @@ export const CRMInboxPage: React.FC = () => {
 
                 {/* Cuerpo del Mensaje */}
                 <div className="flex-1">
+                  {isBodyPreview ? (
+                    <div
+                      className="w-full min-h-[11rem] max-h-80 overflow-y-auto bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 leading-relaxed"
+                      aria-label="Vista previa del mensaje"
+                      dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(composerBodyToHtml(bodyHtml)) || '<span style="color:#94a3b8">El mensaje está vacío.</span>' }}
+                    />
+                  ) : (
                   <textarea
                     ref={composerTextareaRef}
                     rows={8}
@@ -2342,6 +2379,7 @@ export const CRMInboxPage: React.FC = () => {
                     onChange={(e) => setBodyHtml(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-brand-500 font-sans resize-none leading-relaxed"
                   />
+                  )}
                 </div>
 
                 {/* Adjuntos en el Compositor */}
