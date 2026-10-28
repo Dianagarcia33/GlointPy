@@ -67,6 +67,7 @@ import {
 import { crmService, CRMProject } from '../../../services/crmService';
 import { useAuthStore } from '../../../store/authStore';
 import { getMediaUrl } from '../../../services/api';
+import { sanitizeEmailHtml } from '../../../utils/sanitizeHtml';
 
 // Utilidad para formatear tamaños de archivo
 const formatFileSize = (bytes?: number) => {
@@ -1946,7 +1947,7 @@ export const CRMInboxPage: React.FC = () => {
                 <div className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200/80 shadow-2xs min-h-[220px]">
                   <div
                     className="prose prose-sm max-w-none text-slate-800 text-sm leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(selectedEmail.body_html) }}
                   />
                 </div>
 

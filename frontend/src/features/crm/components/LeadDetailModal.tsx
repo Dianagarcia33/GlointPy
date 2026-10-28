@@ -20,6 +20,7 @@ import {
 import { crmService, CRMLead, CRMActivity, CRMLeadStage } from '../../../services/crmService';
 import { crmEmailService, CRMEmail } from '../../../services/crmEmailService';
 import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
+import { sanitizeEmailHtml } from '../../../utils/sanitizeHtml';
 
 interface LeadDetailModalProps {
   lead: CRMLead | null;
@@ -453,7 +454,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                         </div>
                         <div
                           className="text-xs text-slate-700 leading-relaxed font-sans line-clamp-3"
-                          dangerouslySetInnerHTML={{ __html: em.body_html }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(em.body_html) }}
                         />
                         <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100 font-semibold">
                           <span>Para: {em.recipient_email}</span>
