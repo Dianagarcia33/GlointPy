@@ -802,7 +802,8 @@ class CRMEmailService:
             # Conexión SSL segura a cPanel
             mail = await asyncio.to_thread(imaplib.IMAP4_SSL, host, port, timeout=30)
             await asyncio.to_thread(mail.login, username, password)
-            await asyncio.to_thread(mail.select, "INBOX")
+            # H-201: solo lectura; la importación nunca modifica banderas (\Seen) en el servidor de correo
+            await asyncio.to_thread(mail.select, "INBOX", True)
 
             # Si el inicio de sesión fue exitoso y se envió una contraseña para guardar
             if imap_pass and save_password and user.imap_password != imap_pass:
@@ -908,9 +909,8 @@ class CRMEmailService:
 
                         if matched_record:
                             needs_update = False
-                            if is_seen_in_cpanel and not matched_record.is_read:
-                                matched_record.is_read = True
-                                needs_update = True
+                            # H-201: el estado leído/no leído de un correo ya importado es el que fijó el usuario;
+                            # la bandera \Seen del servidor solo decide el estado inicial de los correos nuevos
                             if msg_date and matched_record.created_at != msg_date:
                                 matched_record.created_at = msg_date
                                 needs_update = True
@@ -1079,9 +1079,8 @@ class CRMEmailService:
 
                         if matched_record:
                             needs_update = False
-                            if is_seen_in_cpanel and not matched_record.is_read:
-                                matched_record.is_read = True
-                                needs_update = True
+                            # H-201: el estado leído/no leído de un correo ya importado es el que fijó el usuario;
+                            # la bandera \Seen del servidor solo decide el estado inicial de los correos nuevos
                             if msg_date and matched_record.created_at != msg_date:
                                 matched_record.created_at = msg_date
                                 needs_update = True

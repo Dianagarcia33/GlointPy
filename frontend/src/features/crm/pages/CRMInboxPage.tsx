@@ -263,11 +263,11 @@ export const CRMInboxPage: React.FC = () => {
     queryKey: ['crm_email_folder_counts'],
     queryFn: () => crmEmailService.getFolderCounts(),
     staleTime: 0,
-    refetchInterval: 15000
+    refetchInterval: 10000
   });
 
   // Query: Correos con refresco automático
-  const { data: emails = [], isLoading: loadingEmails, refetch: refetchEmails } = useQuery<CRMEmail[]>({
+  const { data: emails = [], isLoading: loadingEmails, refetch: refetchEmails, dataUpdatedAt: emailsUpdatedAt } = useQuery<CRMEmail[]>({
     queryKey: ['crm_emails', folder, searchTerm],
     queryFn: () => crmEmailService.getEmails({ folder, search: searchTerm }),
     staleTime: 0,
@@ -276,6 +276,11 @@ export const CRMInboxPage: React.FC = () => {
     refetchInterval: 10000,
     refetchIntervalInBackground: true
   });
+
+  // H-201: los contadores se vuelven a consultar cada vez que llega la lista, para que no se desfasen
+  useEffect(() => {
+    if (emailsUpdatedAt) refetchFolderCounts();
+  }, [emailsUpdatedAt]);
 
   // Limpiar selección múltiple al cambiar de carpeta
   useEffect(() => {
@@ -791,6 +796,12 @@ export const CRMInboxPage: React.FC = () => {
       if (!old) return old;
       return old.map((item) => (item.id === email.id ? { ...item, is_read: nextReadState } : item));
     });
+    // El contador de no leídos del Inbox cambia al instante; luego se confirma con el servidor
+    if (folder === 'inbox' || !folder) {
+      queryClient.setQueryData<EmailFolderCounts>(['crm_email_folder_counts'], (old) =>
+        old ? { ...old, unread_inbox: Math.max(0, old.unread_inbox + (nextReadState ? -1 : 1)) } : old
+      );
+    }
     try {
       await crmEmailService.toggleRead(email.id);
       refetchFolderCounts();
