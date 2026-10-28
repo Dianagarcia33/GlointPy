@@ -4,7 +4,7 @@ import os
 import uuid
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException, BackgroundTasks, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -30,6 +30,7 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 @router.get("/me")
+@router.get("/my-investments", include_in_schema=False)  # H-175: nombre usado en la documentación del Módulo 1
 async def get_my_investments(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get the investments (requests) of the current logged-in user.
@@ -489,7 +490,10 @@ async def admin_search_user(
 
 
 @router.get("/{investment_id}")
-async def get_investment_details(investment_id: str, current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def get_investment_details(
+    # H-175: id numérico de un contrato o "req_<id>" de una solicitud; cualquier otro valor es 422, no 500
+    investment_id: str = Path(..., pattern=r"^(req_)?\d+$", description="Id del contrato o req_<id> de la solicitud"),
+    current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """
     Get detailed information about a single investment.
     """
