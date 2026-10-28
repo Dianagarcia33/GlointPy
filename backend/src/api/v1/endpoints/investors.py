@@ -130,13 +130,24 @@ async def admin_withdraw_capital(
             selectinload(Investor.package),
             selectinload(Investor.period),
             selectinload(Investor.user),
-            selectinload(Investor.withdrawals)
+            selectinload(Investor.withdrawals),
+            selectinload(Investor.accelerations)
         )
         .where(Investor.id == investor_id)
     )
     investor = res.scalars().first()
     if not investor:
         raise HTTPException(status_code=404, detail="Inversión no encontrada")
+
+    # Regla estricta (Módulo 12, Acción 6): solo se liquida el capital de contratos que cumplieron todos
+    # sus días, con la fecha de Colombia. Antes el servidor no lo comprobaba (H-156)
+    from src.services.contract_terms import contract_end, is_contract_finished
+    if not is_contract_finished(investor):
+        fin = contract_end(investor)
+        raise HTTPException(
+            status_code=400,
+            detail=f"El contrato aún no ha finalizado (vence el {fin.strftime('%d/%m/%Y') if fin else 'N/A'}). Solo se puede liquidar el capital de contratos finalizados."
+        )
 
     # 2. Calculate remaining capital
     total_package_value = float(investor.package.value) if investor.package else 0.0
