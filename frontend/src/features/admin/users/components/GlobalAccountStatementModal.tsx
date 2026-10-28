@@ -168,7 +168,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
         ['Total Débitos / Salidas (-)', statement.summary.total_debits],
         ['Total Retiros Desembolsados a Bancos', statement.summary.total_withdrawn_paid],
         ['Total Retiros Pendientes por Desembolso', statement.summary.total_withdrawn_pending],
-        ['Total Retención Impuesto GMF (4x1000)', statement.summary.total_gmf_tax],
+        ['Total Retención 3,2 %', statement.summary.total_retencion],
         ['Total Capital Invertido Activo', statement.summary.total_capital_active],
         ['Total Capital Invertido Finalizado', statement.summary.total_capital_finished],
         ['Total Inversionistas con Capital Activo', statement.summary.active_investors_count]
@@ -201,7 +201,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
         'TIPO DE CUENTA': w.account_type,
         'NÚMERO DE CUENTA': w.account_number,
         'MONTO SOLICITADO': w.amount,
-        'RETENCIÓN GMF (4x1000)': w.gmf_tax,
+        'RETENCIÓN 3,2 %': w.retencion,
         'MONTO NETO A TRANSFERIR': w.net_amount,
         'ESTADO': w.status.toUpperCase()
       }));
@@ -439,11 +439,11 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
 
                 <div className="bg-purple-50/60 p-4 rounded-2xl border border-purple-200/80 space-y-1">
                   <div className="flex items-center justify-between text-purple-800 mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Retención GMF (4x1000)</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Retención 3,2 %</span>
                     <Percent className="w-4 h-4 text-purple-600" />
                   </div>
                   <p className="text-lg sm:text-xl font-black font-montserrat tracking-tight text-purple-700">
-                    {formatCurrency(statement.summary.total_gmf_tax)}
+                    {formatCurrency(statement.summary.total_retencion)}
                   </p>
                   <span className="text-[10px] text-slate-500 font-medium block">Impuesto liquidado</span>
                 </div>
@@ -576,7 +576,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
                           <th className="py-3 px-4">Banco Destino</th>
                           <th className="py-3 px-4">Cuenta</th>
                           <th className="py-3 px-4 text-right">Monto Bruto</th>
-                          <th className="py-3 px-4 text-right">4x1000 (GMF)</th>
+                          <th className="py-3 px-4 text-right">Retención 3,2 %</th>
                           <th className="py-3 px-4 text-right">Neto a Pagar</th>
                           <th className="py-3 px-4 text-center">Estado</th>
                         </tr>
@@ -610,7 +610,7 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
                                   {formatCurrency(w.amount)}
                                 </td>
                                 <td className="py-3 px-4 text-right font-mono text-purple-700 font-bold">
-                                  -{formatCurrency(w.gmf_tax)}
+                                  -{formatCurrency(w.retencion)}
                                 </td>
                                 <td className="py-3 px-4 text-right font-mono font-extrabold text-blue-700">
                                   {formatCurrency(w.net_amount)}

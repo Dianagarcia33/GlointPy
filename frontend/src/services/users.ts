@@ -207,7 +207,7 @@ export interface GlobalStatementWithdrawal {
   account_number: string;
   account_type: string;
   amount: number;
-  gmf_tax: number;
+  retencion: number;
   net_amount: number;
   status: string;
   rejection_reason?: string | null;
@@ -239,7 +239,7 @@ export interface GlobalAccountStatement {
     total_debits: number;
     total_withdrawn_paid: number;
     total_withdrawn_pending: number;
-    total_gmf_tax: number;
+    total_retencion: number;
     total_capital_active: number;
     total_capital_finished: number;
     active_investors_count: number;

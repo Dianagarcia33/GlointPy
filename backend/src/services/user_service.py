@@ -937,17 +937,17 @@ class UserService:
         withdrawals_list = []
         total_withdrawn_paid = 0.0
         total_withdrawn_pending = 0.0
-        total_gmf_tax = 0.0
+        total_retencion = 0.0
 
         for w, u in all_w_records:
             w_status = w.estado.value if hasattr(w.estado, 'value') else str(w.estado or "pendiente")
             monto_bruto = float(w.monto or 0)
             monto_neto = float(w.monto_neto or w.monto or 0)
-            gmf = float(w.impuesto if hasattr(w, 'impuesto') and w.impuesto is not None else max(0.0, monto_bruto - monto_neto))
+            retencion_w = float(w.impuesto if hasattr(w, 'impuesto') and w.impuesto is not None else max(0.0, monto_bruto - monto_neto))
 
             if w_status.lower() in ["aprobado", "approved", "pagado", "paid", "procesado", "processed", "completado"]:
                 total_withdrawn_paid += monto_neto
-                total_gmf_tax += gmf
+                total_retencion += retencion_w
             elif w_status.lower() in ["pendiente", "pending"]:
                 total_withdrawn_pending += monto_neto
 
@@ -961,7 +961,7 @@ class UserService:
                 "account_number": w.numero_cuenta or "N/A",
                 "account_type": w.tipo_cuenta or "Ahorros",
                 "amount": monto_bruto,
-                "gmf_tax": gmf,
+                "retencion": retencion_w,
                 "net_amount": monto_neto,
                 "status": w_status,
                 "rejection_reason": w.motivo_rechazo if hasattr(w, 'motivo_rechazo') else None
@@ -1030,7 +1030,7 @@ class UserService:
                 "total_debits": total_debits,
                 "total_withdrawn_paid": total_withdrawn_paid,
                 "total_withdrawn_pending": total_withdrawn_pending,
-                "total_gmf_tax": total_gmf_tax,
+                "total_retencion": total_retencion,
                 "total_capital_active": total_capital_active,
                 "total_capital_finished": total_capital_finished,
                 "active_investors_count": len(active_users_set)

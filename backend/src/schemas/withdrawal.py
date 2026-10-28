@@ -43,16 +43,16 @@ class WithdrawalCreate(WithdrawalBase):
 
     @model_validator(mode="after")
     def validate_amounts(self) -> 'WithdrawalCreate':
-        """Coherencia contable al crear o importar retiros (H-162): 0 <= GMF <= monto y neto = monto - GMF."""
+        """Coherencia contable al crear o importar retiros (H-162): 0 <= retención <= monto y neto = monto - retención."""
         ref = f"Retiro{f' #{self.id}' if self.id else ''} de ${self.monto:,.2f}"
         if self.monto <= 0:
             raise ValueError(f"{ref}: el monto debe ser mayor a cero.")
         if self.impuesto < 0 or self.impuesto > self.monto:
-            raise ValueError(f"{ref}: el impuesto/GMF (${self.impuesto:,.2f}) debe estar entre $0 y el monto del retiro.")
+            raise ValueError(f"{ref}: la retención (${self.impuesto:,.2f}) debe estar entre $0 y el monto del retiro.")
         # Tolerancia de $1 por redondeo (hay retiros históricos con diferencias de centavos)
         if abs(self.monto - self.impuesto - self.monto_neto) > Decimal("1"):
             raise ValueError(
-                f"{ref}: el neto (${self.monto_neto:,.2f}) debe ser el monto menos el impuesto/GMF "
+                f"{ref}: el neto (${self.monto_neto:,.2f}) debe ser el monto menos la retención "
                 f"(${self.monto - self.impuesto:,.2f})."
             )
         return self

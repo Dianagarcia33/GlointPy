@@ -181,7 +181,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
         'TIPO CUENTA': w.tipo_cuenta,
         'NÚMERO CUENTA': w.numero_cuenta,
         'MONTO BRUTO': w.monto_bruto,
-        'RETENCIÓN / 4x1000': w.retencion,
+        'RETENCIÓN 3,2 %': w.retencion,
         'MONTO NETO PAGADO': w.monto_neto,
         'ESTADO': w.estado
       }));
@@ -1078,7 +1078,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                   <th className="py-1.5 px-2 border-r border-slate-300 w-24">Fecha Solicitud</th>
                   <th className="py-1.5 px-2 border-r border-slate-300">Banco & Cuenta Destino</th>
                   <th className="py-1.5 px-2 border-r border-slate-300 text-right w-20">Monto Bruto</th>
-                  <th className="py-1.5 px-2 border-r border-slate-300 text-right w-20">GMF / Ret.</th>
+                  <th className="py-1.5 px-2 border-r border-slate-300 text-right w-20">Retención</th>
                   <th className="py-1.5 px-2 border-r border-slate-300 text-right w-20">Neto Pagado</th>
                   <th className="py-1.5 px-2 text-center w-20">Estado</th>
                 </tr>
