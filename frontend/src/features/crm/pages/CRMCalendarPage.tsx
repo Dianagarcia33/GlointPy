@@ -187,7 +187,24 @@ export const CRMCalendarPage: React.FC = () => {
         setNewLocation('');
         setNewDescription('');
         setNewLeadId(undefined);
-        queryClient.invalidateQueries({ queryKey: ['crm_calendar_events'] });
+        // H-199: la cita se ve de inmediato; el servidor CalDAV puede tardar en indexarla, por eso se
+        // inserta en la lista y se confirma con una nueva consulta unos segundos después
+        const linkMatch = (newLocation || '').match(/https?:\/\/\S+/i);
+        const optimisticEvent: CalendarEvent = {
+          uid: (res as any).uid || `tmp_${Date.now()}`,
+          title: payload.title,
+          start: payload.start_datetime,
+          end: payload.end_datetime,
+          location: payload.location,
+          description: payload.description,
+          url: linkMatch ? linkMatch[0] : undefined,
+        };
+        queryClient.setQueryData(['crm_calendar_events'], (old: any) => ({
+          ...(old || { needs_password: false }),
+          events: [optimisticEvent, ...((old?.events || []).filter((e: CalendarEvent) => e.uid !== optimisticEvent.uid))],
+          count: ((old?.events || []).length || 0) + 1,
+        }));
+        setTimeout(() => queryClient.invalidateQueries({ queryKey: ['crm_calendar_events'] }), 3000);
       } else {
         showToast(res.message || 'Error al crear la cita.', 'error');
       }
@@ -893,16 +910,18 @@ export const CRMCalendarPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setNewLocation('Google Meet')}
+                      title="Marca la cita como Google Meet. Después pega el enlace de la reunión para que quede con videollamada."
                       className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] text-slate-600 font-medium"
                     >
-                      + Meet
+                      Marcar como Meet
                     </button>
                     <button
                       type="button"
                       onClick={() => setNewLocation('Oficinas Gloint')}
+                      title="Usa la dirección de las oficinas como lugar de la cita"
                       className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-[10px] text-slate-600 font-medium"
                     >
-                      + Oficina
+                      Oficinas Gloint
                     </button>
                   </div>
                 </div>
@@ -913,6 +932,17 @@ export const CRMCalendarPage: React.FC = () => {
                   onChange={(e) => setNewLocation(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
                 />
+                {/* H-199: el atajo solo escribe una etiqueta; el enlace real hay que pegarlo */}
+                {/^google meet$/i.test(newLocation.trim()) && (
+                  <p className="mt-1 text-[10px] text-amber-700 font-medium">
+                    Pega aquí el enlace de la reunión (meet.google.com/…). Sin enlace, la cita no tendrá el botón «Unirse a llamada».
+                  </p>
+                )}
+                {/https?:\/\/\S+/i.test(newLocation) && (
+                  <p className="mt-1 text-[10px] text-emerald-700 font-medium">
+                    Enlace detectado: la cita quedará con videollamada lista.
+                  </p>
+                )}
               </div>
 
               {/* Selector de Proyecto y Lead */}
