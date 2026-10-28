@@ -16,6 +16,13 @@ router = APIRouter()
 
 UPLOAD_ROOT = os.path.abspath("uploads")
 
+# Un SVG abierto directamente puede ejecutar scripts en el dominio de la API (H-132):
+# se sirve en sandbox y sin permitir scripts; dentro de <img> se sigue viendo igual.
+SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
+
+# Adjuntos de correos del CRM: solo usuarios con acceso a la bandeja comercial
+CRM_EMAIL_PERMISSIONS = ["crm:inbox:view", "crm:inbox:send", "crm:view", "crm:leads:manage"]
+
 async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncSession):
     # 1. Resolve and validate physical file path (Anti-path traversal)
     target_path = os.path.abspath(os.path.join(UPLOAD_ROOT, relative_path))
@@ -35,14 +42,13 @@ async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncS
     category = parts[0] if len(parts) > 1 else "root"
     filename_only = os.path.basename(target_path)
 
-    # 2. Public / semi-public templates and avatars assets (letterhead images, general assets, avatars, email attachments)
-    if category in ["templates", "public", "avatars", "email_attachments"]:
+    # 2. Public / semi-public assets (letterhead images, general assets, avatars).
+    # Los adjuntos de correo ya no son públicos: contienen documentación comercial privada.
+    if category in ["templates", "public", "avatars"]:
         mime_type, _ = mimetypes.guess_type(target_path)
         headers = {"X-Content-Type-Options": "nosniff"}
         if mime_type == "image/svg+xml":
-            # Un SVG abierto directamente puede ejecutar scripts en el dominio de la API (H-132):
-            # se sirve en sandbox y sin permitir scripts; dentro de <img> se sigue viendo igual.
-            headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
+            headers["Content-Security-Policy"] = SVG_CSP
         return FileResponse(
             target_path,
             media_type=mime_type or "application/octet-stream",
@@ -57,6 +63,14 @@ async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncS
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Se requiere autenticación para acceder a este documento."
         )
+
+    if category == "email_attachments":
+        from src.core.pbac import PBACEngine
+        if not PBACEngine.has_permission(current_user, CRM_EMAIL_PERMISSIONS):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes autorización para acceder a los adjuntos de correo."
+            )
 
     # 4. Check permissions and ownership
     user_roles = [r.name.lower() for r in getattr(current_user, "roles", []) if hasattr(r, "name")]
@@ -134,15 +148,18 @@ async def verify_and_serve_file(relative_path: str, request: Request, db: AsyncS
 
     # 5. Serve file securely with anti-sniff and cache control headers
     mime_type, _ = mimetypes.guess_type(target_path)
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        "Content-Disposition": "inline"
+    }
+    if mime_type == "image/svg+xml":
+        headers["Content-Security-Policy"] = SVG_CSP
     return FileResponse(
         target_path,
         media_type=mime_type or "application/octet-stream",
         filename=os.path.basename(target_path),
-        headers={
-            "X-Content-Type-Options": "nosniff",
-            "Cache-Control": "private, no-cache, no-store, must-revalidate",
-            "Content-Disposition": "inline"
-        }
+        headers=headers
     )
 
 @router.get("/{category}/{file_path:path}")
