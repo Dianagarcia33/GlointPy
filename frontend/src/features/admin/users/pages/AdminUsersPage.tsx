@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
@@ -87,9 +87,7 @@ export const AdminUsersPage = () => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const handleExportExcel = async () => {
-
     // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
-
     const XLSX = await import('xlsx');
     try {
       setIsExportingExcel(true);
@@ -337,7 +335,12 @@ export const AdminUsersPage = () => {
     setRevealedAccounts(next);
   };
 
+  // Solo la petición más reciente puede pintar la tabla: si el usuario cambia filtros rápido,
+  // una respuesta que llega tarde no debe pisar la de la última selección (H-130)
+  const latestRequestRef = useRef(0);
+
   const fetchData = async () => {
+    const requestId = ++latestRequestRef.current;
     setIsTableLoading(true);
     try {
       const usersData = await usersService.getUsers({
@@ -350,16 +353,20 @@ export const AdminUsersPage = () => {
       });
       
       const rolesData = await rolesService.getAllRoles();
+      if (requestId !== latestRequestRef.current) return;
       
       setUsers(usersData.data);
       setTotal(usersData.total);
       setRoles(rolesData);
       setError(null);
     } catch (err: any) {
+      if (requestId !== latestRequestRef.current) return;
       setError(err.message || 'Error al cargar los usuarios.');
     } finally {
-      setIsTableLoading(false);
-      setIsInitialLoading(false);
+      if (requestId === latestRequestRef.current) {
+        setIsTableLoading(false);
+        setIsInitialLoading(false);
+      }
     }
   };
 

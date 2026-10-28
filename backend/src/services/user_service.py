@@ -28,12 +28,12 @@ class UserService:
         query = select(User)
         
         if search:
-            search_term = f"%{search}%"
+            # autoescape: '%' y '_' se buscan como texto literal, no como comodines de LIKE (H-130)
             query = query.where(
                 or_(
-                    User.name.ilike(search_term),
-                    User.email.ilike(search_term),
-                    User.document_id.ilike(search_term)
+                    User.name.icontains(search, autoescape=True),
+                    User.email.icontains(search, autoescape=True),
+                    User.document_id.icontains(search, autoescape=True)
                 )
             )
             

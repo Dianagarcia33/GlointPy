@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -63,7 +63,12 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
     }
   }, [isOpen]);
 
+  // Solo la consulta más reciente puede pintar el extracto: al cambiar de periodo rápido,
+  // una respuesta lenta (p. ej. "Todo") no debe pisar la del último periodo elegido (H-160)
+  const latestRequestRef = useRef(0);
+
   const fetchStatement = async (start?: string, end?: string) => {
+    const requestId = ++latestRequestRef.current;
     try {
       setLoading(true);
       setError(null);
@@ -71,12 +76,14 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
         startDate: start ?? startDate,
         endDate: end ?? endDate
       });
+      if (requestId !== latestRequestRef.current) return;
       setStatement(data);
     } catch (err: any) {
+      if (requestId !== latestRequestRef.current) return;
       console.error('Error fetching global statement:', err);
       setError(err.message || 'Error al obtener el estado de cuenta global.');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
     }
   };
 

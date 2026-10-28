@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   X, 
@@ -49,6 +49,9 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'movements' | 'withdrawals' | 'investments' | 'shares'>('movements');
 
+  // Solo la consulta más reciente puede pintar el extracto (evita que una respuesta tardía pise a la última)
+  const latestRequestRef = useRef(0);
+
   // Recibe las fechas como parámetros para que "Ver Todo" pueda recargar sin esperar a que se actualice el estado
   const fetchStatement = async (start: string = startDate, end: string = endDate) => {
     if (start && end && start > end) {
@@ -56,16 +59,19 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
       return;
     }
     setRangeError(null);
+    const requestId = ++latestRequestRef.current;
     try {
       setLoading(true);
       setError(null);
       const data = await usersService.getUserStatement(userId, start || undefined, end || undefined);
+      if (requestId !== latestRequestRef.current) return;
       setStatement(data);
     } catch (err: any) {
+      if (requestId !== latestRequestRef.current) return;
       console.error('Error fetching statement:', err);
       setError(err.message || 'Error al cargar el estado de cuenta.');
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestRef.current) setLoading(false);
     }
   };
 
@@ -111,9 +117,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
   };
 
   const handleExportExcel = async () => {
-
     // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
-
     const XLSX = await import('xlsx');
     if (!statement) return;
     try {
