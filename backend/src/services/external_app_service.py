@@ -2,6 +2,8 @@ import secrets
 import hashlib
 import json
 import hmac
+import re
+from urllib.parse import urlsplit
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -170,6 +172,37 @@ class ExternalAppService:
     # ==========================
 
     @staticmethod
+    def _checkout_url(base_checkout_url: str, token: str) -> str:
+        return f"{base_checkout_url}/pay/checkout?token={token}" if base_checkout_url else f"/pay/checkout?token={token}"
+
+    @staticmethod
+    def _redirect_allowed(redirect_url: str, allowed_raw: Optional[str]) -> bool:
+        """
+        H-172: la redirect_url de una orden debe pertenecer a las URLs/dominios permitidos de la app.
+        Cada entrada puede ser un dominio ("tienda.com") o una URL ("https://tienda.com/pagos"):
+        coinciden el esquema (si se indicó), el host exacto, el puerto y el inicio de la ruta.
+        """
+        target = urlsplit(redirect_url.strip())
+        if target.scheme not in ("http", "https") or not target.hostname:
+            return False
+        for entry in re.split(r"[,\n\s]+", allowed_raw or ""):
+            entry = entry.strip()
+            if not entry:
+                continue
+            allowed = urlsplit(entry if "://" in entry else f"//{entry}")
+            if not allowed.hostname or allowed.hostname != target.hostname:
+                continue
+            if allowed.scheme and allowed.scheme != target.scheme:
+                continue
+            if allowed.port and allowed.port != target.port:
+                continue
+            base_path = allowed.path.rstrip("/")
+            if base_path and not (target.path == base_path or target.path.startswith(base_path + "/")):
+                continue
+            return True
+        return False
+
+    @staticmethod
     async def create_payment_intent(
         db: AsyncSession, 
         app: ExternalApp, 
@@ -178,6 +211,43 @@ class ExternalAppService:
     ) -> dict:
         if req.amount <= 0:
             raise HTTPException(status_code=400, detail="El monto de pago debe ser mayor a cero")
+
+        if req.redirect_url and not ExternalAppService._redirect_allowed(req.redirect_url, app.redirect_urls):
+            raise HTTPException(
+                status_code=400,
+                detail="La redirect_url no pertenece a las URLs / dominios permitidos de redirección configurados para esta app"
+            )
+
+        # H-172: una referencia ya usada por la app no genera un segundo cobro
+        existing_res = await db.execute(
+            select(ExternalPaymentOrder)
+            .where(
+                ExternalPaymentOrder.app_id == app.id,
+                ExternalPaymentOrder.order_reference == req.order_reference,
+                ExternalPaymentOrder.status.in_([ExternalPaymentStatus.PENDING, ExternalPaymentStatus.COMPLETED]),
+            )
+            .order_by(desc(ExternalPaymentOrder.created_at))
+        )
+        for existing in existing_res.scalars().all():
+            if existing.status == ExternalPaymentStatus.COMPLETED:
+                raise HTTPException(status_code=409, detail=f"La orden {req.order_reference} ya fue pagada")
+            if existing.expires_at and existing.expires_at < datetime.utcnow():
+                existing.status = ExternalPaymentStatus.EXPIRED
+                continue
+            if float(existing.amount) != float(req.amount):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Ya existe una orden pendiente con la referencia {req.order_reference} por otro monto"
+                )
+            # Reintento del comercio: se devuelve la misma orden pendiente (idempotencia)
+            return {
+                "payment_token": existing.payment_token,
+                "checkout_url": ExternalAppService._checkout_url(base_checkout_url, existing.payment_token),
+                "order_reference": existing.order_reference,
+                "amount": float(existing.amount),
+                "currency": existing.currency,
+                "expires_at": existing.expires_at
+            }
 
         token = f"glt_pay_{secrets.token_urlsafe(24)}"
         expires_at = datetime.utcnow() + timedelta(minutes=req.expires_in_minutes or 60)
@@ -200,7 +270,7 @@ class ExternalAppService:
         await db.commit()
         await db.refresh(order)
 
-        checkout_url = f"{base_checkout_url}/pay/checkout?token={token}" if base_checkout_url else f"/pay/checkout?token={token}"
+        checkout_url = ExternalAppService._checkout_url(base_checkout_url, token)
 
         return {
             "payment_token": token,
