@@ -4,6 +4,7 @@ from decimal import Decimal
 from src.models.investor import Investor
 from src.models.withdrawal import WithdrawalType, WithdrawalStatus
 from src.schemas.yield_calc import YieldCalculationResult, YieldSegment
+from src.services.contract_terms import contract_days, last_day_fraction
 import math
 
 def calculate_investment_yield(
@@ -32,15 +33,10 @@ def calculate_investment_yield(
             segments=[]
         )
         
-    total_contract_days = investment.period.days
-    
-    # Subtract days from applied accelerations
-    if hasattr(investment, 'accelerations') and investment.accelerations:
-        for acc in investment.accelerations:
-            if acc.applied:
-                total_contract_days -= float(acc.days_to_reduce)
-                
-    contract_end_date = inv_start + timedelta(days=int(total_contract_days))
+    # Vigencia con la regla única de contract_terms (días del periodo - días acelerados). Antes se
+    # truncaba (int) y se perdía la fracción del último día en contratos con bonos antiguos (H-140).
+    contract_end_date = inv_start + timedelta(days=contract_days(investment))
+    final_day_fraction = last_day_fraction(investment)
     
     # Effective dates logic
     eff_start = max(requested_start_date, inv_start)
@@ -143,7 +139,11 @@ def calculate_investment_yield(
         if days_in_seg == 0 and len(segment_dates) > 1:
             continue
             
-        seg_yield = daily_yield * Decimal(str(days_in_seg))
+        paid_days = Decimal(str(days_in_seg))
+        if seg_end == contract_end_date and days_in_seg > 0:
+            # El último día del contrato puede ser parcial: solo se paga su fracción
+            paid_days -= (Decimal("1") - final_day_fraction)
+        seg_yield = daily_yield * paid_days
         
         note = "Capital inicial" if active_cap == Decimal(investment.package.value) else "Capital tras retiros"
         if seg_end == contract_end_date and contract_end_date < requested_end_date:
