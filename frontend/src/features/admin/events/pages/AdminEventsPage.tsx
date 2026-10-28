@@ -72,6 +72,8 @@ export const AdminEventsPage: React.FC = () => {
   const [profileFilter, setProfileFilter] = useState<'all' | 'company' | 'individual'>('all');
   const [selectedAttendee, setSelectedAttendee] = useState<AttendeeData | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
 
   // Formulario de Configuración
   const [formData, setFormData] = useState<EventConfigPayload>({
@@ -89,31 +91,36 @@ export const AdminEventsPage: React.FC = () => {
     loadSummary();
   }, []);
 
+  // Sincroniza el formulario de configuración con los datos guardados del evento
+  const syncFormFromEvent = (event?: AdminEventSummary['event']) => {
+    if (!event) return;
+    // Formato para datetime-local
+    let dateVal = '';
+    if (event.event_date) {
+      const d = new Date(event.event_date);
+      const offset = d.getTimezoneOffset() * 60000;
+      dateVal = new Date(d.getTime() - offset).toISOString().slice(0, 16);
+    }
+
+    setFormData({
+      title: event.title || '',
+      description: event.description || '',
+      event_date: dateVal,
+      location: event.location || '',
+      virtual_url: event.virtual_url || '',
+      capacity_in_person: event.capacity_in_person || 100,
+      is_active: event.is_active,
+      banner_active: event.banner_active
+    });
+  };
+
   const loadSummary = async () => {
     try {
       setLoading(true);
       const data = await getAdminEventSummary();
       setSummary(data);
       if (data.event) {
-        // Formato para datetime-local
-        let dateVal = '';
-        if (data.event.event_date) {
-          const d = new Date(data.event.event_date);
-          const offset = d.getTimezoneOffset() * 60000;
-          const localISO = new Date(d.getTime() - offset).toISOString().slice(0, 16);
-          dateVal = localISO;
-        }
-
-        setFormData({
-          title: data.event.title || '',
-          description: data.event.description || '',
-          event_date: dateVal,
-          location: data.event.location || '',
-          virtual_url: data.event.virtual_url || '',
-          capacity_in_person: data.event.capacity_in_person || 100,
-          is_active: data.event.is_active,
-          banner_active: data.event.banner_active
-        });
+        syncFormFromEvent(data.event);
       }
     } catch (err: any) {
       console.error('Error cargando resumen de evento:', err);
@@ -126,15 +133,15 @@ export const AdminEventsPage: React.FC = () => {
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setFeedbackMsg(null);
+    setConfigError(null);
 
     const occupiedSeats = summary?.event.occupied_in_person || 0;
     const requestedCapacity = Number(formData.capacity_in_person);
 
     if (requestedCapacity < occupiedSeats) {
-      setFeedbackMsg({
-        type: 'error',
-        text: `El aforo presencial (${requestedCapacity}) no puede ser menor a los cupos ya confirmados (${occupiedSeats} cupos). Por favor cancela o reubica asistentes antes de reducir el aforo.`
-      });
+      setConfigError(
+        `El aforo presencial (${requestedCapacity}) no puede ser menor a los cupos ya confirmados (${occupiedSeats} cupos). Por favor cancela o reubica asistentes antes de reducir el aforo.`
+      );
       return;
     }
 
@@ -144,15 +151,38 @@ export const AdminEventsPage: React.FC = () => {
         ...formData,
         capacity_in_person: requestedCapacity
       });
+      setIsConfigOpen(false);
       setFeedbackMsg({ type: 'success', text: '¡Configuración del evento guardada con éxito!' });
       await loadSummary();
     } catch (err: any) {
       console.error('Error guardando configuración:', err);
-      setFeedbackMsg({ type: 'error', text: err.message || 'Error al guardar la configuración.' });
+      setConfigError(err.message || 'Error al guardar la configuración.');
     } finally {
       setSavingConfig(false);
     }
   };
+
+  const openConfigModal = () => {
+    // Partir siempre de los valores guardados (descarta ediciones previas sin guardar)
+    syncFormFromEvent(summary?.event);
+    setConfigError(null);
+    setIsConfigOpen(true);
+  };
+
+  const closeConfigModal = () => {
+    if (savingConfig) return;
+    setIsConfigOpen(false);
+    setConfigError(null);
+  };
+
+  useEffect(() => {
+    if (!isConfigOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeConfigModal();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isConfigOpen, savingConfig]);
 
   const handleCancelAttendee = async (id: number, name: string) => {
     if (!window.confirm(`¿Seguro que deseas cancelar el registro de asistencia de "${name}"? El cupo reservado será liberado.`)) {
@@ -269,10 +299,7 @@ export const AdminEventsPage: React.FC = () => {
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 h-96 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-2xs" />
-          <div className="lg:col-span-8 h-96 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-2xs" />
-        </div>
+        <div className="h-96 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-2xs" />
       </div>
     );
   }
@@ -305,6 +332,35 @@ export const AdminEventsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {/* Estado actual del evento (visible sin abrir la configuración) */}
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${
+            summary?.event.is_active
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : 'bg-slate-100 text-slate-500 border-slate-200'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${summary?.event.is_active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+            {summary?.event.is_active ? 'Inscripciones abiertas' : 'Inscripciones cerradas'}
+          </span>
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${
+            summary?.event.banner_active
+              ? 'bg-brand-50 text-brand-700 border-brand-200'
+              : 'bg-slate-100 text-slate-500 border-slate-200'
+          }`}>
+            {summary?.event.banner_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            {summary?.event.banner_active ? 'Banner visible' : 'Banner oculto'}
+          </span>
+
+          <button
+            id="open-event-config-btn"
+            type="button"
+            onClick={openConfigModal}
+            disabled={!summary}
+            className="inline-flex items-center gap-2 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl transition-all shadow-2xs text-xs font-bold font-montserrat cursor-pointer whitespace-nowrap disabled:opacity-50"
+          >
+            <Settings className="w-4 h-4 text-brand-600" />
+            <span>Configurar evento</span>
+          </button>
+
           <button
             onClick={handleExportCSV}
             disabled={!summary?.attendees.length}
@@ -411,405 +467,269 @@ export const AdminEventsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid: Configuración + Tabla */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Card: Tabla de Asistentes (ancho completo; la configuración vive en un modal) */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
         
-        {/* Card: Configuración del Evento */}
-        <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-          
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-            <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs">
-              <Settings className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 font-montserrat">Configuración de Gloint Power Tech</h2>
-              <p className="text-[11px] text-slate-500">Parámetros y visibilidad del evento</p>
-            </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 font-montserrat">
+              Listado de Asistentes ({filteredAttendees.length})
+            </h2>
+            <p className="text-[11px] text-slate-500">Inversionistas e invitados registrados</p>
           </div>
 
-          <form onSubmit={handleSaveConfig} className="space-y-3.5 text-xs">
-            
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">Título del Evento</label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-              />
-            </div>
-
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">Aforo Máximo Presencial (Cupos)</label>
-              <input
-                type="number"
-                min={summary?.event.occupied_in_person || 1}
-                required
-                value={formData.capacity_in_person}
-                onChange={(e) => setFormData({ ...formData, capacity_in_person: parseInt(e.target.value) || 0 })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-              />
-              <span className="text-[10px] text-slate-400 mt-1 block">
-                {summary && summary.event.occupied_in_person > 0 ? (
-                  <span className="text-amber-600 font-semibold block mb-0.5">
-                    Mínimo permitido: {summary.event.occupied_in_person} cupos (actualmente confirmados).
-                  </span>
-                ) : null}
-                Al agotarse, el sistema solo ofrecerá modalidad virtual automáticamente.
-              </span>
-            </div>
-
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">Fecha y Hora</label>
-              <input
-                type="datetime-local"
-                value={formData.event_date}
-                onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-              />
-            </div>
-
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">Lugar / Dirección</label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="Auditorio Principal • Ciudad"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-              />
-            </div>
-
-            <div>
-              <label className="font-bold text-slate-700 block mb-1">Enlace Transmisión Virtual (Opcional)</label>
-              <input
-                type="url"
-                value={formData.virtual_url}
-                onChange={(e) => setFormData({ ...formData, virtual_url: e.target.value })}
-                placeholder="https://meet.gloint.com.co/..."
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-              />
-            </div>
-
-            {/* Toggles */}
-            <div className="pt-2 space-y-2 border-t border-slate-100">
-              
-              <label className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
-                <div>
-                  <span className="font-bold text-slate-800 block">Banner Visible</span>
-                  <span className="text-[10px] text-slate-500 block">Mostrar banner en login y dashboard</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={formData.banner_active}
-                  onChange={(e) => setFormData({ ...formData, banner_active: e.target.checked })}
-                  className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
-                <div>
-                  <span className="font-bold text-slate-800 block">Inscripciones Abiertas</span>
-                  <span className="text-[10px] text-slate-500 block">Permitir nuevas confirmaciones</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                  className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer"
-                />
-              </label>
-
-            </div>
-
-            <button
-              type="submit"
-              disabled={savingConfig}
-              className="w-full mt-3 py-2.5 px-4 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 font-montserrat"
+          {/* Filtros */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {/* Filtro Perfil */}
+            <select
+              value={profileFilter}
+              onChange={(e) => setProfileFilter(e.target.value as any)}
+              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
             >
-              {savingConfig ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Guardar Cambios</span>
-                </>
-              )}
-            </button>
+              <option value="all">Empresas & Personas</option>
+              <option value="company">Solo Empresas</option>
+              <option value="individual">Solo Personas Naturales</option>
+            </select>
 
-          </form>
+            {/* Filtro Tipo */}
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as any)}
+              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+            >
+              <option value="all">Todos los Tipos</option>
+              <option value="investor">Inversionistas</option>
+              <option value="external">Invitados Externos</option>
+            </select>
 
+            {/* Filtro Modalidad */}
+            <select
+              value={modeFilter}
+              onChange={(e) => setModeFilter(e.target.value as any)}
+              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+            >
+              <option value="all">Todas las Modalidades</option>
+              <option value="in_person">Presenciales</option>
+              <option value="virtual">Virtuales</option>
+            </select>
+          </div>
         </div>
 
-        {/* Card: Tabla de Asistentes */}
-        <div className="lg:col-span-8 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-          
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 font-montserrat">
-                Listado de Asistentes ({filteredAttendees.length})
-              </h2>
-              <p className="text-[11px] text-slate-500">Inversionistas e invitados registrados</p>
-            </div>
+        {/* Buscador */}
+        <div className="relative">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por nombre, correo, teléfono, cédula, empresa, NIT o intereses..."
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+          />
+        </div>
 
-            {/* Filtros */}
-            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              {/* Filtro Perfil */}
-              <select
-                value={profileFilter}
-                onChange={(e) => setProfileFilter(e.target.value as any)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-              >
-                <option value="all">Empresas & Personas</option>
-                <option value="company">Solo Empresas</option>
-                <option value="individual">Solo Personas Naturales</option>
-              </select>
-
-              {/* Filtro Tipo */}
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as any)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-              >
-                <option value="all">Todos los Tipos</option>
-                <option value="investor">Inversionistas</option>
-                <option value="external">Invitados Externos</option>
-              </select>
-
-              {/* Filtro Modalidad */}
-              <select
-                value={modeFilter}
-                onChange={(e) => setModeFilter(e.target.value as any)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-              >
-                <option value="all">Todas las Modalidades</option>
-                <option value="in_person">Presenciales</option>
-                <option value="virtual">Virtuales</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Buscador */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por nombre, correo, teléfono, cédula, empresa, NIT o intereses..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-            />
-          </div>
-
-          {/* Tabla con todas las columnas */}
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs">
-            <table className="w-full text-left text-xs text-slate-700 min-w-[950px]">
-              <thead className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 font-montserrat">
+        {/* Tabla con todas las columnas */}
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs">
+          <table className="w-full text-left text-xs text-slate-700 min-w-[950px]">
+            <thead className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 font-montserrat">
+              <tr>
+                <th className="px-4 py-3.5 whitespace-nowrap">Asistente & ID</th>
+                <th className="px-4 py-3.5 whitespace-nowrap">Perfil / Empresa</th>
+                <th className="px-4 py-3.5 whitespace-nowrap">Contacto & Ciudad</th>
+                <th className="px-4 py-3.5 whitespace-nowrap">Áreas de Interés</th>
+                <th className="px-4 py-3.5 whitespace-nowrap">Modalidad & Aforo</th>
+                <th className="px-4 py-3.5 whitespace-nowrap">Fecha Registro</th>
+                <th className="px-4 py-3.5 text-right whitespace-nowrap">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 font-medium">
+              {filteredAttendees.length === 0 ? (
                 <tr>
-                  <th className="px-4 py-3.5 whitespace-nowrap">Asistente & ID</th>
-                  <th className="px-4 py-3.5 whitespace-nowrap">Perfil / Empresa</th>
-                  <th className="px-4 py-3.5 whitespace-nowrap">Contacto & Ciudad</th>
-                  <th className="px-4 py-3.5 whitespace-nowrap">Áreas de Interés</th>
-                  <th className="px-4 py-3.5 whitespace-nowrap">Modalidad & Aforo</th>
-                  <th className="px-4 py-3.5 whitespace-nowrap">Fecha Registro</th>
-                  <th className="px-4 py-3.5 text-right whitespace-nowrap">Acciones</th>
+                  <td colSpan={7} className="text-center py-12 text-slate-400 font-montserrat">
+                    No se encontraron asistentes con los filtros seleccionados.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredAttendees.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-12 text-slate-400 font-montserrat">
-                      No se encontraron asistentes con los filtros seleccionados.
+              ) : (
+                filteredAttendees.map((att) => (
+                  <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
+                    
+                    {/* Asistente & ID */}
+                    <td className="px-4 py-3.5 min-w-[190px]">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAttendee(att)}
+                        className="font-bold text-slate-900 font-montserrat hover:text-brand-600 transition-colors text-left block text-xs"
+                      >
+                        {att.full_name}
+                      </button>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          att.attendee_type === 'investor'
+                            ? 'bg-brand-50 text-brand-700 border border-brand-200/60'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200/60'
+                        }`}>
+                          {att.attendee_type === 'investor' ? 'Inversionista' : 'Invitado Externo'}
+                        </span>
+                        {att.document_id ? (
+                          <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
+                            CC: {att.document_id}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">
+                            Sin documento
+                          </span>
+                        )}
+                      </div>
                     </td>
-                  </tr>
-                ) : (
-                  filteredAttendees.map((att) => (
-                    <tr key={att.id} className="hover:bg-slate-50/80 transition-colors">
-                      
-                      {/* Asistente & ID */}
-                      <td className="px-4 py-3.5 min-w-[190px]">
+
+                    {/* Perfil / Empresa */}
+                    <td className="px-4 py-3.5 min-w-[210px]">
+                      {att.is_company ? (
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 font-montserrat">
+                            <Building2 className="w-3 h-3 text-amber-600" />
+                            <span>Empresa</span>
+                          </span>
+                          <div className="font-bold text-slate-900 text-xs truncate max-w-[200px]" title={att.company_name || ''}>
+                            {att.company_name || 'Nombre no especificado'}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">
+                            {att.company_nit && (
+                              <span className="font-mono bg-slate-50 border border-slate-200/60 px-1 rounded">
+                                NIT: {att.company_nit}
+                              </span>
+                            )}
+                            {att.job_title && (
+                              <span className="text-slate-600 font-medium truncate max-w-[130px]" title={att.job_title}>
+                                Cargo: {att.job_title}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/60">
+                          Persona Natural
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Contacto & Ciudad */}
+                    <td className="px-4 py-3.5 min-w-[190px] space-y-1">
+                      <div className="text-slate-900 font-medium text-xs truncate max-w-[190px]" title={att.email}>
+                        {att.email}
+                      </div>
+                      {att.phone && (
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          <span className="text-slate-700 font-mono font-medium">{att.phone}</span>
+                          <a
+                            href={`https://wa.me/${att.phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-emerald-700 hover:text-emerald-800 font-bold text-[10px] px-1.5 py-0.2 rounded bg-emerald-50 border border-emerald-200 transition-colors"
+                            title="Chatear por WhatsApp"
+                          >
+                            WhatsApp
+                          </a>
+                        </div>
+                      )}
+                      {att.city && (
+                        <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{att.city}</span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Áreas de Interés */}
+                    <td className="px-4 py-3.5 min-w-[210px]">
+                      {formatInterests(att.interests).length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-[220px]">
+                          {formatInterests(att.interests).map((inter: string) => (
+                            <span 
+                              key={inter} 
+                              className="text-[9px] bg-amber-50 text-amber-900 border border-amber-200/70 px-1.5 py-0.5 rounded font-semibold leading-tight"
+                            >
+                              {inter}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 italic">Sin selección</span>
+                      )}
+                    </td>
+
+                    {/* Modalidad & Aforo */}
+                    <td className="px-4 py-3.5 min-w-[140px] space-y-1">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        att.attendance_mode === 'in_person'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                          : 'bg-indigo-50 text-indigo-700 border border-indigo-200/60'
+                      }`}>
+                        {att.attendance_mode === 'in_person' ? (
+                          <>
+                            <MapPin className="w-3 h-3 text-amber-600" />
+                            <span>Presencial</span>
+                          </>
+                        ) : (
+                          <>
+                            <Video className="w-3 h-3 text-indigo-600" />
+                            <span>Virtual</span>
+                          </>
+                        )}
+                      </span>
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        {att.has_companion ? (
+                          <span className="text-amber-800 font-semibold" title={att.companion_name || ''}>
+                            2 cupos (+1 {att.companion_name ? `: ${att.companion_name}` : 'Acompañante'})
+                          </span>
+                        ) : (
+                          <span>1 cupo reservado</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Fecha Registro */}
+                    <td className="px-4 py-3.5 text-[11px] text-slate-500 min-w-[120px] whitespace-nowrap">
+                      {formatDateTime(att.created_at)}
+                    </td>
+
+                    {/* Acciones */}
+                    <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => setSelectedAttendee(att)}
-                          className="font-bold text-slate-900 font-montserrat hover:text-brand-600 transition-colors text-left block text-xs"
+                          className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-xl transition-all cursor-pointer shadow-2xs"
+                          title="Ver ficha completa"
                         >
-                          {att.full_name}
+                          <Eye className="w-4 h-4" />
                         </button>
-                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            att.attendee_type === 'investor'
-                              ? 'bg-brand-50 text-brand-700 border border-brand-200/60'
-                              : 'bg-slate-100 text-slate-600 border border-slate-200/60'
-                          }`}>
-                            {att.attendee_type === 'investor' ? 'Inversionista' : 'Invitado Externo'}
-                          </span>
-                          {att.document_id ? (
-                            <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70">
-                              CC: {att.document_id}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 italic">
-                              Sin documento
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Perfil / Empresa */}
-                      <td className="px-4 py-3.5 min-w-[210px]">
-                        {att.is_company ? (
-                          <div className="space-y-1">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 font-montserrat">
-                              <Building2 className="w-3 h-3 text-amber-600" />
-                              <span>Empresa</span>
-                            </span>
-                            <div className="font-bold text-slate-900 text-xs truncate max-w-[200px]" title={att.company_name || ''}>
-                              {att.company_name || 'Nombre no especificado'}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">
-                              {att.company_nit && (
-                                <span className="font-mono bg-slate-50 border border-slate-200/60 px-1 rounded">
-                                  NIT: {att.company_nit}
-                                </span>
-                              )}
-                              {att.job_title && (
-                                <span className="text-slate-600 font-medium truncate max-w-[130px]" title={att.job_title}>
-                                  Cargo: {att.job_title}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/60">
-                            Persona Natural
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Contacto & Ciudad */}
-                      <td className="px-4 py-3.5 min-w-[190px] space-y-1">
-                        <div className="text-slate-900 font-medium text-xs truncate max-w-[190px]" title={att.email}>
-                          {att.email}
-                        </div>
-                        {att.phone && (
-                          <div className="flex items-center gap-1.5 text-[11px]">
-                            <span className="text-slate-700 font-mono font-medium">{att.phone}</span>
-                            <a
-                              href={`https://wa.me/${att.phone.replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-emerald-700 hover:text-emerald-800 font-bold text-[10px] px-1.5 py-0.2 rounded bg-emerald-50 border border-emerald-200 transition-colors"
-                              title="Chatear por WhatsApp"
-                            >
-                              WhatsApp
-                            </a>
-                          </div>
-                        )}
-                        {att.city && (
-                          <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span>{att.city}</span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Áreas de Interés */}
-                      <td className="px-4 py-3.5 min-w-[210px]">
-                        {formatInterests(att.interests).length > 0 ? (
-                          <div className="flex flex-wrap gap-1 max-w-[220px]">
-                            {formatInterests(att.interests).map((inter: string) => (
-                              <span 
-                                key={inter} 
-                                className="text-[9px] bg-amber-50 text-amber-900 border border-amber-200/70 px-1.5 py-0.5 rounded font-semibold leading-tight"
-                              >
-                                {inter}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 italic">Sin selección</span>
-                        )}
-                      </td>
-
-                      {/* Modalidad & Aforo */}
-                      <td className="px-4 py-3.5 min-w-[140px] space-y-1">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                          att.attendance_mode === 'in_person'
-                            ? 'bg-amber-50 text-amber-800 border border-amber-200/60'
-                            : 'bg-indigo-50 text-indigo-700 border border-indigo-200/60'
-                        }`}>
-                          {att.attendance_mode === 'in_person' ? (
-                            <>
-                              <MapPin className="w-3 h-3 text-amber-600" />
-                              <span>Presencial</span>
-                            </>
-                          ) : (
-                            <>
-                              <Video className="w-3 h-3 text-indigo-600" />
-                              <span>Virtual</span>
-                            </>
-                          )}
-                        </span>
-                        <div className="text-[10px] text-slate-500 font-medium">
-                          {att.has_companion ? (
-                            <span className="text-amber-800 font-semibold" title={att.companion_name || ''}>
-                              2 cupos (+1 {att.companion_name ? `: ${att.companion_name}` : 'Acompañante'})
-                            </span>
-                          ) : (
-                            <span>1 cupo reservado</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Fecha Registro */}
-                      <td className="px-4 py-3.5 text-[11px] text-slate-500 min-w-[120px] whitespace-nowrap">
-                        {formatDateTime(att.created_at)}
-                      </td>
-
-                      {/* Acciones */}
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
+                        {att.status === 'confirmed' ? (
                           <button
                             type="button"
-                            onClick={() => setSelectedAttendee(att)}
-                            className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-xl transition-all cursor-pointer shadow-2xs"
-                            title="Ver ficha completa"
+                            disabled={cancellingId === att.id}
+                            onClick={() => handleCancelAttendee(att.id, att.full_name)}
+                            className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-2xs cursor-pointer"
+                            title="Cancelar asistencia y liberar cupo"
                           >
-                            <Eye className="w-4 h-4" />
+                            {cancellingId === att.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
-                          {att.status === 'confirmed' ? (
-                            <button
-                              type="button"
-                              disabled={cancellingId === att.id}
-                              onClick={() => handleCancelAttendee(att.id, att.full_name)}
-                              className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-transparent hover:border-rose-100 shadow-2xs cursor-pointer"
-                              title="Cancelar asistencia y liberar cupo"
-                            >
-                              {cancellingId === att.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              )}
-                            </button>
-                          ) : (
-                            <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
-                              Cancelado
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                        ) : (
+                          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                            Cancelado
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
 
       </div>
@@ -1002,6 +922,191 @@ export const AdminEventsPage: React.FC = () => {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Configuración del Evento */}
+      {isConfigOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200 font-inter"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeConfigModal();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-config-title"
+            className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 relative max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200"
+          >
+            {/* Header del Modal */}
+            <div className="flex items-start justify-between gap-4 px-6 sm:px-8 pt-6 sm:pt-7 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-brand-50 text-brand-600 rounded-2xl border border-brand-100/60 shadow-2xs">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 id="event-config-title" className="text-base font-black text-slate-900 font-montserrat">
+                    Configuración de Gloint Power Tech
+                  </h2>
+                  <p className="text-[11px] text-slate-500">Parámetros y visibilidad del evento</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closeConfigModal}
+                disabled={savingConfig}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
+                aria-label="Cerrar configuración"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveConfig} className="flex flex-col min-h-0 flex-1">
+              <div className="px-6 sm:px-8 py-5 space-y-4 text-xs overflow-y-auto">
+
+                {configError && (
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{configError}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label htmlFor="event-config-title-input" className="font-bold text-slate-700 block mb-1">Título del Evento</label>
+                  <input
+                    id="event-config-title-input"
+                    type="text"
+                    required
+                    autoFocus
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="event-config-capacity" className="font-bold text-slate-700 block mb-1">Aforo Máximo Presencial (Cupos)</label>
+                    <input
+                      id="event-config-capacity"
+                      type="number"
+                      min={summary?.event.occupied_in_person || 1}
+                      required
+                      value={formData.capacity_in_person}
+                      onChange={(e) => setFormData({ ...formData, capacity_in_person: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      {summary && summary.event.occupied_in_person > 0 ? (
+                        <span className="text-amber-600 font-semibold block mb-0.5">
+                          Mínimo permitido: {summary.event.occupied_in_person} cupos (actualmente confirmados).
+                        </span>
+                      ) : null}
+                      Al agotarse, el sistema solo ofrecerá modalidad virtual automáticamente.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label htmlFor="event-config-date" className="font-bold text-slate-700 block mb-1">Fecha y Hora</label>
+                    <input
+                      id="event-config-date"
+                      type="datetime-local"
+                      value={formData.event_date}
+                      onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="event-config-location" className="font-bold text-slate-700 block mb-1">Lugar / Dirección</label>
+                    <input
+                      id="event-config-location"
+                      type="text"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="Auditorio Principal • Ciudad"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="event-config-virtual-url" className="font-bold text-slate-700 block mb-1">Enlace Transmisión Virtual (Opcional)</label>
+                    <input
+                      id="event-config-virtual-url"
+                      type="url"
+                      value={formData.virtual_url}
+                      onChange={(e) => setFormData({ ...formData, virtual_url: e.target.value })}
+                      placeholder="https://meet.gloint.com.co/..."
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Toggles */}
+                <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-slate-100">
+                  <label className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
+                    <div>
+                      <span className="font-bold text-slate-800 block">Banner Visible</span>
+                      <span className="text-[10px] text-slate-500 block">Mostrar banner en login y dashboard</span>
+                    </div>
+                    <input
+                      id="event-config-banner-active"
+                      type="checkbox"
+                      checked={formData.banner_active}
+                      onChange={(e) => setFormData({ ...formData, banner_active: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer shrink-0"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
+                    <div>
+                      <span className="font-bold text-slate-800 block">Inscripciones Abiertas</span>
+                      <span className="text-[10px] text-slate-500 block">Permitir nuevas confirmaciones</span>
+                    </div>
+                    <input
+                      id="event-config-is-active"
+                      type="checkbox"
+                      checked={formData.is_active}
+                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                      className="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500 cursor-pointer shrink-0"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Footer Modal */}
+              <div className="flex items-center justify-end gap-3 px-6 sm:px-8 py-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={closeConfigModal}
+                  disabled={savingConfig}
+                  className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  id="save-event-config-btn"
+                  type="submit"
+                  disabled={savingConfig}
+                  className="py-2.5 px-5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white font-bold rounded-xl text-xs shadow-md shadow-brand-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95 font-montserrat"
+                >
+                  {savingConfig ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Guardar Cambios</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -94,6 +94,92 @@ class EventService:
             banner_active=event.banner_active
         )
 
+    @staticmethod
+    def _normalize_document(doc: Optional[str]) -> str:
+        """Deja solo letras y números en mayúscula (ej. '1.020.456-7' -> '10204567')."""
+        if not doc:
+            return ""
+        return re.sub(r"[^0-9A-Za-z]", "", str(doc)).upper()
+
+    @staticmethod
+    def _pick_attendee(rows: List[EventAttendee], confirmed_only: bool = False) -> Optional[EventAttendee]:
+        """Prefiere la inscripción confirmada más reciente (rows debe venir ordenado por id desc)."""
+        confirmed = [r for r in rows if r.status == "confirmed"]
+        if confirmed:
+            return confirmed[0]
+        if confirmed_only:
+            return None
+        return rows[0] if rows else None
+
+    @staticmethod
+    def _normalized_document_column():
+        """Columna document_id sin puntos, guiones ni espacios y en mayúscula, para comparar en SQL."""
+        return func.upper(
+            func.replace(func.replace(func.replace(EventAttendee.document_id, ".", ""), "-", ""), " ", "")
+        )
+
+    @classmethod
+    async def find_attendee_for_user(
+        cls,
+        db: AsyncSession,
+        event_id: int,
+        user: User,
+        confirmed_only: bool = False
+    ) -> Optional[EventAttendee]:
+        """
+        Busca la inscripción existente de un usuario para evitar registros dobles.
+        Orden de coincidencia:
+          1. Registro ya vinculado a su user_id.
+          2. Registro del formulario externo (sin user_id) con el mismo email (sin importar mayúsculas).
+          3. Registro del formulario externo (sin user_id) con el mismo documento (ignorando puntos, guiones y espacios).
+        Dentro de cada criterio se prefiere la inscripción confirmada más reciente.
+        """
+        def pick(rows: List[EventAttendee]) -> Optional[EventAttendee]:
+            return cls._pick_attendee(rows, confirmed_only)
+
+        # 1. Por user_id
+        res = await db.execute(
+            select(EventAttendee).where(
+                EventAttendee.event_id == event_id,
+                EventAttendee.user_id == user.id
+            ).order_by(desc(EventAttendee.id))
+        )
+        found = pick(list(res.scalars().all()))
+        if found:
+            return found
+
+        # 2. Por email entre inscripciones externas aún no vinculadas
+        clean_email = (user.email or "").strip().lower()
+        if clean_email:
+            res = await db.execute(
+                select(EventAttendee).where(
+                    EventAttendee.event_id == event_id,
+                    EventAttendee.user_id.is_(None),
+                    func.lower(func.trim(EventAttendee.email)) == clean_email
+                ).order_by(desc(EventAttendee.id))
+            )
+            found = pick(list(res.scalars().all()))
+            if found:
+                return found
+
+        # 3. Por documento entre inscripciones externas aún no vinculadas
+        clean_doc = cls._normalize_document(getattr(user, "document_id", None))
+        if clean_doc:
+            normalized_col = cls._normalized_document_column()
+            res = await db.execute(
+                select(EventAttendee).where(
+                    EventAttendee.event_id == event_id,
+                    EventAttendee.user_id.is_(None),
+                    EventAttendee.document_id.isnot(None),
+                    normalized_col == clean_doc
+                ).order_by(desc(EventAttendee.id))
+            )
+            found = pick(list(res.scalars().all()))
+            if found:
+                return found
+
+        return None
+
     @classmethod
     async def register_investor(cls, db: AsyncSession, current_user: User, rsvp_data: InvestorRsvpRequest) -> AttendeeResponse:
         event = await cls.get_or_create_default_event(db)
@@ -108,13 +194,8 @@ class EventService:
         if mode == "in_person":
             seats_needed = 2 if rsvp_data.has_companion else 1
 
-        # Verificar si el usuario ya tiene un registro previo
-        query = select(EventAttendee).where(
-            EventAttendee.event_id == event.id,
-            EventAttendee.user_id == current_user.id
-        ).order_by(desc(EventAttendee.id))
-        result = await db.execute(query)
-        attendee = result.scalars().first()
+        # Verificar si el usuario ya tiene un registro previo (propio o del formulario externo)
+        attendee = await cls.find_attendee_for_user(db, event.id, current_user)
 
         # Verificar capacidad presencial
         if mode == "in_person":
@@ -151,20 +232,29 @@ class EventService:
         interests_str = json.dumps(rsvp_data.interests, ensure_ascii=False) if rsvp_data.interests else None
 
         if attendee:
-            # Actualizar registro existente
+            # Actualizar registro existente. Si venía del formulario externo, queda vinculado al inversionista
+            # (misma fila = mismo cupo, nunca se crea uno nuevo).
+            attendee.user_id = current_user.id
+            attendee.attendee_type = "investor"
+            if current_user.email:
+                attendee.email = current_user.email.strip().lower()
             attendee.attendance_mode = mode
             attendee.has_companion = rsvp_data.has_companion if mode == "in_person" else False
             attendee.companion_name = rsvp_data.companion_name if (mode == "in_person" and rsvp_data.has_companion) else None
             attendee.seats_reserved = seats_needed
             attendee.status = "confirmed"
-            attendee.full_name = full_name
-            attendee.phone = rsvp_data.phone.strip() if rsvp_data.phone else phone
-            attendee.document_id = document_id
-            attendee.city = city
-            attendee.is_company = rsvp_data.is_company
-            attendee.company_name = rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None
-            attendee.company_nit = rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None
-            attendee.job_title = rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None
+            # No borrar datos existentes con valores vacíos de la cuenta
+            attendee.full_name = full_name or attendee.full_name
+            attendee.phone = (rsvp_data.phone.strip() if rsvp_data.phone else None) or phone or attendee.phone
+            attendee.document_id = document_id or attendee.document_id
+            attendee.city = city or attendee.city
+            # Los datos de empresa solo se modifican si el cliente los envía explícitamente
+            # (el modal del dashboard no los envía, así se conservan los del formulario externo).
+            if "is_company" in rsvp_data.model_fields_set:
+                attendee.is_company = rsvp_data.is_company
+                attendee.company_name = rsvp_data.company_name.strip() if (rsvp_data.is_company and rsvp_data.company_name) else None
+                attendee.company_nit = rsvp_data.company_nit.strip() if (rsvp_data.is_company and rsvp_data.company_nit) else None
+                attendee.job_title = rsvp_data.job_title.strip() if (rsvp_data.is_company and rsvp_data.job_title) else None
             if interests_str:
                 attendee.interests = interests_str
         else:
@@ -173,7 +263,7 @@ class EventService:
                 user_id=current_user.id,
                 attendee_type="investor",
                 full_name=full_name,
-                email=current_user.email,
+                email=(current_user.email or "").strip().lower(),
                 phone=rsvp_data.phone.strip() if rsvp_data.phone else phone,
                 document_id=document_id,
                 city=city,
@@ -196,6 +286,46 @@ class EventService:
         return AttendeeResponse.from_orm(attendee)
 
     @classmethod
+    async def find_attendee_for_public(
+        cls,
+        db: AsyncSession,
+        event_id: int,
+        clean_email: str,
+        document_id: Optional[str]
+    ) -> Optional[EventAttendee]:
+        """
+        Busca una inscripción existente para el formulario externo, entre TODAS las inscripciones
+        del evento (externas o de inversionistas):
+          1. Mismo email (sin importar mayúsculas).
+          2. Mismo documento (ignorando puntos, guiones y espacios).
+        """
+        if clean_email:
+            res = await db.execute(
+                select(EventAttendee).where(
+                    EventAttendee.event_id == event_id,
+                    func.lower(func.trim(EventAttendee.email)) == clean_email
+                ).order_by(desc(EventAttendee.id))
+            )
+            found = cls._pick_attendee(list(res.scalars().all()))
+            if found:
+                return found
+
+        clean_doc = cls._normalize_document(document_id)
+        if clean_doc:
+            res = await db.execute(
+                select(EventAttendee).where(
+                    EventAttendee.event_id == event_id,
+                    EventAttendee.document_id.isnot(None),
+                    cls._normalized_document_column() == clean_doc
+                ).order_by(desc(EventAttendee.id))
+            )
+            found = cls._pick_attendee(list(res.scalars().all()))
+            if found:
+                return found
+
+        return None
+
+    @classmethod
     async def register_public(cls, db: AsyncSession, rsvp_data: PublicRsvpRequest) -> AttendeeResponse:
         event = await cls.get_or_create_default_event(db)
         if not event.is_active:
@@ -210,13 +340,16 @@ class EventService:
         if mode == "in_person":
             seats_needed = 2 if rsvp_data.has_companion else 1
 
-        # Verificar si el email ya está registrado
-        query = select(EventAttendee).where(
-            EventAttendee.event_id == event.id,
-            EventAttendee.email == clean_email
-        ).order_by(desc(EventAttendee.id))
-        result = await db.execute(query)
-        attendee = result.scalars().first()
+        # Verificar si la persona ya está inscrita (por email o por documento)
+        attendee = await cls.find_attendee_for_public(db, event.id, clean_email, rsvp_data.document_id)
+
+        # Si la inscripción encontrada pertenece a un inversionista, no se modifica desde el formulario
+        # público (no autenticado): debe hacerlo desde su dashboard. Así tampoco se crea un registro doble.
+        if attendee and attendee.user_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ya tienes una inscripción registrada como inversionista Gloint. Para modificarla, inicia sesión y hazlo desde el banner del evento en tu dashboard."
+            )
 
         if mode == "in_person":
             exclude_id = attendee.id if attendee else None
@@ -326,15 +459,14 @@ class EventService:
             logger.error(f"[EventService] Error al programar correo de confirmación para {attendee.email}: {e}")
 
     @classmethod
-    async def get_my_registration(cls, db: AsyncSession, user_id: int) -> Optional[AttendeeResponse]:
+    async def get_my_registration(cls, db: AsyncSession, user: User) -> Optional[AttendeeResponse]:
+        """
+        Devuelve la inscripción confirmada del usuario, incluyendo la que haya hecho por el
+        formulario externo (coincidencia por email o documento), para que el dashboard muestre
+        la opción de modificar en lugar de crear un registro nuevo.
+        """
         event = await cls.get_or_create_default_event(db)
-        query = select(EventAttendee).where(
-            EventAttendee.event_id == event.id,
-            EventAttendee.user_id == user_id,
-            EventAttendee.status == "confirmed"
-        ).order_by(desc(EventAttendee.id))
-        result = await db.execute(query)
-        attendee = result.scalars().first()
+        attendee = await cls.find_attendee_for_user(db, event.id, user, confirmed_only=True)
         if attendee:
             return AttendeeResponse.from_orm(attendee)
         return None

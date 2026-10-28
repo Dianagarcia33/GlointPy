@@ -59,7 +59,7 @@ async def get_my_event_registration(
     """
     Ruta autenticada para verificar si el usuario actual ya confirmó su asistencia.
     """
-    return await EventService.get_my_registration(db, current_user.id)
+    return await EventService.get_my_registration(db, current_user)
 
 @router.get("/admin/summary", response_model=AdminEventSummaryResponse)
 async def get_admin_event_summary(

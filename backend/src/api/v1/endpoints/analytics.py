@@ -13,6 +13,7 @@ from src.api.deps import get_current_user, RequirePermission
 from src.models.user import User
 from src.models.investor import Investor
 from src.models.package import Package
+from src.models.period import Period
 from src.models.wallet import Wallet
 from src.models.withdrawal import Withdrawal, WithdrawalStatus
 from src.models.commercial_sale import CommercialSale, CommercialSaleType
@@ -34,95 +35,102 @@ async def get_admin_analytics_dashboard(
     - Proporción por Tipo de Venta (Contrato Nuevo, Reinversión, Referidos)
     """
     today = date.today()
+    start_cutoff = today.replace(day=1) - relativedelta(months=5)
 
-    # 1. Crecimiento mensual de captación (Últimos 6 meses)
+    # 1. Crecimiento mensual de captación (Últimos 6 meses) optimizado en solo 2 queries agrupadas
+    comm_stmt = (
+        select(
+            extract('year', CommercialSale.sale_date).label('y'),
+            extract('month', CommercialSale.sale_date).label('m'),
+            func.coalesce(func.sum(CommercialSale.amount), 0).label('total')
+        )
+        .where(CommercialSale.sale_date >= start_cutoff)
+        .group_by('y', 'm')
+    )
+    comm_res = await db.execute(comm_stmt)
+    comm_map = {(int(r.y), int(r.m)): float(r.total) for r in comm_res.all()}
+
+    inv_stmt = (
+        select(
+            extract('year', Investor.start_date).label('y'),
+            extract('month', Investor.start_date).label('m'),
+            func.coalesce(func.sum(Package.value), 0).label('total')
+        )
+        .join(Package, Investor.package_id == Package.id)
+        .where(Investor.start_date >= start_cutoff)
+        .group_by('y', 'm')
+    )
+    inv_res = await db.execute(inv_stmt)
+    inv_map = {(int(r.y), int(r.m)): float(r.total) for r in inv_res.all()}
+
     monthly_growth = []
     for i in range(5, -1, -1):
-        target_date = today.replace(day=1) - timedelta(days=i*30)
-        y = target_date.year
-        m = target_date.month
-
-        # Ventas comerciales en ese mes
-        comm_sales_res = await db.execute(
-            select(func.coalesce(func.sum(CommercialSale.amount), 0))
-            .where(
-                extract('year', CommercialSale.sale_date) == y,
-                extract('month', CommercialSale.sale_date) == m
-            )
-        )
-        comm_val = float(comm_sales_res.scalar() or 0)
-
-        # Contratos de inversionistas registrados en ese mes
-        inv_res = await db.execute(
-            select(Investor)
-            .options(selectinload(Investor.package))
-            .where(
-                extract('year', Investor.start_date) == y,
-                extract('month', Investor.start_date) == m
-            )
-        )
-        inv_list = inv_res.scalars().all()
-        inv_val = sum(float(inv.package.value) if inv.package and inv.package.value else 0 for inv in inv_list)
-
-        month_name = target_date.strftime("%b %Y")
+        target_date = today.replace(day=1) - relativedelta(months=i)
+        key = (target_date.year, target_date.month)
+        c_val = comm_map.get(key, 0.0)
+        i_val = inv_map.get(key, 0.0)
         monthly_growth.append({
-            "month": month_name,
-            "capital_captado": max(comm_val, inv_val),
-            "ventas_comerciales": comm_val
+            "month": target_date.strftime("%b %Y"),
+            "capital_captado": max(c_val, i_val),
+            "ventas_comerciales": c_val
         })
 
-    # 2. Obtener Contratos Activos Vigentes (excluye vencidos/finalizados)
-    investors_all = await db.execute(
-        select(Investor).options(
-            selectinload(Investor.package),
-            selectinload(Investor.period),
-            selectinload(Investor.accelerations)
+    # 2. Obtener Contratos Activos Vigentes (1 query joined ligera sin sobrecarga ORM)
+    stmt_invs = (
+        select(
+            Investor.id,
+            Investor.start_date,
+            Investor.package_id,
+            Package.value.label("package_value"),
+            Period.days.label("period_days"),
+            Period.months.label("period_months")
         )
+        .join(Package, Investor.package_id == Package.id, isouter=True)
+        .join(Period, Investor.period_id == Period.id, isouter=True)
     )
-    all_invs = investors_all.scalars().all()
-    active_invs = []
-    finished_invs = []
-    current_today = date.today()
-    for inv in all_invs:
-        fecha_ingreso = inv.start_date
-        if fecha_ingreso and inv.period:
-            inv_start = fecha_ingreso.date() if isinstance(fecha_ingreso, datetime) else fecha_ingreso
-            dias_base = getattr(inv.period, 'days', 0) or (inv.period.months * 30 if inv.period.months else 0)
-            fecha_fin = inv_start + timedelta(days=dias_base)
-            if fecha_fin <= current_today:
-                # Contrato vencido (fecha_fin <= hoy) -> Capital Finalizado
-                finished_invs.append(inv)
-                continue
-        # Contrato en curso (fecha_fin > hoy) -> Capital Activo
-        active_invs.append(inv)
+    rows = (await db.execute(stmt_invs)).all()
 
-    total_invertido = sum(float(i.package.value) if i.package and i.package.value else 0 for i in active_invs)
-    total_capital_finalizado = sum(float(i.package.value) if i.package and i.package.value else 0 for i in finished_invs)
+    active_count = 0
+    finished_count = 0
+    total_invertido = 0.0
+    total_capital_finalizado = 0.0
+    package_counts = {}
+
+    for r in rows:
+        pkg_val = float(r.package_value or 0)
+        is_active = True
+        if r.start_date and (r.period_days or r.period_months):
+            inv_start = r.start_date.date() if isinstance(r.start_date, datetime) else r.start_date
+            dias_base = r.period_days or ((r.period_months or 0) * 30)
+            fecha_fin = inv_start + timedelta(days=dias_base)
+            if fecha_fin <= today:
+                is_active = False
+
+        if is_active:
+            active_count += 1
+            total_invertido += pkg_val
+            if r.package_id:
+                if r.package_id not in package_counts:
+                    package_counts[r.package_id] = {
+                        "name": f"${pkg_val:,.0f}",
+                        "value": 0,
+                        "package_id": r.package_id,
+                        "monto_unitario": pkg_val,
+                        "total_monto": 0.0
+                    }
+                package_counts[r.package_id]["value"] += 1
+                package_counts[r.package_id]["total_monto"] += pkg_val
+        else:
+            finished_count += 1
+            total_capital_finalizado += pkg_val
 
     # 3. Distribución por Paquetes de Inversión (solo paquetes con contratos activos)
-    package_counts = {}
-    for inv in active_invs:
-        if inv.package:
-            pid = inv.package.id
-            if pid not in package_counts:
-                val = float(inv.package.value or 0)
-                package_counts[pid] = {
-                    "name": f"${val:,.0f}",
-                    "value": 0,
-                    "package_id": pid,
-                    "monto_unitario": val,
-                    "total_monto": 0.0
-                }
-            package_counts[pid]["value"] += 1
-            package_counts[pid]["total_monto"] += float(inv.package.value or 0)
-
     package_distribution = sorted(list(package_counts.values()), key=lambda x: x["monto_unitario"])
 
-    # Total disponible en Wallets
+    # 4. Total disponible en Wallets, Retiros y Ventas por Tipo
     wallets_res = await db.execute(select(func.coalesce(func.sum(Wallet.balance), 0)))
     total_wallets = float(wallets_res.scalar() or 0)
 
-    # Total retiros solicitados / pagados
     withdrawals_res = await db.execute(select(func.coalesce(func.sum(Withdrawal.monto), 0)))
     total_withdrawals = float(withdrawals_res.scalar() or 0)
 
@@ -132,24 +140,15 @@ async def get_admin_analytics_dashboard(
         {"category": "Retiros Procesados", "amount": total_withdrawals, "color": "#F59E0B"}
     ]
 
-    # 4. Proporción por Tipo de Venta Comercial
-    nuevo_res = await db.execute(
-        select(func.coalesce(func.sum(CommercialSale.amount), 0))
-        .where(CommercialSale.sale_type == CommercialSaleType.contrato_nuevo)
+    sales_type_res = await db.execute(
+        select(CommercialSale.sale_type, func.coalesce(func.sum(CommercialSale.amount), 0))
+        .group_by(CommercialSale.sale_type)
     )
-    reinversion_res = await db.execute(
-        select(func.coalesce(func.sum(CommercialSale.amount), 0))
-        .where(CommercialSale.sale_type == CommercialSaleType.reinversion)
-    )
-    referido_res = await db.execute(
-        select(func.coalesce(func.sum(CommercialSale.amount), 0))
-        .where(CommercialSale.sale_type == CommercialSaleType.referido)
-    )
-
+    sales_type_map = {r[0]: float(r[1]) for r in sales_type_res.all()}
     sales_by_type = [
-        {"name": "Contratos Nuevos", "value": float(nuevo_res.scalar() or 0)},
-        {"name": "Reinversiones", "value": float(reinversion_res.scalar() or 0)},
-        {"name": "Referidos", "value": float(referido_res.scalar() or 0)}
+        {"name": "Contratos Nuevos", "value": sales_type_map.get(CommercialSaleType.contrato_nuevo, 0.0)},
+        {"name": "Reinversiones", "value": sales_type_map.get(CommercialSaleType.reinversion, 0.0)},
+        {"name": "Referidos", "value": sales_type_map.get(CommercialSaleType.referido, 0.0)}
     ]
 
     return {
@@ -161,12 +160,13 @@ async def get_admin_analytics_dashboard(
             "total_invertido": total_invertido,
             "total_capital_activo": total_invertido,
             "total_capital_finalizado": total_capital_finalizado,
-            "total_inversionistas": len(active_invs),
-            "total_inversionistas_inactivos": len(finished_invs),
+            "total_inversionistas": active_count,
+            "total_inversionistas_inactivos": finished_count,
             "total_wallets": total_wallets,
             "total_withdrawals": total_withdrawals
         }
     }
+
 
 
 @router.get("/director-dashboard", dependencies=[Depends(RequirePermission(["admin.audits.manage", "director.dashboard.view", "admin.users.manage", "admin.roles.manage", "admin.referrals.manage", "admin.investments.manage", "admin.commercial.manage", "commercial:view"]))])
@@ -220,104 +220,76 @@ async def get_director_analytics_dashboard(
     total_sales_res = await db.execute(select(func.coalesce(func.sum(CommercialSale.amount), 0)))
     captacion_historica = float(total_sales_res.scalar() or 0)
 
-    # 2. Asesor Líder del Mes
-    leader_res = await db.execute(
-        select(
-            CommercialSale.commercial_id,
-            func.sum(CommercialSale.amount).label("vol")
-        )
-        .where(
-            extract('year', CommercialSale.sale_date) == year,
-            extract('month', CommercialSale.sale_date) == month
-        )
-        .group_by(CommercialSale.commercial_id)
-        .order_by(desc(func.sum(CommercialSale.amount)))
-        .limit(1)
-    )
-    leader_row = leader_res.first()
-    leader_name = "Sin ventas en el mes"
-    if leader_row:
-        u_res = await db.execute(select(User).where(User.id == leader_row.commercial_id))
-        u = u_res.scalars().first()
-        if u:
-            leader_name = u.name
-
-    # 3. Leaderboard / Ranking de Asesores del Mes
+    # 2 & 3. Leaderboard / Ranking de Asesores del Mes y Asesor Líder (1 sola consulta con JOIN a User)
     sales_stmt = (
         select(
             CommercialSale.commercial_id,
+            User.name.label("commercial_name"),
             func.sum(CommercialSale.amount).label("total_volume"),
             func.count(CommercialSale.id).label("total_closures")
         )
+        .join(User, CommercialSale.commercial_id == User.id, isouter=True)
         .where(
             extract('year', CommercialSale.sale_date) == year,
             extract('month', CommercialSale.sale_date) == month
         )
-        .group_by(CommercialSale.commercial_id)
+        .group_by(CommercialSale.commercial_id, User.name)
         .order_by(desc(func.sum(CommercialSale.amount)))
     )
     rank_res = await db.execute(sales_stmt)
     rank_rows = rank_res.all()
 
-    leaderboard = []
-    for idx, r in enumerate(rank_rows, start=1):
-        u_res = await db.execute(select(User).where(User.id == r.commercial_id))
-        u = u_res.scalars().first()
-        leaderboard.append({
+    leaderboard = [
+        {
             "rank": idx,
             "commercial_id": r.commercial_id,
-            "commercial_name": u.name if u else f"Asesor #{r.commercial_id}",
+            "commercial_name": r.commercial_name or f"Asesor #{r.commercial_id}",
             "total_volume": float(r.total_volume or 0),
             "total_closures": int(r.total_closures or 0)
-        })
+        }
+        for idx, r in enumerate(rank_rows, start=1)
+    ]
+    leader_name = leaderboard[0]["commercial_name"] if leaderboard else "Sin ventas en el mes"
 
-    # 4. Desglose de Ventas por Tipo (Nuevos, Reinversiones, Referidos)
-    nuevos_res = await db.execute(
-        select(func.coalesce(func.sum(CommercialSale.amount), 0))
-        .where(CommercialSale.sale_type == CommercialSaleType.contrato_nuevo)
+    # 4. Desglose de Ventas por Tipo (1 sola query agrupada)
+    sales_type_res = await db.execute(
+        select(CommercialSale.sale_type, func.coalesce(func.sum(CommercialSale.amount), 0))
+        .group_by(CommercialSale.sale_type)
     )
-    reinversion_res = await db.execute(
-        select(func.coalesce(func.sum(CommercialSale.amount), 0))
-        .where(CommercialSale.sale_type == CommercialSaleType.reinversion)
-    )
-    referido_res = await db.execute(
-        select(func.coalesce(func.sum(CommercialSale.amount), 0))
-        .where(CommercialSale.sale_type == CommercialSaleType.referido)
-    )
-
+    sales_type_map = {r[0]: float(r[1]) for r in sales_type_res.all()}
     sales_by_type = [
-        {"nombre": "Contratos Nuevos", "total_monto": float(nuevos_res.scalar() or 0)},
-        {"nombre": "Reinversiones", "total_monto": float(reinversion_res.scalar() or 0)},
-        {"nombre": "Referidos", "total_monto": float(referido_res.scalar() or 0)}
+        {"nombre": "Contratos Nuevos", "total_monto": sales_type_map.get(CommercialSaleType.contrato_nuevo, 0.0)},
+        {"nombre": "Reinversiones", "total_monto": sales_type_map.get(CommercialSaleType.reinversion, 0.0)},
+        {"nombre": "Referidos", "total_monto": sales_type_map.get(CommercialSaleType.referido, 0.0)}
     ]
 
-    # 5. Evolución Mensual de Captación del Equipo (Últimos 6 meses)
+    # 5. Evolución Mensual de Captación del Equipo (1 sola query para los últimos 6 meses)
     months_labels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    start_cutoff_sales = today.replace(day=1) - relativedelta(months=5)
+    hist_stmt = (
+        select(
+            extract('year', CommercialSale.sale_date).label('y'),
+            extract('month', CommercialSale.sale_date).label('m'),
+            func.coalesce(func.sum(CommercialSale.amount), 0).label('total_amount'),
+            func.coalesce(func.sum(CommercialSale.commission_amount), 0).label('total_comm')
+        )
+        .where(CommercialSale.sale_date >= start_cutoff_sales)
+        .group_by('y', 'm')
+    )
+    hist_res = await db.execute(hist_stmt)
+    hist_map = {(int(r.y), int(r.m)): (float(r.total_amount), float(r.total_comm)) for r in hist_res.all()}
+
     monthly_sales_history = []
     for i in range(5, -1, -1):
         target_date = today.replace(day=1) - relativedelta(months=i)
         y = target_date.year
         m = target_date.month
-
-        m_sales_res = await db.execute(
-            select(func.coalesce(func.sum(CommercialSale.amount), 0))
-            .where(
-                extract('year', CommercialSale.sale_date) == y,
-                extract('month', CommercialSale.sale_date) == m
-            )
-        )
-        m_comm_res = await db.execute(
-            select(func.coalesce(func.sum(CommercialSale.commission_amount), 0))
-            .where(
-                extract('year', CommercialSale.sale_date) == y,
-                extract('month', CommercialSale.sale_date) == m
-            )
-        )
+        t_amt, t_comm = hist_map.get((y, m), (0.0, 0.0))
         m_name = months_labels[m - 1]
         monthly_sales_history.append({
             "mes": f"{m_name} {y}",
-            "captado": float(m_sales_res.scalar() or 0),
-            "comision": float(m_comm_res.scalar() or 0)
+            "captado": t_amt,
+            "comision": t_comm
         })
 
     # 6. Contratos por vencerse adjudicados ÚNICAMENTE al usuario en sesión
