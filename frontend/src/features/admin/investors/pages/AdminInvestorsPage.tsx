@@ -477,11 +477,11 @@ export const AdminInvestorsPage = () => {
 
       {/* Tarjetas KPI de Resumen */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Inversionistas */}
+        {/* Contratos activos: la cifra cuenta contratos, no personas (H-141) */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat">
-              Inversionistas
+              Contratos Activos
             </span>
             <div className="p-2 bg-brand-50 text-brand-600 rounded-xl shrink-0">
               <Users className="w-4 h-4" />
@@ -492,7 +492,7 @@ export const AdminInvestorsPage = () => {
           </span>
           <span className="text-[11px] text-slate-500 font-medium block truncate">
             {analyticsData?.summary_cards?.total_inversionistas_inactivos !== undefined && analyticsData.summary_cards.total_inversionistas_inactivos > 0
-              ? `${analyticsData.summary_cards.total_inversionistas_inactivos} inactivos registrados`
+              ? `${analyticsData.summary_cards.total_inversionistas_inactivos} contratos finalizados`
               : 'Registros en plataforma'}
           </span>
         </div>
@@ -1392,7 +1392,7 @@ export const AdminInvestorsPage = () => {
           <div className="text-slate-500">
             {total > 0 ? (
               <span>
-                Mostrando <strong className="font-bold text-slate-800">{(page - 1) * limit + 1}</strong> a <strong className="font-bold text-slate-800">{Math.min(page * limit, total)}</strong> de <strong className="font-bold text-slate-800">{total}</strong> inversionistas <span className="text-slate-400 font-normal ml-1">(Página {page} de {Math.max(1, Math.ceil(total / limit))})</span>
+                Mostrando <strong className="font-bold text-slate-800">{(page - 1) * limit + 1}</strong> a <strong className="font-bold text-slate-800">{Math.min(page * limit, total)}</strong> de <strong className="font-bold text-slate-800">{total}</strong> contratos <span className="text-slate-400 font-normal ml-1">(Página {page} de {Math.max(1, Math.ceil(total / limit))})</span>
               </span>
             ) : (
               <span>0 inversionistas</span>

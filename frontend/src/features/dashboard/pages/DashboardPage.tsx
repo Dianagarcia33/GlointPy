@@ -345,19 +345,19 @@ export const DashboardPage = () => {
                                 </div>
 
                                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
-                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Inversionistas Activos</span>
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Contratos Activos</span>
                                     <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-emerald-600 block tracking-tight font-mono truncate">
                                         {adminAnalytics.summary_cards.total_inversionistas}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos en curso</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">En curso</span>
                                 </div>
 
                                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
-                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Inversionistas Inactivos</span>
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block font-montserrat truncate">Contratos Finalizados</span>
                                     <span className="text-lg sm:text-xl 2xl:text-2xl font-extrabold text-slate-500 block tracking-tight font-mono truncate">
                                         {adminAnalytics.summary_cards.total_inversionistas_inactivos || 0}
                                     </span>
-                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Contratos finalizados</span>
+                                    <span className="text-[11px] text-slate-500 font-semibold truncate block">Vigencia cumplida</span>
                                 </div>
 
                                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all space-y-2 min-w-0 overflow-hidden flex flex-col justify-between">
