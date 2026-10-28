@@ -119,8 +119,10 @@ class SimpleInvestorAuditResponse(InvestorBase):
         retirado = 0.0
         if self.withdrawals:
             for w in self.withdrawals:
-                tipo = str(getattr(w, 'tipo', '')).lower()
-                estado = str(getattr(w, 'estado', '')).lower()
+                # .value: str() de un Enum da "WithdrawalType.CAPITAL", nunca "capital" (H-167)
+                tipo_raw, estado_raw = getattr(w, 'tipo', ''), getattr(w, 'estado', '')
+                tipo = str(getattr(tipo_raw, 'value', tipo_raw)).lower()
+                estado = str(getattr(estado_raw, 'value', estado_raw)).lower()
                 if tipo == "capital" and estado in ["pendiente", "aprobado", "procesado"]:
                     retirado += float(getattr(w, 'monto', 0) or getattr(w, 'monto_neto', 0) or 0)
         return retirado
