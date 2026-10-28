@@ -35,8 +35,8 @@ async def aget_password_hash(password: str) -> str:
     """Versión asíncrona de get_password_hash (ver averify_password)."""
     return await asyncio.to_thread(get_password_hash, password)
 
-def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
-    """Genera el token JWT de acceso (24 horas)."""
+def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None, extra_claims: dict = None) -> str:
+    """Genera el token JWT de acceso (24 horas). extra_claims agrega datos firmados (p. ej. imp_by, H-182)."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -44,6 +44,8 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
         expire = datetime.utcnow() + timedelta(minutes=minutes)
         
     to_encode = {"exp": expire, "sub": str(subject)}
+    if extra_claims:
+        to_encode.update(extra_claims)
     algorithm = getattr(settings, 'ALGORITHM', 'HS256')
     encoded_jwt = jwt.encode(
         to_encode, 

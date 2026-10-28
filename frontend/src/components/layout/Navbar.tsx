@@ -298,7 +298,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                       </div>
 
                       {/* Modo Supervisión Parental Activo */}
-                      {(parentBackup || user?.parent_user_id) && (
+                      {parentBackup && (
                         <div className="p-2.5 bg-amber-50 border-b border-amber-200/70">
                           <div className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1 flex items-center gap-1.5 font-montserrat">
                             <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />

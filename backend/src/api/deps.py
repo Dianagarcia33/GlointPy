@@ -15,6 +15,22 @@ from src.models.security import Role
 # Token extraction: supports both Bearer header and HttpOnly cookies
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
+async def get_auth_payload(
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme)
+) -> dict:
+    """Claims firmados del token con el que se autentica la petición (misma precedencia que get_current_user)."""
+    auth_token = request.cookies.get("access_token") or token or request.query_params.get("token")
+    try:
+        return jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db), 

@@ -11,8 +11,9 @@ export const ParentalBanner: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // We are in parental mode if we have a parentBackup in store OR the user has a parent_user_id
-  const isParentalMode = Boolean(parentBackup || user?.parent_user_id);
+  // H-182: solo hay supervisión parental si el tutor cambió realmente a esta cuenta (parentBackup);
+  // que el usuario tenga un tutor asignado (parent_user_id) no lo convierte en supervisor
+  const isParentalMode = Boolean(parentBackup);
 
   if (!isParentalMode || !user) {
     return null;

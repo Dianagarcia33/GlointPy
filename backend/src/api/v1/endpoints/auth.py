@@ -9,7 +9,7 @@ from src.core.security import create_access_token
 from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, SendForcePasswordOtpRequest
 from src.schemas.user import UserResponse
 from src.services.auth_service import AuthService
-from src.api.deps import get_current_user
+from src.api.deps import get_current_user, get_auth_payload
 from src.models.user import User
 
 router = APIRouter()
@@ -195,7 +195,8 @@ async def switch_to_child_account(
     if not child.is_active:
         raise HTTPException(status_code=400, detail="La cuenta del menor se encuentra inactiva.")
 
-    access_token = create_access_token(subject=child.id)
+    # H-182: el token del menor lleva firmado quién lo suplantó; solo con ese claim se puede volver al tutor
+    access_token = create_access_token(subject=child.id, extra_claims={"imp_by": current_user.id})
     set_auth_cookie(response, access_token, request=request)
 
     return {
@@ -209,15 +210,25 @@ async def switch_back_to_parent(
     request: Request,
     response: Response,
     current_user: User = Depends(get_current_user),
+    auth_payload: dict = Depends(get_auth_payload),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
-    Permite volver a la cuenta del tutor/padre si el usuario actual es un hijo vinculado.
+    Permite volver a la cuenta del tutor/padre solo si esta sesión nació de un switch-account legítimo.
     """
     if not current_user.parent_user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Esta cuenta no tiene un tutor o padre vinculado."
+        )
+
+    # H-182: tener tutor asignado no basta; el token debe haber sido emitido por el propio tutor
+    # al cambiar a esta cuenta (claim firmado imp_by). Un menor con sesión normal no puede obtener
+    # credenciales de su tutor.
+    if str(auth_payload.get("imp_by")) != str(current_user.parent_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta sesión no proviene de un cambio de cuenta de tutor; no se puede volver a la cuenta del tutor."
         )
 
     result = await db.execute(
