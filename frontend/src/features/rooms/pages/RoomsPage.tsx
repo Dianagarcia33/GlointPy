@@ -176,19 +176,54 @@ export const RoomsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteRoom = async (room: MeetingRoom) => {
-    if (!window.confirm(`¿Estás seguro de desactivar o eliminar la sala "${room.name}"?`)) {
-      return;
-    }
+  // H-179: desactivar (reversible) y eliminar (definitivo) son acciones distintas con un modal propio
+  const [roomToRemove, setRoomToRemove] = useState<MeetingRoom | null>(null);
+  const [isRemovingRoom, setIsRemovingRoom] = useState(false);
 
+  const handleDeactivateRoom = async () => {
+    if (!roomToRemove) return;
+    const room = roomToRemove;
     try {
-      await roomsService.deleteRoom(room.id);
-      setSuccess(`Sala "${room.name}" actualizada/eliminada exitosamente.`);
+      setIsRemovingRoom(true);
+      await roomsService.updateRoom(room.id, { is_active: false });
+      setSuccess(`Sala "${room.name}" desactivada. Puedes volver a activarla al editarla.`);
       setTimeout(() => setSuccess(null), 4000);
+      setRoomToRemove(null);
       fetchRooms();
     } catch (err: any) {
-      setError(err.message || 'Error al eliminar la sala.');
+      setRoomToRemove(null);
+      setError(err.message || 'Error al desactivar la sala.');
+    } finally {
+      setIsRemovingRoom(false);
     }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!roomToRemove) return;
+    const room = roomToRemove;
+    try {
+      setIsRemovingRoom(true);
+      const res = await roomsService.deleteRoom(room.id);
+      // Con reservas futuras el servidor la desactiva en vez de borrarla; se informa lo que ocurrió
+      setSuccess(res?.detail?.includes('desactivada')
+        ? `Sala "${room.name}" desactivada: tiene reservas futuras, por eso no se eliminó.`
+        : `Sala "${room.name}" eliminada definitivamente.`);
+      setTimeout(() => setSuccess(null), 5000);
+      setRoomToRemove(null);
+      fetchRooms();
+    } catch (err: any) {
+      setRoomToRemove(null);
+      setError(err.message || 'Error al eliminar la sala.');
+    } finally {
+      setIsRemovingRoom(false);
+    }
+  };
+
+  // H-179: una reserva confirmada cuya hora fin ya pasó (hora Colombia) está finalizada, no cancelable.
+  // Las horas de las reservas se guardan sin zona, en hora Colombia.
+  const isReservationFinished = (res: RoomReservation): boolean => {
+    const nowCo = new Date().toLocaleString('sv-SE', { timeZone: 'America/Bogota' }).replace(' ', 'T');
+    return res.end_time.slice(0, 19) <= nowCo.slice(0, 19);
   };
 
   // Format time helper (e.g. 09:30 a. m.)
@@ -346,7 +381,7 @@ export const RoomsPage: React.FC = () => {
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <span className="text-sm font-extrabold text-slate-900 font-montserrat ml-2 capitalize">
+              <span className="text-sm font-extrabold text-slate-900 font-montserrat ml-2 first-letter:uppercase">
                 {new Date(`${selectedDate}T12:00:00`).toLocaleDateString('es-CO', {
                   weekday: 'long',
                   day: 'numeric',
@@ -654,15 +689,18 @@ export const RoomsPage: React.FC = () => {
 
                 {/* Footer de acciones */}
                 <div className="p-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <Can permissions={['rooms:reserve', 'admin.rooms.manage']}>
-                    <button
-                      onClick={() => handleOpenReservation(room.id)}
-                      disabled={!room.is_active}
-                      className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-40 rounded-xl transition-all cursor-pointer shadow-xs"
-                    >
-                      Reservar Sala
-                    </button>
-                  </Can>
+                  {room.is_active ? (
+                    <Can permissions={['rooms:reserve', 'admin.rooms.manage']}>
+                      <button
+                        onClick={() => handleOpenReservation(room.id)}
+                        className="px-3.5 py-1.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all cursor-pointer shadow-xs"
+                      >
+                        Reservar Sala
+                      </button>
+                    </Can>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-400">No disponible para reservar</span>
+                  )}
 
                   <Can permission="admin.rooms.manage">
                     <div className="flex items-center gap-1.5">
@@ -674,9 +712,10 @@ export const RoomsPage: React.FC = () => {
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDeleteRoom(room)}
+                        onClick={() => setRoomToRemove(room)}
                         className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-white rounded-xl border border-slate-200 transition-all cursor-pointer"
                         title="Desactivar o eliminar sala"
+                        aria-label="Desactivar o eliminar sala"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -756,7 +795,11 @@ export const RoomsPage: React.FC = () => {
                           <span className="font-bold text-slate-700">{res.attendees_count}</span>
                         </td>
                         <td className="px-6 py-4">
-                          {res.status === 'confirmed' ? (
+                          {res.status === 'confirmed' && isReservationFinished(res) ? (
+                            <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-[10px] font-bold uppercase">
+                              Finalizada
+                            </span>
+                          ) : res.status === 'confirmed' ? (
                             <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-bold uppercase">
                               Confirmada
                             </span>
@@ -771,7 +814,7 @@ export const RoomsPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-center">
-                          {res.status === 'confirmed' && (
+                          {res.status === 'confirmed' && !isReservationFinished(res) && (
                             <button
                               onClick={() => handleOpenCancelModal(res)}
                               disabled={cancellingId === res.id}
@@ -790,6 +833,38 @@ export const RoomsPage: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Modal Desactivar / Eliminar sala */}
+      <ConfirmationModal
+        isOpen={!!roomToRemove}
+        onClose={() => setRoomToRemove(null)}
+        onConfirm={handleDeleteRoom}
+        title="Eliminar Sala"
+        description={
+          roomToRemove ? (
+            <span>
+              ¿Qué deseas hacer con la sala <strong className="text-slate-800">"{roomToRemove.name}"</strong>?
+              Eliminarla es <strong>definitivo</strong> (si tiene reservas futuras solo se desactivará).
+              Desactivarla la oculta para nuevas reservas y se puede revertir al editarla.
+            </span>
+          ) : undefined
+        }
+        confirmText="Eliminar definitivamente"
+        cancelText="Cancelar"
+        variant="danger"
+        isLoading={isRemovingRoom}
+      >
+        {roomToRemove?.is_active && (
+          <button
+            type="button"
+            onClick={handleDeactivateRoom}
+            disabled={isRemovingRoom}
+            className="w-full mt-3 px-4 py-2.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+          >
+            Solo desactivar (reversible)
+          </button>
+        )}
+      </ConfirmationModal>
 
       {/* Modales */}
       <RoomModal
