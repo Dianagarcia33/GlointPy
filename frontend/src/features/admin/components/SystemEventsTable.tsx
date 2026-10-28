@@ -15,6 +15,16 @@ interface SystemEventsTableProps {
 export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, isLoading, onEdit }) => {
   const queryClient = useQueryClient();
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const deletingEvent = events.find(e => e.id === deletingId);
+
+  // Tipo y configuración del evento para identificarlo en el modal de eliminación (H-135)
+  const describeEvent = (event: SystemEvent) => {
+    const typeLabel = event.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const when = event.is_recurring
+      ? `Día ${event.recurrence_start_day} al ${event.recurrence_end_day} de cada mes`
+      : `${event.start_date ? format(new Date(event.start_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'} - ${event.end_date ? format(new Date(event.end_date), "d MMM yyyy, HH:mm", { locale: es }) : 'N/A'}`;
+    return `${typeLabel} · ${when}`;
+  };
 
   const deleteMutation = useMutation({
     mutationFn: systemEventsService.deleteEvent,
@@ -138,8 +148,8 @@ export const SystemEventsTable: React.FC<SystemEventsTableProps> = ({ events, is
         isOpen={!!deletingId}
         onClose={() => setDeletingId(null)}
         onConfirm={confirmDelete}
-        title="¿Eliminar Evento del Sistema?"
-        description="Esta acción eliminará el evento o ventana de tiempo seleccionada. Esta acción no se puede deshacer."
+        title={deletingEvent ? `¿Eliminar el evento "${describeEvent(deletingEvent)}"?` : '¿Eliminar Evento del Sistema?'}
+        description="El evento se eliminará de forma definitiva y su ventana dejará de aplicarse. Esta acción no se puede deshacer."
         confirmText="Sí, Eliminar Evento"
         cancelText="Cancelar"
         variant="danger"

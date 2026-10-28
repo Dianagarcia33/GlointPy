@@ -213,6 +213,9 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
                   />
                 </div>
+                <p className="col-span-2 text-xs text-slate-500">
+                  Si el mes no tiene ese día (p. ej. 30 o 31 en febrero), la ventana se abre el último día del mes.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">

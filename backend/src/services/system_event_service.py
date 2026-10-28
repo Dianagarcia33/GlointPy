@@ -2,6 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from fastapi import HTTPException, status
 from typing import List
+import calendar
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -110,11 +111,16 @@ class SystemEventService:
         # 1. Evaluate Recurrence
         if event.is_recurring:
             if event.recurrence_start_day and event.recurrence_end_day:
-                if event.recurrence_start_day <= event.recurrence_end_day:
-                    if event.recurrence_start_day <= current_day <= event.recurrence_end_day:
+                # Un día que no existe en el mes actual (p. ej. 30 en febrero) se toma como el último
+                # día del mes; si no, la ventana del día 30 nunca abriría en febrero (H-135)
+                last_day = calendar.monthrange(now_local.year, now_local.month)[1]
+                start_day = min(event.recurrence_start_day, last_day)
+                end_day = min(event.recurrence_end_day, last_day)
+                if start_day <= end_day:
+                    if start_day <= current_day <= end_day:
                         return True
                 else:
-                    if current_day >= event.recurrence_start_day or current_day <= event.recurrence_end_day:
+                    if current_day >= start_day or current_day <= end_day:
                         return True
 
         # 2. Evaluate Specific Date Range
