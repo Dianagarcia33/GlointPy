@@ -329,7 +329,7 @@ async function enviarFormulario(datos) {
                       {/* Uso de la clave en el formulario público (H-138) */}
                       <div className="text-[11px] text-slate-500">
                         {keyItem.usage_count
-                          ? `${keyItem.usage_count} envío${keyItem.usage_count === 1 ? '' : 's'} · Último uso: ${keyItem.last_used_at ? new Date(keyItem.last_used_at + (keyItem.last_used_at.endsWith('Z') ? '' : 'Z')).toLocaleString('es-CO') : 'N/A'}`
+                          ? `${keyItem.usage_count} envío${keyItem.usage_count === 1 ? '' : 's'} · Último uso: ${keyItem.last_used_at ? new Date(keyItem.last_used_at).toLocaleString('es-CO') : 'N/A'}`
                           : 'Sin envíos registrados'}
                       </div>
 

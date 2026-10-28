@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { chatService } from '../services/chatService';
 import { useAuthStore } from '../store/authStore';
 import { useLocation } from 'react-router-dom';
-import { markUtcTimestamps } from '../utils/utcTimestamps';
 
 // Usamos un bip generado sintéticamente con AudioContext para que suene
 // bonito sin necesidad de cargar dependencias o archivos mp3 externos.
@@ -60,7 +59,7 @@ export const useGlobalNotifications = () => {
 
       ws.onmessage = (event) => {
         try {
-          const data = markUtcTimestamps(JSON.parse(event.data));
+          const data = JSON.parse(event.data);
 
           if (data.type === 'messages_read') {
             window.dispatchEvent(new CustomEvent('gloint:messages_read', { detail: data }));

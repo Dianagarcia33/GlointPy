@@ -15,10 +15,14 @@ from sqlalchemy.orm import selectinload
 from src.core.database import get_db
 
 
+from src.core.responses import ColombiaJSONResponse
+
 app = FastAPI(
     title="GlointPy API",
     description="API para el sistema de inversiones GlointPy",
-    version="1.0.0"
+    version="1.0.0",
+    # Todas las respuestas JSON entregan las marcas de tiempo en hora Colombia (H-152)
+    default_response_class=ColombiaJSONResponse
 )
 
 async def background_imap_sync_worker():

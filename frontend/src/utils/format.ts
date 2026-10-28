@@ -48,13 +48,19 @@ export const getColombiaToday = (): string => {
 };
 
 /**
+ * True si la fecha ISO ya trae zona ('Z' o '+hh:mm' / '-hh:mm'). La API entrega las marcas de
+ * tiempo en hora Colombia con '-05:00' (H-152): no hay que añadirles 'Z'.
+ */
+export const hasTimezoneSuffix = (dateStr: string): boolean => /(Z|[+-]\d{2}:?\d{2})$/.test(dateStr.trim());
+
+/**
  * Formatea una fecha o timestamp a formato local colombiano DD/MM/YYYY respetando la zona horaria America/Bogota.
  */
 export const formatColombiaDate = (dateStr: string | Date | null | undefined): string => {
     if (!dateStr) return 'N/A';
     let d: Date;
     if (typeof dateStr === 'string') {
-        if (!dateStr.includes('Z') && !dateStr.includes('+') && dateStr.includes('T')) {
+        if (!hasTimezoneSuffix(dateStr) && dateStr.includes('T')) {
             d = new Date(dateStr + 'Z');
         } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
             const [y, m, day] = dateStr.split('-').map(Number);
@@ -79,7 +85,7 @@ export const parseChatDate = (dateStr?: string | Date | null): Date | null => {
     let d: Date;
     if (typeof dateStr === 'string') {
         const clean = dateStr.trim();
-        if (!clean.includes('Z') && !clean.includes('+') && clean.includes('T')) {
+        if (!hasTimezoneSuffix(clean) && clean.includes('T')) {
             d = new Date(clean + 'Z');
         } else {
             d = new Date(clean);

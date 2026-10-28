@@ -38,7 +38,14 @@ class PDFService:
         elements.append(Paragraph("GLOINT - Ecosistema Empresarial", subtitle_style))
         
         # Fechas (usamos la fecha de aprobación si existe, si no, la fecha actual)
-        fecha_texto = withdrawal.fecha_aprobacion.strftime("%Y-%m-%d %H:%M:%S") if withdrawal.fecha_aprobacion else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Hora Colombia: fecha_aprobacion se guarda en UTC (H-152)
+        from datetime import timezone as _tz
+        from src.core.timezone import BOGOTA_TZ, get_colombia_now
+        fecha_dt = (
+            withdrawal.fecha_aprobacion.replace(tzinfo=_tz.utc).astimezone(BOGOTA_TZ)
+            if withdrawal.fecha_aprobacion else get_colombia_now()
+        )
+        fecha_texto = fecha_dt.strftime("%Y-%m-%d %H:%M:%S") + " (hora Colombia)"
 
         # Datos del retiro
         data = [

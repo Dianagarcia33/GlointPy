@@ -1,3 +1,4 @@
+from src.core.timezone import colombia_timestamps
 import json
 import logging
 from datetime import datetime, timezone
@@ -98,7 +99,7 @@ class ConnectionManager:
             to_remove = set()
             for connection in self.room_connections[r_id]:
                 try:
-                    await connection.send_text(json.dumps(message_data))
+                    await connection.send_text(json.dumps(colombia_timestamps(message_data)))  # hora Colombia (H-152)
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:
@@ -113,7 +114,7 @@ class ConnectionManager:
                 if exclude_websocket and connection == exclude_websocket:
                     continue
                 try:
-                    await connection.send_text(json.dumps(message_data))
+                    await connection.send_text(json.dumps(colombia_timestamps(message_data)))  # hora Colombia (H-152)
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:
@@ -126,7 +127,7 @@ class ConnectionManager:
             to_remove = set()
             for connection in self.user_connections[u_id]:
                 try:
-                    await connection.send_text(json.dumps(message_data))
+                    await connection.send_text(json.dumps(colombia_timestamps(message_data)))  # hora Colombia (H-152)
                 except Exception:
                     to_remove.add(connection)
             for dead in to_remove:

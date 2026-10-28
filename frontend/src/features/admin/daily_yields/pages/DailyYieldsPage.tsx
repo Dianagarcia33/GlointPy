@@ -32,7 +32,7 @@ import {
   DailyYieldMovement 
 } from '../../../../services/dailyYields';
 import { ConfirmationModal } from '../../../../components/common/ConfirmationModal';
-import { formatCurrency, getColombiaToday } from '../../../../utils/format';
+import { formatCurrency, getColombiaToday, hasTimezoneSuffix } from '../../../../utils/format';
 import { Can } from '../../../../components/security/Can';
 
 // Función para formatear la hora en zona horaria oficial de Colombia (America/Bogota, UTC-5)
@@ -45,7 +45,7 @@ const formatColombiaTime = (isoString?: string | null, fallbackCot?: string | nu
       const parts = fallbackCot.trim().split(' ');
       if (parts[1]) return parts[1];
     }
-    const dateObj = new Date(raw.endsWith('Z') || raw.includes('+') ? raw : `${raw}Z`);
+    const dateObj = new Date(hasTimezoneSuffix(raw) ? raw : `${raw}Z`);
     if (isNaN(dateObj.getTime())) {
       const match = raw.match(/(\d{2}:\d{2}:\d{2})/);
       return match ? match[1] : raw;
