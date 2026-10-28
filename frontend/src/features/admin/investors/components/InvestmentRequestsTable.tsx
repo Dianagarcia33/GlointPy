@@ -75,7 +75,7 @@ export const InvestmentRequestsTable = ({ onDataChanged, refreshKey = 0 }: Inves
       .then(res => setCommercialUsers(res || []))
       .catch(() => setCommercialUsers([]));
 
-    fetchApi('/users/')
+    fetchApi('/users')
       .then((res: any) => {
         const list = Array.isArray(res) ? res : res?.items || res?.data || [];
         if (list.length > 0) {
