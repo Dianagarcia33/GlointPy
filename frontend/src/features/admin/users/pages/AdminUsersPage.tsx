@@ -351,13 +351,10 @@ export const AdminUsersPage = () => {
         is_active: activeFilter === 'true' ? true : activeFilter === 'false' ? false : undefined,
         has_wallet: walletFilter === 'true' ? true : walletFilter === 'false' ? false : undefined,
       });
-      
-      const rolesData = await rolesService.getAllRoles();
       if (requestId !== latestRequestRef.current) return;
       
       setUsers(usersData.data);
       setTotal(usersData.total);
-      setRoles(rolesData);
       setError(null);
     } catch (err: any) {
       if (requestId !== latestRequestRef.current) return;
@@ -373,6 +370,14 @@ export const AdminUsersPage = () => {
   useEffect(() => {
     fetchData();
   }, [page, search, roleFilter, activeFilter, walletFilter]);
+
+  // Los roles solo alimentan el filtro y el modal: se cargan aparte y una vez. Un rol sin
+  // admin.roles.manage recibe 403 aquí y antes eso descartaba el listado de usuarios (H-151)
+  useEffect(() => {
+    rolesService.getAllRoles()
+      .then(setRoles)
+      .catch(() => setRoles([]));
+  }, []);
 
   const handleCreate = () => {
     setEditingUser(null);
