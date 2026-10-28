@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import extract, func, desc, or_
@@ -59,9 +59,35 @@ async def check_client(
     res = await check_client_classification(db, req.client_document)
     return res
 
+async def _audit_custom_commission(db: AsyncSession, sale: CommercialSale, sale_data: CommercialSaleCreate, user: User, request: Request):
+    """Deja traza en auditoría cuando la comisión se fijó a mano (H-154)."""
+    if sale_data.custom_commission_rate is None and sale_data.custom_commission_amount is None:
+        return
+    from src.services.audit_trail_service import log_audit_trail
+    await log_audit_trail(
+        db=db,
+        action="COMMISSION_MANUAL_RATE",
+        module="commercial",
+        user=user,
+        entity_type="CommercialSale",
+        entity_id=sale.id,
+        description=f"Comisión manual en la venta #{sale.id}: {float(sale.commission_rate) * 100:.2f}% (${float(sale.commission_amount):,.0f}). Motivo: {sale_data.custom_rate_reason}",
+        details={
+            "sale_id": sale.id,
+            "commercial_id": sale.commercial_id,
+            "amount": float(sale.amount),
+            "commission_rate": float(sale.commission_rate),
+            "commission_amount": float(sale.commission_amount),
+            "reason": sale_data.custom_rate_reason,
+        },
+        request=request,
+    )
+
+
 @router.post("/sales", response_model=CommercialSaleResponse, dependencies=[Depends(RequirePermission("commercial:view"))])
 async def create_sale(
     sale_data: CommercialSaleCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -73,12 +99,14 @@ async def create_sale(
         any(r.name.lower() in ['superadmin', 'super admin', 'administrador', 'admin'] for r in (current_user.roles or []))
     )
     sale = await register_commercial_sale(db, current_user.id, sale_data, is_admin=is_admin)
+    await _audit_custom_commission(db, sale, sale_data, current_user, request)
     return sale
 
 @router.post("/admin-sales", response_model=CommercialSaleResponse, dependencies=[Depends(RequirePermission("admin.commercial.manage"))])
 async def create_admin_sale(
     target_commercial_id: int,
     sale_data: CommercialSaleCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -86,6 +114,7 @@ async def create_admin_sale(
     Permite a un Administrador adjudicar una venta comercial a cualquier asesor del equipo.
     """
     sale = await register_commercial_sale(db, target_commercial_id, sale_data, is_admin=True)
+    await _audit_custom_commission(db, sale, sale_data, current_user, request)
     return sale
 
 async def build_commercial_summary_data(commercial_id: int, db: AsyncSession, month: Optional[int] = None, year: Optional[int] = None) -> Dict[str, Any]:

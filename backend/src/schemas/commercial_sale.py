@@ -30,6 +30,18 @@ class CommercialSaleCreate(BaseModel):
     custom_commission_amount: Optional[Decimal] = None
     is_already_settled: bool = False
     settlement_notes: Optional[str] = None
+    # Motivo obligatorio cuando el administrador fija un % o monto de comisión manual (H-154)
+    custom_rate_reason: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_custom_commission(self) -> 'CommercialSaleCreate':
+        has_custom = self.custom_commission_rate is not None or self.custom_commission_amount is not None
+        if has_custom:
+            if self.custom_commission_rate is not None and not (0 <= self.custom_commission_rate <= 1):
+                raise ValueError("El porcentaje de comisión manual debe estar entre 0% y 100%.")
+            if not self.custom_rate_reason or len(self.custom_rate_reason.strip()) < 10:
+                raise ValueError("Indica el motivo (mínimo 10 caracteres) para aplicar un porcentaje de comisión manual.")
+        return self
 
     @model_validator(mode="after")
     def validate_referrer_code_for_referrals(self) -> 'CommercialSaleCreate':

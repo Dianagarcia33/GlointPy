@@ -215,6 +215,15 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
     created_dt0 = target_inv.created_at or datetime(start_d0.year, start_d0.month, start_d0.day)
     is_brand_new = len(investors) == 1 and not history_records and (start_d0 >= cycle_start or created_dt0 >= cycle_start_dt)
 
+    # Si ya se registró una venta para este cliente, su primera inversión ya fue comisionada: cualquier
+    # venta nueva es de cliente existente (referido/reinversión), no 'Contrato Nuevo' (H-154)
+    if is_brand_new:
+        prior_sale = await db.execute(
+            select(CommercialSale.id).where(CommercialSale.client_document.in_({doc_clean, client_doc})).limit(1)
+        )
+        if prior_sale.scalar_one_or_none():
+            is_brand_new = False
+
     if not is_brand_new or previous_pkg_val > 0:
         # INVERSIONISTA EXISTENTE: Todo aumento o nuevo contrato
         commissionable_monto = increase_amount if previous_pkg_val > 0 else pkg_val
@@ -379,6 +388,10 @@ async def register_commercial_sale(
     comm_amount, comm_rate, tramo_a, tramo_b = await calculate_marginal_commission(
         db, commercial_id, final_sale_type, amount, target_date
     )
+
+    # Solo un administrador puede fijar la comisión a mano (antes cualquier asesor podía enviarla por API)
+    if not is_admin and (sale_data.custom_commission_rate is not None or sale_data.custom_commission_amount is not None):
+        raise HTTPException(status_code=403, detail="Solo un administrador puede fijar manualmente el porcentaje o monto de la comisión.")
 
     if sale_data.custom_commission_rate is not None and sale_data.custom_commission_rate >= 0:
         comm_rate = sale_data.custom_commission_rate

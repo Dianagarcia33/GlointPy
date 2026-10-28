@@ -6,6 +6,9 @@ import { packagesService, Package } from '../../../services/packages';
 import { useAuthStore } from '../../../store/authStore';
 import { getColombiaToday } from '../../../utils/format';
 
+// Montos en pesos enteros: la API envía Decimal como '30000000.0' y el campo mostraba '30000000,0' (H-154)
+const toAmountString = (value: unknown): string => String(Math.round(Number(value) || 0));
+
 interface RegisterCommercialSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -59,6 +62,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   // Estados para personalización manual de porcentaje por el Administrador
   const [isCustomRateActive, setIsCustomRateActive] = useState<boolean>(false);
   const [customRatePct, setCustomRatePct] = useState<string>('');
+  const [customRateReason, setCustomRateReason] = useState<string>('');
 
   const shouldShowAsesorSelect = isTrueAdmin;
 
@@ -80,6 +84,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     setError(null);
     setIsCustomRateActive(false);
     setCustomRatePct('');
+    setCustomRateReason('');
     setSelectedPackageId('');
   };
 
@@ -107,9 +112,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       const prevVal = Number(clientInfo?.previous_package_amount || 0);
       if (saleType === 'reinversion' && prevVal > 0) {
         const diff = Math.max(0, pkgVal - prevVal);
-        setAmount(diff > 0 ? diff.toString() : pkgVal.toString());
+        setAmount(toAmountString(diff > 0 ? diff : pkgVal));
       } else {
-        setAmount(pkgVal.toString());
+        setAmount(toAmountString(pkgVal));
       }
     }
   };
@@ -193,7 +198,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     const effectiveDoc = item.document_id || item.assigned_code || searchTerm;
     setClientDocument(effectiveDoc);
     setClientName(item.name);
-    setSearchTerm(`${item.name} (${item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || ''})`);
+    const ref = item.assigned_code ? 'IG: #' + item.assigned_code : item.document_id || '';
+    setSearchTerm(ref ? `${item.name} (${ref})` : item.name);
     setSearchResults([]);
 
     const queryKey = item.assigned_code || item.document_id || searchTerm;
@@ -209,7 +215,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         
         const finalMonto = (res.monto && res.monto > 0) ? res.monto : (item.monto && item.monto > 0 ? item.monto : 0);
         if (finalMonto > 0) {
-          setAmount(finalMonto.toString());
+          setAmount(toAmountString(finalMonto));
         } else {
           setAmount('');
         }
@@ -226,7 +232,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
         });
         setSaleType('referido');
         if (item.monto && item.monto > 0) {
-          setAmount(item.monto.toString());
+          setAmount(toAmountString(item.monto));
         } else {
           setAmount('');
         }
@@ -249,7 +255,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       }
       if (res.client_name) setClientName(res.client_name);
       if (res.monto && res.monto > 0) {
-        setAmount(res.monto.toString());
+        setAmount(toAmountString(res.monto));
       } else {
         setAmount('');
       }
@@ -311,6 +317,10 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       setError('Por favor ingresa un monto mayor a cero');
       return;
     }
+    if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '' && customRateReason.trim().length < 10) {
+      setError('Indica el motivo (mínimo 10 caracteres) para aplicar un porcentaje de comisión manual.');
+      return;
+    }
     if (submittingRef.current) return;
     submittingRef.current = true;
 
@@ -331,6 +341,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       if (isTrueAdmin && isCustomRateActive && customRatePct.trim() !== '') {
         payload.custom_commission_rate = effectiveRate;
         payload.custom_commission_amount = estimatedCommission;
+        payload.custom_rate_reason = customRateReason.trim();
       }
 
       if (isTrueAdmin && targetCommercialId) {
@@ -776,6 +787,19 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
                   <Sparkles className="w-3.5 h-3.5 shrink-0 text-brand-600" />
                   <span>Se aplicará el <strong>{(effectiveRate * 100).toFixed(2)}%</strong> configurado manualmente por el Administrador.</span>
                 </p>
+              )}
+
+              {/* Motivo obligatorio: queda en la auditoría junto con el % aplicado (H-154) */}
+              {isCustomRateActive && (
+                <textarea
+                  value={customRateReason}
+                  onChange={(e) => setCustomRateReason(e.target.value)}
+                  rows={2}
+                  required
+                  minLength={10}
+                  placeholder="Motivo del porcentaje manual (obligatorio, queda en la auditoría)"
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                />
               )}
 
               {saleType !== 'referido' && !isCustomRateActive && (tramoA > 0 || tramoB > 0) && (
