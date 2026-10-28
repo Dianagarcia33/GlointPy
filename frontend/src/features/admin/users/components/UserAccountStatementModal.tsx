@@ -46,13 +46,20 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
   // Date filters
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [rangeError, setRangeError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'movements' | 'withdrawals' | 'investments' | 'shares'>('movements');
 
-  const fetchStatement = async () => {
+  // Recibe las fechas como parámetros para que "Ver Todo" pueda recargar sin esperar a que se actualice el estado
+  const fetchStatement = async (start: string = startDate, end: string = endDate) => {
+    if (start && end && start > end) {
+      setRangeError("Rango inválido: la fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.");
+      return;
+    }
+    setRangeError(null);
     try {
       setLoading(true);
       setError(null);
-      const data = await usersService.getUserStatement(userId, startDate || undefined, endDate || undefined);
+      const data = await usersService.getUserStatement(userId, start || undefined, end || undefined);
       setStatement(data);
     } catch (err: any) {
       console.error('Error fetching statement:', err);
@@ -129,6 +136,10 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
         ['RESUMEN FINANCIERO'],
         ['Saldo Inicial Periodo', statement.summary.opening_balance],
         ['Total Abonos / Ingresos (+)', statement.summary.total_credits],
+        ['   Rendimientos', statement.summary.total_yields ?? 0],
+        ['   Ajustes Administrativos', statement.summary.total_adjustments ?? 0],
+        ['   Reembolsos', statement.summary.total_refunds ?? 0],
+        ['   Otros Abonos', statement.summary.total_other_credits ?? 0],
         ['Total Débitos / Salidas (-)', statement.summary.total_debits],
         ['Saldo Final Periodo', statement.summary.closing_balance],
         ['Total Retiros Pagados', statement.summary.total_withdrawn_paid],
@@ -304,7 +315,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
             </div>
             <button
               type="button"
-              onClick={fetchStatement}
+              onClick={() => fetchStatement()}
               disabled={loading}
               className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
@@ -317,11 +328,18 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                 onClick={() => {
                   setStartDate('');
                   setEndDate('');
+                  fetchStatement('', '');
                 }}
                 className="px-2 py-1 text-slate-500 hover:text-slate-800 font-bold underline cursor-pointer"
               >
                 Ver Todo
               </button>
+            )}
+            {rangeError && (
+              <span className="flex items-center gap-1 text-rose-600 font-semibold">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {rangeError}
+              </span>
             )}
           </div>
 
@@ -402,13 +420,23 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
 
                 <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200/80">
                   <div className="flex items-center justify-between text-emerald-800 mb-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider">Abonos / Rendimientos</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider">Rendimientos</span>
                     <TrendingUp className="w-4 h-4 text-emerald-600" />
                   </div>
                   <p className="text-xl font-black text-emerald-700 font-montserrat">
-                    +{formatCurrency(statement.summary.total_credits)}
+                    +{formatCurrency(statement.summary.total_yields ?? statement.summary.total_credits)}
                   </p>
                   <span className="text-[10px] text-slate-500 font-medium">Generado en el periodo</span>
+                  {/* Otros abonos que no son rendimientos (H-129) */}
+                  {[
+                    { label: 'Ajustes', value: statement.summary.total_adjustments },
+                    { label: 'Reembolsos', value: statement.summary.total_refunds },
+                    { label: 'Otros abonos', value: statement.summary.total_other_credits },
+                  ].filter(item => (item.value || 0) > 0).map(item => (
+                    <span key={item.label} className="block text-[10px] text-slate-600 font-semibold">
+                      {item.label}: +{formatCurrency(item.value || 0)}
+                    </span>
+                  ))}
                 </div>
 
                 <div className="bg-blue-50/60 p-4 rounded-2xl border border-blue-200/80">
@@ -930,7 +958,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
                   <span className="text-xs font-black font-mono text-slate-800">{formatCurrency(statement.summary.opening_balance)}</span>
                 </div>
                 <div className="border border-emerald-300 rounded-lg p-2 bg-emerald-50/50">
-                  <span className="text-[8px] text-emerald-800 font-bold uppercase block">Abonos / Rendimientos (+)</span>
+                  <span className="text-[8px] text-emerald-800 font-bold uppercase block">Total Abonos (+)</span>
                   <span className="text-xs font-black font-mono text-emerald-700">+{formatCurrency(statement.summary.total_credits)}</span>
                 </div>
                 <div className="border border-rose-300 rounded-lg p-2 bg-rose-50/50">

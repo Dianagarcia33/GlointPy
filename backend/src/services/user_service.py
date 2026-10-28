@@ -463,12 +463,14 @@ class UserService:
             try:
                 start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
             except Exception:
-                pass
+                raise HTTPException(status_code=400, detail="La fecha 'Desde' no es válida. Usa el formato AAAA-MM-DD.")
         if end_date_str:
             try:
                 end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
             except Exception:
-                pass
+                raise HTTPException(status_code=400, detail="La fecha 'Hasta' no es válida. Usa el formato AAAA-MM-DD.")
+        if start_dt and end_dt and start_dt > end_dt:
+            raise HTTPException(status_code=400, detail="Rango de fechas inválido: la fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
 
         # 3. Fetch Wallet Transactions
         wallet = user.wallet
@@ -477,6 +479,20 @@ class UserService:
         closing_balance = float(wallet.balance) if wallet else 0.0
         total_credits = 0.0
         total_debits = 0.0
+        # Desglose de abonos (H-129): los ajustes y reembolsos no son rendimientos
+        total_yields = 0.0
+        total_refunds = 0.0
+        total_adjustments = 0.0
+        total_other_credits = 0.0
+
+        def classify_credit(tx_type: str, ref_type: str) -> str:
+            if tx_type in ("yield", "yield_payout", "yield payout", "bonus_payout", "bonus payout") or ref_type in ("rendimiento_inversion", "bono_aceleracion"):
+                return "yield"
+            if "refund" in tx_type or "rejection" in tx_type or "reembolso" in tx_type:
+                return "refund"
+            if "adjustment" in tx_type or ref_type == "admin":
+                return "adjustment"
+            return "other"
 
         if wallet:
             # Query all transactions
@@ -500,6 +516,15 @@ class UserService:
 
                 if t_amount >= 0:
                     total_credits += t_amount
+                    credit_kind = classify_credit((t.type or "").strip().lower(), (t.reference_type or "").strip().lower())
+                    if credit_kind == "yield":
+                        total_yields += t_amount
+                    elif credit_kind == "refund":
+                        total_refunds += t_amount
+                    elif credit_kind == "adjustment":
+                        total_adjustments += t_amount
+                    else:
+                        total_other_credits += t_amount
                 else:
                     total_debits += abs(t_amount)
 
@@ -534,6 +559,9 @@ class UserService:
                     "admin_adjustment": "Ajuste Administrativo",
                     "admin adjustment": "Ajuste Administrativo",
                     "adjustment": "Ajuste de Saldo",
+                    "refund": "Reembolso",
+                    "share_hold_refund": "Reembolso de Reserva de Acciones",
+                    "wallet_recharge": "Recarga de Billetera",
                     "ingreso": "Abono / Rendimiento",
                     "egreso": "Débito de Fondos",
                     "capital_increase": "Aumento de Capital",
@@ -732,6 +760,10 @@ class UserService:
             "summary": {
                 "opening_balance": opening_balance,
                 "total_credits": total_credits,
+                "total_yields": total_yields,
+                "total_refunds": total_refunds,
+                "total_adjustments": total_adjustments,
+                "total_other_credits": total_other_credits,
                 "total_debits": total_debits,
                 "closing_balance": float(wallet.balance) if wallet else 0.0,
                 "total_withdrawn_paid": total_withdrawn_paid,

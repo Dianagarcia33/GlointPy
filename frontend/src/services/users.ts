@@ -81,6 +81,11 @@ export interface UserUpdate {
 export interface UserStatementSummary {
   opening_balance: number;
   total_credits: number;
+  // Desglose de total_credits (H-129)
+  total_yields?: number;
+  total_refunds?: number;
+  total_adjustments?: number;
+  total_other_credits?: number;
   total_debits: number;
   closing_balance: number;
   total_withdrawn_paid: number;
