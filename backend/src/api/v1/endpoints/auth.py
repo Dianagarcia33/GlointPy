@@ -265,18 +265,10 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         os.makedirs("uploads/comprobantes", exist_ok=True)
         os.makedirs("uploads", exist_ok=True)
-        ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".jpg"
-        
-        # Lista estricta de extensiones permitidas
-        allowed_extensions = ['.jpg', '.jpeg', '.png', '.pdf', '.webp']
-        if ext not in allowed_extensions:
-            raise HTTPException(status_code=400, detail="Extensión de archivo no permitida. Solo se permiten imágenes (JPG, PNG, WEBP) o documentos PDF.")
-            
-        # Verificar tamaño del archivo (máximo 10MB)
-        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+        # H-190: extensión, tamaño (10 MB) y contenido real del archivo (imagen o PDF)
         file_bytes = await file.read()
-        if len(file_bytes) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail="El archivo excede el tamaño máximo permitido de 10MB.")
+        from src.core.uploads import validate_receipt_upload
+        ext = validate_receipt_upload(file.filename or "archivo.jpg", file_bytes)
 
         # Guardar usando UUID v4 aleatorio de alta entropía
         filename = f"{uuid.uuid4()}{ext}"

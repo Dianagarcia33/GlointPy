@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RECEIPT_ACCEPT, RECEIPT_FORMATS_LABEL, isAllowedReceiptFile } from '../../../utils/receiptFiles';
 import { createPortal } from 'react-dom';
 import { X, TrendingUp, Calendar, ChevronRight, Loader2, Info, ChevronLeft, Upload, Wallet, AlertCircle, Trash2, ShieldCheck, Clock, ShieldAlert, Zap, CheckCircle2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -159,6 +160,14 @@ export const NewInvestmentModal = ({
         const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
         for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
+            // H-190: solo imágenes (PNG, JPG, WEBP) o PDF
+            if (!isAllowedReceiptFile(file)) {
+                setSubmitError(`El archivo "${file.name}" no es un tipo permitido. Adjunta ${RECEIPT_FORMATS_LABEL}.`);
+                setFiles(null);
+                const badInput = document.getElementById('comprobantes') as HTMLInputElement;
+                if (badInput) badInput.value = '';
+                return;
+            }
             if (file.size > MAX_SIZE_BYTES) {
                 setSubmitError(`El archivo "${file.name}" (${(file.size / 1024 / 1024).toFixed(1)} MB) supera el tamaño máximo permitido de ${MAX_SIZE_MB} MB. Por favor comprímelo o adjunta un archivo más liviano.`);
                 setFiles(null);
@@ -710,7 +719,7 @@ export const NewInvestmentModal = ({
                                                 type="file" 
                                                 id="comprobantes" 
                                                 multiple
-                                                accept="image/*,.pdf"
+                                                accept={RECEIPT_ACCEPT}
                                                 className="hidden"
                                                 onChange={(e) => handleFilesSelected(e.target.files)}
                                             />

@@ -540,11 +540,10 @@ class CreditService:
             # 3. Queda saldo pendiente por transferir
             if receipt_file:
                 # Guardar comprobante bancario
-                filename = receipt_file.filename or ""
-                ext = os.path.splitext(filename)[1].lower()
-                allowed_exts = [".jpg", ".jpeg", ".png", ".webp", ".pdf"]
-                if ext not in allowed_exts:
-                    raise HTTPException(status_code=400, detail="Formato de comprobante no válido. Use JPG, PNG, WEBP o PDF.")
+                # H-190: extensión, tamaño y contenido real del comprobante
+                from src.core.uploads import validate_receipt_upload
+                receipt_bytes = await receipt_file.read()
+                ext = validate_receipt_upload(receipt_file.filename, receipt_bytes)
 
                 upload_dir = "uploads/comprobantes"
                 os.makedirs(upload_dir, exist_ok=True)
@@ -552,7 +551,7 @@ class CreditService:
                 dest_path = os.path.join(upload_dir, unique_filename)
 
                 with open(dest_path, "wb") as buffer:
-                    shutil.copyfileobj(receipt_file.file, buffer)
+                    buffer.write(receipt_bytes)
 
                 installment.receipt_url = f"/uploads/comprobantes/{unique_filename}"
                 installment.external_amount_paid = new_remaining

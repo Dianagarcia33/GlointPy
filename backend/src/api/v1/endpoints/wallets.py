@@ -1247,15 +1247,10 @@ async def create_wallet_recharge(
             detail="El monto mínimo de recarga es de $5.000 COP."
         )
 
-    # Validar extensión del comprobante
-    filename = receipt.filename or ""
-    ext = os.path.splitext(filename)[1].lower()
-    allowed_exts = [".jpg", ".jpeg", ".png", ".webp", ".pdf"]
-    if ext not in allowed_exts:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Formato de comprobante no válido. Use JPG, PNG, WEBP o PDF."
-        )
+    # H-190: extensión, tamaño y contenido real del comprobante
+    from src.core.uploads import validate_receipt_upload
+    receipt_bytes = await receipt.read()
+    ext = validate_receipt_upload(receipt.filename, receipt_bytes)
 
     # Verificar o crear la billetera del usuario
     w_res = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
@@ -1272,7 +1267,7 @@ async def create_wallet_recharge(
     dest_path = os.path.join(upload_dir, unique_filename)
 
     with open(dest_path, "wb") as buffer:
-        shutil.copyfileobj(receipt.file, buffer)
+        buffer.write(receipt_bytes)
 
     receipt_url = f"/uploads/comprobantes/{unique_filename}"
 

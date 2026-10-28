@@ -13,6 +13,7 @@ from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
 from src.core.database import get_db
 from src.core.timezone import get_colombia_today
+from src.core.uploads import validate_receipt_upload
 from src.services.contract_terms import contract_days, contract_end, exact_contract_days, is_contract_finished
 from src.api.deps import get_current_user, RequirePermission
 from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
@@ -261,11 +262,12 @@ async def create_investment_request(
     if comprobantes:
         for i, file in enumerate(comprobantes):
             if file.filename:
-                file_ext = os.path.splitext(file.filename)[1] if os.path.splitext(file.filename)[1] else ".png"
+                content = await file.read()
+                # H-190: solo imágenes o PDF reales, de hasta 10 MB; se valida antes de guardar nada
+                file_ext = validate_receipt_upload(file.filename, content)
                 filename = f"{uuid.uuid4()}{file_ext}"
                 file_path = os.path.join(UPLOAD_DIR, filename)
                 
-                content = await file.read()
                 with open(file_path, "wb") as f:
                     f.write(content)
                     
