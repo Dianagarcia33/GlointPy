@@ -68,7 +68,10 @@ async def read_permissions(db: AsyncSession = Depends(get_db)):
     """
     return await SecurityService.get_all_permissions(db)
 
-@router.post("/sync-permissions", dependencies=[Depends(RequirePermission("admin.roles.manage"))])
+# H-191: el frontend llama a /roles/sync-permissions; la ruta estaba publicada solo como /sync-permissions y
+# /roles/sync-permissions caía en /roles/{role_id} (que no acepta POST) con 405. Se publican ambas.
+@router.post("/roles/sync-permissions", dependencies=[Depends(RequirePermission("admin.roles.manage"))])
+@router.post("/sync-permissions", include_in_schema=False, dependencies=[Depends(RequirePermission("admin.roles.manage"))])
 async def sync_permissions_endpoint(db: AsyncSession = Depends(get_db)):
     """
     Sincroniza y actualiza todos los permisos estándar del sistema y asigna los permisos base a los roles.
