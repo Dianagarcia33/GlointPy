@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Download, CheckCircle2, AlertCircle, Loader2, FileSpreadsheet, Building2, ShieldCheck, ArrowRight, DollarSign, Info } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { Withdrawal } from '../types';
 import { DataBank } from '../../../../services/bankAccounts';
 import { paymentService } from '../services/paymentService';
@@ -137,7 +136,11 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
     return rows.reduce((sum, r) => sum + r.DEBIT_AMOUNT, 0);
   }, [rows]);
 
-  const handleDownloadExcel = () => {
+  const handleDownloadExcel = async () => {
+
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+
+    const XLSX = await import('xlsx');
     try {
       // Data para la hoja de cálculo con los encabezados exactos
       const exportData = rows.map(r => ({

@@ -11,7 +11,6 @@ import { bankAccountsService, DataBank } from '../../../../services/bankAccounts
 import { Can } from '../../../../components/security/Can';
 import { AdminRechargesManager } from '../components/AdminRechargesManager';
 import { getAllRechargesAdmin } from '../../../../services/wallets';
-import * as XLSX from 'xlsx';
 
 export const PaymentManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'withdrawals' | 'recharges'>('withdrawals');
@@ -262,6 +261,10 @@ export const PaymentManagementPage: React.FC = () => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const handleExportExcel = async () => {
+
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+
+    const XLSX = await import('xlsx');
     try {
       setIsExportingExcel(true);
       const dateStr = new Date().toISOString().slice(0, 10);

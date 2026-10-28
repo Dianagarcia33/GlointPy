@@ -17,7 +17,6 @@ import { BulkDocumentModal } from '../components/BulkDocumentModal';
 import { AdminCapitalWithdrawalModal } from '../components/AdminCapitalWithdrawalModal';
 import { formatAccountNumber, maskAccountNumber } from '../../../../utils/format';
 import { Plus, Edit2, Users, Loader2, Trash2, UploadCloud, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, Pencil, Zap, Landmark, FileText, MoreVertical, Wallet, Layers, Eye, Clock, ShieldAlert, RefreshCw, Search, DollarSign, TrendingUp, FileSpreadsheet } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { analyticsService, AdminAnalyticsDashboardData } from '../../../../services/analytics';
 import { Can } from '../../../../components/security/Can';
 import { usePermissions } from '../../../../hooks/usePermissions';
@@ -271,6 +270,10 @@ export const AdminInvestorsPage = () => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const handleExportExcel = async () => {
+
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+
+    const XLSX = await import('xlsx');
     try {
       setIsExportingExcel(true);
       // Obtener todas las inversiones aplicando los filtros activos si existen

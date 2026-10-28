@@ -21,9 +21,7 @@ export function LandingLayout() {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          <React.Suspense fallback={null}>
-            <Outlet />
-          </React.Suspense>
+          <Outlet />
         </motion.div>
       </AnimatePresence>
       {/* We only render Footer on Home page, because other pages have SharedFooter or NosotrosFooter */}

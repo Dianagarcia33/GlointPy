@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   Lock
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { paymentService } from '../services/paymentService';
 import { CompanyTaxLedgerSummary, CompanyTaxLedgerItem } from '../types';
 
@@ -98,7 +97,11 @@ export const CompanyTaxLedgerModal: React.FC<CompanyTaxLedgerModalProps> = ({
     });
   }, [data, search, statusFilter]);
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+
+    const XLSX = await import('xlsx');
     if (!data?.latest_transactions || data.latest_transactions.length === 0) return;
 
     const rows = data.latest_transactions.map((t) => ({

@@ -26,7 +26,6 @@ import {
   Landmark,
   Percent
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { usersService, GlobalAccountStatement } from '../../../../services/users';
 import { formatTransactionType } from '../../../../utils/format';
 
@@ -142,7 +141,9 @@ export const GlobalAccountStatementModal: React.FC<GlobalAccountStatementModalPr
   };
 
   // Export to Excel Multi-Sheet
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+    const XLSX = await import('xlsx');
     if (!statement) return;
 
     try {

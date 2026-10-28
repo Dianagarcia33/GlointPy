@@ -8,7 +8,6 @@ import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
 import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet, Clock } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency } from '../../../../utils/format';
 
@@ -88,6 +87,10 @@ export const AdminUsersPage = () => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const handleExportExcel = async () => {
+
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+
+    const XLSX = await import('xlsx');
     try {
       setIsExportingExcel(true);
       // Obtener todos los usuarios aplicando los filtros activos si existen

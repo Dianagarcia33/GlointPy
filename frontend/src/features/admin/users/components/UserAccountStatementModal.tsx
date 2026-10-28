@@ -23,7 +23,6 @@ import {
   Briefcase,
   Layers
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { usersService, UserAccountStatement } from '../../../../services/users';
 import { formatTransactionType } from '../../../../utils/format';
 
@@ -104,7 +103,11 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
     });
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+
+    // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
+
+    const XLSX = await import('xlsx');
     if (!statement) return;
     try {
       const wb = XLSX.utils.book_new();

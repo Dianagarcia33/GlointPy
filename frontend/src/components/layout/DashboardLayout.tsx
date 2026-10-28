@@ -77,9 +77,7 @@ export const DashboardLayout = () => {
                     <main className="flex-1 flex flex-col overflow-hidden relative">
                         <div className="p-3 lg:p-4 flex-1 flex flex-col overflow-hidden">
                             <div className="w-full flex-1 flex flex-col overflow-hidden">
-                                <React.Suspense fallback={null}>
-                                  <Outlet />
-                                </React.Suspense>
+                                <Outlet />
                             </div>
                         </div>
                         <DashboardFooter />
@@ -88,9 +86,7 @@ export const DashboardLayout = () => {
                     <main className="flex-1 flex flex-col overflow-y-auto relative">
                         <div className="p-4 sm:p-6 lg:p-8 flex-1">
                             <div className="max-w-7xl mx-auto w-full pb-8">
-                                <React.Suspense fallback={null}>
-                                  <Outlet />
-                                </React.Suspense>
+                                <Outlet />
                             </div>
                         </div>
                         <DashboardFooter />
