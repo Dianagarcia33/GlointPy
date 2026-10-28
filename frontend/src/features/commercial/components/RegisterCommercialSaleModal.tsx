@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, CheckCircle2, AlertTriangle, DollarSign, Calculator, Lock, UserCheck, Loader2, User, Percent, Edit3, RotateCcw, Sparkles, Package as PackageIcon } from 'lucide-react';
 import { commercialService, CommercialClientCheckResponse, SearchClientResult } from '../../../services/commercial';
@@ -51,6 +51,9 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
   const [isLoadingAdvisorData, setIsLoadingAdvisorData] = useState<boolean>(false);
   const [isAmountLocked, setIsAmountLocked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Bloqueo síncrono contra doble clic / doble Enter: el estado isSubmitting tarda un render en
+  // deshabilitar el botón y permitía enviar la misma venta dos veces (H-153)
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   // Estados para personalización manual de porcentaje por el Administrador
@@ -308,6 +311,8 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
       setError('Por favor ingresa un monto mayor a cero');
       return;
     }
+    if (submittingRef.current) return;
+    submittingRef.current = true;
 
     setIsSubmitting(true);
     setError(null);
@@ -339,6 +344,7 @@ export const RegisterCommercialSaleModal: React.FC<RegisterCommercialSaleModalPr
     } catch (err: any) {
       setError(err.message || 'Error al adjudicar la venta comercial');
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
