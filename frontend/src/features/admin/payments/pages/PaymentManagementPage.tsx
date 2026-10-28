@@ -261,9 +261,7 @@ export const PaymentManagementPage: React.FC = () => {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const handleExportExcel = async () => {
-
     // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
-
     const XLSX = await import('xlsx');
     try {
       setIsExportingExcel(true);

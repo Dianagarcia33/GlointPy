@@ -98,9 +98,7 @@ export const CompanyTaxLedgerModal: React.FC<CompanyTaxLedgerModalProps> = ({
   }, [data, search, statusFilter]);
 
   const handleExportExcel = async () => {
-
     // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
-
     const XLSX = await import('xlsx');
     if (!data?.latest_transactions || data.latest_transactions.length === 0) return;
 

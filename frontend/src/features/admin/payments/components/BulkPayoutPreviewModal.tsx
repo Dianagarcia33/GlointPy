@@ -137,9 +137,7 @@ export const BulkPayoutPreviewModal: React.FC<BulkPayoutPreviewModalProps> = ({
   }, [rows]);
 
   const handleDownloadExcel = async () => {
-
     // xlsx pesa ~400 KB: se descarga solo al exportar, no al abrir la app
-
     const XLSX = await import('xlsx');
     try {
       // Data para la hoja de cálculo con los encabezados exactos
