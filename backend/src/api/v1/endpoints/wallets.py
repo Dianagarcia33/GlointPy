@@ -86,6 +86,8 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
     can_withdraw, withdrawal_msg = await check_withdrawal_dates_active(db)
 
     return {
+        # H-197: el resto de pantallas siguen recibiendo balance 0; el navbar usa has_wallet para ocultar el widget
+        "has_wallet": wallet is not None,
         "balance": wallet.balance if wallet else 0,
         "currency": wallet.currency if wallet else "COP",
         "bank_details": bank_details,

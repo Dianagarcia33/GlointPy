@@ -36,7 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
     enabled: isAuthenticated && !!user?.id,
     staleTime: 30000,
   });
-  const balance = balanceData?.balance ?? null;
+  // H-197: sin billetera (has_wallet false) el widget de saldo no se muestra
+  const balance = balanceData && balanceData.has_wallet !== false ? (balanceData.balance ?? null) : null;
 
   const { data: myChildren = [] } = useQuery<any[]>({
     queryKey: ['my_children', user?.id],

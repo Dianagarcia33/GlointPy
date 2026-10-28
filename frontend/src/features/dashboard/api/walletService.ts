@@ -1,6 +1,7 @@
 import { fetchApi } from '../../../services/api';
 
 export interface WalletBalanceResponse {
+  has_wallet?: boolean;
   balance: number;
   currency: string;
 }
