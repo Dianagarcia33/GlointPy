@@ -18,6 +18,9 @@ from src.models.investor import Investor
 from src.models.package import Package
 from src.models.period import Period
 
+# Los bonos por referido (aceleración de contratos) están desactivados por decisión de negocio (H-140)
+REFERRAL_ACCELERATION_ENABLED = False
+
 logger = logging.getLogger(__name__)
 
 class InvestmentRequestService:
@@ -585,8 +588,9 @@ class InvestmentRequestService:
                     logger.info(f"✅ Liquidación retroactiva automática aplicada a #{code}: ${initial_yield:,.2f} COP por {(today_cot - start_d).days} días ({start_d} al {today_cot}).")
 
 
-        # 4. Generar la Aceleración de Contrato por Referido (Bono del 5%)
-        if referred_code:
+        # 4. Aceleración de Contrato por Referido (Bono del 5%): DESACTIVADA. Ya no se otorgan bonos
+        # nuevos; las aceleraciones existentes se conservan y se siguen respetando en los cálculos (H-140).
+        if referred_code and REFERRAL_ACCELERATION_ENABLED:
             # Buscar el contrato del referente por su assigned_code
             referrer_res = await db.execute(
                 select(Investor)

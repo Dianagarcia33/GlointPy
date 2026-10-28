@@ -6,7 +6,6 @@ import { usersService, User } from '../../../../services/users';
 import { packagesService, Package } from '../../../../services/packages';
 import { periodsService, Period } from '../../../../services/periods';
 import { useAuthStore } from '../../../../store/authStore';
-import { fetchApi } from '../../../../services/api';
 
 interface InvestorModalProps {
   isOpen: boolean;
@@ -114,26 +113,9 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
     setIsLoading(true);
     setError(null);
 
-    // H-70: Validar código de referido si fue ingresado
-    if (referredBy && referredBy.trim()) {
-      const cleanRef = referredBy.trim().toUpperCase();
-      if (assignedCode && cleanRef === assignedCode.trim().toUpperCase()) {
-        setIsLoading(false);
-        setError('Un inversionista no puede referirse a sí mismo.');
-        return;
-      }
-      try {
-        await fetchApi(`/auth/validate-referral/${encodeURIComponent(cleanRef)}`);
-      } catch (err: any) {
-        setIsLoading(false);
-        setError(`El código de referido '${cleanRef}' no es válido o no existe en la plataforma.`);
-        return;
-      }
-    }
-
+    // El código de referido es de solo consulta (H-140): no se envía para no crear ni borrar bonos
     const payload = {
         assigned_code: assignedCode || undefined,
-        referred_by: referredBy ? referredBy.trim().toUpperCase() : undefined,
         user_id: Number(userId),
         package_id: Number(packageId),
         period_id: Number(periodId),
@@ -194,14 +176,16 @@ export const InvestorModal: React.FC<InvestorModalProps> = ({ isOpen, onClose, o
 
                 <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Referido (Código de otra inversión)</label>
+                {/* Solo lectura: los bonos por referido están desactivados; se muestra para revisar los bonos antiguos (H-140) */}
                 <input
                     type="text"
                     value={referredBy}
-                    onChange={(e) => setReferredBy(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 25))}
-                    maxLength={25}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-colors uppercase font-mono text-sm"
-                    placeholder="Ej: IG1974 (Opcional)"
+                    readOnly
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 cursor-not-allowed uppercase font-mono text-sm"
+                    placeholder="Sin referido"
+                    title="Los bonos por referido están desactivados. Este código se conserva solo para consulta."
                 />
+                <p className="text-[11px] text-slate-400">Solo consulta: los bonos por referido están desactivados.</p>
                 </div>
             </div>
 

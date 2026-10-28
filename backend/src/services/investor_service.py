@@ -249,126 +249,23 @@ class InvestorService:
 
     @staticmethod
     async def update_investor(db: AsyncSession, investor_id: int, investor: InvestorUpdate) -> Investor:
-        from src.models.acceleration import Acceleration
-        from src.models.investment_request import InvestmentRequest
-        from sqlalchemy import or_
-
         db_investor = await InvestorService.get_investor(db, investor_id)
         if not db_investor:
             raise HTTPException(status_code=404, detail="Inversionista no encontrado")
 
         old_referred_by = (db_investor.referred_by or "").strip()
         update_data = investor.model_dump(exclude_unset=True)
-        new_referred_by = (update_data.get("referred_by") or "").strip() if "referred_by" in update_data else old_referred_by
 
-        # Si el referido ha cambiado o se ha removido
-        if "referred_by" in update_data and new_referred_by != old_referred_by:
-            if new_referred_by:
-                new_clean = new_referred_by.strip().upper()
-                ref_chk = await db.execute(select(Investor.id).where(Investor.assigned_code == new_clean))
-                if not ref_chk.scalar_one_or_none():
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"El código de referido '{new_clean}' no corresponde a ninguna inversión registrada en la plataforma."
-                    )
-                if db_investor.assigned_code and new_clean == db_investor.assigned_code.strip().upper():
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Un inversionista no puede referirse a sí mismo."
-                    )
-                new_referred_by = new_clean
-                update_data["referred_by"] = new_clean
-
-            # 1. Si tenía un referido previo, eliminar UNICAMENTE la aceleración correspondiente a este inversionista
-            if old_referred_by:
-                old_referrer_res = await db.execute(
-                    select(Investor).where(Investor.assigned_code == old_referred_by)
+        # Los bonos por referido (aceleraciones) ya no se aplican: el código de referido queda solo para
+        # consultar los bonos antiguos. Cambiarlo crearía o borraría aceleraciones, así que se rechaza (H-140).
+        if "referred_by" in update_data:
+            requested_ref = (update_data.get("referred_by") or "").strip().upper()
+            if requested_ref != old_referred_by.upper():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El código de referido ya no se puede modificar: los bonos por referido están desactivados y los existentes se conservan solo para consulta."
                 )
-                old_referrer_inv = old_referrer_res.scalars().first()
-                if old_referrer_inv:
-                    # Encontrar los IDs de solicitudes asociadas a ESTE inversionista
-                    my_req_res = await db.execute(
-                        select(InvestmentRequest.id).where(
-                            or_(
-                                InvestmentRequest.investor_id == db_investor.id,
-                                InvestmentRequest.user_id == db_investor.user_id
-                            )
-                        )
-                    )
-                    my_req_ids = my_req_res.scalars().all()
-                    
-                    if my_req_ids:
-                        accs_res = await db.execute(
-                            select(Acceleration).where(
-                                Acceleration.investor_id == old_referrer_inv.id,
-                                Acceleration.investment_request_id.in_(my_req_ids)
-                            )
-                        )
-                        old_accs = accs_res.scalars().all()
-                        for acc in old_accs:
-                            await db.delete(acc)
-                    else:
-                        # Si no tiene request_id (creado manualmente), eliminar como máximo 1 aceleración que coincida con el bono exacto (5%)
-                        pkg_val = float(db_investor.package.value or 0) if db_investor.package else 0.0
-                        expected_bonus = pkg_val * 0.05
-                        if expected_bonus > 0:
-                            accs_res = await db.execute(
-                                select(Acceleration).where(
-                                    Acceleration.investor_id == old_referrer_inv.id,
-                                    Acceleration.bonus_amount == expected_bonus
-                                ).limit(1)
-                            )
-                            single_acc = accs_res.scalars().first()
-                            if single_acc:
-                                await db.delete(single_acc)
-
-            # 2. Si se ingresó un nuevo código de referido válido, crear la aceleración para el nuevo referente
-            if new_referred_by:
-                new_referrer_res = await db.execute(
-                    select(Investor)
-                    .options(selectinload(Investor.package), selectinload(Investor.period))
-                    .where(Investor.assigned_code == new_referred_by)
-                )
-                new_referrer_inv = new_referrer_res.scalars().first()
-
-                if new_referrer_inv and new_referrer_inv.package and new_referrer_inv.period:
-                    pkg_val = float(db_investor.package.value or 0) if db_investor.package else 0.0
-                    bonus_amount = pkg_val * 0.05
-
-                    ref_package_val = float(new_referrer_inv.package.value or 0)
-                    ref_pct = float(new_referrer_inv.period.percentage or 0) / 100.0
-                    ref_months = float(new_referrer_inv.period.months or 0)
-                    ref_days = float(new_referrer_inv.period.days or 0)
-
-                    if ref_days > 0 and ref_package_val > 0:
-                        rendimiento_mensual = ref_package_val * ref_pct
-                        rendimiento_total = rendimiento_mensual * ref_months
-                        daily_yield = rendimiento_total / ref_days
-                        days_to_reduce = (bonus_amount / daily_yield) if daily_yield > 0 else 0.0
-                    else:
-                        days_to_reduce = 0.0
-
-                    inv_req_res = await db.execute(
-                        select(InvestmentRequest.id).where(
-                            or_(
-                                InvestmentRequest.investor_id == db_investor.id,
-                                InvestmentRequest.user_id == db_investor.user_id
-                            )
-                        ).order_by(InvestmentRequest.id.desc()).limit(1)
-                    )
-                    req_id = inv_req_res.scalar_one_or_none()
-
-                    new_acc = Acceleration(
-                        investor_id=new_referrer_inv.id,
-                        investment_request_id=req_id,
-                        contract_period_id=new_referrer_inv.period_id,
-                        original_days=new_referrer_inv.period.days,
-                        acceleration_percentage=5.00,
-                        days_to_reduce=days_to_reduce,
-                        bonus_amount=bonus_amount,
-                        applied=True
-                    )
-                    db.add(new_acc)
+            update_data.pop("referred_by")
 
         if "assigned_code" in update_data and update_data["assigned_code"]:
             code_check = await db.execute(
