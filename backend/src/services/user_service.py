@@ -13,6 +13,38 @@ import csv
 import io
 from datetime import datetime, timedelta
 
+def parse_statement_range(start_date_str: Optional[str], end_date_str: Optional[str]):
+    """
+    Valida el periodo de un estado de cuenta y lo devuelve como rango UTC (H-129/H-161).
+
+    Las fechas 'AAAA-MM-DD' son días de Colombia: el rango va de las 00:00 del día inicial a las
+    23:59:59 del día final en hora Colombia, convertido a UTC porque así se guardan created_at.
+    Antes una fecha mal escrita o imposible (2026-02-31) se ignoraba y se devolvía todo el historial.
+    """
+    from datetime import date as _date, time as _time, timedelta as _timedelta
+    from src.core.timezone import BOGOTA_TZ
+    from datetime import timezone as _tz
+
+    def parse(value: Optional[str], label: str) -> Optional[_date]:
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"La fecha '{label}' no es válida ('{value}'). Usa el formato AAAA-MM-DD con una fecha real.")
+
+    start_d, end_d = parse(start_date_str, "Desde"), parse(end_date_str, "Hasta")
+    if start_d and end_d and start_d > end_d:
+        raise HTTPException(status_code=422, detail="Rango de fechas inválido: la fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
+
+    def to_utc(d: _date, t: _time) -> datetime:
+        return datetime.combine(d, t, tzinfo=BOGOTA_TZ).astimezone(_tz.utc).replace(tzinfo=None)
+
+    start_dt = to_utc(start_d, _time.min) if start_d else None
+    end_dt = to_utc(end_d, _time.max) if end_d else None
+    return start_d, end_d, start_dt, end_dt
+
+
 class UserService:
     @staticmethod
     async def get_all_users(
@@ -458,21 +490,8 @@ class UserService:
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-        # 2. Parse dates if provided
-        start_dt = None
-        end_dt = None
-        if start_date_str:
-            try:
-                start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
-            except Exception:
-                raise HTTPException(status_code=400, detail="La fecha 'Desde' no es válida. Usa el formato AAAA-MM-DD.")
-        if end_date_str:
-            try:
-                end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
-            except Exception:
-                raise HTTPException(status_code=400, detail="La fecha 'Hasta' no es válida. Usa el formato AAAA-MM-DD.")
-        if start_dt and end_dt and start_dt > end_dt:
-            raise HTTPException(status_code=400, detail="Rango de fechas inválido: la fecha 'Desde' no puede ser posterior a la fecha 'Hasta'.")
+        # 2. Validar el periodo (días de Colombia -> rango UTC)
+        _, _, start_dt, end_dt = parse_statement_range(start_date_str, end_date_str)
 
         # 3. Fetch Wallet Transactions
         wallet = user.wallet
@@ -741,7 +760,7 @@ class UserService:
             "statement_date": datetime.now().isoformat(),
             "period": {
                 "start_date": start_date_str or "Inicio de Operaciones",
-                "end_date": end_date_str or datetime.now().strftime("%Y-%m-%d")
+                "end_date": end_date_str or get_colombia_today().strftime("%Y-%m-%d")
             },
             "user": {
                 "id": user.id,
@@ -805,19 +824,12 @@ class UserService:
         from sqlalchemy import desc, asc, and_, func
         from dateutil.relativedelta import relativedelta
 
-        # 1. Parse dates if provided
-        start_dt = None
-        end_dt = None
-        if start_date_str:
-            try:
-                start_dt = datetime.combine(datetime.strptime(start_date_str, "%Y-%m-%d").date(), time.min)
-            except Exception:
-                pass
-        if end_date_str:
-            try:
-                end_dt = datetime.combine(datetime.strptime(end_date_str, "%Y-%m-%d").date(), time.max)
-            except Exception:
-                pass
+        # 1. Validar el periodo (días de Colombia -> rango UTC), igual que el extracto individual (H-161)
+        _, _, start_dt, end_dt = parse_statement_range(start_date_str, end_date_str)
+        if user_id:
+            exists = await db.execute(select(User.id).where(User.id == user_id))
+            if not exists.scalar_one_or_none():
+                raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
         # 2. Fetch all wallets total current balance
         total_wallets_balance_res = await db.execute(select(func.sum(Wallet.balance)))
@@ -1010,7 +1022,7 @@ class UserService:
             "statement_date": datetime.now().isoformat(),
             "period": {
                 "start_date": start_date_str or "Inicio de Operaciones",
-                "end_date": end_date_str or datetime.now().strftime("%Y-%m-%d")
+                "end_date": end_date_str or get_colombia_today().strftime("%Y-%m-%d")
             },
             "summary": {
                 "total_wallets_balance": total_wallets_balance,
