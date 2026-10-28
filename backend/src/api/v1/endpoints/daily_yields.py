@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 import io
 import csv
 import json
@@ -556,7 +557,7 @@ async def list_daily_yield_movements(
                     pass
 
         if batch_id:
-            conditions.append(WalletTransaction.description.ilike(f"%{batch_id}%"))
+            conditions.append(WalletTransaction.description.ilike(like_contains(batch_id), escape=LIKE_ESCAPE))
 
         # Base query uniendo con Wallet y User y cargando inversiones de la tabla investors
         base_query = (
@@ -572,14 +573,14 @@ async def list_daily_yield_movements(
         )
 
         if search:
-            s_term = f"%{search.strip()}%"
-            subq_inv = select(Investor.id).where(Investor.assigned_code.ilike(s_term))
+            s_term = like_contains(search.strip())
+            subq_inv = select(Investor.id).where(Investor.assigned_code.ilike(s_term, escape=LIKE_ESCAPE))
             conditions.append(
                 or_(
-                    User.name.ilike(s_term),
-                    User.email.ilike(s_term),
-                    User.document_id.ilike(s_term),
-                    WalletTransaction.description.ilike(s_term),
+                    User.name.ilike(s_term, escape=LIKE_ESCAPE),
+                    User.email.ilike(s_term, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(s_term, escape=LIKE_ESCAPE),
+                    WalletTransaction.description.ilike(s_term, escape=LIKE_ESCAPE),
                     WalletTransaction.reference_id.in_(subq_inv)
                 )
             )
@@ -783,7 +784,7 @@ async def export_daily_yields_csv(
                     pass
 
         if batch_id:
-            conditions.append(WalletTransaction.description.ilike(f"%{batch_id}%"))
+            conditions.append(WalletTransaction.description.ilike(like_contains(batch_id), escape=LIKE_ESCAPE))
 
         query = (
             select(WalletTransaction)

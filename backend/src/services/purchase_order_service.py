@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
@@ -62,13 +63,13 @@ class PurchaseOrderService:
             query = query.where(PurchaseOrder.supplier_id == supplier_id)
 
         if search:
-            term = f"%{search.strip()}%"
+            term = like_contains(search.strip())
             query = query.join(PurchaseOrder.supplier).where(
                 or_(
-                    PurchaseOrder.order_number.ilike(term),
-                    PurchaseOrder.invoice_number.ilike(term),
-                    InventorySupplier.name.ilike(term),
-                    InventorySupplier.nit_rut.ilike(term)
+                    PurchaseOrder.order_number.ilike(term, escape=LIKE_ESCAPE),
+                    PurchaseOrder.invoice_number.ilike(term, escape=LIKE_ESCAPE),
+                    InventorySupplier.name.ilike(term, escape=LIKE_ESCAPE),
+                    InventorySupplier.nit_rut.ilike(term, escape=LIKE_ESCAPE)
                 )
             )
 

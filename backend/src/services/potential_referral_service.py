@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from typing import Sequence, Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -37,13 +38,13 @@ class PotentialReferralService:
         query = select(PotentialReferral)
 
         if search:
-            search_term = f"%{search}%"
+            search_term = like_contains(search)
             query = query.where(
                 or_(
-                    PotentialReferral.nombre.ilike(search_term),
-                    PotentialReferral.telefono.ilike(search_term),
-                    PotentialReferral.email.ilike(search_term),
-                    PotentialReferral.codigo_referido.ilike(search_term)
+                    PotentialReferral.nombre.ilike(search_term, escape=LIKE_ESCAPE),
+                    PotentialReferral.telefono.ilike(search_term, escape=LIKE_ESCAPE),
+                    PotentialReferral.email.ilike(search_term, escape=LIKE_ESCAPE),
+                    PotentialReferral.codigo_referido.ilike(search_term, escape=LIKE_ESCAPE)
                 )
             )
 

@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 import os
 import uuid
 import logging
@@ -464,14 +465,14 @@ async def admin_search_user(
         res = await db.execute(select(User).where(User.is_active == True).limit(30))
         users = res.scalars().all()
     else:
-        search_term = f"%{q}%"
+        search_term = like_contains(q)
         res = await db.execute(
             select(User).where(
                 User.is_active == True,
                 or_(
-                    User.name.ilike(search_term),
-                    User.email.ilike(search_term),
-                    User.document_id.ilike(search_term)
+                    User.name.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_term, escape=LIKE_ESCAPE)
                 )
             ).limit(30)
         )

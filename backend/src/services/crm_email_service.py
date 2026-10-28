@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 import asyncio
 import json
 import os
@@ -209,9 +210,9 @@ class CRMEmailService:
 
         if search:
             stmt = stmt.where(or_(
-                CRMEmail.subject.ilike(f"%{search}%"),
-                CRMEmail.recipient_email.ilike(f"%{search}%"),
-                CRMEmail.sender_email.ilike(f"%{search}%")
+                CRMEmail.subject.ilike(like_contains(search), escape=LIKE_ESCAPE),
+                CRMEmail.recipient_email.ilike(like_contains(search), escape=LIKE_ESCAPE),
+                CRMEmail.sender_email.ilike(like_contains(search), escape=LIKE_ESCAPE)
             ))
 
         if has_meeting:

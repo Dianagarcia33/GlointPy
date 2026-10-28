@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -233,21 +234,21 @@ async def get_audit_logs(
         query = query.where(AuditLog.module == module)
         
     if action:
-        query = query.where(AuditLog.action.ilike(f"%{action}%"))
+        query = query.where(AuditLog.action.ilike(like_contains(action), escape=LIKE_ESCAPE))
         
     if status and status != "all":
         query = query.where(AuditLog.status == status)
         
     if search:
-        search_term = f"%{search}%"
+        search_term = like_contains(search)
         query = query.where(
             or_(
-                AuditLog.user_name.ilike(search_term),
-                AuditLog.user_email.ilike(search_term),
-                AuditLog.action.ilike(search_term),
-                AuditLog.description.ilike(search_term),
-                AuditLog.entity_id.ilike(search_term),
-                AuditLog.ip_address.ilike(search_term)
+                AuditLog.user_name.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.user_email.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.action.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.description.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.entity_id.ilike(search_term, escape=LIKE_ESCAPE),
+                AuditLog.ip_address.ilike(search_term, escape=LIKE_ESCAPE)
             )
         )
         
@@ -298,12 +299,12 @@ async def get_audit_users(
     query = select(User)
     
     if search:
-        search_term = f"%{search}%"
+        search_term = like_contains(search)
         query = query.where(
             or_(
-                User.name.ilike(search_term),
-                User.email.ilike(search_term),
-                User.document_id.ilike(search_term)
+                User.name.ilike(search_term, escape=LIKE_ESCAPE),
+                User.email.ilike(search_term, escape=LIKE_ESCAPE),
+                User.document_id.ilike(search_term, escape=LIKE_ESCAPE)
             )
         )
         

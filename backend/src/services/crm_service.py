@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from typing import List, Optional, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -26,8 +27,8 @@ class CRMService:
             stmt = stmt.where(CRMProject.status == status)
         if search:
             stmt = stmt.where(or_(
-                CRMProject.name.ilike(f"%{search}%"),
-                CRMProject.code.ilike(f"%{search}%")
+                CRMProject.name.ilike(like_contains(search), escape=LIKE_ESCAPE),
+                CRMProject.code.ilike(like_contains(search), escape=LIKE_ESCAPE)
             ))
             
         stmt = stmt.order_by(desc(CRMProject.created_at))
@@ -137,9 +138,9 @@ class CRMService:
             stmt = stmt.where(CRMLead.commercial_id == commercial_id)
         if search:
             stmt = stmt.where(or_(
-                CRMLead.name.ilike(f"%{search}%"),
-                CRMLead.email.ilike(f"%{search}%"),
-                CRMLead.phone.ilike(f"%{search}%")
+                CRMLead.name.ilike(like_contains(search), escape=LIKE_ESCAPE),
+                CRMLead.email.ilike(like_contains(search), escape=LIKE_ESCAPE),
+                CRMLead.phone.ilike(like_contains(search), escape=LIKE_ESCAPE)
             ))
             
         stmt = stmt.order_by(desc(CRMLead.created_at))

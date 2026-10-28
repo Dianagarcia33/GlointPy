@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, func, case
 from sqlalchemy.orm import selectinload
@@ -31,11 +32,11 @@ class WithdrawalService:
         base_filters = []
         
         if search:
-            search_pattern = f"%{search}%"
+            search_pattern = like_contains(search)
             search_filter = or_(
-                User.name.ilike(search_pattern),
-                User.email.ilike(search_pattern),
-                User.document_id.ilike(search_pattern)
+                User.name.ilike(search_pattern, escape=LIKE_ESCAPE),
+                User.email.ilike(search_pattern, escape=LIKE_ESCAPE),
+                User.document_id.ilike(search_pattern, escape=LIKE_ESCAPE)
             )
             filters.append(search_filter)
             base_filters.append(search_filter)

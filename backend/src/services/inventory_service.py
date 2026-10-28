@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
@@ -84,12 +85,12 @@ class InventoryService:
             query = query.where(InventoryItem.supplier_id == supplier_id)
 
         if search:
-            s = f"%{search.strip()}%"
+            s = like_contains(search.strip())
             query = query.where(
                 or_(
-                    InventoryItem.name.ilike(s),
-                    InventoryItem.sku.ilike(s),
-                    InventoryItem.description.ilike(s)
+                    InventoryItem.name.ilike(s, escape=LIKE_ESCAPE),
+                    InventoryItem.sku.ilike(s, escape=LIKE_ESCAPE),
+                    InventoryItem.description.ilike(s, escape=LIKE_ESCAPE)
                 )
             )
 

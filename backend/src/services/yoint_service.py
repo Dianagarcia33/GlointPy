@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 import logging
 import uuid
 import re
@@ -177,7 +178,7 @@ class YointService:
 
         # 2. Búsqueda por nombre insensible a mayúsculas
         name_res = await db.execute(
-            select(DataBank).where(DataBank.banck.ilike(f"%{bank_query}%"))
+            select(DataBank).where(DataBank.banck.ilike(like_contains(bank_query), escape=LIKE_ESCAPE))
         )
         found = name_res.scalars().first()
         if found:

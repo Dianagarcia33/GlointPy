@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 import csv
 import io
 import logging
@@ -33,12 +34,12 @@ class InvestmentRequestService:
         )
         
         if search:
-            search_pattern = f"%{search}%"
+            search_pattern = like_contains(search)
             query = query.join(InvestmentRequest.user).filter(
                 or_(
-                    User.name.ilike(search_pattern),
-                    User.email.ilike(search_pattern),
-                    User.document_id.ilike(search_pattern)
+                    User.name.ilike(search_pattern, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_pattern, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_pattern, escape=LIKE_ESCAPE)
                 )
             )
             
@@ -47,9 +48,9 @@ class InvestmentRequestService:
         if search:
             count_query = count_query.join(InvestmentRequest.user).filter(
                 or_(
-                    User.name.ilike(search_pattern),
-                    User.email.ilike(search_pattern),
-                    User.document_id.ilike(search_pattern)
+                    User.name.ilike(search_pattern, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_pattern, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_pattern, escape=LIKE_ESCAPE)
                 )
             )
             

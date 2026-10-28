@@ -1,3 +1,4 @@
+from src.core.search import like_contains, like_escape, LIKE_ESCAPE
 from decimal import Decimal
 from datetime import datetime, date
 from typing import Optional, Tuple, Dict, Any, List
@@ -42,7 +43,7 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
             selectinload(Investor.user),
             selectinload(Investor.package)
         )
-        .where(Investor.assigned_code.ilike(f"%{term}%"))
+        .where(Investor.assigned_code.ilike(like_contains(term), escape=LIKE_ESCAPE))
         .order_by(Investor.id.desc())
         .limit(15)
     )
@@ -72,9 +73,9 @@ async def search_clients_service(db: AsyncSession, query_term: str) -> List[Dict
         )
         .where(
             or_(
-                User.name.ilike(f"%{term}%"),
-                User.document_id.ilike(f"%{term}%"),
-                User.email.ilike(f"%{term}%")
+                User.name.ilike(like_contains(term), escape=LIKE_ESCAPE),
+                User.document_id.ilike(like_contains(term), escape=LIKE_ESCAPE),
+                User.email.ilike(like_contains(term), escape=LIKE_ESCAPE)
             )
         )
         .limit(10)
@@ -142,7 +143,7 @@ async def check_client_classification(db: AsyncSession, client_document: str) ->
         .outerjoin(User, Investor.user_id == User.id)
         .where(
             or_(
-                Investor.assigned_code.ilike(doc_clean),
+                Investor.assigned_code.ilike(like_escape(doc_clean), escape=LIKE_ESCAPE),
                 User.document_id == doc_clean
             )
         )

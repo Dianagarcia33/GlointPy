@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from decimal import Decimal
@@ -81,16 +82,16 @@ class CompanyAssetService:
             query = query.where(CompanyAsset.current_holder_id == holder_id)
 
         if search:
-            term = f"%{search.strip()}%"
+            term = like_contains(search.strip())
             query = query.where(
                 or_(
-                    CompanyAsset.asset_code.ilike(term),
-                    CompanyAsset.name.ilike(term),
-                    CompanyAsset.serial_number.ilike(term),
-                    CompanyAsset.brand.ilike(term),
-                    CompanyAsset.model.ilike(term),
-                    CompanyAsset.location.ilike(term),
-                    CompanyAsset.invoice_reference.ilike(term)
+                    CompanyAsset.asset_code.ilike(term, escape=LIKE_ESCAPE),
+                    CompanyAsset.name.ilike(term, escape=LIKE_ESCAPE),
+                    CompanyAsset.serial_number.ilike(term, escape=LIKE_ESCAPE),
+                    CompanyAsset.brand.ilike(term, escape=LIKE_ESCAPE),
+                    CompanyAsset.model.ilike(term, escape=LIKE_ESCAPE),
+                    CompanyAsset.location.ilike(term, escape=LIKE_ESCAPE),
+                    CompanyAsset.invoice_reference.ilike(term, escape=LIKE_ESCAPE)
                 )
             )
 

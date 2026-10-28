@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 import os
 import uuid
 import shutil
@@ -666,14 +667,14 @@ class CreditService:
             q = q.where(Credit.status == status_filter)
 
         if search:
-            search_clean = f"%{search.strip()}%"
+            search_clean = like_contains(search.strip())
             q = q.join(Credit.user).where(
                 or_(
-                    User.name.ilike(search_clean),
-                    User.email.ilike(search_clean),
-                    User.document_id.ilike(search_clean),
-                    Credit.numero_cuenta.ilike(search_clean),
-                    Credit.banco.ilike(search_clean)
+                    User.name.ilike(search_clean, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_clean, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_clean, escape=LIKE_ESCAPE),
+                    Credit.numero_cuenta.ilike(search_clean, escape=LIKE_ESCAPE),
+                    Credit.banco.ilike(search_clean, escape=LIKE_ESCAPE)
                 )
             )
 
@@ -682,14 +683,14 @@ class CreditService:
         if status_filter:
             count_q = count_q.where(Credit.status == status_filter)
         if search:
-            search_clean = f"%{search.strip()}%"
+            search_clean = like_contains(search.strip())
             count_q = count_q.join(Credit.user).where(
                 or_(
-                    User.name.ilike(search_clean),
-                    User.email.ilike(search_clean),
-                    User.document_id.ilike(search_clean),
-                    Credit.numero_cuenta.ilike(search_clean),
-                    Credit.banco.ilike(search_clean)
+                    User.name.ilike(search_clean, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_clean, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_clean, escape=LIKE_ESCAPE),
+                    Credit.numero_cuenta.ilike(search_clean, escape=LIKE_ESCAPE),
+                    Credit.banco.ilike(search_clean, escape=LIKE_ESCAPE)
                 )
             )
 

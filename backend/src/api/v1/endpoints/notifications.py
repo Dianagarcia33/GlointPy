@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, Any, Optional
@@ -236,12 +237,12 @@ async def get_admin_target_options(
     query = select(User).where(User.is_active == True)
 
     if search and search.strip():
-        term = f"%{search.strip()}%"
+        term = like_contains(search.strip())
         query = query.where(
             or_(
-                User.name.ilike(term),
-                User.email.ilike(term),
-                User.document_id.ilike(term)
+                User.name.ilike(term, escape=LIKE_ESCAPE),
+                User.email.ilike(term, escape=LIKE_ESCAPE),
+                User.document_id.ilike(term, escape=LIKE_ESCAPE)
             )
         )
 

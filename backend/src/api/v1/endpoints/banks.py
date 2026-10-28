@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
@@ -22,11 +23,11 @@ async def get_banks(
     """
     query = select(DataBank)
     if search:
-        search_pattern = f"%{search.strip()}%"
+        search_pattern = like_contains(search.strip())
         query = query.where(
             or_(
-                DataBank.banck.ilike(search_pattern),
-                DataBank.code_banck.ilike(search_pattern)
+                DataBank.banck.ilike(search_pattern, escape=LIKE_ESCAPE),
+                DataBank.code_banck.ilike(search_pattern, escape=LIKE_ESCAPE)
             )
         )
     query = query.order_by(DataBank.banck.asc())

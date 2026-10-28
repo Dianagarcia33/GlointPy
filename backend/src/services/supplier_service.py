@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,15 +30,15 @@ class SupplierService:
             query = query.where(InventorySupplier.category == category)
 
         if search:
-            term = f"%{search.strip()}%"
+            term = like_contains(search.strip())
             query = query.where(
                 or_(
-                    InventorySupplier.name.ilike(term),
-                    InventorySupplier.nit_rut.ilike(term),
-                    InventorySupplier.contact_name.ilike(term),
-                    InventorySupplier.email.ilike(term),
-                    InventorySupplier.phone.ilike(term),
-                    InventorySupplier.city.ilike(term)
+                    InventorySupplier.name.ilike(term, escape=LIKE_ESCAPE),
+                    InventorySupplier.nit_rut.ilike(term, escape=LIKE_ESCAPE),
+                    InventorySupplier.contact_name.ilike(term, escape=LIKE_ESCAPE),
+                    InventorySupplier.email.ilike(term, escape=LIKE_ESCAPE),
+                    InventorySupplier.phone.ilike(term, escape=LIKE_ESCAPE),
+                    InventorySupplier.city.ilike(term, escape=LIKE_ESCAPE)
                 )
             )
 

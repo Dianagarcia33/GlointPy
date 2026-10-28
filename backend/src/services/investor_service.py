@@ -1,3 +1,4 @@
+from src.core.search import like_contains, LIKE_ESCAPE
 import csv
 import io
 import re
@@ -38,14 +39,14 @@ class InvestorService:
         query = select(Investor).join(Investor.user)
         
         if search:
-            search_term = f"%{search}%"
+            search_term = like_contains(search)
             query = query.where(
                 or_(
-                    Investor.assigned_code.ilike(search_term),
-                    Investor.referred_by.ilike(search_term),
-                    User.name.ilike(search_term),
-                    User.email.ilike(search_term),
-                    User.document_id.ilike(search_term)
+                    Investor.assigned_code.ilike(search_term, escape=LIKE_ESCAPE),
+                    Investor.referred_by.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.name.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.email.ilike(search_term, escape=LIKE_ESCAPE),
+                    User.document_id.ilike(search_term, escape=LIKE_ESCAPE)
                 )
             )
             
