@@ -1050,7 +1050,7 @@ export const AdminEventsPage: React.FC = () => {
                   <label className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
                     <div>
                       <span className="font-bold text-slate-800 block">Banner Visible</span>
-                      <span className="text-[10px] text-slate-500 block">Mostrar banner en login y dashboard</span>
+                      <span className="text-[10px] text-slate-500 block">Mostrar el banner en el dashboard del inversionista (en el login solo si hay inscripciones abiertas)</span>
                     </div>
                     <input
                       id="event-config-banner-active"
@@ -1064,7 +1064,7 @@ export const AdminEventsPage: React.FC = () => {
                   <label className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200/80 rounded-xl cursor-pointer">
                     <div>
                       <span className="font-bold text-slate-800 block">Inscripciones Abiertas</span>
-                      <span className="text-[10px] text-slate-500 block">Permitir nuevas confirmaciones</span>
+                      <span className="text-[10px] text-slate-500 block">Permitir nuevas confirmaciones. Cerradas: el banner sigue visible con el aviso «inscripciones cerradas»</span>
                     </div>
                     <input
                       id="event-config-is-active"

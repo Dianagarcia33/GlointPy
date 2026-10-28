@@ -154,9 +154,11 @@ export const DashboardEventWidget: React.FC = () => {
     }
   }, [isInvestor, eventData?.id, eventData?.is_active, eventData?.banner_active, user?.id]);
 
-  if (!isInvestor || !eventData || !eventData.is_active || !eventData.banner_active) {
+  // H-194: 'Banner Visible' controla solo el banner; 'Inscripciones Abiertas' (is_active) solo la acción de confirmar
+  if (!isInvestor || !eventData || !eventData.banner_active) {
     return null;
   }
+  const registrationsClosed = !eventData.is_active;
 
   const formattedDate = eventData.event_date 
     ? new Date(eventData.event_date).toLocaleDateString('es-CO', { 
@@ -210,6 +212,10 @@ export const DashboardEventWidget: React.FC = () => {
                   <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-400/25 border border-emerald-300/50 text-white text-[11px] font-bold shadow-sm font-montserrat backdrop-blur-md">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
                     <span>Asistencia VIP Confirmada ({myRegistration.attendance_mode === 'in_person' ? 'Presencial' : 'Virtual'})</span>
+                  </span>
+                ) : registrationsClosed ? (
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-500/30 border border-slate-300/40 text-white text-[11px] font-black shadow-sm font-montserrat backdrop-blur-md">
+                    <span>Inscripciones cerradas</span>
                   </span>
                 ) : (
                   <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-black border shadow-sm font-montserrat backdrop-blur-md ${
@@ -345,6 +351,10 @@ export const DashboardEventWidget: React.FC = () => {
                       ✓ Tu lugar VIP está reservado en el sistema
                     </span>
                   </>
+                ) : registrationsClosed ? (
+                  <span className="px-6 py-4 bg-white/10 border border-white/25 text-white/90 font-bold text-xs sm:text-sm rounded-2xl text-center font-montserrat" role="status">
+                    Las inscripciones para este evento están cerradas
+                  </span>
                 ) : (
                   <>
                     <button
