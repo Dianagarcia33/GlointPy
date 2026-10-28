@@ -28,12 +28,11 @@ async def check_withdrawal_dates_active(db: AsyncSession) -> Tuple[bool, Optiona
     withdrawal_types = ["withdrawal", "withdrawals", "retiro", "retiros", "fechas_retiro"]
     
     events_res = await db.execute(
-        select(SystemEvent).where(
-            func.lower(SystemEvent.type).in_(withdrawal_types),
-            SystemEvent.is_active == True
-        )
+        select(SystemEvent).where(SystemEvent.is_active == True)
     )
-    all_withdrawal_events = events_res.scalars().all()
+    from src.services.system_event_service import normalize_event_type
+    _wanted_types = {normalize_event_type(t) for t in withdrawal_types}
+    all_withdrawal_events = [e for e in events_res.scalars().all() if normalize_event_type(e.type) in _wanted_types]
     
     if not all_withdrawal_events:
         return True, None

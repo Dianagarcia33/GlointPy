@@ -14,8 +14,18 @@ LOCAL_TZ = ZoneInfo("America/Bogota")
 # Tipos que entienden los motores de retiros y de venta de acciones (más alias históricos).
 # Un tipo fuera de esta lista nunca abriría ninguna ventana (H-133).
 WITHDRAWAL_EVENT_TYPES = ["retiro", "retiros", "withdrawal", "withdrawals", "fechas_retiro"]
-SHARES_SALE_EVENT_TYPES = ["mercado_acciones", "venta_acciones", "shares_sale"]
+SHARES_SALE_EVENT_TYPES = ["mercado_acciones", "venta_acciones", "shares_sale", "mercado_de_acciones", "venta_de_acciones"]
 ALLOWED_EVENT_TYPES = set(WITHDRAWAL_EVENT_TYPES + SHARES_SALE_EVENT_TYPES + ["mantenimiento"])
+
+
+def normalize_event_type(value: str) -> str:
+    """Forma comparable de un tipo: sin tildes ni mayúsculas, con espacios y guiones como '_' (H-193).
+    Así 'Mercado Acciones', 'mercado-acciones' o 'MERCADO_ACCIONES' abren la misma ventana."""
+    import re
+    import unicodedata
+    text = unicodedata.normalize("NFKD", (value or "").strip().lower())
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]+", "_", text).strip("_")
 
 
 def _to_local(dt: datetime) -> datetime:
@@ -156,13 +166,12 @@ class SystemEventService:
         Check if a specific system event type is currently active, 
         evaluating recurrences and start/end dates using the local timezone.
         """
-        from sqlalchemy import func
         result = await db.execute(
-            select(SystemEvent)
-            .where(func.lower(SystemEvent.type) == event_type.lower())
-            .where(SystemEvent.is_active == True)
+            select(SystemEvent).where(SystemEvent.is_active == True)
         )
-        events = result.scalars().all()
+        wanted = normalize_event_type(event_type)
+        # H-193: se compara el tipo normalizado, para que eventos guardados con otra grafía también cuenten
+        events = [e for e in result.scalars().all() if normalize_event_type(e.type) == wanted]
         if not events:
             return False
 
