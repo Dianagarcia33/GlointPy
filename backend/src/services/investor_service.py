@@ -24,6 +24,46 @@ from src.models.user_bank_account import UserBankAccount
 from src.models.wallet import Wallet
 from src.schemas.investor import InvestorCreate, InvestorUpdate
 
+# Roles con alcance global sobre todos los inversionistas (H-187). Un rol comercial (p. ej. directivo_inversion)
+# al que se le dé admin.investors.manage solo ve a SUS clientes, salvo que tenga admin.investors.view_all.
+GLOBAL_INVESTOR_ROLES = {
+    "admin", "superadmin", "super_admin", "super admin", "superuser",
+    "operaciones", "administrativo", "contabilidad", "contabilidad_",
+}
+
+
+def investor_scope_commercial_id(user: Optional[User]) -> Optional[int]:
+    """None si el usuario ve todos los inversionistas; si no, el id del asesor cuyos clientes puede ver."""
+    if user is None:
+        return None  # llamadas internas sin usuario
+    from src.core.pbac import PBACEngine
+    if getattr(user, "is_superuser", False):
+        return None
+    role_names = {(getattr(r, "name", "") or "").lower().strip() for r in getattr(user, "roles", [])}
+    if role_names & GLOBAL_INVESTOR_ROLES:
+        return None
+    if PBACEngine.has_permission(user, "admin.investors.view_all"):
+        return None
+    return user.id
+
+
+def investor_scope_condition(commercial_id: int):
+    """Contratos de clientes asignados al asesor (User.commercial_id) o de ventas adjudicadas a él."""
+    from sqlalchemy import or_
+    from src.models.commercial_sale import CommercialSale
+    return or_(
+        User.commercial_id == commercial_id,
+        Investor.id.in_(
+            select(CommercialSale.investor_id).where(
+                CommercialSale.commercial_id == commercial_id, CommercialSale.investor_id.isnot(None)
+            )
+        ),
+        User.document_id.in_(
+            select(CommercialSale.client_document).where(CommercialSale.commercial_id == commercial_id)
+        ),
+    )
+
+
 class InvestorService:
 
     @staticmethod
@@ -38,6 +78,11 @@ class InvestorService:
         from sqlalchemy import or_, func, case, Integer
         
         query = select(Investor).join(Investor.user)
+
+        # H-187: un asesor solo ve los contratos de sus clientes asignados; el filtro lo aplica el backend
+        scope_id = investor_scope_commercial_id(current_user)
+        if scope_id is not None:
+            query = query.where(investor_scope_condition(scope_id))
         
         if search:
             search_term = like_contains(search)
@@ -94,7 +139,7 @@ class InvestorService:
         }
 
     @staticmethod
-    async def get_investor(db: AsyncSession, investor_id: int) -> Optional[Investor]:
+    async def get_investor(db: AsyncSession, investor_id: int, current_user: Optional[User] = None) -> Optional[Investor]:
         result = await db.execute(
             select(Investor)
             .options(
@@ -112,7 +157,21 @@ class InvestorService:
         investor = result.scalars().first()
         if not investor:
             raise HTTPException(status_code=404, detail="Investor not found")
+        await InvestorService.ensure_investor_in_scope(db, investor, current_user)
         return investor
+
+    @staticmethod
+    async def ensure_investor_in_scope(db: AsyncSession, investor: Investor, current_user: Optional[User]) -> None:
+        """H-187: 404 (no 403, para no revelar que existe) si el contrato no es de un cliente del asesor."""
+        scope_id = investor_scope_commercial_id(current_user)
+        if scope_id is None:
+            return
+        res = await db.execute(
+            select(Investor.id).join(Investor.user)
+            .where(Investor.id == investor.id, investor_scope_condition(scope_id))
+        )
+        if res.first() is None:
+            raise HTTPException(status_code=404, detail="Investor not found")
 
     @staticmethod
     async def generate_next_assigned_code(db: AsyncSession) -> str:

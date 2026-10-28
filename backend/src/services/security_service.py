@@ -183,6 +183,7 @@ class SecurityService:
 
             # Módulo Inversionistas
             {"name": "admin:investors:manage", "description": "Acceso y consulta de la tabla general de inversionistas", "module": "Inversionistas"},
+            {"name": "admin:investors:view_all", "description": "Ver todos los inversionistas y contratos de la plataforma (sin este permiso, un asesor solo ve sus clientes asignados)", "module": "Inversiones"},
             {"name": "admin:investors:create", "description": "Crear nuevos contratos e inversionistas (Crear Inversión)", "module": "Inversionistas"},
             {"name": "admin:investors:wallet_adjust", "description": "Ajustar saldo de billetera de inversionistas (Herramienta Lápiz)", "module": "Inversionistas"},
             {"name": "admin:investors:capital_increase", "description": "Gestionar aumentos de capital a contratos (+ Capital)", "module": "Inversionistas"},

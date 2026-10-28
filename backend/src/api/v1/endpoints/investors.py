@@ -46,12 +46,13 @@ async def get_my_investments_endpoint(
 @router.get("/{investor_id}", response_model=InvestorResponse, dependencies=[Depends(RequirePermission("admin.investors.manage"))])
 async def read_investor(
     investor_id: int,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get a specific investor by ID.
     """
-    return await InvestorService.get_investor(db, investor_id=investor_id)
+    return await InvestorService.get_investor(db, investor_id=investor_id, current_user=current_user)
 
 @router.post("/", response_model=InvestorResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(RequirePermission("admin.investors.create"))])
 async def create_investor(
@@ -67,11 +68,13 @@ async def create_investor(
 async def update_investor(
     investor_id: int,
     investor: InvestorUpdate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Update an existing investor.
     """
+    await InvestorService.get_investor(db, investor_id=investor_id, current_user=current_user)  # H-187: alcance
     return await InvestorService.update_investor(db, investor_id=investor_id, investor=investor)
 
 @router.delete("/{investor_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(RequirePermission("admin.investors.delete"))])
@@ -138,6 +141,7 @@ async def admin_withdraw_capital(
     investor = res.scalars().first()
     if not investor:
         raise HTTPException(status_code=404, detail="Inversión no encontrada")
+    await InvestorService.ensure_investor_in_scope(db, investor, current_user)  # H-187
 
     # Regla estricta (Módulo 12, Acción 6): solo se liquida el capital de contratos que cumplieron todos
     # sus días, con la fecha de Colombia. Antes el servidor no lo comprobaba (H-156)

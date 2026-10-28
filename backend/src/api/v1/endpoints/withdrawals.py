@@ -17,7 +17,7 @@ from src.models.user import User
 router = APIRouter()
 
 # H-183: lectura global y carga masiva de retiros solo para la administración de pagos
-WITHDRAWAL_ADMIN_PERMISSIONS = ["admin.withdrawals.manage", "admin.payments.manage", "admin.audits.manage", "admin.users.manage", "admin.investors.manage", "admin.roles.manage"]
+WITHDRAWAL_ADMIN_PERMISSIONS = ["admin.withdrawals.manage", "admin.payments.manage", "admin.audits.manage", "admin.users.manage", "admin.roles.manage"]
 
 @router.get("/", response_model=WithdrawalPaginatedResponse, dependencies=[Depends(RequirePermission(WITHDRAWAL_ADMIN_PERMISSIONS))])
 async def get_withdrawals(
@@ -318,6 +318,10 @@ async def bulk_upload_withdrawals(
     """
     Bulk upload withdrawals for data migration.
     """
+    # H-187: un asesor con alcance limitado a sus clientes no puede crear retiros de la base completa
+    from src.services.investor_service import investor_scope_commercial_id
+    if investor_scope_commercial_id(current_user) is not None:
+        raise HTTPException(status_code=403, detail="No tienes permisos suficientes para realizar esta acción")
     created = await WithdrawalService.bulk_create_withdrawals(db, withdrawals)
     return {
         "message": f"Successfully imported {len(created)} withdrawals.",
