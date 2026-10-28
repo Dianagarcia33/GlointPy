@@ -36,8 +36,12 @@ export const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
   
   let newBalancePreview = currentBalance;
   if (action === 'add') newBalancePreview = currentBalance + inputAmount;
-  if (action === 'subtract') newBalancePreview = Math.max(0, currentBalance - inputAmount);
-  if (action === 'set') newBalancePreview = Math.max(0, inputAmount);
+  if (action === 'subtract') newBalancePreview = currentBalance - inputAmount;
+  if (action === 'set') newBalancePreview = inputAmount;
+  // H-174: el débito nunca se recorta a 0 en silencio; se avisa y no se permite confirmar
+  const debitExceedsBalance = action === 'subtract' && inputAmount > currentBalance;
+  const formatMoney = (value: number) =>
+    value.toLocaleString('es-CO', { style: 'currency', currency: wallet.currency || 'COP', minimumFractionDigits: 0 });
 
   const codeTag = assignedCode ? `${assignedCode}` : '';
 
@@ -78,6 +82,10 @@ export const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
     e.preventDefault();
     if (!amount || Number(amount) <= 0) {
       setError('El monto debe ser mayor a 0');
+      return;
+    }
+    if (debitExceedsBalance) {
+      setError(`El débito excede el saldo disponible (${formatMoney(currentBalance)}).`);
       return;
     }
     if (!description.trim()) {
@@ -221,9 +229,14 @@ export const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
             }`}>
               <span className="text-xs font-bold uppercase tracking-wider">Saldo Resultante:</span>
               <span className="font-extrabold font-montserrat text-base">
-                {newBalancePreview.toLocaleString('es-CO', { style: 'currency', currency: wallet.currency || 'COP', minimumFractionDigits: 0 })}
+                {formatMoney(newBalancePreview)}
               </span>
             </div>
+          )}
+          {debitExceedsBalance && (
+            <p className="text-xs font-semibold text-rose-600 -mt-2">
+              El débito excede el saldo disponible ({formatMoney(currentBalance)}).
+            </p>
           )}
 
           {/* Quick Responses */}
@@ -298,7 +311,7 @@ export const WalletAdjustmentModal: React.FC<WalletAdjustmentModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isLoading || !amount || !description.trim()}
+              disabled={isLoading || !amount || debitExceedsBalance || !description.trim()}
               className="flex-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-all font-bold text-xs disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-brand-600/20 cursor-pointer"
             >
               {isLoading ? (

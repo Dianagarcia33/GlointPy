@@ -898,11 +898,22 @@ async def admin_adjust_wallet(
     if req.action not in ["add", "subtract", "set"]:
         raise HTTPException(status_code=400, detail="Acción inválida. Use add, subtract, o set.")
         
-    wallet_res = await db.execute(select(Wallet).where(Wallet.id == wallet_id))
+    if req.amount < 0 or (req.action != "set" and req.amount == 0):
+        raise HTTPException(status_code=400, detail="El monto del ajuste debe ser mayor a cero.")
+
+    # FOR UPDATE: el saldo validado no puede cambiar por otra operación antes de guardar el ajuste
+    wallet_res = await db.execute(select(Wallet).where(Wallet.id == wallet_id).with_for_update())
     wallet = wallet_res.scalars().first()
     
     if not wallet:
         raise HTTPException(status_code=404, detail="Billetera no encontrada.")
+
+    # H-174: un débito mayor al saldo se rechaza con el saldo disponible, nunca se recorta a 0
+    if req.action == "subtract" and req.amount > wallet.balance:
+        raise HTTPException(
+            status_code=400,
+            detail=f"El débito excede el saldo disponible (${float(wallet.balance):,.0f} COP).".replace(",", ".")
+        )
         
     old_balance = wallet.balance
     
