@@ -3,6 +3,13 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingLayout } from "./features/landing_v2/components/LandingLayout";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
+import { LandingHome } from "./features/landing_v2/pages/LandingHome";
+import { NosotrosPage } from "./features/landing_v2/pages/NosotrosPage";
+import { InvestmentPage } from "./features/landing_v2/pages/InvestmentPage";
+import { PlacePage } from "./features/landing_v2/pages/PlacePage";
+import { TechPage } from "./features/landing_v2/pages/TechPage";
+import { ContactoPage } from "./features/landing_v2/pages/ContactoPage";
+import { LoginPage } from "./features/auth/pages/LoginPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -10,20 +17,13 @@ import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
 import { fetchApi } from "./services/api";
 import { useGlobalNotifications } from "./hooks/useGlobalNotifications";
-import { PageLoader } from "./components/layout/PageLoader";
 
-// Las páginas se cargan en diferido: el navegador solo descarga el código de cada sección cuando se visita
+// Las páginas públicas de entrada (portada y login) se cargan de inmediato; el resto en diferido:
+// el navegador solo descarga el código de cada sección cuando se visita
 const lazyPage = <K extends string>(factory: () => Promise<Record<K, React.ComponentType<any>>>, name: K) =>
   React.lazy(() => factory().then((m) => ({ default: m[name] })));
 
-const LandingHome = lazyPage(() => import("./features/landing_v2/pages/LandingHome"), "LandingHome");
-const NosotrosPage = lazyPage(() => import("./features/landing_v2/pages/NosotrosPage"), "NosotrosPage");
-const InvestmentPage = lazyPage(() => import("./features/landing_v2/pages/InvestmentPage"), "InvestmentPage");
-const PlacePage = lazyPage(() => import("./features/landing_v2/pages/PlacePage"), "PlacePage");
-const TechPage = lazyPage(() => import("./features/landing_v2/pages/TechPage"), "TechPage");
-const ContactoPage = lazyPage(() => import("./features/landing_v2/pages/ContactoPage"), "ContactoPage");
 const EventRegistrationPage = lazyPage(() => import("./features/landing_v2/pages/EventRegistrationPage"), "EventRegistrationPage");
-const LoginPage = lazyPage(() => import("./features/auth/pages/LoginPage"), "LoginPage");
 const RegisterPage = lazyPage(() => import("./features/auth/pages/RegisterPage"), "RegisterPage");
 const ForgotPasswordPage = lazyPage(() => import("./features/auth/pages/ForgotPasswordPage"), "ForgotPasswordPage");
 const ResetPasswordPage = lazyPage(() => import("./features/auth/pages/ResetPasswordPage"), "ResetPasswordPage");
@@ -122,7 +122,7 @@ function App() {
   // if (isMaintenanceMode) return <MaintenancePage />;
 
   return (
-    <React.Suspense fallback={<PageLoader />}>
+    <React.Suspense fallback={null}>
     <Routes>
       <Route element={<GuestRoute><LandingLayout /></GuestRoute>}>
         <Route path="/" element={<LandingHome />} />

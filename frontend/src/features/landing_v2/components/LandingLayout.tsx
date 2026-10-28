@@ -6,7 +6,6 @@ import { WhatsAppButton } from './WhatsAppButton';
 import { InvestmentChatbot } from './InvestmentChatbot';
 import { EventCountdownModal } from './EventCountdownModal';
 import { AnimatePresence, motion } from 'motion/react';
-import { PageLoader } from '../../../components/layout/PageLoader';
 
 export function LandingLayout() {
   const location = useLocation();
@@ -22,7 +21,7 @@ export function LandingLayout() {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          <React.Suspense fallback={<PageLoader />}>
+          <React.Suspense fallback={null}>
             <Outlet />
           </React.Suspense>
         </motion.div>
