@@ -10,6 +10,46 @@ from src.schemas.system_event import SystemEventCreate, SystemEventUpdate
 
 LOCAL_TZ = ZoneInfo("America/Bogota")
 
+# Tipos que entienden los motores de retiros y de venta de acciones (más alias históricos).
+# Un tipo fuera de esta lista nunca abriría ninguna ventana (H-133).
+WITHDRAWAL_EVENT_TYPES = ["retiro", "retiros", "withdrawal", "withdrawals", "fechas_retiro"]
+SHARES_SALE_EVENT_TYPES = ["mercado_acciones", "venta_acciones", "shares_sale"]
+ALLOWED_EVENT_TYPES = set(WITHDRAWAL_EVENT_TYPES + SHARES_SALE_EVENT_TYPES + ["mantenimiento"])
+
+
+def _to_local(dt: datetime) -> datetime:
+    return dt.replace(tzinfo=LOCAL_TZ) if dt.tzinfo is None else dt.astimezone(LOCAL_TZ)
+
+
+def validate_event_data(data: dict) -> dict:
+    """
+    Valida un evento completo (H-133) y devuelve los datos normalizados: tipo del catálogo,
+    días obligatorios si es recurrente y fechas obligatorias con fin posterior al inicio si no lo es.
+    Los campos de la otra modalidad se dejan en None para que el motor no los evalúe.
+    """
+    def fail(msg: str):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
+
+    event_type = (data.get("type") or "").strip().lower()
+    if event_type not in ALLOWED_EVENT_TYPES:
+        fail("Tipo de evento no válido. Usa Retiro, Mercado de Acciones o Mantenimiento.")
+    data["type"] = event_type
+
+    if data.get("is_recurring"):
+        if not data.get("recurrence_start_day") or not data.get("recurrence_end_day"):
+            fail("Un evento recurrente necesita el día de inicio y el día de fin (entre 1 y 31).")
+        data["start_date"] = None
+        data["end_date"] = None
+    else:
+        start, end = data.get("start_date"), data.get("end_date")
+        if not start or not end:
+            fail("Un evento de fecha específica necesita la fecha y hora de inicio y de fin.")
+        if _to_local(end) <= _to_local(start):
+            fail("La fecha de fin debe ser posterior a la fecha de inicio.")
+        data["recurrence_start_day"] = None
+        data["recurrence_end_day"] = None
+    return data
+
 class SystemEventService:
     @staticmethod
     async def get_all_events(db: AsyncSession) -> List[SystemEvent]:
@@ -18,7 +58,7 @@ class SystemEventService:
 
     @staticmethod
     async def create_event(db: AsyncSession, event_in: SystemEventCreate) -> SystemEvent:
-        new_event = SystemEvent(**event_in.model_dump())
+        new_event = SystemEvent(**validate_event_data(event_in.model_dump()))
         db.add(new_event)
         await db.commit()
         await db.refresh(new_event)
@@ -29,9 +69,14 @@ class SystemEventService:
         result = await db.execute(select(SystemEvent).where(SystemEvent.id == event_id))
         event = result.scalar_one_or_none()
         if not event:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado")
         
+        # Se valida el evento tal como quedará (datos actuales + cambios), no solo los campos enviados
+        fields = ["type", "is_recurring", "recurrence_start_day", "recurrence_end_day", "start_date", "end_date"]
+        merged = {f: getattr(event, f) for f in fields}
         update_data = event_in.model_dump(exclude_unset=True)
+        merged.update({k: v for k, v in update_data.items() if k in fields})
+        update_data.update(validate_event_data(merged))
         for field, value in update_data.items():
             setattr(event, field, value)
             
@@ -44,7 +89,7 @@ class SystemEventService:
         result = await db.execute(select(SystemEvent).where(SystemEvent.id == event_id))
         event = result.scalar_one_or_none()
         if not event:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado")
             
         await db.delete(event)
         await db.commit()
@@ -89,6 +134,14 @@ class SystemEventService:
             if start <= now_local <= end:
                 return True
 
+        return False
+
+    @staticmethod
+    async def is_any_event_active(db: AsyncSession, event_types: List[str]) -> bool:
+        """True si alguno de los tipos indicados (p. ej. un tipo y sus alias) tiene una ventana activa."""
+        for event_type in event_types:
+            if await SystemEventService.is_event_active(db, event_type):
+                return True
         return False
 
     @staticmethod

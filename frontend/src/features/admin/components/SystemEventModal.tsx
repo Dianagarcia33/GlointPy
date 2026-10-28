@@ -38,6 +38,8 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
     }
   }, [event]);
 
+  const [formError, setFormError] = useState<string | null>(null);
+
   const createMutation = useMutation({
     mutationFn: systemEventsService.createEvent,
     onSuccess: () => {
@@ -56,7 +58,25 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setFormError(null);
+
+    // Mismas reglas que el backend (H-133): un evento incompleto o invertido nunca abriría la ventana
+    if (formData.is_recurring) {
+      if (!formData.recurrence_start_day || !formData.recurrence_end_day) {
+        setFormError('Indica el día de inicio y el día de fin de la recurrencia (entre 1 y 31).');
+        return;
+      }
+    } else {
+      if (!formData.start_date || !formData.end_date) {
+        setFormError('Indica la fecha y hora de inicio y de fin del evento.');
+        return;
+      }
+      if (formData.end_date <= formData.start_date) {
+        setFormError('La fecha de fin debe ser posterior a la fecha de inicio.');
+        return;
+      }
+    }
+
     // Cleanup data based on type
     const submitData = { ...formData };
     if (submitData.is_recurring) {
@@ -75,6 +95,8 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
   };
 
   const isPending = createMutation.isPending || updateMutation.isPending;
+  const mutationError = (createMutation.error || updateMutation.error) as Error | null;
+  const errorMessage = formError || mutationError?.message || null;
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
@@ -92,6 +114,11 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {errorMessage && (
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-600">
+              {errorMessage}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5 col-span-2 sm:col-span-1">
               <label className="text-sm font-medium text-slate-700">Tipo de Evento</label>
@@ -205,6 +232,7 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
                     required
                     value={formData.end_date || ''}
                     onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    min={formData.start_date || undefined}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all outline-none"
                   />
                 </div>

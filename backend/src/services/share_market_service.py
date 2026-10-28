@@ -14,7 +14,7 @@ from src.models.investor import Investor
 from src.models.package import Package
 from src.models.user import User
 from src.models.wallet import Wallet, WalletTransaction
-from src.services.system_event_service import SystemEventService
+from src.services.system_event_service import SystemEventService, SHARES_SALE_EVENT_TYPES
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads", "share_receipts")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -449,7 +449,7 @@ class ShareMarketService:
         account = await ShareMarketService.get_or_create_user_shares(db, user_id)
 
         current_price = await ShareMarketService.get_current_price(db)
-        sales_window_open = await SystemEventService.is_event_active(db, "shares_sale") or await SystemEventService.is_event_active(db, "venta_acciones")
+        sales_window_open = await SystemEventService.is_any_event_active(db, SHARES_SALE_EVENT_TYPES)
         sales_message = "Ventana de venta de acciones abierta." if sales_window_open else "La ventana para poner acciones a la venta se encuentra cerrada según el calendario oficial."
 
         return {
@@ -467,7 +467,7 @@ class ShareMarketService:
     async def create_listing(db: AsyncSession, seller_id: int, shares_quantity: int, price_per_share: float) -> ShareListing:
         """Pone acciones a la venta de forma voluntaria dentro de la ventana de fechas permitida."""
         # 1. Verificar si la fecha de venta del sistema está activa
-        is_active_window = await SystemEventService.is_event_active(db, "shares_sale") or await SystemEventService.is_event_active(db, "venta_acciones")
+        is_active_window = await SystemEventService.is_any_event_active(db, SHARES_SALE_EVENT_TYPES)
         if not is_active_window:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
