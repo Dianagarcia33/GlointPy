@@ -218,7 +218,7 @@ class PotentialReferralService:
         from src.models.wallet import Wallet, WalletStatus
         from src.models.user_bank_account import UserBankAccount
         from src.models.investment_request import InvestmentRequest, InvestmentRequestStatus
-        from src.core.security import get_password_hash
+        from src.core.security import aget_password_hash
 
         res = await db.execute(select(PotentialReferral).where(PotentialReferral.id == referral_id))
         referral = res.scalars().first()
@@ -242,7 +242,7 @@ class PotentialReferralService:
 
         # 3. Crear Usuario (Usando el documento como contraseña inicial por defecto)
         raw_password = (data.password or data.documento).strip()
-        hashed_pwd = get_password_hash(raw_password)
+        hashed_pwd = await aget_password_hash(raw_password)
 
         # Parse date of birth if provided
         dob = None

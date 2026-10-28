@@ -6,6 +6,7 @@ import { WhatsAppButton } from './WhatsAppButton';
 import { InvestmentChatbot } from './InvestmentChatbot';
 import { EventCountdownModal } from './EventCountdownModal';
 import { AnimatePresence, motion } from 'motion/react';
+import { PageLoader } from '../../../components/layout/PageLoader';
 
 export function LandingLayout() {
   const location = useLocation();
@@ -21,7 +22,9 @@ export function LandingLayout() {
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          <Outlet />
+          <React.Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </React.Suspense>
         </motion.div>
       </AnimatePresence>
       {/* We only render Footer on Home page, because other pages have SharedFooter or NosotrosFooter */}

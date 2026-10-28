@@ -8,7 +8,7 @@ from fastapi import HTTPException, status, Request
 from src.models.user import User
 from src.models.security import Role
 from src.schemas.auth import LoginRequest, RegisterRequest, ForceChangePasswordRequest, InvestorRegisterRequest
-from src.core.security import verify_password, get_password_hash, create_access_token, create_password_reset_token, verify_password_reset_token
+from src.core.security import averify_password, aget_password_hash, create_access_token, create_password_reset_token, verify_password_reset_token
 from src.services.email_service import EmailService
 
 class AuthService:
@@ -48,7 +48,7 @@ class AuthService:
                 detail="Tu cuenta está bloqueada temporalmente por múltiples intentos fallidos. Intenta de nuevo más tarde.",
             )
             
-        if not verify_password(login_data.password, user.password_hash):
+        if not await averify_password(login_data.password, user.password_hash):
             if request:
                 login_rate_limiter.record_failed_attempt(request)
 
@@ -149,7 +149,7 @@ class AuthService:
         new_user = User(
             name=data.name,
             email=data.email,
-            password_hash=get_password_hash(data.password),
+            password_hash=await aget_password_hash(data.password),
             document_id=data.documento,
             phone_number=data.numero_celular,
             date_of_birth=dob,
@@ -310,7 +310,7 @@ class AuthService:
                 detail="Correo o contraseña incorrectos",
             )
             
-        if not verify_password(data.current_password, user.password_hash):
+        if not await averify_password(data.current_password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Correo o contraseña incorrectos",
@@ -345,7 +345,7 @@ class AuthService:
 
         verification.used_at = datetime.utcnow()
             
-        user.password_hash = get_password_hash(data.new_password)
+        user.password_hash = await aget_password_hash(data.new_password)
         user.must_change_password = False
         
         await db.commit()
@@ -368,7 +368,7 @@ class AuthService:
                 detail="Correo o contraseña incorrectos",
             )
 
-        if not verify_password(current_password, user.password_hash):
+        if not await averify_password(current_password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Correo o contraseña incorrectos",

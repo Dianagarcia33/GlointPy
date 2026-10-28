@@ -4,10 +4,10 @@ from sqlalchemy.orm import declarative_base
 from src.core.config import settings
 
 # 1. Crear el motor asíncrono
-# echo=True imprimirá las sentencias SQL en consola solo si estamos en desarrollo
+# echo=True imprimirá las sentencias SQL en consola solo si se activa SQL_ECHO=true en el .env
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=(settings.ENVIRONMENT == "development"),
+    echo=settings.SQL_ECHO,
     future=True,
     pool_pre_ping=True,      # Verifica y recicla conexiones muertas antes de ejecutarlas
     pool_recycle=300,        # Recicla conexiones cada 5 min para evitar caídas de TCP/MySQL

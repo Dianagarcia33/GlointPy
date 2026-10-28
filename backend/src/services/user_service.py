@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from src.models.user import User
 from src.models.security import Role
-from src.core.security import get_password_hash, verify_password
+from src.core.security import aget_password_hash, averify_password
 from fastapi import HTTPException
 import csv
 import io
@@ -136,7 +136,7 @@ class UserService:
             phone_number=user_data.get("phone_number"),
             date_of_birth=user_data.get("date_of_birth"),
             parent_user_id=parent_user_id,
-            password_hash=get_password_hash(temp_password),
+            password_hash=await aget_password_hash(temp_password),
             must_change_password=True,
             is_active=user_data.get("is_active", True)
         )
@@ -182,7 +182,7 @@ class UserService:
 
         from src.core.security import generate_secure_temp_password
         temp_password = generate_secure_temp_password(12)
-        user.password_hash = get_password_hash(temp_password)
+        user.password_hash = await aget_password_hash(temp_password)
         user.must_change_password = True
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -273,10 +273,10 @@ class UserService:
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-        if not verify_password(current_password, user.password_hash):
+        if not await averify_password(current_password, user.password_hash):
             raise HTTPException(status_code=400, detail="La contraseña actual no es correcta.")
 
-        user.password_hash = get_password_hash(new_password)
+        user.password_hash = await aget_password_hash(new_password)
         user.must_change_password = False
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -392,7 +392,7 @@ class UserService:
                     document_id=doc_id,
                     phone_number=row.get("phone_number", "").strip() or None,
                     date_of_birth=date_of_birth,
-                    password_hash=get_password_hash(doc_id),
+                    password_hash=await aget_password_hash(doc_id),
                     must_change_password=True,
                     is_active=True
                 )

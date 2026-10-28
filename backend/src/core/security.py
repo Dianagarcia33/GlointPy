@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Union, Any
 import bcrypt
@@ -25,6 +26,14 @@ def get_password_hash(password: str) -> str:
     if isinstance(password, str):
         password = password.encode('utf-8')
     return bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
+
+async def averify_password(plain_password: str, hashed_password: str) -> bool:
+    """Versión asíncrona de verify_password: bcrypt es lento a propósito, se ejecuta en un hilo para no bloquear la API."""
+    return await asyncio.to_thread(verify_password, plain_password, hashed_password)
+
+async def aget_password_hash(password: str) -> str:
+    """Versión asíncrona de get_password_hash (ver averify_password)."""
+    return await asyncio.to_thread(get_password_hash, password)
 
 def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None) -> str:
     """Genera el token JWT de acceso (24 horas)."""

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     DB_NAME: str
+    SQL_ECHO: bool = False  # Imprime cada consulta SQL en consola (solo para depurar; es costoso)
     
     # Encryption
     BANK_ENCRYPTION_KEY: str = "oI0T7pW5j2X2qQ5G2HwX6mH8uW7lI0_gK2U7gO8yMvw="

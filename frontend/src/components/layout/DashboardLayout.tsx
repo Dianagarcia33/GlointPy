@@ -7,6 +7,7 @@ import { ParentalBanner } from './ParentalBanner';
 import { MandatoryProfileUpdateModal } from '../../features/profile/components/MandatoryProfileUpdateModal';
 import { useAuthStore } from '../../store/authStore';
 import { X, LayoutDashboard } from 'lucide-react';
+import { PageLoader } from './PageLoader';
 
 export const DashboardLayout = () => {
     const user = useAuthStore((state) => state.user);
@@ -77,7 +78,9 @@ export const DashboardLayout = () => {
                     <main className="flex-1 flex flex-col overflow-hidden relative">
                         <div className="p-3 lg:p-4 flex-1 flex flex-col overflow-hidden">
                             <div className="w-full flex-1 flex flex-col overflow-hidden">
-                                <Outlet />
+                                <React.Suspense fallback={<PageLoader />}>
+                                  <Outlet />
+                                </React.Suspense>
                             </div>
                         </div>
                         <DashboardFooter />
@@ -86,7 +89,9 @@ export const DashboardLayout = () => {
                     <main className="flex-1 flex flex-col overflow-y-auto relative">
                         <div className="p-4 sm:p-6 lg:p-8 flex-1">
                             <div className="max-w-7xl mx-auto w-full pb-8">
-                                <Outlet />
+                                <React.Suspense fallback={<PageLoader />}>
+                                  <Outlet />
+                                </React.Suspense>
                             </div>
                         </div>
                         <DashboardFooter />

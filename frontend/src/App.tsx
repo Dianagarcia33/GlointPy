@@ -1,65 +1,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingLayout } from "./features/landing_v2/components/LandingLayout";
-import { LandingHome } from "./features/landing_v2/pages/LandingHome";
-import { NosotrosPage } from "./features/landing_v2/pages/NosotrosPage";
-import { InvestmentPage } from "./features/landing_v2/pages/InvestmentPage";
-import { PlacePage } from "./features/landing_v2/pages/PlacePage";
-import { TechPage } from "./features/landing_v2/pages/TechPage";
-import { ContactoPage } from "./features/landing_v2/pages/ContactoPage";
-import { EventRegistrationPage } from "./features/landing_v2/pages/EventRegistrationPage";
 import { MaintenancePage } from "./features/maintenance/components/MaintenancePage";
-import { LoginPage } from "./features/auth/pages/LoginPage";
-import { RegisterPage } from "./features/auth/pages/RegisterPage";
-import { ForgotPasswordPage } from "./features/auth/pages/ForgotPasswordPage";
-import { ResetPasswordPage } from "./features/auth/pages/ResetPasswordPage";
-import { WelcomeOnboardingPage } from "./features/auth/pages/WelcomeOnboardingPage";
-import { ForceChangePasswordPage } from "./features/auth/pages/ForceChangePasswordPage";
-import { TermsAndConditionsPage } from "./features/landing/pages/TermsAndConditionsPage";
-import { PrivacyPolicyPage } from "./features/landing/pages/PrivacyPolicyPage";
-import { LegalNoticePage } from "./features/landing/pages/LegalNoticePage";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
-import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
-import { WalletsPage } from "./features/wallets/pages/WalletsPage";
-import { InvestmentDetailPage } from "./features/investments/pages/InvestmentDetailPage";
-import { AdminInvestmentsPage } from "./features/admin/investments/pages/AdminInvestmentsPage";
-import { AdminRolesPage } from "./features/admin/roles/pages/AdminRolesPage";
-import { AdminUsersPage } from "./features/admin/users/pages/AdminUsersPage";
-import { AdminPeriodsPage } from "./features/admin/periods/pages/AdminPeriodsPage";
-import { AdminPackagesPage } from "./features/admin/packages/pages/AdminPackagesPage";
-import { AdminInvestorsPage } from "./features/admin/investors/pages/AdminInvestorsPage";
-import { AdminTemplatesPage } from "./features/admin/templates/pages/AdminTemplatesPage";
-import { AdminRankingsPage } from "./features/admin/rankings/pages/AdminRankingsPage";
-import { AdminExternalAppsPage } from "./features/admin/external-apps/pages/AdminExternalAppsPage";
-import { GlointPayCheckoutPage } from "./features/checkout/pages/GlointPayCheckoutPage";
-import { PaymentManagementPage } from "./features/admin/payments/pages/PaymentManagementPage";
-import { SystemEventsPage } from "./features/admin/pages/SystemEventsPage";
-import { SecurityLogsPage } from "./features/admin/pages/SecurityLogsPage";
-import { BankAccountsVaultPage } from "./features/bank_accounts/pages/BankAccountsVaultPage";
-import { CommercialDashboardPage } from "./features/commercial/pages/CommercialDashboardPage";
-import { BeneficiariesPage } from "./features/beneficiaries/pages/BeneficiariesPage";
-import { ReferralsPage } from "./features/referrals/pages/ReferralsPage";
-import { SharesMarketPage } from "./features/shares/pages/SharesMarketPage";
-import { AdminSharesPage } from "./features/admin/shares/pages/AdminSharesPage";
-import { AdminReferralsPage } from "./features/admin/referrals/pages/AdminReferralsPage";
-import { ChatPage } from "./features/chat/pages/ChatPage";
-import { CRMPage } from "./features/crm/pages/CRMPage";
-import { CRMInboxPage } from "./features/crm/pages/CRMInboxPage";
-import { CRMCalendarPage } from "./features/crm/pages/CRMCalendarPage";
-import { AdminNotificationsPage } from "./features/admin/notifications/pages/AdminNotificationsPage";
-import { AdminEventsPage } from "./features/admin/events/pages/AdminEventsPage";
-import { TicketsPage } from "./features/tickets/pages/TicketsPage";
-import { ProfilePage } from "./features/profile/pages/ProfilePage";
-import { RoomsPage } from "./features/rooms/pages/RoomsPage";
-import { InventoryPage } from "./features/inventory/pages/InventoryPage";
-import { SuppliersPage } from "./features/suppliers/pages/SuppliersPage";
-import { PurchaseOrdersPage } from "./features/purchase_orders/pages/PurchaseOrdersPage";
-import { AssetsPage } from "./features/assets/pages/AssetsPage";
-import { CreditsPage } from "./features/credits/pages/CreditsPage";
-import { AdminCreditsPage } from "./features/admin/credits/pages/AdminCreditsPage";
-import { DailyYieldsPage } from "./features/admin/daily_yields/pages/DailyYieldsPage";
-import { TechnicalAssessmentPage } from "./features/technical_assessment/pages/TechnicalAssessmentPage";
-import { AdminTechnicalEvaluationsPage } from "./features/technical_assessment/pages/AdminTechnicalEvaluationsPage";
 import { useInactivityTimer } from "./hooks/useInactivityTimer";
 import { usePushNotifications } from "./hooks/usePushNotifications";
 import { useVersionChecker } from "./hooks/useVersionChecker";
@@ -67,6 +10,69 @@ import { useAuthStore } from "./store/authStore";
 import { RequirePermission } from "./components/security/RequirePermission";
 import { fetchApi } from "./services/api";
 import { useGlobalNotifications } from "./hooks/useGlobalNotifications";
+import { PageLoader } from "./components/layout/PageLoader";
+
+// Las páginas se cargan en diferido: el navegador solo descarga el código de cada sección cuando se visita
+const lazyPage = <K extends string>(factory: () => Promise<Record<K, React.ComponentType<any>>>, name: K) =>
+  React.lazy(() => factory().then((m) => ({ default: m[name] })));
+
+const LandingHome = lazyPage(() => import("./features/landing_v2/pages/LandingHome"), "LandingHome");
+const NosotrosPage = lazyPage(() => import("./features/landing_v2/pages/NosotrosPage"), "NosotrosPage");
+const InvestmentPage = lazyPage(() => import("./features/landing_v2/pages/InvestmentPage"), "InvestmentPage");
+const PlacePage = lazyPage(() => import("./features/landing_v2/pages/PlacePage"), "PlacePage");
+const TechPage = lazyPage(() => import("./features/landing_v2/pages/TechPage"), "TechPage");
+const ContactoPage = lazyPage(() => import("./features/landing_v2/pages/ContactoPage"), "ContactoPage");
+const EventRegistrationPage = lazyPage(() => import("./features/landing_v2/pages/EventRegistrationPage"), "EventRegistrationPage");
+const LoginPage = lazyPage(() => import("./features/auth/pages/LoginPage"), "LoginPage");
+const RegisterPage = lazyPage(() => import("./features/auth/pages/RegisterPage"), "RegisterPage");
+const ForgotPasswordPage = lazyPage(() => import("./features/auth/pages/ForgotPasswordPage"), "ForgotPasswordPage");
+const ResetPasswordPage = lazyPage(() => import("./features/auth/pages/ResetPasswordPage"), "ResetPasswordPage");
+const WelcomeOnboardingPage = lazyPage(() => import("./features/auth/pages/WelcomeOnboardingPage"), "WelcomeOnboardingPage");
+const ForceChangePasswordPage = lazyPage(() => import("./features/auth/pages/ForceChangePasswordPage"), "ForceChangePasswordPage");
+const TermsAndConditionsPage = lazyPage(() => import("./features/landing/pages/TermsAndConditionsPage"), "TermsAndConditionsPage");
+const PrivacyPolicyPage = lazyPage(() => import("./features/landing/pages/PrivacyPolicyPage"), "PrivacyPolicyPage");
+const LegalNoticePage = lazyPage(() => import("./features/landing/pages/LegalNoticePage"), "LegalNoticePage");
+const DashboardPage = lazyPage(() => import("./features/dashboard/pages/DashboardPage"), "DashboardPage");
+const WalletsPage = lazyPage(() => import("./features/wallets/pages/WalletsPage"), "WalletsPage");
+const InvestmentDetailPage = lazyPage(() => import("./features/investments/pages/InvestmentDetailPage"), "InvestmentDetailPage");
+const AdminInvestmentsPage = lazyPage(() => import("./features/admin/investments/pages/AdminInvestmentsPage"), "AdminInvestmentsPage");
+const AdminRolesPage = lazyPage(() => import("./features/admin/roles/pages/AdminRolesPage"), "AdminRolesPage");
+const AdminUsersPage = lazyPage(() => import("./features/admin/users/pages/AdminUsersPage"), "AdminUsersPage");
+const AdminPeriodsPage = lazyPage(() => import("./features/admin/periods/pages/AdminPeriodsPage"), "AdminPeriodsPage");
+const AdminPackagesPage = lazyPage(() => import("./features/admin/packages/pages/AdminPackagesPage"), "AdminPackagesPage");
+const AdminInvestorsPage = lazyPage(() => import("./features/admin/investors/pages/AdminInvestorsPage"), "AdminInvestorsPage");
+const AdminTemplatesPage = lazyPage(() => import("./features/admin/templates/pages/AdminTemplatesPage"), "AdminTemplatesPage");
+const AdminRankingsPage = lazyPage(() => import("./features/admin/rankings/pages/AdminRankingsPage"), "AdminRankingsPage");
+const AdminExternalAppsPage = lazyPage(() => import("./features/admin/external-apps/pages/AdminExternalAppsPage"), "AdminExternalAppsPage");
+const GlointPayCheckoutPage = lazyPage(() => import("./features/checkout/pages/GlointPayCheckoutPage"), "GlointPayCheckoutPage");
+const PaymentManagementPage = lazyPage(() => import("./features/admin/payments/pages/PaymentManagementPage"), "PaymentManagementPage");
+const SystemEventsPage = lazyPage(() => import("./features/admin/pages/SystemEventsPage"), "SystemEventsPage");
+const SecurityLogsPage = lazyPage(() => import("./features/admin/pages/SecurityLogsPage"), "SecurityLogsPage");
+const BankAccountsVaultPage = lazyPage(() => import("./features/bank_accounts/pages/BankAccountsVaultPage"), "BankAccountsVaultPage");
+const CommercialDashboardPage = lazyPage(() => import("./features/commercial/pages/CommercialDashboardPage"), "CommercialDashboardPage");
+const BeneficiariesPage = lazyPage(() => import("./features/beneficiaries/pages/BeneficiariesPage"), "BeneficiariesPage");
+const ReferralsPage = lazyPage(() => import("./features/referrals/pages/ReferralsPage"), "ReferralsPage");
+const SharesMarketPage = lazyPage(() => import("./features/shares/pages/SharesMarketPage"), "SharesMarketPage");
+const AdminSharesPage = lazyPage(() => import("./features/admin/shares/pages/AdminSharesPage"), "AdminSharesPage");
+const AdminReferralsPage = lazyPage(() => import("./features/admin/referrals/pages/AdminReferralsPage"), "AdminReferralsPage");
+const ChatPage = lazyPage(() => import("./features/chat/pages/ChatPage"), "ChatPage");
+const CRMPage = lazyPage(() => import("./features/crm/pages/CRMPage"), "CRMPage");
+const CRMInboxPage = lazyPage(() => import("./features/crm/pages/CRMInboxPage"), "CRMInboxPage");
+const CRMCalendarPage = lazyPage(() => import("./features/crm/pages/CRMCalendarPage"), "CRMCalendarPage");
+const AdminNotificationsPage = lazyPage(() => import("./features/admin/notifications/pages/AdminNotificationsPage"), "AdminNotificationsPage");
+const AdminEventsPage = lazyPage(() => import("./features/admin/events/pages/AdminEventsPage"), "AdminEventsPage");
+const TicketsPage = lazyPage(() => import("./features/tickets/pages/TicketsPage"), "TicketsPage");
+const ProfilePage = lazyPage(() => import("./features/profile/pages/ProfilePage"), "ProfilePage");
+const RoomsPage = lazyPage(() => import("./features/rooms/pages/RoomsPage"), "RoomsPage");
+const InventoryPage = lazyPage(() => import("./features/inventory/pages/InventoryPage"), "InventoryPage");
+const SuppliersPage = lazyPage(() => import("./features/suppliers/pages/SuppliersPage"), "SuppliersPage");
+const PurchaseOrdersPage = lazyPage(() => import("./features/purchase_orders/pages/PurchaseOrdersPage"), "PurchaseOrdersPage");
+const AssetsPage = lazyPage(() => import("./features/assets/pages/AssetsPage"), "AssetsPage");
+const CreditsPage = lazyPage(() => import("./features/credits/pages/CreditsPage"), "CreditsPage");
+const AdminCreditsPage = lazyPage(() => import("./features/admin/credits/pages/AdminCreditsPage"), "AdminCreditsPage");
+const DailyYieldsPage = lazyPage(() => import("./features/admin/daily_yields/pages/DailyYieldsPage"), "DailyYieldsPage");
+const TechnicalAssessmentPage = lazyPage(() => import("./features/technical_assessment/pages/TechnicalAssessmentPage"), "TechnicalAssessmentPage");
+const AdminTechnicalEvaluationsPage = lazyPage(() => import("./features/technical_assessment/pages/AdminTechnicalEvaluationsPage"), "AdminTechnicalEvaluationsPage");
 
 
 // Componente para proteger rutas (si no está logueado, lo manda al login)
@@ -116,6 +122,7 @@ function App() {
   // if (isMaintenanceMode) return <MaintenancePage />;
 
   return (
+    <React.Suspense fallback={<PageLoader />}>
     <Routes>
       <Route element={<GuestRoute><LandingLayout /></GuestRoute>}>
         <Route path="/" element={<LandingHome />} />
@@ -217,6 +224,7 @@ function App() {
       {/* Redirección por defecto si la ruta no existe */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </React.Suspense>
   );
 }
 
