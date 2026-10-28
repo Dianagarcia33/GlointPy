@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import uuid
@@ -782,12 +783,25 @@ class CRMEmailService:
             except Exception:
                 return str(header_val).strip()
 
+        def split_fetch_response(msg_data):
+            """Separa una respuesta FETCH en (texto de metadatos con FLAGS, bytes del contenido)."""
+            meta_parts, literal = [], None
+            for part in msg_data or []:
+                if isinstance(part, tuple):
+                    meta_parts.append(part[0])
+                    literal = part[1]
+                elif isinstance(part, bytes):
+                    meta_parts.append(part)
+            return b" ".join(meta_parts).decode("utf-8", errors="ignore"), literal
+
+        # imaplib es bloqueante: cada llamada de red se ejecuta en un hilo aparte
+        # para no congelar el event loop (y con él toda la API) mientras habla con cPanel.
         synced_count = 0
         try:
             # Conexión SSL segura a cPanel
-            mail = imaplib.IMAP4_SSL(host, port)
-            mail.login(username, password)
-            mail.select("INBOX")
+            mail = await asyncio.to_thread(imaplib.IMAP4_SSL, host, port, timeout=30)
+            await asyncio.to_thread(mail.login, username, password)
+            await asyncio.to_thread(mail.select, "INBOX")
 
             # Si el inicio de sesión fue exitoso y se envió una contraseña para guardar
             if imap_pass and save_password and user.imap_password != imap_pass:
@@ -796,9 +810,9 @@ class CRMEmailService:
                 await db.commit()
 
             # Buscar correos en la bandeja de entrada
-            status, messages = mail.search(None, "ALL")
+            status, messages = await asyncio.to_thread(mail.search, None, "ALL")
             if status != "OK" or not messages or not messages[0]:
-                mail.logout()
+                await asyncio.to_thread(mail.logout)
                 return {
                     "synced_count": 0,
                     "message": "Bandeja vacía.",
@@ -819,7 +833,10 @@ class CRMEmailService:
 
             for e_id in reversed(recent_ids):
                 try:
-                    res, msg_data = mail.fetch(str(e_id), "(RFC822 FLAGS)")
+                    # Primero solo cabeceras y banderas (unos pocos KB): la mayoría de los correos
+                    # ya están importados y no hace falta descargarlos completos con sus adjuntos.
+                    # BODY.PEEK no marca el correo como leído en cPanel.
+                    res, msg_data = await asyncio.to_thread(mail.fetch, str(e_id), "(FLAGS BODY.PEEK[HEADER])")
                     if res != "OK" or not msg_data:
                         continue
 
@@ -828,7 +845,7 @@ class CRMEmailService:
                             continue
 
                         # Detectar si el correo fue leído en cPanel (bandera \Seen)
-                        flags_str = response_part[0].decode("utf-8", errors="ignore") if isinstance(response_part[0], bytes) else str(response_part[0])
+                        flags_str, _ = split_fetch_response(msg_data)
                         is_seen_in_cpanel = "\\seen" in flags_str.lower()
 
                         msg = email.message_from_bytes(response_part[1])
@@ -900,6 +917,15 @@ class CRMEmailService:
                                 db.add(matched_record)
                                 await db.commit()
                             continue
+
+                        # No coincidió por metadatos: ahora sí descargar el correo completo
+                        res_full, full_data = await asyncio.to_thread(mail.fetch, str(e_id), "(BODY.PEEK[])")
+                        if res_full != "OK":
+                            continue
+                        _, full_bytes = split_fetch_response(full_data)
+                        if not full_bytes:
+                            continue
+                        msg = email.message_from_bytes(full_bytes)
 
                         # 2. Extraer cuerpo y almacenar adjuntos en MEMORIA temporalmente (nunca en disco antes de verificar)
                         body_html = ""
@@ -1156,7 +1182,7 @@ class CRMEmailService:
                     await db.rollback()
                     continue
 
-            mail.logout()
+            await asyncio.to_thread(mail.logout)
         except Exception as e:
             print(f"Error al sincronizar IMAP cPanel: {e}")
             is_auth_err = "AUTHENTICATIONFAILED" in str(e).upper() or "LOGIN FAILED" in str(e).upper()
