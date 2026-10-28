@@ -27,13 +27,14 @@ export const SystemEventModal: React.FC<SystemEventModalProps> = ({ event, onClo
     if (event) {
       setFormData({
         type: event.type,
-        is_recurring: event.is_recurring,
+        // La API devuelve booleanos y los selects trabajan con 1/0 (H-134)
+        is_recurring: event.is_recurring ? 1 : 0,
         recurrence_start_day: event.recurrence_start_day,
         recurrence_end_day: event.recurrence_end_day,
         start_date: event.start_date ? event.start_date.slice(0, 16) : null, // format for input type="datetime-local"
         end_date: event.end_date ? event.end_date.slice(0, 16) : null,
         description: event.description || '',
-        is_active: event.is_active
+        is_active: event.is_active ? 1 : 0
       });
     }
   }, [event]);

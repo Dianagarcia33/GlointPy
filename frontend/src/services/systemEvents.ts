@@ -3,13 +3,13 @@ import { fetchApi } from './api';
 export interface SystemEvent {
   id: number;
   type: string;
-  is_recurring: number;
+  is_recurring: boolean | number; // la API devuelve booleano
   recurrence_start_day: number | null;
   recurrence_end_day: number | null;
   start_date: string | null;
   end_date: string | null;
   description: string | null;
-  is_active: number;
+  is_active: boolean | number; // la API devuelve booleano
   created_at: string | null;
   updated_at: string | null;
 }
