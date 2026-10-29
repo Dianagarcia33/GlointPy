@@ -1,3 +1,4 @@
+import { CookieConsent } from "./components/cookies/CookieConsent";
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LandingLayout } from "./features/landing_v2/components/LandingLayout";
@@ -116,6 +117,7 @@ function App() {
   // if (isMaintenanceMode) return <MaintenancePage />;
 
   return (
+    <>
     <Routes>
       <Route element={<GuestRoute><LandingLayout /></GuestRoute>}>
         <Route path="/" element={<LandingHome />} />
@@ -217,6 +219,8 @@ function App() {
       {/* Redirección por defecto si la ruta no existe */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <CookieConsent />
+    </>
   );
 }
 

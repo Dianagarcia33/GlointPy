@@ -1,3 +1,4 @@
+import { preferenceStorage } from '../../../utils/cookieConsent';
 import React, { useState, useEffect, useRef } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { usePermissions } from '../../../hooks/usePermissions';
@@ -62,13 +63,13 @@ export const ChatPage: React.FC = () => {
         if (!isNaN(roomId) && data.some((r) => Number(r.id) === Number(roomId))) {
           selectedRoomIdRef.current = roomId;
           setSelectedRoomId(roomId);
-          localStorage.setItem('gloint_active_chat_room_id', String(roomId));
+          preferenceStorage.setItem('gloint_active_chat_room_id', String(roomId));
           return;
         }
       }
 
       // Prioridad 2: Última sala guardada en localStorage
-      const savedRoomIdStr = localStorage.getItem('gloint_active_chat_room_id');
+      const savedRoomIdStr = preferenceStorage.getItem('gloint_active_chat_room_id');
       if (savedRoomIdStr) {
         const savedRoomId = parseInt(savedRoomIdStr, 10);
         if (!isNaN(savedRoomId) && data.some((r) => Number(r.id) === Number(savedRoomId))) {
@@ -82,7 +83,7 @@ export const ChatPage: React.FC = () => {
       if (data.length > 0 && !selectedRoomIdRef.current) {
         selectedRoomIdRef.current = data[0].id;
         setSelectedRoomId(data[0].id);
-        localStorage.setItem('gloint_active_chat_room_id', String(data[0].id));
+        preferenceStorage.setItem('gloint_active_chat_room_id', String(data[0].id));
       }
     } catch (err) {
       console.error('Error al cargar salas de chat:', err);
@@ -94,7 +95,7 @@ export const ChatPage: React.FC = () => {
   const handleSelectRoom = (roomId: number) => {
     selectedRoomIdRef.current = roomId;
     setSelectedRoomId(roomId);
-    localStorage.setItem('gloint_active_chat_room_id', String(roomId));
+    preferenceStorage.setItem('gloint_active_chat_room_id', String(roomId));
 
     // Mantener la URL sincronizada con el ID del chat actual sin recargar la página
     const url = new URL(window.location.href);
@@ -193,7 +194,7 @@ export const ChatPage: React.FC = () => {
           onBack={() => {
             selectedRoomIdRef.current = null;
             setSelectedRoomId(null);
-            localStorage.removeItem('gloint_active_chat_room_id');
+            preferenceStorage.removeItem('gloint_active_chat_room_id');
             const url = new URL(window.location.href);
             url.searchParams.delete('room');
             window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));

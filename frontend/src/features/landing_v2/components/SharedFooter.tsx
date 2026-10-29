@@ -1,3 +1,4 @@
+import { useCookieConsentStore } from "../../../store/cookieConsentStore";
 import { useNavigate } from "react-router-dom";
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -73,6 +74,9 @@ export function SharedFooter() {
               {([["Política de privacidad", "privacidad"], ["Términos y condiciones", "terminos"], ["Aviso legal", "legal"]] as [string, string][]).map(([l, p]) => (
                 <li key={l}><button onClick={() => { navigate(p === 'home' ? '/' : `/${p}`); window.scrollTo({ top: 0 }); }} className="text-slate-500 text-sm hover:text-white transition-colors text-left">{l}</button></li>
               ))}
+              <li>
+                <button type="button" onClick={() => useCookieConsentStore.getState().openPreferences()} className="text-slate-500 text-sm hover:text-white transition-colors text-left">Configurar cookies</button>
+              </li>
             </ul>
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-slate-500 text-xs">

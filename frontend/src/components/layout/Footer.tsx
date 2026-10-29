@@ -1,3 +1,4 @@
+import { useCookieConsentStore } from '../../store/cookieConsentStore';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Clock, Mail } from 'lucide-react';
@@ -52,6 +53,7 @@ export const Footer: React.FC = () => {
               <ul className="space-y-4">
                 <li><Link to="/terminos" className="text-sm text-slate-400 hover:text-white transition-colors">Términos y Condiciones</Link></li>
                 <li><Link to="/privacidad" className="text-sm text-slate-400 hover:text-white transition-colors">Política de Privacidad</Link></li>
+                <li><button type="button" onClick={() => useCookieConsentStore.getState().openPreferences()} className="text-sm text-slate-400 hover:text-white transition-colors">Configurar cookies</button></li>
                 <li><Link to="/legal" className="text-sm text-slate-400 hover:text-white transition-colors">Aviso Legal</Link></li>
               </ul>
             </div>
