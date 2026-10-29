@@ -217,10 +217,13 @@ class PushNotificationService:
                 )
             )
             target_users = users_res.scalars().all()
-        else: # "all"
-            target_audience = "all"
+        elif target_audience == "all":
             users_res = await db.execute(select(User).where(User.is_active == True))
             target_users = users_res.scalars().all()
+        else:
+            # H-208: un alcance que no se pueda resolver nunca cae en "todos los usuarios"
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail="El alcance de la notificación no es válido: indica 'all', un rol o usuarios específicos.")
 
         recipients_count = len(target_users)
         if recipients_count == 0:

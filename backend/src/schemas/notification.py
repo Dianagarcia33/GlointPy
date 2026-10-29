@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, model_validator
-from typing import Optional, Dict, Any
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Optional, Dict, Any, Literal
 from datetime import datetime
 
 class DeviceTokenRegisterRequest(BaseModel):
@@ -69,14 +69,34 @@ class UserNotificationListResponse(BaseModel):
     unread_count: int
 
 class AdminBroadcastNotificationRequest(BaseModel):
-    title: str = Field(..., description="Título del comunicado o actualización")
-    message: str = Field(..., description="Contenido de la notificación")
+    # H-208: campos desconocidos (p. ej. 'target_type') se rechazan; antes se ignoraban y el envío caía en "todos"
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(..., min_length=1, description="Título del comunicado o actualización")
+    message: str = Field(..., min_length=1, description="Contenido de la notificación")
     type: str = Field("sistema", description="'sistema', 'anuncio', 'mantenimiento', 'alerta'")
-    target_audience: str = Field("all", description="'all', 'role', 'specific_users'")
+    # Sin valor por defecto: enviar a todos debe pedirse de forma explícita con 'all'
+    target_audience: Literal["all", "role", "specific_users"] = Field(..., description="'all', 'role', 'specific_users'")
     target_role_id: Optional[int] = Field(None, description="ID del rol si target_audience es 'role'")
     target_user_ids: Optional[list[int]] = Field(None, description="Lista de IDs de usuarios si target_audience es 'specific_users'")
     link: Optional[str] = Field(None, description="Enlace interno o externo opcional")
     send_push: bool = Field(True, description="Enviar también alerta Push via Firebase")
+
+    @model_validator(mode="after")
+    def check_scope(self):
+        if self.target_audience == "role":
+            if not self.target_role_id:
+                raise ValueError("Indica el rol destinatario (target_role_id) para enviar a un rol.")
+            if self.target_user_ids:
+                raise ValueError("Un envío por rol no admite una lista de usuarios.")
+        elif self.target_audience == "specific_users":
+            if not self.target_user_ids:
+                raise ValueError("Indica al menos un usuario (target_user_ids) para enviar a usuarios específicos.")
+            if self.target_role_id:
+                raise ValueError("Un envío a usuarios específicos no admite un rol.")
+        elif self.target_role_id or self.target_user_ids:
+            raise ValueError("Un envío a todos los usuarios no admite rol ni lista de usuarios.")
+        return self
 
 class AdminBroadcastLogResponse(BaseModel):
     id: int
