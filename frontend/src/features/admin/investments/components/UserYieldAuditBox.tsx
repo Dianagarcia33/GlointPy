@@ -75,13 +75,14 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
     if (!editingAccId || !newAccDate) return;
     setIsUpdatingDate(true);
     try {
-      await auditService.updateAccelerationDate(editingAccId, newAccDate);
+      await auditService.updateAccelerationDate(editingAccId, `${newAccDate}T12:00:00`);
       setEditingAccId(null);
       setNewAccDate('');
       // Recalculate yields automatically
       await handleCalculate();
     } catch (err: any) {
-      alert(err.message || 'Error al actualizar la fecha del bono');
+      setError(err.message || 'Error al actualizar la fecha del bono');
+      setEditingAccId(null);
     } finally {
       setIsUpdatingDate(false);
     }
@@ -181,6 +182,27 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
                       )}
                     </div>
                   </div>
+                  {(invYield.accelerations || []).length > 0 && (
+                    <div className="mb-2 space-y-1">
+                      {(invYield.accelerations || []).map((acc) => (
+                        <div key={acc.id} className="flex items-center justify-between gap-2 text-xs bg-emerald-50/60 border border-emerald-100 rounded p-2">
+                          <span className="text-slate-600">
+                            Bono #{acc.id}: <strong>{Number(acc.bonus_amount).toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 })}</strong>
+                            {' '}· {acc.applied ? 'aplicado' : 'sin aplicar'}
+                            {acc.created_at && <> · fecha {new Date(acc.created_at + 'T12:00:00').toLocaleDateString('es-CO')}</>}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => { setEditingAccId(acc.id); setNewAccDate(acc.created_at || ''); }}
+                            className="flex items-center gap-1 px-2 py-1 text-brand-700 hover:bg-brand-50 border border-brand-200 rounded-lg font-semibold cursor-pointer"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            Cambiar fecha
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="space-y-1">
                     {invYield.segments.map((seg, sIdx) => (
                       <div key={sIdx} className="flex justify-between items-center text-xs text-slate-600 bg-slate-50 p-2 rounded">
@@ -251,6 +273,9 @@ export const UserYieldAuditBox: React.FC<UserYieldAuditBoxProps> = ({
             </div>
             <div className="space-y-2">
               <label className="text-xs font-medium text-slate-600">Nueva Fecha del Bono</label>
+              <p className="text-[11px] text-slate-500">
+                El bono solo se paga en el ciclo que contenga su fecha. Al guardar se recalcula el ciclo; revisa que este bono no se haya pagado ya en otro ciclo.
+              </p>
               <input
                 type="date"
                 value={newAccDate}

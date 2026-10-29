@@ -16,6 +16,12 @@ class YieldSegment(BaseModel):
     segment_yield: Decimal
     note: str
 
+class AccelerationInfo(BaseModel):
+    id: int
+    bonus_amount: Decimal = Decimal("0.00")
+    applied: bool = False
+    created_at: Optional[date] = None
+
 class YieldCalculationResult(BaseModel):
     investment_id: int
     assigned_code: Optional[str] = None
@@ -28,6 +34,8 @@ class YieldCalculationResult(BaseModel):
     total_days: int
     total_yield: Decimal
     acceleration_bonus: Decimal = Decimal("0.00")
+    # H-212: bonos del contrato (aplicados o no) para poder corregir su fecha desde la auditoría
+    accelerations: List[AccelerationInfo] = []
     segments: List[YieldSegment]
 
     

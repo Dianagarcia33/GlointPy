@@ -28,6 +28,7 @@ export interface YieldCalculationResult {
   total_days: number;
   total_yield: number;
   acceleration_bonus?: number;
+  accelerations?: { id: number; bonus_amount: number; applied: boolean; created_at: string | null }[];
   segments: YieldSegment[];
 }
 

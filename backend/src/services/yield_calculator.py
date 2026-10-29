@@ -3,7 +3,7 @@ from typing import List, Tuple
 from decimal import Decimal
 from src.models.investor import Investor
 from src.models.withdrawal import WithdrawalType, WithdrawalStatus
-from src.schemas.yield_calc import YieldCalculationResult, YieldSegment
+from src.schemas.yield_calc import YieldCalculationResult, YieldSegment, AccelerationInfo
 from src.services.contract_terms import contract_days, last_day_fraction
 import math
 
@@ -193,6 +193,15 @@ def calculate_investment_yield(
         total_days=total_days,
         total_yield=total_yield,
         acceleration_bonus=acceleration_bonus,
+        accelerations=[
+            AccelerationInfo(
+                id=acc.id,
+                bonus_amount=Decimal(str(acc.bonus_amount or 0)),
+                applied=bool(acc.applied),
+                created_at=acc.created_at.date() if isinstance(acc.created_at, datetime) else acc.created_at,
+            )
+            for acc in (getattr(investment, 'accelerations', None) or [])
+        ],
         segments=segments
     )
 
