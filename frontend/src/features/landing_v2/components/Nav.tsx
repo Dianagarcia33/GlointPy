@@ -59,20 +59,13 @@ export function Nav() {
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <button
-          onClick={() => go("home")}
-          className="text-2xl font-black tracking-widest select-none"
-          style={{
-            background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          GLOINT
+        <button onClick={() => go("home")} aria-label="GLOINT Group, ir al inicio" className="flex items-center select-none">
+          <img src="/logos/brand/wordmark.png" alt="GLOINT Group" className="hidden sm:block h-11 w-auto" />
+          <img src="/logos/brand/g.png" alt="GLOINT" className="sm:hidden h-10 w-auto" />
         </button>
 
         {/* Desktop links */}
-        <ul className="hidden md:flex items-center gap-8">
+        <ul className="hidden lg:flex items-center gap-8">
           {/* Inicio */}
           <li>
             <button
@@ -172,7 +165,7 @@ export function Nav() {
         </ul>
 
         {/* CTA */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-3">
           <button 
             onClick={() => navigate('/login')}
             className="px-4 py-2 rounded-lg text-sm font-medium" style={{ color: "#cbd5e1" }}>
@@ -181,21 +174,21 @@ export function Nav() {
           <button
             onClick={() => navigate('/onboarding')}
             className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-all"
-            style={{ background: ORANGE, color: "#fff" }}
+            style={{ background: ORANGE, color: "#140e02" }}
           >
             Crear Cuenta
           </button>
         </div>
 
         {/* Mobile toggle */}
-        <button className="md:hidden text-white" onClick={() => setOpen(!open)}>
+        <button className="lg:hidden text-white" onClick={() => setOpen(!open)}>
           {open ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {/* Mobile menu */}
       {open && (
-        <div style={{ background: DARK2 }} className="md:hidden px-6 pb-6 pt-2 flex flex-col gap-1">
+        <div style={{ background: DARK2 }} className="lg:hidden px-6 pb-6 pt-2 flex flex-col gap-1">
           {(["home", "about"]).map((id) => (
             <button key={id} onClick={() => go(id)} className="text-white text-sm font-medium py-2 text-left capitalize">
               {id === "home" ? "Inicio" : "Nosotros"}
@@ -205,7 +198,7 @@ export function Nav() {
           <button
             onClick={() => setMobileServices(!mobileServices)}
             className="flex items-center justify-between text-white text-sm font-medium py-2"
-            style={{ color: serviceActive ? ORANGE : "#fff" }}
+            style={{ color: serviceActive ? ORANGE : "#f5f3ee" }}
           >
             Servicios
             <ChevronRight size={14} style={{ transform: mobileServices ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
@@ -228,7 +221,7 @@ export function Nav() {
           <button onClick={() => navigate('/login')} className="mt-3 px-4 py-2 rounded-lg text-sm font-semibold w-full border" style={{ borderColor: "rgba(255,255,255,0.2)", color: "#fff" }}>
             Iniciar sesión
           </button>
-          <button onClick={() => navigate('/onboarding')} className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: ORANGE, color: "#fff" }}>
+          <button onClick={() => navigate('/onboarding')} className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold w-full" style={{ background: ORANGE, color: "#140e02" }}>
             Crear Cuenta
           </button>
         </div>

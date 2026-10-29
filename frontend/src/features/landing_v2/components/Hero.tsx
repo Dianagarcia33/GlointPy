@@ -188,6 +188,9 @@ export function Hero() {
         transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
       />
 
+      {/* Marca de agua con la G del logo */}
+      <img src="/logos/brand/g.png" alt="" aria-hidden="true" className="absolute right-[-8%] top-1/2 -translate-y-1/2 w-[620px] max-w-none opacity-[0.07] pointer-events-none select-none hidden md:block" />
+
       <div className="relative z-10 max-w-4xl mx-auto px-6 text-center pt-24 pb-16">
 
         {/* Badge */}
@@ -216,8 +219,8 @@ export function Hero() {
           </motion.span>
           ,{" "}
           <motion.span
-            style={{ color: ORANGE }}
-            animate={{ textShadow: [`0 0 0px ${ORANGE}`, `0 0 18px ${ORANGE}88`, `0 0 0px ${ORANGE}`] }}
+            style={{ color: "#D9DCE1" }}
+            animate={{ textShadow: ["0 0 0px #D9DCE1", "0 0 18px #D9DCE166", "0 0 0px #D9DCE1"] }}
             transition={{ duration: 3, repeat: Infinity, delay: 1, ease: "easeInOut" }}
           >
             comercio digital
@@ -248,8 +251,8 @@ export function Hero() {
           <motion.button
             whileHover={{ scale: 1.03, y: -2 }}
             whileTap={{ scale: 0.98 }}
-            className="px-8 py-4 rounded-xl font-bold text-white text-base font-montserrat tracking-tight shadow-xl shadow-brand-500/25 border border-white/20 relative overflow-hidden group cursor-pointer"
-            style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})` }}
+            className="px-8 py-4 rounded-xl font-bold text-base font-montserrat tracking-tight border border-white/20 relative overflow-hidden group cursor-pointer"
+            style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`, color: "#140e02", boxShadow: "0 10px 30px rgba(212,165,55,0.25)" }}
             onClick={() => {
               const element = document.getElementById("unidades");
               if (element) element.scrollIntoView({ behavior: "smooth" });

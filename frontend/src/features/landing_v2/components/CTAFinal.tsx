@@ -45,8 +45,8 @@ export function CTAFinal() {
           <motion.button
             whileHover={{ scale: 1.03, y: -2 }}
             whileTap={{ scale: 0.98 }}
-            className="px-8 py-4 rounded-xl font-bold text-white text-base font-montserrat tracking-tight shadow-xl shadow-brand-500/25 border border-white/20 relative overflow-hidden group cursor-pointer"
-            style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})` }}
+            className="px-8 py-4 rounded-xl font-bold text-base font-montserrat tracking-tight border border-white/20 relative overflow-hidden group cursor-pointer"
+            style={{ background: `linear-gradient(90deg, ${GOLD}, ${ORANGE})`, color: "#140e02", boxShadow: "0 10px 30px rgba(212,165,55,0.25)" }}
             onClick={() => window.open(CONTACT_INFO.whatsappLink, "_blank")}
           >
             <span className="relative z-10">Hablar con un asesor</span>

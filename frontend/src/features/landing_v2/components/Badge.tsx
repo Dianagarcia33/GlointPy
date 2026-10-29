@@ -19,7 +19,7 @@ export function Badge({ text, gold }: { text: string; gold?: boolean }) {
       style={{
         borderColor: `${color}40`,
         color: color,
-        background: gold ? "rgba(197,155,78,0.08)" : "rgba(249,115,22,0.08)",
+        background: gold ? "rgba(197,155,78,0.08)" : "rgba(184,134,27,0.12)",
         boxShadow: `0 2px 10px ${color}15`,
       }}
     >
