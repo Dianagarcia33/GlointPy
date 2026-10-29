@@ -9,6 +9,7 @@ interface ConversationListProps {
   selectedRoomId: number | null;
   onSelectRoom: (roomId: number) => void;
   onStartNewChat: () => void;
+  canStartNewChat?: boolean;
   currentUserId?: number;
 }
 
@@ -16,7 +17,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   rooms,
   selectedRoomId,
   onSelectRoom,
-  onStartNewChat
+  onStartNewChat,
+  canStartNewChat = true
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -34,13 +36,20 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         </div>
         <button
           onClick={onStartNewChat}
-          className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold shadow-sm shadow-brand-500/20 active:scale-95"
-          title="Iniciar nuevo chat o grupo"
+          disabled={!canStartNewChat}
+          className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white rounded-xl transition-all flex items-center gap-1.5 text-xs font-semibold shadow-sm shadow-brand-500/20 active:scale-95"
+          title={canStartNewChat ? 'Iniciar nuevo chat o grupo' : 'Tu rol solo permite leer conversaciones'}
         >
           <UserPlus className="w-4 h-4" />
           <span>Nuevo</span>
         </button>
       </div>
+
+      {!canStartNewChat && (
+        <p className="px-4 py-2 text-[11px] text-slate-500 bg-slate-100/70 border-b border-slate-200/60">
+          Tu rol solo permite leer conversaciones; no puedes iniciar chats ni enviar mensajes.
+        </p>
+      )}
 
       {/* Buscador */}
       <div className="p-3 bg-white/50 border-b border-slate-200/60">
