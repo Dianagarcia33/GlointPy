@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Nav } from './Nav';
-import { HomeFooter } from './home/HomeSections';
+import { Footer } from './Footer';
 import { WhatsAppButton } from './WhatsAppButton';
 import { InvestmentChatbot } from './InvestmentChatbot';
 import { EventCountdownModal } from './EventCountdownModal';
@@ -11,7 +11,7 @@ export function LandingLayout() {
   const location = useLocation();
 
   return (
-    <div className={location.pathname === '/' ? 'gl-home' : undefined} style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ fontFamily: "'Inter', sans-serif" }}>
       <Nav />
       <AnimatePresence mode="wait">
         <motion.div
@@ -25,7 +25,7 @@ export function LandingLayout() {
         </motion.div>
       </AnimatePresence>
       {/* We only render Footer on Home page, because other pages have SharedFooter or NosotrosFooter */}
-      {location.pathname === '/' && <HomeFooter />}
+      {location.pathname === '/' && <Footer />}
       
       {/* Global Floating WhatsApp Button */}
       <WhatsAppButton />

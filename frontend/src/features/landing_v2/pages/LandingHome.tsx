@@ -1,6 +1,15 @@
 import React from 'react';
+import { Hero } from '../components/Hero';
+import { QuienesSomos } from '../components/QuienesSomos';
+import { Unidades } from '../components/Unidades';
+import { InvestmentSection } from '../components/InvestmentSection';
+import { PlaceSection } from '../components/PlaceSection';
+import { TechSection } from '../components/TechSection';
 import { EventRegistrationSection } from '../components/EventRegistrationSection';
-import { HomeHero, HomeAbout, HomeHow, HomePlans, HomeCompliance, HomeUnits, HomeFAQ, HomeContact } from '../components/home/HomeSections';
+import { WhyGloint } from '../components/WhyGloint';
+import { Stats } from '../components/Stats';
+import { Aliados } from '../components/Aliados';
+import { CTAFinal } from '../components/CTAFinal';
 
 export function LandingHome() {
   React.useEffect(() => {
@@ -18,15 +27,17 @@ export function LandingHome() {
 
   return (
     <>
-      <HomeHero />
-      <HomeAbout />
-      <HomeHow />
-      <HomePlans />
-      <HomeCompliance />
-      <HomeUnits />
+      <Hero />
+      <QuienesSomos />
+      <Unidades />
+      <InvestmentSection />
+      <PlaceSection />
+      <TechSection />
       <EventRegistrationSection />
-      <HomeFAQ />
-      <HomeContact />
+      <WhyGloint />
+      <Stats />
+      <Aliados />
+      <CTAFinal />
     </>
   );
 }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Montserrat:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -204,44 +204,3 @@ input::-ms-clear {
   }
 }
 
-
-/* Página pública GLOINT: tokens de DESIGN.md */
-.gl-home {
-  --g-bg: #f7f4ec;
-  --g-surface: #ffffff;
-  --g-surface-2: #efeadd;
-  --g-ink: #0b1220;
-  --g-ink-2: #121a2b;
-  --g-text-muted: #4b5563;
-  --g-border: rgba(11, 18, 32, 0.14);
-  --g-gold-text: #7a5a12;
-  --g-gold-line: #c9a24a;
-  --g-gold: #d4a537;
-  --g-gold-light: #f3d27a;
-  --g-d-text: #f5f3ee;
-  --g-d-muted: #a8a49a;
-  --g-warn-bg: #fff4d6;
-  --g-warn-text: #6b4a00;
-  background: var(--g-bg);
-  color: var(--g-ink);
-  font-variant-numeric: tabular-nums;
-}
-.gl-home .gl-serif { font-family: 'Fraunces', Georgia, serif; font-weight: 400; letter-spacing: -0.02em; }
-.gl-eyebrow { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--g-gold-text); }
-.gl-on-ink .gl-eyebrow { color: var(--g-gold); }
-.gl-btn-primary { background: var(--g-ink); color: #f7f4ec; border: 1px solid var(--g-ink); transition: border-color 0.2s, box-shadow 0.2s; }
-.gl-btn-primary:hover { border-color: var(--g-gold-line); box-shadow: inset 0 0 0 1px var(--g-gold-line); }
-.gl-btn-secondary { border: 1px solid var(--g-ink); color: var(--g-ink); transition: background 0.2s; }
-.gl-btn-secondary:hover { background: rgba(11, 18, 32, 0.06); }
-.gl-on-ink .gl-btn-primary { background: var(--g-gold-light); color: var(--g-ink); border-color: var(--g-gold-light); }
-.gl-on-ink .gl-btn-secondary { border-color: rgba(245, 243, 238, 0.5); color: var(--g-d-text); }
-.gl-on-ink .gl-btn-secondary:hover { background: rgba(245, 243, 238, 0.08); }
-.gl-home a:focus-visible, .gl-home button:focus-visible, .gl-home summary:focus-visible {
-  outline: 2px solid var(--g-gold-text); outline-offset: 3px; border-radius: 6px;
-}
-.gl-on-ink a:focus-visible, .gl-on-ink button:focus-visible { outline-color: var(--g-gold-light); }
-.gl-hairline { height: 1px; background: linear-gradient(90deg, transparent, var(--g-gold-line), transparent); }
-.gl-faq summary { list-style: none; cursor: pointer; }
-.gl-faq summary::-webkit-details-marker { display: none; }
-.gl-faq details[open] .gl-faq-icon { transform: rotate(45deg); }
-@media (prefers-reduced-motion: reduce) { .gl-home * { animation: none !important; transition: none !important; } }
