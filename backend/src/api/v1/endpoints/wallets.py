@@ -54,6 +54,11 @@ class WalletWithdrawRequest(BaseModel):
 class SendCodeRequest(BaseModel):
     monto: float = Field(..., ge=5000, description="Monto mínimo de retiro: 5.000 COP")
 
+def _can_view_balance(user) -> bool:
+    from src.core.pbac import PBACEngine
+    return PBACEngine.has_permission(user, "wallets:view_balance")
+
+
 @router.get("/me/balance")
 @router.get("/balance")
 async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -85,10 +90,14 @@ async def get_my_balance(current_user = Depends(get_current_user), db: AsyncSess
     bank_details = bank_accounts_list[0] if bank_accounts_list else None
     can_withdraw, withdrawal_msg = await check_withdrawal_dates_active(db)
 
+    # H-210: sin wallets:view_balance el saldo no sale de la API (antes solo se ocultaba en pantalla)
+    balance_visible = _can_view_balance(current_user)
+
     return {
         # H-197: el resto de pantallas siguen recibiendo balance 0; el navbar usa has_wallet para ocultar el widget
         "has_wallet": wallet is not None,
-        "balance": wallet.balance if wallet else 0,
+        "balance_visible": balance_visible,
+        "balance": (wallet.balance if wallet else 0) if balance_visible else None,
         "currency": wallet.currency if wallet else "COP",
         "bank_details": bank_details,
         "bank_accounts": bank_accounts_list,
@@ -585,6 +594,7 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             dispersions_by_wid.setdefault(d.withdrawal_id, []).append(d)
 
     from datetime import datetime
+    balance_visible = _can_view_balance(current_user)
     response = []
     # Retiros ya enlazados por referencia explícita: el emparejamiento por monto no los reutiliza
     claimed_withdrawal_ids = {
@@ -713,8 +723,8 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
             "fecha_procesamiento": fecha_procesamiento_val,
             "created_at": t.created_at.isoformat() if t.created_at else None,
             "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-            "saldo_anterior": saldo_anterior_val,
-            "saldo_nuevo": float(t.balance_after) if t.balance_after is not None else None,
+            "saldo_anterior": saldo_anterior_val if balance_visible else None,
+            "saldo_nuevo": (float(t.balance_after) if t.balance_after is not None else None) if balance_visible else None,
             "can_cancel": can_cancel_val,
             "has_yoint_dispersion": has_yoint_val,
             "_sort_date": t.created_at

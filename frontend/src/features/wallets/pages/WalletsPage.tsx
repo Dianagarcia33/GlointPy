@@ -81,6 +81,7 @@ export const WalletsPage: React.FC = () => {
 
     const queryClient = useQueryClient();
     const [balance, setBalance] = useState<number>(0);
+    const [balanceVisible, setBalanceVisible] = useState(true);
     const [bankDetails, setBankDetails] = useState<any>(null);
     const [movements, setMovements] = useState<Movement[]>([]);
     const [withdrawals, setWithdrawals] = useState<Movement[]>([]);
@@ -114,6 +115,7 @@ export const WalletsPage: React.FC = () => {
                 getMyRecharges()
             ]);
             setBalance(balanceRes?.balance || 0);
+            setBalanceVisible(balanceRes?.balance_visible !== false);
             setBankDetails(balanceRes?.bank_details || null);
             setMovements(movementsRes || []);
             setWithdrawals(withdrawalsRes || []);
@@ -525,8 +527,8 @@ export const WalletsPage: React.FC = () => {
 
                 {/* 📊 2. Cuadrícula de Métricas KPI (4-Stat Cards exactas al Mercado de Acciones) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Card 1: Saldo Disponible */}
-                    <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
+                    {/* Card 1: Saldo Disponible (H-210: solo con wallets:view_balance) */}
+                    {balanceVisible && <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
                         <div className="flex items-center justify-between">
                             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Saldo Disponible</span>
                             <Wallet className="w-4 h-4 text-brand-600" />
@@ -537,7 +539,7 @@ export const WalletsPage: React.FC = () => {
                         <span className="text-[11px] text-slate-500 font-medium block">
                             Fondos libres para transferir o retirar
                         </span>
-                    </div>
+                    </div>}
 
                     {/* Card 2: Total Movimientos */}
                     <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-2">
