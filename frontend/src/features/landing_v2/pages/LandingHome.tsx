@@ -1,6 +1,6 @@
 import React from 'react';
 import { EventRegistrationSection } from '../components/EventRegistrationSection';
-import { HomeHero, HomeUnits, HomeAbout, HomeWhy, HomeAllies, HomeFinalCTA } from '../components/home/HomeSections';
+import { HomeHero, HomeHow, HomePlans, HomeCompliance, HomeUnits, HomeFAQ, HomeContact } from '../components/home/HomeSections';
 
 export function LandingHome() {
   React.useEffect(() => {
@@ -19,12 +19,13 @@ export function LandingHome() {
   return (
     <>
       <HomeHero />
+      <HomeHow />
+      <HomePlans />
+      <HomeCompliance />
       <HomeUnits />
-      <HomeAbout />
-      <HomeWhy />
       <EventRegistrationSection />
-      <HomeAllies />
-      <HomeFinalCTA />
+      <HomeFAQ />
+      <HomeContact />
     </>
   );
 }

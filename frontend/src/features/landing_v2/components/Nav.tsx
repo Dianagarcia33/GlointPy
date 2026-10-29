@@ -52,7 +52,7 @@ export function Nav() {
   };
 
   const serviceActive = ["investment", "place", "tech"].includes(page);
-  const forceDark = ["about", "contact", "onboarding"].includes(page);
+  const forceDark = ["home", "about", "contact", "onboarding"].includes(page);
 
   return (
     <nav

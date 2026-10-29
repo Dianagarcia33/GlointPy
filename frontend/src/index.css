@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Montserrat:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -207,86 +207,42 @@ input::-ms-clear {
 
 /* Página pública GLOINT: tokens de DESIGN.md */
 .gl-home {
-  --g-bg: #050505;
-  --g-surface: #0e0e10;
-  --g-surface-2: #17171a;
-  --g-border: rgba(255, 255, 255, 0.1);
-  --g-text: #f5f3ee;
-  --g-text-muted: #a8a49a;
-  --g-silver: #c9ccd1;
+  --g-bg: #f7f4ec;
+  --g-surface: #ffffff;
+  --g-surface-2: #efeadd;
+  --g-ink: #0b1220;
+  --g-ink-2: #121a2b;
+  --g-text-muted: #4b5563;
+  --g-border: rgba(11, 18, 32, 0.14);
+  --g-gold-text: #7a5a12;
+  --g-gold-line: #c9a24a;
   --g-gold: #d4a537;
   --g-gold-light: #f3d27a;
-  --g-gold-deep: #8f6a1a;
-  --g-on-gold: #140e02;
+  --g-d-text: #f5f3ee;
+  --g-d-muted: #a8a49a;
+  --g-warn-bg: #fff4d6;
+  --g-warn-text: #6b4a00;
   background: var(--g-bg);
-  color: var(--g-text);
+  color: var(--g-ink);
+  font-variant-numeric: tabular-nums;
 }
+.gl-home .gl-serif { font-family: 'Fraunces', Georgia, serif; font-weight: 600; letter-spacing: -0.01em; }
 .gl-home .gl-logo { mix-blend-mode: lighten; }
-.gl-btn-primary {
-  background: linear-gradient(135deg, var(--g-gold-light), var(--g-gold) 55%, var(--g-gold-deep));
-  color: var(--g-on-gold);
-  transition: box-shadow 0.2s, filter 0.2s;
+.gl-eyebrow { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--g-gold-text); }
+.gl-on-ink .gl-eyebrow { color: var(--g-gold); }
+.gl-btn-primary { background: var(--g-ink); color: #f7f4ec; border: 1px solid var(--g-ink); transition: border-color 0.2s, box-shadow 0.2s; }
+.gl-btn-primary:hover { border-color: var(--g-gold-line); box-shadow: inset 0 0 0 1px var(--g-gold-line); }
+.gl-btn-secondary { border: 1px solid var(--g-ink); color: var(--g-ink); transition: background 0.2s; }
+.gl-btn-secondary:hover { background: rgba(11, 18, 32, 0.06); }
+.gl-on-ink .gl-btn-primary { background: var(--g-gold-light); color: var(--g-ink); border-color: var(--g-gold-light); }
+.gl-on-ink .gl-btn-secondary { border-color: rgba(245, 243, 238, 0.5); color: var(--g-d-text); }
+.gl-on-ink .gl-btn-secondary:hover { background: rgba(245, 243, 238, 0.08); }
+.gl-home a:focus-visible, .gl-home button:focus-visible, .gl-home summary:focus-visible {
+  outline: 2px solid var(--g-gold-text); outline-offset: 3px; border-radius: 6px;
 }
-.gl-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 0 32px rgba(212, 165, 55, 0.25); }
-.gl-btn-secondary { border: 1px solid var(--g-gold-deep); color: var(--g-gold-light); transition: background 0.2s, border-color 0.2s; }
-.gl-btn-secondary:hover { background: rgba(212, 165, 55, 0.08); border-color: var(--g-gold); }
-.gl-home a:focus-visible, .gl-home button:focus-visible {
-  outline: 2px solid var(--g-gold-light);
-  outline-offset: 3px;
-  border-radius: 6px;
-}
-.gl-eyebrow {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 12px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase;
-  color: var(--g-gold);
-}
-@media (prefers-reduced-motion: reduce) {
-  .gl-home * { animation: none !important; transition: none !important; }
-}
-
-/* ── Profundidad: capas de luz, rejilla, grano y movimiento ── */
-.gl-grain::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.07; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-}
-.gl-grid {
-  position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    linear-gradient(rgba(212,165,55,0.09) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(212,165,55,0.09) 1px, transparent 1px);
-  background-size: 64px 64px;
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 70% 45%, #000 0%, transparent 75%);
-  mask-image: radial-gradient(ellipse 70% 60% at 70% 45%, #000 0%, transparent 75%);
-}
-.gl-beam {
-  position: absolute; pointer-events: none; border-radius: 50%; filter: blur(40px); opacity: 0.55;
-  background: conic-gradient(from 0deg, transparent 0deg, rgba(243,210,122,0.35) 40deg, transparent 110deg, rgba(212,165,55,0.25) 200deg, transparent 280deg);
-  animation: gl-spin 24s linear infinite;
-}
-.gl-ring { position: absolute; inset: 0; margin: auto; border-radius: 50%; border: 1px solid rgba(212,165,55,0.28); }
-.gl-ring-dash { border-style: dashed; border-color: rgba(201,204,209,0.22); }
-.gl-spin-slow { animation: gl-spin 60s linear infinite; }
-.gl-spin-rev { animation: gl-spin 90s linear infinite reverse; }
-.gl-float { animation: gl-float 7s ease-in-out infinite; }
-.gl-dust { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: var(--g-gold-light); box-shadow: 0 0 10px var(--g-gold); opacity: 0; animation: gl-dust 9s ease-in-out infinite; }
-@keyframes gl-spin { to { transform: rotate(360deg); } }
-@keyframes gl-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
-@keyframes gl-dust { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-120px); } }
-@keyframes gl-marquee { to { transform: translateX(-50%); } }
-.gl-marquee-track { display: flex; width: max-content; animation: gl-marquee 40s linear infinite; }
-.gl-marquee:hover .gl-marquee-track { animation-play-state: paused; }
-.gl-outline { color: transparent; -webkit-text-stroke: 1px rgba(201,204,209,0.35); }
-.gl-hairline { height: 1px; background: linear-gradient(90deg, transparent, var(--g-gold-deep), var(--g-gold-light), var(--g-gold-deep), transparent); opacity: 0.6; }
-
-/* Tarjeta con foco dorado que sigue al cursor */
-.gl-spot { position: relative; overflow: hidden; isolation: isolate; transition: transform 0.35s cubic-bezier(.22,1,.36,1), border-color 0.3s; }
-.gl-spot::before {
-  content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity 0.3s;
-  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(243,210,122,0.16), transparent 60%);
-}
-.gl-spot:hover::before { opacity: 1; }
-.gl-spot:hover { transform: translateY(-4px); border-color: var(--g-gold) !important; }
-.gl-bar { transform-origin: bottom; animation: gl-bar 3.2s ease-in-out infinite alternate; }
-@keyframes gl-bar { from { transform: scaleY(0.55); } to { transform: scaleY(1); } }
-.gl-dash { stroke-dasharray: 6 8; animation: gl-dashmove 1.6s linear infinite; }
-@keyframes gl-dashmove { to { stroke-dashoffset: -28; } }
+.gl-on-ink a:focus-visible, .gl-on-ink button:focus-visible { outline-color: var(--g-gold-light); }
+.gl-hairline { height: 1px; background: linear-gradient(90deg, transparent, var(--g-gold-line), transparent); }
+.gl-faq summary { list-style: none; cursor: pointer; }
+.gl-faq summary::-webkit-details-marker { display: none; }
+.gl-faq details[open] .gl-faq-icon { transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { .gl-home * { animation: none !important; transition: none !important; } }
