@@ -75,3 +75,6 @@ password_recovery_rate_limiter = IPRateLimiter(max_attempts=5, window_seconds=60
 
 # Intentos fallidos de restablecer o forzar el cambio de contraseña (token o código incorrecto)
 password_reset_failure_limiter = IPRateLimiter(max_attempts=10, window_seconds=600, block_seconds=900, action_label="cambio de contraseña")
+
+# Renovación de sesión móvil: fallos de refresco (token inválido, vencido o reutilizado) por IP
+refresh_failure_limiter = IPRateLimiter(max_attempts=20, window_seconds=600, block_seconds=900, action_label="renovación de sesión")

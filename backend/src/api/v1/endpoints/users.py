@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from datetime import timedelta
 from typing import List, Optional
 
 from src.core.database import get_db
@@ -16,6 +17,8 @@ from src.services.user_service import UserService
 from src.services.audit_trail_service import log_audit_trail
 from src.api.deps import RequirePermission, get_current_user, get_auth_payload
 from src.core.security import create_access_token
+from src.core.config import settings
+from src.services.device_session_service import DeviceSessionService
 
 router = APIRouter()
 
@@ -56,10 +59,14 @@ async def change_my_password(
     result = await UserService.change_password(db, current_user.id, pwd_in.current_password, pwd_in.new_password)
 
     # Si es una sesión de supervisión (imp_by), se conserva el vínculo con el tutor
-    carried = {k: auth_payload[k] for k in ("imp_by", "imp_tv") if k in auth_payload}
+    carried = {k: auth_payload[k] for k in ("imp_by", "imp_tv", "sid") if k in auth_payload}
+    # Sesión de la app móvil: el dispositivo que cambió la clave sigue vivo con la versión nueva (los demás caen)
+    session_id = auth_payload.get("sid")
+    await DeviceSessionService.keep_session_alive(db, session_id, current_user.id, result["token_version"])
     access_token = create_access_token(
         subject=current_user.id,
         token_version=result["token_version"],
+        expires_delta=timedelta(minutes=settings.MOBILE_ACCESS_TOKEN_MINUTES) if session_id else None,
         extra_claims=carried or None,
     )
     from src.api.v1.endpoints.auth import set_auth_cookie

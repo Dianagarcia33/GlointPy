@@ -1,18 +1,45 @@
 import re
-from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, Any
+from datetime import datetime
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from typing import Optional, Any, Literal
 
 from src.schemas.user import UserResponse
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    refresh_token: Optional[str] = None
+    refresh_token: Optional[str] = None   # solo en sesiones de la app móvil
+    expires_in: Optional[int] = None      # segundos de vida del access_token (solo app móvil)
+    session_id: Optional[int] = None      # id de la sesión del dispositivo (solo app móvil)
     user: Optional[UserResponse] = None
-    
+
+
+class ClientInfo(BaseModel):
+    """Datos del dispositivo. Si se envían en el login, se abre una sesión móvil con token de refresco."""
+    device_id: str = Field(..., min_length=8, max_length=100)  # identificador estable de la instalación
+    device_name: Optional[str] = Field(None, max_length=150)
+    platform: Optional[Literal["ios", "android"]] = None
+    app_version: Optional[str] = Field(None, max_length=30)
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=10, max_length=300)
+
+
+class DeviceSessionOut(BaseModel):
+    id: int
+    device_name: Optional[str] = None
+    platform: Optional[str] = None
+    app_version: Optional[str] = None
+    created_at: datetime
+    last_used_at: datetime
+    current: bool = False
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    client: Optional[ClientInfo] = None
 
 class RegisterRequest(BaseModel):
     name: str
@@ -114,6 +141,7 @@ class ForceChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
     code: str
+    client: Optional[ClientInfo] = None
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

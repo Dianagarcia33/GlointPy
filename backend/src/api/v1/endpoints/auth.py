@@ -1,14 +1,15 @@
 from src.core.errors import public_error_detail
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from src.core.database import get_db
 from src.core.config import settings
 from src.core.security import create_access_token
 from src.core.session_revocation import revoke_user_sessions, close_live_connections
-from src.core.rate_limiter import password_recovery_rate_limiter, password_reset_failure_limiter
-from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, SendForcePasswordOtpRequest
+from src.core.rate_limiter import IPRateLimiter, password_recovery_rate_limiter, password_reset_failure_limiter, refresh_failure_limiter
+from src.services.device_session_service import DeviceSessionService
+from src.schemas.auth import Token, RefreshRequest, DeviceSessionOut, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, SendForcePasswordOtpRequest
 from src.schemas.user import UserResponse
 from src.services.auth_service import AuthService
 from src.api.deps import get_current_user, get_auth_payload, RequirePermission
@@ -54,6 +55,15 @@ async def login(login_data: LoginRequest, request: Request, response: Response, 
     """
     user = await AuthService.authenticate_user(db, login_data, request=request)
 
+    # App móvil: si envía los datos del dispositivo se abre una sesión con token de refresco (sin cookie).
+    # Quien no los envía (web, app de inversionistas) sigue exactamente igual que antes.
+    if login_data.client:
+        session, refresh_token = await DeviceSessionService.create_session(
+            db, user, login_data.client, ip=IPRateLimiter.get_client_ip(request)
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return DeviceSessionService.token_response(user, session, refresh_token)
+
     # Generar token
     access_token = create_access_token(subject=user.id, token_version=user.token_version)
     set_auth_cookie(response, access_token, request=request)
@@ -71,6 +81,75 @@ async def logout(response: Response) -> Any:
     """
     clear_auth_cookie(response)
     return {"message": "Sesión cerrada correctamente"}
+
+@router.post("/refresh", response_model=Token)
+async def refresh_session(
+    data: RefreshRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    App móvil: renueva la sesión del dispositivo. Recibe el refresh_token y devuelve un access_token nuevo y un
+    refresh_token nuevo (el anterior deja de servir). Cualquier fallo responde 401 genérico: hay que iniciar sesión.
+    Límite: 20 fallos por IP cada 10 minutos (HTTP 429).
+    """
+    refresh_failure_limiter.check_rate_limit(request)
+    try:
+        session, new_refresh, user = await DeviceSessionService.refresh(
+            db, data.refresh_token, ip=IPRateLimiter.get_client_ip(request)
+        )
+    except HTTPException:
+        refresh_failure_limiter.record_failed_attempt(request)
+        raise
+    response.headers["Cache-Control"] = "no-store"
+    return DeviceSessionService.token_response(user, session, new_refresh)
+
+
+@router.post("/session/revoke")
+async def revoke_device_session(data: RefreshRequest, db: AsyncSession = Depends(get_db)) -> Any:
+    """
+    App móvil: cierra la sesión de ESTE dispositivo con su refresh_token (funciona aunque el access_token ya venció).
+    Responde 200 aunque el token no coincida, para no dar pistas.
+    """
+    await DeviceSessionService.revoke_by_refresh_token(db, data.refresh_token)
+    return {"message": "Sesión del dispositivo cerrada."}
+
+
+@router.get("/sessions", response_model=List[DeviceSessionOut])
+async def list_device_sessions(
+    current_user: User = Depends(get_current_user),
+    auth_payload: dict = Depends(get_auth_payload),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Sesiones de dispositivo vigentes del usuario; marca cuál es la actual (la del access_token usado)."""
+    sessions = await DeviceSessionService.list_sessions(db, current_user)
+    current_sid = auth_payload.get("sid")
+    return [
+        {
+            "id": s.id,
+            "device_name": s.device_name,
+            "platform": s.platform,
+            "app_version": s.app_version,
+            "created_at": s.created_at,
+            "last_used_at": s.last_used_at,
+            "current": current_sid is not None and s.id == current_sid,
+        }
+        for s in sessions
+    ]
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_own_device_session(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Cierra una de las sesiones de dispositivo del propio usuario (por ejemplo, un teléfono perdido)."""
+    if not await DeviceSessionService.revoke_user_session(db, current_user, session_id):
+        raise HTTPException(status_code=404, detail="Sesión no encontrada.")
+    return {"message": "Sesión cerrada."}
+
 
 @router.post("/logout-all")
 async def logout_all_sessions(
@@ -146,6 +225,13 @@ async def force_change_password(data: ForceChangePasswordRequest, request: Reque
         password_reset_failure_limiter.record_failed_attempt(request)
         raise
     
+    if data.client:
+        session, refresh_token = await DeviceSessionService.create_session(
+            db, user, data.client, ip=IPRateLimiter.get_client_ip(request)
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return DeviceSessionService.token_response(user, session, refresh_token)
+
     # Generar token
     access_token = create_access_token(subject=user.id, token_version=user.token_version)
     set_auth_cookie(response, access_token, request=request)

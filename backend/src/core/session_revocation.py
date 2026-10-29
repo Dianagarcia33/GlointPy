@@ -15,9 +15,12 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from datetime import datetime
+
 from sqlalchemy import select
 
 from src.models.user import User
+from src.models.user_session import UserSession
 
 
 def _as_int(value: Any) -> Optional[int]:
@@ -37,6 +40,20 @@ async def is_session_current(db, payload: dict, user: User) -> bool:
     token_tv = token_version_of(payload)
     if token_tv is None or token_tv != (_as_int(getattr(user, "token_version", 0)) or 0):
         return False
+
+    # Token de la app móvil: depende además de que la sesión del dispositivo siga vigente
+    sid = payload.get("sid")
+    if sid is not None:
+        session_id = _as_int(sid)
+        if not session_id:
+            return False
+        row = (await db.execute(
+            select(UserSession.user_id, UserSession.revoked_at, UserSession.expires_at).where(UserSession.id == session_id)
+        )).first()
+        if row is None or row.revoked_at is not None or row.user_id != getattr(user, "id", None):
+            return False
+        if row.expires_at is not None and row.expires_at <= datetime.utcnow():
+            return False
 
     imp_by = payload.get("imp_by")
     if imp_by is None:

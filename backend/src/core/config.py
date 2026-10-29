@@ -10,6 +10,13 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "super_secret_key_change_me_in_production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 horas (1 día completo)
+
+    # Sesiones de la app móvil (token de acceso corto + token de refresco por dispositivo)
+    MOBILE_ACCESS_TOKEN_MINUTES: int = 15      # vida del token de acceso de la app
+    REFRESH_IDLE_DAYS: int = 30                # la sesión del dispositivo vence tras estos días sin usarse
+    REFRESH_ABSOLUTE_DAYS: int = 90            # tope absoluto: pasado este plazo hay que iniciar sesión de nuevo
+    REFRESH_REUSE_GRACE_SECONDS: int = 60      # tolerancia al reintento de un refresco cuyo resultado se perdió
+    MAX_DEVICE_SESSIONS: int = 10              # sesiones móviles simultáneas por usuario
     
     # Base de Datos
     DB_HOST: str
