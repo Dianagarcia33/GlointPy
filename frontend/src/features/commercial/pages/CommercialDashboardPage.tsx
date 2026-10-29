@@ -614,7 +614,7 @@ export const CommercialDashboardPage: React.FC = () => {
                                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                                   s.status === 'liquidado' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'
                                 }`}>
-                                  {s.status || 'pendiente'}
+                                  {s.status === 'liquidado' ? 'liquidada' : (s.status || 'pendiente')}
                                 </span>
                               </td>
                               <td className="py-3 px-3 text-center">
