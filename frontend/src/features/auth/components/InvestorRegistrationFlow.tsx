@@ -1,20 +1,25 @@
 import React, { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar } from 'lucide-react';
+import { CheckCircle2, Loader2, Camera, User, FileText, Mail, LockKeyhole, Eye, EyeOff, MapPin, Phone, ShieldCheck, AlertTriangle, AlertCircle, Calendar, Check } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchApi } from '../../../services/api';
 import { commercialService } from '../../../services/commercial';
 import { PasswordStrengthIndicator, isValidPassword } from '../components/PasswordStrengthIndicator';
 import { compressImage } from '../../../utils/imageCompression';
+import { REGISTRATION_STEPS } from './RegistrationSteps';
 
 // Validaciones del registro (H-148)
 const CELULAR_REGEX = /^3\d{9}$/;
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
-export const InvestorRegistrationFlow = () => {
+export const InvestorRegistrationFlow: React.FC<{ onStepChange?: (step: number) => void }> = ({ onStepChange }) => {
     const [step, setStep] = useState(1);
+
+    React.useEffect(() => {
+        onStepChange?.(step);
+    }, [step, onStepChange]);
     
 
     
@@ -390,7 +395,7 @@ export const InvestorRegistrationFlow = () => {
         }, [file]);
 
         return (
-            <label className={`relative flex flex-col items-center justify-center w-full h-44 border-2 border-dashed rounded-2xl cursor-pointer transition-all overflow-hidden group ${
+            <label className={`relative flex flex-col items-center justify-center w-full h-44 border-2 border-dashed rounded-2xl cursor-pointer transition-all overflow-hidden group focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 ${
                 file ? 'border-brand-400 bg-brand-50/20' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 hover:border-brand-400'
             }`}>
                 {preview ? (
@@ -424,7 +429,8 @@ export const InvestorRegistrationFlow = () => {
                 )}
                 <input 
                     type="file" 
-                    className="hidden" 
+                    className="sr-only" 
+                    aria-label={label}
                     accept="image/jpeg,image/png,image/webp" 
                     onChange={(e) => {
                         const selected = e.target.files && e.target.files[0];
@@ -453,42 +459,35 @@ export const InvestorRegistrationFlow = () => {
         );
     };
 
-    const stepsInfo = [
-        { num: 1, label: "Documentos" },
-        { num: 2, label: "Validación" },
-        { num: 3, label: "Datos Personales" },
-        { num: 4, label: "Acceso" }
-    ];
+    const stepsInfo = REGISTRATION_STEPS;
 
     const passwordsMatch = formData.password && confirmPassword ? formData.password === confirmPassword : false;
 
     return (
         <div className="w-full">
             
-            {/* Steps Progress Indicator */}
-            <div className="mb-8 max-w-xl mx-auto">
-                <div className="flex items-center justify-between relative">
-                    <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-200 -translate-y-1/2 z-0"></div>
-                    {stepsInfo.map((s) => (
-                        <div key={s.num} className="flex flex-col items-center z-10 relative bg-white px-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
-                                step === s.num
-                                    ? 'bg-brand-600 text-white ring-4 ring-brand-100'
-                                    : step > s.num
-                                    ? 'bg-emerald-500 text-white'
-                                    : 'bg-slate-200 text-slate-500'
-                            }`}>
-                                {step > s.num ? '✓' : s.num}
-                            </div>
-                            <span className={`text-[10px] font-semibold mt-1 transition-all duration-300 ${
-                                step === s.num ? 'text-brand-600' : 'text-slate-500'
-                            }`}>
-                                {s.label}
-                            </span>
+            {/* Indicador de pasos (en pantallas grandes lo muestra el panel de marca) */}
+            <ol className="mb-8 max-w-xl mx-auto flex items-center justify-between relative lg:hidden" aria-label="Pasos del registro">
+                <div className="absolute left-0 right-0 top-4 h-px bg-slate-200 z-0"></div>
+                {stepsInfo.map((s) => (
+                    <li key={s.num} className="flex flex-col items-center z-10 relative bg-white px-2" aria-current={step === s.num ? 'step' : undefined}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+                            step === s.num
+                                ? 'bg-brand-600 ring-4 ring-brand-100'
+                                : step > s.num
+                                ? 'bg-slate-900 text-[#D4A537]'
+                                : 'bg-slate-200 text-slate-500'
+                        }`}>
+                            {step > s.num ? <Check className="w-4 h-4" aria-hidden="true" /> : s.num}
                         </div>
-                    ))}
-                </div>
-            </div>
+                        <span className={`text-[10px] font-semibold mt-1 transition-all duration-300 ${
+                            step === s.num ? 'text-brand-600' : 'text-slate-500'
+                        }`}>
+                            {s.label}
+                        </span>
+                    </li>
+                ))}
+            </ol>
 
             <div className="max-w-xl mx-auto text-left">
                 {/* Step 1: Upload Documents */}
@@ -511,7 +510,7 @@ export const InvestorRegistrationFlow = () => {
                                         No fue posible verificar automáticamente que el titular de la cédula y la selfie coincidan tras 3 intentos.
                                     </p>
                                     <p className="text-amber-800 text-xs font-medium bg-amber-100/60 p-2 rounded-lg border border-amber-200">
-                                        ℹ️ <strong>Puedes continuar con tu registro.</strong> Tus fotos quedarán registradas y un administrador de Gloint validará tu identidad de forma manual para aprobar tu cuenta.
+                                        <strong>Puedes continuar con tu registro.</strong> Tus fotos quedarán registradas y un administrador de Gloint validará tu identidad de forma manual para aprobar tu cuenta.
                                     </p>
                                 </div>
                             </div>
@@ -572,7 +571,7 @@ export const InvestorRegistrationFlow = () => {
                                     disabled={!frontImage || !backImage || !selfieImage}
                                     className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3.5 rounded-xl shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                                 >
-                                    {biometricAttempts > 0 ? `Reintentar Validación Facial (${3 - biometricAttempts} restante${3 - biometricAttempts === 1 ? '' : 's'})` : 'Continuar a Validación'}
+                                    {biometricAttempts > 0 ? `Reintentar Validación Facial (${Math.max(0, 3 - biometricAttempts)} restante${Math.max(0, 3 - biometricAttempts) === 1 ? '' : 's'})` : 'Continuar a Validación'}
                                 </button>
                             )}
                         </div>

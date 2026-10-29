@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import { fetchApi } from '../../../services/api';
 import { useAuthStore } from '../../../store/authStore';
-import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { Mail, Loader2, ArrowRight, Eye, EyeOff, LockKeyhole, AlertCircle } from 'lucide-react';
 import { AuthLayout } from '../components/AuthLayout';
 
 export const LoginPage = () => {
@@ -65,14 +65,14 @@ export const LoginPage = () => {
 
     return (
         <AuthLayout 
-            title="Iniciar Sesión" 
+            variant="split"
+            title="Iniciar sesión" 
             subtitle="Accede a tu cuenta en el ecosistema GLOINT y descubre nuevas oportunidades para tu negocio."
-            icon={<LockKeyhole className="w-7 h-7" />}
             maxWidthClass="max-w-md"
         >
             <form onSubmit={handleSubmit} method="post" className="space-y-5">
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Correo Electrónico</label>
+                    <label htmlFor="email" className="block text-sm font-bold text-slate-700 mb-2">Correo electrónico</label>
                     <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                             <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
@@ -93,7 +93,7 @@ export const LoginPage = () => {
 
                 <div>
                     <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm font-bold text-slate-700">Contraseña</label>
+                        <label htmlFor="password" className="block text-sm font-bold text-slate-700">Contraseña</label>
                         <Link to="/forgot-password" className="text-xs font-semibold text-brand-500 hover:text-brand-600 transition-colors">
                             ¿Olvidaste tu contraseña?
                         </Link>
@@ -129,8 +129,8 @@ export const LoginPage = () => {
                 </div>
 
                 {loginMutation.isError && loginMutation.error.message !== 'MUST_CHANGE_PASSWORD' && (
-                    <div className="p-4 bg-red-50 rounded-xl text-red-600 text-sm font-medium border border-red-100 flex items-start gap-3">
-                        <span>⚠️</span>
+                    <div role="alert" className="p-4 bg-red-50 rounded-xl text-red-700 text-sm font-medium border border-red-100 flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 shrink-0 mt-px" aria-hidden="true" />
                         <span>{loginMutation.error instanceof Error ? loginMutation.error.message : 'Error al iniciar sesión'}</span>
                     </div>
                 )}
@@ -138,10 +138,10 @@ export const LoginPage = () => {
                 <button
                     type="submit"
                     disabled={loginMutation.isPending}
-                    className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold text-white bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
+                    className="group w-full flex items-center justify-center py-4 px-4 rounded-xl shadow-md shadow-brand-500/20 text-base font-bold bg-brand-500 hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all mt-4 active:scale-[0.98]"
                 >
                     {loginMutation.isPending ? (
-                        <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" />
+                        <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
                     ) : null}
                     {loginMutation.isPending ? 'Verificando...' : 'Acceder a mi cuenta'}
                     {!loginMutation.isPending && (

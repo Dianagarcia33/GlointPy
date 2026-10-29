@@ -204,3 +204,40 @@ input::-ms-clear {
   }
 }
 
+
+/* Autenticación: dentro de .gl-auth la escala "brand" (naranja) se lee como el dorado del logo */
+.gl-auth .text-brand-500, .gl-auth .text-brand-600,
+.gl-auth .hover\:text-brand-500:hover, .gl-auth .hover\:text-brand-600:hover,
+.gl-auth .group:focus-within .group-focus-within\:text-brand-500,
+.gl-auth .group:hover .group-hover\:text-brand-500 { color: #8a6516; }
+.gl-auth .text-brand-700, .gl-auth .hover\:text-brand-700:hover { color: #6b4e10; }
+.gl-auth .text-brand-900 { color: #3f2e08; }
+.gl-auth .bg-brand-500, .gl-auth .bg-brand-600,
+.gl-auth .hover\:bg-brand-600:hover, .gl-auth .hover\:bg-brand-700:hover {
+  background: linear-gradient(135deg, #f3d27a, #d4a537 55%, #b8861b);
+  color: #140e02;
+}
+.gl-auth .hover\:bg-brand-600:hover, .gl-auth .hover\:bg-brand-700:hover { filter: brightness(1.06); }
+.gl-auth .bg-brand-50, .gl-auth .bg-brand-50\/90, .gl-auth .bg-brand-50\/20, .gl-auth .group:hover .group-hover\:bg-brand-50 { background-color: #fbf6e6; }
+.gl-auth .border-brand-100, .gl-auth .border-brand-200, .gl-auth .border-brand-400,
+.gl-auth .border-brand-500, .gl-auth .hover\:border-brand-300:hover,
+.gl-auth .hover\:border-brand-400:hover, .gl-auth .hover\:border-brand-500:hover,
+.gl-auth .focus\:border-brand-500:focus { border-color: #d4a537; }
+.gl-auth .focus\:ring-brand-500:focus { --tw-ring-color: #d4a537; }
+.gl-auth .ring-brand-100 { --tw-ring-color: #f5eacb; }
+.gl-auth .shadow-brand-500\/20, .gl-auth .hover\:shadow-brand-500\/10:hover { --tw-shadow-color: rgba(212, 165, 55, 0.28); }
+.gl-auth .selection\:bg-brand-500\/20 *::selection, .gl-auth.selection\:bg-brand-500\/20::selection { background: rgba(212, 165, 55, 0.3); }
+.gl-auth .text-orange-500 { color: #8a6516; }
+.gl-auth .from-brand-500 {
+  --tw-gradient-from: #8a6516 var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(138 101 22 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.gl-auth .to-orange-400 { --tw-gradient-to: #d4a537 var(--tw-gradient-to-position); }
+.gl-auth .from-brand-200\/40 {
+  --tw-gradient-from: rgb(235 213 154 / 0.4) var(--tw-gradient-from-position);
+  --tw-gradient-to: rgb(235 213 154 / 0) var(--tw-gradient-to-position);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.gl-auth .bg-brand-500\/20 { background-color: rgb(212 165 55 / 0.2); }
+.gl-auth .focus-within\:ring-brand-500:focus-within { --tw-ring-color: #d4a537; }
