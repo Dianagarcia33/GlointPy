@@ -1,34 +1,25 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
-import { ArrowRight, Plus, ShieldCheck, FileText, Lock, Building2, MapPin, Mail, Phone, Clock, AlertTriangle } from "lucide-react";
+import { ArrowRight, Plus, MapPin, Mail, Phone, Clock, AlertTriangle } from "lucide-react";
 import { CONTACT_INFO } from "../../../../constants/contactInfo";
 
-const wrap = "max-w-[1120px] mx-auto px-4 sm:px-6";
+const wrap = "max-w-[1200px] mx-auto px-4 sm:px-8";
 const muted = { color: "var(--g-text-muted)" };
+const dMuted = { color: "rgba(245,243,238,0.82)" };
 
 function Reveal({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
   const reduce = useReducedMotion();
   return (
     <motion.div
       className={className}
-      initial={reduce ? false : { opacity: 0, y: 16 }}
+      initial={reduce ? false : { opacity: 0, y: 18 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+      transition={{ duration: 0.6, delay, ease: "easeOut" }}
     >
       {children}
     </motion.div>
-  );
-}
-
-function Heading({ eyebrow, title, children, className = "" }: { eyebrow: string; title: string; children?: React.ReactNode; className?: string }) {
-  return (
-    <div className={`max-w-2xl ${className}`}>
-      <p className="gl-eyebrow mb-4">{eyebrow}</p>
-      <h2 className="gl-serif text-3xl sm:text-[2.75rem] leading-[1.12]">{title}</h2>
-      {children && <p className="mt-5 text-lg leading-relaxed" style={muted}>{children}</p>}
-    </div>
   );
 }
 
@@ -51,54 +42,69 @@ export function RiskNotice({ id }: { id?: string }) {
 /* ───────────────────────── Portada ───────────────────────── */
 export function HomeHero() {
   const data = [
-    { icon: Building2, k: "Razón social", v: CONTACT_INFO.companyName },
-    { icon: FileText, k: "NIT", v: CONTACT_INFO.nit },
-    { icon: ShieldCheck, k: "Registro", v: "Constituida y registrada en la Cámara de Comercio de Bogotá" },
-    { icon: MapPin, k: "Domicilio", v: CONTACT_INFO.cityCountry },
+    { k: "Razón social", v: CONTACT_INFO.companyName },
+    { k: "NIT", v: CONTACT_INFO.nit },
+    { k: "Registro", v: "Cámara de Comercio de Bogotá" },
+    { k: "Domicilio", v: CONTACT_INFO.cityCountry },
   ];
   return (
-    <section className="pt-28 pb-16 sm:pt-36 sm:pb-24">
-      <div className={`${wrap} grid lg:grid-cols-[1.1fr_0.9fr] gap-12 lg:gap-16 items-center`}>
-        <div>
-          <p className="gl-eyebrow mb-6">Grupo empresarial · Bogotá, Colombia</p>
-          <h1 className="gl-serif text-[2.5rem] sm:text-6xl leading-[1.06]">
-            Inversión con contratos claros y gestión profesional del capital.
-          </h1>
-          <p className="mt-7 text-lg leading-relaxed max-w-xl" style={muted}>
-            GLOINT es un grupo empresarial con tres unidades: inversión, comercio electrónico y tecnología.
-            GLOINT Investment gestiona capital en mercados digitales y modelos de comercio electrónico.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-3">
-            <a href="#como-funciona" className="gl-btn-primary h-12 px-7 rounded-lg font-semibold text-sm inline-flex items-center justify-center gap-2">
-              Ver cómo funciona <ArrowRight size={16} />
-            </a>
-            <a href={CONTACT_INFO.whatsappLink} target="_blank" rel="noopener noreferrer" className="gl-btn-secondary h-12 px-7 rounded-lg font-semibold text-sm inline-flex items-center justify-center">
-              Hablar con un asesor
-            </a>
-          </div>
-          <p className="mt-6 text-sm" style={muted}>
-            Toda inversión implica riesgos. <a href="#riesgos" className="underline underline-offset-4" style={{ color: "var(--g-gold-text)" }}>Leer el aviso de riesgo</a>.
-          </p>
-        </div>
+    <section className="gl-on-ink relative isolate overflow-hidden min-h-[100svh] lg:min-h-[880px] flex flex-col justify-end text-white" style={{ background: "#050A14" }}>
+      <img src="/photos/hero-bogota.jpg" alt="Vista aérea de Bogotá al atardecer" width={1800} height={1200} fetchPriority="high" className="absolute inset-0 -z-20 h-full w-full object-cover" />
+      <div aria-hidden className="absolute inset-0 -z-10" style={{ background: "linear-gradient(90deg, rgba(5,10,20,0.94) 0%, rgba(5,10,20,0.80) 42%, rgba(5,10,20,0.32) 100%), linear-gradient(0deg, rgba(5,10,20,0.92) 0%, transparent 38%)" }} />
 
-        <div className="gl-on-ink rounded-xl overflow-hidden" style={{ background: "var(--g-ink)", border: "1px solid var(--g-gold-line)" }}>
-          <div className="px-8 pt-8 pb-6 flex justify-center" style={{ background: "#050505" }}>
-            <img src="/logos/brand/full.jpg" alt="GLOINT Group" className="gl-logo w-[200px] sm:w-[240px] h-auto" />
-          </div>
-          <div className="gl-hairline" />
-          <dl className="p-6 sm:p-8 space-y-5">
-            <p className="gl-eyebrow">Datos de la empresa</p>
-            {data.map(({ icon: Icon, k, v }) => (
-              <div key={k} className="flex gap-4">
-                <Icon size={18} strokeWidth={1.5} className="shrink-0 mt-1" style={{ color: "var(--g-gold)" }} aria-hidden />
-                <div>
-                  <dt className="text-xs uppercase tracking-wider" style={{ color: "var(--g-d-muted)" }}>{k}</dt>
-                  <dd className="mt-0.5 text-[15px]" style={{ color: "var(--g-d-text)" }}>{v}</dd>
-                </div>
-              </div>
-            ))}
-          </dl>
+      <div className={`${wrap} w-full pt-40 pb-16 sm:pb-20`}>
+        <p className="gl-eyebrow mb-8 flex items-center gap-4"><span aria-hidden className="inline-block h-px w-12" style={{ background: "var(--g-gold)" }} />Grupo empresarial · Bogotá, Colombia</p>
+        <h1 className="gl-serif text-[2.75rem] sm:text-7xl lg:text-[5.25rem] leading-[1.03] max-w-4xl">
+          Inversión con contratos claros y gestión profesional del capital.
+        </h1>
+        <p className="mt-8 text-lg sm:text-xl leading-relaxed max-w-2xl" style={dMuted}>
+          GLOINT es un grupo empresarial con tres unidades: inversión, comercio electrónico y tecnología.
+          GLOINT Investment gestiona capital en mercados digitales y modelos de comercio electrónico.
+        </p>
+        <div className="mt-11 flex flex-col sm:flex-row gap-3">
+          <a href="#como-funciona" className="gl-btn-primary h-14 px-8 rounded-lg font-semibold text-sm inline-flex items-center justify-center gap-2">
+            Ver cómo funciona <ArrowRight size={16} />
+          </a>
+          <a href={CONTACT_INFO.whatsappLink} target="_blank" rel="noopener noreferrer" className="gl-btn-secondary h-14 px-8 rounded-lg font-semibold text-sm inline-flex items-center justify-center">
+            Hablar con un asesor
+          </a>
         </div>
+        <p className="mt-6 text-sm" style={dMuted}>
+          Toda inversión implica riesgos. <a href="#riesgos" className="underline underline-offset-4" style={{ color: "var(--g-gold-light)" }}>Leer el aviso de riesgo</a>.
+        </p>
+      </div>
+
+      <div style={{ borderTop: "1px solid rgba(245,243,238,0.22)", background: "rgba(5,10,20,0.72)" }}>
+        <dl className={`${wrap} grid grid-cols-2 lg:grid-cols-4`}>
+          {data.map(({ k, v }, i) => (
+            <div key={k} className="py-6 pr-6 lg:px-8 lg:first:pl-0" style={{ borderLeft: i ? "1px solid rgba(245,243,238,0.16)" : undefined, paddingLeft: i ? 24 : 0 }}>
+              <dt className="text-xs uppercase tracking-[0.14em]" style={{ color: "var(--g-gold)" }}>{k}</dt>
+              <dd className="mt-1.5 text-[15px] leading-snug" style={{ color: "var(--g-d-text)" }}>{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────────────────── Quiénes somos ───────────────────────── */
+export function HomeAbout() {
+  return (
+    <section className="py-28 sm:py-40">
+      <div className={`${wrap} grid lg:grid-cols-[0.35fr_1fr] gap-10 lg:gap-20`}>
+        <p className="gl-eyebrow">Quiénes somos</p>
+        <Reveal>
+          <p className="gl-serif text-3xl sm:text-[2.75rem] leading-[1.2]">
+            Desarrollamos soluciones en inversión, comercio electrónico y tecnología para generar oportunidades sostenibles a inversionistas, clientes y empresas.
+          </p>
+          <p className="mt-8 text-lg leading-relaxed max-w-2xl" style={muted}>
+            {CONTACT_INFO.companyName} es una sociedad constituida y registrada en la Cámara de Comercio de Bogotá, con NIT {CONTACT_INFO.nit}.
+          </p>
+          <Link to="/about" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-4" style={{ color: "var(--g-gold-text)" }}>
+            Conocer más sobre nosotros <ArrowRight size={14} />
+          </Link>
+        </Reveal>
       </div>
     </section>
   );
@@ -106,27 +112,37 @@ export function HomeHero() {
 
 /* ───────────────────────── Cómo funciona ───────────────────────── */
 const STEPS = [
-  { n: "1", title: "Regístrate", desc: "Crea tu cuenta en GLOINT y accede al panel de inversionista, sin papeleo." },
-  { n: "2", title: "Selecciona tu paquete", desc: "Elige el paquete de inversión que se adapte a tus objetivos y el periodo de tu contrato." },
-  { n: "3", title: "Recibe tu rentabilidad", desc: "Recibes tu rentabilidad mensual según el monto de tu inversión, desde tu panel." },
+  { n: "01", title: "Regístrate", desc: "Crea tu cuenta en GLOINT y accede al panel de inversionista, sin papeleo." },
+  { n: "02", title: "Selecciona tu paquete", desc: "Elige el paquete de inversión que se adapte a tus objetivos y el periodo de tu contrato." },
+  { n: "03", title: "Recibe tu rentabilidad", desc: "Recibes tu rentabilidad mensual según el monto de tu inversión, desde tu panel." },
 ];
 
 export function HomeHow() {
   return (
-    <section id="como-funciona" className="py-20 sm:py-28" style={{ background: "var(--g-surface)", borderTop: "1px solid var(--g-border)" }}>
-      <div className={wrap}>
-        <Reveal><Heading eyebrow="Cómo funciona" title="Un proceso claro, en tres pasos." className="mb-14" /></Reveal>
-        <ol className="grid md:grid-cols-3 gap-10 md:gap-0">
-          {STEPS.map((s, i) => (
-            <Reveal key={s.n} delay={0.08 * i}>
-              <li className="md:px-8 md:first:pl-0 md:last:pr-0" style={{ borderLeft: i ? "1px solid var(--g-border)" : undefined }}>
-                <span className="gl-serif text-6xl leading-none" style={{ color: "var(--g-gold-line)" }} aria-hidden>{s.n}</span>
-                <h3 className="mt-5 text-xl font-semibold">{s.title}</h3>
-                <p className="mt-2 leading-relaxed" style={muted}>{s.desc}</p>
-              </li>
-            </Reveal>
-          ))}
-        </ol>
+    <section id="como-funciona" style={{ background: "var(--g-surface)", borderTop: "1px solid var(--g-border)" }}>
+      <div className="grid lg:grid-cols-2">
+        <div className="relative min-h-[320px] lg:min-h-[640px]">
+          <img src="/photos/glass-curve.jpg" alt="Fachada curva de vidrio de un edificio de oficinas" width={1400} height={933} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        </div>
+        <div className="px-4 sm:px-12 lg:px-20 py-20 sm:py-28 max-w-[720px]">
+          <Reveal>
+            <p className="gl-eyebrow mb-5">Cómo funciona</p>
+            <h2 className="gl-serif text-4xl sm:text-5xl leading-[1.1]">Un proceso claro, en tres pasos.</h2>
+          </Reveal>
+          <ol className="mt-12">
+            {STEPS.map((s, i) => (
+              <Reveal key={s.n} delay={0.08 * i}>
+                <li className="flex gap-6 py-7" style={{ borderTop: "1px solid var(--g-border)" }}>
+                  <span className="gl-serif text-3xl w-12 shrink-0" style={{ color: "var(--g-gold-line)" }} aria-hidden>{s.n}</span>
+                  <div>
+                    <h3 className="text-xl font-semibold">{s.title}</h3>
+                    <p className="mt-2 leading-relaxed" style={muted}>{s.desc}</p>
+                  </div>
+                </li>
+              </Reveal>
+            ))}
+          </ol>
+        </div>
       </div>
     </section>
   );
@@ -134,29 +150,34 @@ export function HomeHow() {
 
 /* ───────────────────────── Planes y riesgo ───────────────────────── */
 export function HomePlans() {
-  const plans = ["6 meses", "12 meses", "18 meses"];
+  const plans = ["6", "12", "18"];
   return (
-    <section className="py-20 sm:py-28">
-      <div className={`${wrap} grid lg:grid-cols-2 gap-12 lg:gap-20 items-start`}>
-        <Reveal>
-          <Heading eyebrow="Planes de inversión" title="Contratos a plazo definido.">
+    <section className="gl-on-ink py-28 sm:py-36" style={{ background: "var(--g-ink)", color: "var(--g-d-text)" }}>
+      <div className={wrap}>
+        <Reveal className="max-w-2xl">
+          <p className="gl-eyebrow mb-5">Planes de inversión</p>
+          <h2 className="gl-serif text-4xl sm:text-5xl leading-[1.1]">Contratos a plazo definido.</h2>
+          <p className="mt-6 text-lg leading-relaxed" style={dMuted}>
             GLOINT Investment ofrece planes contractuales de 6, 12 y 18 meses. Las condiciones y rentabilidades proyectadas de cada plan se detallan en la página de la unidad.
-          </Heading>
-          <Link to="/investment" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-4" style={{ color: "var(--g-gold-text)" }}>
+          </p>
+        </Reveal>
+        <ul className="mt-16 grid md:grid-cols-3">
+          {plans.map((p, i) => (
+            <Reveal key={p} delay={0.08 * i}>
+              <li className="py-10 md:px-10 md:first:pl-0" style={{ borderTop: "1px solid var(--g-gold)", borderLeft: i ? "1px solid rgba(245,243,238,0.16)" : undefined }}>
+                <span className="gl-serif text-[7rem] sm:text-[9rem] leading-none block" style={{ color: "var(--g-gold-light)" }}>{p}</span>
+                <span className="mt-2 block text-lg font-semibold">meses</span>
+                <span className="mt-1 block text-sm" style={{ color: "var(--g-d-muted)" }}>Contrato a plazo fijo</span>
+              </li>
+            </Reveal>
+          ))}
+        </ul>
+        <div className="mt-6 flex flex-col lg:flex-row gap-8 lg:items-center lg:justify-between">
+          <Link to="/investment" className="inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-4" style={{ color: "var(--g-gold-light)" }}>
             Ver condiciones de cada plan <ArrowRight size={14} />
           </Link>
-        </Reveal>
-        <Reveal delay={0.1}>
-          <ul className="rounded-xl overflow-hidden" style={{ background: "var(--g-surface)", border: "1px solid var(--g-border)" }}>
-            {plans.map((p, i) => (
-              <li key={p} className="flex items-center justify-between px-6 py-5" style={{ borderTop: i ? "1px solid var(--g-border)" : undefined }}>
-                <span className="gl-serif text-2xl">Plan a {p}</span>
-                <span className="text-sm" style={muted}>Contrato a plazo fijo</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-6"><RiskNotice id="riesgos" /></div>
-        </Reveal>
+        </div>
+        <div className="mt-10 max-w-3xl"><RiskNotice id="riesgos" /></div>
       </div>
     </section>
   );
@@ -165,27 +186,24 @@ export function HomePlans() {
 /* ───────────────────────── Cumplimiento ───────────────────────── */
 export function HomeCompliance() {
   const items = [
-    { icon: ShieldCheck, title: "Prevención de lavado de activos", desc: "GLOINT adopta políticas y procedimientos conforme al SARLAFT y a las buenas prácticas del SAGRILAFT.", to: "/terminos", cta: "Términos y condiciones" },
-    { icon: Lock, title: "Protección de datos personales", desc: "Tratamos tu información según nuestra política de privacidad, que describe tus derechos y los canales para ejercerlos.", to: "/privacidad", cta: "Política de privacidad" },
-    { icon: FileText, title: "Información legal visible", desc: "Razón social, NIT y datos de contacto están publicados en el sitio, junto con el aviso legal.", to: "/legal", cta: "Aviso legal" },
+    { title: "Prevención de lavado de activos", desc: "GLOINT adopta políticas y procedimientos conforme al SARLAFT y a las buenas prácticas del SAGRILAFT.", to: "/terminos", cta: "Términos y condiciones" },
+    { title: "Protección de datos personales", desc: "Tratamos tu información según nuestra política de privacidad, que describe tus derechos y los canales para ejercerlos.", to: "/privacidad", cta: "Política de privacidad" },
+    { title: "Información legal visible", desc: "Razón social, NIT y datos de contacto están publicados en el sitio, junto con el aviso legal.", to: "/legal", cta: "Aviso legal" },
   ];
   return (
-    <section className="gl-on-ink py-20 sm:py-28" style={{ background: "var(--g-ink)", color: "var(--g-d-text)" }}>
+    <section className="py-28 sm:py-36">
       <div className={wrap}>
-        <Reveal>
-          <div className="max-w-2xl mb-14">
-            <p className="gl-eyebrow mb-4">Cumplimiento y transparencia</p>
-            <h2 className="gl-serif text-3xl sm:text-[2.75rem] leading-[1.12]">Cómo cuidamos tu información y tu dinero.</h2>
-          </div>
+        <Reveal className="max-w-2xl mb-16">
+          <p className="gl-eyebrow mb-5">Cumplimiento y transparencia</p>
+          <h2 className="gl-serif text-4xl sm:text-5xl leading-[1.1]">Cómo cuidamos tu información y tu dinero.</h2>
         </Reveal>
-        <div className="grid md:grid-cols-3 gap-px rounded-xl overflow-hidden" style={{ background: "rgba(245,243,238,0.14)" }}>
-          {items.map(({ icon: Icon, title, desc, to, cta }, i) => (
+        <div className="grid md:grid-cols-3 gap-10 md:gap-12">
+          {items.map(({ title, desc, to, cta }, i) => (
             <Reveal key={title} delay={0.08 * i}>
-              <div className="h-full p-8 flex flex-col" style={{ background: "var(--g-ink-2)" }}>
-                <Icon size={26} strokeWidth={1.5} style={{ color: "var(--g-gold)" }} aria-hidden />
-                <h3 className="mt-5 text-lg font-semibold">{title}</h3>
-                <p className="mt-2 leading-relaxed flex-1" style={{ color: "var(--g-d-muted)" }}>{desc}</p>
-                <Link to={to} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-4" style={{ color: "var(--g-gold-light)" }}>
+              <div className="pt-6 h-full flex flex-col" style={{ borderTop: "2px solid var(--g-gold-line)" }}>
+                <h3 className="gl-serif text-2xl leading-snug">{title}</h3>
+                <p className="mt-4 leading-relaxed flex-1" style={muted}>{desc}</p>
+                <Link to={to} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-4" style={{ color: "var(--g-gold-text)" }}>
                   {cta} <ArrowRight size={14} />
                 </Link>
               </div>
@@ -206,25 +224,31 @@ const UNITS = [
 
 export function HomeUnits() {
   return (
-    <section id="unidades" className="py-20 sm:py-28">
-      <div className={wrap}>
-        <Reveal><Heading eyebrow="El grupo" title="Tres unidades de negocio." className="mb-12" /></Reveal>
-        <ul>
-          {UNITS.map((u, i) => (
-            <Reveal key={u.name} delay={0.05 * i}>
-              <li className="grid md:grid-cols-[0.9fr_1.4fr_200px] gap-4 md:gap-10 items-center py-8" style={{ borderTop: "1px solid var(--g-border)", borderBottom: i === UNITS.length - 1 ? "1px solid var(--g-border)" : undefined }}>
-                <div>
+    <section id="unidades" style={{ background: "var(--g-surface-2)" }}>
+      <div className="grid lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="relative min-h-[300px] lg:min-h-full order-2 lg:order-1">
+          <img src="/photos/glass-facade.jpg" alt="Fachada acristalada de un edificio corporativo" width={1400} height={933} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        </div>
+        <div className="order-1 lg:order-2 px-4 sm:px-12 lg:px-20 py-20 sm:py-28">
+          <Reveal>
+            <p className="gl-eyebrow mb-5">El grupo</p>
+            <h2 className="gl-serif text-4xl sm:text-5xl leading-[1.1]">Tres unidades de negocio.</h2>
+          </Reveal>
+          <ul className="mt-12">
+            {UNITS.map((u, i) => (
+              <Reveal key={u.name} delay={0.05 * i}>
+                <li className="py-8" style={{ borderTop: "1px solid var(--g-border)", borderBottom: i === UNITS.length - 1 ? "1px solid var(--g-border)" : undefined }}>
                   <p className="gl-eyebrow">{u.tag}</p>
-                  <h3 className="gl-serif text-2xl mt-1">{u.name}</h3>
-                </div>
-                <p className="leading-relaxed" style={muted}>{u.desc}</p>
-                <Link to={u.to} className="gl-btn-secondary h-11 px-5 rounded-lg text-sm font-semibold inline-flex items-center justify-center gap-2 justify-self-start md:justify-self-end md:w-full">
-                  {u.cta} <ArrowRight size={14} />
-                </Link>
-              </li>
-            </Reveal>
-          ))}
-        </ul>
+                  <h3 className="gl-serif text-3xl mt-1">{u.name}</h3>
+                  <p className="mt-3 leading-relaxed max-w-lg" style={muted}>{u.desc}</p>
+                  <Link to={u.to} className="mt-5 inline-flex items-center gap-2 text-sm font-semibold underline underline-offset-4" style={{ color: "var(--g-gold-text)" }}>
+                    {u.cta} <ArrowRight size={14} />
+                  </Link>
+                </li>
+              </Reveal>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );
@@ -241,17 +265,20 @@ export function HomeFAQ() {
     { q: "¿Cómo y cuándo puedo hablar con alguien?", a: `${CONTACT_INFO.hours}. Escríbenos a ${CONTACT_INFO.email}, por WhatsApp al ${CONTACT_INFO.phone}, o visítanos en ${CONTACT_INFO.fullAddress}.` },
   ];
   return (
-    <section className="py-20 sm:py-28" style={{ background: "var(--g-surface)", borderTop: "1px solid var(--g-border)" }}>
-      <div className={`${wrap} grid lg:grid-cols-[0.8fr_1.2fr] gap-12 lg:gap-20`}>
-        <Heading eyebrow="Preguntas frecuentes" title="Lo que suelen preguntarnos." />
+    <section className="py-28 sm:py-36" style={{ background: "var(--g-surface)", borderTop: "1px solid var(--g-border)" }}>
+      <div className={`${wrap} grid lg:grid-cols-[0.8fr_1.2fr] gap-12 lg:gap-24`}>
+        <div>
+          <p className="gl-eyebrow mb-5">Preguntas frecuentes</p>
+          <h2 className="gl-serif text-4xl sm:text-5xl leading-[1.1]">Lo que suelen preguntarnos.</h2>
+        </div>
         <div className="gl-faq">
           {faqs.map(({ q, a }, i) => (
-            <details key={q} className="group" style={{ borderTop: "1px solid var(--g-border)", borderBottom: i === faqs.length - 1 ? "1px solid var(--g-border)" : undefined }}>
-              <summary className="flex items-center justify-between gap-6 py-5 text-lg font-semibold">
+            <details key={q} style={{ borderTop: "1px solid var(--g-border)", borderBottom: i === faqs.length - 1 ? "1px solid var(--g-border)" : undefined }}>
+              <summary className="flex items-center justify-between gap-6 py-6 text-lg font-semibold">
                 {q}
                 <Plus size={20} className="gl-faq-icon shrink-0 transition-transform" style={{ color: "var(--g-gold-text)" }} aria-hidden />
               </summary>
-              <div className="pb-6 leading-relaxed max-w-prose" style={muted}>{a}</div>
+              <div className="pb-7 leading-relaxed max-w-prose" style={muted}>{a}</div>
             </details>
           ))}
         </div>
@@ -269,19 +296,21 @@ export function HomeContact() {
     { icon: Phone, v: CONTACT_INFO.phone, href: CONTACT_INFO.whatsappLink },
   ];
   return (
-    <section className="gl-on-ink py-20 sm:py-28" style={{ background: "var(--g-ink)", color: "var(--g-d-text)" }}>
-      <div className={`${wrap} grid lg:grid-cols-2 gap-12 items-center`}>
+    <section className="gl-on-ink relative isolate overflow-hidden py-28 sm:py-36 text-white" style={{ background: "#050A14" }}>
+      <img src="/photos/glass-facade.jpg" alt="" aria-hidden width={1400} height={933} loading="lazy" className="absolute inset-0 -z-20 h-full w-full object-cover" />
+      <div aria-hidden className="absolute inset-0 -z-10" style={{ background: "linear-gradient(90deg, rgba(5,10,20,0.95), rgba(5,10,20,0.82))" }} />
+      <div className={`${wrap} grid lg:grid-cols-2 gap-14 items-center`}>
         <Reveal>
-          <p className="gl-eyebrow mb-4">Contacto</p>
-          <h2 className="gl-serif text-3xl sm:text-5xl leading-[1.1]">Hable con un asesor antes de decidir.</h2>
-          <p className="mt-5 text-lg leading-relaxed max-w-md" style={{ color: "var(--g-d-muted)" }}>Resolvemos sus dudas sobre los planes, los contratos y el proceso, sin compromiso.</p>
-          <div className="mt-9 flex flex-col sm:flex-row gap-3">
-            <a href={CONTACT_INFO.whatsappLink} target="_blank" rel="noopener noreferrer" className="gl-btn-primary h-12 px-7 rounded-lg font-semibold text-sm inline-flex items-center justify-center">Hablar con un asesor</a>
-            <Link to="/onboarding" className="gl-btn-secondary h-12 px-7 rounded-lg font-semibold text-sm inline-flex items-center justify-center">Crear cuenta</Link>
+          <p className="gl-eyebrow mb-5">Contacto</p>
+          <h2 className="gl-serif text-4xl sm:text-6xl leading-[1.06]">Hable con un asesor antes de decidir.</h2>
+          <p className="mt-6 text-lg leading-relaxed max-w-md" style={dMuted}>Resolvemos sus dudas sobre los planes, los contratos y el proceso, sin compromiso.</p>
+          <div className="mt-10 flex flex-col sm:flex-row gap-3">
+            <a href={CONTACT_INFO.whatsappLink} target="_blank" rel="noopener noreferrer" className="gl-btn-primary h-14 px-8 rounded-lg font-semibold text-sm inline-flex items-center justify-center">Hablar con un asesor</a>
+            <Link to="/onboarding" className="gl-btn-secondary h-14 px-8 rounded-lg font-semibold text-sm inline-flex items-center justify-center">Crear cuenta</Link>
           </div>
         </Reveal>
         <Reveal delay={0.1}>
-          <ul className="rounded-xl p-7 sm:p-9 space-y-5" style={{ background: "var(--g-ink-2)", border: "1px solid rgba(245,243,238,0.14)" }}>
+          <ul className="space-y-6" style={{ borderTop: "1px solid rgba(245,243,238,0.22)", paddingTop: 32 }}>
             {rows.map(({ icon: Icon, v, href }) => (
               <li key={v} className="flex gap-4">
                 <Icon size={20} strokeWidth={1.5} className="shrink-0 mt-0.5" style={{ color: "var(--g-gold)" }} aria-hidden />
@@ -304,7 +333,7 @@ export function HomeFooter() {
       <div className={wrap}>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           <div>
-            <img src="/logos/brand/wordmark.jpg" alt="GLOINT Group" className="gl-logo h-10 w-auto -ml-1" />
+            <img src="/logos/brand/wordmark.png" alt="GLOINT Group" className="gl-logo h-10 w-auto -ml-1" />
             <p className="mt-4 text-sm leading-relaxed" style={dm}>{CONTACT_INFO.companyName}<br />NIT {CONTACT_INFO.nit}</p>
             <div className="mt-5 flex gap-4 text-sm">
               <a href={CONTACT_INFO.socials.facebook} target="_blank" rel="noopener noreferrer" className={linkCls} style={dm}>Facebook</a>

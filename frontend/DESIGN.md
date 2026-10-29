@@ -23,13 +23,13 @@ Nota: no se basó en sitios de UXKIN (el servidor no está conectado).
 | `--g-warn-bg` / `--g-warn-text` | `#FFF4D6` / `#6B4A00` | Avisos de riesgo y marcadores pendientes |
 
 ## Tipografía
-- Títulos: **Fraunces** (serif editorial) 600/700.
+- Títulos: **Fraunces** (serif editorial) 300/400, ligera y grande (hasta 84 px en la portada), como las gestoras institucionales.
 - Cuerpo y rótulos: **Inter** 400/500/600; cifras con `font-variant-numeric: tabular-nums`.
 - Escala: 12 / 14 / 16 / 18 / 24 / 36 / 48 / 60 px; títulos con interlineado 1.1–1.2, cuerpo 1.65. Cuerpo mínimo 16 px, líneas de 60–75 caracteres.
 - Rótulos: Inter 12 px, mayúsculas, tracking 0.14em, color `gold-text`.
 
 ## Espacio
-Escala de 8 px. Secciones de 96 px (64 en móvil). Contenido de 1120 px, margen lateral 24 px (16 en móvil).
+Escala de 8 px. Secciones de 112–144 px (80 en móvil). Contenido de 1200 px, margen lateral 32 px (16 en móvil).
 
 ## Forma y profundidad
 Radios: 4 px (campos), 8 px (tarjetas y botones). Sin sombras decorativas: separación con bordes de 1 px y hilos dorados. Una sombra suave solo en tarjetas elevadas (`0 1px 2px rgba(11,18,32,.06)`).
@@ -37,11 +37,14 @@ Radios: 4 px (campos), 8 px (tarjetas y botones). Sin sombras decorativas: separ
 ## Componentes
 - **Botón primario**: fondo `ink`, texto marfil, 48 px de alto; hover: borde dorado. Focus: anillo de 2 px `gold-text` con separación de 2 px.
 - **Botón secundario**: borde `ink`, texto `ink`, fondo transparente.
-- **Franja de datos de empresa**: 4 datos verificables (razón social, NIT, Cámara de Comercio, domicilio).
+- **Franja de datos de empresa**: 4 datos verificables (razón social, NIT, Cámara de Comercio, domicilio) anclada al pie de la portada, como las cifras de las gestoras.
 - **Aviso de riesgo**: caja `warn` con borde izquierdo dorado, siempre junto a los planes.
 - **Preguntas frecuentes**: `<details>` nativos, accesibles con teclado.
-- **Navegación**: franja `ink` fija (el logo tiene fondo negro); pie también `ink`.
+- **Navegación**: transparente sobre la foto de portada y `ink` sólido al desplazarse; pie `ink`.
 
 ## Imágenes e iconos
-- Logos en `public/logos/brand/` sobre paneles `ink`. Iconos lucide-react, trazo 1.5, sin emojis. Sin fotos de stock; fotos reales del equipo solo cuando existan.
-- Movimiento: entradas suaves de opacidad; respetar `prefers-reduced-motion`.
+- **Fotografía real a pantalla completa** en la portada y en los bloques de sección: vista aérea de Bogotá (hero), fachada curva de vidrio (cómo funciona) y fachada acristalada (unidades, contacto). Fuente: Unsplash (licencia libre, uso comercial sin atribución obligatoria), en `public/photos/`. Sustituir por fotos propias de la oficina y del equipo cuando existan.
+- Superposición azul noche (90 % a la izquierda) para que el texto blanco mantenga contraste sobre la foto.
+- Logos en `public/logos/brand/*.png` con transparencia real (generados desde los JPG originales), sin cajas negras sobre foto.
+- Iconos lucide-react, trazo 1.5, sin emojis. Cifras de plazos (6/12/18) en serif grande dorada sobre panel oscuro.
+- Movimiento: solo entradas suaves de opacidad; respetar `prefers-reduced-motion`.

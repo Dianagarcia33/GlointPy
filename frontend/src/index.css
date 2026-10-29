@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Montserrat:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Montserrat:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -226,8 +226,7 @@ input::-ms-clear {
   color: var(--g-ink);
   font-variant-numeric: tabular-nums;
 }
-.gl-home .gl-serif { font-family: 'Fraunces', Georgia, serif; font-weight: 600; letter-spacing: -0.01em; }
-.gl-home .gl-logo { mix-blend-mode: lighten; }
+.gl-home .gl-serif { font-family: 'Fraunces', Georgia, serif; font-weight: 400; letter-spacing: -0.02em; }
 .gl-eyebrow { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--g-gold-text); }
 .gl-on-ink .gl-eyebrow { color: var(--g-gold); }
 .gl-btn-primary { background: var(--g-ink); color: #f7f4ec; border: 1px solid var(--g-ink); transition: border-color 0.2s, box-shadow 0.2s; }

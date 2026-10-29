@@ -52,7 +52,7 @@ export function Nav() {
   };
 
   const serviceActive = ["investment", "place", "tech"].includes(page);
-  const forceDark = ["home", "about", "contact", "onboarding"].includes(page);
+  const forceDark = ["about", "contact", "onboarding"].includes(page);
 
   return (
     <nav
@@ -65,8 +65,8 @@ export function Nav() {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <button onClick={() => go("home")} aria-label="GLOINT Group, ir al inicio" className="flex items-center select-none">
-          <img src="/logos/brand/wordmark.jpg" alt="GLOINT Group" className="hidden sm:block h-11 w-auto" style={{ mixBlendMode: "lighten" }} />
-          <img src="/logos/brand/g.jpg" alt="GLOINT" className="sm:hidden h-10 w-auto" style={{ mixBlendMode: "lighten" }} />
+          <img src="/logos/brand/wordmark.png" alt="GLOINT Group" className="hidden sm:block h-11 w-auto" />
+          <img src="/logos/brand/g.png" alt="GLOINT" className="sm:hidden h-10 w-auto" />
         </button>
 
         {/* Desktop links */}
