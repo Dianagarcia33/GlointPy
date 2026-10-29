@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { usePermissions } from '../../../hooks/usePermissions';
 import { 
   Inbox, 
   Send, 
@@ -172,6 +173,9 @@ type FilterType = 'all' | 'unread' | 'meetings' | 'attachments' | 'leads';
 
 export const CRMInboxPage: React.FC = () => {
   const { user } = useAuthStore();
+  const { hasAnyPermission } = usePermissions();
+  // H-211: el backend exige uno de estos permisos para enviar; sin ellos la bandeja es de solo lectura
+  const canSendEmail = hasAnyPermission(['crm:inbox:send', 'crm:leads:manage']);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -966,6 +970,7 @@ export const CRMInboxPage: React.FC = () => {
             <Key className="w-3.5 h-3.5" />
           </button>
 
+          {canSendEmail && (
           <button
             onClick={() => {
               setIsComposerOpen(true);
@@ -976,6 +981,7 @@ export const CRMInboxPage: React.FC = () => {
             <Plus className="w-3.5 h-3.5" />
             <span>Redactar</span>
           </button>
+          )}
         </div>
       </div>
 
@@ -1700,6 +1706,7 @@ export const CRMInboxPage: React.FC = () => {
                   </button>
 
                   {/* Reenviar */}
+                  {canSendEmail && (
                   <button
                     onClick={() => handleForwardEmail(selectedEmail)}
                     className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold font-montserrat transition-all"
@@ -1708,6 +1715,7 @@ export const CRMInboxPage: React.FC = () => {
                     <Forward className="w-3.5 h-3.5" />
                     <span className="hidden lg:inline">Reenviar</span>
                   </button>
+                  )}
 
                   {/* Crear Prospecto si no tiene lead */}
                   {selectedEmail.direction === 'inbound' && !selectedEmail.lead_id && (
@@ -1743,6 +1751,7 @@ export const CRMInboxPage: React.FC = () => {
                     {isReaderExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                   </button>
 
+                  {canSendEmail && (
                   <button
                     onClick={() => {
                       setIsQuickReplyExpanded(true);
@@ -1753,6 +1762,7 @@ export const CRMInboxPage: React.FC = () => {
                     <Reply className="w-3.5 h-3.5" />
                     <span>Responder</span>
                   </button>
+                  )}
                 </div>
               </div>
 
@@ -2059,6 +2069,7 @@ export const CRMInboxPage: React.FC = () => {
               </div>
 
               {/* Caja de Respuesta Rápida (Docked at Bottom) */}
+              {canSendEmail && (
               <div className="border-t border-slate-200/80 bg-white p-3.5 shrink-0 shadow-xs">
                 {!isQuickReplyExpanded ? (
                   <div 
@@ -2178,6 +2189,7 @@ export const CRMInboxPage: React.FC = () => {
                   </form>
                 )}
               </div>
+              )}
 
             </div>
           ) : (
