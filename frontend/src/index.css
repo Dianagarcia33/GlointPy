@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -204,3 +204,42 @@ input::-ms-clear {
   }
 }
 
+
+/* Página pública GLOINT: tokens de DESIGN.md */
+.gl-home {
+  --g-bg: #050505;
+  --g-surface: #0e0e10;
+  --g-surface-2: #17171a;
+  --g-border: rgba(255, 255, 255, 0.1);
+  --g-text: #f5f3ee;
+  --g-text-muted: #a8a49a;
+  --g-silver: #c9ccd1;
+  --g-gold: #d4a537;
+  --g-gold-light: #f3d27a;
+  --g-gold-deep: #8f6a1a;
+  --g-on-gold: #140e02;
+  background: var(--g-bg);
+  color: var(--g-text);
+}
+.gl-home .gl-logo { mix-blend-mode: lighten; }
+.gl-btn-primary {
+  background: linear-gradient(135deg, var(--g-gold-light), var(--g-gold) 55%, var(--g-gold-deep));
+  color: var(--g-on-gold);
+  transition: box-shadow 0.2s, filter 0.2s;
+}
+.gl-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 0 32px rgba(212, 165, 55, 0.25); }
+.gl-btn-secondary { border: 1px solid var(--g-gold-deep); color: var(--g-gold-light); transition: background 0.2s, border-color 0.2s; }
+.gl-btn-secondary:hover { background: rgba(212, 165, 55, 0.08); border-color: var(--g-gold); }
+.gl-home a:focus-visible, .gl-home button:focus-visible {
+  outline: 2px solid var(--g-gold-light);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.gl-eyebrow {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase;
+  color: var(--g-gold);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gl-home * { animation: none !important; transition: none !important; }
+}
