@@ -340,7 +340,7 @@ export const CRMInboxPage: React.FC = () => {
         if (!isSilent) {
           setIsSyncModalOpen(true);
           if (res.error) {
-            showToast(`Contraseña requerida o incorrecta: ${res.error}`, 'error');
+            showToast(res.error, 'error');
           }
         }
       } else if (res.error) {

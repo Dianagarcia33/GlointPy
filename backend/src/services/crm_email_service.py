@@ -18,6 +18,18 @@ from src.models.crm import CRMLead, CRMProject, CRMActivity, CRMActivityType
 from src.models.user import User
 from src.services.email_service import EmailService
 
+def friendly_imap_error(exc: Exception, is_auth_error: bool) -> str:
+    """Mensaje para el usuario (H-207): sin el repr de bytes ni detalles de la librería IMAP; el detalle va al log."""
+    if is_auth_error:
+        return "La contraseña del correo es incorrecta o ya no es válida."
+    text = str(exc).lower()
+    if any(k in text for k in ("timed out", "timeout")):
+        return "El servidor de correo no respondió a tiempo. Intenta de nuevo en unos minutos."
+    if any(k in text for k in ("name or service not known", "getaddrinfo", "connection refused", "unreachable", "ssl")):
+        return "No se pudo conectar con el servidor de correo. Intenta de nuevo en unos minutos."
+    return "No se pudo sincronizar el correo. Intenta de nuevo en unos minutos."
+
+
 def _parse_attachments(att_raw: Optional[str]) -> List[dict]:
     if not att_raw:
         return []
@@ -1188,7 +1200,7 @@ class CRMEmailService:
             is_auth_err = "AUTHENTICATIONFAILED" in str(e).upper() or "LOGIN FAILED" in str(e).upper()
             return {
                 "synced_count": synced_count, 
-                "error": str(e),
+                "error": friendly_imap_error(e, is_auth_err),
                 "needs_password": is_auth_err,
                 "has_saved_password": bool(user.imap_password or settings.IMAP_PASSWORD)
             }
