@@ -872,7 +872,7 @@ export const UserAccountStatementModal: React.FC<UserAccountStatementModalProps>
           <div className="border-b-2 border-slate-900 pb-3 mb-3 flex items-start justify-between">
             <div className="flex items-center gap-3">
               <img 
-                src="/logo.png" 
+                src="/logo-light.png" 
                 alt="Gloint" 
                 className="h-10 w-auto object-contain" 
                 onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} 

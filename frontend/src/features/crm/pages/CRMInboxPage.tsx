@@ -841,8 +841,8 @@ export const CRMInboxPage: React.FC = () => {
     else if (tag === 'i') replacement = `<i>${selectedText}</i>`;
     else if (tag === 'u') replacement = `<u>${selectedText}</u>`;
     else if (tag === 'ul') replacement = `\n<ul>\n  <li>${selectedText}</li>\n</ul>\n`;
-    else if (tag === 'quote') replacement = `<blockquote style="border-left: 3px solid #f97316; padding-left: 10px; margin: 10px 0; color: #475569;">${selectedText}</blockquote>`;
-    else if (tag === 'a') replacement = `<a href="https://" style="color: #f97316; text-decoration: underline;">${selectedText}</a>`;
+    else if (tag === 'quote') replacement = `<blockquote style="border-left: 3px solid #9a6f12; padding-left: 10px; margin: 10px 0; color: #475569;">${selectedText}</blockquote>`;
+    else if (tag === 'a') replacement = `<a href="https://" style="color: #9a6f12; text-decoration: underline;">${selectedText}</a>`;
 
     const newText = text.substring(0, start) + replacement + text.substring(end);
     setBodyHtml(newText);
