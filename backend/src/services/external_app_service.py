@@ -20,7 +20,7 @@ from src.schemas.external_app import (
     ExternalAppUpdate,
     CreatePaymentIntentRequest
 )
-from src.core.webhook_security import verify_webhook_destination_safety
+from src.core.webhook_security import verify_webhook_destination_safety, is_transient_verification_error
 
 class ExternalAppService:
     
@@ -414,7 +414,11 @@ class ExternalAppService:
         headers = {
             "Content-Type": "application/json",
             "X-Gloint-Signature": signature,
-            "User-Agent": "Gloint-Webhook/1.0"
+            "User-Agent": "Gloint-Webhook/1.0",
+            # H-206: permiten al comercio identificar el evento y descartar entregas repetidas
+            "X-Gloint-Event": "payment.completed",
+            "X-Gloint-Delivery": f"{order.payment_token}:{(order.webhook_attempts or 0) + 1}",
+            "X-Gloint-Timestamp": str(int(datetime.utcnow().timestamp())),
         }
 
         # Verificación de seguridad SSRF antes de despachar el webhook
@@ -422,6 +426,10 @@ class ExternalAppService:
         if not is_safe:
             order.webhook_status = "failed"
             order.webhook_attempts = (order.webhook_attempts or 0) + 1
+            if is_transient_verification_error(sec_err):
+                # Un DNS lento o caído no es un destino prohibido: se reintenta con el backoff normal
+                order.webhook_response = f"No se pudo verificar el destino (se reintentará): {sec_err}"
+                return False, False
             order.webhook_response = f"Bloqueado por seguridad SSRF: {sec_err}"
             return False, True  # Falló y es bloqueo permanente (no reintentar)
 

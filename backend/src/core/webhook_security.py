@@ -34,6 +34,17 @@ BLOCKED_DOMAIN_SUFFIXES = (
 )
 
 
+# Mensajes de verificación que indican un fallo temporal de DNS (no un destino prohibido): se reintentan
+TRANSIENT_ERROR_PREFIXES = (
+    "Tiempo de espera agotado al resolver DNS",
+    "No se pudo resolver el dominio",
+)
+
+
+def is_transient_verification_error(message: str) -> bool:
+    return (message or "").startswith(TRANSIENT_ERROR_PREFIXES)
+
+
 def is_ip_disallowed(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
     """
     Verifica si una dirección IP pertenece a rangos de red internos, privados,
