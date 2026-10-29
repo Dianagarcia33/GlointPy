@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { Can } from '../../../components/security/Can';
 import { fetchApi } from '../../../services/api';
+import { formatApiDate } from '../../../utils/format';
+import { useQueryClient } from '@tanstack/react-query';
 import { WithdrawalModal } from '../components/WithdrawalModal';
 import { MovementDetailModal } from '../components/MovementDetailModal';
 import { NewInvestmentModal } from '../../dashboard/components/NewInvestmentModal';
@@ -77,6 +79,7 @@ export const WalletsPage: React.FC = () => {
         )
     );
 
+    const queryClient = useQueryClient();
     const [balance, setBalance] = useState<number>(0);
     const [bankDetails, setBankDetails] = useState<any>(null);
     const [movements, setMovements] = useState<Movement[]>([]);
@@ -115,6 +118,8 @@ export const WalletsPage: React.FC = () => {
             setMovements(movementsRes || []);
             setWithdrawals(withdrawalsRes || []);
             setRecharges(rechargesRes || []);
+            // H-203: el chip de saldo del navbar usa otra consulta; se refresca con cada recarga de datos
+            queryClient.invalidateQueries({ queryKey: ['my_balance'] });
         } catch (error) {
             console.error('Error fetching wallet data:', error);
         } finally {
@@ -166,7 +171,7 @@ export const WalletsPage: React.FC = () => {
 
     const formatDate = (dateString: string | null) => {
         if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('es-CO', { month: 'short', day: 'numeric', year: 'numeric' });
+        return formatApiDate(dateString, { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
     const getStatusConfig = (estado: string) => {

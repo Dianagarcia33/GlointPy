@@ -583,10 +583,16 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
         for d in d_res.scalars().all():
             dispersions_by_wid.setdefault(d.withdrawal_id, []).append(d)
 
+    from datetime import datetime
     response = []
+    # Retiros ya enlazados por referencia explícita: el emparejamiento por monto no los reutiliza
+    claimed_withdrawal_ids = {
+        t.reference_id for t in transactions
+        if t.reference_type == "withdrawal" and t.reference_id in user_withdrawals_by_id
+    }
     
     # Map Transactions
-    for t in transactions:
+    for t in sorted(transactions, key=lambda x: x.created_at or datetime.min):
         amount = float(t.amount)
         raw_type = (t.type or "").lower().strip().replace("-", "_")
         
@@ -626,13 +632,23 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
 
         # Vincular retiro si aplica para obtener el impuesto 3.2%, el neto real y el estado exacto
         linked_w = None
+        is_withdrawal_request_tx = raw_type.replace(" ", "_") in ["withdrawal_request", "solicitud_retiro", "retiro", "withdrawal"]
         if t.reference_type == "withdrawal" and t.reference_id in user_withdrawals_by_id:
             linked_w = user_withdrawals_by_id[t.reference_id]
-        elif raw_type in ["withdrawal request", "withdrawal_request", "solicitud_retiro", "retiro"]:
-            for w in user_withdrawals:
-                if abs(float(w.monto) - abs(amount)) < 0.01:
-                    linked_w = w
-                    break
+        elif is_withdrawal_request_tx:
+            # H-203: sin referencia explícita, se empareja con el retiro de igual monto que ningún otro
+            # movimiento haya reclamado y cuya fecha de solicitud esté más cerca del movimiento
+            # (antes se tomaba el primero con el mismo monto, que podía ser otro retiro de $5.000)
+            tx_day = t.created_at.date() if t.created_at else None
+            candidates = [
+                w for w in user_withdrawals
+                if abs(float(w.monto) - abs(amount)) < 0.01 and w.id not in claimed_withdrawal_ids
+            ]
+            if candidates:
+                if tx_day:
+                    candidates.sort(key=lambda w: abs((w.fecha_solicitud - tx_day).days) if w.fecha_solicitud else 9999)
+                linked_w = candidates[0]
+                claimed_withdrawal_ids.add(linked_w.id)
 
         if linked_w:
             monto_val = float(linked_w.monto)
@@ -654,6 +670,10 @@ async def get_my_movements(current_user = Depends(get_current_user), db: AsyncSe
                 d.status not in ["FAILED", "REJECTED"] or d.order_id for d in w_disps
             ) or bool(linked_w.comprobante_pago and "YOINT" in str(linked_w.comprobante_pago).upper())
             can_cancel_val = (linked_w.estado == WithdrawalStatus.PENDING or str(linked_w.estado).lower() in ["pending", "pendiente"]) and not has_yoint_val
+        elif is_withdrawal_request_tx:
+            # Retiro sin registro asociado: no se puede afirmar que fue aprobado ni procesado (H-203)
+            fecha_aprobacion_val = None
+            fecha_procesamiento_val = None
         elif t.reference_type == "yoint_payin" or "yoint" in (t.type or "").lower() or "recharge" in (t.type or "").lower():
             metodo_pago_val = _translate_payment_method("BOTON_BANCOLOMBIA" if "bancolombia" in desc.lower() else "Yoint en Línea")
 

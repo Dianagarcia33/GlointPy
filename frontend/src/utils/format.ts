@@ -77,6 +77,26 @@ export const formatColombiaDate = (dateStr: string | Date | null | undefined): s
 };
 
 /**
+ * Formatea una fecha de la API con el formato dado sin desfasar el día (H-203). Las fechas sin hora
+ * ('2026-09-28') son días calendario: se leen como tal y no como medianoche UTC, que en Colombia
+ * caería el día anterior. Los timestamps se muestran en hora de Colombia.
+ */
+export const formatApiDate = (
+    dateStr: string | null | undefined,
+    options: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit', year: 'numeric' },
+): string => {
+    if (!dateStr) return '-';
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr.trim());
+    if (dateOnly) {
+        const d = new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+        return d.toLocaleDateString('es-CO', options);
+    }
+    const d = !hasTimezoneSuffix(dateStr) && dateStr.includes('T') ? new Date(dateStr + 'Z') : new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('es-CO', { ...options, timeZone: 'America/Bogota' });
+};
+
+/**
  * Parsea una fecha de chat asegurando que los timestamps UTC de MySQL sin sufijo 'Z'
  * sean interpretados correctamente como UTC.
  */

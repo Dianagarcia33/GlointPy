@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { formatApiDate } from '../../../utils/format';
 import { X, ArrowDownToLine, ArrowUpToLine, CheckCircle2, Clock, XCircle, AlertCircle, Landmark, Calendar, User, FileText, Wallet } from 'lucide-react';
 
 interface MovementDetailModalProps {
@@ -21,11 +22,12 @@ export const MovementDetailModal = ({ isOpen, onClose, movement }: MovementDetai
 
     const formatDate = (dateString: string | null, includeTime = false) => {
         if (!dateString) return '-';
-        const date = new Date(dateString);
         if (includeTime) {
-            return date.toLocaleString('es-CO');
+            const hasZone = /(Z|[+-]\d{2}:?\d{2})$/.test(dateString.trim());
+            const date = new Date(dateString.includes('T') && !hasZone ? dateString + 'Z' : dateString);
+            return date.toLocaleString('es-CO', { timeZone: 'America/Bogota' });
         }
-        return date.toLocaleDateString('es-CO');
+        return formatApiDate(dateString);
     };
 
     const getStatusConfig = (estado: string) => {
