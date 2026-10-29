@@ -22,6 +22,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -51,17 +52,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
   const handleSwitchToChild = async (childId: number) => {
     setIsSwitching(true);
+    setSwitchError(null);
+    // H-213: la sesión del tutor se guarda como respaldo solo cuando el cambio fue exitoso;
+    // antes se guardaba antes de la petición y un 400 dejaba activo el aviso de supervisión
+    const tutorSession = user && accessToken ? { user, token: accessToken } : null;
     try {
-      if (user && accessToken) {
-        setParentBackup({ user, token: accessToken });
-      }
       const res = await usersService.switchToChild(childId);
       login(res.user as any, res.access_token);
+      if (tutorSession && !parentBackup) {
+        setParentBackup(tutorSession);
+      }
       queryClient.clear();
       setUserMenuOpen(false);
       navigate('/dashboard');
     } catch (err: any) {
-      alert(err.message || 'Error al cambiar a la cuenta del menor');
+      setSwitchError(err.message || 'No se pudo cambiar a la cuenta del menor.');
     } finally {
       setIsSwitching(false);
     }
@@ -324,6 +329,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                             <Users className="w-3.5 h-3.5 text-brand-600" />
                             <span>Cuentas de Hijos ({myChildren.length})</span>
                           </div>
+                          {switchError && (
+                            <p role="alert" className="mb-1.5 px-2 py-1.5 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
+                              {switchError}
+                            </p>
+                          )}
                           <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
                             {myChildren.map((child) => (
                               <button

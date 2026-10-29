@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert, ArrowLeft, Loader2, Users } from 'lucide-react';
@@ -13,7 +13,13 @@ export const ParentalBanner: React.FC = () => {
 
   // H-182: solo hay supervisión parental si el tutor cambió realmente a esta cuenta (parentBackup);
   // que el usuario tenga un tutor asignado (parent_user_id) no lo convierte en supervisor
-  const isParentalMode = Boolean(parentBackup);
+  // H-213: un respaldo del mismo usuario es un resto de un cambio fallido, no una supervisión real
+  const isStaleBackup = Boolean(parentBackup && user && parentBackup.user.id === user.id);
+  const isParentalMode = Boolean(parentBackup) && !isStaleBackup;
+
+  useEffect(() => {
+    if (isStaleBackup) setParentBackup(null);
+  }, [isStaleBackup, setParentBackup]);
 
   if (!isParentalMode || !user) {
     return null;
