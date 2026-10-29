@@ -10,7 +10,6 @@ interface BulkUploadModalProps {
 }
 
 export const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onUploaded }) => {
-  if (!isOpen) return null;
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
