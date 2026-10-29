@@ -14,7 +14,6 @@ from src.models.user import User
 from src.models.user_bank_account import UserBankAccount
 from src.models.withdrawal_verification_code import WithdrawalVerificationCode
 from src.services.email_service import EmailService
-from src.services.user_bank_account_service import bulk_create_bank_accounts
 
 router = APIRouter()
 
@@ -224,15 +223,3 @@ async def delete_my_bank_account(
         raise HTTPException(status_code=500, detail=public_error_detail("No se pudo completar la operación", e))
         
     return {"message": "Cuenta bancaria eliminada de la bóveda exitosamente."}
-
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
-async def bulk_upload_bank_accounts(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and load bank accounts for users in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    success_count, errors = await bulk_create_bank_accounts(db, content)
-    return {"success_count": success_count, "errors": errors}

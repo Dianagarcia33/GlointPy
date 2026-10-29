@@ -22,23 +22,6 @@ async def read_investment_requests(
     """
     return await InvestmentRequestService.get_investment_requests(db, page=page, limit=limit, search=search)
 
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investments.manage"))])
-async def bulk_upload_investment_requests(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and create multiple investment requests in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    try:
-        csv_text = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8.")
-        
-    result = await InvestmentRequestService.bulk_create_investment_requests(db, csv_text)
-    return result
-
 from src.api.deps import get_current_user
 from pydantic import BaseModel, field_validator
 

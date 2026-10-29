@@ -112,15 +112,6 @@ export const deleteInvestor = async (id: number) => {
   });
 };
 
-export const bulkUploadInvestors = async (file: File): Promise<{ success: number; errors: string[] }> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  return await fetchApi('/investors/bulk-upload', {
-    method: 'POST',
-    body: formData,
-  });
-};
-
 export const adminWithdrawCapital = async (
   investorId: number,
   data: { monto?: number; notes?: string; credit_wallet?: boolean }

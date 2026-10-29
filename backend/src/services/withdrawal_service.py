@@ -146,47 +146,6 @@ class WithdrawalService:
         return db_withdrawal
 
     @staticmethod
-    async def bulk_create_withdrawals(db: AsyncSession, withdrawals_in: List[WithdrawalCreate]) -> List[Withdrawal]:
-        # Validate that users exist to avoid foreign key errors
-        users_result = await db.execute(select(User.id))
-        valid_user_ids = set(users_result.scalars().all())
-
-        # Fetch existing withdrawal IDs to skip duplicates
-        existing_result = await db.execute(select(Withdrawal.id))
-        existing_ids = set(existing_result.scalars().all())
-        
-        valid_withdrawals = []
-        skipped_user_ids = set()
-        for w in withdrawals_in:
-            if w.id is not None and w.id in existing_ids:
-                continue # Skip already registered
-                
-            if w.user_id in valid_user_ids:
-                if w.aprobado_por and w.aprobado_por not in valid_user_ids:
-                    w.aprobado_por = None
-                if w.procesado_por and w.procesado_por not in valid_user_ids:
-                    w.procesado_por = None
-                valid_withdrawals.append(Withdrawal(**w.model_dump()))
-            else:
-                skipped_user_ids.add(w.user_id)
-                logger.warning(f"Skipping withdrawal for invalid user_id: {w.user_id}")
-                
-        if skipped_user_ids:
-            # Revert the entire batch if there are missing users so the user knows
-            from fastapi import HTTPException
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Los siguientes user_id en el Excel no existen en la base de datos: {list(skipped_user_ids)[:10]}..."
-            )
-
-        if not valid_withdrawals:
-            return []
-
-        db.add_all(valid_withdrawals)
-        await db.commit()
-        return valid_withdrawals
-
-    @staticmethod
     async def approve_withdrawal(db: AsyncSession, withdrawal_id: int, admin_id: int, file_path: Optional[str] = None) -> Withdrawal:
         withdrawal = await WithdrawalService.get_withdrawal(db, withdrawal_id)
         if not withdrawal:

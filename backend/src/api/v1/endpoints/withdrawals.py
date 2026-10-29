@@ -309,25 +309,6 @@ async def reject_withdrawal(
 
     return rejected
 
-@router.post("/bulk-upload", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission(["admin.withdrawals.manage", "admin.payments.manage", "admin.investors.manage", "admin.roles.manage"]))])
-async def bulk_upload_withdrawals(
-    withdrawals: List[WithdrawalCreate],
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Bulk upload withdrawals for data migration.
-    """
-    # H-187: un asesor con alcance limitado a sus clientes no puede crear retiros de la base completa
-    from src.services.investor_service import investor_scope_commercial_id
-    if investor_scope_commercial_id(current_user) is not None:
-        raise HTTPException(status_code=403, detail="No tienes permisos suficientes para realizar esta acción")
-    created = await WithdrawalService.bulk_create_withdrawals(db, withdrawals)
-    return {
-        "message": f"Successfully imported {len(created)} withdrawals.",
-        "count": len(created)
-    }
-
 @router.post("/sync-wallet-debits", response_model=Dict[str, Any], dependencies=[Depends(RequirePermission("admin.withdrawals.manage"))])
 async def sync_wallet_debits(
     db: AsyncSession = Depends(get_db),

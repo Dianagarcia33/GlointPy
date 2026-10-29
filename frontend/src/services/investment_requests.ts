@@ -36,18 +36,6 @@ export const getInvestmentRequests = async (params?: { page?: number; limit?: nu
   return fetchApi(`/investment-requests/${qs ? `?${qs}` : ''}`);
 };
 
-export const bulkUploadInvestmentRequests = async (file: File) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  
-  const response = await fetchApi('/investment-requests/bulk-upload', {
-    method: 'POST',
-    body: formData,
-  });
-  
-  return response;
-};
-
 export const approveInvestmentRequest = async (id: number, commercial_id?: number | null) => {
   return await fetchApi(`/investment-requests/${id}/approve`, {
     method: 'POST',

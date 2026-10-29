@@ -12,14 +12,3 @@ export interface Withdrawal {
   [key: string]: any; // Allow other properties
 }
 
-export const bulkUploadWithdrawalsJSON = async (withdrawals: any[]) => {
-  const response = await fetchApi('/withdrawals/bulk-upload', {
-    method: 'POST',
-    body: JSON.stringify(withdrawals),
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  });
-  
-  return response;
-};

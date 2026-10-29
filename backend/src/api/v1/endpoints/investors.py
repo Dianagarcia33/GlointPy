@@ -87,23 +87,6 @@ async def delete_investor(
     """
     await InvestorService.delete_investor(db, investor_id=investor_id)
 
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
-async def bulk_upload_investors(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and create multiple investors in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    try:
-        csv_text = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8.")
-        
-    result = await InvestorService.bulk_create_investors(db, csv_text)
-    return result
-
 from decimal import Decimal
 from datetime import datetime, date
 from sqlalchemy.future import select

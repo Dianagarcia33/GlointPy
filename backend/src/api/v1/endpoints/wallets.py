@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 from src.core.database import get_db
 from src.api.deps import RequirePermission, get_current_user
-from src.services.wallet_service import bulk_create_or_update_wallets, bulk_create_or_update_wallet_transactions
 from sqlalchemy.future import select
 from src.models.wallet import Wallet
 from src.models.user import User
@@ -894,31 +893,6 @@ async def cancel_my_withdrawal(
         
     return {"message": "Retiro cancelado exitosamente.", "new_balance": wallet.balance}
 
-
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
-async def bulk_upload_wallets(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and load/update wallets for users in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    success_count, errors = await bulk_create_or_update_wallets(db, content)
-    return {"success_count": success_count, "errors": errors}
-
-
-@router.post("/transactions/bulk-upload", dependencies=[Depends(RequirePermission("admin.investors.manage"))])
-async def bulk_upload_transactions(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Upload a CSV file and load/update wallet transactions in bulk.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    success_count, errors = await bulk_create_or_update_wallet_transactions(db, content)
-    return {"success_count": success_count, "errors": errors}
 
 from src.schemas.wallet import AdminWalletAdjustRequest
 @router.post("/admin/wallets/{wallet_id}/adjust", dependencies=[Depends(RequirePermission("admin.investors.wallet_adjust"))])

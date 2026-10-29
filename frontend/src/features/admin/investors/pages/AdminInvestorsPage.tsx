@@ -2,11 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Investor, getInvestors, deleteInvestor } from '../../../../services/investors';
 import { InvestorModal } from '../components/InvestorModal';
-import { BulkUploadInvestorsModal } from '../components/BulkUploadInvestorsModal';
-import { BulkUploadInvestmentRequestsModal } from '../components/BulkUploadInvestmentRequestsModal';
-import { BulkUploadBankAccountsModal } from '../components/BulkUploadBankAccountsModal';
-import { BulkUploadWalletsModal } from '../components/BulkUploadWalletsModal';
-import { BulkUploadWalletTransactionsModal } from '../components/BulkUploadWalletTransactionsModal';
 import { InvestmentRequestsTable } from '../components/InvestmentRequestsTable';
 import { WalletAdjustmentModal } from '../components/WalletAdjustmentModal';
 import { AdminCapitalIncreaseModal } from '../components/AdminCapitalIncreaseModal';
@@ -144,11 +139,6 @@ export const AdminInvestorsPage = () => {
 
   const [isMassUploadOpen, setIsMassUploadOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [isBulkReqModalOpen, setIsBulkReqModalOpen] = useState(false);
-  const [isBulkBankModalOpen, setIsBulkBankModalOpen] = useState(false);
-  const [isBulkWalletModalOpen, setIsBulkWalletModalOpen] = useState(false);
-  const [isBulkTxModalOpen, setIsBulkTxModalOpen] = useState(false);
   const [editingInvestor, setEditingInvestor] = useState<Investor | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
   const [walletToAdjust, setWalletToAdjust] = useState<{ id: number; balance: string | number; currency: string } | null>(null);
@@ -1432,51 +1422,6 @@ export const AdminInvestorsPage = () => {
         investor={editingInvestor}
       />
       
-      <BulkUploadInvestorsModal
-        isOpen={isBulkModalOpen}
-        onClose={() => setIsBulkModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadInvestmentRequestsModal
-        isOpen={isBulkReqModalOpen}
-        onClose={() => setIsBulkReqModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkReqModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadBankAccountsModal
-        isOpen={isBulkBankModalOpen}
-        onClose={() => setIsBulkBankModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkBankModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadWalletsModal
-        isOpen={isBulkWalletModalOpen}
-        onClose={() => setIsBulkWalletModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkWalletModalOpen(false);
-          fetchData();
-        }}
-      />
-
-      <BulkUploadWalletTransactionsModal
-        isOpen={isBulkTxModalOpen}
-        onClose={() => setIsBulkTxModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkTxModalOpen(false);
-          fetchData();
-        }}
-      />
-
       <WalletAdjustmentModal
         isOpen={!!walletToAdjust}
         onClose={() => {
