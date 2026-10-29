@@ -74,6 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
 
   const handleReturnToParent = async () => {
     setIsSwitching(true);
+    setSwitchError(null);
     try {
       const res = await usersService.switchBackToParent();
       login(res.user as any, res.access_token);
@@ -82,15 +83,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
       setUserMenuOpen(false);
       navigate('/dashboard');
     } catch (err: any) {
-      if (parentBackup && parentBackup.token) {
-        login(parentBackup.user, parentBackup.token);
-        setParentBackup(null);
-        queryClient.clear();
-        setUserMenuOpen(false);
-        navigate('/dashboard');
-        return;
-      }
-      alert(err.message || 'Error al retornar a la cuenta del tutor');
+      // H-214: sin confirmación del servidor la sesión sigue siendo la del menor; no se simula el regreso
+      setSwitchError('No fue posible volver a tu cuenta de tutor. Sigues dentro de la cuenta del menor; cierra sesión e ingresa de nuevo.');
     } finally {
       setIsSwitching(false);
     }
@@ -319,6 +313,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileSidebar }) => {
                             <ArrowLeft className="w-3.5 h-3.5" />
                             <span>Volver a mi cuenta de tutor</span>
                           </button>
+                          {switchError && (
+                            <p role="alert" className="mt-1.5 px-2 py-1.5 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg">
+                              {switchError}
+                            </p>
+                          )}
                         </div>
                       )}
 
