@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from jose import jwt, JWTError
+from src.core.session_revocation import is_session_current
 
 from src.core.database import get_db, async_session_maker
 from src.core.config import settings
@@ -393,6 +394,10 @@ async def websocket_chat_endpoint(
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Acceso denegado: permiso chat:view requerido")
             return
 
+        if not await is_session_current(db, payload, user):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Sesión revocada o expirada")
+            return
+
         # Verificar membresía de sala (o permiso admin)
         is_part = await ChatService.is_participant(db, room_id, user.id)
         if not is_part and not PBACEngine.has_permission(user, "admin.chat.manage"):
@@ -513,6 +518,10 @@ async def websocket_global_notifications(
         user = user_res.scalars().first()
         if not user or not user.is_active:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Usuario inactivo o no encontrado")
+            return
+
+        if not await is_session_current(db, payload, user):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Sesión revocada o expirada")
             return
 
     # Conectar al manager usando el nuevo método user-only

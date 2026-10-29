@@ -35,15 +35,24 @@ async def aget_password_hash(password: str) -> str:
     """Versión asíncrona de get_password_hash (ver averify_password)."""
     return await asyncio.to_thread(get_password_hash, password)
 
-def create_access_token(subject: Union[str, Any], expires_delta: timedelta = None, extra_claims: dict = None) -> str:
-    """Genera el token JWT de acceso (24 horas). extra_claims agrega datos firmados (p. ej. imp_by, H-182)."""
+def create_access_token(
+    subject: Union[str, Any],
+    expires_delta: timedelta = None,
+    extra_claims: dict = None,
+    token_version: int = 0,
+) -> str:
+    """
+    Genera el token JWT de acceso (24 horas). extra_claims agrega datos firmados (p. ej. imp_by, H-182).
+    token_version es la versión de sesión del usuario (claim "tv"): si luego se revoca, el token deja de valer.
+    """
+    now = datetime.utcnow()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = now + expires_delta
     else:
         minutes = getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 1440)
-        expire = datetime.utcnow() + timedelta(minutes=minutes)
+        expire = now + timedelta(minutes=minutes)
         
-    to_encode = {"exp": expire, "sub": str(subject)}
+    to_encode = {"exp": expire, "iat": now, "sub": str(subject), "tv": int(token_version or 0)}
     if extra_claims:
         to_encode.update(extra_claims)
     algorithm = getattr(settings, 'ALGORITHM', 'HS256')

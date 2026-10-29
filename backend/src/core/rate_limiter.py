@@ -68,3 +68,10 @@ login_rate_limiter = IPRateLimiter(max_attempts=5, window_seconds=60, block_seco
 
 # Formulario público de contacto (H-138): máx. 10 envíos por IP cada 10 minutos; luego 15 minutos de bloqueo
 contact_form_rate_limiter = IPRateLimiter(max_attempts=10, window_seconds=600, block_seconds=900, action_label="envío de formularios")
+
+
+# Recuperación de contraseña (H-76): máx. 5 solicitudes (correo de recuperación u OTP) por IP cada 10 minutos
+password_recovery_rate_limiter = IPRateLimiter(max_attempts=5, window_seconds=600, block_seconds=900, action_label="recuperación de contraseña")
+
+# Intentos fallidos de restablecer o forzar el cambio de contraseña (token o código incorrecto)
+password_reset_failure_limiter = IPRateLimiter(max_attempts=10, window_seconds=600, block_seconds=900, action_label="cambio de contraseña")

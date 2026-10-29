@@ -19,9 +19,14 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { usersService } from '../../../services/users';
+import { ConfirmationModal } from '../../../components/common/ConfirmationModal';
+import { isValidPassword } from '../../auth/components/PasswordStrengthIndicator';
 
 export const ProfilePage: React.FC = () => {
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, logout } = useAuthStore();
+  const [isSessionsModalOpen, setIsSessionsModalOpen] = useState(false);
+  const [isClosingSessions, setIsClosingSessions] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
 
   // Active tab: 'personal' | 'security'
   const [activeTab, setActiveTab] = useState<'personal' | 'security'>('personal');
@@ -151,8 +156,8 @@ export const ProfilePage: React.FC = () => {
       setPasswordError('Por favor ingresa tu contraseña actual.');
       return;
     }
-    if (!newPassword || newPassword.length < 6) {
-      setPasswordError('La nueva contraseña debe tener al menos 6 caracteres.');
+    if (!isValidPassword(newPassword)) {
+      setPasswordError('La nueva contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y un carácter especial.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -176,6 +181,22 @@ export const ProfilePage: React.FC = () => {
       setPasswordError(err?.message || 'Error al cambiar la contraseña. Verifica tu clave actual.');
     } finally {
       setIsSavingPassword(false);
+    }
+  };
+
+  const handleCloseAllSessions = async () => {
+    try {
+      setIsClosingSessions(true);
+      setSessionsError(null);
+      await usersService.logoutAllMySessions();
+      // Esta sesión también se cierra: se limpia el estado local y se vuelve al inicio de sesión
+      logout();
+      window.location.href = '/login';
+    } catch (err: any) {
+      setSessionsError(err?.message || 'No se pudieron cerrar las sesiones. Inténtalo de nuevo.');
+      setIsSessionsModalOpen(false);
+    } finally {
+      setIsClosingSessions(false);
     }
   };
 
@@ -447,7 +468,7 @@ export const ProfilePage: React.FC = () => {
               Cambiar Contraseña de Acceso
             </h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Te recomendamos utilizar una contraseña de al menos 6 caracteres con letras, números y símbolos
+              La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y un carácter especial
             </p>
           </div>
 
@@ -501,7 +522,7 @@ export const ProfilePage: React.FC = () => {
                     minLength={6}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder="Mínimo 8 caracteres"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-2 focus:ring-brand-500 focus:bg-white outline-hidden transition-all text-sm font-mono pr-11"
                   />
                   <button
@@ -558,8 +579,41 @@ export const ProfilePage: React.FC = () => {
               </button>
             </div>
           </form>
+
+          <div className="pt-6 border-t border-slate-100 space-y-3">
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-slate-900 font-montserrat">Sesiones abiertas</h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Si perdiste un dispositivo o sospechas que alguien más usó tu cuenta, cierra todas las sesiones. Tendrás que volver a iniciar sesión en la web y en la app.
+              </p>
+            </div>
+            {sessionsError && (
+              <div role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-2 text-rose-700 text-xs font-semibold">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{sessionsError}</span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => { setSessionsError(null); setIsSessionsModalOpen(true); }}
+              className="px-5 py-2.5 border border-slate-300 hover:border-slate-900 text-slate-800 rounded-2xl text-xs font-bold transition-all cursor-pointer"
+            >
+              Cerrar todas mis sesiones
+            </button>
+          </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={isSessionsModalOpen}
+        onClose={() => setIsSessionsModalOpen(false)}
+        onConfirm={handleCloseAllSessions}
+        title="Cerrar todas las sesiones"
+        description="Se cerrará tu sesión en todos los dispositivos, incluido este. Para volver a entrar tendrás que iniciar sesión de nuevo."
+        confirmText="Cerrar todas"
+        variant="warning"
+        isLoading={isClosingSessions}
+      />
 
     </div>
   );

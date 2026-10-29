@@ -9,6 +9,7 @@ from src.core.config import settings
 from src.core.database import get_db
 from src.models.user import User
 from src.core.pbac import PBACEngine
+from src.core.session_revocation import is_session_current
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -54,6 +55,10 @@ async def get_current_user(
         user = result.scalars().first()
         
     if user is None or not user.is_active:
+        raise credentials_exception
+
+    # Sesión revocada (cambio de contraseña, "cerrar todas las sesiones", etc.)
+    if not await is_session_current(db, payload, user):
         raise credentials_exception
         
     return user

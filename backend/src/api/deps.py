@@ -11,6 +11,7 @@ from src.core.config import settings
 from src.core.database import get_db
 from src.models.user import User
 from src.models.security import Role
+from src.core.session_revocation import is_session_current
 
 # Token extraction: supports both Bearer header and HttpOnly cookies
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -71,6 +72,10 @@ async def get_current_user(
         
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+
+    # Sesión revocada (cambio de contraseña, "cerrar todas las sesiones", etc.)
+    if not await is_session_current(db, payload, user):
+        raise credentials_exception
         
     return user
 

@@ -84,6 +84,14 @@ class ConnectionManager:
             self.user_connections[u_id] = set()
         self.user_connections[u_id].add(websocket)
 
+    async def close_user_connections(self, user_id: int, reason: str = "Sesión revocada"):
+        """Cierra todos los WebSockets abiertos del usuario (el token solo se valida al conectar)."""
+        for ws in list(self.user_connections.get(int(user_id), set())):
+            try:
+                await ws.close(code=1008, reason=reason)
+            except Exception:
+                pass
+
     def disconnect_user_only(self, websocket: WebSocket, user_id: int):
         """Desconecta un WebSocket del pool de notificaciones del usuario."""
         u_id = int(user_id)

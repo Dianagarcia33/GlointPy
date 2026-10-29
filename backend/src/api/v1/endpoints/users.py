@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -14,7 +14,8 @@ from src.models.user import User
 from src.models.security import Role
 from src.services.user_service import UserService
 from src.services.audit_trail_service import log_audit_trail
-from src.api.deps import RequirePermission, get_current_user
+from src.api.deps import RequirePermission, get_current_user, get_auth_payload
+from src.core.security import create_access_token
 
 router = APIRouter()
 
@@ -42,13 +43,28 @@ async def update_my_profile(
 @router.post("/me/change-password")
 async def change_my_password(
     pwd_in: UserChangePassword,
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
+    auth_payload: dict = Depends(get_auth_payload),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Permite al usuario cambiar su contraseña validando la contraseña actual.
+    Cierra las demás sesiones de la cuenta; esta sigue activa con un token nuevo (cookie y campo access_token).
     """
-    return await UserService.change_password(db, current_user.id, pwd_in.current_password, pwd_in.new_password)
+    result = await UserService.change_password(db, current_user.id, pwd_in.current_password, pwd_in.new_password)
+
+    # Si es una sesión de supervisión (imp_by), se conserva el vínculo con el tutor
+    carried = {k: auth_payload[k] for k in ("imp_by", "imp_tv") if k in auth_payload}
+    access_token = create_access_token(
+        subject=current_user.id,
+        token_version=result["token_version"],
+        extra_claims=carried or None,
+    )
+    from src.api.v1.endpoints.auth import set_auth_cookie
+    set_auth_cookie(response, access_token, request=request)
+    return {"message": result["message"], "access_token": access_token, "token_type": "bearer"}
 
 @router.post("/admin/force-profile-update", dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def force_profile_update(
@@ -213,6 +229,33 @@ async def reset_user_password(
         entity_type="User",
         entity_id=user_id,
         description=f"Restablecimiento de contraseña forzado para usuario ID #{user_id}",
+        details={"target_user_id": user_id},
+        request=request
+    )
+
+    return res
+
+@router.post("/{user_id}/revoke-sessions", dependencies=[Depends(RequirePermission("admin.users.manage"))])
+async def revoke_user_sessions_endpoint(
+    user_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cierra todas las sesiones abiertas de un usuario en todos sus dispositivos (cuenta comprometida, equipo perdido).
+    El usuario deberá iniciar sesión de nuevo; su contraseña no cambia.
+    """
+    res = await UserService.revoke_sessions(db, user_id, current_user=current_user)
+
+    await log_audit_trail(
+        db=db,
+        action="USER_SESSIONS_REVOKED",
+        module="users",
+        user=current_user,
+        entity_type="User",
+        entity_id=user_id,
+        description=f"Cierre de todas las sesiones del usuario ID #{user_id}",
         details={"target_user_id": user_id},
         request=request
     )

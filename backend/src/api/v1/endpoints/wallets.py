@@ -221,6 +221,7 @@ async def request_withdrawal(
             WithdrawalVerificationCode.user_id == current_user.id,
             WithdrawalVerificationCode.code == req.code,
             WithdrawalVerificationCode.used_at == None,
+            WithdrawalVerificationCode.purpose.is_(None),
             WithdrawalVerificationCode.expires_at > datetime.utcnow()
         )
         .order_by(WithdrawalVerificationCode.created_at.desc())

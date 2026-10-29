@@ -145,6 +145,16 @@ async def on_startup():
                 pass
 
             try:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 0"))
+            except Exception:
+                pass
+
+            try:
+                await conn.execute(text("ALTER TABLE withdrawal_verification_codes ADD COLUMN purpose VARCHAR(40) NULL"))
+            except Exception:
+                pass
+
+            try:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN imap_password TEXT NULL"))
             except Exception:
                 pass

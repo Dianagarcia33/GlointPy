@@ -6,6 +6,8 @@ from typing import Any, Optional
 from src.core.database import get_db
 from src.core.config import settings
 from src.core.security import create_access_token
+from src.core.session_revocation import revoke_user_sessions, close_live_connections
+from src.core.rate_limiter import password_recovery_rate_limiter, password_reset_failure_limiter
 from src.schemas.auth import Token, LoginRequest, RegisterRequest, ForceChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, SendForcePasswordOtpRequest
 from src.schemas.user import UserResponse
 from src.services.auth_service import AuthService
@@ -53,7 +55,7 @@ async def login(login_data: LoginRequest, request: Request, response: Response, 
     user = await AuthService.authenticate_user(db, login_data, request=request)
 
     # Generar token
-    access_token = create_access_token(subject=user.id)
+    access_token = create_access_token(subject=user.id, token_version=user.token_version)
     set_auth_cookie(response, access_token, request=request)
     
     return {
@@ -70,6 +72,22 @@ async def logout(response: Response) -> Any:
     clear_auth_cookie(response)
     return {"message": "Sesión cerrada correctamente"}
 
+@router.post("/logout-all")
+async def logout_all_sessions(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Cierra TODAS las sesiones del usuario en todos sus dispositivos (web, móvil y chat en vivo), incluida esta.
+    Los tokens emitidos hasta ahora dejan de valer de inmediato; para volver a entrar hay que iniciar sesión.
+    """
+    await revoke_user_sessions(db, current_user)
+    await db.commit()
+    await close_live_connections(current_user.id)
+    clear_auth_cookie(response)
+    return {"message": "Se cerraron todas tus sesiones en todos los dispositivos."}
+
 from src.schemas.auth import InvestorRegisterRequest
 @router.post("/register-investor", response_model=Token)
 async def register_investor(register_data: InvestorRegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> Any:
@@ -77,7 +95,7 @@ async def register_investor(register_data: InvestorRegisterRequest, request: Req
     Registra un inversionista con sus datos personales, bancarios, KYC y la solicitud de inversión.
     """
     user = await AuthService.register_investor(db, register_data)
-    access_token = create_access_token(subject=user.id)
+    access_token = create_access_token(subject=user.id, token_version=user.token_version)
     set_auth_cookie(response, access_token, request=request)
     
     return {
@@ -105,10 +123,13 @@ async def validate_referral_code(code: str, db: AsyncSession = Depends(get_db)) 
     return {"valid": True, "code": clean_code}
 
 @router.post("/send-force-password-otp")
-async def send_force_password_otp(data: SendForcePasswordOtpRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def send_force_password_otp(data: SendForcePasswordOtpRequest, request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     """
     Envía un código OTP de 6 dígitos al correo del usuario para autorizar el cambio de contraseña obligatorio (H-76).
+    Límite: 5 solicitudes por IP cada 10 minutos (HTTP 429).
     """
+    password_recovery_rate_limiter.check_rate_limit(request)
+    password_recovery_rate_limiter.record_failed_attempt(request)
     return await AuthService.send_force_password_otp(db, data.email, data.current_password)
 
 @router.post("/force-change-password", response_model=Token)
@@ -117,10 +138,16 @@ async def force_change_password(data: ForceChangePasswordRequest, request: Reque
     Cambia la contraseña de forma obligatoria cuando must_change_password = True.
     Retorna el Token de acceso tras cambiarla exitosamente y renueva la cookie.
     """
-    user = await AuthService.force_change_password(db, data)
+    # Límite de intentos fallidos (código o clave incorrectos): 10 por IP cada 10 minutos
+    password_reset_failure_limiter.check_rate_limit(request)
+    try:
+        user = await AuthService.force_change_password(db, data)
+    except HTTPException:
+        password_reset_failure_limiter.record_failed_attempt(request)
+        raise
     
     # Generar token
-    access_token = create_access_token(subject=user.id)
+    access_token = create_access_token(subject=user.id, token_version=user.token_version)
     set_auth_cookie(response, access_token, request=request)
     
     return {
@@ -134,22 +161,32 @@ from fastapi import BackgroundTasks
 @router.post("/forgot-password")
 async def forgot_password(
     data: ForgotPasswordRequest, 
+    request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
     Envía un correo de recuperación de contraseña si el correo existe en la base de datos.
+    Límites: 5 solicitudes por IP cada 10 minutos (HTTP 429) y 3 correos por dirección cada hora (sin avisar).
     """
+    password_recovery_rate_limiter.check_rate_limit(request)
+    password_recovery_rate_limiter.record_failed_attempt(request)
     await AuthService.request_password_reset(db, data.email, background_tasks)
     return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
 
 
 @router.post("/reset-password")
-async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)) -> Any:
+async def reset_password(data: ResetPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)) -> Any:
     """
-    Valida el token de recuperación y establece una nueva contraseña.
+    Valida el token de recuperación y establece una nueva contraseña (debe cumplir la política de contraseña).
+    Límite: 10 intentos fallidos por IP cada 10 minutos (HTTP 429).
     """
-    await AuthService.reset_password(db, data.token, data.new_password)
+    password_reset_failure_limiter.check_rate_limit(request)
+    try:
+        await AuthService.reset_password(db, data.token, data.new_password)
+    except HTTPException:
+        password_reset_failure_limiter.record_failed_attempt(request)
+        raise
     return {"message": "Tu contraseña ha sido actualizada exitosamente."}
 
 @router.get("/me", response_model=UserResponse)
@@ -196,7 +233,11 @@ async def switch_to_child_account(
         raise HTTPException(status_code=400, detail="La cuenta del menor se encuentra inactiva.")
 
     # H-182: el token del menor lleva firmado quién lo suplantó; solo con ese claim se puede volver al tutor
-    access_token = create_access_token(subject=child.id, extra_claims={"imp_by": current_user.id})
+    access_token = create_access_token(
+        subject=child.id,
+        token_version=child.token_version,
+        extra_claims={"imp_by": current_user.id, "imp_tv": current_user.token_version},
+    )
     set_auth_cookie(response, access_token, request=request)
 
     return {
@@ -242,7 +283,7 @@ async def switch_back_to_parent(
     if not parent or not parent.is_active:
         raise HTTPException(status_code=404, detail="La cuenta del tutor no se encuentra disponible o activa.")
 
-    access_token = create_access_token(subject=parent.id)
+    access_token = create_access_token(subject=parent.id, token_version=parent.token_version)
     set_auth_cookie(response, access_token, request=request)
 
     return {

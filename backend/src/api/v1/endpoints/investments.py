@@ -970,7 +970,8 @@ async def withdraw_investment_capital(
         .where(
             WithdrawalVerificationCode.user_id == current_user.id,
             WithdrawalVerificationCode.code == req.code,
-            WithdrawalVerificationCode.used_at == None
+            WithdrawalVerificationCode.used_at == None,
+            WithdrawalVerificationCode.purpose.is_(None)
         )
     )
     verification = code_res.scalars().first()

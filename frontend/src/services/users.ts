@@ -1,4 +1,5 @@
 import { fetchApi } from './api';
+import { useAuthStore } from '../store/authStore';
 import { Role } from './roles';
 
 export interface BankAccount {
@@ -336,11 +337,26 @@ export const usersService = {
     });
   },
 
-  changeMyPassword: async (data: UserPasswordChangeData): Promise<{ message: string }> => {
-    return await fetchApi('/users/me/change-password', {
+  /** Cierra todas las sesiones del usuario actual en todos sus dispositivos (incluida esta). */
+  logoutAllMySessions: async (): Promise<{ message: string }> => {
+    return await fetchApi('/auth/logout-all', { method: 'POST' });
+  },
+
+  /** Administrador: cierra todas las sesiones abiertas de un usuario. */
+  revokeUserSessions: async (id: number): Promise<{ message: string; user_id: number }> => {
+    return await fetchApi(`/users/${id}/revoke-sessions`, { method: 'POST' });
+  },
+
+  changeMyPassword: async (data: UserPasswordChangeData): Promise<{ message: string; access_token?: string }> => {
+    const res = await fetchApi('/users/me/change-password', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    // Al cambiar la clave el servidor cierra las demás sesiones y emite un token nuevo para esta:
+    // se guarda para no seguir enviando el anterior (ya revocado).
+    const { user, login } = useAuthStore.getState();
+    if (res?.access_token && user) login(user, res.access_token);
+    return res;
   },
 
   forceProfileUpdate: async (userIds?: number[], forceAll = false): Promise<{ message: string; affected_count: number }> => {

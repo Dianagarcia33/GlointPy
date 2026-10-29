@@ -6,7 +6,8 @@ import { sarlaftService } from '../../../../services/sarlaft';
 import { UserModal } from '../components/UserModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
-import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet, Clock } from 'lucide-react';
+import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, LogOut, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet, Clock } from 'lucide-react';
+import { ConfirmationModal } from '../../../../components/common/ConfirmationModal';
 import { Can } from '../../../../components/security/Can';
 import { maskAccountNumber, formatAccountNumber, formatColombiaDate, formatCurrency } from '../../../../utils/format';
 
@@ -36,6 +37,8 @@ export const AdminUsersPage = () => {
 
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [revokingUser, setRevokingUser] = useState<User | null>(null);
+  const [isRevoking, setIsRevoking] = useState(false);
 
   // Forzar actualización de perfil (masiva e individual)
   const [isForceAllModalOpen, setIsForceAllModalOpen] = useState(false);
@@ -174,6 +177,24 @@ export const AdminUsersPage = () => {
       navigator.clipboard.writeText(tempPasswordModal.tempPassword);
       setCopiedPassword(true);
       setTimeout(() => setCopiedPassword(false), 2500);
+    }
+  };
+
+  const handleConfirmRevokeSessions = async () => {
+    if (!revokingUser) return;
+    const target = revokingUser;
+    try {
+      setIsRevoking(true);
+      setError(null);
+      await usersService.revokeUserSessions(target.id);
+      setRevokingUser(null);
+      setSuccess(`Se cerraron todas las sesiones de ${target.name}.`);
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      setRevokingUser(null);
+      setError(err?.message || 'No se pudieron cerrar las sesiones del usuario.');
+    } finally {
+      setIsRevoking(false);
     }
   };
 
@@ -950,6 +971,21 @@ export const AdminUsersPage = () => {
                                 </div>
                               </button>
 
+                              {/* Cerrar sesiones abiertas */}
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuId(null);
+                                  setRevokingUser(user);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 cursor-pointer"
+                              >
+                                <LogOut className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span className="font-bold">Cerrar sesiones</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Sale de todos sus dispositivos</span>
+                                </div>
+                              </button>
+
                               {/* Validar SARLAFT (Aprobar) */}
                               <button
                                 onClick={() => {
@@ -1093,6 +1129,17 @@ export const AdminUsersPage = () => {
         </div>,
         document.body
       )}
+
+      <ConfirmationModal
+        isOpen={!!revokingUser}
+        onClose={() => setRevokingUser(null)}
+        onConfirm={handleConfirmRevokeSessions}
+        title="Cerrar todas las sesiones"
+        description={revokingUser ? `Se cerrarán todas las sesiones abiertas de ${revokingUser.name} en la web y en la app. Su contraseña no cambia; tendrá que iniciar sesión de nuevo.` : ''}
+        confirmText="Cerrar sesiones"
+        variant="warning"
+        isLoading={isRevoking}
+      />
 
       {/* Modal de Confirmación para Forzar Actualización Masiva */}
       {isForceAllModalOpen && createPortal(

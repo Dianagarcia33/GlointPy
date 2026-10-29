@@ -8,6 +8,8 @@ from typing import List, Optional
 from src.models.user import User
 from src.models.security import Role
 from src.core.security import aget_password_hash, averify_password
+from src.core.session_revocation import revoke_user_sessions, close_live_connections
+from src.core.password_policy import ensure_valid_password
 from fastapi import HTTPException
 import csv
 import io
@@ -220,14 +222,47 @@ class UserService:
         user.must_change_password = True
         user.failed_login_attempts = 0
         user.locked_until = None
+        # Cierra las sesiones abiertas de esa cuenta: quien tuviera la clave anterior ya no sigue dentro
+        await revoke_user_sessions(db, user)
 
         await db.commit()
         await db.refresh(user)
+        await close_live_connections(user.id)
         return {
             "message": "Contraseña temporal aleatoria generada exitosamente",
             "user_id": user.id,
             "temp_password": temp_password
         }
+
+    @staticmethod
+    async def revoke_sessions(db: AsyncSession, user_id: int, current_user: Optional[User] = None) -> dict:
+        """Cierra todas las sesiones abiertas de un usuario (todos sus dispositivos). Mismo blindaje que el reseteo de clave."""
+        result = await db.execute(
+            select(User).options(selectinload(User.roles)).where(User.id == user_id)
+        )
+        user = result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        target_is_super = getattr(user, 'is_superuser', False) or any(
+            r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (user.roles or [])
+        )
+        if target_is_super:
+            caller_is_super = current_user and (
+                getattr(current_user, 'is_superuser', False) or any(
+                    r.name.lower() in ["superadmin", "super admin", "superuser"] for r in (current_user.roles or [])
+                )
+            )
+            if not caller_is_super:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tienes autorización para cerrar las sesiones de un SuperAdministrador del sistema."
+                )
+
+        await revoke_user_sessions(db, user)
+        await db.commit()
+        await close_live_connections(user.id)
+        return {"message": "Se cerraron todas las sesiones del usuario.", "user_id": user.id}
 
     @staticmethod
     async def update_user_admin(db: AsyncSession, user_id: int, user_data: dict) -> User:
@@ -252,6 +287,11 @@ class UserService:
             if key != "role_ids":
                 setattr(user, key, value)
 
+        # Desactivar una cuenta cierra sus sesiones: si se reactiva más tarde, los tokens viejos no reviven
+        deactivated = user_data.get("is_active") is False
+        if deactivated:
+            await revoke_user_sessions(db, user)
+
         # Update roles if provided
         if "role_ids" in user_data:
             if user_data["role_ids"]:
@@ -262,6 +302,8 @@ class UserService:
 
         await db.commit()
         await db.refresh(user)
+        if deactivated:
+            await close_live_connections(user.id)
         return await UserService.get_user_by_id(db, user.id)
 
     @staticmethod
@@ -338,13 +380,18 @@ class UserService:
         if not await averify_password(current_password, user.password_hash):
             raise HTTPException(status_code=400, detail="La contraseña actual no es correcta.")
 
+        ensure_valid_password(new_password)
+
         user.password_hash = await aget_password_hash(new_password)
         user.must_change_password = False
         user.failed_login_attempts = 0
         user.locked_until = None
+        # Cierra las demás sesiones; el endpoint emite un token nuevo con esta versión para la sesión actual
+        new_version = await revoke_user_sessions(db, user)
 
         await db.commit()
-        return {"message": "Contraseña actualizada exitosamente"}
+        await close_live_connections(user.id)
+        return {"message": "Contraseña actualizada exitosamente", "token_version": new_version}
 
     @staticmethod
     async def force_profile_update(db: AsyncSession, user_ids: list = None, force_all: bool = False) -> dict:

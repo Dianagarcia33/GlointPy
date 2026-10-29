@@ -109,7 +109,8 @@ async def _verify_otp_code(user_id: int, code: str, db: AsyncSession):
         .where(
             WithdrawalVerificationCode.user_id == user_id,
             WithdrawalVerificationCode.code == code.strip(),
-            WithdrawalVerificationCode.used_at == None
+            WithdrawalVerificationCode.used_at == None,
+            WithdrawalVerificationCode.purpose.is_(None)
         )
     )
     verification = code_res.scalars().first()

@@ -39,6 +39,9 @@ class User(Base):
     # Seguridad y Bloqueos
     failed_login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
+
+    # Versión de sesión: viaja dentro del JWT (claim "tv"). Subirla invalida todos los tokens emitidos antes.
+    token_version = Column(Integer, nullable=False, default=0, server_default="0")
     
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
