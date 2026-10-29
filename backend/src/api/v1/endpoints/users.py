@@ -192,23 +192,6 @@ async def assign_roles(
     
     return user
 
-@router.post("/bulk-upload", dependencies=[Depends(RequirePermission("admin.users.manage"))])
-async def bulk_upload_users(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """
-    Sube un archivo CSV y crea usuarios masivamente.
-    """
-    if not file.filename.endswith('.csv'):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un CSV válido.")
-    
-    content = await file.read()
-    try:
-        csv_text = content.decode('utf-8')
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="El archivo debe tener codificación UTF-8.")
-        
-    result = await UserService.bulk_create_users(db, csv_text)
-    return result
-
 @router.post("/{user_id}/reset-password", dependencies=[Depends(RequirePermission("admin.users.manage"))])
 async def reset_user_password(
     user_id: int, 

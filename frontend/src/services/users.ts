@@ -279,15 +279,6 @@ export const usersService = {
     });
   },
 
-  uploadBulkUsers: async (file: File): Promise<{ success: number; errors: string[] }> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return await fetchApi('/users/bulk-upload', {
-      method: 'POST',
-      body: formData,
-    });
-  },
-
   resetPassword: async (id: number): Promise<{ message: string; user_id: number; temp_password?: string }> => {
     return await fetchApi(`/users/${id}/reset-password`, {
       method: 'POST',

@@ -4,7 +4,6 @@ import { usersService, User } from '../../../../services/users';
 import { rolesService, Role } from '../../../../services/roles';
 import { sarlaftService } from '../../../../services/sarlaft';
 import { UserModal } from '../components/UserModal';
-import { BulkUploadModal } from '../components/BulkUploadModal';
 import { UserAccountStatementModal } from '../components/UserAccountStatementModal';
 import { GlobalAccountStatementModal } from '../components/GlobalAccountStatementModal';
 import { Plus, Edit2, User as UserIcon, AlertCircle, Loader2, UploadCloud, ChevronDown, ChevronRight, KeyRound, CheckCircle, X, Eye, EyeOff, Receipt, Landmark, ShieldAlert, MoreVertical, Copy, Check, ShieldCheck, Wallet, RefreshCw, FileSpreadsheet, Clock } from 'lucide-react';
@@ -32,7 +31,6 @@ export const AdminUsersPage = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [statementUser, setStatementUser] = useState<User | null>(null);
   const [isGlobalStatementOpen, setIsGlobalStatementOpen] = useState(false);
 
@@ -1156,15 +1154,6 @@ export const AdminUsersPage = () => {
         onSaved={handleSaved}
         user={editingUser}
         roles={roles}
-      />
-
-      <BulkUploadModal
-        isOpen={isBulkModalOpen}
-        onClose={() => setIsBulkModalOpen(false)}
-        onUploaded={() => {
-          setIsBulkModalOpen(false);
-          fetchData();
-        }}
       />
 
       {statementUser && (
