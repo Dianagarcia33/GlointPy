@@ -553,17 +553,6 @@ export const AdminUsersPage = () => {
 
           <Can permission="admin.users.manage">
             <button 
-              onClick={() => setIsBulkModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-xl transition-all text-xs font-bold border border-slate-200 shadow-2xs cursor-pointer font-montserrat"
-              title="Crear usuarios masivamente desde un archivo CSV"
-            >
-              <UploadCloud className="w-4 h-4 text-brand-600" />
-              <span className="whitespace-nowrap">Carga Masiva</span>
-            </button>
-          </Can>
-
-          <Can permission="admin.users.manage">
-            <button 
               onClick={handleCreate}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-amber-600 hover:from-brand-700 hover:to-amber-700 text-white rounded-xl transition-all shadow-md shadow-brand-500/20 text-xs font-bold cursor-pointer font-montserrat shrink-0 whitespace-nowrap"
             >
