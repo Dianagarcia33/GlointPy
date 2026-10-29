@@ -1229,5 +1229,98 @@ class ShareMarketService:
             created_at=acq_date
         )
 
+        # H-204: las acciones acreditadas a mano salen del fondo de las emisiones (o lo reponen al descontar)
+        await ShareMarketService._apply_manual_grant_to_issuances(
+            db, effective_qty, admin_id, user_id, clean_reason, movement.id
+        )
+
         await db.commit()
         return movement
+
+    @staticmethod
+    async def _apply_manual_grant_to_issuances(
+        db: AsyncSession,
+        effective_qty: int,
+        admin_id: int,
+        user_id: int,
+        reason: str,
+        movement_id: Optional[int],
+    ) -> None:
+        """
+        Mantiene cuadrado el fondo de emisiones con las asignaciones manuales (H-204).
+
+        - Acreditar: descuenta de las emisiones activas, la más antigua primero. Si no alcanzan, la
+          diferencia queda como una emisión de ajuste (ya agotada) que suma a 'Total acciones emitidas'.
+        - Descontar a un usuario: devuelve las acciones a las emisiones con cupo, la más reciente primero.
+        La operación queda en la bitácora del fondo (SharePriceHistory) con las emisiones afectadas.
+        """
+        price = await ShareMarketService.get_current_price(db)
+        available_before = await ShareMarketService.get_current_available_shares(db)
+        qty = abs(effective_qty)
+        touched: List[str] = []
+
+        if effective_qty > 0:
+            res = await db.execute(
+                select(ShareIssuance)
+                .where(ShareIssuance.is_active == True, ShareIssuance.available_shares > 0)
+                .order_by(ShareIssuance.created_at.asc(), ShareIssuance.id.asc())
+                .with_for_update()
+            )
+            remaining = qty
+            for iss in res.scalars().all():
+                take = min(remaining, int(iss.available_shares))
+                if take <= 0:
+                    continue
+                iss.available_shares = int(iss.available_shares) - take
+                touched.append(f"#{iss.id}: -{take}")
+                remaining -= take
+                if remaining == 0:
+                    break
+            if remaining > 0:
+                adj = ShareIssuance(
+                    title="Ajuste por asignación manual",
+                    description=f"Acciones acreditadas manualmente sin cupo en las emisiones vigentes (movimiento #{movement_id}).",
+                    total_shares_issued=remaining,
+                    available_shares=0,
+                    price_per_share=Decimal(str(price)),
+                    created_by=admin_id,
+                    is_active=True,
+                )
+                db.add(adj)
+                await db.flush()
+                touched.append(f"#{adj.id} (ajuste nuevo): +{remaining} emitidas, 0 disponibles")
+            verb = "Asignación manual"
+        else:
+            res = await db.execute(
+                select(ShareIssuance)
+                .where(ShareIssuance.is_active == True)
+                .order_by(ShareIssuance.created_at.desc(), ShareIssuance.id.desc())
+                .with_for_update()
+            )
+            remaining = qty
+            for iss in res.scalars().all():
+                room = int(iss.total_shares_issued) - int(iss.available_shares)
+                give = min(remaining, max(room, 0))
+                if give <= 0:
+                    continue
+                iss.available_shares = int(iss.available_shares) + give
+                touched.append(f"#{iss.id}: +{give}")
+                remaining -= give
+                if remaining == 0:
+                    break
+            verb = "Deducción manual"
+
+        available_after = await ShareMarketService.get_current_available_shares(db)
+        db.add(SharePriceHistory(
+            previous_price=Decimal(str(price)),
+            new_price=Decimal(str(price)),
+            change_percentage=Decimal("0.00"),
+            previous_available_shares=available_before,
+            new_available_shares=available_after,
+            justification_notes=(
+                f"{verb} de {qty} acción(es) al usuario #{user_id} (movimiento #{movement_id}): {reason}. "
+                f"Emisiones afectadas: {', '.join(touched) if touched else 'ninguna (sin cupo que reponer)'}."
+            ),
+            admin_id=admin_id,
+        ))
+        await db.flush()
