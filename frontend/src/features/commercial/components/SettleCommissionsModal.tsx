@@ -33,6 +33,7 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const [referenceCode, setReferenceCode] = useState('');
   const [notes, setNotes] = useState('');
+  const [creditToWallet, setCreditToWallet] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +86,8 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
         month: selectedMonth,
         year: selectedYear,
         reference_code: referenceCode.trim() || undefined,
-        notes: notes.trim() || undefined
+        notes: notes.trim() || undefined,
+        credit_to_wallet: creditToWallet
       });
       onSuccess();
       onClose();
@@ -241,6 +243,20 @@ export const SettleCommissionsModal: React.FC<SettleCommissionsModalProps> = ({
               className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
             />
           </div>
+
+          {/* Acreditación en billetera (H-205) */}
+          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={creditToWallet}
+              onChange={(e) => setCreditToWallet(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-emerald-600"
+            />
+            <span className="text-xs text-slate-700">
+              <strong>Acreditar el total en la billetera del asesor.</strong> Desmarca esta opción si ya le pagaste por
+              transferencia bancaria, para no pagarle dos veces.
+            </span>
+          </label>
 
           {/* Acciones */}
           <div className="pt-2 flex justify-end gap-3 border-t border-slate-100">

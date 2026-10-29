@@ -504,6 +504,7 @@ def _get_movement_type_display(raw_type: str | None, is_ingreso: bool) -> str:
         "reembolso_retiro": "Reembolso de Retiro",
         "devolucion_por_rechazo": "Reembolso de Retiro",
         "withdrawal_request": "Solicitud de Retiro",
+        "commission_settlement": "Liquidación de Comisiones",
         "withdrawal": "Solicitud de Retiro",
         "retiro": "Solicitud de Retiro",
         "solicitud_retiro": "Solicitud de Retiro",

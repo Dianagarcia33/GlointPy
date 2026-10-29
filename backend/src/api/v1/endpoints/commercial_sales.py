@@ -469,7 +469,10 @@ async def get_all_commercial_sales(
             "tramo_a_amount": float(s.tramo_a_amount or 0),
             "tramo_b_amount": float(s.tramo_b_amount or 0),
             "sale_date": s.sale_date.isoformat(),
-            "created_at": s.created_at.isoformat() if s.created_at else None
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            # H-205: sin el estado la pantalla mostraba todas las ventas como pendientes
+            "status": s.status.value if hasattr(s.status, "value") else str(s.status),
+            "settlement_id": s.settlement_id,
         }
         for s in sales
     ]
@@ -983,6 +986,7 @@ async def settle_commissions(
     Liquida todas las comisiones y bonos pendientes de un comercial/directivo.
     - Cambia status de ventas y bonos a 'liquidado'
     - Genera el registro de comprobante en CommissionSettlement
+    - Con credit_to_wallet, acredita el total a la billetera del asesor (H-205)
     """
     sales_query = select(CommercialSale).where(
         CommercialSale.commercial_id == req.commercial_id,
@@ -1038,6 +1042,30 @@ async def settle_commissions(
         b.status = CommercialBonusStatus.liquidado
         b.settlement_id = settlement.id
 
+    # H-205: acreditar el total en la billetera del asesor, en la misma transacción de la liquidación
+    wallet_balance_after = None
+    if req.credit_to_wallet and total_amount > 0:
+        from src.models.wallet import Wallet, WalletTransaction
+        wallet_res = await db.execute(
+            select(Wallet).where(Wallet.user_id == req.commercial_id).with_for_update()
+        )
+        wallet = wallet_res.scalars().first()
+        if not wallet:
+            wallet = Wallet(user_id=req.commercial_id, balance=Decimal("0.00"), currency="COP")
+            db.add(wallet)
+            await db.flush()
+        wallet.balance = Decimal(str(wallet.balance or 0)) + total_amount
+        db.add(WalletTransaction(
+            wallet_id=wallet.id,
+            amount=total_amount,
+            type="commission_settlement",
+            reference_type="commission_settlement",
+            reference_id=settlement.id,
+            description=f"Liquidación de comisiones y bonos #{settlement.id} ({sales_count} venta(s))",
+            balance_after=wallet.balance,
+        ))
+        wallet_balance_after = float(wallet.balance)
+
     await db.commit()
     await db.refresh(settlement)
 
@@ -1046,7 +1074,9 @@ async def settle_commissions(
         "settlement_id": settlement.id,
         "total_amount": float(settlement.total_amount),
         "sales_count": sales_count,
-        "reference_code": settlement.reference_code
+        "reference_code": settlement.reference_code,
+        "credited_to_wallet": wallet_balance_after is not None,
+        "wallet_balance_after": wallet_balance_after,
     }
 
 @router.get("/settlements", response_model=List[SettlementResponse], dependencies=[Depends(RequirePermission("commercial:view"))])

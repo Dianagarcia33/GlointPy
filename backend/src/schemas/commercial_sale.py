@@ -76,6 +76,9 @@ class SettleCommissionsRequest(BaseModel):
     year: Optional[int] = None
     reference_code: Optional[str] = None
     notes: Optional[str] = None
+    # H-205: acreditar el total a la billetera del asesor. Se deja apagado por defecto en la API para
+    # no pagar dos veces cuando la liquidación se hizo por transferencia bancaria.
+    credit_to_wallet: bool = False
 
 class SettlementResponse(BaseModel):
     id: int

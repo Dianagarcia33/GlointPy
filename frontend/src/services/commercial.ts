@@ -274,6 +274,7 @@ export const commercialService = {
     year?: number;
     reference_code?: string;
     notes?: string;
+    credit_to_wallet?: boolean;
   }): Promise<any> => {
     return await fetchApi('/commercial/settle', {
       method: 'POST',
